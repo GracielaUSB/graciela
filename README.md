@@ -1,4 +1,4 @@
-# GraCieLa
+# Graciela
 
 Proyecto creado por Joel Araujo y José Luis Jiménez.
 Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
@@ -9,9 +9,9 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 El diseño del lenguaje está disponible [aquí](doc/graciela/diseno.md).
 
-## Instalación
+## Instalación Manual
 
-Para instalar el compilador de GraCieLa en Linux, es necesario seguir estos
+Para instalar el compilador de Graciela en Linux, es necesario seguir estos
 pasos:
 
 * Obtener la plataforma Haskell 7.10.*, disponible en
@@ -42,6 +42,23 @@ pasos:
   tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
   estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
+## Instalación con Homebrew (OS X )
+
+### Requisitos
+* Command Line Tools o Xcode. Se puede descargar Xcode desde  <https://developer.apple.com/downloads> o solo los comandos necesarios desde la terminal usando:
+
+      xcode-select --install
+
+En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
+
+    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    
+Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
+
+    brew tap GracielaUSB/graciela
+    brew install graciela
+
+## Uso del compilador
 
 ## Cómo compilar un archivo 
 

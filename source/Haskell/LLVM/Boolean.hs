@@ -13,6 +13,8 @@ import {-# SOURCE #-} LLVM.Expression (expression)
 import {-# SOURCE #-} LLVM.Object     (object, objectRef)
 --------------------------------------------------------------------------------
 import           AST.Expression                          as Op
+import           AST.Definition
+import           AST.Struct
 import           AST.Type
 import           Common
 import           Error                                   hiding (fArgs, fName)
@@ -25,6 +27,7 @@ import           LLVM.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (&))
 import           Data.Maybe                              (fromMaybe)
+import           Data.Map                                as Map (lookup)
 import           Data.Text                               (unpack)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (..))
@@ -116,6 +119,10 @@ boolean true false e@Expression { loc, exp' } = do
             GFloat -> BitCast
               { operand0 = lOperand
               , type' = i64
+              , metadata = [] }
+            GPointer _ -> PtrToInt
+              { operand0 = lOperand
+              , type'    = i64
               , metadata = [] }
             lType | lType `elem` [ GInt, GChar ] -> ZExt
               { operand0 = lOperand
@@ -288,6 +295,22 @@ boolean true false e@Expression { loc, exp' } = do
       _ -> internal $ "operator `" <> show unOp <> "` cannot produce a boolean"
 
     I64Cast {} -> internal "i64-cast cannot produce a boolean"
+   
+    AbstFunctionCall {fName, fArgs, fStructArgs} -> do
+      fdt <- use fullDataTypes
+      let 
+        (dtName, typeArgs) = case fStructArgs of 
+          Nothing -> internal $ "Calling an abstract function of unknown Abstract Data Type"
+          Just x -> x
+      case dtName `Map.lookup` fdt of
+        Nothing -> internal $ "Could not find Data Type " <> show dtName
+        Just (Struct{structProcs},_) -> case fName `Map.lookup` structProcs of
+          Nothing -> internal $ "Could not find function " <> 
+                                show fName <> " in Data Type " <> 
+                                show dtName
+
+          Just Definition{ def' = FunctionDef{ funcRecursive }} -> 
+            boolean true false e{exp'=FunctionCall fName fArgs False funcRecursive fStructArgs}
 
     FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc, fStructArgs } -> do
       arguments <- toList <$> mapM createArg fArgs

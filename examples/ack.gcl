@@ -2,13 +2,13 @@ program ack.bin begin
 
 abstract abstractName()
 begin
-  {inv true inv}
+  {repinv true repinv}
 
-  proc test (in i : abstractName())
-    var p := {:1,1,1:} : multiset of int;
+  // proc test (in i : abstractName())
+  //   let p := {:1,1,1:} : multiset of int;
 
-    {pre multiplicity((1,3), {:(1,3), (1,3):}) == 2 pre}
-    {post true post}
+  //   {pre multiplicity((1,3), {:(1,3), (1,3):}) == 2 pre}
+  //   {post true post}
 end
 
 type typeName() implements abstractName( )
@@ -24,10 +24,10 @@ begin
   
 end
 
-proc show (in k : int,  in m : int, in n : int, in x : array [m, n] of int)
-  {pre true pre}
-  {post true post}
-  ⟦ writeln (k, m, n) ⟧
+// proc show (in k : int,  const m : int, const n : int, in x : array [m, n] of int)
+//   {pre true pre}
+//   {post true post}
+//   ⟦ writeln (k, m, n) ⟧
 
 main
   ⟦ var i, j := 0, 0 : int
@@ -36,11 +36,11 @@ main
 
   ; var k : typeName
 
-  ; test(k)
+  // ; test(k)
 
-  ; y := wwwwwww
+  ; y := 1
 
-  ; writeln(true elem {true, false})
+  // ; writeln(true elem {true, false})
 
   ; y := 5
   ; writeln ("y: ", y)
@@ -55,7 +55,7 @@ main
               ; i := i + 1
     od
   ; writeln ("y: ", y)
-  ; show (3, 6, 8, x)
+  // ; show (3, 6, 8, x)
   // ; i, j := 0, 0
   // ; {inv   true    inv}
   //   {bound 6 - i bound}

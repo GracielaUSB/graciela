@@ -401,8 +401,9 @@ functionDeclaration :: Parser (Maybe Definition)
 functionDeclaration = do
   lookAhead $ match TokFunc
   Location(_,from) <- match TokFunc
-
+  idFrom <- getPosition
   funcName' <- safeIdentifier
+  idTo <- getPosition
   symbolTable %= openScope from
   params' <- parens $ doFuncParams
 
@@ -427,6 +428,18 @@ functionDeclaration = do
   decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
   useLet .= False
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
+
+  case funcName' of
+    Nothing -> pure ()
+    Just funcName -> do
+      symbolTable %= insertSymbol funcName Entry
+        { _entryName = funcName
+        , _loc       = Location (idFrom, idTo)
+        , _info      = Var
+          { _varType  = retType
+          , _varValue = Nothing
+          , _varConst = False }}
+
   post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 
   to   <- getPosition
@@ -474,7 +487,6 @@ procedureDeclaration = do
       else do
         existsDT .= False
     _ -> pure ()
-
 
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
   post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition

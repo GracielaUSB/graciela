@@ -12,6 +12,9 @@ import           AST.Expression                          (CollectionKind (..),
                                                           Expression (..),
                                                           Expression' (..),
                                                           Value (..))
+
+import           AST.Definition
+import           AST.Struct
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import qualified AST.Expression                          as E (Expression (expType),
@@ -42,6 +45,7 @@ import           Treelike                                (drawTree, toTree)
 import           Control.Lens                            (use, (%=), (.=))
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
+import           Data.Map                                as Map (lookup)
 import           Data.Maybe                              (fromMaybe, isJust)
 import           Data.Sequence                           (ViewR ((:>)), (|>))
 import qualified Data.Sequence                           as Seq (ViewR (EmptyR),
@@ -186,6 +190,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           { operand0 = l
           , type' = i64
           , metadata = [] }
+        GPointer _ -> PtrToInt
+          { operand0 = l
+          , type'    = i64
+          , metadata = [] }
         _ -> ZExt
           { operand0 = l
           , type' = i64
@@ -195,6 +203,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         GFloat -> BitCast
           { operand0 = r
           , type' = i64
+          , metadata = [] }
+        GPointer _ -> PtrToInt
+          { operand0 = r
+          , type'    = i64
           , metadata = [] }
         _ -> ZExt
           { operand0 = r
@@ -735,6 +747,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           seqAtResult <- newLabel "seqAtResult"
 
+          llvmType <- toLLVMType expType
           case expType of
             GTuple {} -> do
               addInstruction $ seqAtResult := Alloca
@@ -755,7 +768,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { operand0 = LocalReference i64 call
               , type' = floatType
               , metadata = [] }
-
+            GPointer _ -> addInstruction $ seqAtResult := IntToPtr
+              { operand0 = LocalReference i64 call
+              , type'    = llvmType
+              , metadata = [] }
             _ -> addInstruction $ seqAtResult := Trunc
               { operand0 = LocalReference i64 call
               , type'    = IntegerType $ case expType of
@@ -775,6 +791,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             GFloat -> BitCast
               { operand0 = rOp
               , type' = i64
+              , metadata = [] }
+            GPointer _ -> PtrToInt
+              { operand0 = rOp
+              , type'    = i64
               , metadata = [] }
             _ -> ZExt
               { operand0 = rOp
@@ -799,12 +819,16 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 , functionAttributes = []
                 , metadata           = [] }
 
+              llvmType <- toLLVMType expType
               addInstruction $ bifuncAtResult := case expType of
                 GFloat -> BitCast
                   { operand0 = LocalReference i64 call
-                  , type' = floatType
+                  , type' = llvmType
                   , metadata = [] }
-
+                GPointer _ -> IntToPtr
+                  { operand0 = LocalReference i64 call
+                  , type'    = llvmType
+                  , metadata = [] }
                 _ -> Trunc
                   { operand0 = LocalReference i64 call
                   , type'    = IntegerType $ case expType of
@@ -888,6 +912,22 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             , metadata' = [] }
 
           pure (no, (val, yes') : pairs)
+
+    AbstFunctionCall {fName, fArgs, fStructArgs} -> do
+      fdt <- use fullDataTypes
+      let 
+        (dtName, typeArgs) = case fStructArgs of 
+          Nothing -> internal $ "Calling an abstract function of unknown Abstract Data Type"
+          Just x -> x
+      case dtName `Map.lookup` fdt of
+        Nothing -> internal $ "Could not find Data Type " <> show dtName
+        Just (Struct{structProcs},_) -> case fName `Map.lookup` structProcs of
+          Nothing -> internal $ "Could not find function " <> 
+                                show fName <> " in Data Type " <> 
+                                show dtName
+
+          Just Definition{ def' = FunctionDef{ funcRecursive }} -> 
+            expression e{exp'=FunctionCall fName fArgs False funcRecursive fStructArgs}
 
     FunctionCall { fName, fArgs }
       | fName `elem` fmap pack [traceTypeVarString, traceStringTypeVarString] -> do
@@ -1036,6 +1076,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             GFloat -> BitCast
               { operand0 = i
               , type' = i64
+              , metadata = [] }
+            GPointer _ -> PtrToInt
+              { operand0 = i
+              , type'    = i64
               , metadata = [] }
             _ -> ZExt
               { operand0 = i

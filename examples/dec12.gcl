@@ -3,7 +3,7 @@ program dec12.bin begin
 abstract AArbol(T)
 begin
   /* Arbol variables */
-  {inv true inv}
+  {repinv true repinv}
   /* Arbol procedures */
 end
 

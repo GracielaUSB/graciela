@@ -2,10 +2,13 @@ program Dicc.bin begin
 
 abstract Diccionario (T0, T1) begin
   const MAX := 100 : int;
-  var conoc : set of T0;
-  var tabla : function T0 -> T1;
+  var   conoc      : set of T0;
+  var   tabla      : function T0 -> T1;
 
-  {repinv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) repinv}  
+  {repinv  MAX   > 0 
+        ∧ #conoc ≤  MAX 
+        ∧  conoc == domain(tabla) repinv}  
+
   
   proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
     let tabla' := d.tabla : function T0 -> T1;
@@ -75,11 +78,16 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     var clave'        : array[d.MAX] of T0;
     var valor'        : array[d.MAX] of T1;
 
-    {pre ¬(% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) ∧ d.tam < d.MAX pre}
+    {pre ¬(% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) 
+        ∧ d.tam < d.MAX 
+    pre}
 
-    {post d.tam == tam' + 1 ∧ d.clave[tam'] == c ∧  d.valor[tam'] == v 
-              ∧ (% forall i : int | 0 ≤ i ∧ i < tam' | d.clave[i] == clave'[i]
-                                                     ∧ d.valor[i] == valor'[i] %) post}
+    {post d.tam == tam' + 1 
+        ∧ d.clave[tam'] == c ∧  d.valor[tam'] == v 
+        ∧ (% forall i : int | 0 ≤ i ∧ i < tam' | d.clave[i] == clave'[i]
+                                               ∧ d.valor[i] == valor'[i] %) 
+    post}
+    
     ⟦ var i : int
     ; copiarClaveValor(d, d.MAX, clave', valor')
     ; i := 0
@@ -162,21 +170,23 @@ end
 func constante (i : int) ->  int
   {pre  true  pre}
   {post true post}
-  |[
+
+  ⟦
     1
-  ]|
+  ⟧
+
 
 func rec ( i : int) -> int
   {pre  true  pre}
   {post true post}
   {bound i bound}
-  |[ if i >= constante(i) -> rec(i-1)*2
+  ⟦ if i >= constante(i) -> rec(i-1)*2
      [] otherwise -> 1
      fi
-  ]|
+  ⟧
 
 main
-  |[ var n, k := 0,0 : int
+  ⟦ var n, k := 0,0 : int
   ; var v, c : char
   ; var arr : array[10] of (int*)
   ; var d : Dicc(int, char)
@@ -212,10 +222,12 @@ main
            ; read(k)
            ; buscar (d,k,v)
            ; writeln("\nEl valor de la clave ", k, " es: ", v, "\n")
-         [] c == 'M' \/ c == 'm' -> skip//show(t)
+
+         [] c == 'M' \/ c == 'm' -> writeln("No se puede mostrar el diccionario :( Porfavor implemente el procedimiento para mostrarlo")
+
          [] otherwise -> writeln("Has perdido un intento :(")
          fi
        
     od
-  ]|
+  ⟧
 end

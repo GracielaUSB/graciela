@@ -830,8 +830,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             GString    -> writeSString
             GPointer _ -> writePString
             GAny       -> writeIString
-            _          -> error
-              "internal error: attempted to write non-basic type."
+            _          -> internal "attempted to write non-basic type."
         operand' <- if  (t =:= GPointer GAny) 
           then do
             pointer <- newLabel "pointerToWrite"

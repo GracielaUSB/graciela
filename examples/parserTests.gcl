@@ -1,66 +1,64 @@
-abstract Diccionario (a)
-begin
-	// Diccionario variables
-	var i : int;
-	var m : int; 
-	
-	{inv true inv}
-	// Diccionario procedures
+program jamon.bin begin
 
-	proc buscar (in n : int)
-		{pre true pre}
-		{post true post}
-	
-	
-	 
-end
+	abstract Diccionario (a)
+	begin
+		// Diccionario variables
+		var i : int;
+		var m : int; 
+		
+		{repinv true repinv}
+		// Diccionario procedures
 
-type Dicc (a) implements Diccionario (a)
-begin	
-	// Dicc variables
-	var M : int;
-	
-	{repinv true repinv}
-
-	{coupinv true coupinv}
-
-	// Dicc procedures
-	proc buscar (in a : int, out b : int, inout c : int, ref d : int) begin
-	
-		{pre true pre}
-		|[
-			write(M)
-		]|
-		{post true post}
-	end
-	
-	 
-end
-
-
-program main begin
-	
-
-	proc prox (inout b : int) begin
-		{pre true pre}
-		|[
-			// var n : int;
-			writeln(b);
-			b := 10
-		]|
-		{post true post}
+		proc buscar (in a : Diccionario(a), out b : int, inout c : int, ref d : int)
+			{pre true pre}
+			{post true post}
+		
+		
+		 
 	end
 
-	proc buscar (ref b : int) begin
-		{pre true pre}
-		|[
-			// var n : int;
-			writeln(b);
-			b := 10
-		]|
-		{post true post}
+	type Dicc (a) implements Diccionario (a)
+	begin	
+		// Dicc variables
+		var M : int;
+		
+		{repinv true repinv}
+
+		{coupinv true coupinv}
+
+		// Dicc procedures
+		proc buscar (in a : Dicc(a), out b : int, inout c : int, ref d : int)
+			{pre true pre}
+			{post true post}
+			|[
+				write(a.M)
+			]|		
+		 
 	end
-	
+
+
+
+		
+
+		proc prox (inout b : int)
+			{pre true pre}
+			{post true post}
+			|[
+				// var n : int;
+				writeln(b);
+				b := 10
+			]|
+
+		proc buscar (ref b : int)
+			{pre true pre}
+			{post true post}
+			|[
+				// var n : int;
+				writeln(b);
+				b := 10
+			]|
+			
+main
 	|[
 		var b := 1 : int;
 		prox(b);

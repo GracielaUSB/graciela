@@ -58,27 +58,42 @@ dataTypeDeclaration = declaration' True
 
 declaration' :: Bool -> Parser (Maybe Declaration)
 declaration' isStruct = do
-  from <- getPosition
-
   lookAhead $ oneOf [TokConst, TokLet, TokVar]
+  
   isConst <- do
     f <- use useLet
     if f 
       then match' TokLet $> False
       else match TokConst $> True <|> match TokVar $> False
-
+  from <- getPosition
 
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
 
   match TokColon
-  t <- abstractType
+
+  t <- abstractType >>= isOkAbstract from
 
   to <- getPosition
   isDeclarative' <- use isDeclarative
-  
-  isOkAbstract from t
-  
+
+  maybeStruct <- use currentStruct
+  let 
+    f' [x] = "the variable " <> f [x]
+    f' xs  = "the variables " <> f xs
+    f [] = ""
+    f [(x,_)] = "`" <> unpack x <> "`"
+    f ((x,_):[(y,_)]) = "`" <> unpack x <> "` and `" <> unpack y <> "`"
+    f ((x,_):xs)      = "`" <> unpack x <> "`, " <> f xs
+
+  case maybeStruct of
+    Just (dt@GDataType {typeName}, _, _, _) | recursiveDecl t dt ->
+      putError from . UnknownError $
+        "Attempting to declare " <> f' (toList ids) <>
+        ",\n\twith a recursive type " <> show t <> 
+        ".\n\tPerhaps you want to declare a " <> (show $ GPointer t)
+    _ -> pure ()
+
   let
     location = Location (from, to)
   if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
@@ -136,30 +151,37 @@ declaration' isStruct = do
               " do not match with the\n\tnumber of expressions to be assigned"
             pure Nothing
 
-isOkAbstract :: SourcePos -> Type -> Parser ()
+recursiveDecl :: Type -> Type -> Bool
+recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
+recursiveDecl t dt                = t =:= dt
+
+isOkAbstract :: SourcePos -> Type -> Parser Type
 isOkAbstract from t = case t of
-  GDataType name _ _   -> isOkAbstract' name
-  GFullDataType name _ -> isOkAbstract' name
-  _                    -> pure () 
+  GDataType name _ _   -> isOkAbstract' t name
+  -- GFullDataType name _ -> isOkAbstract' t name
+  _                    -> pure t 
   where
-    isOkAbstract' :: Text -> Parser ()
-    isOkAbstract' name = do
+    isOkAbstract' :: Type -> Text -> Parser Type
+    isOkAbstract' t name = do
       s <- getStruct name
       case s of
         Just s' -> case struct' s' of
-          DataType{} -> pure () 
+          DataType{} -> pure t 
           AbstractDataType{} -> do
             putError from . UnknownError $ "Can not declare variables of abstract type " 
               <> show t <> "."
-            pure ()
+            pure t
         Nothing -> do
           maybeStruct <- use currentStruct
           case maybeStruct of
-            Just (GDataType name' _ _, _, _, _) | name == name' -> pure ()
+            Just (GDataType {typeName}, _, _, _) 
+              | name == typeName -> pure t
+            Just (nt@GDataType {abstName = Just name'}, _, _, _) 
+              | name == name' -> pure nt
             _ -> do
               putError from . UnknownError $ "Can not declare variables of abstract type " 
                 <> show t <> "."
-              pure ()
+              pure t
         
 
 

@@ -92,16 +92,11 @@ programToLLVM
       addStrings
 
       preDefinitions files
-
       mapM_ (uncurry defineStruct) . Map.toList $ fullStructs
-      p <- use pendingDataTypes
-
-      mapM_ (uncurry defineStruct) . Map.toList $ p
       mapM_ definition defs
-
       mainDefinition insts files
-
       use moduleDefs
+      
       -- return $ definitions
 
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version

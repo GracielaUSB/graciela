@@ -1,9 +1,12 @@
+
+/*% LANGUAGE EnableTrace   %*/
+
 program ranges.bin begin
 
   abstract a(T)
   begin
     var kkk : sequence of int;
-    {inv false inv}
+    {repinv true repinv}
 
     func hola ( x : a(T), b : int ) -> int
      {pre true pre}
@@ -31,25 +34,25 @@ program ranges.bin begin
     const MAX := 2 : int;
     var things : array [MAX] of int;
 
-    {repinv MAX != 2 repinv}
+    {repinv MAX != 2 \/ true repinv}
     {coupinv (% # i : int | i elem kkk | i == 1 %) == 6 coupinv}
     where { kkk := <<1,2,1,1,1,1,2,1,3>> }
 
-    // proc stuff (inout ab : b(T), inout b : c(T))
-    //   var ELVALOR : int;
-    //   {pre true pre}
-    //   {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
-    //   |[ var i := 0 : int
-    //   ;  var x : int
-    //   ;  read(ELVALOR)
-    //   ;  {inv true inv}
-    //      {bound ab.MAX - i bound}
-    //      do i < ab.MAX -> read(x)
-    //                 ; ab.things[i] := x
-    //                 ; writeln(ab.things[i])
-    //                 ; i := i + 1
-    //      od
-    //   ]|
+    proc stuff (inout ab : b(T), inout b : c(T))
+      var ELVALOR : int;
+      {pre true pre}
+      {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
+      |[ var i := 0 : int
+      ;  var x : int
+      ;  read(ELVALOR)
+      ;  {inv true inv}
+         {bound ab.MAX - i bound}
+         do i < ab.MAX -> read(x)
+                    ; ab.things[i] := x
+                    ; writeln(ab.things[i])
+                    ; i := i + 1
+         od
+      ]|
 
     func hola ( x : b(T), b : int ) -> int
          {pre  trace(true) pre}
@@ -68,12 +71,12 @@ main
   ;  var bo : boolean
   ;  var z  : c(boolean)
   // ;  write(# w.kkk)
-  ; writeln(10 / 0)
+  ; writeln(10 /10)
   ;  w.things[0] := 199
   ;  w.things[1] := 212
   // ;  prueba(w)
   ;  write(hola(w,10));
-  //writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
-  //;  writeln(#{i : boolean | false <= i /\ i <= true | i})
+  // writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
+  // ;  writeln(#{i : boolean | false <= i /\ i <= true | i})
   ]|
 end

@@ -29,10 +29,9 @@ import           Treelike
 import           Control.Lens                       (makeLenses, use, (%=),
                                                      (+=), (.=), _head)
 import           Data.List                          (sortOn)
-import           Data.Map.Strict                    (Map)
 import qualified Data.Map.Strict                    as Map
 
-import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
+import           Data.Sequence                      (ViewR ((:>)), viewr,
                                                      (|>))
 import qualified Data.Sequence                      as Seq
 import           Data.Text                          (Text, unpack, pack)
@@ -58,12 +57,13 @@ import qualified LLVM.General.AST.Type              as LLVM
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (Struct, [TypeArgs]) -> LLVM ()
+defineStruct :: Text -> (Struct, Set TypeArgs) -> LLVM ()
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
   Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
     DataType {abstract, abstractTypes, inv, repinv, coupinv, couple} ->
       forM_ typeMaps $ \typeMap -> do
+        
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
 
@@ -73,12 +73,12 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
           mapM (toLLVMType . (\(_,x,_,_) -> x)) (sortOn (\(i,_,_,_) -> i) fields)
 
         types <- mapM toLLVMType structTypes
+
         let
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
 
         moduleDefs %= (|> TypeDefinition (Name name) type')
-
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
         defaultCopy name structType typeMap
@@ -86,10 +86,10 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
         defineCouple couple name structType
-
         mapM_ definition structProcs
-
         currentStruct .= Nothing
+
+    s -> pure ()
 
 defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
 defaultConstructor name structType typeMap = do
@@ -122,11 +122,10 @@ defaultConstructor name structType typeMap = do
             , address  = self
             , indices  = ConstantOperand . C.Int 32 <$> [0, field]
             , metadata = []}
-        
+
         defaultValue <- case expr of
           Nothing -> value filledT
           Just e  -> expression' e
-
 
         t' <- toLLVMType filledT
         addInstruction $ Do Store
@@ -217,7 +216,7 @@ defaultConstructor name structType typeMap = do
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
-          , function           = callable pointerType mallocTCString
+          , function           = callable pointerType mallocString
           , arguments          = [(numD, [])]
           , functionAttributes = []
           , metadata           = [] }
@@ -294,10 +293,8 @@ defaultConstructor name structType typeMap = do
 
   terminate $ Ret Nothing []
   closeScope
-
   blocks' <- use blocks
   blocks .= Seq.empty
-
   let 
     selfParam   = Parameter (ptr structType) selfName []
     dAllocParam = Parameter boolType dAllocName []
@@ -447,12 +444,15 @@ defaultCopy name structType typeMap = do
     fields = toList structFields <> toList structAFields
 
   forM_ fields $ \(field, t, _, expr) -> do
+
     let
       filledT = fillType typeMap t
+
     type' <- toLLVMType filledT
+    
     sourcePtr   <- newLabel "sourcePtr"
     destPtr     <- newLabel "destPtr"
-
+    
     addInstruction $ sourcePtr := GetElementPtr
         { inBounds = False
         , address  = sourceStruct
@@ -467,7 +467,7 @@ defaultCopy name structType typeMap = do
 
     case filledT of
       t@GArray { dimensions, innerType } -> do
-        
+
         destArr      <- newLabel "destArr"
 
         copyArray t 
@@ -490,7 +490,7 @@ defaultCopy name structType typeMap = do
           , functionAttributes = []
           , metadata           = [] }
 
-      _ -> do   
+      _ -> do 
         sourceValue <- newLabel "sourceArr"
         addInstruction $ sourceValue := Load
           { volatile  = False

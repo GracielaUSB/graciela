@@ -280,7 +280,6 @@ definition
       (proc #)
 
       openScope
-
       params <- mapM (makeParam False) . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
@@ -288,7 +287,7 @@ definition
       cond <- precondition pre
 
       params' <- recursiveParams procRecursive
-
+      
       cs <- use currentStruct
       let
         couple' fn (name, t, _) = do
@@ -329,7 +328,6 @@ definition
           forM_ dts (invariant' "repInv" )
           
           
-
       pName <- case cs of
         Nothing -> do
           forM_ dts (couple' "couple")

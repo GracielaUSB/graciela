@@ -30,11 +30,19 @@ void _closeFile(int8_t* file) {
 }
 
 int8_t* _malloc(int size){  
-  return calloc(1,size);
+  int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Out of memory.");
+    exit(EXIT_FAILURE);
+  }
 }
 
 int8_t* _mallocTC(int size){
   int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Could not initialize the TC module. Out of memory.");
+    exit(EXIT_FAILURE);
+  }
   _mark(p);
   return p;
 }

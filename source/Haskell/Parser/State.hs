@@ -20,10 +20,12 @@ module Parser.State
   , existsDT
   , dataTypes
   , fullDataTypes
+  , pendingDataType
   , initialState
   , stringIds
   , pragmas
   , isDeclarative
+  , absFuncAllowed
   , useLet
   
   , crName
@@ -71,40 +73,44 @@ type CurrentProc = CurrentRoutine (Seq (Text, Type, ArgMode)) ()
 type CurrentFunc = CurrentRoutine (Seq (Text, Type)) Type
 
 data State = State
-  { _errors        :: Seq (ParseError TokenPos Error)
-  , _symbolTable   :: SymbolTable
-  , _definitions   :: Map Text Definition
-  , _filesToRead   :: Set String
-  , _currentProc   :: Maybe CurrentProc
-  , _currentFunc   :: Maybe CurrentFunc
-  , _currentStruct :: Maybe (Type, Fields, Map Text Definition, Fields)
-  , _coupling      :: Bool
-  , _typeVars      :: [Text]
-  , _existsDT      :: Bool
-  , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text [TypeArgs]
-  , _stringIds     :: Map Text Int
-  , _pragmas       :: Set Pragma
-  , _isDeclarative :: Bool
-  , _useLet        :: Bool }
+  { _errors          :: Seq (ParseError TokenPos Error)
+  , _symbolTable     :: SymbolTable
+  , _definitions     :: Map Text Definition
+  , _filesToRead     :: Set String
+  , _currentProc     :: Maybe CurrentProc
+  , _currentFunc     :: Maybe CurrentFunc
+  , _currentStruct   :: Maybe (Type, Fields, Map Text Definition, Fields)
+  , _coupling        :: Bool
+  , _typeVars        :: [Text]
+  , _existsDT        :: Bool
+  , _dataTypes       :: Map Text Struct
+  , _fullDataTypes   :: Map Text (Set TypeArgs)
+  , _pendingDataType :: Map Text (Set Text)
+  , _stringIds       :: Map Text Int
+  , _pragmas         :: Set Pragma
+  , _isDeclarative   :: Bool
+  , _absFuncAllowed  :: Bool
+  , _useLet          :: Bool }
 
 makeLenses ''State
 
 initialState :: Set Pragma -> State
 initialState pragmas = State
-  { _errors        = Seq.empty
-  , _symbolTable   = emptyGlobal
-  , _definitions   = Map.empty
-  , _filesToRead   = Set.empty
-  , _currentProc   = Nothing
-  , _currentFunc   = Nothing
-  , _currentStruct = Nothing
-  , _coupling      = False
-  , _typeVars      = []
-  , _existsDT      = True
-  , _dataTypes     = Map.empty
-  , _fullDataTypes = Map.empty
-  , _stringIds     = Map.empty
-  , _pragmas       = pragmas
-  , _isDeclarative = LogicAnywhere `elem` pragmas
-  , _useLet        = False }
+  { _errors          = Seq.empty
+  , _symbolTable     = emptyGlobal
+  , _definitions     = Map.empty
+  , _filesToRead     = Set.empty
+  , _currentProc     = Nothing
+  , _currentFunc     = Nothing
+  , _currentStruct   = Nothing
+  , _coupling        = False
+  , _typeVars        = []
+  , _existsDT        = True
+  , _dataTypes       = Map.empty
+  , _fullDataTypes   = Map.empty
+  , _pendingDataType = Map.empty
+  , _stringIds       = Map.empty
+  , _pragmas         = pragmas
+  , _isDeclarative   = LogicAnywhere `elem` pragmas
+  , _absFuncAllowed  = False
+  , _useLet          = False }

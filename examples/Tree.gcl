@@ -4,7 +4,8 @@ abstract ANode(T)
 begin
   var s : sequence of int;
   var b : set of int;
-  {inv true inv}   
+
+  {repinv true repinv}   
 end
 
 
@@ -52,7 +53,9 @@ begin
   /* ATree variables */
   const MAX := 100 : int;
   var s1,s2,s3     : sequence of int;
-  {inv true inv}
+
+  {repinv true repinv}
+
   /* ATree procedures */
 end
 
@@ -89,7 +92,7 @@ begin
   proc insert (inout t : BinaryTreeO(T), in x : T)
   
     {pre true pre}
-    {post elemNode(t.root, x, t.tam) post}
+    {post true post}
     |[ if t.root == null 
           -> new(t.root)
            ; (*t.root).element := x
@@ -127,20 +130,18 @@ begin
       |[
         print(t.root, t.tam)
       ]|
-    
   
 end
 
 main
     |[ var bt : BinaryTreeO(int)
-     ; insert(bt, 1)
      ; insert(bt, -10)
      ; insert(bt, 10)
      ; insert(bt, -1210)
      ; insert(bt, 9)
      ; insert(bt, 123)
-     // ; insert(bt, 10)
-     // ; insert(bt, 10)
+     ; insert(bt, 10)
+     ; insert(bt, 10)
      ; printf(bt)
      ; writeln("Size: ",bt.tam)
 

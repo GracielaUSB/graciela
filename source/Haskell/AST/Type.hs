@@ -11,6 +11,8 @@ Implements the Graciela typesystem.
 
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections #-}
+
 
 module  AST.Type
   ( ArgMode (..)
@@ -22,6 +24,7 @@ module  AST.Type
   , highLevel
   , hasDT
   , hasTypeVar
+  , removeAbst
   , notIn
   , objMode
   ) where
@@ -55,7 +58,7 @@ data ArgMode
   | InOut -- ^ Input/Output argument.
   | Ref   -- ^ Pass-by-reference argument.
   | Const
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 -- | 'Show' instance for Argument modes.
 instance Show ArgMode where
@@ -112,7 +115,7 @@ data Type
   | GRawName
 
   | I64 -- ^ Used for casts
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 
 fillType :: TypeArgs -> Type -> Type
@@ -131,7 +134,7 @@ fillType typeArgs (GFullDataType n as) =
 
 fillType typeArgs (GDataType n an as) =
   let 
-    mk = if any (=:= GATypeVar) typeArgs
+    mk = if null typeArgs || any (=:= GATypeVar) typeArgs
       then GDataType n an
       else GFullDataType n
   in mk (fillType typeArgs <$> as)
@@ -148,14 +151,12 @@ fillType typeArgs (GTuple a b) = GTuple (fillType typeArgs a) (fillType typeArgs
 fillType _ t = t
 
 
--- isTypeVar t = case t of
---   GTypeVar _ _ -> True
---   _            -> False
---
--- isDataType t = case t of
---   GFullDataType {} -> True
---   GDataType {}     -> True
---   _                -> False
+
+removeAbst dt (GPointer t) = GPointer (removeAbst dt t) 
+removeAbst dt (GArray n t) = GArray n (removeAbst dt t)
+removeAbst dt t = if dt =:= t 
+  then t <> dt
+  else t
 
 hasDT :: Type -> Maybe Type
 hasDT t@GDataType {}     = Just t
@@ -329,7 +330,8 @@ instance Show Type where
         GFullDataType n targs   ->
           unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
 
-        GDataType n na targs -> unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ") " -- <> show na
+        GDataType n na targs -> unpack n <> "(" <> 
+          intercalate "," (fmap show' (toList targs)) <> ")" -- <> show na
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

@@ -68,7 +68,7 @@ program hola begin
         ]|
         
 
-    
+main
 |[
 	var a  : int;
 	read(a);

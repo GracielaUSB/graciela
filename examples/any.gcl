@@ -1,5 +1,0 @@
-program any begin
-main
-  |[ write(  (func({}) union func({}))(3) )
-  ]|
-end

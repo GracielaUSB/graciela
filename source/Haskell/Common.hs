@@ -10,6 +10,7 @@ module Common
   , lift
   , Int32
   , trace, traceM, traceShow, traceShowId, traceShowM
+  , Seq, Set, Map
   , ($>)
   ) where
 
@@ -23,6 +24,9 @@ import           Data.Semigroup            (Semigroup (..))
 import           Data.Text                 (pack, unpack)
 import           Debug.Trace               (trace, traceM, traceShow,
                                             traceShowId, traceShowM)
+import           Data.Sequence             (Seq)
+import           Data.Set                  (Set)
+import           Data.Map.Strict           (Map)
 import           Location
 import           Pragma
 import           Treelike

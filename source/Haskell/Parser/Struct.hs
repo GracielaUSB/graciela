@@ -41,10 +41,9 @@ import qualified Data.Map.Strict     as Map (empty, filter, fromList, insert,
                                              difference, union)
 import           Data.Maybe          (catMaybes, isJust, isNothing)
 
-import           Data.Sequence       (Seq, ViewL (..))
+import           Data.Sequence       (ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
-import           Data.Set            (Set)
 import qualified Data.Set            as Set (fromList, member, insert, 
                                              difference, empty)
 import           Data.Text           (Text, pack, unpack)
@@ -80,7 +79,6 @@ abstractDataType = do
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
     coupling .= True
-    
     declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
     cs <- use currentStruct
 
@@ -160,30 +158,35 @@ dataType = do
           match' TokBegin
 
           symbolTable %= openScope from
+
           let
-            dtType     = GDataType name abstractName' typeArgs
-            typeArgs   = Array.listArray (0, length types - 1) types
-            lenNeeded  = length structTypes
-            lenActual  = length absTypes
-            abstFields = fillTypes abstractTypes structFields
+            dtType        = GDataType name abstractName' typeArgs
+            typeArgs      = Array.listArray (0, length types - 1) types
+            lenNeeded     = length structTypes
+            structFields' = removeADT dtType <$> structFields
+            lenActual     = length absTypes
+            abstFields    = fillTypes abstractTypes structFields'
+
 
             abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
 
           currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
           dataTypeDeclaration `endBy` match' TokSemicolon
+
           cs <- use currentStruct
           let
             hlField (_,ft,_,_) = not (ft =:= highLevel)
             dFields   =  cs ^. _Just . _4 
             allFields = Map.filter hlField (cs ^. _Just . _2) 
-            
-
+          
+          absFuncAllowed .= True
           repinv'  <- repInv
           coupling .= True
           coupinv' <- coupInv
           couple'  <- optional coupleRel
           coupling .= False
+          absFuncAllowed .= False
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
@@ -237,6 +240,13 @@ dataType = do
             _ -> pure ()
 
   where
+    removeADT dt (a, t, b, c) = (a, removeADT' dt t, b, c)
+      where
+        removeADT' dt (GPointer t) = GPointer (removeADT' dt t)
+        removeADT' dt (GArray n t) = GArray n (removeADT' dt t)
+        removeADT' dt (t@GDataType{}) = t <> dt   
+        removeADT' dt t = t
+
     -- Check if all abstract procedures are defined in the implementation
     checkProc dtPos abTypes' procs dtName abstractName abstractProc = do
       let
@@ -326,7 +336,8 @@ dataType = do
 
           unless (t1 =:= t2) . putError pos2 . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has type " <>
-            show t2 <>" but expected type " <> show t1 <> ". \n" <> show (t1,t2)
+            show t2 <>" but expected type " <> show t1 <> "."
+
 
 coupleRel :: Parser (Seq Instruction)
 coupleRel = do
@@ -393,8 +404,8 @@ coupleRel = do
           "Unexpected coupling for variable `" <> unpack name <> "`."
         pure Nothing
 
+      _ -> do 
+        putError (pos loc) . UnknownError $ 
+          "Can not couple a element of an array or a dereference"
+        pure Nothing
 
-
-recursiveDecl :: Type -> Type -> Bool
-recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
-recursiveDecl t dt                = t =:= dt

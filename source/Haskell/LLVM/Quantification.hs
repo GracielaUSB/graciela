@@ -1752,6 +1752,10 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
             { operand0 = expr'
             , type' = i64
             , metadata = [] }
+          GPointer _ -> PtrToInt
+            { operand0 = expr'
+            , type'    = i64
+            , metadata = [] }
           _ -> ZExt
             { operand0 = expr'
             , type' = i64
@@ -1804,6 +1808,10 @@ firstIterator qVarType setType castType set = do
     GFloat -> BitCast
       { operand0 = LocalReference i64 firstValue
       , type' = castType
+      , metadata = [] }
+    GPointer _ -> IntToPtr
+      { operand0 = LocalReference i64 firstValue
+      , type'    = castType
       , metadata = [] }
     _ -> Trunc
       { operand0 = LocalReference i64 firstValue

@@ -1,14 +1,47 @@
 /*% LANGUAGE EnableTrace   %*/
 
 program SearchTree.bin begin
+
+  abstract n
+  begin
+    /* n variables */
+     
+     var i : n*;
+    
+    {repinv true repinv}
   
+    /* n procedures and functions */
+    proc f ( in x : n )
+      {pre  true pre}
+      {post true post}
+    
+      
+  end
+
+  type m implements n
+  begin
+    /* mariables */
+     
+    
+    {repinv true repinv}
+  
+    {coupinv true coupinv}
+  
+    /* mrocedures and functions */
+    proc f ( in x : m )
+      {pre  true pre}
+      {post true post}
+      |[ skip ]| 
+  end
+
   abstract ASearchTree(T)
   begin
     /* ASearchTree variables */
     var father : function T -> T;
     var card   : multiset of T;
     
-    {inv true inv}
+    {repinv true repinv}
+
 
     /* ASearchTree procedures and functions */   
     proc insert ( inout t : ASearchTree(T)*, in e : T )

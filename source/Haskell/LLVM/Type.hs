@@ -24,8 +24,7 @@ import           AST.Type                   as T (Type (..), fillType, (=:=))
 import           Common
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
-                                             moduleDefs, pendingDataTypes,
-                                             structs, substitutionTable)
+                                             moduleDefs, structs, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use, (%=))
 import           Data.Array                 ((!))
@@ -103,59 +102,26 @@ toLLVMType (GTuple  a b) = do
   a' <- toLLVMType a
   b' <- toLLVMType b
   pure tupleType
+
 toLLVMType (GFullDataType n t) = do
   fdts <- use fullDataTypes
-  pdt  <- use pendingDataTypes
   substs <- use substitutionTable
+
   let
     t' = case substs of
       []        -> t
       (subst:_) -> fmap (fillType subst) t
-  case n `Map.lookup` fdts of
-    Nothing -> do
-      Just ast@Struct{} <- (n `Map.lookup`) <$> use structs
-      case n `Map.lookup` pdt of
-        Just (_, typeArgs) | t' `elem` typeArgs -> pure ()
-        _                  -> pendingDT t' ast
-
-    Just (s, typeArgs) | t' `elem` typeArgs -> pure ()
-    Just (s, typeArgs) -> pendingDT t' s
-
-
 
   types <- mapM toLLVMType t'
   pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ types
 
+toLLVMType t@(GDataType{}) = do 
+  t' <- fill t 
+  case t' of 
+    GFullDataType{} -> toLLVMType t'
+    GDataType n _ targs -> toLLVMType (GFullDataType n targs)
 
-  where
-    pendingDT t' s@Struct{ structFields, structAFields } = do
-      let
-        fields = toList structFields <> toList structAFields
-      type' <- Just . LLVM.StructureType True <$>
-                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_,_) -> x))
-                  (sortOn (\(i,_,_,_) -> i) $ fields)
-      let
-        fAlter = \case
-          Nothing               -> Just (s, [t'])
-          Just (struct, types0) -> Just (struct, t' : types0 )
-
-      pendingDataTypes %= Map.alter fAlter n
-      ltypes <- mapM toLLVMType t'
-      moduleDefs %= (|> TypeDefinition (Name . llvmName n . toList $ ltypes) type')
-
-toLLVMType t@(GDataType name _ typeArgs) = do
-  maybeStruct <- use currentStruct
-  case maybeStruct of
-    Nothing | t =:= GATypeVar -> internal $ show t <> "   Esto no deberia ocurrir :D"
-    Just struct -> do
-      types <- mapM toLLVMType (structTypes struct)
-      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
-
-    _ -> do
-      types <- mapM toLLVMType typeArgs
-      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
-
-toLLVMType t = error $ show t
+toLLVMType t = internal $ "Could not translate type " <> show t <> " to a llvm type"
 
 
 
@@ -211,4 +177,6 @@ llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') ty
       | t == i8     = "c"
       | t == i32    = "i"
       | t == double = "f"
-      | otherwise   = error $ show t
+      | otherwise   = case t of
+        LLVM.PointerType t' _ -> "p_" <> show' t'
+        t'     -> internal $ "Can not create a llvm name with type " <> show t'

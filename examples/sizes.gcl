@@ -1,6 +1,6 @@
 program sizes.bin begin
 
-proc m (in x : int, out w : array [x] of int)
+proc m (const x : int, out w : array [x] of int)
   {pre true pre}
   {post true post}
   |[ var i : int

@@ -15,7 +15,7 @@ main
                 ; i := i + 1
     od
   ; read(ch)
-  ; writeln ((% max i : int | 0 <= i /\ i < tam /\ ch == 'y' | k[i] %))
+  ; writeln (1) {(% max i : int | 0 <= i /\ i < tam | k[i] %) != 0.0}
   ⟧
 
 end

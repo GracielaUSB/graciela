@@ -18,11 +18,8 @@ int8_t* _openFile(char* name) {
   file = fopen(name, "r");
   if(file == NULL)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m Could not open file `%s`\n", name);
-=======
     printf ("%s %s", "Error abriendo el archivo: ", name);
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m Could not open file `%s`\n", name);
     exit(EXIT_FAILURE);
   }
   return (int8_t *) file;
@@ -33,11 +30,8 @@ void _closeFile(int8_t* file) {
   fclose(f);
 }
 
-<<<<<<< HEAD
-int8_t* _malloc(int size){  
-=======
 int8_t* _malloc(int size){
->>>>>>> post
+int8_t* _malloc(int size){  
   return calloc(1,size);
 }
 
@@ -59,20 +53,14 @@ int _readFileInt(int8_t* file) {
 
   if (r == EOF)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-=======
     printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mint\x1B[m\n");
-=======
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo int");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mint\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
@@ -87,30 +75,21 @@ int _readFileBool(int8_t* file) {
 
   if (r == EOF)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-=======
     printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
-=======
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
   if (n != 0 && n != 1)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
-=======
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
@@ -124,20 +103,14 @@ char _readFileChar(int8_t* file) {
 
   if (r == EOF)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-=======
     printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mchar\x1B[m\n");
-=======
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo char");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mchar\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
@@ -151,20 +124,14 @@ double _readFileDouble(int8_t* file) {
 
   if (r == EOF)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-=======
     printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-<<<<<<< HEAD
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mfloat\x1B[m\n");
-=======
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo double");
->>>>>>> post
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mfloat\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
@@ -175,11 +142,8 @@ int _readIntStd () {
   int  n;
   char c;
 
-<<<<<<< HEAD
-  scanf("%d", &n, &c);
-=======
   scanf("%d%c", &n, &c);
->>>>>>> post
+  scanf("%d%c", &n, &c);
   return n;
 }
 
@@ -187,17 +151,18 @@ int _readBoolStd () {
   int  n;
   char c;
 
-<<<<<<< HEAD
   scanf("%d", &n, &c);
   if (n != 0 && n != 1)
   {
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
-=======
   scanf("%d%c", &n, &c);
   if (n != 0 && n != 1)
   {
     printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
->>>>>>> post
+  scanf("%c%d", &n, &c);
+  if (n != 0 && n != 1)
+  {
+    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
     exit(EXIT_FAILURE);
   }
   return n;
@@ -207,11 +172,9 @@ char _readCharStd () {
   char n;
   char c;
 
-<<<<<<< HEAD
-  scanf("%c", &n, &c);
-=======
   scanf("%c%c", &n, &c);
->>>>>>> post
+  scanf("%c%c", &n, &c);
+
   return n;
 }
 
@@ -220,11 +183,8 @@ double _readDoubleStd () {
   double n;
   char   c;
 
-<<<<<<< HEAD
-  scanf("%lf", &n, &c);
-=======
   scanf("%lf%c", &n, &c);
->>>>>>> post
+  scanf("%lf%c", &n, &c);
   return n;
 }
 
@@ -257,14 +217,11 @@ void _writeChar(int x) {
   return;
 }
 
-<<<<<<< HEAD
 void _writePointer(int8_t* x) {
 
   printf("%p", x);
   return;
 }
-=======
->>>>>>> post
 
 void _writeString(char *x) {
   int i=0;
@@ -281,7 +238,6 @@ void _ln() {
 }
 
 
-<<<<<<< HEAD
 int _randInt() {
   return rand();
 }
@@ -298,12 +254,10 @@ int _randBool(){
   return rand()%2;
 }
 
-=======
 int _random() {
   return rand();
 }
 
->>>>>>> post
 
 int _max(int x, int y) {
   return x > y ? x : y;

@@ -22,7 +22,6 @@ import           Common
 --------------------------------------------------------------------------------
 import           Data.Array    (Array)
 import           Data.List     (intercalate)
-import           Data.Sequence (Seq)
 import           Data.Text     (Text)
 import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
@@ -39,7 +38,7 @@ data BinaryOperator
   | SeqAt
   | BifuncAt
   | Concat
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show BinaryOperator where
   show Plus         = "(+)"
@@ -88,7 +87,7 @@ instance Show BinaryOperator where
 
 
 data UnaryOperator = UMinus | Not | Card | Pred | Succ
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show UnaryOperator where
   show UMinus = "(-)"
@@ -103,7 +102,7 @@ data QuantOperator
   | Summation | Product
   | Minimum   | Maximum
   | Count
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show QuantOperator where   -- mempty
   show ForAll    = "Forall (∀)"     -- True
@@ -125,7 +124,7 @@ data QRange
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show QRange where
   show = \case
@@ -162,7 +161,7 @@ data Value
   | CharV Char
   | IntV Int32
   | FloatV Double
-  deriving (Eq, Ord)
+  deriving (Eq)
 
 instance Show Value where
   show = \case
@@ -225,6 +224,11 @@ data Expression'
     , fRecursiveFunc :: Bool
     , fStructArgs    :: Maybe (Text, Array Int Type) }
 
+  | AbstFunctionCall
+    { fName          :: Text
+    , fArgs          :: Seq Expression
+    , fStructArgs    :: Maybe (Text, Array Int Type) }
+
   | Quantification
     { qOp      :: QuantOperator
     , qVar     :: Text
@@ -248,6 +252,13 @@ data Expression
     , expType  :: Type
     , expConst :: Bool
     , exp'     :: Expression' }
+
+
+instance Ord Expression where
+  (<=) 
+    (Expression loc0 _ _ _) 
+    (Expression loc1 _ _ _) 
+    = loc1 <= loc0
 
 instance Eq Expression where
   (==)

@@ -7,16 +7,17 @@ program Conjunto.bin begin
     const MAX := 100 : int;
     var   contenido  : set of T;
     
-    {inv MAX > 0 ∧ #contenido <= MAX inv}
+
+    {repinv MAX > 0 ∧ #contenido <= MAX repinv}
 
     proc agregar (inout c : ConjuntoA(T), in x : T )
-      var contenido' := c.contenido : set of T;
+      let contenido' := c.contenido : set of T;
       {pre  x ∈ c.contenido ==> #c.contenido < c.MAX pre} 
       {post c.contenido == contenido' ∪ {x} post}
     
     proc eliminar ( inout c : ConjuntoA(T), in x : T ) 
-      var contenido' := c.contenido : set of T;
-      {pre true pre}
+      let contenido' := c.contenido : set of T;
+      {pre x ∈ c.contenido pre}
       {post c.contenido == contenido' \ {x} post}
     
     proc extraer (in c : ConjuntoA(T), out x : T ) 
@@ -35,7 +36,7 @@ program Conjunto.bin begin
              , in c1 : ConjuntoA(T)
              , out c : ConjuntoA(T))
       {pre #c0.contenido + #c1.contenido <= c0.MAX pre}
-      {post c.contenido == c0.contenido ∪ c1.contenido post}
+      {post c0.contenido ∪  c1.contenido == c.contenido post}
     
     proc intersectar( in c0 : ConjuntoA(T)
                     , in c1 : ConjuntoA(T)
@@ -124,7 +125,7 @@ program Conjunto.bin begin
       var tam' := c.tam : int;
       var elems'        : array[c.MAX] of T;
 
-      {pre true pre}
+      {pre    (% ∃ i : int | 0 <= i ∧ i < c.tam | c.elems[i] == x %) pre}
       {post (¬(% ∃ i : int | 0 <= i ∧ i < tam' | elems'[i] == x %) ==>
                 c.tam == tam'
               ∧ (% ∀ j : int | 0 <= j ∧ j < c.tam | c.elems[j] == elems'[j] %))
@@ -162,15 +163,23 @@ program Conjunto.bin begin
     proc pertenece (in c : Conjunto(T),  in x : T,  out p : boolean) 
       {pre true pre}
       {post p ≡ (% ∃ i : int | 0 <= i ∧ i < c.tam | c.elems[i] == x %) post}
-      |[
-        skip
+      |[ var i := 0 : int
+       ; p := false
+       ; {inv i <= c.tam inv}
+         {bound c.tam - i bound}
+         do i < c.tam /\ ¬p -> if c.elems[i] == x -> p := true
+                               [] otherwise       -> skip
+                               fi
+                             ; i := i + 1 
+         od
+        
       ]|
 
     proc vacio ( in c : Conjunto(T),  out v : boolean ) 
       {pre true pre}
       {post v ≡ c.tam == 0 post}
       |[
-        skip
+        v := c.tam == 0
       ]|
 
     proc unir(in c0 : Conjunto(T), in c1 : Conjunto(T), out c : Conjunto(T)) 
@@ -276,12 +285,14 @@ main
       -> n := n + 1
        ; writeln("(Intento: ", n, " de 100)")
        ; writeln( "Introduzca una letra:")
-       ; writeln("\t(T) para Terminar,")
-       ; writeln("\t(A) para Agregar un elemento al conjunto,")
+       ; writeln("\t(T) para Terminar")
+       ; writeln("\t(A) para Agregar un elemento al conjunto")
+       ; writeln("\t(E) para Eliminar un elemento del conjunto")
+       ; writeln("\t(P) para mostrar si un elemento Pertenece al conjunto")
        ; writeln("\t(U) para Unir un Conjunto")
-       ; writeln("\t(I) para Intersectar un Conjunto, o")
-       ; writeln("\t(R) para Restar un Conjunto.")
-       ; writeln("\t(M) para Mostrar el Conjunto.")
+       ; writeln("\t(I) para Intersectar un Conjunto")
+       ; writeln("\t(R) para Restar un Conjunto")
+       ; writeln("\t(M) para Mostrar el Conjunto")
        ; write("> ")
        ; read(c)
        ; write("\n")
@@ -309,6 +320,19 @@ main
              [] otherwise -> skip
              fi
          [] c == 'M' \/ c == 'm' -> mostrar(c1)
+         [] c == 'E' \/ c == 'e' 
+          -> write("Escriba la valor a eliminar (entero): ")
+           ; read(k)
+           ; eliminar ( c1, k )
+         [] c == 'P' \/ c == 'p' 
+          -> var b : boolean
+           ; write("Escriba la valor a buscar (entero): ")
+           ; read(k)
+           ; pertenece ( c1, k, b )
+           ; write("El elemento ", k)
+           ; if b         -> writeln(" si pertenece")
+             [] otherwise -> writeln(" no pertenece")
+             fi
          [] otherwise -> writeln("Has perdido un intento :(")
          fi
         ; write("\n")
