@@ -1,0 +1,1336 @@
+program usbbots
+|[
+	
+	proc desecho:(in x:int, in y:int, in window:Screen)
+	{pre true}{post true}
+	|[	
+		var colordesecho1:=077700000:int;
+		var colordesecho2:=0077777000:int;
+	
+		addFilledCircle(window,x,y,7,colordesecho1);
+		addFilledCircle(window,x,y,4,colordesecho2)
+	
+	]|
+
+	fun chequear_estado_usbbot: (in table: array[][] of int) -> boolean
+	{pre true}{post true}	
+	|[
+			var f:=0,c:=0:int;
+			var buscar_usbbot:=true:boolean;
+			var finjuego:=true:boolean;
+				
+			{bound 30-f}
+			do f < 30 /\ buscar_usbbot=true ->
+
+				c:=0;
+				
+				{bound 45-c}
+				do c < 45 /\ buscar_usbbot=true ->
+
+					if table[f][c]=3 ->
+						buscar_usbbot:=false
+					| table[f][c]!=3 -> skip
+					fi;
+
+					c:=c+1					
+				od;
+			f:=f+1	
+			od;
+			if buscar_usbbot=true -> finjuego:=true
+			| buscar_usbbot=false -> finjuego:=false
+			fi
+			>> finjuego
+
+	]|
+
+
+	fun obtener_numero_robots : (in table: array[][] of int) -> int 
+	{pre true}{post true}
+	|[
+
+			var f:=0,c:=0:int;		
+			var numerorobots:=0:int;
+
+			{bound 30-f}
+			do f < 30 ->
+
+				c:=0;
+				
+				{bound 45-c}
+				do c < 45  ->
+
+					if table[f][c]=1 ->
+							numerorobots:=numerorobots+1
+							
+					| table[f][c]!=1 -> skip					
+					fi;
+
+				c:=c+1					
+				od;
+
+			f:=f+1	
+			od
+			
+			>> numerorobots
+
+	]|
+
+
+	proc mover_robots:( in out table:array[][]of int, in window:Screen)
+	{pre true}{post true }
+	|[
+			var f:=0,c:=0,usbx:=0,usby:=0,cval:=0,posf:=0,posc:=0,jugada:=0:int;
+			var buscar_usbbot:=true:boolean;
+			var numerorobots:=0,moviof:=0,movioc:=0: int;
+			var buscarvalida:=true:boolean;	
+
+			{inv buscar_usbbot==(%forall i: 0<=i<f: (%forall j: 0<=j<45: table[i][j]!=3))/\ 0<=f<=30}		
+			{bound 30-f}
+			do f < 30 /\ buscar_usbbot=true ->
+
+				c:=0;
+				{inv buscar_usbbot==(%forall j: 0<=j<c: table[f][j]!=3)/\ 0<=c<=45 }
+				{bound 45-c}
+				do c < 45 /\ buscar_usbbot=true ->
+
+					if table[f][c]=3 ->
+
+						usbx:=f;
+						usby:=c;
+						buscar_usbbot:=false
+
+
+					| table[f][c]!=3 -> skip
+
+					fi;
+
+					c:=c+1					
+
+				od;
+
+				f:=f+1
+				
+			od;
+
+		var buscarrobots:=true:boolean;
+		var robx:=0,roby:=0:int;
+		var camino:=0,posicion:=0:int;
+		var distancia:=%[i:8:0.0]%:array[]of double;
+		var menor:=10000.0:double;
+		
+		numerorobots:=obtener_numero_robots(table);
+		
+		var posrobots:= %[i,j:numerorobots+1,2:0]%: array[][] of int;
+
+
+		f:=0;
+		c:=0;
+		numerorobots:=0;
+		{bound 30-f}
+		do f<30 ->
+			c:=0;
+			{bound 45-c}
+			
+			do c<45 ->
+				
+				if table[f][c]=1 -> 
+					camino:=0;
+					menor:=100000.0;
+					posicion:=0;
+
+
+					camino:=0;
+					//inicializo el vector en cero
+					{bound 8-camino}
+					do camino<8 -> 
+
+							distancia[camino]:=0.0;
+					camino:=camino+1
+					od;
+				
+					camino:=0;
+					{bound 8-camino}					
+					do camino<8-> 
+
+						if camino=0 ->
+							if f+1<30 /\ c-1>=0->  
+							      robx:=f+1;
+							      roby:=c-1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							| f+1>=30 \/ c-1<0->
+								 distancia[camino]:=-1.0
+							fi
+
+						| camino=1 ->
+							if f+1<30 /\ c>=0-> 
+							      robx:=f+1;
+							      roby:=c;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							|  f+1>=30 \/ c<0->distancia[camino]:=-1.0
+							fi
+
+						| camino=2 ->
+							if f+1<30 /\ c+1<45-> 
+							      robx:=f+1;
+							      roby:=c+1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							|  f+1>=30 \/ c+1<=45 ->distancia[camino]:=-1.0
+							fi
+
+						| camino=3 ->
+							if f<30 /\ c-1>=0-> 
+							      robx:=f;
+							      roby:=c-1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							|  f>=30 \/ c-1<0->distancia[camino]:=-1.0
+							fi
+
+						| camino=4 ->
+							if f<30 /\ c+1<45 -> 
+							      robx:=f;
+							      roby:=c+1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							| f>=30 \/ c+1<=45 ->distancia[camino]:=-1.0
+							fi
+
+						| camino=5  ->
+							if f-1>=0/\ c-1>=0-> robx:=f-1;
+							      roby:=c-1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							|  f-1<0 \/ c-1<0->distancia[camino]:=-1.0
+							fi
+
+						| camino=6 ->
+							if f-1>=0/\ c>=0 ->robx:=f-1;
+							      roby:=c;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							| f-1<0 \/ c<0 ->distancia[camino]:=-1.0
+							fi
+
+						| camino=7 ->
+
+							if f-1>=0 /\ c<45->robx:=f-1;
+							      roby:=c+1;
+							      distancia[camino]:=sqrt(toDouble( (robx-usbx)*(robx-usbx)+(roby-usby)*(roby-usby) ))
+							| f-1<0 \/ c<=45->distancia[camino]:=-1.0
+							fi
+						fi;
+					
+					
+					camino:=camino+1				
+					od;
+
+					camino:=0;
+					posicion:=0;
+					{bound 8-camino}
+					do camino <8-> 
+							if distancia[camino]!=-1.0 ->
+
+								if distancia[camino]>=menor ->skip
+								| distancia[camino]<menor -> menor:=distancia[camino]
+								fi
+							| distancia[camino]=-1.0 -> skip
+							fi;
+
+					camino:=camino+1
+					od;
+	
+
+
+					camino:=0;
+
+					var buscar:=true:boolean;
+					{bound 8-camino}
+					do camino <8 /\ buscar=true->   if distancia[camino]=menor->posicion:=camino;
+												    buscar:=false
+									| distancia[camino]!=menor -> skip
+									fi;
+					camino:=camino+1
+					od; 
+
+					
+					menor:=100000.0;
+
+
+					table[f][c]:=0;
+					if posicion=0 ->
+							moviof:=f+1;
+							movioc:=c-1
+							
+					| posicion=1-> 
+							moviof:=f+1;
+							movioc:=c
+							
+					| posicion=2-> 
+							moviof:=f+1;
+							movioc:=c+1
+					| posicion=3-> 
+							moviof:=f;
+							movioc:=c-1
+					| posicion=4-> 
+							moviof:=f;
+							movioc:=c+1
+					| posicion=5-> 
+							moviof:=f-1;
+							movioc:=c-1
+					| posicion=6-> 
+							moviof:=f-1;
+							movioc:=c
+					| posicion=7-> 
+							moviof:=f-1;
+							movioc:=c+1
+					fi;
+					posrobots[numerorobots][0]:=moviof;
+					posrobots[numerorobots][1]:=movioc;			
+
+			
+			numerorobots:=numerorobots+1	
+
+			| table[f][c]!=1 -> skip
+			fi;
+
+			c:=c+1
+			od;
+		f:=f+1
+		od;
+
+		var k:=0,contadorpos:=0,cpos:=0:int;
+		var encontrarexplosion:=true,encontrardesecho:=true:boolean;
+		
+
+			/// AHORA COMPRUEBO LAS EXPLOSIONES:D
+
+			{bound numerorobots-contadorpos}
+			do (contadorpos< numerorobots) ->
+				
+				posf:=0;
+				posc:=0;
+				posf:=posrobots[contadorpos][0];
+				posc:=posrobots[contadorpos][1];
+					
+				if table[posf][posc]=2 -> skip
+				| table[posf][posc]=3 -> write("MATE AL USBBOT");
+							table[usbx][usby]:=0
+				| table[posf][posc]!=3 /\ table[posf][posc]!=2 ->
+
+					k:=contadorpos;
+					encontrardesecho:=true;
+					{bound numerorobots-k}
+					do k<numerorobots /\ encontrardesecho=true ->
+						
+						if posrobots[contadorpos][0]=posrobots[k+1][0] /\ posrobots[contadorpos][1]=posrobots[k+1][1] ->
+							table[posf][posc]:=2;
+							write("DESECHO");
+							encontrardesecho:=false
+						| posrobots[contadorpos][0]!=posrobots[k+1][0] \/ posrobots[contadorpos][1]!=posrobots[k+1][1] -> skip
+						fi;
+						k:=k+1
+					od;
+
+					if encontrardesecho=true -> 
+							table[posf][posc]:=1			
+					| encontrardesecho=false -> skip
+					fi
+						
+
+				fi;
+				
+			contadorpos:=contadorpos+1
+			od
+			
+
+
+
+	]|
+
+	proc game_over:(in window:Screen)
+
+|[
+	
+	var k:=0:int;
+	var color:=0777777777:int;
+	var marino:=0000000077:int;
+	var negro:=0000000000:int;	
+	var rojo:=0777000000:int;//ROJO
+	
+	var x:=-600,y:=301:int;
+	{bound 1000 -k}
+	do k<600->
+		addLine(window,x,y-k,-x,(y-k));
+		k:=k+1
+	od;
+
+	//G
+
+	addColoredLine(window,-440,-20,-440,100,color);addColoredLine(window,-441,-20,-441,100,color);
+	addColoredLine(window,-442,-20,-442,100,color);addColoredLine(window,-443,-20,-443,100,color);
+	addColoredLine(window,-444,-20,-444,100,color);addColoredLine(window,-445,-20,-445,100,color);
+	addColoredLine(window,-446,-20,-446,100,color);addColoredLine(window,-447,-20,-447,100,color);
+	
+	addColoredLine(window,-440,100,-370,100,color);addColoredLine(window,-440,99,-370,99,color);
+	addColoredLine(window,-440,97,-370,97,color);addColoredLine(window,-440,98,-370,98,color);
+	
+
+	addColoredLine(window,-440,-20,-340,-20,color);addColoredLine(window,-440,-19,-340,-19,color);
+	addColoredLine(window,-440,-17,-340,-17,color);addColoredLine(window,-440,-18,-340,-18,color);
+
+	addColoredLine(window,-340,-20,-340,30,color);addColoredLine(window,-339,-20,-339,30,color);
+	addColoredLine(window,-337,-20,-337,30,color);addColoredLine(window,-338,-20,-338,30,color);
+
+	addColoredLine(window,-340,30,-410,30,color);addColoredLine(window,-340,31,-410,31,color);
+	addColoredLine(window,-340,32,-410,32,color);addColoredLine(window,-340,33,-410,33,color);
+
+//A
+	addColoredLine(window,-320,-20,-320,100,color);addColoredLine(window,-319,-20,-319,100,color);
+	addColoredLine(window,-318,-20,-318,100,color);addColoredLine(window,-317,-20,-317,100,color);
+
+	addColoredLine(window,-240,100,-240,-20,color);addColoredLine(window,-239,100,-239,-20,color);
+	addColoredLine(window,-237,100,-237,-20,color);addColoredLine(window,-238,100,-238,-20,color);
+
+	addColoredLine(window,-320,100,-240,100,color);addColoredLine(window,-320,99,-240,99,color);
+	addColoredLine(window,-320,97,-240,97,color);addColoredLine(window,-320,98,-240,98,color);
+
+	addColoredLine(window,-320,30,-240,30,color);addColoredLine(window,-320,31,-240,31,color);
+	addColoredLine(window,-320,32,-240,32,color);addColoredLine(window,-320,33,-240,33,color);
+//M
+	addColoredLine(window,-230,-20,-230,100,color);addColoredLine(window,-229,-20,-229,100,color);
+	addColoredLine(window,-228,-20,-228,100,color);addColoredLine(window,-227,-20,-227,100,color);
+	addColoredLine(window,-226,-20,-226,100,color);addColoredLine(window,-225,-20,-225,100,color);
+
+
+	addColoredLine(window,-226,100,-180,40,color);addColoredLine(window,-228,100,-182,40,color);
+	addColoredLine(window,-227,100,-181,40,color);addColoredLine(window,-229,100,-183,40,color);
+
+	
+	addColoredLine(window,-180,40,-135,100,color);addColoredLine(window,-182,40,-137,100,color);
+	addColoredLine(window,-181,40,-136,100,color);addColoredLine(window,-183,40,-138,100,color);
+
+	addColoredLine(window,-130,100,-130,-20,color);addColoredLine(window,-131,100,-131,-20,color);
+	addColoredLine(window,-132,100,-132,-20,color);addColoredLine(window,-133,100,-133,-20,color);
+	addColoredLine(window,-134,100,-134,-20,color);addColoredLine(window,-135,100,-135,-20,color);
+
+
+//E
+	addColoredLine(window,-120,-20,-120,100,color);addColoredLine(window,-121,-20,-121,100,color);
+	addColoredLine(window,-122,-20,-122,100,color);addColoredLine(window,-123,-20,-123,100,color);
+	
+	addColoredLine(window,-120,-20,-50,-20,color);addColoredLine(window,-120,-19,-50,-19,color);
+	addColoredLine(window,-120,-18,-50,-18,color);addColoredLine(window,-120,-17,-50,-17,color);
+
+
+	addColoredLine(window,-120,37,-80,37,color);addColoredLine(window,-120,39,-80,39,color);
+	addColoredLine(window,-120,40,-80,40,color);addColoredLine(window,-120,38,-80,38,color);
+
+	addColoredLine(window,-120,100,-50,100,color); addColoredLine(window,-120,99,-50,99,color);
+	addColoredLine(window,-120,98,-50,98,color);addColoredLine(window,-120,97,-50,97,color);
+	
+// O 
+
+	addCircle(window,80,36,95); addFilledCircle(window,80,36,90,color);addFilledCircle(window,80,36,85,negro);
+
+
+	addColoredLine(window,40,10,80,-5,rojo);addColoredLine(window,80,-4,120,10,rojo);
+	addColoredLine(window,40,10,80,-4,rojo);addColoredLine(window,80,-5,120,10,rojo);
+	addColoredLine(window,40,10,80,-3,rojo);addColoredLine(window,80,-3,120,10,rojo);
+	addColoredLine(window,40,9,80,-2,rojo);addColoredLine(window,80,-2,120,9,rojo);
+
+
+
+	addColoredLine(window,45,85,70,50,rojo);addColoredLine(window,90,50,120,85,rojo);
+	addColoredLine(window,45,85,70,50,rojo);addColoredLine(window,90,50,120,85,rojo);
+	addColoredLine(window,44,84,70,50,rojo);addColoredLine(window,90,50,120,84,rojo);
+	addColoredLine(window,43,83,70,50,rojo);addColoredLine(window,90,50,120,83,rojo);
+
+	addFilledCircle(window,50,60,9,rojo);addFilledCircle(window,110,60,9,rojo);//ojos
+
+//V	
+
+	addColoredLine(window,170,100,220,-20,color);addColoredLine(window,220,-20,270,100,color);
+	addColoredLine(window,169,100,219,-20,color);addColoredLine(window,219,-20,269,100,color);
+	addColoredLine(window,168,100,218,-20,color);addColoredLine(window,218,-20,268,100,color);
+	addColoredLine(window,167,100,217,-20,color);addColoredLine(window,217,-20,267,100,color);	
+
+//E
+	addColoredLine(window,280,-20,280,100,color);addColoredLine(window,281,-20,281,100,color);
+	addColoredLine(window,282,-20,282,100,color);addColoredLine(window,283,-20,283,100,color);
+	
+	addColoredLine(window,280,-20,360,-20,color);addColoredLine(window,280,-19,360,-19,color);
+	addColoredLine(window,280,-18,360,-18,color);addColoredLine(window,280,-17,360,-17,color);
+
+
+	addColoredLine(window,280,37,330,37,color);addColoredLine(window,280,39,330,39,color);
+	addColoredLine(window,280,40,330,40,color);addColoredLine(window,280,38,330,38,color);
+
+	addColoredLine(window,280,100,350,100,color); addColoredLine(window,280,99,350,99,color);
+	addColoredLine(window,280,98,350,98,color);addColoredLine(window,280,97,350,97,color);
+//R
+
+	addColoredLine(window,365,-20,365,100,color);addColoredLine(window,366,-20,366,100,color);
+	addColoredLine(window,367,-20,367,100,color);addColoredLine(window,367,-20,367,100,color);
+	addColoredLine(window,364,-20,364,100,color);addColoredLine(window,368,-20,368,100,color);
+
+
+	addColoredLine(window,365,100,430,100,color); addColoredLine(window,365,99,430,99,color);
+	addColoredLine(window,365,98,430,98,color);addColoredLine(window,365,97,430,97,color);
+
+	addColoredLine(window,365,37,430,37,color);addColoredLine(window,365,39,430,39,color);
+	addColoredLine(window,365,40,430,40,color);addColoredLine(window,365,38,430,38,color);
+	
+	addColoredLine(window,430,40,430,100,color);addColoredLine(window,429,40,429,100,color);
+	addColoredLine(window,427,40,427,100,color);addColoredLine(window,428,40,428,100,color);
+
+	addColoredLine(window,365,40,439,-20,color);addColoredLine(window,366,40,440,-20,color);
+	addColoredLine(window,367,40,441,-20,color);addColoredLine(window,368,40,441,-20,color);
+	addColoredLine(window,365,40,438,-20,color);addColoredLine(window,365,40,442,-20,color)
+	
+	
+]|
+
+
+	//// **** PROCEDIMIENTO ALEATORIO DEL USBBOT  *****  
+
+
+	proc teletransporto:(in out table:array[][]of int,in x:int,in y:int,in window:Screen)
+	{pre true}{post true}
+
+	|[
+		var f:=0,c:=0,crobots:=0,nulo:=0,rf:=0,rc:=0: int;	                 
+		var randomc:= 0.0,randomf:=0.0 : double;		          	                                    
+		var buscarposicion:=true:boolean;                              
+		
+			buscarposicion:=true;
+
+			{bound 10000-nulo}
+			do buscarposicion=true ->
+
+				rf:=0;
+				rc:=0;
+				randomc:=0.0;
+				randomf:=0.0;
+			
+				random randomc;
+				random randomf;
+				rf:= toInt(randomf*30.0);
+				rc:=toInt(randomc*45.0);
+				
+		
+				if table[rf][rc]!=2/\table[rf][rc]!=3->
+
+					if table[rf][rc]=0-> table[rf][rc]:=3
+					| table[rf][rc]=1->eraseAll(window)
+							
+					fi; 
+					
+					buscarposicion:=false				
+				| table[rf][rc]=2 \/rf=x\/ rc=y-> skip			
+				fi;
+
+				nulo:=nulo+1	
+
+			od 
+	]|
+
+
+
+	///        ***** PROCEDIMIENTO DETERMINAR ESTADO JUEGO, a partir del movimiento del USBBOT  *****
+
+
+
+	proc determinar_estado_juego :(in table: array [][] of int, in out finjuego: boolean, in movimiento: int, in window:Screen)
+	{pre finjuego=false /\ movimiento>=1 /\ movimiento<=9}
+	//{post (%exists i: 0<=i<30 : (%exists j: 0<=j<45: table[i][j]=3 /\ ((movimiento=7 /\ table[i-1][j-1]=1 /\ finjuego=true)    \/ 
+								          // (movimiento=7 /\ table[i-1][j-1]!=1 /\ finjuego=false)  \/
+									   //(movimiento=8 /\ table[i-1][j]=1 /\ finjuego=true)      \/ 
+								           //(movimiento=8 /\ table[i-1][j]!=1 /\ finjuego=false)    \/
+									   //(movimiento=9 /\ table[i-1][j+1]=1 /\ finjuego=true)    \/ 
+								           //(movimiento=9 /\ table[i-1][j+1]!=1 /\ finjuego=false)  \/
+									   //(movimiento=4 /\ table[i][j-1]=1 /\ finjuego=true)      \/ 
+								           //(movimiento=4 /\ table[i][j-1]!=1 /\ finjuego=false)    \/
+								           //(movimiento=5 /\ finjuego=false)			   \/ 
+									   //(movimiento=6 /\ table[i][j+1]=1 /\ finjuego=true)      \/ 
+									   //(movimiento=6 /\ table[i][j+1]!=1 /\ finjuego=false)    \/
+									   //(movimiento=1 /\ table[i+1][j-1]=1 /\ finjuego=true)    \/ 
+								           //(movimiento=1 /\ table[i+1][j-1]!=1 /\ finjuego=false)  \/
+									   //(movimiento=2 /\ table[i+1][j]=1 /\ finjuego=true)      \/ 
+								           //(movimiento=2 /\ table[i+1][j]!=1 /\ finjuego=false)    \/
+									   //(movimiento=3 /\ table[i+1][j+1]=1 /\ finjuego=true)    \/ 
+								           //(movimiento=3 /\ table[i+1][j+1]!=1 /\ finjuego=false))))}
+
+
+	|[
+		
+			var f:=0,c:=0,pf:=0,pc:=0,posf:=0,posc:=0:int;
+			var buscar_usbbot:=true:boolean;
+
+			var help:=("hi"):String;
+			{inv buscar_usbbot==(%forall i: 0<=i<f:(%forall j:0<=j<45:table[i][j]!=3))/\ 0<=f<=30}
+			{bound 30-f}
+			do f < 30 /\ buscar_usbbot=true ->
+
+				c:=0;
+		 		{inv buscar_usbbot==(%forall j: 0<=j<c:table[f][j]!=3)/\ 0<=c<=45}
+				{bound 45-c}
+ 
+				do c < 45 /\ buscar_usbbot=true ->
+
+					if table[f][c]=3 ->
+
+						pf:=f;
+						pc:=c;	
+						buscar_usbbot:=false
+
+					| table[f][c]!=3 -> skip
+
+					fi;
+
+					c:=c+1					
+
+				od;
+
+				f:=f+1
+				
+			od;
+
+
+			       if movimiento=7 ->
+					posf:=pf-1;
+					posc:=pc-1;
+				
+				 	if pf-1>=0 /\ pc-1>=0 ->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");
+							game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+
+					| pf-1<0 \/ pc-1<0 ->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+								
+					fi
+					
+				| movimiento=8 ->
+					posf:=pf-1;
+					posc:=pc;
+
+					if pf-1>=0 /\ pc>=0 ->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					| pf-1<0 \/ pc<0 ->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=9 ->
+
+					posf:=pf-1;
+					posc:=pc+1;
+
+					if pf-1>=0 /\ pc+1<45 ->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					| pf-1<0 \/ pc+1>=45 ->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=4 ->
+
+					posf:=pf;
+					posc:=pc-1;
+					
+					if pf<30 /\ pc-1>=0->
+
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->skip
+						fi
+					| pf>=30 \/ pc-1<0->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=5 -> skip
+				| movimiento=6 ->
+
+					posf:=pf;
+					posc:=pc+1;
+				
+					if pf<30 /\ pc+1<45->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					| pf>=30 \/ pc+1>=45->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=1 ->
+
+					posf:=pf+1;
+					posc:=pc-1;
+					
+					if pf+1<30 /\pc-1>=0->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					| pf+1>=30 \/pc-1<0->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=2 ->
+
+					posf:=pf+1;
+					posc:=pc;
+					if pf+1<30 /\ pc<45->
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					|  pf+1>=30 \/ pc>=45->write("JUGADA INVALIDA 2");help:=readString("Muestro tablero")
+					fi
+
+				| movimiento=3 ->
+
+					posf:=pf+1;
+					posc:=pc+1;
+					if pf+1 <30 /\ pc+1<45 ->
+
+						if table[posf][posc]=1 ->
+							write("USBBOT MUERTO");game_over(window);
+							finjuego:=true
+						| table[posf][posc]!=1 ->
+							skip
+						fi
+					| pf+1 >=30 /\ pc+1>=45 ->write("JUGADA INVALIDA");help:=readString("Muestro tablero")
+					fi
+					
+				fi	
+
+
+	]|
+
+	proc mini_table:(in table:array[][]of int,in nivel:int,in puntaje: int,in window:Screen)
+	{pre true}
+	{post true}
+	|[
+		var x:=420,y:=290,robots:=0,desechos:=0:int;
+		var level:=("hi"):String;
+		 var f:=0,k:=0,c:=0:int;
+		eraseAll(window);
+
+		//BUSCO LOS ROBOTS y los desechos
+
+		
+		{bound 30-f}
+		do f<30->c:=0;
+			{bound 45-c}
+			do c<45-> if table[f][c]=1->robots:=robots+1
+				   | table[f][c]=2-> desechos:=desechos+1
+				   | table[f][c]=0 \/table[f][c]=3->skip
+				   fi;
+			c:=c+1
+			od;
+		f:=f+1
+		od;
+
+		
+		c:=0;
+
+		{bound 80000-k}
+		do c<46->
+			addLine(window,-x+k,-y+40,-x+k,y);
+			k:=k+18;
+			c:=c+1
+		od;
+		k:=0;
+		c:=0;
+
+		{bound 80000-k}
+		do c<31->
+			addLine(window,-x,y-k,x-30,y-k);
+			k:=k+18;
+			c:=c+1
+		od;	
+		x:=-200;
+		y:=-270;
+		
+		addText(window,"Nivel :",x,y);addText(window,""+nivel+"",x+40,y);
+		addText(window,"Puntaje :",x+60,y);addText(window,""+puntaje+"",x+120,y);
+		addText(window,"#Robots:",x+150,y);addText(window,"10",x+210,y);
+		addText(window,"#Desechos:",x+240,y);addText(window,""+desechos+"",x+320,y)
+		
+	]|
+	
+
+
+	proc tablero:(in table:array[][]of int,in nivel:int,in puntaje: int,in window:Screen)
+	{pre true}
+	{post true}
+	|[
+		var x:=420,y:=290,robots:=0,desechos:=0:int;
+		var level:=("hi"):String;
+		 var f:=0,k:=0,c:=0:int;
+		eraseAll(window);
+
+		//BUSCO LOS ROBOTS y los desechos
+
+		
+		{bound 30-f}
+		do f<30->c:=0;
+			{bound 45-c}
+			do c<45-> if table[f][c]=1->robots:=robots+1
+				   | table[f][c]=2-> desechos:=desechos+1
+				   | table[f][c]=0 \/table[f][c]=3->skip
+				   fi;
+			c:=c+1
+			od;
+		f:=f+1
+		od;
+
+		
+		c:=0;
+
+		{bound 80000-k}
+		do c<46->
+			addLine(window,-x+k,-y+40,-x+k,y);
+			k:=k+18;
+			c:=c+1
+		od;
+		k:=0;
+		c:=0;
+
+		{bound 80000-k}
+		do c<31->
+			addLine(window,-x,y-k,x-30,y-k);
+			k:=k+18;
+			c:=c+1
+		od;	
+		x:=-200;
+		y:=-270;
+		
+		addText(window,"Nivel :",x,y);addText(window,""+nivel+"",x+40,y);
+		addText(window,"Puntaje :",x+60,y);addText(window,""+puntaje+"",x+120,y);
+		addText(window,"#Robots:",x+150,y);addText(window,""+robots+"",x+210,y);
+		addText(window,"#Desechos:",x+240,y);addText(window,""+desechos+"",x+320,y)
+		
+	]|
+	
+	proc dibujar_usbbot: (in out table: array[][] of int,in nivel:int,in puntaje:int, in window: Screen)
+	
+	{pre true}
+	{post true}	
+	|[
+		// Borrar la pantalla
+		eraseAll(window);
+		
+		tablero(table,nivel,puntaje,window);
+		mostrar_robots(table,window);
+		
+
+				     	var colorbot:=0707707777:int;
+	          		     	var colorbot2:=0000000077:int;
+					var color2:=0777000000:int;
+					var f:=0,c:=0,x:=-411,y:=281:int;
+					var buscar_usbbot:=true:boolean;
+		
+					{bound 30-f}		
+					do f<30 /\ buscar_usbbot=true -> c:=0;
+					x:=-411;
+						{bound 45-c}
+						do c<45 /\ buscar_usbbot=true ->
+							if table[f][c]=3 -> 
+									addCircle(window,x,y,8);
+									addFilledCircle(window,x,y,7,colorbot);
+									addColoredLine(window,x-4,y-2,x+4,y-2,colorbot2);
+									addColoredLine(window,x-4,y-2,x+4,y-2,colorbot2);
+									addColoredLine(window,x-4,y+2,x+4,y+2,colorbot2)
+							|table[f][c]!=3 -> skip
+							fi;
+						x:=x+18;
+						c:=c+1
+						od;
+					y:=y-18;
+					f:=f+1
+					od
+			
+
+
+	]|	
+	
+
+
+	//// ***** PROCEDIMIENTO PARA MOVER USBBOT *****
+
+	proc mover_usbbot : (in out table: array [][] of int,in movimiento: int,in window:Screen)
+
+		{pre movimiento>=1 /\ movimiento<=9}
+		//{post (%exists i: 1<=i<29 : (%exists j: 1<=j<44 : table[i][j]=0 /\   
+										   //((movimiento=7 /\ table[i-1][j-1]!=1/\ table[i-1][j-1]=3)  \/
+										   //(movimiento=7 /\ table[i-1][j-1]=1 )  \/
+										   //(movimiento=8 /\ table[i-1][j]=3 )    \/
+										   //(movimiento=9 /\ table[i-1][j+1]=3 )  \/
+										   //(movimiento=4 /\ table[i][j-1]=3 )    \/
+										   //(movimiento=5 )			 \/ 
+										   //(movimiento=6 /\ table[i][j+1]=3)     \/
+										   //(movimiento=1 /\ table[i+1][j-1]=3 )  \/
+										   //(movimiento=2 /\ table[i+1][j]=3)     \/
+										   //(movimiento=3 /\ table[i+1][j+1]=3 ))))}
+
+	
+
+		|[
+			var f:=0,c:=0,pf:=0,pc:=0,posf:=0,posc:=0:int;
+			var buscar_usbbot:=true:boolean;
+
+
+			{inv (%forall i: 0<=i<f: (%forall j: 0<=j<45: table[i][j]!=3)) }
+			{bound 30-f}
+			do f < 30 /\ buscar_usbbot=true ->
+
+				c:=0;
+				{inv (%forall i: 0<=i<f: (%forall j: 0<=j<c: table[i][j]!=3)) }
+				{bound 45-c}
+ 
+				do c < 45 /\ buscar_usbbot=true ->
+
+					if table[f][c]=3 ->
+
+						pf:=f;
+						pc:=c;
+						table[f][c]:=0;
+						buscar_usbbot:=false
+
+					| table[f][c]!=3 -> skip
+
+					fi;
+					c:=c+1					
+
+				od;
+
+				f:=f+1
+				
+			od;
+
+				if movimiento=7 ->
+					posf:=pf-1;
+					posc:=pc-1;
+					if pf-1>=0 /\ pc-1>=0 ->
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf-1<0 \/ pc-1<0 ->table[pf][pc]:=3
+					fi
+					
+				| movimiento=8->
+					posf:=pf-1;
+					posc:=pc;
+					if pf-1>=0 /\ pc>=0 ->
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf-1<0 \/ pc<0 ->table[pf][pc]:=3
+
+					fi
+				| movimiento=9 ->
+
+					posf:=pf-1;
+					posc:=pc+1;
+					if pf-1>=0 /\ pc+1<45 ->
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf-1<0 \/ pc+1>45 ->table[pf][pc]:=3
+					fi
+
+				| movimiento=4 ->
+
+					posf:=pf;
+					posc:=pc-1;
+					if pf<30 /\ pc-1>=0->
+
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf>=30 \/ pc-1<0->table[pf][pc]:=3
+					fi
+
+				| movimiento=5 ->  teletransporto(table,pf,pc,window)
+
+				| movimiento=6 ->
+
+					posf:=pf;
+					posc:=pc+1;
+					if pf<30 /\ pc+1<45->
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf>=30 \/ pc+1>=45->table[pf][pc]:=3
+					fi
+
+				| movimiento=1 ->
+
+					posf:=pf+1;
+					posc:=pc-1;
+					if pf+1<30 /\pc-1>=0->
+						if table[posf][posc]=1 ->skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf+1>=30 \/pc-1<0->table[pf][pc]:=3
+					fi
+
+				| movimiento=2 ->
+
+					posf:=pf+1;
+					posc:=pc;
+					if pf+1<30 /\ pc<45->
+					
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][pc]:=3
+						fi
+					| pf+1>=30 \/ pc>=45->table[pf][pc]:=3
+					fi
+					
+
+				| movimiento=3 ->
+
+					posf:=pf+1;
+					posc:=pc+1;
+					if pf+1 <30 /\ pc+1<45 ->
+
+						if table[posf][posc]=1 ->
+							skip
+						| table[posf][posc]!=1 ->
+							table[posf][posc]:=3
+						fi
+					| pf+1 >=30 \/ pc+1>=45 ->table[pf][pc]:=3
+					fi
+
+				fi				
+				
+		]|		
+
+
+
+	///// ****** PROCEDIMIENTO VALIDAR EL MOVIMIENTO DEL USBBOT ****** 
+
+	proc obtener_jugada_valida: (in table: array [][] of int, in out movimiento: int)
+
+		{pre movimiento>=0 /\ movimiento<=9}
+		{post (%exists i: 0<=i<30: (%exists j: 0<=j<45: table[i][j]=3)) }
+
+		|[
+			var f:=0,c:=0,pf:=0,pc:=0,cval:=0,posf:=0,posc:=0,jugada:=0:int;
+			var buscar_usbbot:=true:boolean;
+			var buscarvalida:=true:boolean;	
+
+			{inv buscar_usbbot==(%forall i: 0<=i<f: (%forall j: 0<=j<45: table[i][j]!=3))/\ 0<=f<=30}		
+			{bound 30-f}
+			do f < 30 /\ buscar_usbbot=true ->
+
+				c:=0;
+				{inv buscar_usbbot==(%forall j: 0<=j<c: table[f][j]!=3)/\ 0<=c<=45 }
+				{bound 45-c}
+				do c < 45 /\ buscar_usbbot=true ->
+
+					if table[f][c]=3 ->
+
+						pf:=f;
+						pc:=c;
+						buscar_usbbot:=false
+
+					| table[f][c]!=3 -> skip
+
+					fi;
+
+					c:=c+1					
+
+				od;
+
+				f:=f+1
+				
+			od;
+			{inv buscarvalida==( jugada=0)}
+			{bound 100000-cval}
+			do buscarvalida=true ->
+
+				jugada:=readInt("Mover a la posicion: ");			
+					
+
+				if jugada=1 ->
+					posf:=pf+1;
+					posc:=pc-1;
+					if (pf+1>=30) \/ (pc-1<0)  -> jugada:=0
+					| (pf+1<30) /\ (pc-1>=0)  -> 
+						buscarvalida:=false
+					fi
+				| jugada=2 ->
+					posf:=pf+1;
+					posc:=pc;
+					if (pf+1>=30) -> jugada:=0
+					| (pf+1<30)  ->
+						buscarvalida:=false
+					fi
+				| jugada=3 ->
+					posf:=pf+1;
+					posc:=pc+1;
+					if (pf+1>=30) \/ (pc+1>=45)  -> jugada:=0
+					| (pf+1<30) /\ (pc+1<45) ->
+						buscarvalida:=false
+					fi
+				| jugada=4 ->
+					posf:=pf;
+					posc:=pc-1;
+					if (pc-1<0) -> jugada:=0
+					|  (pc-1>=0) ->
+						buscarvalida:=false
+					fi
+				| jugada=5 -> buscarvalida:=false
+				| jugada=6 ->
+					posf:=pf;
+					posc:=pc+1;
+					if (pc+1>=45) -> jugada:=0
+					| (pc+1<45) -> 
+						buscarvalida:=false
+					fi
+				| jugada=7 ->
+					posf:=pf-1;
+					posc:=pc-1;
+					if (pf-1<0) \/ (pc-1<0)-> jugada:=0
+					| (pf-1>=0) /\ (pc-1>=0) -> 
+						buscarvalida:=false
+					fi
+				| jugada=8 ->
+					posf:=pf-1;
+					posc:=pc;
+					if (pf-1<0) -> jugada:=0
+					| (pf-1>=0) -> 
+						buscarvalida:=false
+					fi
+				| jugada=9 ->
+					posf:=pf-1;
+					posc:=pc+1;
+					if (pf-1<0) \/ (pc+1>=45)  -> jugada:=0
+					| (pf-1>=0) /\ (pc+1<45) -> 
+						buscarvalida:=false
+					fi
+				| jugada<1 \/ jugada>9 ->write("Jugada invalida");
+							jugada:=0
+				fi;
+
+				if buscarvalida=false ->
+					if table[posf][posc]=2->
+						write("CASILLA OCUPADA DESECHOS");
+						jugada:=0;
+						buscarvalida:=true
+					| table[posf][posc]!=2 -> skip
+					fi
+
+				| buscarvalida=true -> skip				
+				fi;			
+
+				cval:=cval+1
+			od;
+			movimiento:=jugada
+
+		]|
+
+	
+
+	proc mostrar_robots:(in table:array[][]of int, in window:Screen)
+
+	|[	var color:=0000000077:int;
+		var color2:=0777000000:int;
+		var f:=0,c:=0,x:=-411,y:=281:int;
+		
+		{bound 30-f}		
+		do f<30 -> c:=0;
+		x:=-411;
+			{bound 45-c}
+			do c<45 ->
+				if table[f][c]=1 -> 
+					addCircle(window,x,y,8);
+					addFilledCircle(window,x,y,7,color);
+					addColoredLine(window,x-4,y,x+4,y,color2)
+
+				|table[f][c]=2 -> desecho(x,y,window)
+
+				|table[f][c]!=2 /\ table[f][c]!=1->skip
+				fi;
+			x:=x+18;
+			c:=c+1
+			od;
+		y:=y-18;
+		f:=f+1
+		od 
+	
+	]|
+
+
+	proc inicializar_variables_juego: (in level:int,in out nrobots : int,in window:Screen)
+	{pre true}
+	{post level>0 /\  nrobots=(%sigma i: 1<=i<level+1:10) }
+	|[
+		var n:=1:int;
+		nrobots:=0;
+		{inv nrobots=(%sigma i: 1<=i<n:10)/\ 1<=n<=level+1}
+		{bound level+1-n }
+		do n < (level+1) ->
+			
+			nrobots:=nrobots+10;
+			n:=n+1		
+
+		od;
+		write("Numero de robots es:"+nrobots);
+		
+		var colorbot:=0707707777:int;
+		var colorbot2:=0000000077:int;
+		var x:=-33,y:=10:int;
+		addCircle(window,x+18,y,8);
+		addFilledCircle(window,x+18,y,7,colorbot);
+		addColoredLine(window,x+18-4,y-2,x+18+4,y-2,colorbot2);
+		addColoredLine(window,x+18-4,y-2,x+18+4,y-2,colorbot2);
+	
+		addColoredLine(window,x+18-4,y+2,x+18+4,y+2,colorbot2)
+	
+
+
+
+	]|
+
+	
+
+	proc inicializar_robots:(in nrobots:int, in out table:array[][]of int)
+
+	{pre nrobots>=10}
+	{post true}
+
+		|[  
+		   var f:=0,c:=0,crobots:=0,nulo:=0,rf:=0,rc:=0: int;	                 
+		   var randomc:= 0.0,randomf:=0.0 : double;		          	                                    
+		   var buscarposicion:=true:boolean;     
+		
+		// INICIALIZO TABLERO, BORRO TODO PARA QUE NO SALGAN ROBOTS VIEJOS NI DESECHOS ANTIGUOS.
+		{bound 30-f}
+		do f<30->
+			c:=0;
+			{bound 45-c}
+			do c<45-> table[f][c]:=0;
+				  c:=c+1
+			od;
+		f:=f+1
+		od;
+
+                f:=0;
+		c:=0;    
+
+		table[15][22]:= 3; 
+
+
+		{inv (%forall i: 0<=i<crobots:(%exists j,k: 0<=j<30,0<=k<45:table[j][k]=1))/\ 0<=crobots<=nrobots}
+		{bound nrobots-crobots }
+		do crobots < nrobots ->
+
+			buscarposicion:=true;
+			//{inv buscarposicion==(table[rf][rc]!=0)}
+			{bound 10000-nulo}
+			do buscarposicion=true ->
+
+				rf:=0;
+				rc:=0;
+				randomc:=0.0;
+				randomf:=0.0;
+			
+				random randomc;
+				random randomf;
+				rf:= toInt(randomf*30.0);
+				rc:=toInt(randomc*45.0);
+		
+				if table[rf][rc]=0->
+					table[rf][rc]:=1;
+					buscarposicion:=false				
+				| table[rf][rc]!=0 -> skip			
+				fi;
+
+				nulo:=nulo+1	
+
+			od ;
+
+			crobots:=crobots+1	
+		od
+
+		]|
+
+
+
+	//  *****      PROGRAMA PRINCIPAL    *******
+
+							var window:=newScreen("ROBOTS",1020,600):Screen;
+							 var help:="hi":String;
+							  
+
+
+	var columnast:=45,filast:=30,nivel:=1,puntaje:=0,nrobots:=0,movimiento:=0,njugadas:=0: int;                             
+	var table:=%[i,j:filast,columnast:0]%: array [][] of int;      
+	var valida:=true,finjuego:=false:boolean;  	
+
+	mini_table(table,nivel,puntaje,window);
+	inicializar_variables_juego(nivel,nrobots,window);
+	inicializar_robots(nrobots,table);
+	mostrar_robots(table,window);
+	
+
+	{bound 10000-njugadas}
+	do finjuego=false ->
+		obtener_jugada_valida(table,movimiento);
+		determinar_estado_juego(table,finjuego,movimiento,window);
+		mover_usbbot(table,movimiento,window);
+		dibujar_usbbot(table,nivel,puntaje,window);
+		mover_robots(table,window);
+		mostrar_robots(table,window);
+		dibujar_usbbot(table,nivel,puntaje,window);
+		finjuego:= chequear_estado_usbbot(table);
+
+			if obtener_numero_robots(table)=0 /\ finjuego=false ->
+				nivel:=nivel+1;
+				write(" NIVEL# "+nivel);
+				help:=readString("PASASTE DE NIVEL");
+				inicializar_variables_juego(nivel,nrobots,window);
+				inicializar_robots(nrobots,table);
+				tablero(table,nivel,puntaje,window);
+				dibujar_usbbot(table,nivel,puntaje,window);
+				mostrar_robots(table,window)
+			| obtener_numero_robots(table)!=0 \/ finjuego=true -> skip				
+			fi;
+
+
+		njugadas:=njugadas+1
+	od;
+	
+	game_over(window);
+	//eraseAll(window);
+	help:=readString("Muestro tablero")
+
+]|
+
