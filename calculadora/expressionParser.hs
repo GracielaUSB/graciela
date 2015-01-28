@@ -2,44 +2,60 @@ import Control.Applicative((<*))
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Expr
-import Text.Parsec.Token
+import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Error
 import Text.Parsec.Pos
 import Text.Parsec.Prim
+import qualified Control.Applicative as AP
+import Control.Monad.Identity (Identity)
  
-expr    = buildExpressionParser table term
-         <?> "expression"
+data Error = Error  { error::String
+                    , numLinea::Int
+                    , numColumna::Int
+                    }
+
+expr  = buildExpressionParser table term
+      <?> "expression"
 
 
-lexer =   makeTokenParser haskellDef
+lexer :: P.TokenParser ()
+lexer =   P.makeTokenParser 
+          ( emptyDef
+          { P.reservedOpNames = ["*", "/", "+", "-"]
+          }
+          )
+                            
 
-term    =  do {ds <- many1 digit; spaces; notFollowedBy alphaNum; return (read ds)}
-        <|> parens lexer expr
-        <?> "simple expression"
+reservedOp  = P.reservedOp lexer
+parens      = P.parens lexer
+natural     = P.natural lexer
+
+term =  Just AP.<$> natural
+        <|> parens expr
+        <?> "expression"
 
 table   = [
             [  
-              Infix (do { char '*'; spaces; notFollowedBy letter; return (*)  }) AssocLeft, 
-              Infix (do { char '/'; spaces; notFollowedBy letter; return (div)  }) AssocLeft
+              Infix (do{reservedOp "*"; return (AP.liftA2 (*))    } <?> "operator") AssocLeft, 
+              Infix (do{reservedOp "/"; return (AP.liftA2 (div))  } <?> "operator") AssocLeft
             ],
             [
-              Infix (do { char '+'; spaces; notFollowedBy letter; return (+) }) AssocLeft,
-              Infix (do { char '-'; spaces; notFollowedBy letter; return (-) }) AssocLeft
+              Infix (do{reservedOp "+"; return (AP.liftA2 (+))    } <?> "operator") AssocLeft,
+              Infix (do{reservedOp "-"; return (AP.liftA2 (-))    } <?> "operator") AssocLeft
             ]
           ]
 
-mySeparator :: Parsec String () ()
-mySeparator = do
-              spaces
-              char ','
-              spaces
-
-parseListExp :: Parsec String () [Integer]
-parseListExp = sepBy expr mySeparator
+parseListExp :: ParsecT String () Identity [Maybe Integer]
+parseListExp = do { e <- expr
+                  ;   do { char ','; spaces; xs <- parseListExp; return (e:xs) }
+                 <|>  do { eof; return([e]) }
+                 <|>  do { try(manyTill anyChar (char ',')); spaces; xs <- parseListExp; return(Nothing:xs) }
+                 <|>  do { return ([Nothing]) }
+                  }
      
 play :: String -> IO ()
-play inp = case parse parseListExp "" inp of
+play inp = case runParser parseListExp () "" inp of
              { Left err -> print err
              ; Right ans -> print ans
              }
