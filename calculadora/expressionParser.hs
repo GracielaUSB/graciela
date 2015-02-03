@@ -1,22 +1,16 @@
-import Control.Applicative((<*))
+-- Parser basico para una lista de expresiones separadas por coma
+-- Autores:
+--  Joel Araujo
+--  Jose Jimenez
+
 import Text.Parsec
-import Text.Parsec.String
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
 import Text.Parsec.Error
-import Text.Parsec.Pos
-import Text.Parsec.Prim
-import qualified Control.Applicative as AP
 import Control.Monad.Identity (Identity)
 import Control.Arrow
  
-data Error = ParseError  { error::String
-                    , numLinea::Int
-                    , numColumna::Int
-                    }
-                    deriving(Show)
-
 expr  = buildExpressionParser table term
       <?> "expression"
 
@@ -24,8 +18,7 @@ expr  = buildExpressionParser table term
 lexer :: P.TokenParser ()
 lexer =   P.makeTokenParser 
           ( emptyDef
-          { P.reservedOpNames = ["*", "/", "+", "-"]
-          }
+          { P.reservedOpNames = ["*", "/", "+", "-"] }
           )
                             
 
@@ -48,24 +41,37 @@ table   = [
             ]
           ]
 
-parseListExp :: ParsecT String () Identity (Either [ParseError] [Integer])
+exprError pos = newErrorMessage (Message ("Error: Esperaba un numero o operador en vez de ")) pos
+
+parseListExp :: ParsecT String () Identity (Either [Integer] [(ParseError, Char)])
 parseListExp = do { e <- expr
-                  ;   do { char ','; spaces;  xs <- parseListExp; return (fmap(e:) xs)}
-                 <|>  do { eof; return(Right[e]) }
+                  ;   do { char ','; spaces;  xs <- parseListExp; return (left(e:) xs) }
+                 <|>  do { eof; return(Left[e]) }
                  <|>  do {  pos <- getPosition
                          ;  ys <- try(manyTill anyChar (char ','))
                          ;  spaces
                          ;  xs <- parseListExp
-                         ; return (left((newErrorMessage (Message ("Error: Esperaba una '' en vez de '" ++ [head ys] ++ "'\n")) pos):) xs) 
+                         ; return ( if isLeft xs then Right([(exprError pos, head ys)])
+                                    else fmap (((exprError pos, (head ys))):) xs
+                                   ) 
                          }
                  <|>  do {  pos <- getPosition
                          ;  ys  <- many anyChar 
-                         ;  return (Left[newErrorMessage(Message ("Error: Esperaba una '' en vez de '" ++ [head ys] ++ "'\n")) pos])  
+                         ;  return (Right[(exprError pos, head ys)])  
                          }
                   }
-     
+
+isLeft (Left _) = True
+isLeft _        = False
+
+printErrors :: [(ParseError, Char)] -> IO ()
+printErrors xs = mapM_ putStrLn (map (\(p, c) -> (show p) ++ [c]) xs)
+
 play :: String -> IO ()
 play inp = case runParser parseListExp () "" inp of
-             { Left err -> do { print err }
-             ; Right ans -> print ans
+             { Left err -> print err
+             ; Right ans -> case ans of 
+                              { Left  xs -> print xs
+                              ; Right xs -> printErrors xs
+                              }
              }
