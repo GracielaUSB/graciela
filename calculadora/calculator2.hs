@@ -1,9 +1,12 @@
 module Parser where
   
+import Text.Parsec
 import Text.Parsec.Error
-import Text.ParserCombinators.Parsec
+import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
- 
+import qualified Data.Text as T
+import qualified Data.Text.Read as TR
+
 data Token =   TokPlus 
              | TokMinus 
              | TokStar 
@@ -12,11 +15,11 @@ data Token =   TokPlus
              | TokComma 
              | TokLeftParent 
              | TokRightParent 
-             | TokInteger String
+             | TokInteger T.Text
              | TokError
       deriving (Show, Read)
 
-lexer :: Parser (Token)
+lexer :: Parsec T.Text () (Token)
 lexer = spaces >> (      (char '+' >> spaces >> return TokPlus)
                      <|> (char '-' >> spaces >> return TokMinus)
                      <|> (char '*' >> spaces >> return TokStar)
@@ -25,10 +28,10 @@ lexer = spaces >> (      (char '+' >> spaces >> return TokPlus)
                      <|> (char '(' >> spaces >> return TokLeftParent)
                      <|> (char ')' >> spaces >> return TokRightParent)
                      <|> (char '$' >> spaces >> return TokEnd)
-                     <|> ((many1 digit) AP.<* spaces >>= return . (TokInteger))
+                     <|> ((many1 digit) AP.<* spaces >>= return . (TokInteger . T.pack))
                      <|> (anyChar >> return TokError))
 
-expr :: Parser (Either [ParseError] Integer)
+expr :: Parsec T.Text () (Either [ParseError] Integer)
 expr = do t <- term
           do (lookAhead(char '$' <|> char ',' <|> char ')') >> return t)
               <|> do tok <- lexer
@@ -39,6 +42,7 @@ expr = do t <- term
                        ; otherwise  -> (genNewError (panicMode lookAheadSetList) "fin de archivo o coma" tok >>= return . (checkError t))
                        }
 
+term :: Parsec T.Text () (Either [ParseError] Integer)
 term = do p <- factor
           do (lookAhead(char '+' <|> char '-' <|> char '$' <|> char ')' <|> char ',') >> return p)
               <|> do tok <- lexer
@@ -49,6 +53,7 @@ term = do p <- factor
                        ; otherwise  -> (genNewError (panicMode lookAheadSetList) "fin de archivo, operador o coma" tok >>= return . (checkError p))
                        }
 
+factor :: Parsec T.Text () (Either [ParseError] Integer)
 factor = do tok <- lexer
             case tok of
               { TokLeftParent  -> do e     <- expr 
@@ -57,15 +62,18 @@ factor = do tok <- lexer
                                        { TokRightParent -> return e                                     
                                        ; TokError       ->  (genNewError (panicMode lookAheadSet) ")" tok' >>= return . Left . return)
                                        }
-              ; TokInteger int -> return (Right (read int))
+              ; TokInteger int -> return (Right (getNumber (TR.decimal int)))
               ; TokError       -> (genNewError (panicMode lookAheadSet) "numero" tok >>= return . Left . return)
               }
-     
+
+getNumber (Right (number, _)) = number
+getNumber _                   = 0
+ 
 genNewError pm msg e = do pos  <- getPosition
                           pm
                           return (newErrorMessage (Message ("Esperaba un " ++ msg ++ " en vez de " ++ (show e))) pos)
 
-parseListExpr :: Parser (Either [ParseError] [Integer])
+parseListExpr :: Parsec T.Text () (Either [ParseError] [Integer])
 parseListExpr = do  spaces
                     e <- expr
                     do tok <- lexer
@@ -95,7 +103,8 @@ lookAheadSetList = lookAhead(char ',' <|> char '$')
 
 panicMode until = manyTill anyChar until 
 
-play parser inp = case runParser (parser) () "" (inp ++ "$") of
+play :: Parsec T.Text () (Either [ParseError] Integer) -> T.Text -> IO ()
+play parser inp = case runParser (parser) () "" (T.snoc inp '$') of
                     { Left err -> print err
                     ; Right ans -> print ans
                     }
