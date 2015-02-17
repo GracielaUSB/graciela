@@ -1,14 +1,14 @@
 module Parser where
   
-import Text.Parsec.Error
 import Text.Parsec
 import Text.Parsec.Text
-import qualified Control.Applicative as AP
-import Data.Text as T
+import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
+import qualified Control.Applicative as AP
+import qualified Data.Text as T
 
 
-expr :: Parsec Text () (Either [ParseError] Integer)
+expr :: Parsec T.Text () (Either [ParseError] Integer)
 expr = do t <- term
           do try (cleanSpaces(char '+')) >> expr >>= return . (verifyBinError (+) t)
              <|> (try (cleanSpaces(char '-')) >> expr >>= return . (verifyBinError (-) t))
@@ -36,7 +36,7 @@ genNewError pm msg = do pos  <- getPosition
                         pm
                         return (newErrorMessage (Message ("Esperaba un " ++ msg ++ " en vez de " ++ [T.head ys])) pos)
 
-parseListExpr :: Parsec Text () (Either [ParseError] [Integer])
+parseListExpr :: Parsec T.Text () (Either [ParseError] [Integer])
 parseListExpr = do  spaces
                     e <- expr
                     do try (cleanSpaces(char ',')) >> parseListExpr >>= return . (verifyBinError (:) e)
@@ -58,9 +58,8 @@ cleanSpaces p = do  r <- p
                     return r
 
 
-
-play :: Text -> IO ()
-play inp = case runParser parseListExpr () "" (snoc inp '$') of
+play :: T.Text -> IO ()
+play inp = case runParser parseListExpr () "" (T.snoc inp '$') of
              { Left err -> print err
              ; Right ans -> print ans
              }
