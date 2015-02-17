@@ -1,10 +1,14 @@
 module Parser where
   
 import Text.Parsec.Error
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.Parsec.Text
 import qualified Control.Applicative as AP
- 
-expr :: Parser (Either [ParseError] Integer)
+import Data.Text as T
+import Control.Monad.Identity (Identity)
+
+
+expr :: Parsec Text () (Either [ParseError] Integer)
 expr = do t <- term
           do try (cleanSpaces(char '+')) >> expr >>= return . (verifyBinError (+) t)
              <|> (try (cleanSpaces(char '-')) >> expr >>= return . (verifyBinError (-) t))
@@ -30,9 +34,9 @@ number = do ds <- cleanSpaces(many1 digit)
 genNewError pm msg = do pos  <- getPosition
                         ys   <- getInput
                         pm
-                        return (newErrorMessage (Message ("Esperaba un " ++ msg ++ " en vez de " ++ [head ys])) pos)
+                        return (newErrorMessage (Message ("Esperaba un " ++ msg ++ " en vez de " ++ [T.head ys])) pos)
 
-parseListExpr :: Parser (Either [ParseError] [Integer])
+parseListExpr :: Parsec Text () (Either [ParseError] [Integer])
 parseListExpr = do  spaces
                     e <- expr
                     do try (cleanSpaces(char ',')) >> parseListExpr >>= return . (verifyBinError (:) e)
@@ -53,8 +57,10 @@ cleanSpaces p = do  r <- p
                     spaces
                     return r
 
-play :: String -> IO ()
-play inp = case runParser parseListExpr () "" (inp ++ "$") of
+
+
+play :: Text -> IO ()
+play inp = case runParser parseListExpr () "" (snoc inp '$') of
              { Left err -> print err
              ; Right ans -> print ans
              }
