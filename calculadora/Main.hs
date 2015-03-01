@@ -8,7 +8,10 @@ import Parser
 import Lexer
 import Token
 
-playLexer inp = runParser (lexer) () "" (T.pack inp)                     
+playLexer inp = case runParser (lexer) () "" (inp) of
+            { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
+            ; Right par -> putStrLn (show par)
+            }
 
 playParser inp = runParser (parseExpr) () "" (inp)
 
@@ -24,4 +27,4 @@ play inp = case runParser (concatLexPar) () "" (inp) of
                            
 parseFromFile :: FilePath -> IO ()
 parseFromFile arch = do  s <- TIO.readFile arch
-                         play s
+                         playLexer s
