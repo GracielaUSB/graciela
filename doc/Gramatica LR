@@ -1,0 +1,188 @@
+
+#Gramatica GaCeLa
+
+PROGRAMA : "program" TK_ID "|" "[" ListDEF ListACC "]" "|"
+
+ListDEF : ListDEF PROCEDIMIENTO
+		| %empty
+
+PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN			  
+			  | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "]" {pre" EXPRESION_P "pre}" "{post" EXPRESION_P "post}" "{bound" EXPRESION_P "bound}" "|" "[" ListACC "]" "|"
+
+
+DECLARACIONES : ListDECLA ; "read" ListReadID WITH ";"
+   			  | ListDECLA
+ 			  | %empty
+
+WITH : "with" ID 
+	 | %empty
+
+ListReadID : ListReadID "," ID 
+		   | %empty 
+
+ListDECLA : "var"   ListID   ":" TIPO ";" ListDECLA
+	      | "var"   ListASIG ":" TIPO ";" ListDECLA
+	      | "const" ListASIG ":" TIPO ";" ListDECLA
+	      | %empty
+
+ListID : TK_ID ListIDaux  
+       
+ListIDaux : "," TK_ID ListIDaux
+          | %empty
+
+CuerpoFUN : "|" "[" ListGUARD ">>" EXPRESION "]" "|"
+		  | EXPRESION
+
+ListARG : ListARG ARG
+		| %empty
+
+ARG : "in" TK_ID ":" TIPO
+	| "out" TK_ID ":=" EXPRESION ":" TIPO
+	| "inout" TK_ID ":" TIPO
+
+
+BLOQUE : ListDECLA ListACC
+       | ListACC
+
+ListACC : ListACCaux TRIPLETA
+		
+ListACCaux : ListACCaux TRIPLETA ";"
+		  | %empty
+
+TRIPLETA : "{a" EXPRESION_P "a}" ACCION  
+         | ACCION
+
+ACCION : ListID ListAc_ARREGLO ":=" ListEXP
+	   | "skip"
+	   | "if" ListGUARD "fi"
+	   | "{inv" EXPRESION_P "inv}" "{bound" EXPRESION_P "bound}" "do" ListGUARD "od"
+	   | "|" "[" BLOQUE "]" "|"
+	   | "abort"
+	   | "random" ListID
+       | "write" "(" EXPRESION ")"
+	   | TK_ID "(" ListEXPRESION ")"
+	   | TK_ID "(" ")"
+
+////////////////////////////////////////////
+ListASIG : TK_ID ":=" EXPRESION ListASIGaux
+		
+ListASIGaux : ListASIGaux "," TK_ID  ":=" EXPRESION
+		   | %empty 
+
+
+ListASIG : TK_ID ":=" EXPRESION ListASIGaux
+		
+ListASIGaux : "," TK_ID  ":=" EXPRESION ListASIGaux
+		   | %empty 
+////////////////////////////////////////////
+
+ListGUARD : GUARD ListGUARDaux
+
+ListGUARDaux : "|" GUARD ListGUARDaux
+			 | %empty
+
+
+GUARD : EXPRESION "->" ACCION
+
+EXPRESION_P : EXPRESION_BOOL_P EXPRESION_Paux
+
+EXPRESION_Paux : OpBOOL EXPRESION_BOOL_P EXPRESION_Paux
+			   | %empty
+
+EXPRESION_BOOL_P : EXPRESION OpMAT EXPRESION
+				 | "(" "%" OpCUANT TK_ID ":" EXPRESION_P ")"
+				 | "(" EXPRESION_BOOL_P ")"
+
+OpMAT : "="
+	  | ">"
+	  | "<"
+	  | "<="
+	  | ">="
+	  | "+"
+	  | "-"
+	  | "*"
+	  | "/"
+	  | "div"
+	  | "mod"
+	  | "max"
+	  | "min"
+
+OpBOOL : "/\"
+       | "\/"
+	   | "==>"
+       | "<=="
+	   | "=="
+	   | "!"
+
+OpCUANT : "forall"
+        | "exist"
+        | "max"
+        | "min"
+        | "sigma"
+        | "pi"
+        | "union"
+
+OpBIN : "^"
+      | "*"
+      | "max"
+      | "min"
+      | "div"
+      | "mod"
+      | "gcd"
+      | "+"
+      | "-"
+      | "<"
+      | "<="
+      | "="
+      | ">"
+      | ">="
+      | "!="
+
+
+EXPRESION : TK_ID
+		  | TK_ID "(" ListEXPRESION ")"
+		  | TK_ID "(" ")"
+		  | "-" EXPRESION
+		  | "(" EXPRESION ")"
+		  | EXPRESION OpBIN EXPRESION
+          | EXPRESION OpBOOL EXPRESION
+		  | EXPRESION "=>" EXPRESION "|" EXPRESION
+		  | "!" EXPRESION
+		  | "|" "[" ListACC ">>" EXPRESION "]" "|"
+		  | "MIN_INT" 
+		  | "MIN_DOUBLE"
+		  | "MAX_INT" 
+		  | "MAX_DOUBLE"
+		  | TK_ID ListAc_ARREGLO
+		  | "[" ListAc_ARREGLO "]"
+		  | tokenBOOL
+		  | tokenINT
+          | tokenCHAR
+		  | tokenSTRING
+          | "toInt" "(" EXPRESION ")"
+          | "toDouble" "(" EXPRESION ")"
+          | "toChar" "(" EXPRESION ")"
+          | "toString" "(" EXPRESION ")" 
+          | "abs" "(" EXPRESION ")"
+          | "sqrt" "(" EXPRESION ")"
+          | "length" "(" EXPRESION ")"
+		  | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]"
+	
+
+ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
+               | %empty
+
+ListEXPRESION :  EXPRESION ListEXPRESIONaux
+
+ListEXPRESIONaux : "," EXPRESION ListEXPRESION
+               | %empty 
+ 
+TIPO : TIPO_BASICO
+     | "array" ListAc_ARREGLO "of" TIPO_BASICO  
+     
+
+TIPO_BASICO : "boolean"
+            | "int"
+            | "double"
+            | "char"
+            | "string"

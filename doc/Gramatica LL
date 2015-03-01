@@ -1,0 +1,212 @@
+
+#Gramatica GaCeLa
+
+PROGRAMA : "program" TK_ID "|" "[" ListDEF ListACC "]" "|"
+
+#CAMBIO 1
+ListDEF : PROCEDIMIENTO ListDEF 
+        | %empty
+
+
+PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG "->" TIPO "{" "pre" EXPRESION_P "}" "{" "post" EXPRESION_P "}" 
+                "{" "bound" EXPRESION_P "}" CuerpoFUN
+			  | "proc" TK_ID ":" "(" ListARG "{" "pre" EXPRESION_P "}" "{" "post" EXPRESION_P "}" 
+                "{" "bound" EXPRESION_P "}" "|" "[" ListACC "]" "|"
+
+CuerpoFUN : "|" "[" ListDEF ListACC ">>" EXPRESION "]" "|"
+		  | EXPRESION
+
+#CAMBIO 2
+ListARG : ARG ListARG
+        | %empty
+
+#CAMBIO 3
+ARG : "in" ARG'
+	| "out" TK_ID ":=" EXPRESION ":" TIPO
+	
+ARG' : TK_ID ":" TIPO
+       "out" TK_ID ":" TIPO
+  
+
+ListACC : ListACC' TRIPLETA
+
+#CAMBIO 4		
+ListACC' : TRIPLETA ";" ListACC'
+		 | %empty
+
+TRIPLETA : "{" EXPRESION_P "}" ACCION "{" EXPRESION_P "}"
+         | ACCION
+
+#CAMBIO 5
+ACCION : ListID ListAc_ARREGLO ":=" ListEXP
+	   | "skip"
+	   | "if" ListGUARD "fi"
+	   | "{" "inv" EXPRESION_P "}" "{" "bound" EXPRESION_P "}" "do" ListGUARD "od"
+       | "var" ACCION'
+	   | "const" ListASIG ":" TIPO
+	   | "|" "[" ListACC "]" "|"
+	   | "abort"
+	   | "random" ListID
+       | "write" "(" EXPRESION ")"
+       | "readInt"  "(" EXPRESION ")"
+       | "readDouble"  "(" EXPRESION ")"
+       | "readChar"  "(" EXPRESION ")"
+       | "readString"  "(" EXPRESION ")"
+	   | TK_ID "(" ListEXPRESION ")"
+
+ACCION' : ListID ":" TIPO
+        | ListASIG ":" TIPO
+
+#CAMBIO 6
+ListID : ListID'' TK_ID 
+       
+ListID' : TK_ID "," ListID'
+        | %empty
+
+ListASIG : ListASIG' TK_ID ":=" EXPRESION
+		
+ListASIG' : TK_ID  ":=" EXPRESION "," ListASIG' 
+		  | %empty 
+
+ListGUARD : ListGUARD' GUARD
+
+ListGUARD' : GUAR "|" ListGUARD'
+		   | %empty
+
+GUARD : EXPRESION "->" ACCION
+
+#CAMBIO 7
+EXPRESION_P : EXPRESION_P' EXPRESION_BOOL_P
+
+EXPRESION_P' : EXPRESION_BOOL_P OpBOOL EXPRESION_P'
+			 | %empty
+
+#CAMBIO 8
+EXPRESION_BOOL_P : EXPRESION OpMAT EXPRESION
+				 | "(" EXPRESION_BOOL_P'
+	
+EXPRESION_BOOL_P' : "%" OpCUANT TK_ID ":" EXPRESION_P ")"
+                  | EXPRESION_BOOL_P ")"
+
+OpMAT : "="
+	  | ">"
+	  | "<"
+	  | "<="
+	  | ">="
+	  | "+"
+	  | "-"
+	  | "*"
+	  | "/"
+	  | "div"
+	  | "mod"
+	  | "max"
+	  | "min"
+
+OpBOOL : "/\"
+       | "\/"
+	   | "==>"
+       | "<=="
+	   | "=="
+	   | "!"
+
+OpCUANT : "forall"
+        | "exist"
+        | "max"
+        | "min"
+        | "sigma"
+        | "pi"
+        | "dpi"
+        | "union"
+
+OpBIN : "^"
+      | "*"
+      | "max"
+      | "min"
+      | "div"
+      | "mod"
+      | "gcd"
+      | "+"
+      | "-"
+      | "<"
+      | "<="
+      | "="
+      | ">"
+      | ">="
+      | "!="
+
+#CAMBIO 9
+EXPRESION : TK_ID EXPRESION''
+          | "-" EXPRESION
+          | "(" EXPRESION ")"
+          | "!" EXPRESION
+          | "|" "[" ListACC ">>" EXPRESION "]" "|"
+          | "MIN_INT" 
+          | "MIN_DOUBLE"
+          | "MAX_INT" 
+          | "MAX_DOUBLE"
+          | "[" ListAc_ARREGLO "]"
+          | tokenBOOL
+          | tokenINT
+          | tokenCHAR
+          | tokenSTRING
+          | "toInt" "(" EXPRESION ")"
+          | "toDouble" "(" EXPRESION ")"
+          | "toChar" "(" EXPRESION ")"
+          | "toString" "(" EXPRESION ")" 
+          | "abs" "(" EXPRESION ")"
+          | "sqrt" "(" EXPRESION ")"
+          | "length" "(" EXPRESION ")"
+          | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]"
+
+
+          | TK_ID EXPRESION'' EXPRESION'
+          | "-" EXPRESION EXPRESION'
+          | "(" EXPRESION ")" EXPRESION'
+          | "!" EXPRESION EXPRESION'
+          | "|" "[" ListACC ">>" EXPRESION "]" "|" EXPRESION'
+          | "MIN_INT" EXPRESION'  
+          | "MIN_DOUBLE" EXPRESION'
+          | "MAX_INT" EXPRESION' 
+          | "MAX_DOUBLE" EXPRESION'
+          | "[" ListAc_ARREGLO "]" EXPRESION'
+          | tokenBOOL EXPRESION'
+          | tokenINT EXPRESION'
+          | tokenCHAR EXPRESION'
+          | tokenSTRING EXPRESION'
+          | "toInt" "(" EXPRESION ")" EXPRESION'
+          | "toDouble" "(" EXPRESION ")" EXPRESION'
+          | "toChar" "(" EXPRESION ")" EXPRESION'
+          | "toString" "(" EXPRESION ")" EXPRESION' 
+          | "abs" "(" EXPRESION ")" EXPRESION'
+          | "sqrt" "(" EXPRESION ")" EXPRESION'
+          | "length" "(" EXPRESION ")" EXPRESION'
+          | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]" EXPRESION'
+
+EXPRESION' : OpBIN EXPRESION 
+           | OpBOOL EXPRESION 
+		       | "=>" EXPRESION "|" EXPRESION
+           | OpBIN EXPRESION EXPRESION'  
+           | OpBOOL EXPRESION EXPRESION' 
+           | "=>" EXPRESION "|" EXPRESION EXPRESION'
+
+EXPRESION'' : "(" ListEXPRESION ")"
+           | ListAc_ARREGLO
+           | %empty
+
+
+ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
+               | %empty
+
+ListEXPRESION : ListEXPRESION' EXPRESION
+
+ListEXPRESION' : EXPRESION "," ListEXPRESION'
+               | %empty 
+ 
+TIPO : TIPO_BASICO
+     | "array" ListAc_ARREGLO "of" TIPO_BASICO  
+     
+TIPO_BASICO : "boolean"
+            | "int"
+            | "double"
+            | "char"
+            | "string"
