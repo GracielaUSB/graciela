@@ -7,12 +7,14 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import Token
 
+pStar = oneOf "*\215"
+
 lexer :: Parsec T.Text () ([TokenPos])
 lexer = do pos <- getPosition    
            do  (eof >> spaces >> return ([(TokEnd, pos)]))
-               <|> (do tok <- ((char '+'     >> spaces >> return (TokPlus))
+               <|> (do tok <- (   (char '+' >> spaces >> return (TokPlus))
                               <|> (char '-' >> spaces >> return (TokMinus))
-                              <|> (char '*' >> spaces >> return (TokStar))
+                              <|> (pStar    >> spaces >> return (TokStar))
                               <|> (char '/' >> spaces >> return (TokSlash))
                               <|> (char ',' >> spaces >> return (TokComma))
                               <|> (char '(' >> spaces >> return (TokLeftParent))
