@@ -13,43 +13,24 @@ data Struct = Struct Linea Columna Offset deriving (Read, Eq, Show, Ord)
 
 type Diccionario = M.Map T.Text Struct        
 
-data Nodo = Dic {actual :: Diccionario, padre :: Diccionario} deriving (Read, Eq, Show, Ord)
-
-type TablaSimbolos = Tree.Tree Nodo 
+data TablaSimbolos = Tabla { actual :: Diccionario, padre :: TablaSimbolos, hijos :: [TablaSimbolos] } deriving (Read, Eq, Show, Ord)
 
 
 
-
---enterScope :: TablaSimbolos -> TablaSimbolos 
---enterScope x = Tree.unfoldTree arbolito 0
-
-
--- actual (Tree.rootLabel x)
-
-arbolito n =  if (n < 0) then (n,[]) else (n,[n-1, n-2])
-
---Ejemploooo
-
-ana :: (b -> Maybe (a,b)) -> b -> [a]   
--- Its definition:
-ana f x = case (f x) of
-            Nothing -> []
-            Just (a,y) ->  a:(ana f y)
-
-until5 n = if (n < 5) then (Just (n+1,n+1)) else Nothing
+setElemento :: TablaSimbolos -> String -> Linea -> Columna -> Offset -> TablaSimbolos 
+setElemento tabla valor linea columna offset = 
+        let newActual = M.insert (T.pack valor) (Struct linea columna offset) (actual tabla)
+            in Tabla newActual (padre tabla) (hijos tabla)
 
 
-Node {rootLabel = 2, 
-			subForest = [Node {rootLabel = 1, 
-								subForest = [Node {rootLabel = 0, 
-													subForest = [Node {rootLabel = -1, 
-																		subForest = []},
-																 Node {rootLabel = -2, 
-																 		subForest = []}]}
-											,Node {rootLabel = -1, 
-													subForest = []}]}
-						,Node {rootLabel = 0, 
-								subForest = [Node {rootLabel = -1, 
-													subForest = []},
-											Node {rootLabel = -2, 
-													subForest = []}]}]}
+setHijo :: TablaSimbolos -> TablaSimbolos
+setHijo tabla = Tabla (M.empty) (padre tabla) []
+
+
+enterScope :: TablaSimbolos -> TablaSimbolos -> TablaSimbolos
+enterScope tabla hijo = Tabla (actual tabla) (padre tabla) $ hijo:(hijos tabla)
+
+
+exitScope :: TablaSimbolos -> TablaSimbolos
+exitScope tabla = padre tabla
+
