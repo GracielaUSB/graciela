@@ -4,9 +4,11 @@
 |          |             |           |             |         |           |        |           |
 |----------|-------------|-----------|-------------|---------|-----------|--------|-----------|
 | program  | pre         | post      | bound       | func    | proc      | in     | out       |
-| div      | mod         | max       | min         | exist   | sigma     | pi     | union     |
+| mod      | max         | min       | forall      | exist   | sigma     | pi     | union     |
 | if       | fi          | inv       | do          | od      | gcd       | abs    | sqrt      |
 | length   | var         | const     | abort       | random  | skip      | write  | writeln   |
-| readInt  | readDouble  | readChar  | readString  | toInt   | toDouble  | toChar | toString  |
 | boolean  | int         | double    | char        | string  | array     | True   | False     |
-| MIN_INT  | MIN_DOUBLE  | MAX_INT   | MAX_DOUBLE  | with    |           |        |           | 
+| MIN_INT  | MIN_DOUBLE  | MAX_INT   | MAX_DOUBLE  | toInt   | toDouble  | toChar | toString  | 
+| read     |  with       |  inout    | Notexist    | of      |
+
+
