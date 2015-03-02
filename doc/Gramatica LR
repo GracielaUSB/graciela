@@ -10,7 +10,7 @@ PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG ")" "->" TIPO "{" "bound" EXPRESION_
 			  | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "]" {pre" EXPRESION_P "pre}" "{post" EXPRESION_P "post}" "{bound" EXPRESION_P "bound}" "|" "[" ListACC "]" "|"
 
 
-DECLARACIONES : ListDECLA ; "read" ListReadID WITH ";"
+DECLARACIONES : ListDECLA ";"" "read" ListReadID WITH ";"
    			  | ListDECLA
  			  | %empty
 
@@ -102,7 +102,6 @@ OpMAT : "="
 	  | "-"
 	  | "*"
 	  | "/"
-	  | "div"
 	  | "mod"
 	  | "max"
 	  | "min"
@@ -124,9 +123,9 @@ OpCUANT : "forall"
 
 OpBIN : "^"
       | "*"
+      | "/"
       | "max"
       | "min"
-      | "div"
       | "mod"
       | "gcd"
       | "+"

@@ -1,0 +1,57 @@
+module Token where
+
+import Text.Parsec
+import Text.Parsec.Error
+import Control.Monad.Identity (Identity)
+import qualified Control.Applicative as AP
+import qualified Data.Text as T
+
+data Token =   TokPlus
+             | TokMinus 
+             | TokStar 
+             | TokSlash 
+             | TokEnd 
+             | TokComma 
+             | TokLeftParent 
+             | TokRightParent 
+             | TokInteger {num :: Integer}
+             | TokError T.Text
+      deriving (Show, Read, Eq)
+
+type TokenPos = (Token, SourcePos)
+
+
+makeTokenParser x = token showTok posTok testTok
+                    where
+                      showTok (t, pos) = show t
+                      posTok  (t, pos) = pos
+                      testTok (t, pos) = if x == t then Just (t) else Nothing
+
+verify :: Token -> Parsec ([TokenPos]) () (Token)
+verify token = makeTokenParser token
+
+parsePlus = verify TokPlus
+parseMinus = verify TokMinus
+parseSlash = verify TokSlash
+parseStar = verify TokStar
+parseComma = verify TokComma
+parseLeftParent = verify TokLeftParent
+parseRightParent = verify TokRightParent
+parseEnd  = verify TokEnd
+
+parseAnyToken :: Parsec ([TokenPos]) () (Token)
+parseAnyToken = token showTok posTok testTok
+                where
+                  showTok (t, pos) = show t
+                  posTok  (t, pos) = pos
+                  testTok (t, pos) = Just (t)
+
+number :: Parsec ([TokenPos]) () (Token)
+number = token showTok posTok testTok
+          where
+            showTok (t, pos) = show t
+            posTok  (t, pos) = pos
+            testTok (t, pos) = case t of
+                                { TokInteger n -> Just (TokInteger n)
+                                ; otherwise    -> Nothing
+                                }
