@@ -18,8 +18,43 @@ data Token =   TokPlus
              | TokEnd 
              | TokComma 
              | TokLeftParent 
-             | TokRightParent 
-             | TokProgram    
+             | TokRightParent
+             | TokPercent
+             | TokAccent
+             | TokLogicalAnd
+             | TokLogicalOr
+             | TokNotEqual
+             | TokLessEqual
+             | TokGreaterEqual
+             | TokImplies
+             | TokConsequent
+             | TokEquiv
+             | TokNotEqiv
+             | TokReturn
+             | TokAsig
+             | TokLess
+             | TokGreater
+             | TokEqual
+             | TokNot 
+             | TokProgram  
+             | TokLeftBracket
+             | TokRightBracket
+             | TokVerticalBar
+             | TokSemicolon
+             | TokColon
+             | TokLeftBrace
+             | TokRightBrace
+             | TokArrow
+             | TokLeftPre
+             | TokRightPre
+             | TokLeftPost
+             | TokRightPost
+             | TokLeftBound
+             | TokRightBound
+             | TokLeftA
+             | TokRightA
+             | TokLeftInv
+             | TokRightInv  
              | TokPre        
              | TokPost      
              | TokBound 
@@ -63,6 +98,7 @@ data Token =   TokPlus
              | TokMIN_DOUBLE 
              | TokMAX_INT   
              | TokMAX_DOUBLE 
+             | TokOf
              | TokBool   -- { nType :: TypeBool }      
              | TokType    --{ nType :: Type     }
              | TokInteger { num   :: Integer  }
