@@ -21,7 +21,11 @@ play inp = case runParser (concatLexPar) () "" (inp) of
             { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
             ; Right par -> case par of
                              { Left  err' -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                             ; Right par' -> putStrLn $ show par'
+                             ; Right par' -> case par' of 
+                                                { Left  par''' -> putStrLn $ concatMap (\s -> (show s) ++ "\n") par'''
+                                                ; Right par''' -> putStrLn $ concatMap (\s -> (show s) ++ "\n") par'''
+                                                }
+
                              }
             }
                            

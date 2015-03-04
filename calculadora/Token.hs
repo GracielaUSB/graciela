@@ -18,13 +18,15 @@ data Token =   TokPlus
              | TokError T.Text
       deriving (Read, Eq)
 
+
+
 instance Show Token where
-  show TokPlus          = "+"
-  show TokMinus         = "-"
-  show TokStar          = "*"
-  show TokSlash         = "/"
+  show TokPlus          = "operador"
+  show TokMinus         = "operador"
+  show TokStar          = "operador"
+  show TokSlash         = "operador"
   show TokEnd           = "fin de archivo"
-  show TokComma         = ","
+  show TokComma         = "coma"
   show TokLeftParent    = "paréntesis izquierdo"
   show TokRightParent   = "paréntesis derecho"
   show (TokInteger b)   = "numero : " ++ show b
