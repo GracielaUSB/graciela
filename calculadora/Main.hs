@@ -13,7 +13,7 @@ playLexer inp = case runParser (lexer) () "" (inp) of
             ; Right par -> putStrLn (show par)
             }
 
-playParser inp = runParser (parseExpr) () "" (inp)
+playParser inp = runParser (parseListExpr) () "" (inp)
 
 concatLexPar = playParser AP.<$> lexer
 
@@ -27,4 +27,4 @@ play inp = case runParser (concatLexPar) () "" (inp) of
                            
 parseFromFile :: FilePath -> IO ()
 parseFromFile arch = do  s <- TIO.readFile arch
-                         playLexer s
+                         play s

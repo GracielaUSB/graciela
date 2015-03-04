@@ -16,10 +16,21 @@ data Token =   TokPlus
              | TokRightParent 
              | TokInteger {num :: Integer}
              | TokError T.Text
-      deriving (Show, Read, Eq)
+      deriving (Read, Eq)
+
+instance Show Token where
+  show TokPlus          = "+"
+  show TokMinus         = "-"
+  show TokStar          = "*"
+  show TokSlash         = "/"
+  show TokEnd           = "fin de archivo"
+  show TokComma         = ","
+  show TokLeftParent    = "paréntesis izquierdo"
+  show TokRightParent   = "paréntesis derecho"
+  show (TokInteger b)   = "numero : " ++ show b
+  show (TokError   e)   = "cadena no reconocida " ++ show e
 
 type TokenPos = (Token, SourcePos)
-
 
 makeTokenParser x = token showTok posTok testTok
                     where
