@@ -23,11 +23,13 @@ data MyParseError = MyParseError { line      :: P.Line
 
 data WaitedToken =  Operator
                   | Number
+                  | TokenRP
                   deriving(Read)
 
 instance Show WaitedToken where
   show Operator = "operador"
   show Number   = "numero"
+  show TokenRP  = "paréntesis derecho"
 
 instance Show MyParseError where
   show (MyParseError line column wt at) = "Error en la línea " ++ show line ++ ", columna " ++ show column ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
@@ -42,7 +44,7 @@ genNewError laset msg = do  pos <- cleanEntry laset
 
 cleanEntry :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (TokenPos)
 cleanEntry laset = do pos <- getPosition
-                      e   <- (lookAhead(parseEnd) <|> parseAnyToken)
+                      e   <- (lookAhead(parseComma) <|> lookAhead(parseEnd) <|> parseAnyToken)
                       panicMode laset
                       return ((e, pos))
 
@@ -86,7 +88,7 @@ factor :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseE
 factor laset = do do parseLeftParent
                      e <- expr (parseEnd <|> parseComma <|> parseRightParent)
                      do  try(parseRightParent >>= return . return e)
-                         <|> (genNewError (laset) (Operator) >>= return . (checkError e))
+                         <|> (genNewError (laset) (TokenRP) >>= return . (checkError e))
                   
                   <|> (number >>= return . Right . num)
                   <|> (genNewError laset Number >>= return . Left . return)
