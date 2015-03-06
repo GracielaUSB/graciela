@@ -7,29 +7,26 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import Token
 
-
-
 tryString = try . string
 
 pPlus         = oneOf "+\43"
 pMinus        = oneOf "-\45"
 pStar         = oneOf "*\215"
 pSlash        = oneOf "/\247"
-pComma        = oneOf ",\44"
-pLeftParent   = oneOf "(\40"
-pRightParent  = oneOf ")\41"
-pLeftBracket  = oneOf "[\91"
-pRightBracket = oneOf "]\93"
-pVerticalBar  = oneOf "|\124"
-pSemicolon    = oneOf ";\59"
-pColon        = oneOf ":\58" 
-pLeftBrace    = oneOf "{\123"
-pRightBrace   = oneOf "}\125"
+pComma        = oneOf ","
+pLeftParent   = oneOf "("
+pRightParent  = oneOf ")"
+pLeftBracket  = oneOf "["
+pRightBracket = oneOf "]"
+pVerticalBar  = oneOf "|"
+pSemicolon    = oneOf ";"
+pColon        = oneOf ":" 
+pLeftBrace    = oneOf "{"
+pRightBrace   = oneOf "}"
 pLess         = oneOf "<\60"
 pGreater      = oneOf ">\62"
 pEqual        = oneOf "=\61"
 pNot          = oneOf "!\33"
-pPercent      = oneOf "%\37"
 pAccent       = oneOf "^\94"
 pLogicalAnd   = tryString "/\\" <|> tryString "\8743" 
 pLogicalOr    = tryString "\\/" <|> tryString "\8744"
@@ -39,11 +36,12 @@ pGreaterEqual = tryString ">="  <|> tryString "\8805"
 pImplies      = tryString "==>" <|> tryString "\8658"
 pConsequent   = tryString "<==" <|> tryString "\8656"
 pEquiv        = tryString "=="  <|> tryString "\8801"
-pNotEqiv      = tryString "=/=" <|> tryString "\8802"
-pReturn       = tryString ">>"  <|> tryString "\8811"
-pAsig         = tryString ":="   
-pProgram      = tryString "program"
-pArrow        = tryString "->"    <|> tryString "\8594"
+pNotEqiv      = tryString "!==" <|> tryString "\8802"
+pAsig         = tryString ":="  <|> tryString "\58\61" 
+pArrow        = tryString "->"  <|> tryString "\8594"
+pProgram      = tryString "program"  
+pLeftPercent  = tryString "(%"  
+pRightPercent = tryString "%)"  
 pLeftPre      = tryString "{pre"
 pRightPre     = tryString "pre}"
 pLeftPost     = tryString "{post"
@@ -72,14 +70,14 @@ pNotExist     = tryString "notExist" <|> tryString "\8708"
 pSigma        = tryString "sigma"    <|> tryString "\8721" 
 pPi           = tryString "pi"       <|> tryString "\960"
 pUnion        = tryString "union"    <|> tryString "\8746"
-pIf           =  tryString "if"
-pFi           =  tryString "fi"
+pIf           = tryString "if"
+pFi           = tryString "fi"
 pInv          = tryString "inv"
 pDo           = tryString "do"
 pOd           = tryString "od"
 pGcd          = tryString "gcd"
 pAbs          = tryString "abs"
-pSqrt         = tryString "sqrt" <|> tryString "\8730" 
+pSqrt         = tryString "sqrt"     <|> tryString "\8730" 
 pLength       = tryString "length"
 pVar          = tryString "var"
 pConst        = tryString "const"
@@ -123,9 +121,10 @@ lexer = do pos <- getPosition
                               <|> (pStar         >> spaces >> return (TokStar))
                               <|> (pSlash        >> spaces >> return (TokSlash))
                               <|> (pComma        >> spaces >> return (TokComma))
+                              <|> (pLeftPercent  >> spaces >> return (TokLeftPercent))
+                              <|> (pRightPercent >> spaces >> return (TokRightPercent))
                               <|> (pLeftParent   >> spaces >> return (TokLeftParent))
                               <|> (pRightParent  >> spaces >> return (TokRightParent))
-                              <|> (pPercent      >> spaces >> return (TokPercent))
                               <|> (pAccent       >> spaces >> return (TokAccent))
                               <|> (pLogicalAnd   >> spaces >> return (TokLogicalAnd))
                               <|> (pLogicalOr    >> spaces >> return (TokLogicalOr))
@@ -136,7 +135,6 @@ lexer = do pos <- getPosition
                               <|> (pGreaterEqual >> spaces >> return (TokGreaterEqual))
                               <|> (pEquiv        >> spaces >> return (TokEquiv))
                               <|> (pNotEqiv      >> spaces >> return (TokNotEqiv))
-                              <|> (pReturn       >> spaces >> return (TokReturn))
                               <|> (pAsig         >> spaces >> return (TokAsig))
                               <|> (pLess         >> spaces >> return (TokLess))
                               <|> (pGreater      >> spaces >> return (TokGreater))
@@ -155,9 +153,9 @@ lexer = do pos <- getPosition
                               <|> (pBound        >> spaces >> return (TokBound))
                               <|> (pFunc         >> spaces >> return (TokFunc))
                               <|> (pProc         >> spaces >> return (TokProc))
+                              <|> (pInOut        >> spaces >> return (TokInOut))
                               <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pOut          >> spaces >> return (TokOut))
-                              <|> (pInOut        >> spaces >> return (TokInOut))
                               <|> (pWith         >> spaces >> return (TokWith))
                               <|> (pMod          >> spaces >> return (TokMod))
                               <|> (pMax          >> spaces >> return (TokMax))
