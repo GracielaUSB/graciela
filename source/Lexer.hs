@@ -93,7 +93,7 @@ pToChar       = tryString "toChar"
 pToString     = tryString "toString"
 pType         = tryString "boolean"  <|> tryString "int"    <|> tryString "double"
                 <|> tryString "char" <|> tryString "string" <|> tryString "array"  
-pBool         = tryString "True"     <|> tryString "False"
+pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
 pMIN_DOUBLE   = tryString "MIN_DOUBLE"
 pMAX_INT      = tryString "MAX_INT"
@@ -103,7 +103,8 @@ pOf           = tryString "of"
 
 
 lexer :: Parsec T.Text () ([TokenPos])
-lexer = do pos <- getPosition    
+lexer = do spaces
+           pos <- getPosition    
            do  (eof >> spaces >> return ([(TokEnd, pos)]))
                <|> (do tok <- (   (pPlus         >> spaces >> return (TokPlus))
                               <|> (pArrow        >> spaces >> return (TokArrow))
@@ -153,8 +154,7 @@ lexer = do pos <- getPosition
                               <|> (pBound        >> spaces >> return (TokBound))
                               <|> (pFunc         >> spaces >> return (TokFunc))
                               <|> (pProc         >> spaces >> return (TokProc))
-                              <|> (pInOut        >> spaces >> return (TokInOut))
-                              <|> (pIn           >> spaces >> return (TokIn))
+                              <|> (pInOut        >> spaces >> return (TokInOut))    
                               <|> (pOut          >> spaces >> return (TokOut))
                               <|> (pWith         >> spaces >> return (TokWith))
                               <|> (pMod          >> spaces >> return (TokMod))
@@ -187,15 +187,21 @@ lexer = do pos <- getPosition
                               <|> (pToDouble     >> spaces >> return (TokToDouble))    
                               <|> (pToChar       >> spaces >> return (TokToChar))
                               <|> (pToString     >> spaces >> return (TokToString))
-                              <|> (pType         >> spaces >> return (TokType))
-                              <|> (pBool         >> spaces >> return (TokBool))
+                              <|> (pBool         AP.<* spaces >>= return . (TokBool . T.pack))
+                              <|> (pType         AP.<* spaces >>= return . (TokType . T.pack))
+                              <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
                               <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))
                               <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
                               <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
                               <|> (pOf           >> spaces >> return (TokOf))
+                              <|> ((char '"')     AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . (TokString . T.pack))
+                              <|> (try( do n1 <- many1 digit
+                                           char '.'
+                                           n2 <- many1 digit
+                                           return (TokFlotante (T.pack n1) (T.pack n2))))                             
                               <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
-                              <|> (anyChar        AP.<* spaces >>= return . (TokError . T.singleton)))
+                              <|> ( many1 letter  AP.<* spaces >>= return . (TokId . T.pack)))
                        fmap ((tok, pos) :) lexer)
 
 
