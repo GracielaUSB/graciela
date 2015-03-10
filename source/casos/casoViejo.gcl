@@ -7,9 +7,9 @@ program main |[
 	]|
 
 
-	func brz : (bool1 : boolean, a : int, b : int) → boolean
+	func brz : (booll : boolean, a : int, b : int) → boolean
 	|[
-		(a ≡ b) ∧  (b ≢ 49) ∨ bool1
+		(a ≡ b) ∧ (b ≢ 49) ∨ booll
 	]|
 
 
