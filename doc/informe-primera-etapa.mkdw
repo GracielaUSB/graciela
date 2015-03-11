@@ -28,7 +28,10 @@ Para modificar el estado de las variables se usan **acciones**. Entre las distin
 
 Con respecto a la precondición más débil:
 
-		wp(S)
+        wp('x := E', Q) == Q(x:=E)
+
+Podemos verlo de la siguiente forma: La ejecución de la asignación terminará en un estado que satisface *Q* si *x* con el valor de *E* es un estado válido. 
+
 * **Concatenación**: La concatenación de acciones permite construir una acción más grande a partir de otras más pequeñas. Sean, *S* y *T* acciones, podemos escribir la concatenación de la siguiente forma:
 
         {P} S ; T {Q} es equivalente a existe un estado R, tal que
@@ -36,12 +39,71 @@ Con respecto a la precondición más débil:
 
 	El *';'* se usa como **separador** de acciones.
 
-* **Abort**:
+  Precondición más débil:
 
-* **Skip**: La ejecución de esta acción no tiene efecto alguno en el programa. Es útil para cuando en ciertas condiciones explícitamente no se debe hacer nada. Por ejemplo, si tenemos un programa en el que queremos sumar un valor solo en el caso que una variable sea negativa, podemos escribir el siguiente programa:
+        wp('S;T', Q) = wp('S', wp('T', Q))
+        
+La precondición más débil de T con la precondición Q sirve de postcondición para la precondición más débil de S.
+
+* **Abort**:Se utliza para terminar con el programa. Si la ejecución termina alcanza un punto en el cual **abort** debe ser ejecutado, entonces el programa está erroneo.
+
+* **Selección**: La selección permite ejecutar ciertas acciones dependiendo del estado del programa. Se escribe de la siguiente forma:
+
+        if B0 -> S0
+        [] Bi -> Si
+        [] Bn -> Sn
+        fi
+
+    Los B~i~ -> S~i~se les llama **comandos con guardia** (guarded commands). Los S~i~ son acciones del lenguaje y los B~i~ son expresiones lógicas. Las guardias funcionan como condiciones sobre el conjunto de estados.
+
+	Al momento de la ejecución se selecciona una guardia verdadera sobre el conjunto de estados para ejecutar su acción. En el caso que más de una guardia su cumpla se selecciona alguna al azar. En el caso que ninguna se cumpla el programa aborta, esto obliga al programador a escribir todos los escenarios en los cuales se ejecutaría la instrucción. Definir la selección de esta forma tiene la siguientes ventajas:
+
+    *  Si más de una guardia es cierta entonces el programador deja a juicio del lenguaje cual guardia ejecutar y dependiendo del criterio usado se ejecuta cualquiera. En el caso que se implante un compilador para el lenguaje, se puede escoger la optimice la ejecución del programa. Para esos estados no importa cual acción se ejecute, cualquiera debe terminar en un estado válido para la continuación del programa.
+
+    * Las principales ventajas de ejecutar el abort cuando ninguna guardia es cierta son las siguientes: 
+        * Legilibilidad del código: Al obligar al programador a escribir todos los escenarios ayuda a cualquiera que lea el programa a entender bajo que casos se deben ejecutar las insrucciones definidas en el comando guardado. Incluso, pueden haber condiciones para las cuales no debe ejecutarse ninguna acción, para esto existe la acción **skip**, que será definida posteriormente.
+
+        * Facilita el aprendizaje: Para los programadores novatos es bueno pensar en todos los estados para los cuales algún comando guardado debe ser ejecutado. El programador está forzado a entender el problema que desea solucionar y a desarollar todas las alternativas de ejecución del programa.
+
+
+    Con respecto a la precondición más débil:
+        
+        wp(IF, Q) = (Ei: 1 <= i <= n: Bi) /\
+                    (Ai: 1 <= i <= n: Bi => wp(Si, Q))
+
+La cual podemos intepretar de la siguiente forma: Al momento de la ejecución alguna guardia debe ser cierta, esto lo aseguramos con la primera parte de la conjunción. La segunda parte asegura que para todas las guardias B~i~, el conjunto de estados que define a precondición más débil de S~i~ con la postcondicón de la selección, es subconjunto de aquel definido por B~i~. Es decir, cualquier guardia que se escoja terminará en un estado que satisface la postcondición.
+
+**Repetición**: Nos permite ejecutar un conjunto de comandos con guardia de manera continua hasta que ninguna guardia se cumpla. Tiene la siguiente sintaxis:
+
+    do B0 -> S0
+    [] Bi -> Si
+    od Bn -> Sn
+
+Se comporta de la siguiente manera: Al momento de la ejecución se selecciona alguna guardia B~i~ que sea cierta para la ejecución de su conjunto de acciones S~i~. Después de la ejecución de S~i~, vuelve al principio y escoge otra guardia cierta y así sucesivamente hasta que ninguna guardia sea cierta. Si al momento de escoger la guardia hay más de una cierta se ejecuta cualquiera al azar. En cambio, si ninguna lo es, la instrucción skip es ejecutada.
+
+Además, para asegurarnos de la validez debe proveerse un **invariante** y una **función de cota**. El invariante es una aserción que debe mantenerse antes y después de la ejecución de cada iteración, es decir, la ejecución de cualquier comando con guardia no destruye la validez del invariante. Y la función de cota es una función no negativa y decreciente en cada iteración, que nos garantiza la terminación del ciclo. 
+
+Con respecto a la precondición más débil tenemos:
+
+* wp(DO, Q) = (E k : 0 <= k : H~k~(Q))
+
+* H~k~(Q) = H~0~(Q) \/ wp(IF, H~k-1~(Q)) para k > 0
+
+* H~0~(Q) = !(Ei : 1 <= i <= n : Bi) /\ Q
+
+Podemos intepretarla de la siguiente manera:
+
+H~k~ (Q) representa la precondición más débil después al menos **k** selecciones de un comando con guardia, dejando al sistema en un estado que satisface Q.
+
+Para *k = 0* la postcondición debe mantenerse y ningún comando guardado debe ser seleccionado para ejecución.
+
+Para *k > 0*, tenemos dos casos. Aquel en que no existe ninguna guardia cierta para la ejecución, en cuyo caso el primer término se cumple. Y aquel en que al menos uno se cumple y debemos asegurarnos que la ejecución del comando con guardia seleccionado termina en un estado que permita la ejecución de *k-1* iteraciones nuevas, en cuyo caso el segundo término se cumple.
+
+
+**Skip**: Es útil para cuando en ciertas condiciones explícitamente no se debe hacer nada. Por ejemplo, si tenemos un programa en el que queremos sumar un valor solo en el caso que una variable sea negativa, podemos escribir el siguiente programa:
     
 	
-		if  (x < 0) -> x = x + 10;
+		if (x < 0)  -> x = x + 10;
 		[] (x >= 0) -> skip;
 		fi
 
