@@ -6,11 +6,11 @@ PROGRAMA : "program" TK_ID "|" "[" ListDEF ListACC "]" "|"
 ListDEF : ListDEF PROCEDIMIENTO
 		| %empty
 
-PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN			  
-			  | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "]" {pre" EXPRESION_P "pre}" "{post" EXPRESION_P "post}" "{bound" EXPRESION_P "bound}" "|" "[" ListACC "]" "|"
+PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN
+              | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "]" {pre" EXPRESION_P "pre}" "{post" EXPRESION_P "post}" "{bound" EXPRESION_P "bound}" "|" "[" ListACC "]" "|"
 
 
-DECLARACIONES : ListDECLA ";"" "read" ListReadID WITH ";"
+DECLARACIONES : ListDECLA "read" ListReadID WITH ";"
    			  | ListDECLA
  			  | %empty
 
@@ -78,8 +78,8 @@ ListASIGaux : "," TK_ID  ":=" EXPRESION ListASIGaux
 
 ListGUARD : GUARD ListGUARDaux
 
-ListGUARDaux : "|" GUARD ListGUARDaux
-			 | %empty
+ListGUARDaux : "[]" GUARD ListGUARDaux
+	     | %empty
 
 
 GUARD : EXPRESION "->" ACCION
@@ -184,4 +184,4 @@ TIPO_BASICO : "boolean"
             | "int"
             | "double"
             | "char"
-            | "string"
+            | "string"	

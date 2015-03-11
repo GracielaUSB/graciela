@@ -108,6 +108,7 @@ lexer = do spaces
            do  (eof >> spaces >> return ([(TokEnd, pos)]))
                <|> (do tok <- (   (pPlus         >> spaces >> return (TokPlus))
                               <|> (pArrow        >> spaces >> return (TokArrow))
+                              <|> (pLogicalAnd   >> spaces >> return (TokLogicalAnd))
                               <|> (pLeftPre      >> spaces >> return (TokLeftPre))
                               <|> (pRightPre     >> spaces >> return (TokRightPre))
                               <|> (pLeftPost     >> spaces >> return (TokLeftPost))
@@ -127,7 +128,6 @@ lexer = do spaces
                               <|> (pLeftParent   >> spaces >> return (TokLeftParent))
                               <|> (pRightParent  >> spaces >> return (TokRightParent))
                               <|> (pAccent       >> spaces >> return (TokAccent))
-                              <|> (pLogicalAnd   >> spaces >> return (TokLogicalAnd))
                               <|> (pLogicalOr    >> spaces >> return (TokLogicalOr))
                               <|> (pNotEqual     >> spaces >> return (TokNotEqual))
                               <|> (pImplies      >> spaces >> return (TokImplies))
@@ -200,8 +200,6 @@ lexer = do spaces
                                            char '.'
                                            n2 <- many1 digit
                                            return (TokFlotante (T.pack n1) (T.pack n2))))                             
-                              <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
+                              <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . T.pack))
                               <|> ( many1 letter  AP.<* spaces >>= return . (TokId . T.pack)))
                        fmap ((tok, pos) :) lexer)
-
-

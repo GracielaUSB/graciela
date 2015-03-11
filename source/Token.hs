@@ -103,8 +103,8 @@ data Token =   TokPlus
              | TokBool  { nBool :: T.Text }      
              | TokType  { nType :: T.Text }
              | TokId T.Text
-             | TokString  { st    :: T.Text   }
-             | TokInteger { num   :: Integer  }
+             | TokString  { st    :: T.Text  }
+             | TokInteger { num   :: T.Text  }
              | TokFlotante T.Text T.Text
              | TokError T.Text
       deriving (Read, Eq)
