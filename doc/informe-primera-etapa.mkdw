@@ -108,6 +108,81 @@ Para *k > 0*, tenemos dos casos. Aquel en que no existe ninguna guardia cierta p
 		fi
 
 ###Desarrollo Técnico
+
+* **Variables y Anidamientos:** El lenguaje no permite ningún tipo de variables globales para evitar que el estudiante haga una mala práctica de ellas, debido a que suele suceder que los estudiantes como están aprendiendo a programar utilizan solamente variables globales para todas las variables que necesitan por la facilidad que les genera (gracias a su alcance global), pero esto es un **mal hábito** de programación que no les ayuda a entender el alcance y anidamiento de las variables. Por lo tanto, solo se permite el uso de **variables locales** a los procedimientos y para todo nuevo bloque de código, cada uno **define un alcance** por lo que todas las variables declaradas en él solo pueden ser visibles en los bloques de código que se encuentren **en su interior**, pero él no puede ver las variables locales a los bloques** de su interior**.
+
+        |[     // Primer bloque de codigo
+            var foo, bar : int;
+            var qux : boolean;
+
+            |[    // Segundo bloque de codigo
+                const baz := 79.7, bee := 5.5 : double;
+                var   aux := 49 : int;
+
+                foo := aux;
+            ]|
+        ]|
+
+    Las variables declaradas dentro del primer bloque tienen alcance en el segundo por lo tanto pueden ser utilizadas en el cómo se puede apreciar en este ejemplo, no obstante las variables del segundo no se pueden utilizar en el primer bloque, pero en el caso hipotético de existir un tercer bloque de código dentro del segundo, si se podrían utilizar (y así sucesivamente).
+
+
+* **Redefinición de variables:** La redefiniciones de variables **no es válida**, si una variable se declaró previamente en el anidamiento actual no se puede declarar de nuevo una variable que tenga el **mismo nombre**, sin importar su tipo. Esta decisión se tomó para minimizar la cantidad de problemas y errores que pueda tener el estudiante al momento de programar, puesto que en muchas ocasiones no tienen un buen conocimiento sobre los **alcances de las variables** y creen estar usando una variable cuando en realidad están usando otra del mismo nombre.
+
+        |[
+            var foo, bar : int;
+            var qux : boolean;
+
+            |[
+                const baz := 79.7, qux := 5.5 : double;
+                var   bar := 49 : int;
+
+                foo := bar;
+            ]|
+        ]|
+
+    En el ejemplo anterior se declaró la variable *bar* en los dos bloques de código, lo que no está permitido en el lenguaje por lo tanto, el código daría un error al momento de compilarlo.
+
+* **Lectura de variables:** Todos los datos que se deseen leer tanto de un archivo como atreves del prompt del sistema **solamente** se pueden realizar antes de colocar la precondición de un procedimiento,  por lo que no pueden hacerse directamente en un bloque de código o en una función del programa. Las variables que se van a utilizar para la lectura tienen que estar declaradas como **variables locales** del procedimiento o deben ser parámetros de entrada de tipo *out* o *inout*. Realizar la lectura solamente en este punto del programa nos asegura que para todo **valor específico** de lectura en las variables se podrá verificar en la precondición y siempre tendrá el mismo **resultado** al terminar el procedimiento y por lo tanto en su postcondición, teniéndose así un comportamiento **puro** dentro de los procedimientos.
+
+        proc : foo(in bar : boolean, out qux : int)
+        [
+             var text   : string;
+             var i := 0 : int;
+             var a, b   : double;
+
+             read(a, text, qux) with archivo1;
+             (...)
+        ]
+
+    Como se puede apreciar las tres variables que se utilizan en la lectura fueron previamente declaradas dentro del procedimiento o son parámetros de entrada que permiten retorno de valores, luego de la lectura vendría el resto del procedimiento.
+
+* **Funciones y Procedimientos:** Las funciones son **puras**, por lo tanto, no se permite el cambio de estados dentro de **ninguna** función, solo se puede emplear expresiones en ellas las cuales tendrán **un solo resultado** final del tipo especificado en la declaración de la función, en cambio, en los procedimientos se pueden emplear tanto expresiones como acciones del lenguaje como también permite tener **más de un resultado** gracias a los distintos comportamientos que pueden tener los parámetros de entrada.
+
+        func : foo(op1 : int, op2 : int, op3 : int) -> int
+        |[
+            (op2 * op3) / op1
+        ]|
+
+    La función anterior no realiza ningún cambio de estados, solamente aplica una regla de tres sobre tres números dados, por lo que se considera una función pura.
+
+* **Parámetros de entrada:** Debido a que las funciones son puras los parámetros de entrada no se pueden altera, son únicamente de **tipo lectura** y no debe especificarse con ninguna palabra reservada, mientras que los parámetros en los procedimientos tienen comportamientos distintos: los *in* que se comportan como una constante solo puede usarse su valor pero** nunca alterarse**, los *out* que no tiene ningún valor de entrada aunque si **retornan su ultimo valor asociado** al final del procedimiento, y por ultimo están los *inout* que tienen **las dos funciones**.
+
+* **Tipos estrictos:** Nuestro lenguaje es de tipo estricto **fuertemente tipados**, como resultado toda variable dentro del programa tiene que **saberse su tipo asociado** a tiempo de compilación y **no se puede comportar como ningún otro tipo** distinto al de el sin antes usar una función de conversión de tipos suministrada por el lenguaje, un ejemplo de ello sería el tener que convertir un numero entero para poder usarlo dentro de una cadena de caracteres.
+
+* **UTF-8:** El lenguaje permite que el programador aparte de usar el formato de codificación de caracteres **ASCII** pueda utilizar **UTF-8** para escribir los símbolos matemáticos, booleanos y cuantificadores. Permitiendo que el código sea más legible y elegante.
+
+         ASCII: (sigma k | 0 <= k < 10 : sqrt(2)*2)
+         UTF-8: (∑ k | 0 ≤ k < 10 : √2×2)
+
+
+* **Alex/Happy:** En primera instancia como el lenguaje se implementara en **haskell** se consideró en emplear el **analizador lexicográfico** Alex para generar los tokens y el **analizador sintáctico** happy para crear el árbol de derivación, mas se terminó descartando su uso debido a que la recuperación de errores es muy pobre (por no decir nula) y una de las **principales metas** es tener un **recuperador de errores robusto** para poder dar mensajes de errores más precisos y detallados que puedan facilitar el aprendizaje al estudiante.
+
+* **Parsec/Attoparsec:** En segunda instancia se consideró utilizar *parsec* o *attoparsec* pero este último, aunque es **más eficiente** que parsec, **no permite** utilizar transformadores de *monads* que brindan facilidades para el funcionamiento entre los distintos *parsers* del uso de la tabla de símbolos, anidamiento, entre otros. En cambio, *parsec* si permite el uso de trasformadores de *monads* y permite un excelente recuperador de errores para dar mensajes de errores lo más detallados posibles.
+
+* **Gramática LL:** El lenguaje que se está diseñando es sencillo y no posee un grado de complejidad alto permitiendo el uso de una gramática LL que no tenga recursión izquierda y que todas las derivaciones posean *firsts* distintos (las dos necesarias para que sea una gramática de este tipo), la principal razón aparte de facilitar la recuperación de errores, es el mejoramiento de rendimiento que se tiene con esta gramática en la librería de *parsec*.
+
+
+
 ###Próximos Pasos
 
 * **Pramación funcional avanzada (ci4251):** En el trimestre Abril-Julio 2015 abriran la materia *ci4251* que nos permitirá aprender las técnicas necesarias para continuar con el desarrollo del proyecto.
