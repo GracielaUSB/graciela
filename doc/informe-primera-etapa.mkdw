@@ -109,4 +109,17 @@ Para *k > 0*, tenemos dos casos. Aquel en que no existe ninguna guardia cierta p
 
 ###Desarrollo Técnico
 ###Próximos Pasos
+
+* **Pramación funcional avanzada (ci4251):** En el trimestre Abril-Julio 2015 abriran la materia *ci4251* que nos permitirá aprender las técnicas necesarias para continuar con el desarrollo del proyecto.
+
+* **Parser:** Comenzar a escribir un parser para el lenguaje que nos permita hacer el análisis sintáctico y traducir los programas correctos a una representación de árbol intermedia. En caso contrario, éste parser debe reportar todos lo errores que encuentre.
+
+* **Tabla de símbolos**: Durante esta etapa del proyecto desarrollamos una tabla de símbolos. El manejo de alcances de nuestro lenguaje  nos permite tener una representación sencilla mediante un árbol de diccionarios. Por cada alcance nuevo, agregamos una rama nueva al alcance actual y a ésta se comienzan a agregar los símbolos del nuevo alcance. 
+
+* **Verificación de tipos:** Después de terminar con el análisis sintáctico, desarrollaremos un verificador de tipos estricto para nuestro lenguaje. Al igual que en la etapa anterior, éste deberá reportar todos los errores que encuentre.
+
+* **Código de máquina**: Para ayudarnos a traducir nuestra representación intermedia a código de máquina, usaremos una herramienta llamada *LLVM*. Ésta define un lenguaje de representación intermedia en cual podemos traducir los programas escritos en el lenguaje y la herramienta genera el código necesario para ser ejecutado en varios modelos de CPU.
+
+* **Debugger y Profiler**: Después de terminar con todas las etapas mencionadas anteriormente, esperamos agregar un *debugger* y un *profiler* a nuestro lenguaje. 
+
 ##Conclusión
