@@ -8,7 +8,7 @@ ListDEF : ListDEF PROCEDIMIENTO
 		| %empty
 
 
-PROCEDIMIENTO : "func" TK_ID ":" "(" ListARGfunc ")" "->" TIPO CuerpoFUN
+PROCEDIMIENTO : "func" TK_ID ":" "(" ListARG_FUNC ")" "->" TIPO CuerpoFUN
               | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "{pre" EXPRESION_P "pre}" 
                 "|" "[" ListACC "]"  "|" "{post" EXPRESION_P "post}" "]"
 			  | "func" TK_ID ":" "(" ListARGfunc ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN
@@ -32,8 +32,13 @@ ListARGfunc : ListARGfunc "," TK_ID ":" TIPO
 Argumento de los procedimientos
 -------------------------------------------
 
-ListARG : ListARG "," ARG
+ListARG : ARG ListARG_PROC
 		| %empty
+
+
+ListARG_PROCaux : "," ARG ListARG_PROCaux
+                 | %empty
+
 
 ARG : "in"    TK_ID ":" TIPO
 	| "out"   TK_ID ":" TIPO
@@ -49,11 +54,11 @@ DECLARACIONES : ListDECLA "read" ListReadID WITH ";"
    			  | ListDECLA
  			  | %empty
 
-WITH : "with" ID 
+WITH : "with" TK_ID 
 	 | %empty
 
-ListReadID : ListReadID "," ID 
-		   | ID
+ListReadID : ListReadID "," TK_ID 
+		   | TK_ID
 		   | %empty 
 
 ListDECLA : "var"   ListID   ":" TIPO ";" ListDECLA

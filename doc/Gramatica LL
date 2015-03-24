@@ -3,111 +3,199 @@
 
 PROGRAMA : "program" TK_ID "|" "[" ListDEF ListACC "]" "|"
 
-#CAMBIO 1
+
 ListDEF : PROCEDIMIENTO ListDEF 
         | %empty
 
 
-PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG "->" TIPO "{" "pre" EXPRESION_P "}" "{" "post" EXPRESION_P "}" 
-                "{" "bound" EXPRESION_P "}" CuerpoFUN
-			  | "proc" TK_ID ":" "(" ListARG "{" "pre" EXPRESION_P "}" "{" "post" EXPRESION_P "}" 
-                "{" "bound" EXPRESION_P "}" "|" "[" ListACC "]" "|"
+PROCEDIMIENTO : "func" TK_ID ":" "(" ListARG_FUNC ")" "->" TIPO BOUND CuerpoFUN
+              | "proc" TK_ID ":" "(" ListARG_PROC ")" "[" DECLARACIONES "{pre" EXPRESION_P "pre}" BOUND
+                "|" "[" ListACC "]" "|" "{post" EXPRESION_P "post}" "]"
 
-CuerpoFUN : "|" "[" ListDEF ListACC ">>" EXPRESION "]" "|"
-		  | EXPRESION
 
-#CAMBIO 2
-ListARG : ARG ListARG
-        | %empty
+BOUND : "{bound" EXPRESION_P "bound}"
+      | %empty
 
-#CAMBIO 3
-ARG : "in" ARG'
-	| "out" TK_ID ":=" EXPRESION ":" TIPO
-	
-ARG' : TK_ID ":" TIPO
-       "out" TK_ID ":" TIPO
-  
 
-ListACC : ListACC' TRIPLETA
+/-------------------------------------------
+Argumentos de las funciones
+--------------------------------------------
+ListARG_FUNC : TK_ID ":" TIPO ListARG_FUNCaux
+             | %empty
 
-#CAMBIO 4		
-ListACC' : TRIPLETA ";" ListACC'
-		 | %empty
+ListARG_FUNCaux : "," TK_ID ":" TIPO ListARG_FUNCaux
+                | %empty
 
-TRIPLETA : "{" EXPRESION_P "}" ACCION "{" EXPRESION_P "}"
+-------------------------------------------/
+
+
+
+/------------------------------------------
+Argumento de los procedimientos
+-------------------------------------------
+
+ListARG_PROC : ARG ListARG_PROCaux
+             | %empty
+
+
+ListARG_PROCaux : "," ARG ListARG_PROCaux
+                 | %empty
+
+
+ARG : "in"    TK_ID ":" TIPO
+    | "out"   TK_ID ":" TIPO
+    | "inout" TK_ID ":" TIPO
+------------------------------------------/
+
+
+
+/--------------------------------------------------
+Declaraciones y read
+----------------------------------------------------
+
+DECLARACIONES : ListDECLA READ
+              | %empty
+
+
+READ : "read" ListReadID WITH ";"
+     | %empty
+
+
+WITH : "with" TK_ID 
+     | %empty
+ 
+
+ListReadID : TK_ID ListReadIDaux
+           | %empty 
+
+
+ListReadIDaux : "," TK_ID 
+              | %empty 
+
+ListDECLA : "var"   ListDECLAvar ":" TIPO ";" ListDECLA
+          | "const" ListASIG     ":" TIPO ";" ListDECLA
+          | %empty
+
+ListDECLAvar : ListID  
+             | ListASIG
+
+ListID : TK_ID ListIDaux  
+             
+ListIDaux : "," TK_ID ListIDaux
+          | %empty
+-------------------------------------------------------/
+
+
+
+/--------------------------------------------------
+Lista de asignacion 
+---------------------------------------------------
+
+ListASIG : TK_ID ":=" EXPRESION ListASIGaux
+    
+ListASIGaux : "," TK_ID ":=" EXPRESION ListASIGaux
+             | %empty 
+--------------------------------------------------/
+
+
+
+/-------------------------------------------------
+Cuerpo de las funciones
+-------------------------------------------------
+CuerpoFUN : "|" "[" EXPRESION "]" "|"
+
+-------------------------------------------------/
+
+
+
+/------------------------------------------------------
+Acciones y aserciones 
+---------------------------------------------------------
+BLOQUE : ListDECLA ListACC
+       | ListACC
+
+ListACC : ListACCaux ASERCION
+        
+ListACCaux : ASERCION ";" ListACCaux
+           | %empty
+
+
+ASERCION : "{a" EXPRESION_P "a}" ACCION  
          | ACCION
 
-#CAMBIO 5
-ACCION : ListID ListAc_ARREGLO ":=" ListEXP
-	   | "skip"
-	   | "if" ListGUARD "fi"
-	   | "{" "inv" EXPRESION_P "}" "{" "bound" EXPRESION_P "}" "do" ListGUARD "od"
-       | "var" ACCION'
-	   | "const" ListASIG ":" TIPO
-	   | "|" "[" ListACC "]" "|"
-	   | "abort"
-	   | "random" ListID
-       | "write" "(" EXPRESION ")"
-       | "readInt"  "(" EXPRESION ")"
-       | "readDouble"  "(" EXPRESION ")"
-       | "readChar"  "(" EXPRESION ")"
-       | "readString"  "(" EXPRESION ")"
-	   | TK_ID "(" ListEXPRESION ")"
+ACCION   : ListID ListAc_ARREGLO ":=" ListEXP
+         | "skip"
+         | "if" ListGUARD "fi"
+         | "{inv" EXPRESION_P "inv}" "{bound" EXPRESION_P "bound}" "do" ListGUARD "od"
+         | "|" "[" BLOQUE "]" "|"
+         | "abort"
+         | "random" ListID
+         | "write" "(" EXPRESION ")" WITH
+         | "writeln" "(" EXPRESION ")" WITH
+         | TK_ID "(" FUNC_ARG ")"
 
-ACCION' : ListID ":" TIPO
-        | ListASIG ":" TIPO
 
-#CAMBIO 6
-ListID : ListID'' TK_ID 
-       
-ListID' : TK_ID "," ListID'
-        | %empty
+FUNC_ARG : ListEXPRESION
+         | %empty
+------------------------------------------------------------/
 
-ListASIG : ListASIG' TK_ID ":=" EXPRESION
-		
-ListASIG' : TK_ID  ":=" EXPRESION "," ListASIG' 
-		  | %empty 
 
-ListGUARD : ListGUARD' GUARD
 
-ListGUARD' : GUAR "|" ListGUARD'
-		   | %empty
+/------------------------------------------
+Guardias de los if y de los do
+-------------------------------------------
+
+ListGUARD : GUARD ListGUARDaux
+
+ListGUARDaux : "[]" GUARD ListGUARDaux
+             | %empty
 
 GUARD : EXPRESION "->" ACCION
+------------------------------------------/
 
-#CAMBIO 7
-EXPRESION_P : EXPRESION_P' EXPRESION_BOOL_P
 
-EXPRESION_P' : EXPRESION_BOOL_P OpBOOL EXPRESION_P'
-			 | %empty
 
-#CAMBIO 8
+/-----------------------------------------------------
+Condiciones de las pre,post...
+------------------------------------------------------
+
+EXPRESION_P : EXPRESION_BOOL_P EXPRESION_Paux
+
+EXPRESION_Paux : OpBOOL EXPRESION_BOOL_P EXPRESION_Paux
+               | %empty
+
 EXPRESION_BOOL_P : EXPRESION OpMAT EXPRESION
-				 | "(" EXPRESION_BOOL_P'
-	
-EXPRESION_BOOL_P' : "%" OpCUANT TK_ID ":" EXPRESION_P ")"
-                  | EXPRESION_BOOL_P ")"
+                 | "(" EXPRESION_BOOL_Paux ")"
 
+
+EXPRESION_BOOL_Paux : OpCUANT TK_ID ":" EXPRESION_P
+                    | EXPRESION_BOOL_P
+-------------------------------------------------------------/
+
+
+
+/-------------------------------------------
+Operadores
+--------------------------------------------
 OpMAT : "="
-	  | ">"
-	  | "<"
-	  | "<="
-	  | ">="
-	  | "+"
-	  | "-"
-	  | "*"
-	  | "/"
-	  | "div"
-	  | "mod"
-	  | "max"
-	  | "min"
+      | ">"
+      | "<"
+      | "<="
+      | ">="
+      | "+"
+      | "-"
+      | "*"
+      | "/"
+      | "mod"
+      | "max"
+      | "min"
 
 OpBOOL : "/\"
        | "\/"
-	   | "==>"
+       | "==>"
        | "<=="
-	   | "=="
-	   | "!"
+       | "=="
+       | "!"
 
 OpCUANT : "forall"
         | "exist"
@@ -115,14 +203,13 @@ OpCUANT : "forall"
         | "min"
         | "sigma"
         | "pi"
-        | "dpi"
         | "union"
 
 OpBIN : "^"
       | "*"
+      | "/"
       | "max"
       | "min"
-      | "div"
       | "mod"
       | "gcd"
       | "+"
@@ -133,13 +220,24 @@ OpBIN : "^"
       | ">"
       | ">="
       | "!="
+-------------------------------------------/
 
-#CAMBIO 9
-EXPRESION : TK_ID EXPRESION''
+
+
+/-----------------------------------------
+Expresiones
+------------------------------------------
+ListEXPRESION : EXPRESION ListEXPRESIONaux
+
+ListEXPRESIONaux : "," EXPRESION ListEXPRESIONaux
+                 | %empty 
+ 
+
+EXPRESION : TK_ID EXPRESIONtokeid
           | "-" EXPRESION
           | "(" EXPRESION ")"
+          | EXPRESIONaux
           | "!" EXPRESION
-          | "|" "[" ListACC ">>" EXPRESION "]" "|"
           | "MIN_INT" 
           | "MIN_DOUBLE"
           | "MAX_INT" 
@@ -156,57 +254,53 @@ EXPRESION : TK_ID EXPRESION''
           | "abs" "(" EXPRESION ")"
           | "sqrt" "(" EXPRESION ")"
           | "length" "(" EXPRESION ")"
-          | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]"
+          | "if" ListGUARD_EXP "fi"
 
 
-          | TK_ID EXPRESION'' EXPRESION'
-          | "-" EXPRESION EXPRESION'
-          | "(" EXPRESION ")" EXPRESION'
-          | "!" EXPRESION EXPRESION'
-          | "|" "[" ListACC ">>" EXPRESION "]" "|" EXPRESION'
-          | "MIN_INT" EXPRESION'  
-          | "MIN_DOUBLE" EXPRESION'
-          | "MAX_INT" EXPRESION' 
-          | "MAX_DOUBLE" EXPRESION'
-          | "[" ListAc_ARREGLO "]" EXPRESION'
-          | tokenBOOL EXPRESION'
-          | tokenINT EXPRESION'
-          | tokenCHAR EXPRESION'
-          | tokenSTRING EXPRESION'
-          | "toInt" "(" EXPRESION ")" EXPRESION'
-          | "toDouble" "(" EXPRESION ")" EXPRESION'
-          | "toChar" "(" EXPRESION ")" EXPRESION'
-          | "toString" "(" EXPRESION ")" EXPRESION' 
-          | "abs" "(" EXPRESION ")" EXPRESION'
-          | "sqrt" "(" EXPRESION ")" EXPRESION'
-          | "length" "(" EXPRESION ")" EXPRESION'
-          | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]" EXPRESION'
+EXPRESIONaux : EXPRESION EXPRESIONop
 
-EXPRESION' : OpBIN EXPRESION 
-           | OpBOOL EXPRESION 
-		       | "=>" EXPRESION "|" EXPRESION
-           | OpBIN EXPRESION EXPRESION'  
-           | OpBOOL EXPRESION EXPRESION' 
-           | "=>" EXPRESION "|" EXPRESION EXPRESION'
+EXPRESIONtokeid : "(" FUNC_ARG ")"
+             | ListAc_ARREGLO
+             | %empty
 
-EXPRESION'' : "(" ListEXPRESION ")"
-           | ListAc_ARREGLO
-           | %empty
+EXPRESIONop : OpBIN  EXPRESION EXPRESIONop
+            | OpBOOL EXPRESION EXPRESIONop               
+            | %empty
+
+------------------------------------------------------/ 
 
 
+
+
+/----------------------------------------------------
+Guardias de las expresiones del if para las funciones
+-----------------------------------------------------
+
+ListGUARD_EXP : GUARD_EXP ListGUARD_EXPaux
+
+
+ListGUARD_EXPaux : "[]" GUARD_EXP ListGUARD_EXPaux 
+                 | %empty
+
+
+GUARD_EXP : EXPRESION "->" EXPRESION
+--------------------------------------------------/
+
+
+
+/-------------------------------------------
+Tipos
+--------------------------------------------
+
+TIPO : TIPO_BASICO
+     | "array" ListAc_ARREGLO "of" TIPO_BASICO  
+         
 ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
                | %empty
 
-ListEXPRESION : ListEXPRESION' EXPRESION
-
-ListEXPRESION' : EXPRESION "," ListEXPRESION'
-               | %empty 
- 
-TIPO : TIPO_BASICO
-     | "array" ListAc_ARREGLO "of" TIPO_BASICO  
-     
 TIPO_BASICO : "boolean"
             | "int"
             | "double"
             | "char"
-            | "string"
+            | "string"                 
+-----------------------------------------------/
