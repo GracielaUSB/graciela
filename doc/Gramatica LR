@@ -3,13 +3,48 @@
 
 PROGRAMA : "program" TK_ID "|" "[" ListDEF ListACC "]" "|"
 
+
 ListDEF : ListDEF PROCEDIMIENTO
 		| %empty
 
-PROCEDIMIENTO : "fun" TK_ID ":" "(" ListARG ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN
-              | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "]" {pre" EXPRESION_P "pre}" "{post" EXPRESION_P "post}" "{bound" EXPRESION_P "bound}" "|" "[" ListACC "]" "|"
+
+PROCEDIMIENTO : "func" TK_ID ":" "(" ListARGfunc ")" "->" TIPO CuerpoFUN
+              | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES "{pre" EXPRESION_P "pre}" 
+                "|" "[" ListACC "]"  "|" "{post" EXPRESION_P "post}" "]"
+			  | "func" TK_ID ":" "(" ListARGfunc ")" "->" TIPO "{" "bound" EXPRESION_P "}" CuerpoFUN
+              | "proc" TK_ID ":" "(" ListARG ")" "[" DECLARACIONES  "{pre" EXPRESION_P "pre}" 
+                "{bound" EXPRESION_P    "bound}" "|" "[" ListACC "]" "|" "{post" EXPRESION_P "post}" "]"
 
 
+
+/-------------------------------------------
+Argumentos de las funciones
+--------------------------------------------
+ListARGfunc : ListARGfunc "," TK_ID ":" TIPO
+            | TK_ID ":" TIPO 
+		    | %empty
+
+-------------------------------------------/
+
+
+
+/------------------------------------------
+Argumento de los procedimientos
+-------------------------------------------
+
+ListARG : ListARG "," ARG
+		| %empty
+
+ARG : "in"    TK_ID ":" TIPO
+	| "out"   TK_ID ":" TIPO
+	| "inout" TK_ID ":" TIPO
+------------------------------------------/
+
+
+
+/--------------------------------------------------
+Declaraciones y read
+----------------------------------------------------
 DECLARACIONES : ListDECLA "read" ListReadID WITH ";"
    			  | ListDECLA
  			  | %empty
@@ -18,6 +53,7 @@ WITH : "with" ID
 	 | %empty
 
 ListReadID : ListReadID "," ID 
+		   | ID
 		   | %empty 
 
 ListDECLA : "var"   ListID   ":" TIPO ";" ListDECLA
@@ -29,27 +65,47 @@ ListID : TK_ID ListIDaux
        
 ListIDaux : "," TK_ID ListIDaux
           | %empty
-
-CuerpoFUN : "|" "[" ListGUARD ">>" EXPRESION "]" "|"
-		  | EXPRESION
-
-ListARG : ListARG ARG
-		| %empty
-
-ARG : "in" TK_ID ":" TIPO
-	| "out" TK_ID ":=" EXPRESION ":" TIPO
-	| "inout" TK_ID ":" TIPO
+-------------------------------------------------------/
 
 
+
+/--------------------------------------------------
+Lista de asignacion izquierda y derecha
+---------------------------------------------------
+ListASIG : TK_ID ":=" EXPRESION ListASIGaux
+		
+ListASIGaux : ListASIGaux "," TK_ID  ":=" EXPRESION
+		   | %empty 
+
+---------------------------------------------------
+		
+ListASIGaux : "," TK_ID  ":=" EXPRESION ListASIGaux
+		   | %empty 
+--------------------------------------------------/
+
+
+
+/-------------------------------------------------
+Cuerpo de las funciones
+-------------------------------------------------
+CuerpoFUN : "|" "[" EXPRESION "]" "|"
+
+-------------------------------------------------/
+
+
+
+/------------------------------------------------------
+Acciones y aserciones 
+---------------------------------------------------------
 BLOQUE : ListDECLA ListACC
        | ListACC
 
-ListACC : ListACCaux TRIPLETA
+ListACC : ListACCaux ASERCION
 		
-ListACCaux : ListACCaux TRIPLETA ";"
-		  | %empty
+ListACCaux : ListACCaux ASERCION ";"
+		   | %empty
 
-TRIPLETA : "{a" EXPRESION_P "a}" ACCION  
+ASERCION : "{a" EXPRESION_P "a}" ACCION  
          | ACCION
 
 ACCION : ListID ListAc_ARREGLO ":=" ListEXP
@@ -60,29 +116,32 @@ ACCION : ListID ListAc_ARREGLO ":=" ListEXP
 	   | "abort"
 	   | "random" ListID
        | "write" "(" EXPRESION ")"
+       | "writeln" "(" EXPRESION ")"
+       | "write" "(" EXPRESION ")" WITH
+       | "writeln" "(" EXPRESION ")" WITH
 	   | TK_ID "(" ListEXPRESION ")"
 	   | TK_ID "(" ")"
-
-////////////////////////////////////////////
-ListASIG : TK_ID ":=" EXPRESION ListASIGaux
-		
-ListASIGaux : ListASIGaux "," TK_ID  ":=" EXPRESION
-		   | %empty 
+------------------------------------------------------------/
 
 
-ListASIG : TK_ID ":=" EXPRESION ListASIGaux
-		
-ListASIGaux : "," TK_ID  ":=" EXPRESION ListASIGaux
-		   | %empty 
-////////////////////////////////////////////
+
+/------------------------------------------
+Guardias de los if y de los do
+-------------------------------------------
 
 ListGUARD : GUARD ListGUARDaux
 
 ListGUARDaux : "[]" GUARD ListGUARDaux
 	     | %empty
 
-
 GUARD : EXPRESION "->" ACCION
+------------------------------------------/
+
+
+
+/-----------------------------------------------------
+Condiciones de las pre,post...
+------------------------------------------------------
 
 EXPRESION_P : EXPRESION_BOOL_P EXPRESION_Paux
 
@@ -92,7 +151,13 @@ EXPRESION_Paux : OpBOOL EXPRESION_BOOL_P EXPRESION_Paux
 EXPRESION_BOOL_P : EXPRESION OpMAT EXPRESION
 				 | "(" "%" OpCUANT TK_ID ":" EXPRESION_P ")"
 				 | "(" EXPRESION_BOOL_P ")"
+-------------------------------------------------------------/
 
+
+
+/-------------------------------------------
+Operadores
+--------------------------------------------
 OpMAT : "="
 	  | ">"
 	  | "<"
@@ -136,7 +201,18 @@ OpBIN : "^"
       | ">"
       | ">="
       | "!="
+-------------------------------------------/
 
+
+
+/-----------------------------------------
+Expresiones
+------------------------------------------
+ListEXPRESION :  EXPRESION ListEXPRESIONaux
+
+ListEXPRESIONaux : "," EXPRESION ListEXPRESION
+               | %empty 
+ 
 
 EXPRESION : TK_ID
 		  | TK_ID "(" ListEXPRESION ")"
@@ -145,9 +221,7 @@ EXPRESION : TK_ID
 		  | "(" EXPRESION ")"
 		  | EXPRESION OpBIN EXPRESION
           | EXPRESION OpBOOL EXPRESION
-		  | EXPRESION "=>" EXPRESION "|" EXPRESION
 		  | "!" EXPRESION
-		  | "|" "[" ListACC ">>" EXPRESION "]" "|"
 		  | "MIN_INT" 
 		  | "MIN_DOUBLE"
 		  | "MAX_INT" 
@@ -165,23 +239,41 @@ EXPRESION : TK_ID
           | "abs" "(" EXPRESION ")"
           | "sqrt" "(" EXPRESION ")"
           | "length" "(" EXPRESION ")"
-		  | "%" "[" ListID ":" ListEXPRESION ":" EXPRESION "]"
-	
+	      | "if" ListGUARD_EXP "fi"
+------------------------------------------------------/	
 
-ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
-               | %empty
 
-ListEXPRESION :  EXPRESION ListEXPRESIONaux
 
-ListEXPRESIONaux : "," EXPRESION ListEXPRESION
-               | %empty 
- 
+/----------------------------------------------------
+Guardias de las expresiones del if para las funciones
+-----------------------------------------------------
+
+ListGUARD_EXP : GUARD_EXP ListGUARD_EXPaux
+
+
+ListGUARD_EXPaux : "[]" GUARD_EXP ListGUARD_EXPaux 
+	             | %empty
+
+
+GUARDexp : EXPRESION "->" EXPRESION
+--------------------------------------------------/
+
+
+
+/-------------------------------------------
+Tipos
+---------------------------------------------
 TIPO : TIPO_BASICO
      | "array" ListAc_ARREGLO "of" TIPO_BASICO  
      
+ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
+               | %empty
 
 TIPO_BASICO : "boolean"
             | "int"
             | "double"
             | "char"
             | "string"	
+
+            
+-----------------------------------------------/
