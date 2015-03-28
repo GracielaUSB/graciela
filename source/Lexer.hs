@@ -93,6 +93,7 @@ pToChar       = tryString "toChar"
 pToString     = tryString "toString"
 pType         = tryString "boolean"  <|> tryString "int"    <|> tryString "double"
                 <|> tryString "char" <|> tryString "string" <|> tryString "array"  
+
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
 pMIN_DOUBLE   = tryString "MIN_DOUBLE"
@@ -187,7 +188,15 @@ lexer = do spaces
                               <|> (pToDouble     >> spaces >> return (TokToDouble))    
                               <|> (pToChar       >> spaces >> return (TokToChar))
                               <|> (pToString     >> spaces >> return (TokToString))
-                              <|> (pBool         AP.<* spaces >>= return . (TokBool . T.pack))
+
+                              <|> (try (do s <- pBool
+                                           spaces
+                                           case s of
+                                            { "true"  -> return $ TokBool MyTrue
+                                            ; "false" -> return $ TokBool MyFalse
+                                            }
+                                        )
+                                  ) 
                               <|> (pType         AP.<* spaces >>= return . (TokType . T.pack))
                               <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
@@ -195,11 +204,22 @@ lexer = do spaces
                               <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
                               <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
                               <|> (pOf           >> spaces >> return (TokOf))
-                              <|> ((char '"')     AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . (TokString . T.pack))
+                              <|> ((char '"')    AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . (TokString . T.pack))
+                              <|> (do char '\''
+                                      c <- anyChar
+                                      char '\''
+                                      spaces
+                                      return (TokChar (T.singleton c))
+                                  )
                               <|> (try( do n1 <- many1 digit
                                            char '.'
                                            n2 <- many1 digit
                                            return (TokFlotante (T.pack n1) (T.pack n2))))                             
                               <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . T.pack))
-                              <|> ( many1 letter  AP.<* spaces >>= return . (TokId . T.pack)))
+                              <|> (try (do l <- letter
+                                           r <- many1 (alphaNum <|> char '_' <|> char '?')
+                                           spaces
+                                           return $ TokId (T.cons l (T.pack r)) 
+                                       )
+                                  ))
                        fmap ((tok, pos) :) lexer)

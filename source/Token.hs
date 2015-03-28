@@ -7,9 +7,9 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 
 
-data Type = Entero | Flotante | Booleano | Caracter | CadenaChar
+data Type = MyInt | MyFloat | MyBool | MyChar | MyString
   deriving (Show, Read, Eq) 
-data TypeBooll = Verdadero | Falso 
+data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
 
 data Token =   TokPlus
@@ -100,11 +100,12 @@ data Token =   TokPlus
              | TokMAX_INT   
              | TokMAX_DOUBLE 
              | TokOf
-             | TokBool  { nBool :: T.Text }      
-             | TokType  { nType :: T.Text }
-             | TokId T.Text
-             | TokString  { st    :: T.Text  }
-             | TokInteger { num   :: T.Text  }
+             | TokChar    { rchar :: T.Text   }
+             | TokBool    { nBool :: TypeBool }      
+             | TokType    { nType :: T.Text   }
+             | TokId      { text  :: T.Text   }
+             | TokString  { st    :: T.Text   }
+             | TokInteger { num   :: T.Text   }
              | TokFlotante T.Text T.Text
              | TokError T.Text
       deriving (Read, Eq)
@@ -138,7 +139,7 @@ instance Show Token where
   show TokProgram       = "programa"
   show TokLeftBracket   = "corchete de apertura"
   show TokRightBracket  = "corchete de cierre"
-  show TokVerticalBar   = "barra" -------------------------
+  show TokVerticalBar   = "barra" 
   show TokSemicolon     = "punto y coma"
   show TokColon         = "punto"
   show TokLeftBrace     = "llave de apertura"
@@ -205,6 +206,7 @@ instance Show Token where
   show (TokString  e)   = "cadena de caracteres " ++ show e
   show (TokError   e)   = "cadena no reconocida " ++ show e
   show (TokFlotante n1 n2) = "Numero flotante : " ++ show n1 ++ "." ++ show n2 
+  show (TokChar c)      = "caracter " ++ show c  
 
 type TokenPos = (Token, SourcePos)
 
@@ -217,14 +219,67 @@ makeTokenParser x = token showTok posTok testTok
 verify :: Token -> Parsec ([TokenPos]) () (Token)
 verify token = makeTokenParser token
 
-parsePlus = verify TokPlus
-parseMinus = verify TokMinus
-parseSlash = verify TokSlash
-parseStar = verify TokStar
-parseComma = verify TokComma
-parseLeftParent = verify TokLeftParent
-parseRightParent = verify TokRightParent
-parseEnd  = verify TokEnd
+parsePlus         = verify TokPlus
+parseMinus        = verify TokMinus
+parseSlash        = verify TokSlash
+parseStar         = verify TokStar
+parseComma        = verify TokComma
+parseLeftParent   = verify TokLeftParent
+parseRightParent  = verify TokRightParent
+parseEnd          = verify TokEnd
+parseMaxInt       = verify TokMAX_INT
+parseMinInt       = verify TokMIN_INT
+parseMaxDouble    = verify TokMAX_DOUBLE
+parseMinDouble    = verify TokMIN_DOUBLE
+parseProgram      = verify TokProgram
+parseLBracket     = verify TokLeftBracket
+parseRBracket     = verify TokRightBracket
+parseToInt        = verify TokToInt
+parseToDouble     = verify TokToDouble
+parseToChar       = verify TokToChar
+parseToString     = verify TokToString
+parseLeftBracket  = verify TokLeftBracket
+parseRightBracket = verify TokRightBracket
+
+parseID :: Parsec ([TokenPos]) () (Token)
+parseID = token showTok posTok testTok
+          where
+            showTok (t, pos) = show t
+            posTok  (t, pos) = pos
+            testTok (t, pos) = case t of
+                                 { TokId id  -> Just (TokId id)
+                                 ; otherwise -> Nothing
+                                 }
+
+parseBool :: Parsec ([TokenPos]) () (Token)
+parseBool = token showTok posTok testTok
+            where
+              showTok (t, pos) = show t
+              posTok  (t, pos) = pos
+              testTok (t, pos) = case t of
+                                  { TokBool b -> Just (TokBool b)
+                                  ; otherwise -> Nothing
+                                  }
+
+parseChar :: Parsec ([TokenPos]) () (Token)
+parseChar = token showTok posTok testTok
+            where
+              showTok (t, pos) = show t
+              posTok  (t, pos) = pos
+              testTok (t, pos) = case t of
+                                  { TokChar b -> Just (TokChar b)
+                                  ; otherwise -> Nothing
+                                  }
+
+parseString :: Parsec ([TokenPos]) () (Token)
+parseString = token showTok posTok testTok
+                where
+                  showTok (t, pos) = show t
+                  posTok  (t, pos) = pos
+                  testTok (t, pos) = case t of
+                                      { TokString b -> Just (TokString b)
+                                      ; otherwise   -> Nothing
+                                      }
 
 parseAnyToken :: Parsec ([TokenPos]) () (Token)
 parseAnyToken = token showTok posTok testTok
