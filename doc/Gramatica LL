@@ -123,16 +123,16 @@ ListACCaux : ASERCION ";" ListACCaux
 ASERCION : "{a" EXPRESION_P "a}" ACCION  
          | ACCION
 
-ACCION   : ListID ListAc_ARREGLO ":=" ListEXP
-         | "skip"
-         | "if" ListGUARD "fi"
-         | "{inv" EXPRESION_P "inv}" "{bound" EXPRESION_P "bound}" "do" ListGUARD "od"
+ACCION   : ListID ListAc_ARREGLO ":=" ListEXP --
+         | "skip" --
+         | "if" ListGUARD "fi" --
+         | "{inv" EXPRESION_P "inv}" "{bound" EXPRESION_P "bound}" "do" ListGUARD "od" -
          | "|" "[" BLOQUE "]" "|"
-         | "abort"
-         | "random" ListID
-         | "write" "(" EXPRESION ")" WITH
+         | "abort" --
+         | "random" TokID
+         | "write" "(" EXPRESION ")" WITH --
          | "writeln" "(" EXPRESION ")" WITH
-         | TK_ID "(" FUNC_ARG ")"
+         | TK_ID "(" FUNC_ARG ")" --
 
 
 FUNC_ARG : ListEXPRESION
@@ -190,13 +190,6 @@ OpMAT : "="
       | "max"
       | "min"
 
-OpBOOL : "/\"
-       | "\/"
-       | "==>"
-       | "<=="
-       | "=="
-       | "!"
-
 OpCUANT : "forall"
         | "exist"
         | "max"
@@ -205,9 +198,17 @@ OpCUANT : "forall"
         | "pi"
         | "union"
 
-OpBIN : "^"
-      | "*"
-      | "/"
+OpBOOL : "/\"
+       | "\/"
+       | "==>"
+       | "<=="
+       | "=="
+       | "!"
+
+
+OpBIN : "^" --
+      | "*" --
+      | "/" --
       | "max"
       | "min"
       | "mod"
@@ -233,26 +234,26 @@ ListEXPRESIONaux : "," EXPRESION ListEXPRESIONaux
                  | %empty 
  
 
-EXPRESION : TK_ID EXPRESIONtokeid
-          | "-" EXPRESION
-          | "(" EXPRESION ")"
+EXPRESION : TK_ID EXPRESIONtokeid --
+          | "-" EXPRESION -- 
+          | "(" EXPRESION ")" --
           | EXPRESIONaux
           | "!" EXPRESION
-          | "MIN_INT" 
-          | "MIN_DOUBLE"
-          | "MAX_INT" 
-          | "MAX_DOUBLE"
-          | "[" ListAc_ARREGLO "]"
-          | tokenBOOL
-          | tokenINT
-          | tokenCHAR
-          | tokenSTRING
-          | "toInt" "(" EXPRESION ")"
-          | "toDouble" "(" EXPRESION ")"
-          | "toChar" "(" EXPRESION ")"
-          | "toString" "(" EXPRESION ")" 
-          | "abs" "(" EXPRESION ")"
-          | "sqrt" "(" EXPRESION ")"
+          | "MIN_INT" --
+          | "MIN_DOUBLE" --
+          | "MAX_INT" --
+          | "MAX_DOUBLE" --
+          | "[" ListAc_ARREGLO "]" - No entiendo
+          | tokenBOOL --
+          | tokenINT --
+          | tokenCHAR --
+          | tokenSTRING --
+          | "toInt" "(" EXPRESION ")" --
+          | "toDouble" "(" EXPRESION ")" --
+          | "toChar" "(" EXPRESION ")" --
+          | "toString" "(" EXPRESION ")" --
+          | "abs" "(" EXPRESION ")" --
+          | "sqrt" "(" EXPRESION ")" --
           | "length" "(" EXPRESION ")"
           | "if" ListGUARD_EXP "fi"
 

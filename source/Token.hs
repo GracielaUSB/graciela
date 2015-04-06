@@ -16,6 +16,7 @@ data Token =   TokPlus
              | TokMinus 
              | TokStar 
              | TokSlash 
+             | TokSepGuards 
              | TokEnd 
              | TokComma 
              | TokLeftParent 
@@ -38,6 +39,8 @@ data Token =   TokPlus
              | TokEqual
              | TokNot 
              | TokProgram  
+             | TokOpenBlock
+             | TokCloseBlock
              | TokLeftBracket
              | TokRightBracket
              | TokVerticalBar
@@ -207,6 +210,9 @@ instance Show Token where
   show (TokError   e)   = "cadena no reconocida " ++ show e
   show (TokFlotante n1 n2) = "Numero flotante : " ++ show n1 ++ "." ++ show n2 
   show (TokChar c)      = "caracter " ++ show c  
+  show (TokOpenBlock)   = "simbolo de apertura de bloque"
+  show (TokCloseBlock)  = "simbolo de cierre de bloque"
+  show TokSepGuards     = "simbolo separador de guardias"
 
 type TokenPos = (Token, SourcePos)
 
@@ -240,6 +246,30 @@ parseToChar       = verify TokToChar
 parseToString     = verify TokToString
 parseLeftBracket  = verify TokLeftBracket
 parseRightBracket = verify TokRightBracket
+parseTokAbs       = verify TokAbs
+parseTokSqrt      = verify TokSqrt
+parseTokAccent    = verify TokAccent
+parseAnd          = verify TokLogicalAnd
+parseOr           = verify TokLogicalOr
+parseNotEqual     = verify TokNotEqual
+parseEqual        = verify TokEquiv
+parseSkip         = verify TokSkip        
+parseIf           = verify TokIf
+parseFi           = verify TokFi
+parseAbort        = verify TokAbort
+parseWrite        = verify TokWrite
+parseSemicolon    = verify TokSemicolon
+parseArrow        = verify TokArrow
+parseSepGuards    = verify TokSepGuards
+parseDo           = verify TokDo
+parseOd           = verify TokOd
+parseAssign       = verify TokAsig
+parseRandom       = verify TokRandom
+parseTokOpenBlock = verify TokOpenBlock
+parseTokCloseBlock= verify TokCloseBlock
+parseColon        = verify TokColon
+parseVar          = verify TokVar
+parseConst        = verify TokConst
 
 parseID :: Parsec ([TokenPos]) () (Token)
 parseID = token showTok posTok testTok
@@ -260,6 +290,16 @@ parseBool = token showTok posTok testTok
                                   { TokBool b -> Just (TokBool b)
                                   ; otherwise -> Nothing
                                   }
+
+parseType :: Parsec ([TokenPos]) () (Token)
+parseType = token showTok posTok testTok
+              where
+                showTok (t, pos) = show t
+                posTok  (t, pos) = pos
+                testTok (t, pos) = case t of
+                                    { TokType b -> Just (TokType b)
+                                    ; otherwise -> Nothing
+                                    }
 
 parseChar :: Parsec ([TokenPos]) () (Token)
 parseChar = token showTok posTok testTok

@@ -1,0 +1,5 @@
+program (
+|[
+do 5 + 5 -> skip [] 5 + 10 -> skip od
+]|
+)

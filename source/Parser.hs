@@ -10,208 +10,138 @@ import qualified Text.Parsec.Pos as P
 import Token
 import Lexer
 import AST
+import Declarations
+import Error
+import Expression
 
-data MyParseError = MyParseError { line      :: P.Line
-                                 , column    :: P.Column
-                                 , waitedTok :: WaitedToken
-                                 , actualTok :: Token
-                                 }
-                  | EmptyError   { line    :: P.Line
-                                 , column  :: P.Column
-                                 }
-
-               deriving (Read)
-
-data WaitedToken =  Operator
-                  | Number
-                  | TokenRP
-                  | TokenRB
-                  | Comma
-                  | Final
-                  deriving(Read)
-
-instance Show WaitedToken where
-  show Operator = "operador"
-  show Number   = "numero"
-  show TokenRP  = "paréntesis derecho"
-  show Comma    = "coma"
-  show Final    = "final de archivo"
-  show TokenRB  = "corchete derecho"
-  
-instance Show MyParseError where
-  show (MyParseError line column wt at) = "Error en la línea " ++ show line ++ ", columna " ++ show column ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
-  show (EmptyError   line column)       = "Error en la línea " ++ show line ++ ", columna " ++ show column ++ ": No se permiten expresiones vacías"
-
+program :: Parsec [TokenPos] () (Either [MyParseError] [AST])
 program = do parseProgram
+             pos <- getPosition
              parseLeftParent
-             lexp <- listExp parseRightParent
-             try (do parseRightParent
-                     parseEnd
-                     return(lexp)
-                 )
-                 <|> (do err <- genNewError (parseEnd) (Final)
-                         parseEnd
-                         return(checkError lexp err)
-                     )
+             do ast <- actionsList parseRightParent parseRightParent
+                parseRightParent
+                parseEnd
+                return (ast)
              
-                    
-listExp follow = do  lookAhead follow
-                     return (Right [])
-                 <|> ( do e     <- expr (follow <|> parseComma) (follow <|> parseComma)
-                          lexp  <- listExpAux follow 
-                          return(verifyBinError (:) e lexp)
-                     )
-                 <|> (do err <- genNewError (follow) (TokenRP)
-                         return(Left(return err))
-                     )
+             
+actionsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+actionsList follow recSet = do lookAhead (follow)
+                               pos <- getPosition
+                               return (Left (return (newEmptyError pos)))
+                               <|> do ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
+                                      rl <- actionsListAux follow recSet
+                                      return (verifyBinError (:) ac rl)
+                                      
+actionsListAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+actionsListAux follow recSet = do lookAhead follow
+                                  return (Right ([]))
+                                  <|> do parseSemicolon
+                                         ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
+                                         rl <- actionsListAux follow recSet
+                                         return (verifyBinError (:) ac rl)
+                                         
+actionAux follow recSet = skip
+                      <|> conditional follow recSet
+                      <|> abort
+                      <|> write follow recSet
+                      <|> functionCallOrAssign follow recSet
+                      <|> repetition follow recSet
+                      <|> random follow recSet
+                      <|> block follow recSet
 
-listExpAux follow = do lookAhead follow
-                       return(Right [])
-                    <|> ( do parseComma
-                             e  <- expr (follow <|> parseComma) (follow <|> parseComma)
-                             lexp  <- listExpAux follow
-                             return(verifyBinError (:) e lexp)
-                        )
-                    <|> (do err <- genNewError (follow) (TokenRP)
-                            return(Left(return err))
-                        )
+block follow recSet = do parseTokOpenBlock
+                         ld <- decList (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite) (recSet <|> parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite)
+                         la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
+                         parseTokCloseBlock
+                         return (AP.liftA2 (BlockNode) ld la)
+                       
+random follow recSet = do parseRandom
+                          id <- parseID
+                          return(return (RanNode id))
 
-expr :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
-expr follow recSet =  do lookAhead(follow)
-                         pos <- getPosition
-                         return (Left (return (newEmptyError pos)))
+guardsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+guardsList follow recSet = do g  <- guard follow recSet
+                              gl <- guardsListAux follow recSet
+                              return(verifyBinError (:) g gl)
 
-                      <|> do t <- term' (follow <|> parsePlus <|> parseMinus) (recSet  <|> parsePlus <|> parseMinus)
-                             do (lookAhead(follow) >> return t)
-                                <|> (parsePlus  AP.*> expr follow recSet >>=  return . (verifyBinError (SumNode) t))
-                                <|> (parseMinus AP.*> expr follow recSet >>=  return . (verifyBinError (SubNode) t))
-                                <|> (genNewError (recSet) (Operator) >>= return . (checkError t))
+guardsListAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+guardsListAux follow recSet = do      lookAhead follow
+                                      return $ Right []
+                                 <|>  do parseSepGuards
+                                         g  <- guard (parseSepGuards) (recSet <|> parseSepGuards)
+                                         rl <- guardsListAux follow recSet
+                                         return (verifyBinError (:) g rl)
+                
+guard follow recSet = do pos <- getPosition
+                         e <- expr (parseArrow) (recSet <|> parseArrow)
+                         parseArrow
+                         a <- action follow recSet
+                         return (fmap (\f -> f (sourceLine pos) (sourceColumn pos)) ((fmap GuardNode e) AP.<*> a))
+
+functionCallOrAssign :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] (Int -> Int -> AST))
+functionCallOrAssign follow recSet = do id <- parseID
+                                        do try (do parseLeftParent
+                                                   lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
+                                                   try (do parseRightParent
+                                                           return(fmap (FCallNode id) lexp)
+                                                       )
+                                                       <|> (do err <- genNewError (parseEnd) (Final)
+                                                               parseEnd
+                                                               return(checkError lexp err)
+                                                           )
+                                                )
+                                           <|> try ( do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
+                                                        rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
+                                                        parseAssign
+                                                        le <- listExp follow recSet
+                                                        return ((fmap (LAssignNode) (AP.liftA2 (:) (fmap ((,) id) bl) rl)) AP.<*> le)
+                                                   )
+                                
+--idAssignList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [Token])
+--idAssignList follow recSet = do lookAhead (follow)
+--                                pos <- getPosition
+--                                return (Left (return (newEmptyError pos)))
+--                                <|> do ac <- parseID
+--                                       rl <- idAssignListAux follow recSet
+--                                       return (fmap (ac:) rl)
                                     
-                             <?> "expresion"
+idAssignListAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [(Token, [AST])])
+idAssignListAux follow recSet = do lookAhead follow
+                                   return (Right ([]))
+                                   <|> do parseComma
+                                          ac <- parseID
+                                          bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
+                                          rl <- idAssignListAux (follow) (recSet)
+                                          return ((AP.liftA2 (:) (fmap ((,) ac) bl) rl))
 
-term' :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
-term' follow recSet = do p <- factor (follow <|> parseSlash <|> parseStar) (recSet <|> parseSlash <|> parseStar)
-                         do (lookAhead(follow) >> return p)
-                            <|> (parseSlash AP.*> term' follow recSet >>= return . (verifyBinError (DivNode) p))
-                            <|> (parseStar  AP.*> term' follow recSet >>= return . (verifyBinError (MulNode) p))
-                            <|> (genNewError (recSet) (Operator) >>= return . (checkError p))
-                            <?> "termino"
+action :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+action follow recSet = do pos <- getPosition
+                          do  res <- actionAux follow recSet
+                              return (fmap (\f -> f (sourceLine pos) (sourceColumn pos)) res)
 
-{-| La función factor follow se encarga de consumir una expresión simple.
-    Ésta puede ser un número, letra, cadena de caracteres, llamada a función,
-    etc.
- -}
+write follow recSet = do pos <- getPosition
+                         parseWrite
+                         parseLeftParent
+                         e <- expr parseRightParent (recSet <|> parseRightParent)
+                         parseRightParent
+                         return $ (fmap (WriteNode) e)
+           
+abort = do pos <- getPosition
+           parseAbort
+           return $ Right $ AbortNode
 
-factor :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
-factor follow recSet = do do parseLeftParent
-                             e <- expr (parseRightParent) (parseRightParent)
-                             do  try(parseRightParent >>= return . return e)
-                                 <|> (genNewError (recSet) (TokenRP) >>= return . (checkError e))
-                          
-                          <|> (number >>= return . Right . IntNode) 
-                          <|> (do idp <- parseID
-                                  do      lookAhead follow AP.*> return(Right(IDNode idp))
-                                      <|> do parseLeftParent
-                                             lexp <- listExp(parseEnd <|> parseRightParent)
-                                             (try (do parseRightParent
-                                                      case lexp of
-                                                      { Left  listErrors -> return (Left listErrors)
-                                                      ; Right listExpr   -> return (Right(FCallNode idp listExpr))
-                                                      }
-                                                  )
-                                              <|> (genNewError (recSet) (TokenRP) >>= return . (checkError lexp))
-                                              )
-                                      <|> do blist <- bracketsList follow recSet
-                                             return(fmap (ArrCallNode idp) blist)
-                              )
-                          <|> (parseMaxInt    AP.*> return(Right(MaxIntNode)))
-                          <|> (parseMinInt    AP.*> return(Right(MinIntNode)))
-                          <|> (parseMaxDouble AP.*> return(Right(MaxDouNode)))
-                          <|> (parseMinDouble AP.*> return(Right(MinDouNode)))
-                          <|> (parseBool      >>= return . Right . BoolNode)
-                          <|> (parseChar      >>= return . Right . CharNode)
-                          <|> (parseString    >>= return . Right . StringNode)
-                          <|> (do parseToInt
-                                  parseLeftParent
-                                  e <- expr parseRightParent parseRightParent
-                                  parseRightParent
-                                  case e of
-                                  { Left errorList -> return $ Left  $ errorList
-                                  ; Right exp      -> return $ Right $ ToIntNode exp
-                                  }
-                              )
-                          <|> (do parseToDouble
-                                  parseLeftParent
-                                  e <- expr parseRightParent parseRightParent
-                                  parseRightParent
-                                  case e of
-                                  { Left errorList -> return $ Left  $ errorList
-                                  ; Right exp      -> return $ Right $ ToDoubleNode exp
-                                  }
-                              )
-                          <|> (do parseToString
-                                  parseLeftParent
-                                  e <- expr parseRightParent parseRightParent
-                                  parseRightParent
-                                  case e of
-                                  { Left errorList -> return $ Left  $ errorList
-                                  ; Right exp      -> return $ Right $ ToStringNode exp
-                                  }
-                              )
-                          <|> (do parseToChar
-                                  parseLeftParent
-                                  e <- expr parseRightParent parseRightParent
-                                  parseRightParent
-                                  case e of
-                                  { Left errorList -> return $ Left  $ errorList
-                                  ; Right exp      -> return $ Right $ ToCharNode exp
-                                  }
-                              )
-                           <|> (do parseMinus
-                                   e <- expr follow recSet
-                                   return(fmap (MinusNode) e)
-                               )
-                          <|> (genNewError recSet Number >>= return . Left . return)
-                          <?> "numeros"
-
-bracketsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
-bracketsList follow recSet = do  lookAhead follow
-                                 return(Right[])
-                             <|> do parseLeftBracket
-                                    e <- expr parseRightBracket parseRightBracket
-                                    do try( do parseRightBracket
-                                               lexp <- bracketsList follow recSet
-                                               return(verifyBinError (:) e lexp)
-                                           )
-                                       <|> ( do err <- genNewError (follow <|> parseLeftBracket) (TokenRB)
-                                                return(checkError e err)
-                                           )
-
-
-newEmptyError  pos          = EmptyError   { line = P.sourceLine pos, column = P.sourceColumn pos }             
-newParseError  msg (e, pos) = MyParseError { line = P.sourceLine pos, column = P.sourceColumn pos, waitedTok = msg, actualTok = e }
-
-genNewError :: Parsec [TokenPos] () (Token) -> WaitedToken -> Parsec [TokenPos] () (MyParseError)
-genNewError laset msg = do  pos <- cleanEntry laset
-                            return (newParseError msg pos)
-
-cleanEntry :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (TokenPos)
-cleanEntry laset = do pos <- getPosition
-                      e   <- (lookAhead(laset) <|> lookAhead(parseEnd) <|> parseAnyToken)
-                      panicMode laset
-                      return ((e, pos))
-
-panicMode until = manyTill parseAnyToken (lookAhead until)
-
-parseExpr = expr parseEnd
-
-concatError (Left errors) (Left errors') = (Left (errors ++ errors'))
-concatError (Left errors) _              = (Left errors)
-
-checkError (Left xs) s = Left (xs ++ [s])
-checkError _         s = Left [s] 
-
-verifyBinError _  (Left xs) (Left ys) = Left (xs ++ ys)
-verifyBinError _  (Left xs) _         = Left xs
-verifyBinError _  _         (Left ys) = Left ys
-verifyBinError op (Right x) (Right y) = Right(op x y) 
+conditional follow recSet = do pos <- getPosition
+                               parseIf
+                               gl <- guardsList parseFi (recSet <|> parseFi)
+                               parseFi
+                               return(fmap (CondNode) gl)
+                 
+repetition follow recSet = do pos <- getPosition
+                              parseDo
+                              gl <- guardsList parseOd (recSet <|> parseOd)
+                              parseOd
+                              return(fmap (ReptNode) gl)
+                               
+skip :: Parsec [TokenPos] () (Either [MyParseError] (Int -> Int -> AST))
+skip = do parseSkip
+          return $ Right $ SkipNode           

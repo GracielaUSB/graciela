@@ -28,6 +28,9 @@ pGreater      = oneOf ">\62"
 pEqual        = oneOf "=\61"
 pNot          = oneOf "!\33"
 pAccent       = oneOf "^\94"
+pOpenBlock    = tryString "|["
+pCloseBlock   = tryString "]|"
+pSepGuards    = tryString "[]"
 pLogicalAnd   = tryString "/\\" <|> tryString "\8743" 
 pLogicalOr    = tryString "\\/" <|> tryString "\8744"
 pNotEqual     = tryString "!="  <|> tryString "\8800"
@@ -143,6 +146,9 @@ lexer = do spaces
                               <|> (pEqual        >> spaces >> return (TokEqual))
                               <|> (pNot          >> spaces >> return (TokNot))
                               <|> (pProgram      >> spaces >> return (TokProgram))
+                              <|> (pOpenBlock    >> spaces >> return (TokOpenBlock))
+                              <|> (pCloseBlock   >> spaces >> return (TokCloseBlock))
+                              <|> (pSepGuards    >> spaces >> return (TokSepGuards))
                               <|> (pLeftBracket  >> spaces >> return (TokLeftBracket))
                               <|> (pRightBracket >> spaces >> return (TokRightBracket))
                               <|> (pVerticalBar  >> spaces >> return (TokVerticalBar))
@@ -217,7 +223,7 @@ lexer = do spaces
                                            return (TokFlotante (T.pack n1) (T.pack n2))))                             
                               <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . T.pack))
                               <|> (try (do l <- letter
-                                           r <- many1 (alphaNum <|> char '_' <|> char '?')
+                                           r <- many (alphaNum <|> char '_' <|> char '?')
                                            spaces
                                            return $ TokId (T.cons l (T.pack r)) 
                                        )
