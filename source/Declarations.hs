@@ -13,8 +13,19 @@ import AST
 import Error
 import Expression
 
-myType follow recSet = do t <- parseType
-                          return(return (BasicTypeNode t))
+myBasicType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+myBasicType follow recSet = do t <- parseType
+                               return(return (BasicTypeNode t))
+
+myType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+myType follow recSet = do myBasicType follow recSet
+                          <|> do parseTokArray
+                                 lb <- bracketsList parseOf (recSet <|> parseOf)
+                                 parseOf
+                                 t <- myBasicType follow recSet
+                                 return ((fmap (ArrTypeNode) t) AP.<*> lb)
+
+                              
 
 decList follow recSet = do lookAhead follow
                            return (Right [])

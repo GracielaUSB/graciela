@@ -1,5 +1,19 @@
-program (
+program hola
 |[
-do 5 + 5 -> skip [] 5 + 10 -> skip od
+  func hola : (x : int, y : int) -> int
+  |[
+      x + y
+  ]|
+  
+  proc hola2 : (in x : int, inout y : char, out z : string) 
+  [ 
+    var a,b : int; 
+    const c := 5 : array [5] of char; 
+    read a, b, z with "archivo.txt";
+    |[ 
+        x := 5 + 5
+    ]|
+  ]
+
+  writeln(5+5)
 ]|
-)

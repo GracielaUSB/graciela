@@ -95,8 +95,8 @@ pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
 pToString     = tryString "toString"
 pType         = tryString "boolean"  <|> tryString "int"    <|> tryString "double"
-                <|> tryString "char" <|> tryString "string" <|> tryString "array"  
-
+                <|> tryString "char" <|> tryString "string"   
+pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
 pMIN_DOUBLE   = tryString "MIN_DOUBLE"
@@ -139,6 +139,7 @@ lexer = do spaces
                               <|> (pLessEqual    >> spaces >> return (TokLessEqual))
                               <|> (pGreaterEqual >> spaces >> return (TokGreaterEqual))
                               <|> (pEquiv        >> spaces >> return (TokEquiv))
+                              <|> (pArray        >> spaces >> return (TokArray))
                               <|> (pNotEqiv      >> spaces >> return (TokNotEqiv))
                               <|> (pAsig         >> spaces >> return (TokAsig))
                               <|> (pLess         >> spaces >> return (TokLess))
@@ -187,8 +188,8 @@ lexer = do spaces
                               <|> (pAbort        >> spaces >> return (TokAbort))
                               <|> (pRandom       >> spaces >> return (TokRandom))
                               <|> (pSkip         >> spaces >> return (TokSkip))
-                              <|> (pWrite        >> spaces >> return (TokWrite))
                               <|> (pWriteln      >> spaces >> return (TokWriteln))
+                              <|> (pWrite        >> spaces >> return (TokWrite))
                               <|> (pRead         >> spaces >> return (TokRead))
                               <|> (pToInt        >> spaces >> return (TokToInt))
                               <|> (pToDouble     >> spaces >> return (TokToDouble))    

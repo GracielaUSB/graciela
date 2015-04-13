@@ -8,7 +8,7 @@ PROGRAMA         first  --- program
 
 
 ListDEF          first  --- func, proc, %empty
-                 follow --- ], {a, skip, if, inv, |, abort, random, write, writeln, TK_ID
+                 follow --- {a, skip, if, inv, |, abort, random, write, writeln, TK_ID
 
 
 PROCEDIMIENTO    first  --- func, proc

@@ -103,6 +103,7 @@ data Token =   TokPlus
              | TokMAX_INT   
              | TokMAX_DOUBLE 
              | TokOf
+             | TokArray
              | TokChar    { rchar :: T.Text   }
              | TokBool    { nBool :: TypeBool }      
              | TokType    { nType :: T.Text   }
@@ -213,6 +214,7 @@ instance Show Token where
   show (TokOpenBlock)   = "simbolo de apertura de bloque"
   show (TokCloseBlock)  = "simbolo de cierre de bloque"
   show TokSepGuards     = "simbolo separador de guardias"
+  show TokArray         = "tipo arreglo de"
 
 type TokenPos = (Token, SourcePos)
 
@@ -270,6 +272,16 @@ parseTokCloseBlock= verify TokCloseBlock
 parseColon        = verify TokColon
 parseVar          = verify TokVar
 parseConst        = verify TokConst
+parseFunc         = verify TokFunc
+parseProc         = verify TokProc
+parseIn           = verify TokIn
+parseOut          = verify TokOut
+parseInOut        = verify TokInOut
+parseRead         = verify TokRead
+parseWith         = verify TokWith
+parseWriteln      = verify TokWriteln
+parseOf           = verify TokOf 
+parseTokArray     = verify TokArray
 
 parseID :: Parsec ([TokenPos]) () (Token)
 parseID = token showTok posTok testTok

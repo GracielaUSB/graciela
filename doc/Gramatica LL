@@ -8,7 +8,7 @@ ListDEF : PROCEDIMIENTO ListDEF
         | %empty
 
 
-PROCEDIMIENTO : "func" TK_ID ":" "(" ListARG_FUNC ")" "->" TIPO BOUND CuerpoFUN
+PROCEDIMIENTO : "func" TK_ID ":" "(" ListARG_FUNC ")" "->" TIPO BOUND CuerpoFUN -- Falta Bound
               | "proc" TK_ID ":" "(" ListARG_PROC ")" "[" DECLARACIONES "{pre" EXPRESION_P "pre}" BOUND
                 "|" "[" ListACC "]" "|" "{post" EXPRESION_P "post}" "]"
 
@@ -30,7 +30,7 @@ ListARG_FUNCaux : "," TK_ID ":" TIPO ListARG_FUNCaux
 
 
 
-/------------------------------------------
+/------------------------------------------/
 Argumento de los procedimientos
 -------------------------------------------
 
@@ -61,19 +61,18 @@ READ : "read" ListReadID WITH ";"
      | %empty
 
 
-WITH : "with" TK_ID 
+WITH : "with" TK_String
      | %empty
  
 
 ListReadID : TK_ID ListReadIDaux
-           | %empty 
 
 
 ListReadIDaux : "," TK_ID 
               | %empty 
 
-ListDECLA : "var"   ListDECLAvar ":" TIPO ";" ListDECLA
-          | "const" ListASIG     ":" TIPO ";" ListDECLA
+ListDECLA : "var"   ListDECLAvar ":" TIPO ";" ListDECLA --
+          | "const" ListASIG     ":" TIPO ";" ListDECLA --
           | %empty
 
 ListDECLAvar : ListID  
@@ -297,7 +296,6 @@ TIPO : TIPO_BASICO
      | "array" ListAc_ARREGLO "of" TIPO_BASICO  
          
 ListAc_ARREGLO : "[" EXPRESION "]" ListAc_ARREGLO
-               | %empty
 
 TIPO_BASICO : "boolean"
             | "int"
