@@ -5,10 +5,8 @@ import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Data.Text as T
+import Type
 
-
-data Type = MyInt | MyFloat | MyBool | MyChar | MyString
-  deriving (Show, Read, Eq) 
 data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
 
