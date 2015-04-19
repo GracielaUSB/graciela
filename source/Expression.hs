@@ -38,17 +38,75 @@ expr follow recSet =  do lookAhead(follow)
                          pos <- getPosition
                          return (Left (return (newEmptyError pos)))
                       
-                      <|> exprPrecLvl' follow recSet
+                      <|> exprLevelImpl follow recSet
 
-exprPrecLvl' follow recSet = do e <- expr' (follow <|> parseEqual <|> parseNotEqual <|> parseAnd <|> parseOr) (recSet <|> parseEqual <|> parseNotEqual <|> parseAnd <|> parseOr)
+exprLevelImpl follow recSet = do e <- exprLevelOr (follow <|> parseTokImplies <|> parseTokConse) (recSet <|> parseTokImplies <|> parseTokConse)
+                                 do pos <- getPosition
+                                    do (lookAhead (follow) >> return e)
+                                       <|> (do parseTokImplies
+                                               e' <- exprLevelImpl follow recSet
+                                               return(verifyBinError (ImpliesNode (sourceLine pos) (sourceColumn pos)) e e')
+                                           )
+                                       <|> (do parseTokConse
+                                               e' <- exprLevelImpl follow recSet
+                                               return(verifyBinError (ConseNode (sourceLine pos) (sourceColumn pos)) e e')
+                                           )
+                                       <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
+
+exprLevelOr follow recSet = do e <- exprLevelAnd (follow <|> parseOr) (recSet <|> parseOr)
+                               do pos <- getPosition
+                                  do (lookAhead (follow) >> return e)
+                                     <|> (do parseOr
+                                             e' <- exprLevelOr follow recSet
+                                             return(verifyBinError (DisNode (sourceLine pos) (sourceColumn pos)) e e')
+                                         )
+                                     <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
+ 
+exprLevelAnd follow recSet = do e <- exprPrecLvl'' (follow <|>  parseAnd) (recSet <|> parseAnd)
                                 do pos <- getPosition
                                    do (lookAhead (follow) >> return e)
-                                      <|> (parseEqual    AP.*> exprPrecLvl' follow recSet >>= return . (verifyBinError (EquNode (sourceLine pos) (sourceColumn pos)) e))
-                                      <|> (parseNotEqual AP.*> exprPrecLvl' follow recSet >>= return . (verifyBinError (IneNode (sourceLine pos) (sourceColumn pos)) e))
-                                      <|> (parseAnd      AP.*> exprPrecLvl' follow recSet >>= return . (verifyBinError (ConNode (sourceLine pos) (sourceColumn pos)) e))
-                                      <|> (parseOr       AP.*> exprPrecLvl' follow recSet >>= return . (verifyBinError (DisNode (sourceLine pos) (sourceColumn pos)) e))
+                                      <|> (do parseAnd
+                                              e' <- exprLevelAnd follow recSet
+                                              return(verifyBinError (ConNode (sourceLine pos) (sourceColumn pos)) e e')
+                                          )
                                       <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
- 
+
+exprPrecLvl'' follow recSet = do e <- exprLevelRel (follow <|> parseEqual <|> parseNotEqual) (recSet <|> parseEqual <|> parseNotEqual)
+                                 do pos <- getPosition
+                                    do (lookAhead (follow) >> return e)
+                                       <|> (do parseEqual
+                                               e' <- exprPrecLvl'' follow recSet
+                                               return(verifyBinError (EquNode (sourceLine pos) (sourceColumn pos)) e e')
+                                           )
+                                       <|> (do parseNotEqual
+                                               e' <- exprPrecLvl'' follow recSet
+                                               return(verifyBinError (IneNode (sourceLine pos) (sourceColumn pos)) e e')
+                                            )
+                                       <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
+
+followExprLevelRel = parseTokLess <|> parseTokGreater <|> parseTokLEqual <|> parseTokGEqual
+
+exprLevelRel follow recSet = do e <- expr' (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
+                                do pos <- getPosition
+                                   do (lookAhead (follow) >> return e)
+                                      <|> (do parseTokLess
+                                              e' <- exprLevelRel follow recSet
+                                              return(verifyBinError (LessNode (sourceLine pos) (sourceColumn pos)) e e')
+                                          )
+                                      <|> (do parseTokLEqual
+                                              e' <- exprLevelRel follow recSet
+                                              return(verifyBinError (LEqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                          )
+                                      <|> (do parseTokGreater
+                                              e' <- exprLevelRel follow recSet
+                                              return(verifyBinError (GreaterNode (sourceLine pos) (sourceColumn pos)) e e')
+                                          )
+                                      <|> (do parseTokGEqual
+                                              e' <- exprLevelRel follow recSet
+                                              return(verifyBinError (GEqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                          )
+                                      <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
+
 expr' :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
 expr' follow recSet =  do t <- term' (follow <|> parsePlus <|> parseMinus) (recSet  <|> parsePlus <|> parseMinus)
                           do pos <- getPosition
@@ -89,7 +147,7 @@ factor' follow recSet = do do pos <- getPosition
                                              <|> do parseLeftParent
                                                     lexp <- listExp (parseEnd <|> parseRightParent) (recSet <|> parseRightParent)
                                                     (try (do parseRightParent
-                                                             return (fmap (\f -> f (sourceLine pos) (sourceColumn pos)) (fmap (FCallNode idp) lexp))
+                                                             return (fmap (\f -> f (sourceLine pos) (sourceColumn pos)) (fmap (FCallExpNode idp) lexp))
                                                          )
                                                      <|> (genNewError (recSet) (TokenRP) >>= return . (checkError lexp))
                                                      )
@@ -139,7 +197,28 @@ factor' follow recSet = do do pos <- getPosition
                                           e <- expr follow recSet
                                           return(fmap (SqrtNode (sourceLine pos) (sourceColumn pos)) e)
                                      )
+                                 <|> ( do parseTokLength
+                                          e <- expr follow recSet
+                                          return(fmap (LengthNode (sourceLine pos) (sourceColumn pos)) e)
+                                     )
+                                 <|> ( do parseTokNot
+                                          e <- expr follow recSet
+                                          return(fmap (LogicalNotNode (sourceLine pos) (sourceColumn pos)) e)
+                                     )
+                                 <|> quantification follow recSet
                                  <|> (genNewError recSet Number >>= return . Left . return)
+
+quantification follow recSet = do parseTokLeftPer
+                                  op <- parseOpCuant
+                                  id <- parseID
+                                  parseColon
+                                  r <- expr(parseColon) (recSet <|> parseColon)
+                                  parseColon
+                                  t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
+                                  parseTokRightPer
+                                  return((fmap (QuantNode op id) r) AP.<*> t) 
+
+parseOpCuant = parseTokExist
 
 bracketsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
 bracketsList follow recSet = do  lookAhead follow

@@ -17,8 +17,15 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | DisNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Disjunción de dos expresiones.
          | ConNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Conjunción de dos expresiones.
          | EquNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Equivalencia de dos expresiones.
+         | LessNode               { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
+         | GreaterNode            { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
+         | LEqualNode             { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
+         | GEqualNode             { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
          | IneNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
-         | FCallNode              { fname :: Token, args :: [AST], line' :: Int, column' :: Int   } -- ^ Llamada a funcion.
+         | ImpliesNode            { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
+         | ConseNode              { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
+         | FCallNode              { fname :: Token, args :: [AST], line' :: Int, column' :: Int     } -- ^ Llamada a funcion.
+         | FCallExpNode           { fname :: Token, args :: [AST], line' :: Int, column' :: Int     } -- ^ Llamada a funcion.
          | ArrCallNode            { line' :: Int, column' :: Int, name    :: Token, list :: [AST]   } -- ^ Búsqueda en arreglo.
          | IntNode                { line' :: Int, column' :: Int, exp     :: Token                  } -- ^ Numero entero.
          | IDNode                 { line' :: Int, column' :: Int, id      :: Token                  } -- ^ Identificador.
@@ -33,6 +40,8 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | MinusNode              { line' :: Int, column' :: Int, mexp    :: AST                    } -- ^ El negado de un número entero o flotante.
          | AbsNode                { line' :: Int, column' :: Int, absexp  :: AST                    } -- ^ Función valor absoluto.
          | SqrtNode               { line' :: Int, column' :: Int, sqrtexp :: AST                    } -- ^ Función raíz cuadrada.
+         | LengthNode             { line' :: Int, column' :: Int, lengthexp :: AST                  } -- ^ Función raíz cuadrada.
+         | LogicalNotNode         { line' :: Int, column' :: Int, lnotexp   :: AST                  } -- ^ Función raíz cuadrada.
          | MaxIntNode             { line' :: Int, column' :: Int                                    } -- ^ Constante entero máximo.
          | MinIntNode             { line' :: Int, column' :: Int                                    } -- ^ Constante entero mínimo.
          | MaxDouNode             { line' :: Int, column' :: Int                                    } -- ^ Constante flotante máximo.
@@ -40,10 +49,11 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | SkipNode               { line' :: Int, column' :: Int                                    } -- ^ Constante flotante mínimo.
          | AbortNode              { line' :: Int, column' :: Int                                    } -- ^ Constante flotante mínimo.
          | CondNode               { cguard   :: [AST], line' :: Int, column' :: Int                   } -- ^ Constante flotante mínimo.
-         | ReptNode               { rguard   :: [AST], line' :: Int, column' :: Int                   } -- ^ Constante flotante mínimo.
+         | ReptNode               { rguard   :: [AST], rinv :: AST, rbound :: AST, line' :: Int, column' :: Int                   } -- ^ Constante flotante mínimo.
          | WriteNode              { wexp     :: AST, line' :: Int, column' :: Int                       } -- ^ Constante flotante mínimo.
          | WritelnNode            { wlnexp   :: AST, line' :: Int, column' :: Int                       } -- ^ Constante flotante mínimo.
          | GuardNode              { gexp     :: AST, gact :: AST, line' :: Int, column' :: Int          } -- ^ Constante flotante mínimo.
+         | GuardExpNode              { gexp     :: AST, gact :: AST, line' :: Int, column' :: Int          } -- ^ Constante flotante mínimo.
          | LAssignNode            { idlist   :: [(Token, [AST])], explista :: [AST], line' :: Int, column' :: Int                 } -- ^ Constante flotante mínimo.
          | RanNode                { var      :: Token, line' :: Int, column' :: Int                      }
          | BlockNode              { ldecla   :: [AST], lisAct :: [AST], line' :: Int, column' :: Int  }
@@ -51,9 +61,9 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | DecVarAgnNode          { lisidvar :: [Token], lexpdv :: [AST], mytype :: AST             }
          | BasicTypeNode          { mybtype  :: Token                                               }
          | ArrTypeNode            { arrtype  :: AST, sizelist :: [AST]                              }
-         | DefFunNode             { fname    :: Token, ftype :: AST, fbody :: AST, lexprdf :: [AST] }
-         | DefProcNode            { pname    :: Token, prbody :: [AST], prargs :: [AST] }
-         | DefProcDecNode         { pname    :: Token, prbody :: [AST], prargs :: [AST], decs :: AST }
+         | DefFunNode             { fname    :: Token, ftype :: AST, fbody :: AST, lexprdf :: [AST], nodeBound :: AST }
+         | DefProcNode            { pname    :: Token, prbody :: [AST], prargs :: [AST], nodePre :: AST, nodePost :: AST, nodeBound :: AST }
+         | DefProcDecNode         { pname    :: Token, prbody :: [AST], prargs :: [AST], decs :: AST, nodePre :: AST, nodePost :: AST, nodeBound :: AST }
          | ProgramNode            { pname    :: Token, listdef :: [AST], listacc :: [AST] }
          | FunBodyNode            { fbexpr   :: AST }
          | FunArgNode             { faid :: Token, fatype :: AST    }
@@ -62,4 +72,12 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | DecProcReadFileNode    { idfile :: Token, declist :: [AST], idlistproc :: [Token] }
          | DecProcReadSIONode     { declist :: [AST], idlistproc :: [Token] }
          | DecProcNode            { declist :: [AST] }
+         | PreconditionNode       { preExp :: [AST] }
+         | PostconditionNode      { postExp :: [AST] }
+         | BoundNode              { boundExp :: [AST] }
+         | AssertionNode          { assertionExp :: [AST] }
+         | GuardActionNode        { assertionGa :: AST, actionGa :: AST }
+         | InvariantNode          { invarianteExp :: [AST]          }
+         | QuantNode              { opQ :: Token, varQ :: Token, rangeExp :: AST, termExpr :: AST }
+         | EmptyAST
     deriving (Show)

@@ -44,6 +44,7 @@ data Token =   TokPlus
              | TokVerticalBar
              | TokSemicolon
              | TokColon
+             | TokOpenQuant
              | TokLeftBrace
              | TokRightBrace
              | TokArrow
@@ -213,6 +214,7 @@ instance Show Token where
   show (TokCloseBlock)  = "simbolo de cierre de bloque"
   show TokSepGuards     = "simbolo separador de guardias"
   show TokArray         = "tipo arreglo de"
+  show TokOpenQuant     = "apertura de cuantificador"
 
 type TokenPos = (Token, SourcePos)
 
@@ -280,6 +282,29 @@ parseWith         = verify TokWith
 parseWriteln      = verify TokWriteln
 parseOf           = verify TokOf 
 parseTokArray     = verify TokArray
+parseTokPre       = verify TokPre
+parseTokLeftPre   = verify TokLeftPre
+parseTokRightPre  = verify TokRightPre
+parseTokLeftPost  = verify TokLeftPost
+parseTokRightPost = verify TokRightPost
+parseTokExist     = verify TokExist
+parseTokOpenQuant = verify TokOpenQuant
+parseTokLeftPer   = verify TokLeftPercent
+parseTokRightPer  = verify TokRightPercent
+parseTokLeftBound = verify TokLeftBound
+parseTokRightBound= verify TokRightBound
+parseTokLeftA     = verify TokLeftA
+parseTokRightA    = verify TokRightA
+parseTokLeftInv   = verify TokLeftInv
+parseTokRightInv  = verify TokRightInv
+parseTokLength    = verify TokLength
+parseTokNot       = verify TokNot
+parseTokLEqual    = verify TokLessEqual
+parseTokGEqual    = verify TokGreaterEqual
+parseTokLess      = verify TokLess
+parseTokGreater   = verify TokGreater
+parseTokImplies   = verify TokImplies
+parseTokConse     = verify TokConsequent
 
 parseID :: Parsec ([TokenPos]) () (Token)
 parseID = token showTok posTok testTok

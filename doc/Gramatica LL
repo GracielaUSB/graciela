@@ -93,7 +93,7 @@ Lista de asignacion
 ListASIG : TK_ID ":=" EXPRESION ListASIGaux
     
 ListASIGaux : "," TK_ID ":=" EXPRESION ListASIGaux
-             | %empty 
+             | %empty https://github.com/joseluisjb1990/ci4251.git
 --------------------------------------------------/
 
 
@@ -167,7 +167,7 @@ EXPRESION_BOOL_P : EXPRESION OpMAT EXPRESION
                  | "(" EXPRESION_BOOL_Paux ")"
 
 
-EXPRESION_BOOL_Paux : OpCUANT TK_ID ":" EXPRESION_P
+EXPRESION_BOOL_Paux : OpCUANT TK_ID ":" EXPRESION_P ":" EXPRESION_P
                     | EXPRESION_BOOL_P
 -------------------------------------------------------------/
 
@@ -211,7 +211,6 @@ OpBIN : "^" --
       | "max"
       | "min"
       | "mod"
-      | "gcd"
       | "+"
       | "-"
       | "<"
