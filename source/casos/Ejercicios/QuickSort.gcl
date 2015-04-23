@@ -1,0 +1,107 @@
+//QuickSort
+
+program main |[
+
+
+  proc : swap(inout h1: array [50] of int, in x: int, in y: int) 
+  [
+      var aux : int;
+
+      {pre x>0 /\ y>0 pre}  
+      |[
+          aux   := h1[x];
+          h1[x] := h1[y];
+          h1[y] := aux;
+      ]|
+      {post true post}
+
+  ]
+
+    
+  proc : ord(in N: int, inout h: array [50] of int) 
+  [ 
+      var n, m: int;
+    
+      {pre N > 0 pre}  
+      |[  
+          n, m := 0, 1;
+
+          {inv   true  inv} 
+          {bound true  bound}
+          do (m < N) -> 
+          	n, m := n+1, m*2 
+          od
+
+          [|
+              var x, y: array [50] of int
+              var k, p, q: int;
+
+              k, p, q := 0, 0, N;
+
+
+          	  {inv   true  inv} 
+          	  {bound true  bound}
+
+          	  do ((k !== 0) \/ (q-p >= 2) ->
+
+              	  if (q-p <= 1) -> 
+              		  k := k-1;
+              		  p, q := x[k], y[k]
+              	  [] (q-p >= 2) -> 
+              	  |[
+              	  	  var r, w, b, z: int;
+
+              		  z := h[(p+q)/2]
+
+              		  r, w, b := p, p, q;
+
+		              {inv   true  inv} 
+ 	    	          {bound true  bound}
+
+              		  do (w != b) ->
+
+		                  if (h[w] < z) -> 
+		                	  swap(h, r, w);
+		                	  r, w := r+1, w+1
+		                  [] (h[w] = z) -> w := w+1
+		                  [] (h[w] > z) -> 
+		                	  b := b-1;
+		                      swap(h, b, w)
+		                  fi  
+               		  od
+
+		              if (r-p <= q-w) ->
+		                 x[k] := w;
+		                 y[k] := q;
+		                 q    := r
+		              [] (q-w <= r-p) ->
+		                  x[k] := p;
+		                  y[k] := r;
+		                  p    := w
+		              fi
+
+		              k := k+1
+
+		          |]
+		          fi
+          	  od
+          
+                          
+
+    ]|
+    {post true post}
+  ]
+
+  |[
+    var arreglo: array [50] of int
+    var tamano: int;
+
+    //Crear arreglo
+
+    tamano := lenght(arreglo);
+
+    ord(tamano, arreglo);
+    
+  ]|
+
+]|
