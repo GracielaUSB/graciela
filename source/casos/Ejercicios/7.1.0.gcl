@@ -1,0 +1,46 @@
+//Longest Segments, All zeros
+
+program main |[
+
+  proc : TodosCeros(in N: int, in f: array [50] of int, out res: int) 
+  [ 
+  	var n, s: int;
+    
+    {pre N > 0 pre}  
+    |[  
+    	n, res, s := 0, 0, 0;
+
+		  {inv   true  inv} 
+		  {bound true  bound}
+
+    	do (n !== N) ->
+     	
+       		if (X[n] =  0) -> skip
+          	[] (X[n] != 0) -> s := n+1
+        	fi
+
+		    res := max(n+1-s);
+		    n := n+1
+    	od
+
+
+    ]|
+    {post true post}
+  ]
+
+  |[
+    arreglo: array [50] of int
+    tamano, resultado: int;
+
+    //Crear arreglo
+
+    tamano := lenght(arreglo);
+
+    TodosCeros(tamano, arreglo, resultado);
+    
+    write("El resultado es: ");
+    writeln(resultado);
+
+  ]|
+
+]|

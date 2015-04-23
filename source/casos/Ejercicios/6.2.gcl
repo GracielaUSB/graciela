@@ -1,0 +1,40 @@
+//Bounded Linear Search
+
+program main |[
+
+  proc : buscar(in N: int, in b: array [50] of bool, out x: int) 
+  [ 
+  	var y: int;
+    
+    {pre N >= 0 pre}  
+    |[  
+    	x, y := 0, N;
+
+		  {inv   true  inv} 
+		  {bound true  bound}
+
+    	do (x !== y) ->
+    	
+    		if (![b[x]) -> x := x+1
+    		[]  ([b[x]) -> y := x
+    		fi
+    	od
+
+    ]|
+    {post x = (max i: 0<=i<=N /\ (forall j : 0<=j<i : !b[j]) : i) post}
+  ]
+
+  |[
+    arreglo  : array [50] of bool
+    numero, resultado: int;
+
+    //Crear arreglo
+
+    buscar(numero, arreglo, resultado);
+    
+    write("El resultado es: ");
+    writeln(resultado);
+
+  ]|
+
+]|

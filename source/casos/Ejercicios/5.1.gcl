@@ -1,0 +1,52 @@
+//Integer Division
+
+program main |[
+
+  proc : dividir(out A: int, out B: int) 
+  [ 
+  	var q, r, b : int;
+    read(A, B); 
+
+    {pre A >= 0 /\ B >= 0 pre}  
+    |[  
+    	q, r, b := 0, A, B;
+
+		{inv   true inv} 
+		{bound true bound}
+		
+    	do (r >= b) -> 
+    		b:= b*2
+    	od
+
+		{inv   true  inv} 
+		{bound true  bound}
+
+    	do (b !== B) ->
+    		q, b := q*2, b/2;
+
+    		if (r <  b) -> skip
+    		[] (r >= b) -> q, r := q+1, r-b
+    		fi
+    	od
+
+    ]|
+    {post q = A div B /\ r = A mod B post}
+  ]
+
+  |[
+      var resultado, resto : int;
+
+      write("Escriba el dividendo y el divisor:");
+
+      dividir(resultado, resto);
+
+      write("El resultado es: ");
+      writeln(resultado);
+      
+      write("El resto es: ");
+      writeln(resto);
+
+  ]|
+
+
+]|

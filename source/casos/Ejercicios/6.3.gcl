@@ -1,0 +1,46 @@
+//Binary Search
+
+program main |[
+
+  proc : buscar(in A: int, in f: array [50] of int, out b: boolean) 
+  [ 
+  	var x, y: int;
+    
+    {pre true pre}  
+    |[  
+    	x, y := 0, length(f);
+
+		  {inv   true  inv} 
+		  {bound true  bound}
+
+    	do (x+1 !== y) ->
+        |[
+            var h: int;
+      	
+        		if (f[h] <= A) -> x := h
+        		[] (A  < f[h]) -> y := h
+        		fi
+        |]
+    	od
+
+      b := f[x] == A;
+
+    ]|
+    {post b = (exists i: 0<=i<=length(f) : f[i] == A) post}
+  ]
+
+  |[
+    arreglo  : array [50] of int
+    resultado: bool;
+    numero   : int;
+
+    //Crear arreglo
+
+    buscar(numero, arreglo, resultado);
+    
+    write("El resultado es: ");
+    writeln(resultado);
+
+  ]|
+
+]|
