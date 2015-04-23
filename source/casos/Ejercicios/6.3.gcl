@@ -30,13 +30,15 @@ program main |[
   ]
 
   |[
-    arreglo  : array [50] of int
-    resultado: bool;
-    numero   : int;
+    var arreglo  : array [50] of int
+    var resultado: bool;
+    var tamano   : int;
 
     //Crear arreglo
 
-    buscar(numero, arreglo, resultado);
+    tamano := lenght(arreglo);
+    
+    buscar(tamano, arreglo, resultado);
     
     write("El resultado es: ");
     writeln(resultado);

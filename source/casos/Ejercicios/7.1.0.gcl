@@ -29,8 +29,8 @@ program main |[
   ]
 
   |[
-    arreglo: array [50] of int
-    tamano, resultado: int;
+    var arreglo: array [50] of int
+    var tamano, resultado: int;
 
     //Crear arreglo
 

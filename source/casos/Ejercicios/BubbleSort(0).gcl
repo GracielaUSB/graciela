@@ -1,0 +1,71 @@
+//BubbleSort(0)
+
+program main |[
+
+
+  proc : swap(inout h1: array [50] of int, in x: int, in y: int) 
+  [
+      var aux : int;
+
+      {pre x>0 /\ y>0 pre}  
+      |[
+          aux   := h1[x];
+          h1[x] := h1[y];
+          h1[y] := aux;
+      ]|
+      {post true post}
+
+  ]
+
+    
+  proc : ord(in N: int, inout h: array [50] of int) 
+  [ 
+      var n: int;
+    
+      {pre N > 0 pre}  
+      |[  
+          n := 0;
+
+          {inv   true  inv} 
+          {bound true  bound}
+
+          do (n !== N) ->
+          [|
+              var k: int;
+
+              k := N-1;
+
+              {inv   true  inv} 
+              {bound true  bound}
+
+              do (k != n) ->
+
+                  if (h[k-1] <= h[k]) -> skip
+                  [] (h[k-1] >  h[k]) -> swap(h, k-1, k)
+                  fi  
+              od
+
+              k := k-1 
+          |]
+
+          n := n+1
+                          
+          od
+
+    ]|
+    {post true post}
+  ]
+
+  |[
+    var arreglo: array [50] of int
+    var tamano: int;
+
+    //Crear arreglo
+
+    tamano := lenght(arreglo);
+
+    ord(tamano, arreglo);
+    
+  ]|
+
+]|

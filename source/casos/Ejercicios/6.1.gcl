@@ -20,8 +20,8 @@ program main |[
   ]
 
   |[
-    arreglo  : array [50] of bool
-    resultado: int;
+    var arreglo  : array [50] of bool
+    var resultado: int;
 
     //Crear arreglo
 
