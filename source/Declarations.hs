@@ -75,10 +75,12 @@ idListAux follow recSet = do lookAhead follow
 
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
                                    do parseRead
-                                      lid <- idList (parseSemicolon <|> parseWith) (recSet <|> parseSemicolon <|> parseWith)
+                                      parseLeftParent
+                                      lid <- idList (parseRightParent) (recSet <|> parseRightParent)
+                                      parseRightParent
                                       do parseWith
                                          id <- parseString
                                          parseSemicolon
                                          return ((fmap (DecProcReadFileNode id) ld) AP.<*> lid)
-                                         <|> return ((fmap (DecProcReadSIONode) ld) AP.<*> lid)
-                                      <|> return (fmap (DecProcNode) ld)
+                                         <|> do parseSemicolon
+                                                return (fmap (DecProcNode) ld)

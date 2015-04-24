@@ -72,16 +72,18 @@ proc follow recSet = do parseProc
                         larg <- listArgProc parseRightParent parseRightParent
                         parseRightParent
                         parseLeftBracket
-                        pre <- precondition (parseTokOpenBlock <|> parseConst <|> parseVar <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock <|> parseConst <|> parseVar <|>parseTokLeftBound)
-                        b   <- maybeBound (parseTokOpenBlock <|> parseConst <|> parseVar) (recSet <|> parseTokOpenBlock <|> parseConst <|> parseVar)
-                        do        parseTokOpenBlock                                  
+                        do        pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
+                                  b   <- maybeBound (parseTokOpenBlock) (recSet <|> parseTokOpenBlock)
+                                  parseTokOpenBlock                                  
                                   la <- actionsList parseTokCloseBlock (parseTokCloseBlock <|> recSet)
                                   parseTokCloseBlock
                                   post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                   parseRightBracket
                                   return ((fmap (DefProcNode id) la) AP.<*> larg AP.<*> pre AP.<*> post AP.<*> b)
 
-                           <|> do dcl <- decListWithRead parseTokOpenBlock (parseTokOpenBlock <|> recSet)
+                           <|> do dcl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
+                                  pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
+                                  b   <- maybeBound (parseTokOpenBlock) (recSet <|> parseTokOpenBlock)
                                   parseTokOpenBlock
                                   la <- actionsList parseTokCloseBlock (parseTokCloseBlock <|> recSet)
                                   parseTokCloseBlock
@@ -187,14 +189,14 @@ random follow recSet = do parseRandom
                           id <- parseID
                           return(return (RanNode id))
 
-guardsList casec follow recSet = do g  <- guard casec follow recSet
+guardsList casec follow recSet = do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
                                     gl <- guardsListAux casec follow recSet
                                     return(verifyBinError (:) g gl)
 
 guardsListAux casec follow recSet = do      lookAhead follow
                                             return $ Right []
                                        <|>  do parseSepGuards
-                                               g  <- guard casec (parseSepGuards) (recSet <|> parseSepGuards)
+                                               g  <- guard casec (parseSepGuards <|> follow) (recSet <|> parseSepGuards)
                                                rl <- guardsListAux casec follow recSet
                                                return (verifyBinError (:) g rl)
                 

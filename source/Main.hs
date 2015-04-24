@@ -7,6 +7,7 @@ import qualified Control.Applicative as AP
 import Parser
 import Lexer
 import Token
+import System.Environment
 
 playLexer inp = case runParser (lexer) () "" (inp) of
             { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
@@ -29,6 +30,6 @@ play inp = case runParser (concatLexPar) () "" (inp) of
                              }
             }
                            
-parseFromFile :: FilePath -> IO ()
-parseFromFile arch = do  s <- TIO.readFile arch
-                         play s
+main = do args <- getArgs 
+          s <- TIO.readFile (head args)
+          play s
