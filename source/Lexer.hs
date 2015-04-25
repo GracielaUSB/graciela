@@ -103,12 +103,13 @@ pMIN_DOUBLE   = tryString "MIN_DOUBLE"
 pMAX_INT      = tryString "MAX_INT"
 pMAX_DOUBLE   = tryString "MAX_DOUBLE"
 pOf           = tryString "of"
-
+pComment      = optional(do { tryString "//"; manyTill anyChar (lookAhead (newline)); spaces })
 
 
 lexer :: Parsec T.Text () ([TokenPos])
 lexer = do spaces
-           pos <- getPosition    
+           pComment
+           pos <- getPosition
            do  (eof >> spaces >> return ([(TokEnd, pos)]))
                <|> (do tok <- (   (pPlus         >> spaces >> return (TokPlus))
                               <|> (pArrow        >> spaces >> return (TokArrow))
@@ -228,5 +229,6 @@ lexer = do spaces
                                            spaces
                                            return $ TokId (T.cons l (T.pack r)) 
                                        )
-                                  ))
+                                  )
+                              )
                        fmap ((tok, pos) :) lexer)

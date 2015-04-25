@@ -305,6 +305,15 @@ parseTokLess      = verify TokLess
 parseTokGreater   = verify TokGreater
 parseTokImplies   = verify TokImplies
 parseTokConse     = verify TokConsequent
+parseTokMod       = verify TokMod
+parseTokMax       = verify TokMax
+parseTokMin       = verify TokMin
+parseTokForall    = verify TokForall
+parseTokNotExist  = verify TokNotExist
+parseTokSigma     = verify TokSigma
+parseTokPi        = verify TokPi
+parseTokUnion     = verify TokUnion
+parseTokEqual     = verify TokEqual
 
 parseID :: Parsec ([TokenPos]) () (Token)
 parseID = token showTok posTok testTok

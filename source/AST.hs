@@ -16,7 +16,9 @@ data AST = SumNode                { line' :: Int, column' :: Int, lexpr   :: AST
          | ExpNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Potencia de dos expresiones.
          | DisNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Disjunción de dos expresiones.
          | ConNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Conjunción de dos expresiones.
+         | ModNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Conjunción de dos expresiones.
          | EquNode                { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Equivalencia de dos expresiones.
+         | EqualNode              { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Equivalencia de dos expresiones.
          | LessNode               { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
          | GreaterNode            { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.
          | LEqualNode             { line' :: Int, column' :: Int, lexpr   :: AST  , rexp :: AST     } -- ^ Inequivalencia de dos expresiones.

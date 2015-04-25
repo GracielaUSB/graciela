@@ -2,7 +2,7 @@
 
 program main |[
 
-  proc : buscar(in N: int, in b: array [50] of bool, out x: int) 
+  proc buscar: (in N: int, in b: array [50] of boolean, out x: int) 
   [ 
   	var y: int;
     
@@ -13,19 +13,18 @@ program main |[
 		  {inv   true  inv} 
 		  {bound true  bound}
 
-    	do (x !== y) ->
-    	
-    		if (![b[x]) -> x := x+1
-    		[]  ([b[x]) -> y := x
+    	do (x != y) ->
+    		if (!b[x]) -> x := x+1
+    		[]  (b[x]) -> y := x
     		fi
     	od
 
     ]|
-    {post x = (max i: 0<=i<=N /\ (forall j : 0<=j<i : !b[j]) : i) post}
+    {post x = (%max i: 0<=i<=N /\ (%forall j : 0<=j<i : !b[j]%) : i%) post}
   ]
 
   |[
-    arreglo  : array [50] of bool
+    var arreglo  : array [50] of boolean;
     var tamano, resultado: int;
 
     //Crear arreglo
@@ -35,8 +34,7 @@ program main |[
     buscar(tamano, arreglo, resultado);
     
     write("El resultado es: ");
-    writeln(resultado);
-
+    writeln(resultado)
   ]|
 
 ]|

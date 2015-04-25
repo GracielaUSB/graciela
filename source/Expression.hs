@@ -38,7 +38,16 @@ expr follow recSet =  do lookAhead(follow)
                          pos <- getPosition
                          return (Left (return (newEmptyError pos)))
                       
-                      <|> exprLevelImpl follow recSet
+                      <|> exprLevelEqual follow recSet
+
+exprLevelEqual follow recSet = do e <- exprLevelImpl (follow <|> parseTokEqual) (recSet <|> parseTokEqual)
+                                  do pos <- getPosition
+                                     do (lookAhead (follow) >> return e)
+                                        <|> (do parseTokEqual
+                                                e' <- exprLevelEqual follow recSet
+                                                return(verifyBinError (EqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                            )
+                                        <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
 exprLevelImpl follow recSet = do e <- exprLevelOr (follow <|> parseTokImplies <|> parseTokConse) (recSet <|> parseTokImplies <|> parseTokConse)
                                  do pos <- getPosition
@@ -116,11 +125,12 @@ expr' follow recSet =  do t <- term' (follow <|> parsePlus <|> parseMinus) (recS
                                 <|> (genNewError (recSet) (Operator) >>= return . (checkError t))
 
 term' :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
-term' follow recSet = do p <- factor (follow <|> parseSlash <|> parseStar) (recSet <|> parseSlash <|> parseStar)
+term' follow recSet = do p <- factor (follow <|> parseSlash <|> parseStar <|> parseTokMod) (recSet <|> parseSlash <|> parseStar <|> parseTokMod)
                          do pos <- getPosition
                             do (lookAhead(follow) >> return p)
                                <|> (parseSlash AP.*> term' follow recSet >>= return . (verifyBinError (DivNode (sourceLine pos) (sourceColumn pos)) p))
                                <|> (parseStar  AP.*> term' follow recSet >>= return . (verifyBinError (MulNode (sourceLine pos) (sourceColumn pos)) p))
+                               <|> (parseTokMod   AP.*> term' follow recSet >>= return . (verifyBinError (ModNode (sourceLine pos) (sourceColumn pos)) p))
                                <|> (genNewError (recSet) (Operator) >>= return . (checkError p))
 
 factor follow recSet = do p <- factor' (follow <|> parseTokAccent) (recSet <|> parseTokAccent)
@@ -219,6 +229,14 @@ quantification follow recSet = do parseTokLeftPer
                                   return((fmap (QuantNode op id) r) AP.<*> t) 
 
 parseOpCuant = parseTokExist
+               <|> parseTokMod
+               <|> parseTokMax
+               <|> parseTokMin
+               <|> parseTokForall
+               <|> parseTokNotExist
+               <|> parseTokSigma
+               <|> parseTokPi
+               <|> parseTokUnion
 
 bracketsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
 bracketsList follow recSet = do  lookAhead follow
