@@ -8,6 +8,7 @@ import Parser
 import Lexer
 import Token
 import System.Environment
+import Tabla
 
 playLexer inp = case runParser (lexer) () "" (inp) of
             { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)

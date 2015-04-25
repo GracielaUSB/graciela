@@ -7,6 +7,7 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import qualified Data.Text.Read as TR
 import qualified Text.Parsec.Pos as P
+import Location
 import Token
 import Lexer
 import AST
@@ -54,11 +55,11 @@ exprLevelImpl follow recSet = do e <- exprLevelOr (follow <|> parseTokImplies <|
                                     do (lookAhead (follow) >> return e)
                                        <|> (do parseTokImplies
                                                e' <- exprLevelImpl follow recSet
-                                               return(verifyBinError (ImpliesNode (sourceLine pos) (sourceColumn pos)) e e')
+                                               return(verifyBinError (Relational Implies (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                            )
                                        <|> (do parseTokConse
                                                e' <- exprLevelImpl follow recSet
-                                               return(verifyBinError (ConseNode (sourceLine pos) (sourceColumn pos)) e e')
+                                               return(verifyBinError (Relational Conse (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                            )
                                        <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
@@ -67,7 +68,7 @@ exprLevelOr follow recSet = do e <- exprLevelAnd (follow <|> parseOr) (recSet <|
                                   do (lookAhead (follow) >> return e)
                                      <|> (do parseOr
                                              e' <- exprLevelOr follow recSet
-                                             return(verifyBinError (DisNode (sourceLine pos) (sourceColumn pos)) e e')
+                                             return(verifyBinError (Boolean Dis (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                          )
                                      <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
  
@@ -76,7 +77,7 @@ exprLevelAnd follow recSet = do e <- exprPrecLvl'' (follow <|>  parseAnd) (recSe
                                    do (lookAhead (follow) >> return e)
                                       <|> (do parseAnd
                                               e' <- exprLevelAnd follow recSet
-                                              return(verifyBinError (ConNode (sourceLine pos) (sourceColumn pos)) e e')
+                                              return(verifyBinError (Boolean Con (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                           )
                                       <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
@@ -85,11 +86,11 @@ exprPrecLvl'' follow recSet = do e <- exprLevelRel (follow <|> parseEqual <|> pa
                                     do (lookAhead (follow) >> return e)
                                        <|> (do parseEqual
                                                e' <- exprPrecLvl'' follow recSet
-                                               return(verifyBinError (EquNode (sourceLine pos) (sourceColumn pos)) e e')
+                                               return(verifyBinError (Relational Equ (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                            )
                                        <|> (do parseNotEqual
                                                e' <- exprPrecLvl'' follow recSet
-                                               return(verifyBinError (IneNode (sourceLine pos) (sourceColumn pos)) e e')
+                                               return(verifyBinError (Relational Ine (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                             )
                                        <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
@@ -100,19 +101,19 @@ exprLevelRel follow recSet = do e <- expr' (follow <|> followExprLevelRel) (recS
                                    do (lookAhead (follow) >> return e)
                                       <|> (do parseTokLess
                                               e' <- exprLevelRel follow recSet
-                                              return(verifyBinError (LessNode (sourceLine pos) (sourceColumn pos)) e e')
+                                              return(verifyBinError (Relational Less (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                           )
                                       <|> (do parseTokLEqual
                                               e' <- exprLevelRel follow recSet
-                                              return(verifyBinError (LEqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                              return(verifyBinError (Relational LEqual (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                           )
                                       <|> (do parseTokGreater
                                               e' <- exprLevelRel follow recSet
-                                              return(verifyBinError (GreaterNode (sourceLine pos) (sourceColumn pos)) e e')
+                                              return(verifyBinError (Relational Greater (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                           )
                                       <|> (do parseTokGEqual
                                               e' <- exprLevelRel follow recSet
-                                              return(verifyBinError (GEqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                              return(verifyBinError (Relational GEqual (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                           )
                                       <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
@@ -120,23 +121,23 @@ expr' :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec 
 expr' follow recSet =  do t <- term' (follow <|> parsePlus <|> parseMinus) (recSet  <|> parsePlus <|> parseMinus)
                           do pos <- getPosition
                              do (lookAhead(follow) >> return t)
-                                <|> (parsePlus  AP.*> expr' follow recSet >>=  return . (verifyBinError (SumNode (sourceLine pos) (sourceColumn pos)) t))
-                                <|> (parseMinus AP.*> expr' follow recSet >>=  return . (verifyBinError (SubNode (sourceLine pos) (sourceColumn pos)) t))
+                                <|> (parsePlus  AP.*> expr' follow recSet >>=  return . (verifyBinError (Arithmetic Sum (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) t))
+                                <|> (parseMinus AP.*> expr' follow recSet >>=  return . (verifyBinError (Arithmetic Sub (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) t))
                                 <|> (genNewError (recSet) (Operator) >>= return . (checkError t))
 
 term' :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
 term' follow recSet = do p <- factor (follow <|> parseSlash <|> parseStar <|> parseTokMod) (recSet <|> parseSlash <|> parseStar <|> parseTokMod)
                          do pos <- getPosition
                             do (lookAhead(follow) >> return p)
-                               <|> (parseSlash AP.*> term' follow recSet >>= return . (verifyBinError (DivNode (sourceLine pos) (sourceColumn pos)) p))
-                               <|> (parseStar  AP.*> term' follow recSet >>= return . (verifyBinError (MulNode (sourceLine pos) (sourceColumn pos)) p))
-                               <|> (parseTokMod   AP.*> term' follow recSet >>= return . (verifyBinError (ModNode (sourceLine pos) (sourceColumn pos)) p))
+                               <|> (parseSlash AP.*> term' follow recSet >>= return . (verifyBinError (Arithmetic Div (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) p))
+                               <|> (parseStar  AP.*> term' follow recSet >>= return . (verifyBinError (Arithmetic Mul (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) p))
+                               <|> (parseTokMod   AP.*> term' follow recSet >>= return . (verifyBinError (Arithmetic Mod (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) p))
                                <|> (genNewError (recSet) (Operator) >>= return . (checkError p))
 
 factor follow recSet = do p <- factor' (follow <|> parseTokAccent) (recSet <|> parseTokAccent)
                           do pos <- getPosition
                              do  (lookAhead(follow) >> return p)
-                                 <|> (parseTokAccent AP.*> factor follow recSet >>= return . (verifyBinError (ExpNode (sourceLine pos) (sourceColumn pos)) p))
+                                 <|> (parseTokAccent AP.*> factor follow recSet >>= return . (verifyBinError (Arithmetic Exp (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) p))
                                  <|> (genNewError (recSet) (Operator) >>= return . (checkError p))
                              
 {-| La función factor follow se encarga de consumir una expresión simple.
@@ -151,69 +152,69 @@ factor' follow recSet = do do pos <- getPosition
                                  do  try(parseRightParent >>= return . return e)
                                      <|> (genNewError (recSet) (TokenRP) >>= return . (checkError e))
                               
-                                 <|> (number >>= return . Right . IntNode (sourceLine pos) (sourceColumn pos)) 
+                                 <|> (number >>= return . Right . Int (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) 
                                  <|> (do idp <- parseID
-                                         do      lookAhead follow AP.*> return(Right(IDNode (sourceLine pos) (sourceColumn pos) idp))
+                                         do      lookAhead follow AP.*> return(Right(ID (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) idp))
                                              <|> do parseLeftParent
                                                     lexp <- listExp (parseEnd <|> parseRightParent) (recSet <|> parseRightParent)
                                                     (try (do parseRightParent
-                                                             return (fmap (\f -> f (sourceLine pos) (sourceColumn pos)) (fmap (FCallExpNode idp) lexp))
+                                                             return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) (fmap (FCallExp idp) lexp))
                                                          )
                                                      <|> (genNewError (recSet) (TokenRP) >>= return . (checkError lexp))
                                                      )
                                              <|> do blist <- bracketsList follow recSet
-                                                    return(fmap (ArrCallNode (sourceLine pos) (sourceColumn pos) idp) blist)
+                                                    return(fmap (ArrCall (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) idp) blist)
                                      )
-                                 <|> (parseMaxInt    AP.*> return(Right(MaxIntNode (sourceLine pos) (sourceColumn pos))))
-                                 <|> (parseMinInt    AP.*> return(Right(MinIntNode (sourceLine pos) (sourceColumn pos))))
-                                 <|> (parseMaxDouble AP.*> return(Right(MaxDouNode (sourceLine pos) (sourceColumn pos))))
-                                 <|> (parseMinDouble AP.*> return(Right(MinDouNode (sourceLine pos) (sourceColumn pos))))
-                                 <|> (parseBool      >>= return . Right . BoolNode (sourceLine pos) (sourceColumn pos))
-                                 <|> (parseChar      >>= return . Right . CharNode (sourceLine pos) (sourceColumn pos))
-                                 <|> (parseString    >>= return . Right . StringNode (sourceLine pos) (sourceColumn pos))
+                                 <|> (parseMaxInt    AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) True  True )))
+                                 <|> (parseMinInt    AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) True  False)))
+                                 <|> (parseMaxDouble AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) False True )))
+                                 <|> (parseMinDouble AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) False False)))
+                                 <|> (parseBool      >>= return . Right . Bool (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
+                                 <|> (parseChar      >>= return . Right . Char (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
+                                 <|> (parseString    >>= return . Right . String (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
                                  <|> (do parseToInt
                                          parseLeftParent
                                          e <- expr parseRightParent parseRightParent
                                          parseRightParent
-                                         return(fmap (ToIntNode (sourceLine pos) (sourceColumn pos)) e)
+                                         return(fmap (Convertion ToInt (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> (do parseToDouble
                                          parseLeftParent
                                          e <- expr parseRightParent parseRightParent
                                          parseRightParent
-                                         return(fmap (ToDoubleNode (sourceLine pos) (sourceColumn pos)) e)
+                                         return(fmap (Convertion ToDouble (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> (do parseToString
                                          parseLeftParent
                                          e <- expr parseRightParent parseRightParent
                                          parseRightParent
-                                         return(fmap (ToStringNode (sourceLine pos) (sourceColumn pos)) e)
+                                         return(fmap (Convertion ToString (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> (do parseToChar
                                          parseLeftParent
                                          e <- expr parseRightParent parseRightParent
                                          parseRightParent
-                                         return(fmap (ToCharNode (sourceLine pos) (sourceColumn pos)) e)
+                                         return(fmap (Convertion ToChar (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> (do parseMinus
                                          e <- expr follow recSet
-                                         return(fmap (MinusNode (sourceLine pos) (sourceColumn pos)) e)
+                                         return(fmap (Unary Minus (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> ( do parseTokAbs
                                           e <- expr follow recSet
-                                          return(fmap (AbsNode (sourceLine pos) (sourceColumn pos)) e)
+                                          return(fmap (Unary Abs (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> ( do parseTokSqrt
                                           e <- expr follow recSet
-                                          return(fmap (SqrtNode (sourceLine pos) (sourceColumn pos)) e)
+                                          return(fmap (Unary Sqrt (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> ( do parseTokLength
                                           e <- expr follow recSet
-                                          return(fmap (LengthNode (sourceLine pos) (sourceColumn pos)) e)
+                                          return(fmap (Unary Length (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> ( do parseTokNot
                                           e <- expr follow recSet
-                                          return(fmap (LogicalNotNode (sourceLine pos) (sourceColumn pos)) e)
+                                          return(fmap (LogicalNot (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e)
                                      )
                                  <|> quantification follow recSet
                                  <|> (genNewError recSet Number >>= return . Left . return)
@@ -226,7 +227,7 @@ quantification follow recSet = do parseTokLeftPer
                                   parseColon
                                   t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
                                   parseTokRightPer
-                                  return((fmap (QuantNode op id) r) AP.<*> t) 
+                                  return((fmap (Quant op id) r) AP.<*> t) 
 
 parseOpCuant = parseTokExist
                <|> parseTokMod
