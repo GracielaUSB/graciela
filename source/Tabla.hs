@@ -1,17 +1,16 @@
--- Tabla 
+module Tabla where
 
 import qualified Data.Tree           as Tree
 import qualified Data.Text           as T
 import qualified Data.Map            as M
-import qualified Data.Either.Unwrap  as Unwrap
+--import qualified Data.Either.Unwrap  as Unwrap
 import qualified Data.Maybe          as Maybe
+import Location
 import Type
 
-type Line   =  Integer 
-type Column =  Integer 
 type Offset =  Integer
 
-data Contents = Contents Line Column Type deriving (Read, Eq, Show)
+data Contents = Contents Location Type deriving (Read, Eq, Show)
 
 type Diccionario = M.Map T.Text Contents
 
@@ -47,20 +46,20 @@ exitScope tabla = let f table = Tabla (actual table) (padre table) (tabla : (hij
 
 t0 = emptyTable
 
-t1 = addSymbol (T.pack "foo") (Contents 1 2 MyInt) t0
+t1 = addSymbol (T.pack "foo") (Contents (Location 1 2 "archivo1") MyInt) t0
 
-t2 = addSymbol (T.pack "bar") (Contents 3 4 MyInt) (Unwrap.fromRight t1)
+--t2 = addSymbol (T.pack "bar") (Contents 3 4 MyInt) (Unwrap.fromRight t1)
 
-t3 = enterScope (Unwrap.fromRight t2)
+--t3 = enterScope (Unwrap.fromRight t2)
 
-t4 = addSymbol (T.pack "foo fighters") (Contents 7 8 MyFloat) (t3)
+--t4 = addSymbol (T.pack "foo fighters") (Contents 7 8 MyFloat) (t3)
 
-t5 = enterScope (Unwrap.fromRight t4)
+--t5 = enterScope (Unwrap.fromRight t4)
 
-t6 = addSymbol (T.pack "metallica") (Contents 7 8 MyChar) (t5)
+--t6 = addSymbol (T.pack "metallica") (Contents 7 8 MyChar) (t5)
 
-t7 = exitScope (Unwrap.fromRight t6)
+--t7 = exitScope (Unwrap.fromRight t6)
 
-t8 = exitScope (Maybe.fromJust t7)
+--t8 = exitScope (Maybe.fromJust t7)
 
-t9 = exitScope (Maybe.fromJust t8)
+--t9 = exitScope (Maybe.fromJust t8)
