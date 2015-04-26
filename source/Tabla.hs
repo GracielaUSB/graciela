@@ -1,6 +1,4 @@
-module Tabla where
-
-import qualified Data.Tree           as Tree
+import qualified Data.Tree           as Tr
 import qualified Data.Text           as T
 import qualified Data.Map            as M
 --import qualified Data.Either.Unwrap  as Unwrap
@@ -8,58 +6,80 @@ import qualified Data.Maybe          as Maybe
 import Location
 import Type
 
-type Offset =  Integer
-
-data Contents = Contents Location Type deriving (Read, Eq, Show)
+data Contents = Contents Location Type 
+        deriving (Read, Eq, Show)
 
 type Diccionario = M.Map T.Text Contents
 
-data SymbolTable = Tabla { actual :: Diccionario, padre :: Maybe SymbolTable, hijos :: [SymbolTable] }
-      deriving (Show)
 
-addSymbol :: T.Text -> Contents -> SymbolTable ->  Either String SymbolTable
-addSymbol valor content tabla =
-          if checkSymbol valor tabla then Left "Error: El símbolo ya se encontraba en la tabla de símbolos" 
-          else  let newActual = M.insert (valor) (content) (actual tabla) in
-                    Right $ Tabla newActual (padre tabla) (hijos tabla)
+data SymbolTable = Table { actual :: Tr.Tree (Diccionario, Maybe SymbolTable) }  
+        deriving (Eq, Show)
 
-checkSymbol valor tabla = let dic = actual tabla in
+getActual :: SymbolTable -> Diccionario
+getActual tabla = fst $ Tr.rootLabel (actual tabla)
+
+getPadre :: SymbolTable -> Maybe SymbolTable
+getPadre tabla = snd $ Tr.rootLabel (actual tabla)
+
+getHijos :: SymbolTable -> [Tr.Tree (Diccionario, Maybe SymbolTable)]
+getHijos tabla = Tr.subForest (actual tabla)
+
+getTabla :: SymbolTable -> (Diccionario, Maybe SymbolTable)
+getTabla tabla = Tr.rootLabel (actual tabla)
+
+insertTabla :: Diccionario -> SymbolTable -> SymbolTable
+insertTabla dic tabla = Table (Tr.Node (dic, getPadre tabla) (getHijos tabla))
+
+insertHijo :: SymbolTable -> SymbolTable -> SymbolTable
+insertHijo hijo padre = Table (Tr.Node (getTabla padre) ((actual hijo):(getHijos padre)))
+
+emptyTable :: SymbolTable
+emptyTable =  Table (Tr.Node (M.empty, Nothing) []) 
+
+enterScope :: SymbolTable -> SymbolTable
+enterScope tabla = Table (Tr.Node (M.empty, Just tabla) [])
+
+exitScope :: SymbolTable -> Maybe SymbolTable
+exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
+
+checkSymbol :: T.Text -> SymbolTable -> Bool
+checkSymbol valor tabla = let dic = getActual tabla in
                             if M.member valor dic then True
-                            else case padre tabla of
+                            else case getPadre tabla of
                                    { Nothing   -> False
                                    ; Just sup  -> checkSymbol valor sup
                                    }
 
-flatten symbolTable = (actual symbolTable) : concatMap flatten (hijos symbolTable)
+addSymbol :: T.Text -> Contents -> SymbolTable -> (Either String SymbolTable)
+addSymbol valor content tabla =
+          if checkSymbol valor tabla then Left "Error: El símbolo ya se encontraba en la tabla de símbolos" 
+          else  let newActual = M.insert (valor) (content) (getActual tabla) in
+                    Right $ insertTabla newActual tabla
 
-emptyTable :: SymbolTable
-emptyTable = Tabla (M.empty) (Nothing) []
 
-enterScope :: SymbolTable -> SymbolTable
-enterScope tabla = Tabla (M.empty) (Just tabla) ([])
 
-exitScope :: SymbolTable -> Maybe SymbolTable
-exitScope tabla = let f table = Tabla (actual table) (padre table) (tabla : (hijos table))
-                      in fmap f (padre tabla)
+look :: (Either String SymbolTable) -> SymbolTable 
+look (Right tabla) = tabla
 
--- Casos de prueba
+
+--Casos 
 
 t0 = emptyTable
 
 t1 = addSymbol (T.pack "foo") (Contents (Location 1 2 "archivo1") MyInt) t0
 
---t2 = addSymbol (T.pack "bar") (Contents 3 4 MyInt) (Unwrap.fromRight t1)
+t2 = addSymbol (T.pack "bar") (Contents (Location 3 4 "archivo2") MyInt) (look t1)
 
---t3 = enterScope (Unwrap.fromRight t2)
+t3 = enterScope (look t2)
 
---t4 = addSymbol (T.pack "foo fighters") (Contents 7 8 MyFloat) (t3)
+t4 = addSymbol (T.pack "foo fighters") (Contents (Location 7 8 "archivo2") MyFloat) (t3)
 
---t5 = enterScope (Unwrap.fromRight t4)
+t5 = enterScope (look t4)
 
---t6 = addSymbol (T.pack "metallica") (Contents 7 8 MyChar) (t5)
+t6 = addSymbol (T.pack "metallica") (Contents (Location 7 8 "archivo1") MyChar) (t5)
 
---t7 = exitScope (Unwrap.fromRight t6)
+t7 = exitScope (look t6)
 
---t8 = exitScope (Maybe.fromJust t7)
+t8 = exitScope (Maybe.fromJust t7)
 
---t9 = exitScope (Maybe.fromJust t8)
+t9 = exitScope (Maybe.fromJust t8)
