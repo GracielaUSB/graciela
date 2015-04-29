@@ -46,7 +46,7 @@ exprLevelEqual follow recSet = do e <- exprLevelImpl (follow <|> parseTokEqual) 
                                      do (lookAhead (follow) >> return e)
                                         <|> (do parseTokEqual
                                                 e' <- exprLevelEqual follow recSet
-                                                return(verifyBinError (EqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                                return(verifyBinError (EqualNode (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                             )
                                         <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
@@ -55,11 +55,11 @@ exprLevelImpl follow recSet = do e <- exprLevelOr (follow <|> parseTokImplies <|
                                     do (lookAhead (follow) >> return e)
                                        <|> (do parseTokImplies
                                                e' <- exprLevelImpl follow recSet
-                                               return(verifyBinError (Relational Implies (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
+                                               return(verifyBinError (Boolean Implies (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                            )
                                        <|> (do parseTokConse
                                                e' <- exprLevelImpl follow recSet
-                                               return(verifyBinError (Relational Conse (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
+                                               return(verifyBinError (Boolean Conse (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                            )
                                        <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 
