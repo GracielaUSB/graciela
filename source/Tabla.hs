@@ -1,3 +1,5 @@
+module Tabla where
+
 import qualified Data.Tree           as Tr
 import qualified Data.Text           as T
 import qualified Data.Map            as M

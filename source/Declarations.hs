@@ -83,5 +83,5 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                          parseSemicolon
                                          return ((fmap (DecProcReadFile id) ld) AP.<*> lid)
                                          <|> do parseSemicolon
-                                                return (fmap (DecProcReadSIONode) ld AP.<*> lid)
-                                      <|> return(fmap(DecProcNode) ld)
+                                                return (fmap (DecProcReadSIO) ld AP.<*> lid)
+                                      <|> return(fmap(DecProc) ld)
