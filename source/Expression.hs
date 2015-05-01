@@ -46,7 +46,7 @@ exprLevelEqual follow recSet = do e <- exprLevelImpl (follow <|> parseTokEqual) 
                                      do (lookAhead (follow) >> return e)
                                         <|> (do parseTokEqual
                                                 e' <- exprLevelEqual follow recSet
-                                                return(verifyBinError (EqualNode (sourceLine pos) (sourceColumn pos)) e e')
+                                                return(verifyBinError (Relational Equal (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e')
                                             )
                                         <|> (genNewError (recSet) (Operator) >>= return . (checkError e))
 

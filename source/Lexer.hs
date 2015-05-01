@@ -6,6 +6,7 @@ import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import Token
+import Type
 
 tryString = try . string
 
@@ -94,8 +95,13 @@ pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
 pToString     = tryString "toString"
-pType         = tryString "boolean"  <|> tryString "int"    <|> tryString "double"
-                <|> tryString "char" <|> tryString "string"   
+
+pType         = (tryString "boolean" >> return(MyBool))
+            <|> (tryString "int"     >> return(MyInt))
+            <|> (tryString "double"  >> return(MyFloat))
+            <|> (tryString "char"    >> return(MyChar))
+            <|> (tryString "string"  >> return(MyString))
+
 pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
@@ -205,7 +211,7 @@ lexer = do spaces
                                             }
                                         )
                                   ) 
-                              <|> (pType         AP.<* spaces >>= return . (TokType . T.pack))
+                              <|> (pType         AP.<* spaces >>= return . (TokType))
                               <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
                               <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))

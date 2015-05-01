@@ -1,4 +1,4 @@
-//QuickSort
+//HeapSort
 
 program main |[
 
@@ -11,7 +11,7 @@ program main |[
       |[
           aux   := h1[x];
           h1[x] := h1[y];
-          h1[y] := aux;
+          h1[y] := aux
       ]|
       {post true post}
 
@@ -93,15 +93,14 @@ program main |[
   ]
 
   |[
-    var arreglo: array [50] of int
+    var arreglo: array [50] of int;
     var tamano: int;
 
     //Crear arreglo
 
     tamano := lenght(arreglo);
 
-    ord(tamano, arreglo);
-    
+    ord(tamano, arreglo)
   ]|
 
 ]|

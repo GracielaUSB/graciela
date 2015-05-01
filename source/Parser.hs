@@ -7,47 +7,99 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import qualified Data.Text.Read as TR
 import qualified Text.Parsec.Pos as P
+import Data.Monoid
+import Data.Either
 import Location
 import Token
 import Lexer
 import AST
 import Declarations
-import Error
+import Error as PE
 import Expression
 
 data CasesConditional = CExpression | CAction
 
 program :: Parsec [TokenPos] () (Either [MyParseError] AST)
-program = do parseProgram
-             pos <- getPosition
-             id  <- parseID
-             parseTokOpenBlock
-             do ast  <- listDefProc (followAction <|> parseTokLeftA <|> parseTokLeftInv) (followAction <|> parseTokLeftA <|> parseTokLeftInv)
-                lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
-                parseTokCloseBlock
-                parseEnd
-                return ((fmap (Program id) ast) AP.<*> lacc)
+program = do pos <- getPosition
+             do try ( do parseProgram
+                         do try ( do id  <- parseID
+                                     do try ( do parseTokOpenBlock
+                                                 parseRestInputProgram id
+                                            )
+                                        <|> do err <- genNewError (parseEnd) (PE.TokenOB)
+                                               return $ Left $ return $ err
+                                )
+                            <|> do err <- genNewError (parseTokOpenBlock <|> parseEnd) (PE.Program)
+                                   do try ( do parseTokOpenBlock
+                                               merr <- parseRestInputProgram EmptyToken
+                                               return (checkError merr err)
+                                          )
+                                      <|> (return $ Left $ return $ err)
+
+                    )
+                <|> do err <- genNewError (parseID <|> parseEnd) (PE.Program)
+                       do try (do parseID
+                                  id  <- parseID
+                                  parseTokOpenBlock
+                                  merr <- parseRestInputProgram id
+                                  return (checkError merr err)
+                              )
+                          <|> (return $ Left $ return $ err)
+
+followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
+
+parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDefProc
+
+                              do lookAhead followListDefProc
+                                 do try ( do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
+                                             parseTokCloseBlock
+                                             parseEnd
+                                             return (verifyBinError (AST.Program id) ast lacc)
+                                         )
+                                      <|> do err <- genNewError parseEnd ProcOrFunc
+                                             return(checkError ast err)
+
+                                 <|> do err' <- genNewError followListDefProc ProcOrFunc
+                                        do lookAhead parseEnd
+                                           return (checkError ast err')
+                                           <|> do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
+                                                  do parseTokCloseBlock
+                                                     parseEnd
+                                                     return (checkError (verifyBinError (AST.Program id) ast lacc) err')
+                                                     <|> do err'' <- genNewError (parseEnd) (PE.TokenCB)
+                                                            return (checkError (checkError (verifyBinError (AST.Program id) ast lacc) err') err'')
 
 listDefProc follow recSet = do lookAhead follow
                                return (Right [])
                                <|> do pf <- procOrFunc  follow recSet
                                       rl <- listDefProc follow recSet
                                       return (verifyBinError (:) pf rl)
+                               <|> return(Left(mempty))
 
 procOrFunc follow recSet =  do     function follow recSet 
                                <|> proc     follow recSet
 
+followTypeFunction = parseTokOpenBlock <|> parseTokLeftBound
+
 function follow recSet = do parseFunc
-                            id <- parseID
-                            parseColon
-                            parseLeftParent
-                            lexp <- listArgFunc parseRightParent (recSet <|> parseRightParent)
-                            parseRightParent
-                            parseArrow
-                            t  <- myType (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock <|> parseTokLeftBound)
-                            bo <- bound parseTokOpenBlock (recSet <|> parseTokOpenBlock)
-                            b  <- functionBody parseTokCloseBlock parseTokCloseBlock
-                            return((AP.liftA3 (DefFun id) t b lexp) AP.<*> bo)
+                            do id <- parseID
+                               do parseColon
+                                  do try ( do parseLeftParent
+                                              lexp <- listArgFunc parseRightParent (recSet <|> parseRightParent)
+                                              parseRightParent
+                                              parseArrow
+                                              t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
+                                              bo <- maybeBound parseTokOpenBlock (recSet <|> parseTokOpenBlock)
+                                              b  <- functionBody parseTokCloseBlock parseTokCloseBlock
+                                              return((AP.liftA2 (DefFun id) b lexp) AP.<*> bo)
+                                          )
+                                     <|> do err <- genNewError follow ProcOrFunc
+                                            return $ Left $ return $ err
+                                  <|> do err <- genNewError follow Colon
+                                         return $ Left $ return $ err
+                               <|> do err <- genNewError follow IDError
+                                      return $ Left $ return $ err         
+
 
 listArgFunc follow recSet = do lookAhead follow
                                return (Right [])
@@ -95,27 +147,27 @@ proc follow recSet = do parseProc
 precondition follow recSet =  do parseTokLeftPre
                                  e <- listExp (parseTokRightPre) (recSet <|> parseTokRightPre)
                                  parseTokRightPre
-                                 return(fmap Precondition e)
+                                 return(fmap (States Pre) e)
 
 postcondition follow recSet =  do parseTokLeftPost
                                   e <- listExp (parseTokRightPost) (recSet <|> parseTokRightPost)
                                   parseTokRightPost
-                                  return(fmap Postcondition e)
+                                  return((fmap (States Post)) e)
 
 bound follow recSet =  do parseTokLeftBound
                           e <- listExp (parseTokRightBound) (recSet <|> parseTokRightBound)
                           parseTokRightBound
-                          return(fmap Bound e)
+                          return((fmap (States Bound)) e)
 
 assertion follow recSet =  do parseTokLeftA
                               e <- listExp (parseTokRightA) (recSet <|> parseTokRightA)
                               parseTokRightA
-                              return(fmap Assertion e)
+                              return(fmap (States Assertion) e)
 
 invariant follow recSet =  do parseTokLeftInv
                               e <- listExp (parseTokRightInv) (recSet <|> parseTokRightInv)
                               parseTokRightInv
-                              return(fmap Invariant e)
+                              return(fmap (States Invariant) e)
 
 maybeBound follow recSet = do lookAhead follow
                               return(return(EmptyAST))
@@ -134,8 +186,12 @@ listArgProcAux follow recSet = do lookAhead follow
                                          rl <- listArgProcAux follow recSet
                                          return (verifyBinError (:) ar rl)
 
-argType follow recSet = do r <- parseIn <|> parseOut <|> parseInOut
-                           return (Right (ArgType r))
+argType follow recSet = do parseIn 
+                           return (Right (In))
+                           <|> do parseOut
+                                  return (Right (Out))
+                           <|> do parseInOut
+                                  return (Right InOut)
 
 arg follow recSet = do at <- argType parseID (recSet <|> parseID)
                        id <- parseID
@@ -167,6 +223,9 @@ actionsListAux follow recSet = do lookAhead follow
                                          ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
                                          rl <- actionsListAux follow recSet
                                          return (verifyBinError (:) ac rl)
+                                  -- Aqui paso algo raro pero ese no es mi peo
+                                  -- Quiza no acumula los resultados
+                                  <|> return(Left(mempty))
                                          
 actionAux follow recSet = skip
                       <|> conditional CAction follow recSet

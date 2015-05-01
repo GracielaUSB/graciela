@@ -105,12 +105,13 @@ data Token =   TokPlus
              | TokArray
              | TokChar    { rchar :: T.Text   }
              | TokBool    { nBool :: TypeBool }      
-             | TokType    { nType :: T.Text   }
+             | TokType    { nType :: Type     }
              | TokId      { text  :: T.Text   }
              | TokString  { st    :: T.Text   }
              | TokInteger { num   :: T.Text   }
              | TokFlotante T.Text T.Text
              | TokError T.Text
+             | EmptyToken
       deriving (Read, Eq)
 
 instance Show Token where
@@ -205,7 +206,7 @@ instance Show Token where
   show (TokBool b)      = "booleano : " ++ show b
   show (TokType b)      = "tipo: " ++ show b
   show (TokInteger b)   = "numero : " ++ show b
-  show (TokId      b)   = "ID : " ++ show b
+  show (TokId      b)   = show b
   show (TokString  e)   = "cadena de caracteres " ++ show e
   show (TokError   e)   = "cadena no reconocida " ++ show e
   show (TokFlotante n1 n2) = "Numero flotante : " ++ show n1 ++ "." ++ show n2 

@@ -3,7 +3,7 @@
 program main |[
 
 
-  proc : swap(inout h1: array [50] of int, in x: int, in y: int) 
+  proc swap: (inout h1: array [50] of int, in x: int, in y: int) 
   [
       var aux : int;
 
@@ -11,14 +11,14 @@ program main |[
       |[
           aux   := h1[x];
           h1[x] := h1[y];
-          h1[y] := aux;
+          h1[y] := aux
       ]|
       {post true post}
 
   ]
 
     
-  proc : ord(in N: int, inout h: array [50] of int) 
+  proc ord: (in N: int, inout h: array [50] of int) 
   [ 
       var n: int;
     
@@ -29,8 +29,8 @@ program main |[
           {inv   true  inv} 
           {bound true  bound}
 
-          do (n !== N) ->
-          [|
+          do (n != N) ->
+          |[
               var k: int;
 
               k := N-1;
@@ -43,29 +43,33 @@ program main |[
                   if (h[k-1] <= h[k]) -> skip
                   [] (h[k-1] >  h[k]) -> swap(h, k-1, k)
                   fi  
-              od
+              od;
 
-              k := k-1 
-          |]
+              k := k-1;
 
-          n := n+1
+              n := n+1
                           
+          ]|
           od
 
     ]|
     {post true post}
   ]
 
+  func sumar (n:int, y:int) -> int
   |[
-    var arreglo: array [50] of int
+    n + y
+  ]|
+
+  |[
+    var arreglo: array [50] of int;
     var tamano: int;
 
     //Crear arreglo
 
-    tamano := lenght(arreglo);
+    tamano := length(arreglo);
 
-    ord(tamano, arreglo);
-    
+    ord(tamano, arreglo)
   ]|
 
 ]|

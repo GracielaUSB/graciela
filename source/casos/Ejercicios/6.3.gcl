@@ -2,7 +2,7 @@
 
 program main |[
 
-  proc : buscar(in A: int, in f: array [50] of int, out b: boolean) 
+  proc buscar: (in A: int, in f: array [50] of int, out b: boolean) 
   [ 
   	var x, y: int;
     
@@ -13,35 +13,35 @@ program main |[
 		  {inv   true  inv} 
 		  {bound true  bound}
 
-    	do (x+1 !== y) ->
+    	do (x+1 != y) ->
         |[
             var h: int;
       	
         		if (f[h] <= A) -> x := h
         		[] (A  < f[h]) -> y := h
         		fi
-        |]
-    	od
+        ]|
+    	od;
 
-      b := f[x] == A;
+      b := f[x] == A
 
     ]|
-    {post b = (exists i: 0<=i<=length(f) : f[i] == A) post}
+    {post b = (%exist i: 0<=i<=length(f) : f[i] == A%) post}
   ]
 
   |[
-    var arreglo  : array [50] of int
-    var resultado: bool;
+    var arreglo  : array [50] of int;
+    var resultado: boolean;
     var tamano   : int;
 
     //Crear arreglo
 
-    tamano := lenght(arreglo);
+    tamano := length(arreglo);
     
     buscar(tamano, arreglo, resultado);
     
     write("El resultado es: ");
-    writeln(resultado);
+    writeln(resultado)
 
   ]|
 

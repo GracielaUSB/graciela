@@ -12,18 +12,19 @@ import Lexer
 import AST
 import Error
 import Expression
+import Type
 
-myBasicType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+myBasicType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] Type)
 myBasicType follow recSet = do t <- parseType
-                               return(return (BasicType t))
+                               return(return (nType t))
 
-myType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+myType :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] Type)
 myType follow recSet = do myBasicType follow recSet
                           <|> do parseTokArray
-                                 lb <- bracketsList parseOf (recSet <|> parseOf)
+                                 bracketsList parseOf (recSet <|> parseOf)
                                  parseOf
                                  t <- myBasicType follow recSet
-                                 return ((fmap (ArrType) t) AP.<*> lb)
+                                 return (fmap (Array) t)
 
                               
 
@@ -83,5 +84,5 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                          parseSemicolon
                                          return ((fmap (DecProcReadFile id) ld) AP.<*> lid)
                                          <|> do parseSemicolon
-                                                return (fmap (DecProcReadSIONode) ld AP.<*> lid)
-                                      <|> return(fmap(DecProcNode) ld)
+                                                return (fmap (DecProcReadSIO) ld AP.<*> lid)
+                                      <|> return(fmap(DecProc) ld)

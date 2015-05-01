@@ -9,6 +9,7 @@ import Lexer
 import Token
 import System.Environment
 import Tabla
+import AST
 
 playLexer inp = case runParser (lexer) () "" (inp) of
             { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
@@ -20,12 +21,12 @@ playParser inp = runParser (program) () "" (inp)
 concatLexPar = playParser AP.<$> lexer
 
 play inp = case runParser (concatLexPar) () "" (inp) of
-            { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
+            { Left  err -> putStrLn $ "Ocurrio un error lexicografico" ++ (show err)
             ; Right par -> case par of
-                             { Left  err' -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
+                             { Left  err' -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
                              ; Right par' -> case par' of 
                                                 { Left  par''' -> putStr $ concatMap (\s -> (show s) ++ "\n") par'''
-                                                ; Right par''' -> putStr $ show $ par''' --concatMap (\s -> (show s) ++ "\n") par'''
+                                                ; Right par''' -> putStr $ (drawAST 0) $ par''' --concatMap (\s -> (show s) ++ "\n") par'''
                                                 }
 
                              }
