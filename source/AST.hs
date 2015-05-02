@@ -40,15 +40,15 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), getAST :: a                      } -- ^ Conversión a entero.
          | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), getAST :: a                      } -- ^ Función raíz cuadrada.
          | LogicalNot   { location :: Location, loNotExp ::  (AST a), getAST :: a                                         } -- ^ Función raíz cuadrada.
-         | Skip         { getAST :: a, location :: Location                                                             } -- ^ Instruccion Skip.
-         | Abort        { getAST :: a, location :: Location                                                            } -- ^ Instruccion Abort.
-         | Cond         { getAST :: a, cguard   :: [(AST a)], location :: Location                                      } -- ^ Instruccion If.
-         | Rept         { getAST :: a, rguard   :: [(AST a)], rinv   ::  (AST a),  rbound :: (AST a), location ::Location } -- ^ Instruccion Do.
-         | Write        { getAST :: a, ln       :: Bool,      wexp   ::  (AST a),  location :: Location                   } -- ^ Escribir.
-         | Block        { getAST :: a, ldecla   :: [(AST a)], lisAct :: [(AST a)], location :: Location                   }
-         | FCall        { getAST :: a, fname    :: Token,     args   :: [(AST a)], location :: Location                } -- ^ Llamada a funcion.
-         | LAssign      { getAST :: a, idlist   :: [(Token, [(AST a)])], explista :: [(AST a)], location :: Location      } -- ^
-         | Ran          { getAST :: a, var      :: Token, location :: Location                                        }
+         | Skip         { location :: Location, getAST :: a                                                               } -- ^ Instruccion Skip.
+         | Abort        { location :: Location, getAST :: a                                                               } -- ^ Instruccion Abort.
+         | Cond         { cguard   :: [(AST a)], location :: Location, getAST :: a                                        } -- ^ Instruccion If.
+         | Rept         { rguard   :: [(AST a)], rinv   ::  (AST a),  rbound :: (AST a), location ::Location, getAST :: a } -- ^ Instruccion Do.
+         | Write        { ln       :: Bool,      wexp   ::  (AST a),  location :: Location, getAST :: a                   } -- ^ Escribir.
+         | Block        { ldecla   :: [(AST a)], lisAct :: [(AST a)], location :: Location, getAST :: a                   }
+         | FCall        { fname    :: Token,     args   :: [(AST a)], location :: Location, getAST :: a                   } -- ^ Llamada a funcion.
+         | LAssign      { idlist   :: [(Token, [(AST a)])], explista :: [(AST a)], location :: Location, getAST :: a      } -- ^
+         | Ran          { var      :: Token, location :: Location, getAST :: a                                            }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, getAST :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, getAST :: a                      } -- ^ Guardia de Expresion.
          | DecVar       { lisidvar :: [Token], mytype ::  (AST a), getAST   :: a                                          }

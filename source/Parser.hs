@@ -181,11 +181,11 @@ block follow recSet = do parseTokOpenBlock
                          ld <- decList followAction (recSet <|> followAction)
                          la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
                          parseTokCloseBlock
-                         return (AP.liftA2 ((Block) 777) ld la)
+                         return (AP.liftA2 (Block) ld la)
                        
 random follow recSet = do parseRandom
                           id <- parseID
-                          return(return (((Ran) 777) id))
+                          return(return ((Ran) id))
 
 guardsList casec follow recSet = do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
                                     gl <- guardsListAux casec follow recSet
@@ -214,7 +214,7 @@ functionCallOrAssign follow recSet = do id <- parseID
                                         do try (do parseLeftParent
                                                    lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
                                                    try (do parseRightParent
-                                                           return(fmap (FCall 777 id) lexp)
+                                                           return(fmap (FCall id) lexp)
                                                        )
                                                        <|> (do err <- genNewError (parseEnd) (Final)
                                                                parseEnd
@@ -225,7 +225,7 @@ functionCallOrAssign follow recSet = do id <- parseID
                                                         rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
                                                         parseAssign
                                                         le <- listExp follow recSet
-                                                        return ((fmap ((LAssign) 777) (AP.liftA2 (:) (fmap ((,) id) bl) rl)) AP.<*> le)
+                                                        return ((fmap (LAssign) (AP.liftA2 (:) (fmap ((,) id) bl) rl)) AP.<*> le)
                                                    )
                                 
 idAssignListAux follow recSet = do lookAhead follow
@@ -248,24 +248,24 @@ write follow recSet = do pos <- getPosition
                          parseLeftParent
                          e <- expr parseRightParent (recSet <|> parseRightParent)
                          parseRightParent
-                         return $ (fmap (Write 777 False) e)
+                         return $ (fmap (Write False) e)
            
 writeln follow recSet = do pos <- getPosition
                            parseWriteln
                            parseLeftParent
                            e <- expr parseRightParent (recSet <|> parseRightParent)
                            parseRightParent
-                           return $ (fmap (Write 777 True) e)
+                           return $ (fmap (Write True) e)
 
 abort = do pos <- getPosition
            parseAbort
-           return $ Right $ ((Abort) 777)
+           return $ Right $ Abort
 
 conditional casec follow recSet = do pos <- getPosition
                                      parseIf
                                      gl <- guardsList casec parseFi (recSet <|> parseFi)
                                      parseFi
-                                     return(fmap ((Cond) 777) gl)
+                                     return(fmap (Cond) gl)
                  
 repetition follow recSet = do pos <- getPosition
                               inv <- invariant (parseTokLeftBound) (recSet <|> parseTokLeftBound)
@@ -273,7 +273,7 @@ repetition follow recSet = do pos <- getPosition
                               parseDo
                               gl <- guardsList CAction parseOd (recSet <|> parseOd)
                               parseOd
-                              return((fmap ((Rept) 777) gl) AP.<*> inv AP.<*> bou)
+                              return((fmap (Rept) gl) AP.<*> inv AP.<*> bou)
                                
 skip = do parseSkip
-          return $ Right $ ((Skip) 777)          
+          return $ Right $ Skip          
