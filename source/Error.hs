@@ -60,3 +60,8 @@ verifyBinError _  (Left xs) (Left ys) = Left (xs ++ ys)
 verifyBinError _  (Left xs) _         = Left xs
 verifyBinError _  _         (Left ys) = Left ys
 verifyBinError op (Right x) (Right y) = Right(op x y) 
+
+verifyBin3Error _  (Left xs) (Left ys) _ = Left (xs ++ ys)
+verifyBin3Error _  (Left xs) _         _ = Left xs
+verifyBin3Error _  _         (Left ys) _ = Left ys
+verifyBin3Error op (Right x) (Right y) z = Right(op x y z)
