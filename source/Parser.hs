@@ -146,7 +146,7 @@ functionBody follow recSet = do pos <- getPosition
                                 do parseTokOpenBlock
                                    do cif <- conditional CExpression parseTokCloseBlock parseTokCloseBlock
                                       parseTokCloseBlock
-                                      return ((fmap (FunBody) (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) cif)) AP.<*> (Right 777))
+                                      return ((fmap (FunBody) ((fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) cif) AP.<*> (return 777))) AP.<*> (return 777))
                                       <|> do e <- expr parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
                                              return ((fmap (FunBody) e) AP.<*> (Right 777))
@@ -164,7 +164,8 @@ actionsListAux follow recSet = do lookAhead follow
                                          ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
                                          rl <- actionsListAux follow recSet
                                          return (verifyBinError (:) ac rl)
-                                         
+
+actionAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] (Location -> Int -> AST Int))
 actionAux follow recSet = skip
                       <|> conditional CAction follow recSet
                       <|> abort
@@ -239,9 +240,9 @@ idAssignListAux follow recSet = do lookAhead follow
 action follow recSet = do pos <- getPosition
                           do  as  <- assertion followAction (followAction <|> recSet)
                               res <- actionAux follow recSet
-                              return (((fmap (GuardAction) as) AP.<*> (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res)) AP.<*> (Right 777))
+                              return (((fmap (GuardAction) as) AP.<*> ((fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res) AP.<*> (Right 777))) AP.<*> (return 777))
                               <|> do res <- actionAux follow recSet
-                                     return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res)
+                                     return ((fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res) AP.<*> (return 777))
 
 write follow recSet = do pos <- getPosition
                          parseWrite
