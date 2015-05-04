@@ -37,7 +37,7 @@ data AST = Arithmetic      { opBinA   :: OpNum   , location :: Location, lexpr :
          | Boolean         { opBinB   :: OpBool  , location :: Location, lexpr :: AST, rexp :: AST } -- ^ Operadores Booleanos de dos expresiones.
          | Relational      { opBinR   :: OpRel   , location :: Location, lexpr :: AST, rexp :: AST } -- ^ Operadores Relacionales de dos expresiones.     
          | FCall           { fname    :: Token   , args     :: [AST]   , location :: Location      } -- ^ Llamada a funcion.
-         | FCallExp        { fname    :: Token   , args     :: [AST]   , location :: Location      } -- ^ Llamada a funcion.
+         | FCallExp        { location :: Location, fname    :: Token   , args     :: [AST]         } -- ^ Llamada a funcion.
          | ArrCall         { location :: Location, name     :: Token   , list :: [AST]             } -- ^ Búsqueda en arreglo.
          | Int             { location :: Location, exp      :: Token                               } -- ^ Numero entero.
          | ID              { location :: Location, id       :: Token                               } -- ^ Identificador.

@@ -11,6 +11,9 @@ import Data.Monoid
 import Data.Either
 import Location
 import Token
+import TokenParser
+import State
+import MyParseError as PE
 import Lexer
 import AST
 import Declarations
@@ -19,7 +22,7 @@ import Expression
 
 data CasesConditional = CExpression | CAction
 
-program :: Parsec [TokenPos] () (Either [MyParseError] AST)
+program :: MyParser (Maybe AST)
 program = do pos <- getPosition
              do try ( do parseProgram
                          do try ( do id  <- parseID
@@ -27,14 +30,14 @@ program = do pos <- getPosition
                                                  parseRestInputProgram id
                                             )
                                         <|> do err <- genNewError (parseEnd) (PE.TokenOB)
-                                               return $ Left $ return $ err
+                                               return $ Nothing
                                 )
                             <|> do err <- genNewError (parseTokOpenBlock <|> parseEnd) (PE.Program)
                                    do try ( do parseTokOpenBlock
                                                merr <- parseRestInputProgram EmptyToken
-                                               return (checkError merr err)
+                                               return $ Nothing
                                           )
-                                      <|> (return $ Left $ return $ err)
+                                      <|> do return $ Nothing
 
                     )
                 <|> do err <- genNewError (parseID <|> parseEnd) (PE.Program)
@@ -42,45 +45,49 @@ program = do pos <- getPosition
                                   id  <- parseID
                                   parseTokOpenBlock
                                   merr <- parseRestInputProgram id
-                                  return (checkError merr err)
+                                  return $ Nothing
                               )
-                          <|> (return $ Left $ return $ err)
+                          <|> do return $ Nothing
 
 followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
 
+parseRestInputProgram :: Token -> MyParser (Maybe AST)
 parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDefProc
 
                               do lookAhead followListDefProc
                                  do try ( do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
                                              parseEnd
-                                             return (verifyBinError (AST.Program id) ast lacc)
+                                             return (AP.liftA2 (AST.Program id) ast lacc)
                                          )
-                                      <|> do err <- genNewError parseEnd ProcOrFunc
-                                             return(checkError ast err)
+                                      <|> do genNewError parseEnd ProcOrFunc
+                                             return $ Nothing
 
-                                 <|> do err' <- genNewError followListDefProc ProcOrFunc
+                                 <|> do genNewError followListDefProc ProcOrFunc
                                         do lookAhead parseEnd
-                                           return (checkError ast err')
+                                           return $ Nothing
                                            <|> do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
                                                   do parseTokCloseBlock
                                                      parseEnd
-                                                     return (checkError (verifyBinError (AST.Program id) ast lacc) err')
-                                                     <|> do err'' <- genNewError (parseEnd) (PE.TokenCB)
-                                                            return (checkError (checkError (verifyBinError (AST.Program id) ast lacc) err') err'')
+                                                     return $ Nothing
+                                                     <|> do genNewError (parseEnd) (PE.TokenCB)
+                                                            return $ Nothing
 
+listDefProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 listDefProc follow recSet = do lookAhead follow
-                               return (Right [])
+                               return $ return []
                                <|> do pf <- procOrFunc  follow recSet
                                       rl <- listDefProc follow recSet
-                                      return (verifyBinError (:) pf rl)
-                               <|> return(Left(mempty))
+                                      return (AP.liftA2 (:) pf rl)
+                               <|> do return $ Nothing
 
-procOrFunc follow recSet =  do     function follow recSet 
-                               <|> proc     follow recSet
+procOrFunc :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
+procOrFunc follow recSet =  function follow recSet 
+                        <|> proc     follow recSet
 
 followTypeFunction = parseTokOpenBlock <|> parseTokLeftBound
 
+function :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 function follow recSet = do parseFunc
                             do id <- parseID
                                do parseColon
@@ -94,30 +101,33 @@ function follow recSet = do parseFunc
                                               return((AP.liftA2 (DefFun id) b lexp) AP.<*> bo)
                                           )
                                      <|> do err <- genNewError follow ProcOrFunc
-                                            return $ Left $ return $ err
+                                            return $ Nothing
                                   <|> do err <- genNewError follow Colon
-                                         return $ Left $ return $ err
+                                         return $ Nothing
                                <|> do err <- genNewError follow IDError
-                                      return $ Left $ return $ err         
+                                      return $ Nothing
 
 
+listArgFunc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 listArgFunc follow recSet = do lookAhead follow
-                               return (Right [])
+                               return $ return []
                                <|> do id <- parseID
                                       parseColon
                                       t  <- myType (parseRightParent <|> parseComma) (recSet <|> parseRightParent <|> parseComma)
                                       rl <- listArgFuncAux follow recSet
-                                      return (verifyBinError (:) (fmap (FunArg id) t) rl)
+                                      return (AP.liftA2 (:) (fmap (FunArg id) t) rl)
 
+listArgFuncAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 listArgFuncAux follow recSet = do lookAhead follow
-                                  return (Right [])
+                                  return $ return []
                                   <|> do parseComma
                                          id <- parseID
                                          parseColon
                                          t <- myType (parseComma <|> follow) (parseComma <|> recSet)
                                          rl <- listArgFuncAux follow recSet
-                                         return (verifyBinError (:) (fmap (FunArg id) t) rl)
+                                         return (AP.liftA2 (:) (fmap (FunArg id) t) rl)
 
+proc :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 proc follow recSet = do parseProc
                         id <- parseID
                         parseColon
@@ -132,7 +142,7 @@ proc follow recSet = do parseProc
                                   parseTokCloseBlock
                                   post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                   parseRightBracket
-                                  return ((fmap (DefProc id) la) AP.<*> larg AP.<*> pre AP.<*> post AP.<*> b)
+                                  return $ (fmap (DefProc id) la) AP.<*> larg AP.<*> pre AP.<*> post AP.<*> b
 
                            <|> do dcl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                                   pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
@@ -142,63 +152,74 @@ proc follow recSet = do parseProc
                                   parseTokCloseBlock
                                   post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                   parseRightBracket
-                                  return ((fmap (DefProcDec id) la) AP.<*> larg AP.<*> dcl AP.<*> pre AP.<*> post AP.<*> b)
+                                  return $ (fmap (DefProcDec id) la) AP.<*> larg AP.<*> dcl AP.<*> pre AP.<*> post AP.<*> b
 
+precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 precondition follow recSet =  do parseTokLeftPre
                                  e <- listExp (parseTokRightPre) (recSet <|> parseTokRightPre)
                                  parseTokRightPre
                                  return(fmap (States Pre) e)
 
+postcondition :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 postcondition follow recSet =  do parseTokLeftPost
                                   e <- listExp (parseTokRightPost) (recSet <|> parseTokRightPost)
                                   parseTokRightPost
                                   return((fmap (States Post)) e)
 
+bound :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 bound follow recSet =  do parseTokLeftBound
                           e <- listExp (parseTokRightBound) (recSet <|> parseTokRightBound)
                           parseTokRightBound
                           return((fmap (States Bound)) e)
 
+assertion :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 assertion follow recSet =  do parseTokLeftA
                               e <- listExp (parseTokRightA) (recSet <|> parseTokRightA)
                               parseTokRightA
                               return(fmap (States Assertion) e)
 
+invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 invariant follow recSet =  do parseTokLeftInv
                               e <- listExp (parseTokRightInv) (recSet <|> parseTokRightInv)
                               parseTokRightInv
                               return(fmap (States Invariant) e)
 
+maybeBound :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 maybeBound follow recSet = do lookAhead follow
-                              return(return(EmptyAST))
+                              return $ return $ EmptyAST
                               <|> bound follow recSet
 
+listArgProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 listArgProc follow recSet = do lookAhead follow
-                               return (Right [])
+                               return $ return []
                                <|> do ar <- arg (follow <|> parseComma) (recSet <|> parseComma)
                                       rl <- listArgProcAux follow recSet
-                                      return (verifyBinError (:) ar rl)
+                                      return (AP.liftA2 (:) ar rl)
 
+listArgProcAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 listArgProcAux follow recSet = do lookAhead follow
-                                  return (Right [])
+                                  return $ return []
                                   <|> do parseComma
                                          ar <- arg (follow <|> parseComma) (recSet <|> parseComma)
                                          rl <- listArgProcAux follow recSet
-                                         return (verifyBinError (:) ar rl)
+                                         return (AP.liftA2 (:) ar rl)
 
+argType :: MyParser Token -> MyParser Token -> MyParser (Maybe TypeArg)
 argType follow recSet = do parseIn 
-                           return (Right (In))
+                           return (return (In))
                            <|> do parseOut
-                                  return (Right (Out))
+                                  return (return (Out))
                            <|> do parseInOut
-                                  return (Right InOut)
+                                  return (return InOut)
 
+arg :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 arg follow recSet = do at <- argType parseID (recSet <|> parseID)
                        id <- parseID
                        parseColon
                        t <- myType follow recSet
                        return ((fmap (Arg id) at) AP.<*> t)
 
+functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 functionBody follow recSet = do pos <- getPosition
                                 do parseTokOpenBlock
                                    do cif <- conditional CExpression parseTokCloseBlock parseTokCloseBlock
@@ -208,28 +229,28 @@ functionBody follow recSet = do pos <- getPosition
                                              parseTokCloseBlock
                                              return (fmap (FunBody) e)
 
-actionsList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+actionsList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 actionsList follow recSet = do lookAhead (follow)
-                               pos <- getPosition
-                               return (Left (return (newEmptyError pos)))
+                               genNewEmptyError
+                               return $ Nothing
                                <|> do ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
                                       rl <- actionsListAux follow recSet
-                                      return (verifyBinError (:) ac rl)
+                                      return (AP.liftA2 (:) ac rl)
                                       
-actionsListAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [AST])
+actionsListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 actionsListAux follow recSet = do lookAhead follow
-                                  return (Right ([]))
+                                  return $ return []
                                   <|> do parseSemicolon
                                          ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
                                          rl <- actionsListAux follow recSet
-                                         return (verifyBinError (:) ac rl)
+                                         return (AP.liftA2 (:) ac rl)
                                   -- Aqui paso algo raro pero ese no es mi peo
-                                  -- Quiza no acumula los resultados
-                                  <|> return(Left(mempty))
+                                  <|> (return $ Nothing)
                                          
-actionAux follow recSet = skip
+actionAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
+actionAux follow recSet = skip follow recSet
                       <|> conditional CAction follow recSet
-                      <|> abort
+                      <|> abort follow recSet
                       <|> write follow recSet
                       <|> writeln follow recSet
                       <|> functionCallOrAssign follow recSet
@@ -239,50 +260,50 @@ actionAux follow recSet = skip
 
 followAction = (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite <|> parseWriteln)
 
+block :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 block follow recSet = do parseTokOpenBlock
                          ld <- decList followAction (recSet <|> followAction)
                          la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
                          parseTokCloseBlock
                          return (AP.liftA2 (Block) ld la)
                        
+random :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 random follow recSet = do parseRandom
                           id <- parseID
                           return(return (Ran id))
 
+guardsList :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 guardsList casec follow recSet = do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
                                     gl <- guardsListAux casec follow recSet
-                                    return(verifyBinError (:) g gl)
+                                    return(AP.liftA2 (:) g gl)
 
+guardsListAux :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 guardsListAux casec follow recSet = do      lookAhead follow
-                                            return $ Right []
+                                            return $ return []
                                        <|>  do parseSepGuards
                                                g  <- guard casec (parseSepGuards <|> follow) (recSet <|> parseSepGuards)
                                                rl <- guardsListAux casec follow recSet
-                                               return (verifyBinError (:) g rl)
+                                               return (AP.liftA2 (:) g rl)
                 
-guard CAction follow recSet = do pos <- getPosition
-                                 e <- expr (parseArrow) (recSet <|> parseArrow)
-                                 parseArrow
-                                 a <- action follow recSet
-                                 return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) ((fmap Guard e) AP.<*> a))
-
+guard :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe AST)
+guard CAction follow recSet     = do pos <- getPosition
+                                     e <- expr (parseArrow) (recSet <|> parseArrow)
+                                     parseArrow
+                                     a <- action follow recSet
+                                     return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) ((fmap Guard e) AP.<*> a))
 guard CExpression follow recSet = do pos <- getPosition
                                      e <- expr (parseArrow) (recSet <|> parseArrow)
                                      parseArrow
                                      a <- expr follow recSet
                                      return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) ((fmap GuardExp e) AP.<*> a))
 
-functionCallOrAssign :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] (Location -> AST))
+functionCallOrAssign :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 functionCallOrAssign follow recSet = do id <- parseID
                                         do try (do parseLeftParent
                                                    lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
-                                                   try (do parseRightParent
-                                                           return(fmap (FCall id) lexp)
-                                                       )
-                                                       <|> (do err <- genNewError (parseEnd) (Final)
-                                                               parseEnd
-                                                               return(checkError lexp err)
-                                                           )
+                                                   do parseRightParent
+                                                      return(fmap (FCall id) lexp)
+                                                         
                                                 )
                                            <|> try ( do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                                                         rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
@@ -291,16 +312,16 @@ functionCallOrAssign follow recSet = do id <- parseID
                                                         return ((fmap (LAssign) (AP.liftA2 (:) (fmap ((,) id) bl) rl)) AP.<*> le)
                                                    )
                                 
-idAssignListAux :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [(Token, [AST])])
+idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([(Token, [AST])]))
 idAssignListAux follow recSet = do lookAhead follow
-                                   return (Right ([]))
+                                   return $ return []
                                    <|> do parseComma
                                           ac <- parseID
                                           bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                                           rl <- idAssignListAux (follow) (recSet)
                                           return ((AP.liftA2 (:) (fmap ((,) ac) bl) rl))
 
-action :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] AST)
+action :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 action follow recSet = do pos <- getPosition
                           do  as  <- assertion followAction (followAction <|> recSet)
                               res <- actionAux follow recSet
@@ -308,6 +329,7 @@ action follow recSet = do pos <- getPosition
                               <|> do res <- actionAux follow recSet
                                      return (fmap (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res)
 
+write :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 write follow recSet = do pos <- getPosition
                          parseWrite
                          parseLeftParent
@@ -315,6 +337,7 @@ write follow recSet = do pos <- getPosition
                          parseRightParent
                          return $ (fmap (Write False) e)
            
+writeln :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 writeln follow recSet = do pos <- getPosition
                            parseWriteln
                            parseLeftParent
@@ -322,16 +345,19 @@ writeln follow recSet = do pos <- getPosition
                            parseRightParent
                            return $ (fmap (Write True) e)
 
-abort = do pos <- getPosition
-           parseAbort
-           return $ Right $ Abort
+abort :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
+abort folow recSet = do pos <- getPosition
+                        parseAbort
+                        return $ return $ Abort
 
+conditional :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 conditional casec follow recSet = do pos <- getPosition
                                      parseIf
                                      gl <- guardsList casec parseFi (recSet <|> parseFi)
                                      parseFi
                                      return(fmap (Cond) gl)
                  
+repetition :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 repetition follow recSet = do pos <- getPosition
                               inv <- invariant (parseTokLeftBound) (recSet <|> parseTokLeftBound)
                               bou <- bound (parseDo) (parseDo <|> recSet)
@@ -340,6 +366,6 @@ repetition follow recSet = do pos <- getPosition
                               parseOd
                               return((fmap (Rept) gl) AP.<*> inv AP.<*> bou)
                                
-skip :: Parsec [TokenPos] () (Either [MyParseError] (Location -> AST))
-skip = do parseSkip
-          return $ Right $ Skip           
+skip :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
+skip follow recSet = do parseSkip
+                        return $ return $ Skip           
