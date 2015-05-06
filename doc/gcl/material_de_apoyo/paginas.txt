@@ -1,2 +1,0 @@
-http://csis.pace.edu/~bergin/compiler/gcl.html
-http://www.cs.nuim.ie/~jpower/Courses/Previous/CS407/verification/hoare.pdf
