@@ -14,14 +14,14 @@ import Error
 import Expression
 
 myBasicType follow recSet = do t <- parseType
-                               return((return ((BasicType) t)) AP.<*> (Right 777))
+                               return((return ((BasicType) t)) AP.<*> (return Nothing))
 
 myType follow recSet = do myBasicType follow recSet
                           <|> do parseTokArray
                                  lb <- bracketsList parseOf (recSet <|> parseOf)
                                  parseOf
                                  t <- myBasicType follow recSet
-                                 return (((fmap (ArrType) t) AP.<*> lb) AP.<*> (Right 777))
+                                 return (((fmap (ArrType) t) AP.<*> lb) AP.<*> (return Nothing))
 
                               
 
@@ -37,14 +37,14 @@ decListAux follow recSet = do lookAhead follow
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) ((AP.liftA2 (DecVar) idl t) AP.<*> (Right 777)) rl)
+                                            return(AP.liftA2 (:) ((AP.liftA2 (DecVar) idl t) AP.<*> (return Nothing)) rl)
                                         <|> do parseAssign
                                                lexp <- listExp parseColon (recSet <|> parseColon)
                                                parseColon
                                                t <- myType parseSemicolon recSet
                                                parseSemicolon
                                                rl <- decListAux follow recSet
-                                               return(AP.liftA2 (:) ((AP.liftA3 (DecVarAgn) idl lexp t) AP.<*> (Right 777)) rl)
+                                               return(AP.liftA2 (:) ((AP.liftA3 (DecVarAgn) idl lexp t) AP.<*> (return Nothing)) rl)
                                      <|> do parseConst
                                             idl <- idList (parseAssign) (recSet <|> parseAssign)
                                             parseAssign
@@ -53,7 +53,7 @@ decListAux follow recSet = do lookAhead follow
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) ((AP.liftA3 (DecVarAgn) idl lexp t) AP.<*> (Right 777)) rl)
+                                            return(AP.liftA2 (:) ((AP.liftA3 (DecVarAgn) idl lexp t) AP.<*> (return Nothing)) rl)
                                             
                            
 idList :: Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Token) -> Parsec [TokenPos] () (Either [MyParseError] [Token])
@@ -80,7 +80,7 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                       do parseWith
                                          id <- parseString
                                          parseSemicolon
-                                         return (((fmap ((DecProcReadFile) id) ld) AP.<*> lid) AP.<*> (Right 777))
+                                         return (((fmap ((DecProcReadFile) id) ld) AP.<*> lid) AP.<*> (return Nothing))
                                          <|> do parseSemicolon
-                                                return ((fmap (DecProcReadSIO) ld AP.<*> lid) AP.<*> (Right 777))
-                                      <|> return((fmap(DecProc) ld) AP.<*> (Right 777))
+                                                return ((fmap (DecProcReadSIO) ld AP.<*> lid) AP.<*> (return Nothing))
+                                      <|> return((fmap(DecProc) ld) AP.<*> (return Nothing))
