@@ -17,6 +17,7 @@ import Expression
 
 data CasesConditional = CExpression | CAction
 
+program :: Parsec ([TokenPos]) () (Either [MyParseError] (AST (Maybe Int)))
 program = do parseProgram
              pos <- getPosition
              id  <- parseID
@@ -25,7 +26,7 @@ program = do parseProgram
                 lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
                 parseTokCloseBlock
                 parseEnd
-                return (((fmap (Program id) ast) AP.<*> lacc) AP.<*> (return (Just 777))) 
+                return (((fmap (Program id) ast) AP.<*> lacc) AP.<*> (return (Nothing))) 
 
 listDefProc follow recSet = do lookAhead follow
                                return (Right [])

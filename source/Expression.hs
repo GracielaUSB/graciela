@@ -166,7 +166,9 @@ factor' follow recSet = do do pos <- getPosition
                                  do  try(parseRightParent >>= return . return e)
                                      <|> (genNewError (recSet) (TokenRP) >>= return . (checkError e))
                               
-                                 <|> (number >>= return . Right . Int Nothing (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) 
+                                 <|> (do n <- number
+                                         return $ Right $ Int (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) n Nothing
+                                      ) 
                                  <|> (do idp <- parseID
                                          do      lookAhead follow AP.*> return(Right(ID (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) idp Nothing))
                                              <|> do parseLeftParent
@@ -183,9 +185,15 @@ factor' follow recSet = do do pos <- getPosition
                                  <|> (parseMinInt    AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) True  False Nothing)))
                                  <|> (parseMaxDouble AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) False True  Nothing)))
                                  <|> (parseMinDouble AP.*> return(Right(Constant (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) False False Nothing)))
-                                 <|> (parseBool      >>= return . Right . Bool   Nothing (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
-                                 <|> (parseChar      >>= return . Right . Char   Nothing (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
-                                 <|> (parseString    >>= return . Right . String Nothing (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)))
+                                 <|> (do e <- parseBool
+                                         return $ Right $ Bool (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) e Nothing
+                                      )
+                                 <|> (do e <- parseChar
+                                         return $ Right $ Char (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) e Nothing
+                                      )
+                                 <|> (do e <- parseString
+                                         return $ Right $ String (Location (sourceLine pos) (sourceColumn pos) (sourceName pos)) e Nothing
+                                      )
                                  <|> (do parseToInt
                                          parseLeftParent
                                          e <- expr parseRightParent parseRightParent
