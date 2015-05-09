@@ -7,6 +7,7 @@ import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import qualified Data.Text.Read as TR
 import qualified Text.Parsec.Pos as P
+import qualified Control.Monad as M
 import Token
 import TokenParser
 import Lexer
@@ -30,12 +31,12 @@ myType follow recSet = do myBasicType follow recSet
 
                               
 
-decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
+--decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 decList follow recSet = do lookAhead follow
                            return $ return []
                            <|> decListAux follow recSet
                            
-decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
+--decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST])
 decListAux follow recSet = do lookAhead follow
                               return $ return []
                               <|> do parseVar
@@ -44,14 +45,14 @@ decListAux follow recSet = do lookAhead follow
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) (AP.liftA2 (DecVar) idl t) rl)
+                                            return(AP.liftA2 (:) (AP.liftA3 DecVar idl t Nothing) rl)
                                         <|> do parseAssign
                                                lexp <- listExp parseColon (recSet <|> parseColon)
                                                parseColon
                                                t <- myType parseSemicolon recSet
                                                parseSemicolon
                                                rl <- decListAux follow recSet
-                                               return(AP.liftA2 (:) (AP.liftA3 (DecVarAgn) idl lexp t) rl)
+                                               return(AP.liftA2 (:) (M.liftM4 DecVarAgn idl lexp t Nothing) rl)
                                      <|> do parseConst
                                             idl <- idList (parseAssign) (recSet <|> parseAssign)
                                             parseAssign
@@ -60,9 +61,9 @@ decListAux follow recSet = do lookAhead follow
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) (AP.liftA3 (DecVarAgn) idl lexp t) rl)
+                                            return(AP.liftA2 (:) (M.liftM4 DecVarAgn idl lexp t Nothing) rl)
                            
-idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
+--idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
 idList follow recSet = do lookAhead (follow)
                           genNewEmptyError
                           return $ Nothing 
@@ -70,7 +71,7 @@ idList follow recSet = do lookAhead (follow)
                                  rl <- idListAux follow recSet
                                  return (fmap (ac:) rl)
                               
-idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
+--idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
 idListAux follow recSet = do lookAhead follow
                              return $ return []
                              <|> do parseComma
@@ -78,7 +79,7 @@ idListAux follow recSet = do lookAhead follow
                                     rl <- idListAux (follow) (recSet)
                                     return (fmap (ac :) rl)
 
-decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
+--decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe AST)
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
                                    do parseRead
                                       parseLeftParent
@@ -87,7 +88,7 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                       do parseWith
                                          id <- parseString
                                          parseSemicolon
-                                         return ((fmap (DecProcReadFile id) ld) AP.<*> lid)
+                                         return (AP.liftA3 (DecProcReadFile id) ld lid  Nothing)
                                          <|> do parseSemicolon
-                                                return (fmap (DecProcReadSIO) ld AP.<*> lid)
-                                      <|> return(fmap(DecProc) ld)
+                                                return (AP.liftA3 DecProcReadSIO ld  lid  Nothing)
+                                      <|> return(AP.liftA2 DecProc ld Nothing)
