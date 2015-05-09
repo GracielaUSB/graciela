@@ -13,10 +13,11 @@ import TokenParser
 import Token
 import Lexer
 import AST
-import Error
+import ParserState
 import State
 import qualified Data.Monoid as DM
 import MyParseError
+
 
 listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
 listExp follow recSet = do  lookAhead follow
@@ -41,11 +42,13 @@ listExpAux follow recSet = do lookAhead follow
                                    return $ Nothing
                                )
 
+
 expr :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 expr follow recSet =  do lookAhead(follow)
                          return $ Nothing
                       
                       <|> exprLevel1 follow recSet
+
 
 exprLevel1 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel1 follow recSet = do e <- exprLevel2 (follow <|> parseTokEqual) (recSet <|> parseTokEqual)
@@ -53,10 +56,11 @@ exprLevel1 follow recSet = do e <- exprLevel2 (follow <|> parseTokEqual) (recSet
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseTokEqual
                                            e' <- exprLevel1 follow recSet
-                                           return(AP.liftA3 (Relational Equal (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                           return(AP.liftA3 (Relational Equal (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))  
+                                    
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
+
 
 exprLevel2 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel2 follow recSet = do e <- exprLevel3 (follow <|> parseTokImplies <|> parseTokConse) (recSet <|> parseTokImplies <|> parseTokConse)
@@ -64,14 +68,15 @@ exprLevel2 follow recSet = do e <- exprLevel3 (follow <|> parseTokImplies <|> pa
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseTokImplies
                                            e' <- exprLevel2 follow recSet
-                                           return(AP.liftA3 (Relational Implies (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                           return(AP.liftA3 (Relational Implies (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))                                    
+                                    
                                     <|> do parseTokConse
                                            e' <- exprLevel2 follow recSet
-                                           return(AP.liftA3 (Relational Conse (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                           return(AP.liftA3 (Relational Conse (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))      
+                                    
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
+
 
 exprLevel3 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel3 follow recSet = do e <- exprLevel4(follow <|> parseOr) (recSet <|> parseOr)
@@ -79,11 +84,12 @@ exprLevel3 follow recSet = do e <- exprLevel4(follow <|> parseOr) (recSet <|> pa
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseOr
                                            e' <- exprLevel3 follow recSet
-                                           return(AP.liftA3 (Boolean Dis (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                           return(AP.liftA3 (Boolean Dis (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing)) 
+                                    
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
  
+
 exprLevel4 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel4 follow recSet = do e <- exprLevel5 (follow <|>  parseAnd) (recSet <|> parseAnd)
                               do pos <- getPosition
@@ -91,9 +97,10 @@ exprLevel4 follow recSet = do e <- exprLevel5 (follow <|>  parseAnd) (recSet <|>
                                     <|> do parseAnd
                                            e' <- exprLevel4 follow recSet
                                            return(AP.liftA3 (Boolean Con (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                   
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
+
 
 exprLevel5 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel5 follow recSet = do e <- exprLevel6 (follow <|> parseEqual <|> parseNotEqual) (recSet <|> parseEqual <|> parseNotEqual)
@@ -102,15 +109,16 @@ exprLevel5 follow recSet = do e <- exprLevel6 (follow <|> parseEqual <|> parseNo
                                     <|> do parseEqual
                                            e' <- exprLevel5 follow recSet
                                            return(AP.liftA3 (Relational Equ (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                   
                                     <|> do parseNotEqual
                                            e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational Ine (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+                                           return(AP.liftA3 (Relational Ine (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))              
+                                    
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
 
 followExprLevelRel = parseTokLess <|> parseTokGreater <|> parseTokLEqual <|> parseTokGEqual
+
 
 exprLevel6 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel6 follow recSet = do e <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
@@ -131,9 +139,10 @@ exprLevel6 follow recSet = do e <- exprLevel7 (follow <|> followExprLevelRel) (r
                                     <|> do parseTokGEqual
                                            e' <- exprLevel5 follow recSet
                                            return(AP.liftA3 (Relational GEqual (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) e e' (return Nothing))
-                                        
+
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
+
 
 exprLevel7 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel7 follow recSet =  do t <- exprLevel8 (follow <|> parsePlus <|> parseMinus) (recSet  <|> parsePlus <|> parseMinus)
@@ -149,6 +158,8 @@ exprLevel7 follow recSet =  do t <- exprLevel8 (follow <|> parsePlus <|> parseMi
                                      
                                      <|> do genNewError (recSet) (Operator)
                                             return $ Nothing
+
+
 
 exprLevel8 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel8 follow recSet = do p <- exprLevel9 (follow <|> parseSlash <|> parseStar <|> parseTokMod) (recSet <|> parseSlash <|> parseStar <|> parseTokMod)
@@ -169,10 +180,12 @@ exprLevel8 follow recSet = do p <- exprLevel9 (follow <|> parseSlash <|> parseSt
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
 
+
+
 exprLevel9 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel9 follow recSet = do p <- exprLevel10 (follow <|> parseTokAccent) (recSet <|> parseTokAccent)
                               do pos <- getPosition
-                                 do  (lookAhead(follow) >> return p)
+                                 do  (lookAhead(follow) >> return p)        
                                      <|> do parseTokAccent
                                             e <- exprLevel9 follow recSet
                                             return $ AP.liftA3 (Arithmetic Exp (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) p e (return Nothing)
@@ -184,6 +197,7 @@ exprLevel9 follow recSet = do p <- exprLevel10 (follow <|> parseTokAccent) (recS
     Ésta puede ser un número, letra, cadena de caracteres, llamada a función,
     etc.
  -}
+
 
 exprLevel10 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 exprLevel10 follow recSet = do do pos <- getPosition
@@ -279,6 +293,8 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                      <|> do genNewError (recSet) (Number)
                                             return $ Nothing
 
+
+
 quantification follow recSet = do parseTokLeftPer
                                   op <- parseOpCuant
                                   id <- parseID
@@ -290,6 +306,7 @@ quantification follow recSet = do parseTokLeftPer
                                   return(AP.liftA3 (Quant op id) r t (return Nothing))
 
 
+
 parseOpCuant = parseTokExist
                <|> parseTokMod
                <|> parseTokMax
@@ -299,6 +316,8 @@ parseOpCuant = parseTokExist
                <|> parseTokSigma
                <|> parseTokPi
                <|> parseTokUnion
+
+
 
 bracketsList follow recSet = do  lookAhead follow
                                  return $ return []

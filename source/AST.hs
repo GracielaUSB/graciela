@@ -1,10 +1,11 @@
 module AST where
 
 import qualified Data.Text as T
-import Data.Monoid
 import Location
 import Token
+import Data.Monoid
 import Type
+
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
    del lenguaje. Los campos @line@ y @column@ representan la línea y columna, respectivamente,
@@ -31,7 +32,6 @@ data TypeArg = In | Out | InOut
 
 data StateCond = Pre | Post | Assertion | Bound | Invariant
       deriving (Show, Eq)
-
 
 
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)      } -- ^ Operadores Matematicos de dos expresiones.
@@ -77,3 +77,24 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Quant           { opQ :: Token, varQ :: Token, rangeExp :: (AST a), termExpr :: (AST a), argAST :: (Maybe a)           }
          | EmptyAST
     deriving (Show, Eq)
+
+--space = ' '
+
+--putSpaces level = take level (repeat space)
+
+--drawAST level (Program name defs accs) = putSpaces level `mappend` "Programa : " `mappend` show name `mappend` "\n" 
+--                                         `mappend` drawASTList (level + 1) defs 
+--                                         `mappend` drawASTList (level + 1) accs
+
+--drawAST level (DefProcDec name accs args decs pre post bound) = putSpaces level `mappend` "Procedimiento: "   `mappend` show name `mappend` "\n"     `mappend`
+--                                                                putSpaces level `mappend` "Argumentos:\n"    `mappend` drawASTList (level + 1) args `mappend`   
+--                                                                putSpaces level `mappend` "Precondicion:\n"    `mappend` drawAST (level + 1) pre      `mappend`
+--                                                                putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 1) bound    `mappend`
+--                                                                putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 1) accs `mappend`
+--                                                                putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 1) post
+
+--drawAST level (Arg name carg targ) = putSpaces level `mappend` show name `mappend` " Comportamiento: " `mappend` show carg `mappend` " Tipo: " `mappend` show targ  
+--drawAST level (States t exprs)     = putSpaces level `mappend` show t `mappend` drawASTList (level + 1) exprs
+--drawAST _ ast = show ast
+
+--drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level d) `mappend` "\n") [] xs

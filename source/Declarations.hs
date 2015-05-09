@@ -12,7 +12,7 @@ import Token
 import TokenParser
 import Lexer
 import AST
-import Error
+import ParserState
 import Expression
 import Type
 import State
@@ -30,12 +30,12 @@ myType follow recSet = do myBasicType follow recSet
                                  return (fmap (Array) t)
 
                               
-
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
 decList follow recSet = do lookAhead follow
                            return $ return []
                            <|> decListAux follow recSet
                            
+
 decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
 decListAux follow recSet = do lookAhead follow
                               return $ return []
@@ -62,6 +62,7 @@ decListAux follow recSet = do lookAhead follow
                                             parseSemicolon
                                             rl <- decListAux follow recSet
                                             return(AP.liftA2 (:) (M.liftM4 DecVarAgn idl lexp t (return Nothing)) rl)
+
                            
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
 idList follow recSet = do lookAhead (follow)
@@ -79,6 +80,7 @@ idListAux follow recSet = do lookAhead follow
                                     rl <- idListAux (follow) (recSet)
                                     return (fmap (ac :) rl)
 
+
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
                                    do parseRead
@@ -92,3 +94,4 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                          <|> do parseSemicolon
                                                 return (AP.liftA3 DecProcReadSIO ld  lid  (return Nothing))
                                       <|> return(AP.liftA2 DecProc ld (return Nothing))
+
