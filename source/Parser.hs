@@ -1,25 +1,27 @@
 module Parser where
 
-import Text.Parsec
-import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
-import qualified Data.Text as T
-import qualified Data.Text.Read as TR
-import qualified Text.Parsec.Pos as P
-import qualified Control.Monad as M
-import Data.Monoid
+import qualified Text.Parsec.Pos     as P
+import qualified Data.Text.Read      as TR
+import qualified Control.Monad       as M
+import qualified Data.Monoid         as DM
+import qualified Data.Text           as T
+import MyParseError                  as PE
+import ParserState                   as PS
+import Text.Parsec.Error
+import Declarations
+import Text.Parsec
 import Data.Either
+import TokenParser
+import Expression
 import Location
 import Token
-import TokenParser
-import State
 import Lexer
+import State
+import Type
 import AST
-import Declarations
-import ParserState as PS
-import Expression
-import MyParseError as PE
+
 
 data CasesConditional = CExpression | CAction
 
@@ -51,6 +53,8 @@ program = do pos <- getPosition
                               )
                           <|> do return $ Nothing
 
+
+
 followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
 
 
@@ -62,7 +66,8 @@ parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDe
                                  do try ( do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
                                              parseEnd
-                                             return (AP.liftA3 (AST.Program id) ast lacc (return (Nothing))) 
+                                             pos <- getPosition
+                                             return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return (Nothing))) 
                                          )
                                       <|> do genNewError parseEnd ProcOrFunc
                                              return $ Nothing
@@ -128,7 +133,8 @@ listArgFunc follow recSet = do lookAhead follow
                                       parseColon
                                       t  <- myType (parseRightParent <|> parseComma) (recSet <|> parseRightParent <|> parseComma)
                                       rl <- listArgFuncAux follow recSet
-                                      return (AP.liftA2 (:) (AP.liftA2 (FunArg id) t (return Nothing)) rl)
+                                      pos <- getPosition
+                                      return (AP.liftA2 (:) (AP.liftA2 (FunArg id (getLocation pos)) t (return Nothing)) rl)
 
 
 
@@ -140,7 +146,8 @@ listArgFuncAux follow recSet = do lookAhead follow
                                          parseColon
                                          t <- myType (parseComma <|> follow) (parseComma <|> recSet)
                                          rl <- listArgFuncAux follow recSet
-                                         return (AP.liftA2 (:) (AP.liftA2 (FunArg id) t (return Nothing)) rl)
+                                         pos <- getPosition
+                                         return (AP.liftA2 (:) (AP.liftA2 (FunArg id (getLocation pos)) t (return Nothing)) rl)
                                          
 
 
@@ -177,7 +184,8 @@ precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 precondition follow recSet =  do parseTokLeftPre
                                  e <- listExp (parseTokRightPre) (recSet <|> parseTokRightPre)
                                  parseTokRightPre
-                                 return(AP.liftA2 (States Pre) e (return Nothing))
+                                 pos <- getPosition
+                                 return(AP.liftA2 (States Pre (getLocation pos)) e (return Nothing))
 
 
 
@@ -185,7 +193,8 @@ postcondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 postcondition follow recSet =  do parseTokLeftPost
                                   e <- listExp (parseTokRightPost) (recSet <|> parseTokRightPost)
                                   parseTokRightPost
-                                  return(AP.liftA2 (States Post) e (return Nothing))
+                                  pos <- getPosition
+                                  return(AP.liftA2 (States Post (getLocation pos)) e (return Nothing))
 
 
 
@@ -193,7 +202,8 @@ bound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 bound follow recSet =  do parseTokLeftBound
                           e <- listExp (parseTokRightBound) (recSet <|> parseTokRightBound)
                           parseTokRightBound
-                          return(AP.liftA2 (States Bound) e (return Nothing))
+                          pos <- getPosition
+                          return(AP.liftA2 (States Bound (getLocation pos)) e (return Nothing))
 
 
 
@@ -201,7 +211,8 @@ assertion :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 assertion follow recSet =  do parseTokLeftA
                               e <- listExp (parseTokRightA) (recSet <|> parseTokRightA)
                               parseTokRightA
-                              return(AP.liftA2 (States Assertion) e (return Nothing))
+                              pos <- getPosition
+                              return(AP.liftA2 (States Assertion (getLocation pos)) e (return Nothing))
 
 
 
@@ -209,7 +220,8 @@ invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 invariant follow recSet =  do parseTokLeftInv
                               e <- listExp (parseTokRightInv) (recSet <|> parseTokRightInv)
                               parseTokRightInv
-                              return(AP.liftA2 (States Invariant) e (return Nothing))
+                              pos <- getPosition
+                              return(AP.liftA2 (States Invariant (getLocation pos)) e (return Nothing))
 
 
 
@@ -254,7 +266,8 @@ arg follow recSet = do at <- argType parseID (recSet <|> parseID)
                        id <- parseID
                        parseColon
                        t <- myType follow recSet
-                       return (AP.liftA3 (Arg id) at t (return Nothing))
+                       pos <- getPosition
+                       return (AP.liftA3 (Arg id (getLocation pos)) at t (return Nothing))
 
 
 
@@ -263,10 +276,10 @@ functionBody follow recSet = do pos <- getPosition
                                 do parseTokOpenBlock
                                    do cif <- conditional CExpression parseTokCloseBlock parseTokCloseBlock
                                       parseTokCloseBlock
-                                      return (AP.liftA2 FunBody (AP.liftA2 (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) cif (return Nothing)) (return Nothing))
+                                      return (AP.liftA2 (FunBody (getLocation pos)) (AP.liftA2 (\f -> f (getLocation pos)) cif (return Nothing)) (return Nothing))
                                       <|> do e <- expr parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
-                                             return (AP.liftA2 FunBody e (return Nothing))
+                                             return (AP.liftA2 (FunBody (getLocation pos)) e (return Nothing))
 
 
 
@@ -348,7 +361,7 @@ guard CAction follow recSet     = do pos <- getPosition
                                      e <- expr (parseArrow) (recSet <|> parseArrow)
                                      parseArrow
                                      a <- action follow recSet
-                                     return (AP.liftA2  (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) (AP.liftA2 Guard e a) (return Nothing))
+                                     return (AP.liftA2  (\f -> f (getLocation pos)) (AP.liftA2 Guard e a) (return Nothing))
 
 
 
@@ -356,7 +369,7 @@ guard CExpression follow recSet = do pos <- getPosition
                                      e <- expr (parseArrow) (recSet <|> parseArrow)
                                      parseArrow
                                      a <- expr follow recSet
-                                     return (AP.liftA2 (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) (AP.liftA2 GuardExp e a) (return Nothing))
+                                     return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return Nothing))
 
 
 
@@ -392,9 +405,9 @@ action :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 action follow recSet = do pos <- getPosition
                           do  as  <- assertion followAction (followAction <|> recSet)
                               res <- actionAux follow recSet
-                              return (AP.liftA3 GuardAction as (AP.liftA2 (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res (return Nothing)) (return Nothing))
+                              return (AP.liftA3 (GuardAction (getLocation pos)) as (AP.liftA2 (\f -> f (getLocation pos)) res (return Nothing)) (return Nothing))
                               <|> do res <- actionAux follow recSet
-                                     return (AP.liftA2 (\f -> f (Location (sourceLine pos) (sourceColumn pos) (sourceName pos))) res (return Nothing))
+                                     return (AP.liftA2 (\f -> f (getLocation pos)) res (return Nothing))
 
 
 
@@ -447,4 +460,6 @@ repetition follow recSet = do pos <- getPosition
 
 --skip :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 skip follow recSet = do parseSkip
-                        return $ return $ Skip           
+                        return $ return $ Skip
+
+

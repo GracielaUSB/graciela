@@ -59,22 +59,21 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Ran          { var      :: Token, location :: Location, argAST :: (Maybe a)                                            }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, argAST :: (Maybe a)                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, argAST :: (Maybe a)                      } -- ^ Guardia de Expresion.
-         | DecVar       { lisidvar :: [Token], mytype ::  Type,    getAST  :: (Maybe a)                                           }
-         | DecVarAgn    { lisidvar :: [Token], lexpdv :: [AST a],  mytype  :: Type,  argAST :: (Maybe a)                          }
-         | DefFun       { fname    :: Token, fbody    ::  (AST a), lexprdf :: [AST a], nodeBound :: (AST a), argAST :: (Maybe a)  }
-         | DefProc      { pname    :: Token, prbody   :: [AST a],  prargs  :: [AST a], nodePre :: (AST a) , nodePost  :: (AST a), nodeBound :: (AST a), argAST :: (Maybe a) }
-         | DefProcDec   { pname    :: Token, prbody   :: [AST a],  prargs  :: [AST a], decs    :: (AST a) , nodePre   :: (AST a), nodePost  :: (AST a), nodeBound :: (AST a), argAST :: (Maybe a) }
-         | Program      { pname    :: Token, listdef  :: [AST a],  listacc :: [AST a], argAST :: (Maybe a)                        }
-         | FunBody      { fbexpr   :: (AST a), argAST :: (Maybe a)                                                                }
-         | FunArg       { faid     :: Token, fatype :: Type, argAST :: (Maybe a)                                                  }
-         | ArgType      { at       :: Token, argAST :: (Maybe a)                                                                  }
-         | Arg          { argid    :: Token, atn :: TypeArg, atype :: Type, argAST :: (Maybe a)                                   }
          | DecProcReadFile { idfile  :: Token,   declist    :: [AST a], idlistproc ::[Token], argAST :: (Maybe a)                 }
          | DecProcReadSIO  { declist :: [AST a], idlistproc :: [Token], argAST :: (Maybe a)                                       }
          | DecProc         { declist :: [AST a], argAST :: (Maybe a)                                                              }
-         | States          { tstate :: StateCond, exprlist      :: [AST a], argAST :: (Maybe a)                                   }
-         | GuardAction     { assertionGa   :: (AST a), actionGa :: (AST a), argAST :: (Maybe a)                                   }
-         | Quant           { opQ :: Token, varQ :: Token, rangeExp :: (AST a), termExpr :: (AST a), argAST :: (Maybe a)           }
+         | DecVar       { lisidvar :: [Token], mytype  ::  Type,    getAST  :: (Maybe a)                                          }
+         | DecVarAgn    { lisidvar :: [Token], lexpdv  :: [AST a],  mytype  :: Type,  argAST :: (Maybe a)                         }
+         | DefFun       { fname    :: Token, fbody     ::  (AST a), lexprdf :: [AST a], nodeBound :: (AST a), argAST :: (Maybe a) }
+         | DefProc      { pname    :: Token, prbody    :: [AST a],  prargs  :: [AST a], nodePre :: (AST a) , nodePost  :: (AST a), nodeBound :: (AST a), argAST :: (Maybe a) }
+         | DefProcDec   { pname    :: Token, prbody    :: [AST a],  prargs  :: [AST a], decs    :: (AST a) , nodePre   :: (AST a), nodePost  :: (AST a), nodeBound :: (AST a), argAST :: (Maybe a) }
+         | Program      { pname    :: Token, location  :: Location, listdef :: [AST a],  listacc :: [AST a], argAST :: (Maybe a)  }
+         | FunBody      { location :: Location, fbexpr :: (AST a),  argAST :: (Maybe a)                                           }
+         | FunArg       { faid     :: Token, location  :: Location, fatype :: Type, argAST :: (Maybe a)                           }
+         | Arg          { argid    :: Token, location  :: Location, atn :: TypeArg, atype :: Type, argAST :: (Maybe a)            }
+         | States       { tstate   :: StateCond, location :: Location,  exprlist :: [AST a], argAST :: (Maybe a)                  }
+         | GuardAction  { location :: Location, assertionGa :: (AST a), actionGa :: (AST a), argAST :: (Maybe a)                  }
+         | Quant        { opQ :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a), termExpr :: (AST a), argAST :: (Maybe a) }
          | EmptyAST
     deriving (Show, Eq)
 
@@ -98,3 +97,5 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
 --drawAST _ ast = show ast
 
 --drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level d) `mappend` "\n") [] xs
+
+

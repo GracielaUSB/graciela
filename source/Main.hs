@@ -1,18 +1,18 @@
 module Main where
   
-import Text.Parsec
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import qualified Control.Applicative as AP
-import Lexer
-import Parser
-import TokenParser
-import System.Environment
-import SymbolTable
-import AST
-import State
-import Control.Monad.State as ST
+import qualified Data.Text.IO        as TIO
+import qualified Data.Text           as T
+import Control.Monad.State           as ST
 import Control.Monad.Identity
+import System.Environment
+import TokenParser
+import SymbolTable
+import Text.Parsec
+import Parser
+import Lexer
+import State
+import AST
 
 concatLexPar = playParser AP.<$> lexer
 

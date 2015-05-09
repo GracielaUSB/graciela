@@ -1,15 +1,15 @@
 module State where
 
-import Control.Monad.State
-import qualified Data.Sequence as DS
-import Text.Parsec
-import Control.Monad.State as ST
 import Control.Monad.Identity (Identity)
-import Token
+import qualified Data.Sequence as DS
+import Control.Monad.State     as ST
+import Data.Text               as T 
 import MyParseError
+import Text.Parsec
 import MyTypeError
 import SymbolTable
-import Data.Text as T 
+import Token
+
 
 data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                , symbolTable  :: SymbolTable
@@ -17,15 +17,19 @@ data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                }
       deriving(Show)
 
+
 type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
 
+
 initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, typErrorList = DS.empty }
+
 
 addParsingError :: MyParseError -> ParserState -> ParserState
 addParsingError e ps = ParserState { synErrorList = (synErrorList ps) DS.|> e
                                    , symbolTable = symbolTable ps
                                    , typErrorList = typErrorList ps
                                    }
+
 
 addNewSymbol :: T.Text -> Contents -> ParserState -> ParserState
 addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of

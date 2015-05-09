@@ -1,13 +1,14 @@
 module TokenParser where
 
-import Token
-import Text.Parsec
-import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
-import qualified Data.Text as T
-import Type
+import qualified Data.Text           as T
+import Text.Parsec.Error
+import Text.Parsec
+import Token
 import State
+import Type
+
 
 makeTokenParser x = tokenPrim showTok posTok testTok
                     where
@@ -15,8 +16,12 @@ makeTokenParser x = tokenPrim showTok posTok testTok
                       posTok  _ (_ , pos) _ = pos
                       testTok (t, pos)     = if x == t then Just (t) else Nothing
 
+
+
 verify :: Token ->  MyParser (Token)
 verify token = makeTokenParser token
+
+
 
 parsePlus         = verify TokPlus
 parseMinus        = verify TokMinus
@@ -106,6 +111,7 @@ parseTokPi        = verify TokPi
 parseTokUnion     = verify TokUnion
 parseTokEqual     = verify TokEqual
 
+
 parseID :: MyParser (Token)
 parseID = tokenPrim showTok posTok testTok
           where
@@ -115,6 +121,7 @@ parseID = tokenPrim showTok posTok testTok
                                  { TokId id  -> Just (TokId id)
                                  ; otherwise -> Nothing
                                  }
+
 
 parseBool :: MyParser (Token)
 parseBool = tokenPrim showTok posTok testTok
@@ -126,6 +133,7 @@ parseBool = tokenPrim showTok posTok testTok
                                   ; otherwise -> Nothing
                                   }
 
+
 parseType :: MyParser (Token)
 parseType = tokenPrim showTok posTok testTok
               where
@@ -135,6 +143,7 @@ parseType = tokenPrim showTok posTok testTok
                                     { TokType b -> Just (TokType b)
                                     ; otherwise -> Nothing
                                     }
+
 
 parseChar :: MyParser (Token)
 parseChar = tokenPrim showTok posTok testTok
@@ -146,6 +155,7 @@ parseChar = tokenPrim showTok posTok testTok
                                   ; otherwise -> Nothing
                                   }
 
+
 parseString :: MyParser (Token)
 parseString = tokenPrim showTok posTok testTok
                 where
@@ -156,12 +166,14 @@ parseString = tokenPrim showTok posTok testTok
                                       ; otherwise   -> Nothing
                                       }
 
+
 parseAnyToken :: MyParser (Token)
 parseAnyToken = tokenPrim showTok posTok testTok
                 where
                   showTok (t, pos) = show t
                   posTok  _ (t, pos) _ = pos
                   testTok (t, pos) = Just (t)
+
 
 number :: MyParser (Token)
 number = tokenPrim showTok posTok testTok
@@ -172,3 +184,6 @@ number = tokenPrim showTok posTok testTok
                                   { TokInteger n -> Just (TokInteger n)
                                   ; otherwise    -> Nothing
                                   }
+
+
+                            

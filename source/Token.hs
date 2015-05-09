@@ -1,11 +1,13 @@
 module Token where
 
-import Text.Parsec
 import qualified Data.Text as T
+import Text.Parsec
 import Type
+
 
 data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
+
 
 data Token =   TokPlus
              | TokMinus 
@@ -111,6 +113,10 @@ data Token =   TokPlus
              | EmptyToken
       deriving (Read, Eq)
 
+
+type TokenPos = (Token, SourcePos)
+
+
 instance Show Token where
   show TokPlus          = "suma"
   show TokMinus         = "resta"
@@ -214,4 +220,4 @@ instance Show Token where
   show TokArray         = "tipo arreglo de"
   show TokOpenQuant     = "apertura de cuantificador"
 
-type TokenPos = (Token, SourcePos)
+
