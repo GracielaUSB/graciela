@@ -11,7 +11,7 @@ import Token
 import TokenParser
 import Lexer
 import AST
-import Error
+import ParserState
 import Expression
 import Type
 import State

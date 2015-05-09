@@ -8,7 +8,7 @@ import Lexer
 import Parser
 import TokenParser
 import System.Environment
-import Tabla
+import SymbolTable
 import AST
 import State
 import Control.Monad.State as ST

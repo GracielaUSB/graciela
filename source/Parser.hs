@@ -13,12 +13,12 @@ import Location
 import Token
 import TokenParser
 import State
-import MyParseError as PE
 import Lexer
 import AST
 import Declarations
-import Error as PE
+import ParserState as PS
 import Expression
+import MyParseError as PE
 
 data CasesConditional = CExpression | CAction
 

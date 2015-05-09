@@ -12,7 +12,7 @@ import TokenParser
 import Token
 import Lexer
 import AST
-import Error
+import ParserState
 import State
 import qualified Data.Monoid as DM
 import MyParseError
