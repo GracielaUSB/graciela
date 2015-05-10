@@ -23,13 +23,13 @@ playParser inp = runStateParse (program) "" (inp) (initialState)
 play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
             		  ; Right par -> case par of
-           		                       { (Left  err', _) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                                       ; (Right par', _) -> putStrLn $ (drawAST 0 par')
-                                       }
-                      }
+           		                       { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
+                                     ; (Right _   , st) -> putStrLn $ (show st)
+                                     }
+                  }
 
+playLexer inp = putStrLn $ show $ runParser (lexer) () "" (inp)
 
 main = do args <- getArgs 
           s <- TIO.readFile (head args)
           play s
-

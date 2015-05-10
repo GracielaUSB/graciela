@@ -1,5 +1,6 @@
 module MyParseError where
 
+import qualified Text.Parsec.Pos as P
 import Location
 import Token
 
@@ -8,6 +9,7 @@ data MyParseError = MyParseError   { loc       :: Location
                                    , actualTok :: Token
                                    }
                   | EmptyError     { loc :: Location }
+                  | ScopesError
                deriving (Read)
 
 data WaitedToken =  Operator
@@ -41,3 +43,7 @@ instance Show WaitedToken where
 instance Show MyParseError where
   show (MyParseError loc wt at)      = show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
   show (EmptyError   loc)            = show loc ++ ": No se permiten expresiones vacías"
+  show ScopesError                   = "Error en la tabla de símbolos: intento de salir de un alcance sin padre"
+    
+newEmptyError  pos          = EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos)                                 }
+newParseError  msg (e, pos) = MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), waitedTok = msg, actualTok = e }

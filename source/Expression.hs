@@ -345,5 +345,3 @@ bracketsList follow recSet = do  lookAhead follow
                                            -- Modemos levantarnos del error con un hazte el loco  
                                            <|> do err <- genNewError (follow <|> parseLeftBracket) (TokenRB)
                                                   return $ Nothing   
-
-

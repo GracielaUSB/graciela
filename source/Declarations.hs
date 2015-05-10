@@ -20,20 +20,27 @@ import State
 import Location
 import Type
 import AST
+import Contents as CO
+
+readType :: String -> Maybe (Type)
+readType t =      if t == "boolean" then Just $ MyBool
+             else if t == "int"     then Just $ MyInt
+             else if t == "double"  then Just $ MyFloat
+             else if t == "char"    then Just $ MyChar
+             else if t == "string"  then Just $ MyString
+             else Nothing
 
 myBasicType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myBasicType follow recSet = do t <- parseType
-                               return(return (nType t))
-
-
+                               return $ readType $ nType t
 
 myType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myType follow recSet = do myBasicType follow recSet
                           <|> do parseTokArray
-                                 bracketsList parseOf (recSet <|> parseOf)
+                                 bl <- bracketsList parseOf (recSet <|> parseOf)
                                  parseOf
                                  t <- myBasicType follow recSet
-                                 return (fmap (Array) t)
+                                 return (AP.liftA2 (Array) t bl)
 
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
 decList follow recSet = do lookAhead follow
@@ -49,6 +56,7 @@ decListAux follow recSet = do lookAhead follow
                                      do     parseColon
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
+                                            addManyUniSymParser idl t
                                             rl <- decListAux follow recSet
                                             return((idl >>= (const t)) >>= (const rl) >>= (const (return EmptyAST)))
                                         <|> do parseAssign
@@ -56,6 +64,7 @@ decListAux follow recSet = do lookAhead follow
                                                parseColon
                                                t <- myType parseSemicolon recSet
                                                parseSemicolon
+                                               addManySymParser CO.Variable idl t lexp
                                                rl <- decListAux follow recSet
                                                return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return EmptyAST)))
                                      <|> do parseConst
@@ -65,34 +74,30 @@ decListAux follow recSet = do lookAhead follow
                                             parseColon
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
+                                            addManySymParser CO.Constant idl t lexp
                                             rl <- decListAux follow recSet
                                             return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return EmptyAST)))
 
-
-                           
---idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
+idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idList follow recSet = do lookAhead (follow)
                           genNewEmptyError
                           return $ Nothing 
                           <|> do ac <- parseID
+                                 loc <- parseLocation
                                  rl <- idListAux follow recSet
-                                 -- loc <- getLocation
-                                 --return (fmap ((ac, loc) :) rl)
-                                 return (fmap (ac:) rl)
+                                 return (fmap ((text ac, loc) :) rl)
 
---idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
+idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idListAux follow recSet = do lookAhead follow
                              return $ return []
                              <|> do parseComma
                                     ac <- parseID
+                                    loc <- parseLocation
                                     rl <- idListAux (follow) (recSet)
-                                    -- loc <- getLocation
-                                    --return (fmap ((ac, loc) :) rl)
-                                    return (fmap (ac:) rl)
+                                    return (fmap ((text ac, loc) :) rl)
 
-
--- getLocation = do pos <- getPosition
---                  return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+parseLocation = do pos <- getPosition
+                   return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
                   
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()))
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
@@ -107,6 +112,3 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                          <|> do parseSemicolon
                                                 return((ld >>= (const lid)) >>= (const (return EmptyAST)))
                                       <|> return(ld >>= (const (return EmptyAST)))
-
-
-                                      
