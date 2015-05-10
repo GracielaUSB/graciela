@@ -1,10 +1,10 @@
 module Lexer where
 
-import Text.Parsec
-import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Data.Text as T
+import Text.Parsec.Error
+import Text.Parsec
 import Token
 import Type
 
@@ -95,13 +95,11 @@ pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
 pToString     = tryString "toString"
-
 pType         = (tryString "boolean" >> return(MyBool))
             <|> (tryString "int"     >> return(MyInt))
             <|> (tryString "double"  >> return(MyFloat))
             <|> (tryString "char"    >> return(MyChar))
             <|> (tryString "string"  >> return(MyString))
-
 pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
@@ -110,6 +108,7 @@ pMAX_INT      = tryString "MAX_INT"
 pMAX_DOUBLE   = tryString "MAX_DOUBLE"
 pOf           = tryString "of"
 pComment      = optional(do { tryString "//"; manyTill anyChar (lookAhead (newline)); spaces })
+
 
 
 lexer :: Parsec T.Text () ([TokenPos])
@@ -202,7 +201,6 @@ lexer = do spaces
                               <|> (pToDouble     >> spaces >> return (TokToDouble))    
                               <|> (pToChar       >> spaces >> return (TokToChar))
                               <|> (pToString     >> spaces >> return (TokToString))
-
                               <|> (try (do s <- pBool
                                            spaces
                                            case s of

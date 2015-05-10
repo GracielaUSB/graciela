@@ -1,46 +1,59 @@
 module SymbolTable where
 
+import qualified Data.Maybe          as Maybe
 import qualified Data.Tree           as Tr
 import qualified Data.Text           as T
 import qualified Data.Map            as M
-import qualified Data.Maybe          as Maybe
 import Location
 import Type
+
 
 data Contents = Contents { symbolLoc :: Location, symbolType :: Type } 
         deriving (Read, Eq, Show)
 
+
 type Diccionario = M.Map T.Text Contents
+
 
 data SymbolTable = Table { actual :: Tr.Tree (Diccionario, Maybe SymbolTable) }  
         deriving (Eq, Show)
 
+
 getActual :: SymbolTable -> Diccionario
 getActual tabla = fst $ Tr.rootLabel (actual tabla)
+
 
 getPadre :: SymbolTable -> Maybe SymbolTable
 getPadre tabla = snd $ Tr.rootLabel (actual tabla)
 
+
 getHijos :: SymbolTable -> [Tr.Tree (Diccionario, Maybe SymbolTable)]
 getHijos tabla = Tr.subForest (actual tabla)
+
 
 getTabla :: SymbolTable -> (Diccionario, Maybe SymbolTable)
 getTabla tabla = Tr.rootLabel (actual tabla)
 
+
 insertTabla :: Diccionario -> SymbolTable -> SymbolTable
 insertTabla dic tabla = Table (Tr.Node (dic, getPadre tabla) (getHijos tabla))
+
 
 insertHijo :: SymbolTable -> SymbolTable -> SymbolTable
 insertHijo hijo padre = Table (Tr.Node (getTabla padre) ((actual hijo):(getHijos padre)))
 
+
 emptyTable :: SymbolTable
 emptyTable =  Table (Tr.Node (M.empty, Nothing) []) 
+
 
 enterScope :: SymbolTable -> SymbolTable
 enterScope tabla = Table (Tr.Node (M.empty, Just tabla) [])
 
+
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
+
 
 checkSymbol :: T.Text -> SymbolTable -> Maybe Contents
 checkSymbol valor tabla = let dic = getActual tabla in
@@ -52,6 +65,7 @@ checkSymbol valor tabla = let dic = getActual tabla in
                                              }
                               }
 
+
 addSymbol :: T.Text -> Contents -> SymbolTable -> (Either Contents SymbolTable)
 addSymbol valor content tabla =
           case checkSymbol valor tabla of
@@ -60,8 +74,10 @@ addSymbol valor content tabla =
                             Right $ insertTabla newActual tabla
           }
 
+
 look :: (Either String SymbolTable) -> SymbolTable 
 look (Right tabla) = tabla
+
 
 --Casos 
 

@@ -1,26 +1,31 @@
 module Declarations where
 
-import Text.Parsec
-import Text.Parsec.Error
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
-import qualified Data.Text as T
-import qualified Data.Text.Read as TR
-import qualified Text.Parsec.Pos as P
-import qualified Control.Monad as M
-import Token
+import qualified Text.Parsec.Pos     as P
+import qualified Data.Text.Read      as TR
+import qualified Control.Monad       as M
+import qualified Data.Monoid         as DM
+import qualified Data.Text           as T
+import MyParseError                  as PE
+import ParserState                   as PS
+import Text.Parsec.Error
+import Text.Parsec
 import TokenParser
-import Lexer
-import AST
-import ParserState
 import Expression
-import Type
+import Location
+import Token
+import Lexer
 import State
 import Location
+import Type
+import AST
 
 myBasicType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myBasicType follow recSet = do t <- parseType
                                return(return (nType t))
+
+
 
 myType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myType follow recSet = do myBasicType follow recSet
@@ -30,7 +35,6 @@ myType follow recSet = do myBasicType follow recSet
                                  t <- myBasicType follow recSet
                                  return (fmap (Array) t)
 
-                              
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
 decList follow recSet = do lookAhead follow
                            return $ return EmptyAST
@@ -64,6 +68,7 @@ decListAux follow recSet = do lookAhead follow
                                             rl <- decListAux follow recSet
                                             return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return EmptyAST)))
 
+
                            
 --idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
 idList follow recSet = do lookAhead (follow)
@@ -74,7 +79,7 @@ idList follow recSet = do lookAhead (follow)
                                  -- loc <- getLocation
                                  --return (fmap ((ac, loc) :) rl)
                                  return (fmap (ac:) rl)
-                              
+
 --idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
 idListAux follow recSet = do lookAhead follow
                              return $ return []
@@ -103,3 +108,5 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                                 return((ld >>= (const lid)) >>= (const (return EmptyAST)))
                                       <|> return(ld >>= (const (return EmptyAST)))
 
+
+                                      
