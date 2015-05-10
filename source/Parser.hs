@@ -141,8 +141,6 @@ listArgFuncAux follow recSet = do lookAhead follow
                                          t <- myType (parseComma <|> follow) (parseComma <|> recSet)
                                          rl <- listArgFuncAux follow recSet
                                          return (AP.liftA2 (:) (AP.liftA2 (FunArg id) t (return Nothing)) rl)
-                                         
-
 
 proc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 proc follow recSet = do parseProc
@@ -161,7 +159,7 @@ proc follow recSet = do parseProc
                                   parseRightBracket
                                   return ((M.liftM5 (DefProc id) la larg pre post b) AP.<*> (return Nothing))
 
-                           <|> do dcl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
+                           <|> do dl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                                   pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
                                   b   <- maybeBound (parseTokOpenBlock) (recSet <|> parseTokOpenBlock)
                                   parseTokOpenBlock
@@ -169,9 +167,7 @@ proc follow recSet = do parseProc
                                   parseTokCloseBlock
                                   post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                   parseRightBracket
-                                  return ((M.liftM5 (DefProcDec id) la larg dcl pre  post) AP.<*> b AP.<*> (return Nothing))
-
-
+                                  return (dl >>= (const ((M.liftM5 (DefProc id) la larg pre post b) AP.<*> (return Nothing))))
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 precondition follow recSet =  do parseTokLeftPre
@@ -312,10 +308,10 @@ followAction = (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|>
 
 --block :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 block follow recSet = do parseTokOpenBlock
-                         ld <- decList followAction (recSet <|> followAction)
+                         decList followAction (recSet <|> followAction)
                          la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
                          parseTokCloseBlock
-                         return (AP.liftA2 (Block) ld la)
+                         return (fmap (Block) la)
        
 
 

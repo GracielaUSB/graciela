@@ -1,4 +1,14 @@
 program hola
 |[
-  writeln(5 <== 8 <== 7 ==> 6 ==> 3^2)
+  proc hola : ()
+  [
+    var x : int;
+    {pre true pre}
+    |[
+         skip
+    ]|
+    {post true post}
+  ]
+
+  skip
 ]|

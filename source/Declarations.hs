@@ -16,6 +16,7 @@ import ParserState
 import Expression
 import Type
 import State
+import Location
 
 myBasicType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myBasicType follow recSet = do t <- parseType
@@ -30,29 +31,29 @@ myType follow recSet = do myBasicType follow recSet
                                  return (fmap (Array) t)
 
                               
-decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
+decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
 decList follow recSet = do lookAhead follow
-                           return $ return []
+                           return $ return EmptyAST
                            <|> decListAux follow recSet
                            
 
-decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
+decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
 decListAux follow recSet = do lookAhead follow
-                              return $ return []
+                              return $ return EmptyAST
                               <|> do parseVar
                                      idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
                                      do     parseColon
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) (AP.liftA3 DecVar idl t (return Nothing)) rl)
+                                            return((idl >>= (const t)) >>= (const rl) >>= (const (return EmptyAST)))
                                         <|> do parseAssign
                                                lexp <- listExp parseColon (recSet <|> parseColon)
                                                parseColon
                                                t <- myType parseSemicolon recSet
                                                parseSemicolon
                                                rl <- decListAux follow recSet
-                                               return(AP.liftA2 (:) (M.liftM4 DecVarAgn idl lexp t (return Nothing)) rl)
+                                               return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return EmptyAST)))
                                      <|> do parseConst
                                             idl <- idList (parseAssign) (recSet <|> parseAssign)
                                             parseAssign
@@ -61,27 +62,34 @@ decListAux follow recSet = do lookAhead follow
                                             t <- myType parseSemicolon recSet
                                             parseSemicolon
                                             rl <- decListAux follow recSet
-                                            return(AP.liftA2 (:) (M.liftM4 DecVarAgn idl lexp t (return Nothing)) rl)
+                                            return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return EmptyAST)))
 
                            
-idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
+--idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
 idList follow recSet = do lookAhead (follow)
                           genNewEmptyError
                           return $ Nothing 
                           <|> do ac <- parseID
                                  rl <- idListAux follow recSet
+                                 -- loc <- getLocation
+                                 --return (fmap ((ac, loc) :) rl)
                                  return (fmap (ac:) rl)
                               
-idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [Token])
+--idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(Token, Location)])
 idListAux follow recSet = do lookAhead follow
                              return $ return []
                              <|> do parseComma
                                     ac <- parseID
                                     rl <- idListAux (follow) (recSet)
-                                    return (fmap (ac :) rl)
+                                    -- loc <- getLocation
+                                    --return (fmap ((ac, loc) :) rl)
+                                    return (fmap (ac:) rl)
 
 
-decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
+-- getLocation = do pos <- getPosition
+--                  return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+                  
+decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()))
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
                                    do parseRead
                                       parseLeftParent
@@ -90,8 +98,8 @@ decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet 
                                       do parseWith
                                          id <- parseString
                                          parseSemicolon
-                                         return (AP.liftA3 (DecProcReadFile id) ld lid  (return Nothing))
+                                         return((ld >>= (const lid)) >>= (const (return EmptyAST)))
                                          <|> do parseSemicolon
-                                                return (AP.liftA3 DecProcReadSIO ld  lid  (return Nothing))
-                                      <|> return(AP.liftA2 DecProc ld (return Nothing))
+                                                return((ld >>= (const lid)) >>= (const (return EmptyAST)))
+                                      <|> return(ld >>= (const (return EmptyAST)))
 
