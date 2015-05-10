@@ -77,25 +77,31 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | EmptyAST
     deriving (Show, Eq)
 
---space = ' '
+space = ' '
 
---putSpaces level = take level (repeat space)
+putSpaces level = take level (repeat space)
 
---drawAST level (Program name defs accs) = putSpaces level `mappend` "Programa : " `mappend` show name `mappend` "\n" 
---                                         `mappend` drawASTList (level + 1) defs 
---                                         `mappend` drawASTList (level + 1) accs
+drawAST level (Just (Program name location defs accs ast)) = putSpaces level `mappend` "Programa : " `mappend` show name `mappend` "\n" 
+                                         `mappend` drawASTList (level + 1) defs 
+                                         `mappend` drawASTList (level + 1) accs
 
---drawAST level (DefProcDec name accs args decs pre post bound) = putSpaces level `mappend` "Procedimiento: "   `mappend` show name `mappend` "\n"     `mappend`
---                                                                putSpaces level `mappend` "Argumentos:\n"    `mappend` drawASTList (level + 1) args `mappend`   
---                                                                putSpaces level `mappend` "Precondicion:\n"    `mappend` drawAST (level + 1) pre      `mappend`
---                                                                putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 1) bound    `mappend`
---                                                                putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 1) accs `mappend`
---                                                                putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 1) post
+drawAST level (Just (DefProcDec name accs args decs pre post bound ast)) = putSpaces level `mappend` "Procedimiento: " `mappend` show name `mappend` "\n"   
+                                         `mappend` putSpaces level `mappend` "Argumentos:\n"     `mappend` drawASTList (level + 1) args
+                                         `mappend` putSpaces level `mappend` "Precondicion:\n"   `mappend` drawAST (level + 1) (Just pre  )    
+                                         `mappend` putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 1) (Just bound)  
+                                         `mappend` putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 1) accs
+                                         `mappend` putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 1) (Just post )
 
---drawAST level (Arg name carg targ) = putSpaces level `mappend` show name `mappend` " Comportamiento: " `mappend` show carg `mappend` " Tipo: " `mappend` show targ  
---drawAST level (States t exprs)     = putSpaces level `mappend` show t `mappend` drawASTList (level + 1) exprs
---drawAST _ ast = show ast
+drawAST level (Just (Arg name location carg targ ast)) = putSpaces level `mappend` show name `mappend` " Comportamiento: " `mappend` show carg `mappend` " Tipo: " `mappend` show targ  
 
---drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level d) `mappend` "\n") [] xs
+drawAST level (Just (States t location exprs ast))     = putSpaces level `mappend` show t `mappend` drawASTList (level + 1) exprs
 
+
+
+drawAST _ Nothing = show "No se creo el arbol"
+drawAST _ ast = show (Just ast)
+
+--drawAST _ _       = show "yeii" 
+
+drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level (Just d)) `mappend` "\n") [] xs
 

@@ -20,8 +20,16 @@ runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) ini
 
 playParser inp = runStateParse (program) "" (inp) (initialState)
 
-play inp = putStrLn $ show $ runParser (concatLexPar) () "" (inp)
+play inp = case (runParser (concatLexPar) () "" (inp)) of
+            		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
+            		  ; Right par -> case par of
+           		                       { (Left  err', _) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
+                                       ; (Right par', _) -> putStrLn $ (drawAST 0 par')
+                                       }
+                      }
+
 
 main = do args <- getArgs 
           s <- TIO.readFile (head args)
           play s
+
