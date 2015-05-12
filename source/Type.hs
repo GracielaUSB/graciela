@@ -1,12 +1,17 @@
 module Type where
 
-data Type = MyInt | MyFloat | MyBool | MyChar | MyString | Function Type | Array Type
-  deriving (Read, Eq) 
+import AST
 
-instance Show Type where
-   show MyInt         = "Entero"
-   show MyFloat       = "Flotante"
-   show MyBool        = "Cadenas de Caracteres"
-   show MyChar        = "Caracter"
-   show (Function  t) = "Función que retorna " ++ show t
-   show (Array     t) = "Arreglo de tipo " ++ show t 
+data TypeArg = In | Out | InOut
+      deriving (Eq)
+
+
+instance Show TypeArg where
+   show In    = "de Entrada"
+   show Out   = "de Salida"
+   show InOut = "de Entrada y Salida"
+
+
+data Type = MyInt | MyFloat | MyBool | MyChar | MyString |  Function [Type] Type | Array Type [AST ()] | Procedure [Type]
+  deriving (Show, Eq) 
+

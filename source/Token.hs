@@ -2,8 +2,6 @@ module Token where
 
 import qualified Data.Text as T
 import Text.Parsec
-import Type
-
 
 data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
@@ -104,7 +102,7 @@ data Token =   TokPlus
              | TokArray
              | TokChar    { rchar :: T.Text   }
              | TokBool    { nBool :: TypeBool }      
-             | TokType    { nType :: Type     }
+             | TokType    { nType :: String   }
              | TokId      { text  :: T.Text   }
              | TokString  { st    :: T.Text   }
              | TokInteger { num   :: T.Text   }
@@ -116,6 +114,11 @@ data Token =   TokPlus
 
 type TokenPos = (Token, SourcePos)
 
+getToken :: TokenPos -> Token
+getToken (token, _) = token
+
+getPos :: TokenPos -> SourcePos
+getPos (_, pos) = pos
 
 instance Show Token where
   show TokPlus          = "suma"
@@ -172,14 +175,14 @@ instance Show Token where
   show TokInOut         = "entrada y salida"
   show TokWith          = "token with"   
   show TokMod           = "modulo"
-  show TokMax           = "maximo"
-  show TokMin           = "minimo"
-  show TokForall        = "para todo"
-  show TokExist         = "existencial"
-  show TokNotExist      = "no existencial"
-  show TokSigma         = "sumatoria"
-  show TokPi            = "número pi"
-  show TokUnion         = "union"
+  show TokMax           = "Maximo"
+  show TokMin           = "Minimo"
+  show TokForall        = "Para Todo"
+  show TokExist         = "Existencial"
+  show TokNotExist      = "No Existencial"
+  show TokSigma         = "Sumatoria"
+  show TokPi            = "Productoria"
+  show TokUnion         = "Union"
   show TokIf            = "if de apertura"
   show TokFi            = "if de cierre"
   show TokInv           = "invariante"

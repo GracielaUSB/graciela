@@ -9,7 +9,8 @@ import Text.Parsec
 import MyTypeError
 import SymbolTable
 import Token
-
+import Contents
+import Location
 
 data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                , symbolTable  :: SymbolTable
@@ -17,19 +18,21 @@ data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                }
       deriving(Show)
 
-
 type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
-
 
 initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, typErrorList = DS.empty }
 
-
+addTypeError :: MyTypeError -> ParserState -> ParserState
+addTypeError err ps = ParserState { synErrorList = (synErrorList ps)
+                                  , symbolTable  = (symbolTable ps)
+                                  , typErrorList = (typErrorList ps) DS.|> err
+                                  }
+                                      
 addParsingError :: MyParseError -> ParserState -> ParserState
 addParsingError e ps = ParserState { synErrorList = (synErrorList ps) DS.|> e
                                    , symbolTable = symbolTable ps
                                    , typErrorList = typErrorList ps
                                    }
-
 
 addNewSymbol :: T.Text -> Contents -> ParserState -> ParserState
 addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
@@ -42,3 +45,15 @@ addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
                                                   , typErrorList = (typErrorList ps)
                                                   }
                         }
+
+newScopeState :: ParserState -> ParserState
+newScopeState st = ParserState { synErrorList = synErrorList st
+                               , symbolTable  = enterScope (symbolTable st)
+                               , typErrorList = typErrorList st
+                               } 
+
+exitScopeState :: ParserState -> ParserState
+exitScopeState st = case exitScope (symbolTable st) of
+                    { Just sbtl -> ParserState { synErrorList = synErrorList st, symbolTable  = sbtl, typErrorList = typErrorList st }
+                    ; Nothing   -> addParsingError (ScopesError) st
+                    }

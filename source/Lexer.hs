@@ -95,11 +95,11 @@ pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
 pToString     = tryString "toString"
-pType         = (tryString "boolean" >> return(MyBool))
-            <|> (tryString "int"     >> return(MyInt))
-            <|> (tryString "double"  >> return(MyFloat))
-            <|> (tryString "char"    >> return(MyChar))
-            <|> (tryString "string"  >> return(MyString))
+pType         = tryString "boolean"
+            <|> tryString "int"    
+            <|> tryString "double" 
+            <|> tryString "char"   
+            <|> tryString "string" 
 pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
@@ -209,7 +209,7 @@ lexer = do spaces
                                             }
                                         )
                                   ) 
-                              <|> (pType         AP.<* spaces >>= return . (TokType))
+                              <|> (pType         AP.<* spaces >>= return . TokType)
                               <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
                               <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))

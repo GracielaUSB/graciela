@@ -6,14 +6,9 @@ import qualified Data.Text           as T
 import qualified Data.Map            as M
 import Location
 import Type
-
-
-data Contents = Contents { symbolLoc :: Location, symbolType :: Type } 
-        deriving (Read, Eq, Show)
-
+import Contents
 
 type Diccionario = M.Map T.Text Contents
-
 
 data SymbolTable = Table { actual :: Tr.Tree (Diccionario, Maybe SymbolTable) }  
         deriving (Eq, Show)

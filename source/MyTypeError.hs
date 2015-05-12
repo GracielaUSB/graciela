@@ -8,4 +8,5 @@ data MyTypeError = RepSymbolError { symbol      :: T.Text
                                   , preLocation :: Location
                                   , actLocation :: Location
                                   }
+                 | IncomDefError  { location :: Location }
                deriving (Read, Show)
