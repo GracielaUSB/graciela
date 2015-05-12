@@ -311,16 +311,47 @@ drawAST level (Just (Unary op loc exp ast)) =
                            `mappend` drawAST (level + 4) (Just exp)  
 
 
+
 drawAST level (Just (LogicalNot loc exp ast)) =
          putSpacesLn level `mappend` "Negación: " `mappend` putLocation loc 
                            `mappend` drawAST (level + 4) (Just exp)  
 
-                  
+     
+
+drawAST level (Just (FCallExp loc name args ast)) =
+         putSpacesLn level `mappend` "Llamada de la Función: " `mappend` show name `mappend` putLocation loc 
+         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
 
-drawAST _ (Just EmptyAST) = "emp"
+
+drawAST level (Just (ArrCall loc name args ast)) =
+         putSpacesLn level `mappend` "Llamada del Arreglo: " `mappend` show name `mappend` putLocation loc 
+         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+
+                               
+
+drawAST level (Just (FCall name args loc ast)) =
+         putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
+         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+
+
+
+drawAST level (Just (FunBody loc exp ast)) =
+         putSpacesLn level `mappend` "Cuerpo de la Función: " `mappend` putLocation loc 
+                           `mappend` drawAST(level + 4) (Just exp) 
+
+
+
+drawAST level (Just (DefFun loc body bound ast)) =
+         putSpacesLn level `mappend` "Función: " `mappend` putLocation loc
+                           `mappend` drawAST(level + 4) (Just bound)   
+                           `mappend` drawAST(level + 4) (Just body )  
+
+
+
+drawAST _ (Just EmptyAST) = ""
 drawAST _ Nothing = show "No se creo el arbol"
-drawAST _ (Just ast) = show ast
+--drawAST _ (Just ast) = show ast
 
 
 

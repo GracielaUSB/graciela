@@ -13,5 +13,18 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool | MyChar | MyString |  Function [Type] Type | Array Type [AST ()] | Procedure [Type]
-  deriving (Show, Eq) 
+  deriving (Eq) 
+
+
+
+instance Show Type where
+   show MyInt         = "Entero"
+   show MyFloat       = "Flotante"
+   show MyBool        = "Cadenas de Caracteres"
+   show MyChar        = "Caracter"
+   show (Function xs t ) = "Función que retorna " ++ show t
+   show (Array    t  xs) = "Arreglo de tipo "     ++ show t 
+   show (Procedure   xs) = "Procedimiento"
+
+
 
