@@ -13,25 +13,87 @@ import Type
  -}
 
 data OpNum = Sum | Sub | Mul | Div | Exp | Max | Min | Mod
-      deriving (Show, Eq)
+      deriving (Eq)
+
+instance Show OpNum where
+   show AST.Sum = "Suma"
+   show Sub     = "Resta"
+   show Mul     = "Multiplicación"
+   show Div     = "División"
+   show Exp     = "Potencia"
+   show Max     = "Máximo"
+   show Min     = "Mínimo"
+   show Mod     = "Módulo"
+
+
 
 data OpBool = Dis | Con  
-      deriving (Show, Eq)
+      deriving (Eq)
+
+instance Show OpBool where
+   show Dis = "Disyunción"
+   show Con = "Conjunción"
+
+
 
 data OpRel = Equ | Less | Greater | LEqual | GEqual | Ine | Implies | Conse | Equal
-      deriving (Show, Eq) 
+      deriving (Eq) 
+
+instance Show OpRel where
+   show Equ     = "Equivalencia"
+   show Less    = "Menor que"
+   show Greater = "Mayor que"
+   show LEqual  = "Menor o igual que"
+   show GEqual  = "Mayor o igual que"
+   show Ine     = "Negación"
+   show Implies = "Implicación"
+   show Conse   = "Consecuencia"
+   show Equal   = "Inequivalencia"
+
+
 
 data Conv = ToInt | ToDouble | ToString | ToChar  
-      deriving (Show, Eq) 
+      deriving (Eq) 
+
+instance Show Conv where
+   show ToInt    = "a Entero"
+   show ToDouble = "a Flotante"
+   show ToString = "a Cadenas de Caracteres"
+   show ToChar   = "a Caracter"
+
+
 
 data OpUn = Minus | Abs | Sqrt | Length  
-      deriving (Show, Eq) 
+      deriving (Eq) 
+
+instance Show OpUn where
+   show Minus  = "Negativo"
+   show Abs    = "Valor Absoluto"
+   show Sqrt   = "Raíz Cuadrada"
+   show Length = "Longitud"
+
+
 
 data TypeArg = In | Out | InOut
-      deriving (Show, Eq)
+      deriving (Eq)
+
+instance Show TypeArg where
+   show In    = "de Entrada"
+   show Out   = "de Salida"
+   show InOut = "de Entrada y Salida"
+
+
 
 data StateCond = Pre | Post | Assertion | Bound | Invariant
-      deriving (Show, Eq)
+      deriving (Eq)
+
+instance Show StateCond where
+   show Pre       = "Precondición: "
+   show Post      = "Postcondición: "
+   show Assertion = "Aserción: "
+   show Bound     = "Cota: "
+   show Invariant = "Invariante: "
+
 
 
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)      } -- ^ Operadores Matematicos de dos expresiones.
@@ -90,22 +152,60 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
 space = ' '
 
 putSpaces level = take level (repeat space)
+putSpacesLn level = "\n" `mappend` take level (repeat space)
 
-drawAST level (Just (Program name location defs accs ast)) = putSpaces level `mappend` "Programa : " `mappend` show name `mappend` "\n" 
-                                         `mappend` drawASTList (level + 1) defs 
-                                         `mappend` drawASTList (level + 1) accs
 
-drawAST level (Just (DefProcDec name accs args decs pre post bound ast)) = putSpaces level `mappend` "Procedimiento: " `mappend` show name `mappend` "\n"   
-                                         `mappend` putSpaces level `mappend` "Argumentos:\n"     `mappend` drawASTList (level + 1) args
-                                         `mappend` putSpaces level `mappend` "Precondicion:\n"   `mappend` drawAST (level + 1) (Just pre  )    
-                                         `mappend` putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 1) (Just bound)  
-                                         `mappend` putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 1) accs
-                                         `mappend` putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 1) (Just post )
 
-drawAST level (Just (Arg name location carg targ ast)) = putSpaces level `mappend` show name `mappend` " Comportamiento: " `mappend` show carg `mappend` " Tipo: " `mappend` show targ  
+drawAST level (Just (Program name location defs accs ast)) = 
+         putSpaces level `mappend` "Programa: " `mappend` show name `mappend` "\n" 
+                                                `mappend` drawASTList (level + 1) defs 
+                                                `mappend` drawASTList (level + 1) accs
 
-drawAST level (Just (States t location exprs ast))     = putSpaces level `mappend` show t `mappend` drawASTList (level + 1) exprs
 
+drawAST level (Just (DefProcDec name accs args decs pre post bound ast)) = 
+         putSpaces level `mappend` "Procedimiento: " `mappend` show name `mappend` "\n"   
+                         `mappend` putSpaces level `mappend` "Argumentos:\n"     `mappend` drawASTList (level + 4) args
+                         `mappend` putSpaces level `mappend` "Precondicion:\n"   `mappend` drawAST (level + 4) (Just pre  )    
+                         `mappend` putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 4) (Just bound)  
+                         `mappend` putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 4) accs
+                         `mappend` putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 4) (Just post )
+
+
+drawAST level (Just (DefProc name accs args pre post bound ast)) = 
+         putSpaces level `mappend` "Procedimiento: " `mappend` show name `mappend` "\n"   
+                         `mappend` putSpaces level `mappend` "Argumentos:\n"     `mappend` drawASTList (level + 4) args
+                         `mappend` putSpaces level `mappend` "Precondicion:\n"   `mappend` drawAST (level + 4) (Just pre  )    
+                         `mappend` putSpaces level `mappend` "Funcion de cota: " `mappend` drawAST (level + 4) (Just bound)  
+                         `mappend` putSpaces level `mappend` "Acciones: "        `mappend` drawASTList (level + 4) accs
+                         `mappend` putSpaces level `mappend` "Postcondicion: "   `mappend` drawAST (level + 4) (Just post )
+
+
+
+drawAST level (Just (Arg name location carg targ ast)) = 
+         putSpaces level `mappend` show name `mappend` ", Comportamiento: " 
+                         `mappend` show carg `mappend` ", Tipo: " `mappend` show targ  
+
+
+drawAST level (Just (States t location exprs ast)) = 
+         putSpaces level `mappend` show t `mappend` drawASTList (level + 4) exprs
+
+
+drawAST level (Just (Arithmetic t location lexpr rexp ast)) =
+         putSpaces level `mappend` "Operación Aritmética: " `mappend` show t 
+                         `mappend` putSpaces (level + 8) `mappend` "Lado izquierdo:\n" `mappend` drawAST (level + 4) (Just lexpr) 
+                         `mappend` putSpaces (level + 8) `mappend` "Lado derecho:\n"   `mappend` drawAST (level + 4) (Just rexp )
+                         
+
+drawAST level (Just (Relational t location lexpr rexp ast)) =
+         putSpacesLn level `mappend` "Operación Relacional: " `mappend` show t 
+                         `mappend` putSpacesLn (level + 8) `mappend` "Lado izquierdo:\n" `mappend` drawAST (level + 4) (Just lexpr) 
+                         `mappend` putSpacesLn (level + 8) `mappend` "Lado derecho:\n"   `mappend` drawAST (level + 4) (Just rexp )
+                         
+
+                         
+
+-- Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)  
+ --{ opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a) 
 
 
 drawAST _ Nothing = show "No se creo el arbol"
