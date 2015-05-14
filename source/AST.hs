@@ -149,7 +149,7 @@ drawAST level (Just (Program name loc defs accs ast)) =
 
 drawAST level (Just (DefProc name accs pre post bound ast)) = 
          putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc 
-                           `mappend` putSpacesLn (level + 4) `mappend` drawAST (level + 4) (Just pre  )    
+                           `mappend` putSpaces (level + 4) `mappend` drawAST (level + 4) (Just pre  )    
                            `mappend` putSpaces (level + 4) `mappend` drawAST (level + 8) (Just bound)  
                            `mappend` putSpacesLn (level + 4) `mappend` "Acciones: " `mappend` drawASTList (level + 8) accs
                            `mappend` putSpaces (level + 4) `mappend` drawAST (level + 4) (Just post )
@@ -164,11 +164,11 @@ drawAST level (Just (States t loc exprs ast)) =
 
 drawAST level (Just (Arithmetic t loc lexpr rexp ast)) =
          putSpacesLn   level `mappend` "Operador Aritmético: " `mappend` show t `mappend` putLocation loc 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
-                                                             `mappend` drawAST (level + 8) (Just lexpr) 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
-                                                             `mappend` drawAST (level + 8) (Just rexp )      
-
+                             `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
+                                                               `mappend` drawAST (level + 8) (Just lexpr) 
+                             `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
+                                                               `mappend` drawAST (level + 8) (Just rexp )      
+  
 
 
 drawAST level (Just (Relational t loc lexpr rexp ast)) =

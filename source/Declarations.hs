@@ -9,6 +9,7 @@ import qualified Data.Monoid         as DM
 import qualified Data.Text           as T
 import MyParseError                  as PE
 import ParserState                   as PS
+import Contents                      as CO
 import Text.Parsec.Error
 import Text.Parsec
 import TokenParser
@@ -20,7 +21,6 @@ import State
 import Location
 import Type
 import AST
-import Contents as CO
 
 readType :: String -> Maybe (Type)
 readType t =      if t == "boolean" then Just $ MyBool

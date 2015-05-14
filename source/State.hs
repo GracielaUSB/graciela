@@ -8,9 +8,9 @@ import MyParseError
 import Text.Parsec
 import MyTypeError
 import SymbolTable
-import Token
 import Contents
 import Location
+import Token
 
 data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                , symbolTable  :: SymbolTable
@@ -54,6 +54,10 @@ newScopeState st = ParserState { synErrorList = synErrorList st
 
 exitScopeState :: ParserState -> ParserState
 exitScopeState st = case exitScope (symbolTable st) of
-                    { Just sbtl -> ParserState { synErrorList = synErrorList st, symbolTable  = sbtl, typErrorList = typErrorList st }
+                    { Just sbtl -> ParserState { synErrorList = synErrorList st
+                                               , symbolTable  = sbtl
+                                               , typErrorList = typErrorList st 
+                                               }
                     ; Nothing   -> addParsingError (ScopesError) st
                     }
+

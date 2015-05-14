@@ -3,6 +3,7 @@ module ParserState where
 import qualified Text.Parsec.Pos as P
 import Control.Monad.State       as ST
 import qualified Data.Text       as T
+import Contents                  as CO
 import MyParseError
 import MyTypeError
 import ParserError
@@ -13,7 +14,6 @@ import Location
 import Token
 import State
 import Type
-import Contents as CO
 import AST
 
 addFunTypeParser :: T.Text -> Maybe [Type] -> Maybe Type -> Location -> MyParser()
@@ -69,3 +69,5 @@ genNewEmptyError :: MyParser ()
 genNewEmptyError = do  pos <- getPosition
                        ST.modify $ addParsingError $ newEmptyError pos
                        return ()
+
+

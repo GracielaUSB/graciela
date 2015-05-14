@@ -28,6 +28,7 @@ data CasesConditional = CExpression | CAction
 
 program :: MyParser (Maybe (AST ()))
 program = do pos <- getPosition
+             newScopeParser
              do try ( do parseProgram
                          do try ( do id  <- parseID
                                      do try ( do parseTokOpenBlock
@@ -175,7 +176,6 @@ proc follow recSet = do pos <- getPosition
                                      return ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return Nothing))
 
                               <|> do dl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
-                                     exitScopeParser
                                      pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
                                      b   <- maybeBound (parseTokOpenBlock) (recSet <|> parseTokOpenBlock)
                                      parseTokOpenBlock
@@ -183,6 +183,7 @@ proc follow recSet = do pos <- getPosition
                                      parseTokCloseBlock
                                      post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                      parseRightBracket
+                                     exitScopeParser
                                      return (dl >>= (const ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return Nothing))))
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
