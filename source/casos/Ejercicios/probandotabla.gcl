@@ -1,0 +1,66 @@
+//Fibonacci
+
+program main |[
+
+  proc ffbonacci: (in N: int, out x: int) 
+  [ 
+    var a, b, n, y :int;
+    const q := 5 : int;
+    var popo : string;
+    read(N); 
+
+    {pre N >= 0 pre}  
+    |[  
+      a, b, x, y, n := 0, 1 + 8, 0, 1, N;
+
+      {inv   true  inv} 
+      {bound true  bound}
+
+
+      do (n != 0) ->
+      
+        if (n mod 2 == 0) -> 
+          |[
+              var xxxxxxxxxxxxxxx : int;
+              abort;
+              a, b := a*a + b*b, a*b + b*a + b*b;
+              |[
+                var wq : boolean;
+                var zzzzzzzzzzzzzzzzzzzzzzzzzz, cha: int;
+
+                n    := n/2
+              ]|
+          ]|
+        [] (n mod 2 == 1) -> 
+          |[ 
+              var wwwwwwwwwwwwwwwww:int;
+              x, y := a*x + b*y, b*x + a*y + b*y;
+              n    := n-1
+          ]|
+        fi
+      od
+
+    ]|
+    {post f_ib(N) post}
+  ]
+
+  |[
+
+      const numero, qq := true, false : boolean;
+      var tata,too : char;
+
+      write("Numero de Fibonacci, ingrese un numero: ");
+
+
+      |[
+        var qoqoqoq : int;
+        too := tata;
+      ]|
+
+      ffbonnaci(numero, resultado);
+
+      write("El resultado es: ");
+      writeln(resultado)
+  ]|
+
+]|
