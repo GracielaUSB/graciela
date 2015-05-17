@@ -64,12 +64,13 @@ isEmptyTable tabla = if (tabla == Table (Tr.Node (Diccionario M.empty, Nothing) 
 
 
 enterScope :: SymbolTable -> SymbolTable
-enterScope tabla = Table (Tr.Node (Diccionario M.empty, Just tabla) [])
+enterScope tabla = if (isEmptyTable tabla) then  Table (Tr.Node (Diccionario M.empty, Nothing) []) 
+                                           else Table (Tr.Node (Diccionario M.empty, Just tabla) [])
 
 
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
---exitScope :: SymbolTable -> Maybe SymbolTable
+
 --exitScope tabla = if isEmpty tabla then getPadre tabla
 --                  else fmap (insertHijo tabla) (getPadre tabla) 
 

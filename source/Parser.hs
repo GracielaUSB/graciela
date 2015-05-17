@@ -30,6 +30,7 @@ program :: MyParser (Maybe (AST ()))
 program = do pos <- getPosition
              newScopeParser
              do try ( do parseProgram
+              
                          do try ( do id  <- parseID
                                      do try ( do parseTokOpenBlock
                                                  parseRestInputProgram id
@@ -375,7 +376,7 @@ functionCallOrAssign follow recSet = do id <- parseID
                                         do try (do parseLeftParent
                                                    lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
                                                    do parseRightParent
-                                                      return(fmap (FCall id) lexp)
+                                                      return(fmap (ProcCall id) lexp)
                                                          
                                                 )
                                            <|> try ( do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)

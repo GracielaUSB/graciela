@@ -301,7 +301,7 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                          
                                      <|> do parseTokNot
                                             e <- expr follow recSet
-                                            return(AP.liftA2  (LogicalNot (getLocation pos)) e (return Nothing))
+                                            return(AP.liftA2  (Unary Not (getLocation pos)) e (return Nothing))
                                          
                                      <|> quantification follow recSet
                                      <|> do genNewError (recSet) (Number)

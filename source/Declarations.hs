@@ -40,12 +40,16 @@ myType follow recSet = do myBasicType follow recSet
                                  bl <- bracketsList parseOf (recSet <|> parseOf)
                                  parseOf
                                  t <- myBasicType follow recSet
-                                 return (AP.liftA2 (Array) t bl)
+                                 return (AP.liftA2 (MyArray) t bl)
 
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
-decList follow recSet = do lookAhead follow
-                           return $ return EmptyAST
-                           <|> decListAux follow recSet
+decList follow recSet = --do newScopeParser
+                           do lookAhead follow
+                              --exitScopeParser
+                              return $ return EmptyAST
+                              <|> do dl <- decListAux follow recSet
+                                  --   exitScopeParser
+                                     return $ dl
                            
 
 decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))

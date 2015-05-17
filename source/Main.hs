@@ -9,6 +9,8 @@ import System.Environment
 import TokenParser
 import SymbolTable
 import Text.Parsec
+import ASTtype
+import VerTypes
 import Parser
 import Lexer
 import State

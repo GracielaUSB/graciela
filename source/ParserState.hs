@@ -17,11 +17,11 @@ import Type
 import AST
 
 addFunTypeParser :: T.Text -> Maybe [Type] -> Maybe Type -> Location -> MyParser()
-addFunTypeParser id (Just lt) (Just t) loc = addSymbolParser id (FunctionCon loc (Function lt t))
+addFunTypeParser id (Just lt) (Just t) loc = addSymbolParser id (FunctionCon loc (MyFunction lt t))
 addFunTypeParser _ _ _ _ = return () 
 
 addProcTypeParser :: T.Text -> Maybe [Type]  -> Location -> MyParser()
-addProcTypeParser id (Just lt) loc = addSymbolParser id (FunctionCon loc (Procedure lt))
+addProcTypeParser id (Just lt) loc = addSymbolParser id (FunctionCon loc (MyProcedure lt))
 addProcTypeParser _ _ _ = return () 
 
 newScopeParser :: MyParser ()

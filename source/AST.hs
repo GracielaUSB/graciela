@@ -62,11 +62,12 @@ instance Show Conv where
 
 
 
-data OpUn = Minus | Abs | Sqrt | Length  
+data OpUn = Minus | Not | Abs | Sqrt | Length  
       deriving (Eq) 
 
 instance Show OpUn where
    show Minus  = "Negativo: "
+   show Not    = "Negación: "
    show Abs    = "Valor Absoluto: "
    show Sqrt   = "Raíz Cuadrada: "
    show Length = "Longitud: "
@@ -84,41 +85,44 @@ instance Show StateCond where
 
 
 
-data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)      } -- ^ Operadores Matematicos de dos expresiones.
-         | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)      } -- ^ Operadores Booleanos de dos expresiones.
-         | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), argAST :: (Maybe a)      } -- ^ Operadores Relacionales de dos expresiones.     
-         | FCallExp     { location :: Location, fname    :: Token   , args     :: [AST a], argAST :: (Maybe a)                    } -- ^ Llamada a funcion.
-         | ArrCall      { location :: Location, name     :: Token, list :: [AST a],        argAST :: (Maybe a)                    } -- ^ Búsqueda en arreglo.
-         | ID           { location :: Location, id       :: Token, argAST :: (Maybe a)                                            } -- ^ Identificador.
-         | Int          { location :: Location, exp      :: Token, argAST :: (Maybe a)                                            } -- ^ Numero entero.
-         | Bool         { location :: Location, cbool    :: Token, argAST :: (Maybe a)                                            } -- ^ Tipo booleano con el token.
-         | Char         { location :: Location, mchar    :: Token, argAST :: (Maybe a)                                            } -- ^ Tipo caracter con el token. 
-         | String       { location :: Location, mstring  :: Token, argAST :: (Maybe a)                                            } -- ^ Tipo string con el token.
-         | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    argAST :: (Maybe a)                      } -- ^ Constantes.   
-         | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), argAST :: (Maybe a)                      } -- ^ Conversión a entero.
-         | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), argAST :: (Maybe a)                      } -- ^ Función raíz cuadrada.
-         | LogicalNot   { location :: Location, loNotExp ::  (AST a), argAST :: (Maybe a)                                         } -- ^ Función raíz cuadrada.
-         | Skip         { location :: Location, argAST :: (Maybe a)                                                               } -- ^ Instruccion Skip.
-         | Abort        { location :: Location, argAST :: (Maybe a)                                                               } -- ^ Instruccion Abort.
-         | Cond         { cguard   :: [AST a], location :: Location, argAST :: (Maybe a)                                          } -- ^ Instruccion If.
-         | Rept         { rguard   :: [AST a], rinv   ::  (AST a),  rbound :: (AST a), location ::Location, argAST :: (Maybe a)   } -- ^ Instruccion Do.
-         | Write        { ln       :: Bool,    wexp   ::  (AST a),  location :: Location, argAST :: (Maybe a)                     } -- ^ Escribir.
-         | Block        { lisAct ::  [AST a],  location :: Location, argAST :: (Maybe a)                     }
-         | FCall        { fname    :: Token,     args   :: [AST a], location :: Location, argAST :: (Maybe a)                     } -- ^ Llamada a funcion.
-         | LAssign      { idlist   :: [(Token, [AST a])], explista :: [AST a], location :: Location, argAST :: (Maybe a)          } -- ^
-         | Ran          { var      :: Token, location :: Location, argAST :: (Maybe a)                                            }
-         | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, argAST :: (Maybe a)                      } -- ^ Guardia.
-         | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, argAST :: (Maybe a)                      } -- ^ Guardia de Expresion.
-         | DefFun       { fname    :: Token, fbody     ::  (AST a), nodeBound :: (AST a), argAST :: (Maybe a) }
+data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: (Maybe a)      } -- ^ Operadores Matematicos de dos expresiones.
+         | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: (Maybe a)      } -- ^ Operadores Booleanos de dos expresiones.
+         | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: (Maybe a)      } -- ^ Operadores Relacionales de dos expresiones.     
+         | FCallExp     { location :: Location, fname    :: Token   , args     :: [AST a], tag :: (Maybe a)                    } -- ^ Llamada a funcion.
+         | ArrCall      { location :: Location, name     :: Token, list :: [AST a],        tag :: (Maybe a)                    } -- ^ Búsqueda en arreglo.
+         | ID           { location :: Location, id       :: Token, tag :: (Maybe a)                                            } -- ^ Identificador.
+         | Int          { location :: Location, exp      :: Token, tag :: (Maybe a)                                            } -- ^ Numero entero.
+         | Float        { location :: Location, exp      :: Token, tag :: (Maybe a)                                            } -- ^ Numero entero.
+         | Bool         { location :: Location, cbool    :: Token, tag :: (Maybe a)                                            } -- ^ Tipo booleano con el token.
+         | Char         { location :: Location, mchar    :: Token, tag :: (Maybe a)                                            } -- ^ Tipo caracter con el token. 
+         | String       { location :: Location, mstring  :: Token, tag :: (Maybe a)                                            } -- ^ Tipo string con el token.
+         | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    tag :: (Maybe a)                      } -- ^ Constantes.   
+         | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), tag :: (Maybe a)                      } -- ^ Conversión a entero.
+         | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), tag :: (Maybe a)                      } -- ^ Función raíz cuadrada.
+         | Skip         { location :: Location, tag :: (Maybe a)                                                               } -- ^ Instruccion Skip.
+         | Abort        { location :: Location, tag :: (Maybe a)                                                               } -- ^ Instruccion Abort.
+         | Cond         { cguard   :: [AST a], location :: Location, tag :: (Maybe a)                                          } -- ^ Instruccion If.
+         | Rept         { rguard   :: [AST a], rinv   ::  (AST a),  rbound :: (AST a), location ::Location, tag :: (Maybe a)   } -- ^ Instruccion Do.
+         | Write        { ln       :: Bool,    wexp   ::  (AST a),  location :: Location, tag :: (Maybe a)                     } -- ^ Escribir.
+         | Block        { lisAct ::  [AST a],  location :: Location, tag :: (Maybe a)                     }
+         | ProcCall        { fname    :: Token,     args   :: [AST a], location :: Location, tag :: (Maybe a)                     } -- ^ Llamada a funcion.
+         | LAssign      { idlist   :: [(Token, [AST a])], explista :: [AST a], location :: Location, tag :: (Maybe a)          } -- ^
+         | Ran          { var      :: Token, location :: Location, tag :: (Maybe a)                                            }
+         | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: (Maybe a)                      } -- ^ Guardia.
+         | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: (Maybe a)                      } -- ^ Guardia de Expresion.
+         | DefFun       { fname    :: Token, fbody     ::  (AST a), nodeBound :: (AST a), tag :: (Maybe a) }
          | DefProc      { pname     :: Token, prbody    :: [AST a], nodePre   :: (AST a)
-                         ,nodePost  :: (AST a), nodeBound :: (AST a), argAST    :: (Maybe a)                }
-         | Program      { pname    :: Token, location  :: Location, listdef :: [AST a],  listacc :: [AST a], argAST :: (Maybe a)  }
-         | FunBody      { location :: Location, fbexpr :: (AST a),  argAST :: (Maybe a)                                           }
-         | States       { tstate   :: StateCond, location :: Location,  exprlist :: [AST a], argAST :: (Maybe a)                  }
-         | GuardAction  { location :: Location, assertionGa :: (AST a), actionGa :: (AST a), argAST :: (Maybe a)                  }
-         | Quant        { opQ :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a), termExpr :: (AST a), argAST :: (Maybe a) }
+                         ,nodePost  :: (AST a), nodeBound :: (AST a), tag    :: (Maybe a)                }
+         | Program      { pname    :: Token, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: (Maybe a)  }
+         | FunBody      { location :: Location, fbexpr :: (AST a),  tag :: (Maybe a)                                           }
+         | States       { tstate   :: StateCond, location :: Location,  exprlist :: [AST a], tag :: (Maybe a)                  }
+         | GuardAction  { location :: Location, assertionGa :: (AST a), actionGa :: (AST a), tag :: (Maybe a)                  }
+         | Quant        { opQ :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
+                         ,termExpr :: (AST a), tag :: (Maybe a)                                                              }
          | EmptyAST
     deriving (Show, Eq)
+
+
 
 
 
@@ -199,8 +203,8 @@ drawAST level (Just (Int loc cont ast)) =
 
 
 
---drawAST level (Just (Float loc cont ast)) =
---         putSpacesLn level `mappend` "Flotante: "`mappend` show cont `mappend` putLocation loc 
+drawAST level (Just (Float loc cont ast)) =
+         putSpacesLn level `mappend` "Flotante: "  `mappend` show cont `mappend` putLocation loc 
 
 
 
@@ -310,12 +314,6 @@ drawAST level (Just (Unary op loc exp ast)) =
          putSpacesLn level `mappend` show op `mappend` putLocation loc 
                            `mappend` drawAST (level + 4) (Just exp)  
 
-
-
-drawAST level (Just (LogicalNot loc exp ast)) =
-         putSpacesLn level `mappend` "Negación: " `mappend` putLocation loc 
-                           `mappend` drawAST (level + 4) (Just exp)  
-
      
 
 drawAST level (Just (FCallExp loc name args ast)) =
@@ -330,7 +328,7 @@ drawAST level (Just (ArrCall loc name args ast)) =
 
                                
 
-drawAST level (Just (FCall name args loc ast)) =
+drawAST level (Just (ProcCall name args loc ast)) =
          putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
          `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
@@ -342,8 +340,8 @@ drawAST level (Just (FunBody loc exp ast)) =
 
 
 
-drawAST level (Just (DefFun loc body bound ast)) =
-         putSpacesLn level `mappend` "Función: " `mappend` putLocation loc
+drawAST level (Just (DefFun name body bound ast)) =
+         putSpacesLn level `mappend` "Función: " `mappend` show name
                            `mappend` drawAST(level + 4) (Just bound)   
                            `mappend` drawAST(level + 4) (Just body )  
 
