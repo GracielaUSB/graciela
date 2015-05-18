@@ -323,8 +323,8 @@ followAction = (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|>
 block follow recSet = do parseTokOpenBlock
                          newScopeParser
                          decList followAction (recSet <|> followAction)
-                         exitScopeParser
                          la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
+                         exitScopeParser
                          parseTokCloseBlock
                          return (fmap (Block) la)
        
