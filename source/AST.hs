@@ -102,23 +102,23 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Skip         { location :: Location, tag :: (Maybe a)                                                               } -- ^ Instruccion Skip.
          | Abort        { location :: Location, tag :: (Maybe a)                                                               } -- ^ Instruccion Abort.
          | Cond         { cguard   :: [AST a], location :: Location, tag :: (Maybe a)                                          } -- ^ Instruccion If.
-         | Rept         { rguard   :: [AST a], rinv   ::  (AST a),  rbound :: (AST a), location ::Location, tag :: (Maybe a)   } -- ^ Instruccion Do.
-         | Write        { ln       :: Bool,    wexp   ::  (AST a),  location :: Location, tag :: (Maybe a)                     } -- ^ Escribir.
-         | Block        { lisAct ::  [AST a],  location :: Location, tag :: (Maybe a)                     }
-         | ProcCall        { fname    :: Token,     args   :: [AST a], location :: Location, tag :: (Maybe a)                     } -- ^ Llamada a funcion.
+         | Block        { lisAct   :: [AST a], location :: Location, tag :: (Maybe a)                                          }
+         | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: (Maybe a)   } -- ^ Instruccion Do.
          | LAssign      { idlist   :: [(Token, [AST a])], explista :: [AST a], location :: Location, tag :: (Maybe a)          } -- ^
-         | Ran          { var      :: Token, location :: Location, tag :: (Maybe a)                                            }
+         | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: (Maybe a)                       } -- ^ Escribir.
+         | ProcCall     { fname    :: Token, args     :: [AST a], location :: Location, tag :: (Maybe a)                       } -- ^ Llamada a funcion.
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: (Maybe a)                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: (Maybe a)                      } -- ^ Guardia de Expresion.
-         | DefFun       { fname    :: Token, fbody     ::  (AST a), nodeBound :: (AST a), tag :: (Maybe a) }
-         | DefProc      { pname     :: Token, prbody    :: [AST a], nodePre   :: (AST a)
-                         ,nodePost  :: (AST a), nodeBound :: (AST a), tag    :: (Maybe a)                }
+         | DefFun       { fname    :: Token, fbody    ::  (AST a), nodeBound :: (AST a), tag :: (Maybe a)                      }
+         | DefProc      { pname    :: Token, prbody   ::  [AST a], nodePre   :: (AST a)
+                         ,nodePost :: (AST a), nodeBound :: (AST a), tag    :: (Maybe a)                                       }
+         | Ran          { var      :: Token, location :: Location, tag :: (Maybe a)                                            }
          | Program      { pname    :: Token, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: (Maybe a)  }
-         | FunBody      { location :: Location, fbexpr :: (AST a),  tag :: (Maybe a)                                           }
-         | States       { tstate   :: StateCond, location :: Location,  exprlist :: [AST a], tag :: (Maybe a)                  }
-         | GuardAction  { location :: Location, assertionGa :: (AST a), actionGa :: (AST a), tag :: (Maybe a)                  }
-         | Quant        { opQ :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
-                         ,termExpr :: (AST a), tag :: (Maybe a)                                                              }
+         | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: (Maybe a)                                      }
+         | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: (Maybe a)                 }
+         | States       { tstate   :: StateCond, location :: Location,   exprlist :: [AST a], tag :: (Maybe a)                 }
+         | Quant        { opQ      :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
+                         ,termExpr :: (AST a), tag :: (Maybe a)                                                                }
          | EmptyAST
     deriving (Show, Eq)
 

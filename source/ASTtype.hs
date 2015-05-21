@@ -20,8 +20,10 @@ import AST
 
 
 verTypeAST (Just (AST.Program name loc defs accs _)) = let defs' = verTypeASTlist defs
+                                                           defsT = map tag defs'
                                                            accs' = verTypeASTlist accs
-                                                       in (AST.Program name loc defs' accs' (verProgram defs' accs'))
+                                                           accsT = map tag accs'
+                                                       in (AST.Program name loc defs' accs' (verProgram defsT accsT))
 
 
 
@@ -67,8 +69,9 @@ verTypeAST (Just (Unary op loc exp _)) = let exp' = verTypeAST (Just exp)
  
 
 
-verTypeAST (Just (Block action loc _)) = let action' = verTypeASTlist action
-                                         in (Block action' loc (verInstructionList action'))
+verTypeAST (Just (Block accs loc _)) = let accs' = verTypeASTlist accs
+                                           accsT = map tag accs'
+                                         in (Block accs' loc (verBlock accsT))
 
 
 
@@ -90,7 +93,8 @@ verTypeAST (Just (Write ln exp loc _)) = let exp' = verTypeAST (Just exp)
 
 
 verTypeAST (Just (ArrCall loc name args _)) = let args' = verTypeASTlist args
-                                              in (ArrCall loc name args' (verArray args' name))   
+                                                  argsT = map tag args'
+                                              in (ArrCall loc name args' (verArray argsT name))   
 
 
 
@@ -107,7 +111,8 @@ verTypeAST (Just (GuardExp exp action loc _)) = let exp'    = verTypeAST (Just e
 
 
 verTypeAST (Just (States t loc exprs _)) = let exprs' = verTypeASTlist exprs
-                                           in (States t loc exprs' (verState exprs'))    
+                                               exprsT = map tag exprs'
+                                           in (States t loc exprs' (verState exprsT))    
 
 
 
@@ -118,48 +123,54 @@ verTypeAST (Just (GuardAction loc assert action _)) = let assert' = verTypeAST (
 
 
 verTypeAST (Just (LAssign idlist explist loc _)) = let explist' = verTypeASTlist explist  
-                                                   in (LAssign idlist explist' loc (verLAssign explist' idlist))
+                                                       explistT = map tag explist' 
+                                                   in (LAssign idlist explist' loc (verLAssign explistT idlist))
 
 
 
 verTypeAST (Just (Cond guard loc _)) = let guard' = verTypeASTlist guard  
-                                       in (Cond guard' loc (verCond guard'))
+                                           guardT = map tag guard'
+                                       in (Cond guard' loc (verCond guardT))
 
 
 
-verTypeAST (Just (Rept guard inv bound loc _)) = let guard' = verTypeASTlist guard 
+verTypeAST (Just (Rept guard inv bound loc _)) = let guard' = verTypeASTlist guard
+                                                     guardT = map tag guard' 
                                                      inv'   = verTypeAST (Just inv  )
                                                      bound' = verTypeAST (Just bound)
-                                          in (Rept guard inv bound loc (verRept guard' (tag inv') (tag bound')))
+                                          in (Rept guard inv bound loc (verRept guardT (tag inv') (tag bound')))
 
            
 
 verTypeAST (Just (ProcCall name args loc _)) =  let args' = verTypeASTlist args  
-                                                in (ProcCall name args' loc (verProcCall args'))
+                                                    argsT = map tag args'
+                                                in (ProcCall name args' loc (verProcCall argsT name))
   
 
 
 verTypeAST (Just (FunBody loc exp _)) = let exp' = verTypeAST (Just exp)  
-                                        in (FunBody loc exp' (verFunBody (tag exp')))
+                                        in (FunBody loc exp' (tag exp'))
 
 
 
-verTypeAST (Just (FCallExp loc name args _)) =  let args' = verTypeASTlist args  
-                                             in (FCallExp loc name args' (verCallExp args' name))
+verTypeAST (Just (FCallExp loc name args _)) =  let args' = verTypeASTlist args 
+                                                    argsT = map tag args' 
+                                                in (FCallExp loc name args' (verCallExp argsT name))
     
 
 
 verTypeAST (Just (DefFun name body bound _)) = let body'  = verTypeAST (Just body )  
                                                    bound' = verTypeAST (Just bound)
-                            in (DefFun name body' bound' (verDefFun (tag body') (tag bound')))
+                            in (DefFun name body' bound' (verDefFun (tag body') (tag bound') name))
 
 
 
 verTypeAST (Just (DefProc name accs pre post bound _)) = let accs'  = verTypeASTlist accs 
+                                                             accsT  = map tag accs' 
                                                              pre'   = verTypeAST (Just pre  )
                                                              post'  = verTypeAST (Just post )
                                                              bound' = verTypeAST (Just bound)
-               in (DefProc name accs pre' post' bound' (verDefProc accs' (tag pre') (tag post') (tag bound')))
+               in (DefProc name accs pre' post' bound' (verDefProc accsT (tag pre') (tag post') (tag bound')))
 
 
 

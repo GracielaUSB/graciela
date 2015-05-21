@@ -90,26 +90,84 @@ verUnary Length  (Just  MyEmpty)      = (Just MyEmpty )
 verUnary Length   _                   = (Just (MyError "Length Error"))
 
 
+--Para revisar algun tipo de una lista
+--Mejorar poniendo los errores al estado desde aqui
+cheackListType _ False _ = False
+cheackListType x True  y = if (x == y) then True else False 
 
- --------------------TERMINARRRR--------------
-verDefProc accs pre post bound = (Just MyEmpty)
-verGuardAction assert action   = (Just MyEmpty)
-verProgram defs accs    = (Just MyEmpty)
-verRandom var           = (Just MyEmpty)
-verInstructionList accs = (Just MyEmpty)
-verGuard exp action     = (Just MyEmpty)
-verState exprs          = (Just MyEmpty)
-verCond guard           = (Just MyEmpty)
-verRept guard inv bound = (Just MyEmpty)
-verFunBody exp          = (Just MyEmpty)
-verProcCall args        = (Just MyEmpty)
-verDefFun body  bound   = (Just MyEmpty)
+
+
+verGuardAction assert action = case ((verAssert assert) && (Just MyEmpty == action)) of
+                                   True  -> (Just MyEmpty) 
+                                   False -> (Just (MyError "GuardAction Error"))
+
+
+
+verGuard exp action = case ((Just MyBool == exp) && (Just MyEmpty == action)) of
+                          True  -> (Just MyEmpty) 
+                          False -> (Just (MyError "Guard Error"))
+
+
+
+verDefProc accs pre post bound = let func = cheackListType (Just MyEmpty)
+                                 in case ((foldl func True accs) && (verPre  pre ) && 
+                                          (verBound bound))      && (verPost post) of
+                                        True  -> (Just MyEmpty) 
+                                        False -> (Just (MyError "DefProc Error"))
+
+
+
+verBlock accs = let func = cheackListType (Just MyEmpty)
+                       in case (foldl func True accs) of
+                              True  -> (Just MyEmpty) 
+                              False -> (Just (MyError "Block Error"))
+
+
+
+verProgram defs accs = let func = cheackListType (Just MyEmpty)
+                       in case ((foldl func True defs) && (foldl func True accs)) of
+                              True  -> (Just MyEmpty) 
+                              False -> (Just (MyError "Program Error"))
+
+
+
+verCond guards = let func = cheackListType (Just MyBool)  
+                 in case (foldl func True guards) of
+                        True  -> (Just MyEmpty) 
+                        False -> (Just (MyError "Guard Error"))
+
+
+
+verState exprs = let func = cheackListType (Just MyBool)  
+                 in case (foldl func True exprs) of
+                        True  -> (Just MyEmpty) 
+                        False -> (Just (MyError "State Error"))
+
+
+
+verRept guard inv bound = let func = cheackListType (Just MyBool)
+                          in case ((foldl func True guard) && (verInv inv) && (verBound bound)) of
+                              True  -> (Just MyEmpty) 
+                              False -> (Just (MyError "Rept Error"))
+
+
+
+
 verQuant op range term  = (Just MyEmpty)
 
 
 --NECESITO TABLA
-verCallExp args name      = (Just MyEmpty)
-verArray   args name      = (Just MyEmpty)
+verCallExp  args name     = (Just MyEmpty)
+verProcCall args name     = (Just MyEmpty)
+verArray    args name     = (Just MyEmpty)
 verLAssign explist idlist = (Just MyEmpty)
 verID name                = (Just MyEmpty)
+verDefFun body bound name = (Just MyEmpty)
+verRandom var             = (Just MyEmpty)
 
+--
+verPre    pre    = True
+verPost   post   = True
+verInv    inv    = True
+verBound  bound  = True
+verAssert assert = True
