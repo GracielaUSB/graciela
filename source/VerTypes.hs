@@ -18,33 +18,33 @@ import AST
 
 
 
-verType ((MyError err)) ((MyError err')) = ((MyError (err ++ err')))
-verType ((MyError err)) _ = ((MyError err))
-verType _ ((MyError err)) = ((MyError err))
-verType (MyEmpty) _       = (MyEmpty      )
-verType _ (MyEmpty)       = (MyEmpty      )
-verType x y                    = if (x == y) then x else ((MyError "March Type Error"))
+verType (MyError err) ((MyError err')) = ((MyError (err ++ err')))
+verType (MyError err) _  = (MyError err)
+verType  _ (MyError err) = (MyError err)
+verType (MyEmpty) _      = (MyEmpty      )
+verType _ (MyEmpty)      = (MyEmpty      )
+verType x y              = if (x == y) then x else ((MyError "March Type Error"))
 
 
 
-verArithmetic (MyInt  )       = (MyInt        )
-verArithmetic (MyFloat)       = (MyFloat      )
-verArithmetic ((MyError err)) = ((MyError err))
-verArithmetic (MyEmpty)       = (MyEmpty      )
-verArithmetic _				       = ((MyError "Arithmetic Error"))
+verArithmetic (MyInt  )     = (MyInt      )
+verArithmetic (MyFloat)     = (MyFloat    )
+verArithmetic (MyError err) = (MyError err)
+verArithmetic (MyEmpty)     = (MyEmpty    )
+verArithmetic _				      = ((MyError "Arithmetic Error"))
 
 
 
-verRelational ((MyError err)) = ((MyError err))
-verRelational (MyEmpty)       = (MyEmpty      )
-verRelational _				       = (MyBool       )
+verRelational (MyError err) = (MyError err)
+verRelational (MyEmpty)     = (MyEmpty    )
+verRelational _				      = (MyBool     )
 
 
 
-verBoolean (MyBool       ) = (MyBool       )
-verBoolean ((MyError err)) = ((MyError err))
-verBoolean (MyEmpty)       = (MyEmpty      )
-verBoolean _			        = ((MyError "Boolean Error"))
+verBoolean (MyBool     ) = (MyBool     )
+verBoolean (MyError err) = (MyError err)
+verBoolean (MyEmpty    ) = (MyEmpty    )
+verBoolean _			       = ((MyError "Boolean Error"))
 
 
 
@@ -55,46 +55,45 @@ verConvertion ToChar   = (MyChar  )
 
 
 
-verInstruction ((MyError err)) = ((MyError err))
-verInstruction  _                   = ( MyEmpty     )
+verInstruction (MyError err) = (MyError err)
+verInstruction  _            = (MyEmpty)
 
 
 
-verUnary Minus   ( MyInt)        = (MyInt  )
-verUnary Minus   ( MyFloat)      = (MyFloat)
-verUnary Minus   ((MyError err)) = ((MyError err))
-verUnary Minus   ( MyEmpty)      = (MyEmpty)
-verUnary Minus   _                    = ((MyError "Minus Error"))
+verUnary Minus   (MyInt  )     = (MyInt  )
+verUnary Minus   (MyFloat)     = (MyFloat)
+verUnary Minus   (MyError err) = (MyError err)
+verUnary Minus   (MyEmpty)     = (MyEmpty)
+verUnary Minus   _             = ((MyError "Minus Error"))
 
-verUnary Not     ( MyBool)       = (MyBool)
-verUnary Not     ((MyError err)) = ((MyError err))
-verUnary Not     ( MyEmpty)      = (MyEmpty)
-verUnary Not     _                    = ((MyError "Not Error"))
+verUnary Not     (MyBool)      = (MyBool )
+verUnary Not     (MyError err) = (MyError err)
+verUnary Not     (MyEmpty)     = (MyEmpty)
+verUnary Not     _             = ((MyError "Not Error"))
 
-verUnary Abs     ( MyInt)        = (MyInt  )
-verUnary Abs     ( MyFloat)      = (MyFloat)
-verUnary Abs     ((MyError err)) = ((MyError err))
-verUnary Abs     ( MyEmpty)      = (MyEmpty)
-verUnary Abs     _                    = ((MyError "Abs Error"))
+verUnary Abs     (MyInt)       = (MyInt  )
+verUnary Abs     (MyFloat)     = (MyFloat)
+verUnary Abs     (MyError err) = (MyError err)
+verUnary Abs     (MyEmpty)     = (MyEmpty)
+verUnary Abs     _             = ((MyError "Abs Error"))
 
-verUnary Sqrt    ( MyInt)        = (MyInt  )
-verUnary Sqrt    ( MyFloat)      = (MyFloat)
-verUnary Sqrt    ((MyError err)) = ((MyError err))
-verUnary Sqrt    ( MyEmpty)      = (MyEmpty)
-verUnary Sqrt    _                    = ((MyError "Sqrt Error"))
+verUnary Sqrt    (MyInt)       = (MyInt  )
+verUnary Sqrt    (MyFloat)     = (MyFloat)
+verUnary Sqrt    (MyError err) = (MyError err)
+verUnary Sqrt    (MyEmpty)     = (MyEmpty)
+verUnary Sqrt    _             = ((MyError "Sqrt Error"))
 
-verUnary Length  ((MyArray t n)) = (MyInt   )
-verUnary Length  ( MyString)     = (MyString)
-verUnary Length  ((MyError err)) = ((MyError err))
-verUnary Length  ( MyEmpty)      = (MyEmpty )
-verUnary Length   _                   = ((MyError "Length Error"))
+verUnary Length  (MyArray t n) = (MyInt   )
+verUnary Length  (MyString)    = (MyString)
+verUnary Length  (MyError err) = (MyError err)
+verUnary Length  (MyEmpty)     = (MyEmpty )
+verUnary Length   _            = ((MyError "Length Error"))
 
 
 --Para revisar algun tipo de una lista
 --Mejorar poniendo los errores al estado desde aqui
 cheackListType _ False _ = False
 cheackListType x True  y = if (x == y) then True else False 
-
 
 
 verGuardAction assert action = case ((verAssert assert) && (MyEmpty == action)) of
@@ -120,35 +119,35 @@ verDefProc accs pre post bound = let func = cheackListType (MyEmpty)
 verBlock accs = let func = cheackListType (MyEmpty)
                        in case (foldl func True accs) of
                               True  -> (MyEmpty) 
-                              False -> ((MyError "Block Error"))
+                              False -> (MyError "Block Error")
 
 
 
 verProgram defs accs = let func = cheackListType (MyEmpty)
                        in case ((foldl func True defs) && (foldl func True accs)) of
                               True  -> (MyEmpty) 
-                              False -> ((MyError "Program Error"))
+                              False -> (MyError "Program Error")
 
 
 
 verCond guards = let func = cheackListType (MyBool)  
                  in case (foldl func True guards) of
                         True  -> (MyEmpty) 
-                        False -> ((MyError "Guard Error"))
+                        False -> (MyError "Guard Error")
 
 
 
 verState exprs = let func = cheackListType (MyBool)  
                  in case (foldl func True exprs) of
                         True  -> (MyEmpty) 
-                        False -> ((MyError "State Error"))
+                        False -> (MyError "State Error")
 
 
 
 verRept guard inv bound = let func = cheackListType (MyBool)
                           in case ((foldl func True guard) && (verInv inv) && (verBound bound)) of
                               True  -> (MyEmpty) 
-                              False -> ((MyError "Rept Error"))
+                              False -> (MyError "Rept Error")
 
 
 
