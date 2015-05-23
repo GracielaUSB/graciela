@@ -1,5 +1,6 @@
 module Main where
   
+import qualified Control.Monad.RWS.Strict as RWSS
 import qualified Control.Applicative as AP
 import qualified Data.Text.IO        as TIO
 import qualified Data.Text           as T
@@ -22,19 +23,19 @@ runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) ini
 
 playParser inp = runStateParse (program) "" (inp) (initialState)
 
+playLexer inp = putStrLn $ show $ runParser (lexer) () "" (inp)
+
 play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                                     ; (Right ast , st) -> let check = fmap verTypeAST ast 
-														   in case check of
-														   { (Nothing)  -> putStrLn "El arbol no se creo, esta malo"
-														   ; (Just ast) -> putStrLn $ drawAST 0 ast
-														   } 
-                                     }
-                      }
-
-playLexer inp = putStrLn $ show $ runParser (lexer) () "" (inp)
+                                   ; (Right ast , st) -> let check = fmap verTypeAST ast 
+														                             in case check of
+														                             { (Nothing)  -> putStrLn "El arbol no se creo, esta malo"
+														                             ; (Just ast) -> putStrLn $ drawAST 0 ast
+														                             } 
+                                   }
+                  }
 
 main = do args <- getArgs 
           s <- TIO.readFile (head args)
