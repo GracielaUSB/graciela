@@ -66,7 +66,7 @@ verTypeAST ((Abort loc _))   = (Abort loc (MyEmpty))
 verTypeAST ((Ran var loc _)) = (Ran var loc (verRandom var))
 
 verTypeAST ((Write ln exp loc _)) = let exp' = verTypeAST (exp) 
-                                    in (Write ln exp' loc (verInstruction (tag exp')))
+                                    in (Write ln exp' loc (verWrite (tag exp')))
 
 verTypeAST ((ArrCall loc name args _)) = let args' = verTypeASTlist args
                                              argsT = map tag args'

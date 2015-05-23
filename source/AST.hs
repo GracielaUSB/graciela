@@ -135,13 +135,13 @@ putLocation   location = " --- en el " `mappend` show location
 putLocationLn location = " --- en el " `mappend` show location `mappend` "\n"
 
 
-verMaxMin True  True  = "MAX_INT"
-verMaxMin True  False = "MIN_INT"
-verMaxMin False True  = "MAX_DOUBLE"
-verMaxMin False False = "MIN_DOUBLE"
+checkMaxMin True  True  = "MAX_INT"
+checkMaxMin True  False = "MIN_INT"
+checkMaxMin False True  = "MAX_DOUBLE"
+checkMaxMin False False = "MIN_DOUBLE"
 
-verWrite True  = "Escribir con Salto de línea"
-verWrite False = "Escribir"
+checkWrite True  = "Escribir con Salto de línea"
+checkWrite False = "Escribir"
 
 
 
@@ -235,7 +235,7 @@ drawAST level ((String loc cont ast)) =
 
 
 drawAST level ((Constant loc t max ast)) =
-         putSpacesLn level `mappend` "Constante: " `mappend` verMaxMin t max `mappend` putLocation loc 
+         putSpacesLn level `mappend` "Constante: " `mappend` checkMaxMin t max `mappend` putLocation loc 
                            `mappend` " //Tag: "    `mappend` show ast 
 
 
@@ -304,7 +304,7 @@ drawAST level ((Ran var loc ast)) =
         
 
 drawAST level ((Write ln exp loc ast)) =
-         putSpacesLn level `mappend` verWrite ln `mappend` putLocation loc 
+         putSpacesLn level `mappend` checkWrite ln `mappend` putLocation loc 
                            `mappend` " //Tag: "  `mappend` show ast 
                            `mappend` drawAST (level + 4) (exp)
 
