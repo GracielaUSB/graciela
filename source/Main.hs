@@ -32,7 +32,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
                                    ; (Right ast , st) -> let check = fmap verTypeAST ast 
 														                             in case check of
 														                             { (Nothing)  -> putStrLn "El arbol no se creo, esta malo"
-														                             ; (Just ast) -> putStrLn $ drawAST 0 ast
+														                             ; (Just ast) -> putStrLn "" -- drawAST 0 ast
 														                             } 
                                    }
                   }
