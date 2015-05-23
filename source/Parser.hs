@@ -69,7 +69,7 @@ parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDe
                                              parseTokCloseBlock
                                              parseEnd
                                              pos <- getPosition
-                                             return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return (Nothing))) 
+                                             return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return ())) 
                                          )
                                       <|> do genNewError parseEnd ProcOrFunc
                                              return $ Nothing
@@ -121,7 +121,7 @@ function follow recSet = do pos <- getPosition
                                                  exitScopeParser
                                                  bo <- maybeBound parseTokOpenBlock (recSet <|> parseTokOpenBlock)
                                                  b  <- functionBody parseTokCloseBlock parseTokCloseBlock
-                                                 return(M.liftM3 (DefFun id) b bo (return Nothing))
+                                                 return(M.liftM3 (DefFun id) b bo (return ()))
                                              )
                                         <|> do err <- genNewError follow ProcOrFunc
                                                return $ Nothing
@@ -174,7 +174,7 @@ proc follow recSet = do pos <- getPosition
                                      post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                      parseRightBracket
                                      exitScopeParser
-                                     return ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return Nothing))
+                                     return ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return ()))
 
                               <|> do dl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                                      pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
@@ -185,14 +185,14 @@ proc follow recSet = do pos <- getPosition
                                      post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                      parseRightBracket
                                      exitScopeParser
-                                     return (dl >>= (const ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return Nothing))))
+                                     return (dl >>= (const ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return ()))))
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 precondition follow recSet =  do parseTokLeftPre
                                  e <- listExp (parseTokRightPre) (recSet <|> parseTokRightPre)
                                  parseTokRightPre
                                  pos <- getPosition
-                                 return(AP.liftA2 (States Pre (getLocation pos)) e (return Nothing))
+                                 return(AP.liftA2 (States Pre (getLocation pos)) e (return ()))
 
 
 
@@ -201,7 +201,7 @@ postcondition follow recSet =  do parseTokLeftPost
                                   e <- listExp (parseTokRightPost) (recSet <|> parseTokRightPost)
                                   parseTokRightPost
                                   pos <- getPosition
-                                  return(AP.liftA2 (States Post (getLocation pos)) e (return Nothing))
+                                  return(AP.liftA2 (States Post (getLocation pos)) e (return ()))
 
 
 
@@ -210,7 +210,7 @@ bound follow recSet =  do parseTokLeftBound
                           e <- listExp (parseTokRightBound) (recSet <|> parseTokRightBound)
                           parseTokRightBound
                           pos <- getPosition
-                          return(AP.liftA2 (States Bound (getLocation pos)) e (return Nothing))
+                          return(AP.liftA2 (States Bound (getLocation pos)) e (return ()))
 
 
 
@@ -219,7 +219,7 @@ assertion follow recSet =  do parseTokLeftA
                               e <- listExp (parseTokRightA) (recSet <|> parseTokRightA)
                               parseTokRightA
                               pos <- getPosition
-                              return(AP.liftA2 (States Assertion (getLocation pos)) e (return Nothing))
+                              return(AP.liftA2 (States Assertion (getLocation pos)) e (return ()))
 
 
 
@@ -228,7 +228,7 @@ invariant follow recSet =  do parseTokLeftInv
                               e <- listExp (parseTokRightInv) (recSet <|> parseTokRightInv)
                               parseTokRightInv
                               pos <- getPosition
-                              return(AP.liftA2 (States Invariant (getLocation pos)) e (return Nothing))
+                              return(AP.liftA2 (States Invariant (getLocation pos)) e (return ()))
 
 
 
@@ -274,10 +274,10 @@ functionBody follow recSet = do pos <- getPosition
                                 do parseTokOpenBlock
                                    do cif <- conditional CExpression parseTokCloseBlock parseTokCloseBlock
                                       parseTokCloseBlock
-                                      return (AP.liftA2 (FunBody (getLocation pos)) (AP.liftA2 (\f -> f (getLocation pos)) cif (return Nothing)) (return Nothing))
+                                      return (AP.liftA2 (FunBody (getLocation pos)) (AP.liftA2 (\f -> f (getLocation pos)) cif (return ())) (return ()))
                                       <|> do e <- expr parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
-                                             return (AP.liftA2 (FunBody (getLocation pos)) e (return Nothing))
+                                             return (AP.liftA2 (FunBody (getLocation pos)) e (return ()))
 
 actionsList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST ()])
 actionsList follow recSet = do lookAhead (follow)
@@ -359,7 +359,7 @@ guard CAction follow recSet     = do pos <- getPosition
                                      e <- expr (parseArrow) (recSet <|> parseArrow)
                                      parseArrow
                                      a <- action follow recSet
-                                     return (AP.liftA2  (\f -> f (getLocation pos)) (AP.liftA2 Guard e a) (return Nothing))
+                                     return (AP.liftA2  (\f -> f (getLocation pos)) (AP.liftA2 Guard e a) (return ()))
 
 
 
@@ -367,7 +367,7 @@ guard CExpression follow recSet = do pos <- getPosition
                                      e <- expr (parseArrow) (recSet <|> parseArrow)
                                      parseArrow
                                      a <- expr follow recSet
-                                     return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return Nothing))
+                                     return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return ()))
 
 
 
@@ -403,9 +403,9 @@ action :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()) )
 action follow recSet = do pos <- getPosition
                           do  as  <- assertion followAction (followAction <|> recSet)
                               res <- actionAux follow recSet
-                              return (AP.liftA3 (GuardAction (getLocation pos)) as (AP.liftA2 (\f -> f (getLocation pos)) res (return Nothing)) (return Nothing))
+                              return (AP.liftA3 (GuardAction (getLocation pos)) as (AP.liftA2 (\f -> f (getLocation pos)) res (return ())) (return ()))
                               <|> do res <- actionAux follow recSet
-                                     return (AP.liftA2 (\f -> f (getLocation pos)) res (return Nothing))
+                                     return (AP.liftA2 (\f -> f (getLocation pos)) res (return ()))
 
 
 

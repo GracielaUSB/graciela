@@ -18,76 +18,76 @@ import AST
 
 
 
-verType (Just (MyError err)) (Just (MyError err')) = (Just (MyError (err ++ err')))
-verType (Just (MyError err)) _ = (Just (MyError err))
-verType _ (Just (MyError err)) = (Just (MyError err))
-verType (Just MyEmpty) _       = (Just MyEmpty      )
-verType _ (Just MyEmpty)       = (Just MyEmpty      )
-verType x y                    = if (x == y) then x else (Just (MyError "March Type Error"))
+verType ((MyError err)) ((MyError err')) = ((MyError (err ++ err')))
+verType ((MyError err)) _ = ((MyError err))
+verType _ ((MyError err)) = ((MyError err))
+verType (MyEmpty) _       = (MyEmpty      )
+verType _ (MyEmpty)       = (MyEmpty      )
+verType x y                    = if (x == y) then x else ((MyError "March Type Error"))
 
 
 
-verArithmetic (Just MyInt  )       = (Just MyInt        )
-verArithmetic (Just MyFloat)       = (Just MyFloat      )
-verArithmetic (Just (MyError err)) = (Just (MyError err))
-verArithmetic (Just MyEmpty)       = (Just MyEmpty      )
-verArithmetic _				       = (Just (MyError "Arithmetic Error"))
+verArithmetic (MyInt  )       = (MyInt        )
+verArithmetic (MyFloat)       = (MyFloat      )
+verArithmetic ((MyError err)) = ((MyError err))
+verArithmetic (MyEmpty)       = (MyEmpty      )
+verArithmetic _				       = ((MyError "Arithmetic Error"))
 
 
 
-verRelational (Just (MyError err)) = (Just (MyError err))
-verRelational (Just MyEmpty)       = (Just MyEmpty      )
-verRelational _				       = (Just MyBool       )
+verRelational ((MyError err)) = ((MyError err))
+verRelational (MyEmpty)       = (MyEmpty      )
+verRelational _				       = (MyBool       )
 
 
 
-verBoolean (Just MyBool       ) = (Just MyBool       )
-verBoolean (Just (MyError err)) = (Just (MyError err))
-verBoolean (Just MyEmpty)       = (Just MyEmpty      )
-verBoolean _			        = (Just (MyError "Boolean Error"))
+verBoolean (MyBool       ) = (MyBool       )
+verBoolean ((MyError err)) = ((MyError err))
+verBoolean (MyEmpty)       = (MyEmpty      )
+verBoolean _			        = ((MyError "Boolean Error"))
 
 
 
-verConvertion ToInt    = (Just MyInt   )
-verConvertion ToDouble = (Just MyFloat )
-verConvertion ToString = (Just MyString)
-verConvertion ToChar   = (Just MyChar  )
+verConvertion ToInt    = (MyInt   )
+verConvertion ToDouble = (MyFloat )
+verConvertion ToString = (MyString)
+verConvertion ToChar   = (MyChar  )
 
 
 
-verInstruction (Just (MyError err)) = (Just (MyError err))
-verInstruction  _                   = (Just  MyEmpty     )
+verInstruction ((MyError err)) = ((MyError err))
+verInstruction  _                   = ( MyEmpty     )
 
 
 
-verUnary Minus   (Just  MyInt)        = (Just MyInt  )
-verUnary Minus   (Just  MyFloat)      = (Just MyFloat)
-verUnary Minus   (Just (MyError err)) = (Just (MyError err))
-verUnary Minus   (Just  MyEmpty)      = (Just MyEmpty)
-verUnary Minus   _                    = (Just (MyError "Minus Error"))
+verUnary Minus   ( MyInt)        = (MyInt  )
+verUnary Minus   ( MyFloat)      = (MyFloat)
+verUnary Minus   ((MyError err)) = ((MyError err))
+verUnary Minus   ( MyEmpty)      = (MyEmpty)
+verUnary Minus   _                    = ((MyError "Minus Error"))
 
-verUnary Not     (Just  MyBool)       = (Just MyBool)
-verUnary Not     (Just (MyError err)) = (Just (MyError err))
-verUnary Not     (Just  MyEmpty)      = (Just MyEmpty)
-verUnary Not     _                    = (Just (MyError "Not Error"))
+verUnary Not     ( MyBool)       = (MyBool)
+verUnary Not     ((MyError err)) = ((MyError err))
+verUnary Not     ( MyEmpty)      = (MyEmpty)
+verUnary Not     _                    = ((MyError "Not Error"))
 
-verUnary Abs     (Just  MyInt)        = (Just MyInt  )
-verUnary Abs     (Just  MyFloat)      = (Just MyFloat)
-verUnary Abs     (Just (MyError err)) = (Just (MyError err))
-verUnary Abs     (Just  MyEmpty)      = (Just MyEmpty)
-verUnary Abs     _                    = (Just (MyError "Abs Error"))
+verUnary Abs     ( MyInt)        = (MyInt  )
+verUnary Abs     ( MyFloat)      = (MyFloat)
+verUnary Abs     ((MyError err)) = ((MyError err))
+verUnary Abs     ( MyEmpty)      = (MyEmpty)
+verUnary Abs     _                    = ((MyError "Abs Error"))
 
-verUnary Sqrt    (Just  MyInt)        = (Just MyInt  )
-verUnary Sqrt    (Just  MyFloat)      = (Just MyFloat)
-verUnary Sqrt    (Just (MyError err)) = (Just (MyError err))
-verUnary Sqrt    (Just  MyEmpty)      = (Just MyEmpty)
-verUnary Sqrt    _                    = (Just (MyError "Sqrt Error"))
+verUnary Sqrt    ( MyInt)        = (MyInt  )
+verUnary Sqrt    ( MyFloat)      = (MyFloat)
+verUnary Sqrt    ((MyError err)) = ((MyError err))
+verUnary Sqrt    ( MyEmpty)      = (MyEmpty)
+verUnary Sqrt    _                    = ((MyError "Sqrt Error"))
 
-verUnary Length  (Just (MyArray t n)) = (Just MyInt   )
-verUnary Length  (Just  MyString)     = (Just MyString)
-verUnary Length  (Just (MyError err)) = (Just (MyError err))
-verUnary Length  (Just  MyEmpty)      = (Just MyEmpty )
-verUnary Length   _                   = (Just (MyError "Length Error"))
+verUnary Length  ((MyArray t n)) = (MyInt   )
+verUnary Length  ( MyString)     = (MyString)
+verUnary Length  ((MyError err)) = ((MyError err))
+verUnary Length  ( MyEmpty)      = (MyEmpty )
+verUnary Length   _                   = ((MyError "Length Error"))
 
 
 --Para revisar algun tipo de una lista
@@ -97,73 +97,73 @@ cheackListType x True  y = if (x == y) then True else False
 
 
 
-verGuardAction assert action = case ((verAssert assert) && (Just MyEmpty == action)) of
-                                   True  -> (Just MyEmpty) 
-                                   False -> (Just (MyError "GuardAction Error"))
+verGuardAction assert action = case ((verAssert assert) && (MyEmpty == action)) of
+                                   True  -> (MyEmpty) 
+                                   False -> ((MyError "GuardAction Error"))
 
 
 
-verGuard exp action = case ((Just MyBool == exp) && (Just MyEmpty == action)) of
-                          True  -> (Just MyEmpty) 
-                          False -> (Just (MyError "Guard Error"))
+verGuard exp action = case ((MyBool == exp) && (MyEmpty == action)) of
+                          True  -> (MyEmpty) 
+                          False -> ((MyError "Guard Error"))
 
 
 
-verDefProc accs pre post bound = let func = cheackListType (Just MyEmpty)
+verDefProc accs pre post bound = let func = cheackListType (MyEmpty)
                                  in case ((foldl func True accs) && (verPre  pre ) && 
                                           (verBound bound))      && (verPost post) of
-                                        True  -> (Just MyEmpty) 
-                                        False -> (Just (MyError "DefProc Error"))
+                                        True  -> (MyEmpty) 
+                                        False -> ((MyError "DefProc Error"))
 
 
 
-verBlock accs = let func = cheackListType (Just MyEmpty)
+verBlock accs = let func = cheackListType (MyEmpty)
                        in case (foldl func True accs) of
-                              True  -> (Just MyEmpty) 
-                              False -> (Just (MyError "Block Error"))
+                              True  -> (MyEmpty) 
+                              False -> ((MyError "Block Error"))
 
 
 
-verProgram defs accs = let func = cheackListType (Just MyEmpty)
+verProgram defs accs = let func = cheackListType (MyEmpty)
                        in case ((foldl func True defs) && (foldl func True accs)) of
-                              True  -> (Just MyEmpty) 
-                              False -> (Just (MyError "Program Error"))
+                              True  -> (MyEmpty) 
+                              False -> ((MyError "Program Error"))
 
 
 
-verCond guards = let func = cheackListType (Just MyBool)  
+verCond guards = let func = cheackListType (MyBool)  
                  in case (foldl func True guards) of
-                        True  -> (Just MyEmpty) 
-                        False -> (Just (MyError "Guard Error"))
+                        True  -> (MyEmpty) 
+                        False -> ((MyError "Guard Error"))
 
 
 
-verState exprs = let func = cheackListType (Just MyBool)  
+verState exprs = let func = cheackListType (MyBool)  
                  in case (foldl func True exprs) of
-                        True  -> (Just MyEmpty) 
-                        False -> (Just (MyError "State Error"))
+                        True  -> (MyEmpty) 
+                        False -> ((MyError "State Error"))
 
 
 
-verRept guard inv bound = let func = cheackListType (Just MyBool)
+verRept guard inv bound = let func = cheackListType (MyBool)
                           in case ((foldl func True guard) && (verInv inv) && (verBound bound)) of
-                              True  -> (Just MyEmpty) 
-                              False -> (Just (MyError "Rept Error"))
+                              True  -> (MyEmpty) 
+                              False -> ((MyError "Rept Error"))
 
 
 
 
-verQuant op range term  = (Just MyEmpty)
+verQuant op range term  = (MyEmpty)
 
 
 --NECESITO TABLA
-verCallExp  args name     = (Just MyEmpty)
-verProcCall args name     = (Just MyEmpty)
-verArray    args name     = (Just MyEmpty)
-verLAssign explist idlist = (Just MyEmpty)
-verID name                = (Just MyEmpty)
-verDefFun body bound name = (Just MyEmpty)
-verRandom var             = (Just MyEmpty)
+verCallExp  args name     = (MyEmpty)
+verProcCall args name     = (MyEmpty)
+verArray    args name     = (MyEmpty)
+verLAssign explist idlist = (MyEmpty)
+verID name                = (MyEmpty)
+verDefFun body bound name = (MyEmpty)
+verRandom var             = (MyEmpty)
 
 --
 verPre    pre    = True
