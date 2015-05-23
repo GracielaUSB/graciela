@@ -60,4 +60,5 @@ exitScopeState st = case exitScope (symbolTable st) of
                                                }
                     ; Nothing   -> addParsingError (ScopesError) st
                     }
-
+getScopeState :: ParserState -> Int
+getScopeState st = getScope $ symbolTable st

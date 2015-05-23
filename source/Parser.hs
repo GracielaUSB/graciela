@@ -69,7 +69,8 @@ parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDe
                                              parseTokCloseBlock
                                              parseEnd
                                              pos <- getPosition
-                                             return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return ())) 
+                                             sc <- getScopeParser
+                                             return (M.liftM3 (AST.Program id (getLocation pos) sc) ast lacc (return ())) 
                                          )
                                       <|> do genNewError parseEnd ProcOrFunc
                                              return $ Nothing

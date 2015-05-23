@@ -27,6 +27,10 @@ addProcTypeParser _ _ _ = return ()
 newScopeParser :: MyParser ()
 newScopeParser = ST.modify $ newScopeState 
 
+getScopeParser :: MyParser (Int)
+getScopeParser = do st <- ST.get
+                    return $ getScopeState st
+
 exitScopeParser :: MyParser ()
 exitScopeParser = ST.modify $ exitScopeState
 
@@ -69,5 +73,3 @@ genNewEmptyError :: MyParser ()
 genNewEmptyError = do  pos <- getPosition
                        ST.modify $ addParsingError $ newEmptyError pos
                        return ()
-
-
