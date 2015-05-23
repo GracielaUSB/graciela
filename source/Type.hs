@@ -23,10 +23,12 @@ instance Show Type where
    show  MyFloat           = "Double"
    show  MyBool            = "Boolean"
    show  MyString          = "String"
+   show  MyEmpty           = "Vacio"
    show  MyChar            = "Char"
    show (MyFunction xs t ) = "Func, return type: " ++ show t
    show (MyArray    t  xs) = "Array of "     ++ show t 
    show (MyProcedure   xs) = "Proc"
+   show (MyError      err) =  err
 
 
 
