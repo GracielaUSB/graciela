@@ -1,165 +1,164 @@
 module ASTtype where
 
 import qualified Control.Monad.RWS.Strict as RWSS
-import qualified Data.Sequence as DS
-import Control.Monad.Identity (Identity)
-import qualified Control.Applicative as AP
-import qualified Text.Parsec.Pos     as P
-import qualified Data.Text.Read      as TR
-import qualified Control.Monad       as M
-import qualified Data.Monoid         as DM
-import qualified Data.Text           as T
-import MyParseError                  as PE
-import MyTypeError                   as PT
-import ParserState                   as PS
-import Data.Monoid
+import qualified Data.Sequence            as DS
+import MyParseError                       as PE
+import MyTypeError                        as PT
 import SymbolTable
-import Location
 import VerTypes
-import Token
 import Type 
 import AST
 
 
 verTypeAST :: (AST ()) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (AST (Type.Type))
-verTypeAST ((AST.Program name loc sc defs accs _)) = do defs' <- verTypeASTlist defs
-                                                        accs' <- verTypeASTlist accs
+verTypeAST ((AST.Program name loc sc defs accs _)) = do defs'    <- verTypeASTlist defs
+                                                        accs'    <- verTypeASTlist accs
                                                         let defsT = map tag defs'
                                                         let accsT = map tag accs'
-                                                        t <- verProgram defsT accsT
-                                                        return $ (AST.Program name loc sc defs' accs' t)
+                                                        checkT   <- verProgram defsT accsT
+                                                        return (AST.Program name loc sc defs' accs' checkT)
 
 
-verTypeAST ((ID     loc cont _)) = return (ID     loc cont (verID cont))
-verTypeAST ((Int    loc cont _)) = return (Int    loc cont (MyInt     ))
-verTypeAST ((Float  loc cont _)) = return (Float  loc cont (MyFloat   ))
-verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont (MyBool    ))
-verTypeAST ((Char   loc cont _)) = return (Char   loc cont (MyChar    ))
-verTypeAST ((String loc cont _)) = return (String loc cont (MyString  ))
+verTypeAST ((ID loc cont _)) = do checkT <- verID cont
+                                  return (ID loc cont checkT)
+
+verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
+verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
+verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
+verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
+verTypeAST ((String loc cont _)) = return (String loc cont MyString)
 
 
-verTypeAST ((Constant loc True  max _)) = return (Constant loc True  max (MyInt  ))
-verTypeAST ((Constant loc False max _)) = return (Constant loc False max (MyFloat))
+verTypeAST ((Constant loc True  max _)) = return (Constant loc True  max MyInt  )
+verTypeAST ((Constant loc False max _)) = return (Constant loc False max MyFloat)
 
 
 verTypeAST ((Arithmetic t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  return (Arithmetic t loc lexpr' rexp' 
-                                                         (verArithmetic $ verType (tag lexpr') (tag rexp')))
+                                                  checkT <- verArithmetic $ verType (tag lexpr') (tag rexp')
+                                                  return (Arithmetic t loc lexpr' rexp' checkT)
 
 
 verTypeAST ((Relational t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  return (Relational t loc lexpr' rexp' 
-                                                         (verRelational $ verType (tag lexpr') (tag rexp')))
-
+                                                  checkT <- verRelational $ verType (tag lexpr') (tag rexp')
+                                                  return (Relational t loc lexpr' rexp' checkT)
+                                                         
 
 verTypeAST ((Boolean    t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  return (Boolean t loc lexpr' rexp' 
-                                                         (verBoolean $ verType (tag lexpr') (tag rexp')))
+                                                  checkT <- verBoolean $ verType (tag lexpr') (tag rexp')
+                                                  return (Boolean t loc lexpr' rexp' checkT)
+                                                         
+
+verTypeAST ((Convertion t loc exp _)) = do exp'   <- verTypeAST (exp) 
+                                           checkT <- verConvertion t
+                                           return (Convertion t loc exp' checkT)
 
 
-verTypeAST ((Convertion t loc exp _)) = do exp' <- verTypeAST (exp) 
-                                           return (Convertion t loc exp' (verConvertion t))
+verTypeAST ((Unary op loc exp _)) = do exp'   <- verTypeAST (exp) 
+                                       checkT <- verUnary op (tag exp')
+                                       return (Unary op loc exp' checkT)
 
 
-verTypeAST ((Unary op loc exp _)) = do exp' <- verTypeAST (exp) 
-                                       return (Unary op loc exp' (verUnary op (tag exp')))
+verTypeAST ((Block accs loc _)) = do accs'  <- verTypeASTlist accs
+                                     checkT <- verBlock (map tag accs')
+                                     return (Block accs' loc checkT)
 
 
-verTypeAST ((Block accs loc _)) = do accs' <- verTypeASTlist accs
-                                     let accsT = map tag accs'
-                                     return (Block accs' loc (verBlock accsT))
+verTypeAST ((Skip    loc _)) = return (Skip  loc (MyEmpty))
+verTypeAST ((Abort   loc _)) = return (Abort loc (MyEmpty))
+
+verTypeAST ((Ran var loc _)) = do checkT <- verRandom var
+                                  return (Ran var loc checkT)
 
 
-verTypeAST ((Skip loc _))    = return (Skip  loc (MyEmpty))
-verTypeAST ((Abort loc _))   = return (Abort loc (MyEmpty))
-verTypeAST ((Ran var loc _)) = return (Ran var loc (verRandom var))
+verTypeAST ((Write ln exp loc _)) = do exp'   <- verTypeAST (exp) 
+                                       checkT <- verWrite (tag exp')
+                                       return (Write ln exp' loc checkT)
 
 
-verTypeAST ((Write ln exp loc _)) = do exp' <- verTypeAST (exp) 
-                                       return (Write ln exp' loc (verWrite (tag exp')))
-
-
-verTypeAST ((ArrCall loc name args _)) = do args' <- verTypeASTlist args
-                                            let argsT = map tag args'
-                                            return (ArrCall loc name args' (verArray argsT name))   
+verTypeAST ((ArrCall loc name args _)) = do args'  <- verTypeASTlist args
+                                            checkT <- verArray name (map tag args') 
+                                            return (ArrCall loc name args' checkT)    
 
 
 verTypeAST ((Guard exp action loc _)) = do exp'    <- verTypeAST exp     
                                            action' <- verTypeAST action
-                                           return (Guard exp' action' loc 
-                                                  (verGuard (tag exp') (tag action')))
-
+                                           checkT  <- verGuard (tag exp') (tag action') 
+                                           return (Guard exp' action' loc checkT)
+                                                  
 
 verTypeAST ((GuardExp exp action loc _)) = do exp'    <- verTypeAST exp     
                                               action' <- verTypeAST action
-                                              return (GuardExp exp' action' loc 
-                                                     (verGuard (tag exp') (tag action')))
+                                              checkT  <- verGuard (tag exp') (tag action')
+                                              return (GuardExp exp' action' loc checkT)
+                                                
 
 
 verTypeAST ((States t loc exprs _)) = do exprs' <- verTypeASTlist exprs
-                                         let exprsT = map tag exprs'
-                                         return (States t loc exprs' (verState exprsT))    
+                                         checkT <- verState (map tag exprs')
+                                         return (States t loc exprs' checkT)    
 
 
 verTypeAST ((GuardAction loc assert action _)) = do assert' <- verTypeAST assert  
                                                     action' <- verTypeAST action
-                                                    return (GuardAction loc assert' action'
-                                                           (verGuardAction (tag assert') (tag action')))
+                                                    checkT  <- verGuardAction (tag assert') (tag action')
+                                                    return (GuardAction loc assert' action' checkT)
+                                                           
 
 
 verTypeAST ((LAssign idlist explist loc _)) = do explist' <- verTypeASTlist explist  
-                                                 let explistT = map tag explist'
-                                                 return (LAssign [] explist' loc (verLAssign explistT idlist))
+                                                 checkT   <- verLAssign (map tag explist') idlist
+                                                 return (LAssign [] explist' loc checkT)
 
 
 verTypeAST ((Cond guard loc _)) = do guard' <- verTypeASTlist guard  
-                                     let guardT = map tag guard'
-                                     return (Cond guard' loc (verCond guardT))
+                                     checkT <- verCond (map tag guard')
+                                     return (Cond guard' loc checkT)
 
 
 verTypeAST ((Rept guard inv bound loc _)) = do guard' <- verTypeASTlist guard
                                                inv'   <- verTypeAST inv  
                                                bound' <- verTypeAST bound
-                                               let guardT = map tag guard' 
-                                               return (Rept guard' inv' bound' loc
-                                                      (verRept guardT (tag inv') (tag bound')))
+                                               checkT <- verRept (map tag guard') (tag inv') (tag bound')
+                                               return (Rept guard' inv' bound' loc checkT)
+                                                      
 
-verTypeAST ((ProcCall name args loc _)) = do args' <- verTypeASTlist args  
-                                             let argsT = map tag args'
-                                             return (ProcCall name args' loc (verProcCall argsT name))
+verTypeAST ((ProcCall name args loc _)) = do args'  <- verTypeASTlist args  
+                                             checkT <- verProcCall name (map tag args')  
+                                             return (ProcCall name args' loc checkT)
 
   
-verTypeAST ((FunBody loc exp _)) = do exp' <- verTypeAST (exp)  
+verTypeAST ((FunBody loc exp _)) = do exp' <- verTypeAST (exp)
                                       return (FunBody loc exp' (tag exp'))
 
 
 verTypeAST ((FCallExp loc name args _)) = do args' <- verTypeASTlist args 
-                                             let argsT = map tag args' 
-                                             return (FCallExp loc name args' (verCallExp argsT name))
+                                             checkT <- verCallExp name (map tag args') 
+                                             return (FCallExp loc name args' checkT)
 
 
 verTypeAST ((DefFun name body bound _)) = do body'  <- verTypeAST body   
                                              bound' <- verTypeAST bound
-                                             return (DefFun name body' bound'
-                                                    (verDefFun (tag body') (tag bound') name))
-
+                                             checkT <- verDefFun name (tag body') (tag bound') 
+                                             return (DefFun name body' bound' checkT)
+                                                    
 
 verTypeAST ((DefProc name accs pre post bound _)) = do accs'  <- verTypeASTlist accs 
                                                        pre'   <- verTypeAST pre  
                                                        post'  <- verTypeAST post 
                                                        bound' <- verTypeAST bound
-                                                       let accsT = map tag accs' 
-                                                       return (DefProc name accs' pre' post' bound'
-                                                              (verDefProc accsT (tag pre') (tag post') (tag bound')))
-
+                                                       checkT <- verDefProc (map tag accs') (tag pre'  )
+                                                                            (tag     post') (tag bound')
+                                                       return (DefProc name accs' pre' post' bound' checkT)
+                                                              
 
 verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range  
                                                   term'  <- verTypeAST term 
-                                                  return (Quant op var loc range' term'
-                                                         (verQuant op (tag range') (tag term')))
+                                                  checkT <- verQuant (tag range') (tag term')
+                                                  return (Quant op var loc range' term' checkT)
+                                                         
 
 
 verTypeAST (EmptyAST) = return EmptyAST

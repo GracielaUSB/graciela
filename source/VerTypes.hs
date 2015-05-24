@@ -1,81 +1,14 @@
 module VerTypes where
 
 import qualified Control.Monad.RWS.Strict as RWSS
-import qualified Data.Sequence as DS
-import Control.Monad.Identity (Identity)
-import qualified Control.Applicative as AP
-import qualified Text.Parsec.Pos     as P
-import qualified Data.Text.Read      as TR
-import qualified Control.Monad       as M
-import qualified Data.Monoid         as DM
-import qualified Data.Text           as T
-import MyParseError                  as PE
-import MyTypeError                   as PT
-import ParserState                   as PS
-import Data.Monoid
+import qualified Data.Sequence            as DS
+import MyParseError                       as PE
+import MyTypeError                        as PT
 import SymbolTable
 import Location
 import Token
 import Type
 import AST
-
-verType MyError _  = MyError 
-verType _  MyError = MyError 
-verType x  y       = if (x == y) then x else MyError
-
-
-
-verArithmetic MyInt   = MyInt 
-verArithmetic MyFloat = MyFloat 
-verArithmetic err	    = MyError 
-
-
-verRelational MyError = MyError 
-verRelational _       = MyBool
-
-
-verBoolean MyBool     = MyBool     
-verBoolean err        = MyError 
-
-
-
-verConvertion ToInt    = MyInt   
-verConvertion ToDouble = MyFloat 
-verConvertion ToString = MyString
-verConvertion ToChar   = MyChar  
-
-
-
-verWrite  MyError          = MyError 
-verWrite (MyArray     _ _) = MyError
-verWrite (MyFunction  _ _) = MyError
-verWrite (MyProcedure _  ) = MyError
-verWrite  _                = MyEmpty
-
-
-
-verUnary Minus   MyInt       = MyInt  
-verUnary Minus   MyFloat     = MyFloat
-verUnary Minus   err         = MyError 
-
-
-verUnary Not     MyBool      = MyBool 
-verUnary Not     err         = MyError 
-
-
-verUnary Abs     MyInt        = MyInt  
-verUnary Abs     MyFloat      = MyFloat
-verUnary Abs     err          = MyError
-
-
-verUnary Sqrt    MyInt        = MyInt  
-verUnary Sqrt    MyFloat      = MyFloat
-verUnary Sqrt    err          = MyError 
-
-
-verUnary Length (MyArray t n) = MyInt   
-verUnary Length  MyString     = MyString
-verUnary Length  err          = MyError
 
 
 --Para revisar algun tipo de una lista
@@ -84,30 +17,85 @@ checkListType _ False _ = False
 checkListType x True  y = if (x == y) then True else False 
 
 
+verType MyError _  = MyError 
+verType _  MyError = MyError 
+verType x  y       = if (x == y) then x else MyError
+
+
+verArithmetic :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verArithmetic MyInt   = return MyInt 
+verArithmetic MyFloat = return MyFloat 
+verArithmetic err	    = return MyError 
+
+
+verRelational :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verRelational MyError = return MyError 
+verRelational _       = return MyBool
+
+
+verBoolean :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verBoolean MyBool     = return MyBool     
+verBoolean err        = return MyError 
+
+
+verConvertion :: Conv -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verConvertion ToInt    = return MyInt   
+verConvertion ToDouble = return MyFloat 
+verConvertion ToString = return MyString
+verConvertion ToChar   = return MyChar  
+
+
+verWrite :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verWrite  MyError          = return MyError 
+verWrite (MyArray     _ _) = return MyError
+verWrite (MyFunction  _ _) = return MyError
+verWrite (MyProcedure _  ) = return MyError
+verWrite  _                = return MyEmpty
+
+
+verUnary :: OpUn -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verUnary Minus   MyInt        = return MyInt  
+verUnary Minus   MyFloat      = return MyFloat
+verUnary Minus   err          = return MyError 
+verUnary Not     MyBool       = return MyBool 
+verUnary Not     err          = return MyError 
+verUnary Abs     MyInt        = return MyInt  
+verUnary Abs     MyFloat      = return MyFloat
+verUnary Abs     err          = return MyError
+verUnary Sqrt    MyInt        = return MyInt  
+verUnary Sqrt    MyFloat      = return MyFloat
+verUnary Sqrt    err          = return MyError 
+verUnary Length (MyArray t n) = return MyInt   
+verUnary Length  MyString     = return MyString
+verUnary Length  err          = return MyError
+
+
+verGuardAction :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verGuardAction assert action = case ((MyBool == assert) && (MyEmpty == action)) of
-                                   True  -> MyEmpty
-                                   False -> MyError 
+                                   True  -> return MyEmpty
+                                   False -> return MyError 
 
 
-
+verGuard :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verGuard exp action = case ((MyBool == exp) && (MyEmpty == action)) of
-                          True  -> MyEmpty 
-                          False -> MyError 
+                          True  -> return MyEmpty 
+                          False -> return MyError 
 
 
-
+verDefProc :: [Type] -> Type -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verDefProc accs pre post bound = let func = checkListType MyEmpty
                                  in case ((foldl func True accs) && (MyBool == pre )  && 
                                                 (MyInt == bound) && (MyBool == post)) of
-                                        True  -> MyEmpty 
-                                        False -> MyError
+                                        True  -> return MyEmpty 
+                                        False -> return MyError
 
 
-
+verBlock :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verBlock accs = let func = checkListType MyEmpty
-                       in case (foldl func True accs) of
-                              True  -> MyEmpty
-                              False -> MyError
+                in case (foldl func True accs) of
+                       True  -> return MyEmpty
+                       False -> return MyError
+
 
 verProgram :: [Type] -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verProgram defs accs = let func = checkListType MyEmpty
@@ -116,40 +104,62 @@ verProgram defs accs = let func = checkListType MyEmpty
                               False -> return $ MyError
 
 
-
+verCond :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verCond guards = let func = checkListType MyBool
                  in case (foldl func True guards) of
-                        True  -> MyEmpty
-                        False -> MyError
+                        True  -> return MyEmpty
+                        False -> return MyError
 
 
-
+verState :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verState exprs = let func = checkListType MyBool 
                  in case (foldl func True exprs) of
-                        True  -> MyEmpty 
-                        False -> MyError
+                        True  -> return MyEmpty 
+                        False -> return MyError
 
+
+verRept :: [Type] -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verRept guard inv bound = let func = checkListType MyBool
                           in case ((foldl func True guard) && (MyBool == inv) && (MyInt == bound)) of
-                              True  -> MyEmpty 
-                              False -> MyError
+                              True  -> return MyEmpty 
+                              False -> return MyError
+
+
+verQuant :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verQuant range term  = case ((verRango range) && not(MyError == term)) of
+                           True  -> return MyBool 
+                           False -> return MyError
 
 
 
-verQuant op range term  = let func = checkListType MyBool
-                          in case ((verRango range) && not(MyError == term)) of
-                              True  -> MyBool 
-                              False -> MyError
+-----------NECESITO TABLA-----------
+verCallExp :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verCallExp name args = return MyEmpty
 
 
---NECESITO TABLA
-verCallExp  args name     = MyEmpty
-verProcCall args name     = MyEmpty
-verArray    args name     = MyEmpty
-verLAssign explist idlist = MyEmpty
-verID name                = MyEmpty
-verDefFun body bound name = MyEmpty
-verRandom var             = MyEmpty
+verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verProcCall name args = return MyEmpty
 
 
-verRango range            = True
+verLAssign :: [Type] -> [(Token, [AST ()])] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verLAssign explist idlist = return MyEmpty
+
+
+verID :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verID name = return MyEmpty
+
+
+verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verDefFun name body bound = return MyEmpty
+
+
+verRandom :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verRandom var = return MyEmpty
+
+
+verArray :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verArray name args = return MyEmpty
+
+
+--------------------
+verRango range = True
