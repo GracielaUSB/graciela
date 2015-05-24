@@ -20,40 +20,43 @@ instance Show Diccionario where
    show (Diccionario dic)  =  if M.null dic then "No hay ningun elemento" else drawDic 0 (M.toList dic)
 
 
-data SymbolTable = Table { getScope :: Scope, actual :: Tr.Tree (Diccionario, Maybe SymbolTable) }  
+data SymbolTable = Table { actual :: Tr.Tree ((Diccionario, Scope), Maybe SymbolTable) }  
         deriving (Eq)
 
 
 instance Show SymbolTable where
-   show (Table _ st)  = drawST 0 st
+   show (Table st)  = drawST 0 st
 
 
 
 getActual :: SymbolTable -> Diccionario
-getActual tabla = fst $ Tr.rootLabel (actual tabla)
+getActual tabla = (fst . fst) $ Tr.rootLabel (actual tabla)
 
+getScope :: SymbolTable -> Scope
+getScope tabla = (snd . fst) $ Tr.rootLabel (actual tabla)
 
 getPadre :: SymbolTable -> Maybe SymbolTable
 getPadre tabla = snd $ Tr.rootLabel (actual tabla)
 
 
-getHijos :: SymbolTable -> [Tr.Tree (Diccionario, Maybe SymbolTable)]
+getHijos :: SymbolTable -> [Tr.Tree ((Diccionario, Scope), Maybe SymbolTable)]
 getHijos tabla = Tr.subForest (actual tabla)
 
 
-getTabla :: SymbolTable -> (Diccionario, Maybe SymbolTable)
+getTabla :: SymbolTable -> ((Diccionario, Scope), Maybe SymbolTable)
 getTabla tabla = Tr.rootLabel (actual tabla)
 
 
 insertTabla :: Diccionario -> Scope -> SymbolTable -> SymbolTable
-insertTabla dic sc tabla = Table sc (Tr.Node (dic, getPadre tabla) (getHijos tabla))
+insertTabla dic sc tabla = Table (Tr.Node ((dic, sc), getPadre tabla) (getHijos tabla))
+
 
 insertHijo :: SymbolTable -> SymbolTable -> SymbolTable
-insertHijo hijo padre = Table ((getScope padre) + (getScope hijo)) (Tr.Node (getTabla padre) ((getHijos padre) ++ [(actual hijo)]))
+insertHijo hijo padre = Table (Tr.Node (getTabla padre) ((getHijos padre) ++ [(actual hijo)]))
 
 
 emptyTable :: SymbolTable
-emptyTable =  Table 0 (Tr.Node (Diccionario M.empty, Nothing) []) 
+emptyTable =  Table (Tr.Node ((Diccionario M.empty, 0), Nothing) []) 
 
 
 isEmpty :: SymbolTable -> Bool 
@@ -61,15 +64,12 @@ isEmpty tabla = if (getActual tabla == Diccionario M.empty) then True else False
 
 
 isEmptyTable :: SymbolTable -> Bool 
-isEmptyTable tabla = if (tabla == Table 0 (Tr.Node (Diccionario M.empty, Nothing) [])) then True else False
+isEmptyTable tabla = tabla == Table (Tr.Node ((Diccionario M.empty, 0), Nothing) [])
 
-
-updateScope :: SymbolTable -> SymbolTable
-updateScope sb = sb { getScope = getScope sb + 1 }
 
 enterScope :: SymbolTable -> SymbolTable
-enterScope tabla = if (isEmptyTable tabla) then emptyTable
-                                           else Table (getScope tabla) (Tr.Node (Diccionario M.empty, Just (updateScope tabla)) [])
+enterScope tabla = if (isEmptyTable tabla) then  Table (Tr.Node ((Diccionario M.empty, 0), Nothing) []) 
+                                           else Table (Tr.Node ((Diccionario M.empty, (getScope tabla) + 1), Just tabla) [])
 
 
 exitScope :: SymbolTable -> Maybe SymbolTable
@@ -96,8 +96,9 @@ addSymbol :: T.Text -> Contents -> SymbolTable -> (Either Contents SymbolTable)
 addSymbol valor content tabla =
           case checkSymbol valor tabla of
           { Just c   -> Left c
-          ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla)) in
-                          Right $ insertTabla (Diccionario newActual) (getScope tabla) tabla
+          ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
+                            sc = getScope tabla in
+                            Right $ insertTabla (Diccionario newActual) sc tabla
           }
 
 
@@ -107,7 +108,7 @@ look (Right tabla) = tabla
 
 
 --drawST level st = show (fst $ Tr.rootLabel st)
-drawST level st = drawDic level (M.toList (getMap (fst $ Tr.rootLabel st)))
+drawST level st = drawDic level (M.toList (getMap ((fst . fst) $ Tr.rootLabel st)))
                                  `mappend` drawSTforest (level + 4) (Tr.subForest st)  
 
 
