@@ -26,7 +26,8 @@ verTypeAST ((AST.Program name loc sc defs accs _)) = do defs' <- verTypeASTlist 
                                                         accs' <- verTypeASTlist accs
                                                         let defsT = map tag defs'
                                                         let accsT = map tag accs'
-                                                        return $ (AST.Program name loc sc defs' accs' (verProgram defsT accsT))
+                                                        t <- verProgram defsT accsT
+                                                        return $ (AST.Program name loc sc defs' accs' t)
 
 
 verTypeAST ((ID     loc cont _)) = return (ID     loc cont (verID cont))

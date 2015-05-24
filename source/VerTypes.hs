@@ -1,6 +1,7 @@
 module VerTypes where
 
 import qualified Control.Monad.RWS.Strict as RWSS
+import qualified Data.Sequence as DS
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Text.Parsec.Pos     as P
@@ -9,6 +10,7 @@ import qualified Control.Monad       as M
 import qualified Data.Monoid         as DM
 import qualified Data.Text           as T
 import MyParseError                  as PE
+import MyTypeError                   as PT
 import ParserState                   as PS
 import Data.Monoid
 import SymbolTable
@@ -107,10 +109,11 @@ verBlock accs = let func = checkListType MyEmpty
                               True  -> MyEmpty
                               False -> MyError
 
+verProgram :: [Type] -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verProgram defs accs = let func = checkListType MyEmpty
                        in case ((foldl func True defs) && (foldl func True accs)) of
-                              True  -> MyEmpty
-                              False -> MyError
+                              True  -> return $ MyEmpty
+                              False -> return $ MyError
 
 
 

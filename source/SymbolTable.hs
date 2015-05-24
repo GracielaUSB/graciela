@@ -64,12 +64,12 @@ isEmptyTable :: SymbolTable -> Bool
 isEmptyTable tabla = if (tabla == Table 0 (Tr.Node (Diccionario M.empty, Nothing) [])) then True else False
 
 
-updateScope :: SymbolTable -> Scope -> SymbolTable
-updateScope sb sc = sb { getScope = getScope sb + 1 }
+updateScope :: SymbolTable -> SymbolTable
+updateScope sb = sb { getScope = getScope sb + 1 }
 
 enterScope :: SymbolTable -> SymbolTable
 enterScope tabla = if (isEmptyTable tabla) then emptyTable
-                                           else Table (getScope tabla) (Tr.Node (Diccionario M.empty, Just tabla) [])
+                                           else Table (getScope tabla) (Tr.Node (Diccionario M.empty, Just (updateScope tabla)) [])
 
 
 exitScope :: SymbolTable -> Maybe SymbolTable
