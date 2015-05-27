@@ -10,11 +10,10 @@ import Token
 import Type
 import AST
 
-
 --Para revisar algun tipo de una lista
 --Mejorar poniendo los errores al estado desde aqui
 checkListType _ False _ = False
-checkListType x True  y = if (x == y) then True else False 
+checkListType x True  y = x == y
 
 
 verType MyError _  = MyError 
@@ -22,11 +21,11 @@ verType _  MyError = MyError
 verType x  y       = if (x == y) then x else MyError
 
 
-verArithmetic :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verArithmetic MyInt   = return MyInt 
-verArithmetic MyFloat = return MyFloat 
-verArithmetic err	    = return MyError 
-
+verArithmetic :: Type -> Location -> OpNum -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verArithmetic MyInt   _ _    = return MyInt 
+verArithmetic MyFloat _ _    = return MyFloat 
+verArithmetic err     loc op = do RWSS.tell $ DS.singleton $ ArithmeticError op loc
+                                  return MyError
 
 verRelational :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verRelational MyError = return MyError 
@@ -141,12 +140,13 @@ verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) 
 verProcCall name args = return MyEmpty
 
 
-verLAssign :: [Type] -> [(Token, [AST ()])] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verLAssign :: [Type] -> [(Token, [AST (Type)])] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verLAssign explist idlist = return MyEmpty
 
 
 verID :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verID name = return MyEmpty
+verID name = do st <- RWSS.get
+                return MyEmpty
 
 
 verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)

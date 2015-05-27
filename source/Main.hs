@@ -29,11 +29,12 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                                   ; (Right ast , st) -> let check = fmap verTypeAST ast 
-														                             in case check of
-														                             { (Nothing)  -> putStrLn "El arbol no se creo, esta malo"
-														                             ; (Just ast) -> putStrLn "" -- drawAST 0 ast
-														                             } 
+                                   ; (Right (Just ast) , st) -> putStrLn $ drawAST 0 $ ast
+                                                         -- let check = fmap verTypeAST ast 
+														                             -- in case check of
+														                             -- { (Nothing)  -> putStrLn "El arbol no se creo, esta malo"
+														                             -- ; (Just ast) -> putStrLn "" -- drawAST 0 ast
+														                             -- } 
                                    }
                   }
 

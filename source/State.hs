@@ -11,6 +11,7 @@ import SymbolTable
 import Contents
 import Location
 import Token
+import Type
 
 data ParserState = ParserState { synErrorList :: DS.Seq MyParseError
                                , symbolTable  :: SymbolTable
@@ -62,3 +63,6 @@ exitScopeState st = case exitScope (symbolTable st) of
                     }
 getScopeState :: ParserState -> Int
 getScopeState st = getScope $ symbolTable st
+
+lookUpVarState :: T.Text -> SymbolTable -> Maybe Type
+lookUpVarState id sb = fmap symbolType $ checkSymbol id sb

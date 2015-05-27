@@ -59,25 +59,12 @@ emptyTable :: SymbolTable
 emptyTable =  Table (Tr.Node ((Diccionario M.empty, 0), Nothing) []) 
 
 
-isEmpty :: SymbolTable -> Bool 
-isEmpty tabla = if (getActual tabla == Diccionario M.empty) then True else False
-
-
-isEmptyTable :: SymbolTable -> Bool 
-isEmptyTable tabla = tabla == Table (Tr.Node ((Diccionario M.empty, 0), Nothing) [])
-
-
 enterScope :: SymbolTable -> SymbolTable
-enterScope tabla = if (isEmptyTable tabla) then  Table (Tr.Node ((Diccionario M.empty, 0), Nothing) []) 
-                                           else Table (Tr.Node ((Diccionario M.empty, (getScope tabla) + 1), Just tabla) [])
+enterScope tabla = Table (Tr.Node ((Diccionario M.empty, getScope tabla), Just (updateScope tabla)) [])
 
 
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
-
---exitScope tabla = if isEmpty tabla then getPadre tabla
---                  else fmap (insertHijo tabla) (getPadre tabla) 
-
 
 
 checkSymbol :: T.Text -> SymbolTable -> Maybe Contents
@@ -90,7 +77,8 @@ checkSymbol valor tabla = let dic = getActual tabla in
                                              }
                               }
 
-
+updateScope :: SymbolTable -> SymbolTable
+updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), fmap updateScope (getPadre sb)) (Tr.subForest (actual sb)) }
 
 addSymbol :: T.Text -> Contents -> SymbolTable -> (Either Contents SymbolTable)
 addSymbol valor content tabla =
@@ -101,16 +89,14 @@ addSymbol valor content tabla =
                             Right $ insertTabla (Diccionario newActual) sc tabla
           }
 
-
-
 look :: (Either String SymbolTable) -> SymbolTable 
 look (Right tabla) = tabla
 
 
 --drawST level st = show (fst $ Tr.rootLabel st)
-drawST level st = drawDic level (M.toList (getMap ((fst . fst) $ Tr.rootLabel st)))
-                                 `mappend` drawSTforest (level + 4) (Tr.subForest st)  
-
+drawST level st =  putSpacesLn level `mappend` "Alcance: " `mappend` show ((snd . fst) $ Tr.rootLabel st)  
+                                     `mappend` drawDic level (M.toList (getMap ((fst . fst) $ Tr.rootLabel st)))
+                                     `mappend` drawSTforest (level + 4) (Tr.subForest st) 
 
 drawSTforest level xs = foldl (\acc st -> (acc `mappend` putSpacesLn level `mappend` drawST level st)) [] xs
 

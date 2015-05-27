@@ -1,19 +1,25 @@
 program main |[
 
+  func sumar : (m : int, n : int) -> int
+  |[
+      m + n
+  ]|
+
   proc dividir: (out A: int, out B: int) 
   [ 
   	var q, r, b : int;
+    var f : double;
     read(A, B); 
 
     {pre A >= 0 /\ B >= 0 pre}  
     |[  
     	q, r, b := 0, A, B;
 
-		{inv   true inv} 
+		{inv   true inv}
 		{bound true bound}
 		
-    	do (r >= b) -> 
-    		b:= b*2
+    	do (r >= b) ->
+        b:= b*2
     	od;
 
 		{inv   true  inv} 
@@ -21,7 +27,7 @@ program main |[
 
     	do (b != B) ->
         |[
-    		    q, b := q*2, b/2;
+            q, b := q*2, b/2;
 
     		    if (r <  b) -> skip
     		    [] (r >= b) -> q, r := q+1, r-b
@@ -44,6 +50,8 @@ program main |[
       writeln(resultado);
       
       write("El resto es: ");
-      writeln(resto)
+      writeln(resto);
+
+      resto := sumar (3, 39)
   ]|
 ]|

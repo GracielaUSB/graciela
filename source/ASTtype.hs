@@ -9,14 +9,15 @@ import VerTypes
 import Type 
 import AST
 
+runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
 
-verTypeAST :: (AST ()) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (AST (Type.Type))
-verTypeAST ((AST.Program name loc sc defs accs _)) = do defs'    <- verTypeASTlist defs
-                                                        accs'    <- verTypeASTlist accs
-                                                        let defsT = map tag defs'
-                                                        let accsT = map tag accs'
-                                                        checkT   <- verProgram defsT accsT
-                                                        return (AST.Program name loc sc defs' accs' checkT)
+verTypeAST :: (AST (Type)) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (AST (Type.Type))
+verTypeAST ((AST.Program name loc defs accs _)) = do defs'    <- verTypeASTlist defs
+                                                     accs'    <- verTypeASTlist accs
+                                                     let defsT = map tag defs'
+                                                     let accsT = map tag accs'
+                                                     checkT   <- verProgram defsT accsT
+                                                     return (AST.Program name loc defs' accs' checkT)
 
 
 verTypeAST ((ID loc cont _)) = do checkT <- verID cont
@@ -35,7 +36,7 @@ verTypeAST ((Constant loc False max _)) = return (Constant loc False max MyFloat
 
 verTypeAST ((Arithmetic t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  checkT <- verArithmetic $ verType (tag lexpr') (tag rexp')
+                                                  checkT <- verArithmetic (verType (tag lexpr') (tag rexp')) loc t 
                                                   return (Arithmetic t loc lexpr' rexp' checkT)
 
 

@@ -13,9 +13,9 @@ instance Show VarBehavour where
 	show Variable           = " es una Variable"
 
 
-data Contents = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type, cAST :: Maybe (AST ()) }
-              | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type                         }
-              | FunctionCon { symbolLoc :: Location, symbolType :: Type                                                     }
+data Contents = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type, cAST :: Maybe (AST (Type)) }
+              | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type                             }
+              | FunctionCon { symbolLoc :: Location, symbolType :: Type                                                         }
         deriving (Eq)
 
 

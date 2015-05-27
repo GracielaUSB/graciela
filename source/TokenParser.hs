@@ -184,6 +184,13 @@ number = tokenPrim showTok posTok testTok
                                   { TokInteger n -> Just (TokInteger n)
                                   ; otherwise    -> Nothing
                                   }
-
-
-                            
+                                                              
+parseDouble :: MyParser (Token)
+parseDouble = tokenPrim showTok posTok testTok
+         where
+           showTok (t, pos)     = show t
+           posTok  _ (t, pos) _ = pos
+           testTok (t, pos)     = case t of
+                                  { TokFlotante n1 n2 -> Just (TokFlotante n1 n2)
+                                  ; otherwise         -> Nothing
+                                  }

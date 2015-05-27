@@ -125,6 +125,7 @@ lexer = do spaces
                               <|> (pRightPost    >> spaces >> return (TokRightPost))
                               <|> (pLeftBound    >> spaces >> return (TokLeftBound))
                               <|> (pRightBound   >> spaces >> return (TokRightBound))
+                              <|> (pType         AP.<* spaces >>= return . TokType)
                               <|> (pLeftA        >> spaces >> return (TokLeftA))
                               <|> (pRightA       >> spaces >> return (TokRightA))
                               <|> (pLeftInv      >> spaces >> return (TokLeftInv))
@@ -209,7 +210,6 @@ lexer = do spaces
                                             }
                                         )
                                   ) 
-                              <|> (pType         AP.<* spaces >>= return . TokType)
                               <|> (pIn           >> spaces >> return (TokIn))
                               <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
                               <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))

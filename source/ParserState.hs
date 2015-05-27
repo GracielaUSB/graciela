@@ -42,7 +42,7 @@ addManyUniSymParser (Just xs) (Just t) = f xs t
         f [] _             = return()
 addManyUniSymParser _ _                = return()
 
-addManySymParser :: VarBehavour -> Maybe([(T.Text, Location)]) -> Maybe(Type) -> Maybe([AST()]) -> MyParser()
+addManySymParser :: VarBehavour -> Maybe([(T.Text, Location)]) -> Maybe(Type) -> Maybe([AST(Type)]) -> MyParser()
 addManySymParser vb (Just xs) (Just t) (Just ys) = if   length xs /= length ys then do pos <- getPosition
                                                                                        ST.modify $ addTypeError $ (IncomDefError (getLocation pos))
                                                    else f vb xs t ys
@@ -50,7 +50,7 @@ addManySymParser vb (Just xs) (Just t) (Just ys) = if   length xs /= length ys t
         f vb ((id, loc):xs) t (ast:ys) = do addSymbolParser id (Contents vb loc t (Just ast))
                                             f vb xs t ys
         f _ [] _ []                    = return()
-addManySymParser _ _ _ _                         = return()
+addManySymParser _ _ _ _               = return()
 
 addFunctionArgParser :: T.Text -> Maybe (Type) -> Location -> MyParser ()
 addFunctionArgParser id (Just t) loc = addSymbolParser id (Contents CO.Constant loc t Nothing)
@@ -59,6 +59,9 @@ addFunctionArgParser _ _ _           = return ()
 addSymbolParser :: T.Text -> Contents -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
+lookUpVarParser :: T.Text -> MyParser (Maybe Type)
+lookUpVarParser id = do st <- get
+                        return $ lookUpVarState id (symbolTable st)
 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset

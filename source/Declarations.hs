@@ -42,17 +42,14 @@ myType follow recSet = do myBasicType follow recSet
                                  t <- myBasicType follow recSet
                                  return (AP.liftA2 (MyArray) t bl)
 
-decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
-decList follow recSet = --do newScopeParser
-                           do lookAhead follow
-                              --exitScopeParser
-                              return $ return EmptyAST
-                              <|> do dl <- decListAux follow recSet
-                                  --   exitScopeParser
-                                     return $ dl
+decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
+decList follow recSet = do lookAhead follow
+                           return $ return EmptyAST
+                           <|> do dl <- decListAux follow recSet
+                                  return $ dl
                            
 
-decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST ()))
+decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
 decListAux follow recSet = do lookAhead follow
                               return $ return EmptyAST
                               <|> do parseVar
@@ -103,7 +100,7 @@ idListAux follow recSet = do lookAhead follow
 parseLocation = do pos <- getPosition
                    return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
                   
-decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST()))
+decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
 decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
                                    do parseRead
                                       parseLeftParent

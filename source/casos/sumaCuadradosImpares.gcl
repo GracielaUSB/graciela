@@ -1,6 +1,6 @@
 program main |[
   
-  func : sumaCuadradosImpares(j:int, k:int) -> int
+  func sumaCuadradosImpares : (j:int, k:int) -> int
   |[
       if (j >  k) -> 0
       [] (j <= k) -> if (j mod 2 != 0) -> (j*j + sumaCuadradosImpares(j+1, k))
