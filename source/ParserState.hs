@@ -62,7 +62,11 @@ addSymbolParser id c = do ST.modify $ addNewSymbol id c
 
 lookUpSymbol :: T.Text -> MyParser (Maybe Contents)
 lookUpSymbol id = do st <- get
-                     return $ lookUpVarState id (symbolTable st)
+                     case lookUpVarState id (symbolTable st) of
+                     { Nothing -> do addNonDeclVarError id
+                                     return Nothing
+                     ; Just c  -> return $ Just c
+                     }
 
 lookUpVarParser :: T.Text -> MyParser (Maybe Type)
 lookUpVarParser id = do st <- get
@@ -85,6 +89,10 @@ lookUpConsParser id = do c   <- lookUpSymbol id
 addConsIdError id = do pos <- getPosition 
                        ST.modify $ addTypeError (ConstIdError id (getLocation pos))
                        return ()
+
+addNonDeclVarError id = do pos <- getPosition 
+                           ST.modify $ addTypeError (NonDeclError id (getLocation pos))
+                           return ()
 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset

@@ -2,12 +2,14 @@ program hola
 |[
   proc hola : (in a: int, out s: string)
   [
-    const b := 5 : int;
+    var   b := 5 : int;
+    const c := 5 : int;
     {pre true pre}
     |[
         |[ 
-            var c : int;
-            b := c
+            var b : int;
+            c := a;
+            m := 5
         ]|
     ]|
     {post true post}
