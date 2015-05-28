@@ -140,13 +140,13 @@ verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) 
 verProcCall name args = return MyEmpty
 
 
-verLAssign :: [Type] -> [(Token, [AST (Type)])] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+--verLAssign :: [Type] -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verLAssign explist idlist = return MyEmpty
+      --  let check = foldl (\acc (t, expT) -> checkListType t acc expT) True $ zip idlist explist
+      --                      in case check of 
+       --                            True  -> return MyEmpty
+        --                           False -> return MyError
 
-
-verID :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verID name = do st <- RWSS.get
-                return MyEmpty
 
 
 verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)

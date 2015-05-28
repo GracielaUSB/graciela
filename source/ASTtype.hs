@@ -20,8 +20,7 @@ verTypeAST ((AST.Program name loc defs accs _)) = do defs'    <- verTypeASTlist 
                                                      return (AST.Program name loc defs' accs' checkT)
 
 
-verTypeAST ((ID loc cont t)) = return $ ID loc cont t
-
+verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )
 verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
 verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
 verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
@@ -110,6 +109,8 @@ verTypeAST ((GuardAction loc assert action _)) = do assert' <- verTypeAST assert
 
 verTypeAST ((LAssign idlist explist loc _)) = do explist' <- verTypeASTlist explist  
                                                  checkT   <- verLAssign (map tag explist') idlist
+--                                                 checkT   <- verLAssign (map tag explist') (map (snd . fst) idlist)
+
                                                  return (LAssign [] explist' loc checkT)
 
 
