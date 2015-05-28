@@ -239,7 +239,7 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                                                  return $ Nothing
                                                         
                                                 <|> do blist <- bracketsList follow recSet
-                                                       return $ (AP.liftA2 (ArrCall (getLocation pos) idp) blist (return (MyEmpty)))
+                                                       return $ (AP.liftA2 (ArrCall (getLocation pos) idp) blist t)
 
                                          
                                      <|> do parseMaxInt

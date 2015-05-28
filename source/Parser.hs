@@ -115,10 +115,10 @@ function follow recSet = do pos <- getPosition
                                                  parseRightParent
                                                  parseArrow
                                                  t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
-                                                 addFunTypeParser (text id) lt t (getLocation pos)
-                                                 exitScopeParser
                                                  bo <- maybeBound parseTokOpenBlock (recSet <|> parseTokOpenBlock)
                                                  b  <- functionBody parseTokCloseBlock parseTokCloseBlock
+                                                 exitScopeParser
+                                                 addFunTypeParser (text id) lt t (getLocation pos)
                                                  return(M.liftM3 (DefFun id) b bo (return (MyEmpty)))
                                              )
                                         <|> do err <- genNewError follow ProcOrFunc
@@ -161,7 +161,6 @@ proc follow recSet = do pos <- getPosition
                            parseLeftParent
                            newScopeParser
                            targs <- listArgProc parseRightParent parseRightParent
-                           addProcTypeParser (text id) targs (getLocation pos)
                            parseRightParent
                            parseLeftBracket
                            do        pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
@@ -172,6 +171,7 @@ proc follow recSet = do pos <- getPosition
                                      post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                      parseRightBracket
                                      exitScopeParser
+                                     addProcTypeParser (text id) targs (getLocation pos)
                                      return ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return (MyEmpty)))
 
                               <|> do dl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
@@ -183,6 +183,7 @@ proc follow recSet = do pos <- getPosition
                                      post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                                      parseRightBracket
                                      exitScopeParser
+                                     addProcTypeParser (text id) targs (getLocation pos)
                                      return (dl >>= (const ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return (MyEmpty)))))
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
@@ -456,5 +457,3 @@ repetition follow recSet = do pos <- getPosition
 --skip :: MyParser Token -> MyParser Token -> MyParser (Maybe (Location -> AST))
 skip follow recSet = do parseSkip
                         return $ return $ Skip
-
-

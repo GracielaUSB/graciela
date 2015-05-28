@@ -24,27 +24,15 @@ type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
 initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, typErrorList = DS.empty }
 
 addTypeError :: MyTypeError -> ParserState -> ParserState
-addTypeError err ps = ParserState { synErrorList = (synErrorList ps)
-                                  , symbolTable  = (symbolTable ps)
-                                  , typErrorList = (typErrorList ps) DS.|> err
-                                  }
+addTypeError err ps = ps { typErrorList = (typErrorList ps) DS.|> err }
                                       
 addParsingError :: MyParseError -> ParserState -> ParserState
-addParsingError e ps = ParserState { synErrorList = (synErrorList ps) DS.|> e
-                                   , symbolTable = symbolTable ps
-                                   , typErrorList = typErrorList ps
-                                   }
+addParsingError e ps = ps { synErrorList = (synErrorList ps) DS.|> e }
 
 addNewSymbol :: T.Text -> Contents -> ParserState -> ParserState
 addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
-                        { Left con -> ParserState { synErrorList = (synErrorList ps)
-                                                  , symbolTable  = (symbolTable ps)
-                                                  , typErrorList = (typErrorList ps) DS.|> (RepSymbolError id (symbolLoc con) (symbolLoc c))
-                                                  }
-                        ; Right sb -> ParserState { synErrorList = (synErrorList ps)
-                                                  , symbolTable  = sb
-                                                  , typErrorList = (typErrorList ps)
-                                                  }
+                        { Left con -> ps { typErrorList = (typErrorList ps) DS.|> (RepSymbolError id (symbolLoc con) (symbolLoc c)) }
+                        ; Right sb -> ps { symbolTable  = sb }
                         }
 
 newScopeState :: ParserState -> ParserState

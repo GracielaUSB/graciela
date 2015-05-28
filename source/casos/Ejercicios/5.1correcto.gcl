@@ -9,11 +9,14 @@ program main |[
   [ 
   	var q, r, b : int;
     var f : double;
+    var arreglo : array [5] of int;
     read(A, B); 
 
     {pre A >= 0 /\ B >= 0 pre}  
     |[  
     	q, r, b := 0, A, B;
+      arreglo[3] := q;
+      q := arreglo[3];
 
 		{inv   true inv}
 		{bound true bound}

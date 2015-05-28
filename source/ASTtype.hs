@@ -20,8 +20,7 @@ verTypeAST ((AST.Program name loc defs accs _)) = do defs'    <- verTypeASTlist 
                                                      return (AST.Program name loc defs' accs' checkT)
 
 
-verTypeAST ((ID loc cont _)) = do checkT <- verID cont
-                                  return (ID loc cont checkT)
+verTypeAST ((ID loc cont t)) = return $ ID loc cont t
 
 verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
 verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
