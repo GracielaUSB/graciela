@@ -4,7 +4,7 @@ import qualified Data.Text as T
 import Data.Monoid
 import Location
 import Token
-
+import Type
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
    del lenguaje. Los campos @line@ y @column@ representan la línea y columna, respectivamente,
@@ -104,7 +104,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Cond         { cguard   :: [AST a], location :: Location, tag :: a                                          } -- ^ Instruccion If.
          | Block        { lisAct   :: [AST a], location :: Location, tag :: a                                          }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | LAssign      { idlist   :: [(Token, [AST a])], explista :: [AST a], location :: Location, tag :: a          } -- ^
+         | LAssign      { idlist   :: [((Token, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a          } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
          | ProcCall     { fname    :: Token, args     :: [AST a], location :: Location, tag :: a                       } -- ^ Llamada a funcion.
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
