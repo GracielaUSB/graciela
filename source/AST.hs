@@ -120,9 +120,10 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Quant        { opQ      :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyAST
-    deriving (Show, Eq)
+    deriving (Eq)
 
-
+instance Show a => Show (AST a) where
+  show ast = drawAST 0 ast
 
 
 

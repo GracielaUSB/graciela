@@ -136,17 +136,12 @@ verCallExp :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) (
 verCallExp name args = return MyEmpty
 
 
-verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verProcCall name args = return MyEmpty
-
-
 verLAssign :: [Type] -> [(Token, [AST (Type)])] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verLAssign explist idlist = return MyEmpty
 
 
-verID :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verID name = do st <- RWSS.get
-                return MyEmpty
+verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verProcCall name args = return MyEmpty
 
 
 verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)

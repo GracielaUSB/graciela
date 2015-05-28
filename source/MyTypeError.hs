@@ -9,6 +9,9 @@ data MyTypeError = RepSymbolError { symbol      :: T.Text
                                   , preLocation :: Location
                                   , actLocation :: Location
                                   }
+                 | ConstIdError   { symbol   :: T.Text
+                                  , location :: Location
+                                  }
                  | ArithmeticError { arOp   :: OpNum
                                    , actLoc :: Location 
                                    }                 

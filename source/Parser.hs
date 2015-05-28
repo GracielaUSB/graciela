@@ -377,7 +377,8 @@ functionCallOrAssign follow recSet = do id <- parseID
                                                       return(fmap (ProcCall id) lexp)
                                                          
                                                 )
-                                           <|> try ( do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
+                                           <|> try ( do t <- lookUpConsParser (text id)
+                                                        bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                                                         rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
                                                         parseAssign
                                                         le <- listExp follow recSet
@@ -391,6 +392,7 @@ idAssignListAux follow recSet = do lookAhead follow
                                    return $ return []
                                    <|> do parseComma
                                           ac <- parseID
+                                          t  <- lookUpConsParser (text ac)
                                           bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                                           rl <- idAssignListAux (follow) (recSet)
                                           return ((AP.liftA2 (:) (fmap ((,) ac) bl) rl))
