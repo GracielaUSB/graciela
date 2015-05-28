@@ -1,6 +1,5 @@
 module Type where
 
-import AST
 
 data TypeArg = In | Out | InOut
       deriving (Eq)
@@ -13,7 +12,8 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray Type [AST (Type)]
+                  | MyError | MyEmpty | MyString | MyArray Type Int
+
 
 instance Eq Type where
    MyInt            ==  MyInt           = True

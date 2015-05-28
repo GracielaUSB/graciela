@@ -382,12 +382,12 @@ functionCallOrAssign follow recSet = do id <- parseID
                                                         rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
                                                         parseAssign
                                                         le <- listExp follow recSet
-                                                        return ((fmap (LAssign) (AP.liftA2 (:) (fmap ((,) id) bl) rl)) AP.<*> le)
+                                                        return (AP.liftA2 (LAssign) (AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) id) t) bl) rl) le)
                                                    )
       
 
 
-idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([(Token, [AST(Type)])]))
+idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([((Token, Type), [AST(Type)])]))
 idAssignListAux follow recSet = do lookAhead follow
                                    return $ return []
                                    <|> do parseComma
@@ -395,7 +395,7 @@ idAssignListAux follow recSet = do lookAhead follow
                                           t  <- lookUpConsParser (text ac)
                                           bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                                           rl <- idAssignListAux (follow) (recSet)
-                                          return ((AP.liftA2 (:) (fmap ((,) ac) bl) rl))
+                                          return ((AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) ac) t) bl) rl))
 
 
 

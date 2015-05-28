@@ -108,9 +108,7 @@ verTypeAST ((GuardAction loc assert action _)) = do assert' <- verTypeAST assert
 
 
 verTypeAST ((LAssign idlist explist loc _)) = do explist' <- verTypeASTlist explist  
-                                                 checkT   <- verLAssign (map tag explist') idlist
---                                                 checkT   <- verLAssign (map tag explist') (map (snd . fst) idlist)
-
+                                                 checkT   <- verLAssign (map tag explist') (map (snd . fst) idlist)
                                                  return (LAssign [] explist' loc checkT)
 
 
