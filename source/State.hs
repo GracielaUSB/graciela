@@ -52,5 +52,5 @@ exitScopeState st = case exitScope (symbolTable st) of
 getScopeState :: ParserState -> Int
 getScopeState st = getScope $ symbolTable st
 
-lookUpVarState :: T.Text -> SymbolTable -> Maybe Type
-lookUpVarState id sb = fmap symbolType $ checkSymbol id sb
+lookUpVarState :: T.Text -> SymbolTable -> Maybe Contents
+lookUpVarState id sb = checkSymbol id sb

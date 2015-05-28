@@ -148,7 +148,6 @@ verLAssign explist idlist = return MyEmpty
         --                           False -> return MyError
 
 
-
 verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verDefFun name body bound = return MyEmpty
 

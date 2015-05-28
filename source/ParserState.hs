@@ -59,9 +59,32 @@ addFunctionArgParser _ _ _           = return ()
 addSymbolParser :: T.Text -> Contents -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
+
+lookUpSymbol :: T.Text -> MyParser (Maybe Contents)
+lookUpSymbol id = do st <- get
+                     return $ lookUpVarState id (symbolTable st)
+
 lookUpVarParser :: T.Text -> MyParser (Maybe Type)
 lookUpVarParser id = do st <- get
-                        return $ lookUpVarState id (symbolTable st)
+                        c  <- lookUpSymbol id
+                        return $ fmap (symbolType) c
+
+lookUpConsParser :: T.Text -> MyParser (Maybe Type)
+lookUpConsParser id = do c   <- lookUpSymbol id
+                         case c of
+                         { Nothing   -> return Nothing
+                         ; Just a    -> case a of
+                                        { (Contents    CO.Constant _ _ _) -> do addConsIdError id
+                                                                                return $ Nothing
+                                        ; (ArgProcCont In    _ _     )    -> do addConsIdError id
+                                                                                return $ Nothing
+                                        ; otherwise                       -> return $ Just (symbolType a)
+                                        } 
+                        }
+
+addConsIdError id = do pos <- getPosition 
+                       ST.modify $ addTypeError (ConstIdError id (getLocation pos))
+                       return ()
 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset
