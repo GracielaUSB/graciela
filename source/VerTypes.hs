@@ -119,7 +119,7 @@ verGuardExp exp action loc = case action of
 verDefProc :: [Type] -> Type -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verDefProc accs pre post bound = let func = checkListType MyEmpty
                                  in case ((foldl func True accs) && (MyBool == pre )  && 
-                                                (MyInt == bound) && (MyBool == post)) of
+                                                (MyBool == post)) of
                                         True  -> return MyEmpty 
                                         False -> return MyError
 
@@ -160,7 +160,7 @@ verState expr loc stateCond =
                                           Bound     -> MyInt
                                           otherwise -> MyBool 
                          in case (expr == checkT) of
-                                True -> return MyEmpty 
+                                True -> return checkT 
                                 False -> do RWSS.tell $ DS.singleton $ StateError checkT stateCond loc 
                                             return MyError
 

@@ -20,7 +20,7 @@ program hola
 
   |[
     var x : int;
-    hola("hola mundo", 10);
+    hola(10, "hola mundo");
     x := suma(21, 21,"ola k ase")
   ]|
 ]|
