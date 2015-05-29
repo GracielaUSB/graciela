@@ -66,6 +66,8 @@ enterScope tabla = Table (Tr.Node ((Diccionario M.empty, getScope tabla), Just (
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
 
+lookUpRoot :: T.Text -> SymbolTable -> Maybe Contents
+lookUpRoot = checkSymbol
 
 checkSymbol :: T.Text -> SymbolTable -> Maybe Contents
 checkSymbol valor tabla = let dic = getActual tabla in
@@ -88,6 +90,7 @@ addSymbol valor content tabla =
                             sc = getScope tabla in
                             Right $ insertTabla (Diccionario newActual) sc tabla
           }
+
 
 look :: (Either String SymbolTable) -> SymbolTable 
 look (Right tabla) = tabla

@@ -4,6 +4,8 @@ import qualified Control.Monad.RWS.Strict as RWSS
 import qualified Data.Sequence            as DS
 import MyParseError                       as PE
 import MyTypeError                        as PT
+import qualified Data.Text                as T
+import Contents
 import SymbolTable
 import Location
 import Token
@@ -178,8 +180,27 @@ verQuant range term  = case ((verRango range) && not(MyError == term)) of
 
 
 -----------NECESITO TABLA-----------
-verCallExp :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verCallExp name args = return MyEmpty
+verCallExp :: T.Text -> [Type] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verCallExp name args loc locarg = 
+    do sb <- RWSS.ask
+       case lookUpRoot name sb of
+       { Nothing -> 
+            addUndecFuncError loc name
+       ; Just x  -> 
+            case symbolType x of
+            { MyFunction args' ts ->
+                  if length args /= length args' then addNumberArgsError loc name
+                  else let t = zip args args' in
+                          if   and $ map (uncurry (==)) $ t then return $ ts
+                          else do mapM_ (\ ((arg, arg'), larg) -> 
+                                              if arg /= arg' then addFunArgError arg' arg larg 
+                                              else return MyEmpty
+                                        ) (zip t locarg) 
+                                  return $ MyError
+            ; otherwise           -> 
+                  addUndecFuncError loc name
+            }
+       }
 
 
 verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
@@ -193,9 +214,33 @@ verLAssign explist idlist =
                                      True  -> return MyEmpty
                                      False -> return MyError
 
-verDefFun :: Token -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verDefFun name body bound = return MyEmpty
+verDefFun :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verDefFun name body bound loc = do sb <- RWSS.ask
+                                   case lookUpRoot name sb of
+                                   { Nothing -> addUndecFuncError loc name
+                                   ; Just c  -> case symbolType c of
+                                                { MyFunction _ tf -> case tf == body of
+                                                                     { True  -> return tf
+                                                                     ; False -> addRetFuncError loc tf name
+                                                                     }
+                                                ; otherwise       -> addUndecFuncError loc name
+                                                } 
+                                   }
 
+addFunArgError :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+addFunArgError t t' loc = addTypeError $ FunArgError t t' loc
+
+addNumberArgsError :: Location -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type) 
+addNumberArgsError loc name = addTypeError $ NumberArgsError loc name
+
+addUndecFuncError :: Location -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type) 
+addUndecFuncError loc name = addTypeError $ UndecFunError loc name
+
+addRetFuncError :: Location -> Type -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type) 
+addRetFuncError loc tf name = addTypeError $ RetFuncError name tf loc
+
+addTypeError error = do RWSS.tell $ DS.singleton error
+                        return $ MyError
 
 verRandom :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verRandom var = return MyEmpty

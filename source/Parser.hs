@@ -119,7 +119,7 @@ function follow recSet = do pos <- getPosition
                                                  b  <- functionBody parseTokCloseBlock parseTokCloseBlock
                                                  exitScopeParser
                                                  addFunTypeParser (text id) lt t (getLocation pos)
-                                                 return(M.liftM3 (DefFun id) b bo (return (MyEmpty)))
+                                                 return(M.liftM3 (DefFun id (getLocation pos)) b bo (return (MyEmpty)))
                                              )
                                         <|> do err <- genNewError follow ProcOrFunc
                                                return $ Nothing

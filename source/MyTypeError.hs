@@ -6,6 +6,7 @@ import Token
 import Type
 import AST
 
+
 data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , preLoc :: Location
                                    , loc    :: Location
@@ -46,4 +47,18 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    }                                                                                            
                  | IncomDefError   { loc    :: Location
                                    }
-               deriving (Show)
+                 | UndecFunError   { loc    :: Location
+                                   , symbol :: T.Text
+                                   }
+                 | NumberArgsError { loc    :: Location
+                                   , symbol :: T.Text
+                                   }
+                 | RetFuncError    { symbol :: T.Text
+                                   , ftype  :: Type
+                                   , loc    :: Location
+                                   }
+                 | FunArgError     { waType :: Type
+                                   , acType :: Type
+                                   , loc    :: Location
+                                   }
+                deriving (Show)

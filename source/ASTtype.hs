@@ -8,6 +8,7 @@ import SymbolTable
 import VerTypes
 import Type 
 import AST
+import Token
 
 runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
 
@@ -20,12 +21,6 @@ verTypeAST ((AST.Program name loc defs accs _)) = do defs'    <- verTypeASTlist 
                                                      return (AST.Program name loc defs' accs' checkT)
 
 
-verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )
-verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
-verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
-verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
-verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
-verTypeAST ((String loc cont _)) = return (String loc cont MyString)
 
 
 verTypeAST ((Constant loc True  max _)) = return (Constant loc True  max MyInt  )
@@ -133,15 +128,15 @@ verTypeAST ((FunBody loc exp _)) = do exp' <- verTypeAST (exp)
                                       return (FunBody loc exp' (tag exp'))
 
 
-verTypeAST ((FCallExp loc name args _)) = do args' <- verTypeASTlist args 
-                                             checkT <- verCallExp name (map tag args') 
+verTypeAST ((FCallExp loc name args _)) = do args' <- verTypeASTlist args
+                                             locs  <- getLocArgs args
+                                             checkT <- verCallExp (text name) (map tag args') loc locs
                                              return (FCallExp loc name args' checkT)
 
-
-verTypeAST ((DefFun name body bound _)) = do body'  <- verTypeAST body   
-                                             bound' <- verTypeAST bound
-                                             checkT <- verDefFun name (tag body') (tag bound') 
-                                             return (DefFun name body' bound' checkT)
+verTypeAST ((DefFun name loc body bound _)) = do body'  <- verTypeAST body   
+                                                 bound' <- verTypeAST bound
+                                                 checkT <- verDefFun (text name) (tag body') (tag bound') loc
+                                                 return (DefFun name loc body' bound' checkT)
                                                     
 
 verTypeAST ((DefProc name accs pre post bound _)) = do accs'  <- verTypeASTlist accs 
@@ -159,9 +154,16 @@ verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range
                                                   return (Quant op var loc range' term' checkT)
                                                          
 
+verTypeAST ast = return $ ast
+-- verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )
+-- verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
+-- verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
+-- verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
+-- verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
+-- verTypeAST ((String loc cont _)) = return (String loc cont MyString)
+-- verTypeAST (EmptyAST)            = return EmptyAST
 
-verTypeAST (EmptyAST) = return EmptyAST
-
+getLocArgs args = return $ fmap AST.location args
 
 verTypeASTlist []     = return []
 verTypeASTlist (x:xs) = do r  <- verTypeAST x
