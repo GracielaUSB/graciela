@@ -34,19 +34,19 @@ verTypeAST ((Constant loc False max _)) = return (Constant loc False max MyFloat
 
 verTypeAST ((Arithmetic t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  checkT <- verArithmetic (verType (tag lexpr') (tag rexp')) loc t 
+                                                  checkT <- verArithmetic (tag lexpr') (tag rexp') loc t 
                                                   return (Arithmetic t loc lexpr' rexp' checkT)
 
 
 verTypeAST ((Relational t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  checkT <- verRelational $ verType (tag lexpr') (tag rexp')
+                                                  checkT <- verRelational (tag lexpr') (tag rexp') loc t
                                                   return (Relational t loc lexpr' rexp' checkT)
                                                          
 
 verTypeAST ((Boolean    t loc lexpr rexp _)) = do lexpr' <- verTypeAST lexpr
                                                   rexp'  <- verTypeAST rexp  
-                                                  checkT <- verBoolean $ verType (tag lexpr') (tag rexp')
+                                                  checkT <- verBoolean (tag lexpr') (tag rexp') loc t
                                                   return (Boolean t loc lexpr' rexp' checkT)
                                                          
 
@@ -56,7 +56,7 @@ verTypeAST ((Convertion t loc exp _)) = do exp'   <- verTypeAST (exp)
 
 
 verTypeAST ((Unary op loc exp _)) = do exp'   <- verTypeAST (exp) 
-                                       checkT <- verUnary op (tag exp')
+                                       checkT <- verUnary op (tag exp') loc
                                        return (Unary op loc exp' checkT)
 
 
@@ -84,20 +84,20 @@ verTypeAST ((ArrCall loc name args _)) = do args'  <- verTypeASTlist args
 
 verTypeAST ((Guard exp action loc _)) = do exp'    <- verTypeAST exp     
                                            action' <- verTypeAST action
-                                           checkT  <- verGuard (tag exp') (tag action') 
+                                           checkT  <- verGuard (tag exp') (tag action') loc
                                            return (Guard exp' action' loc checkT)
                                                   
 
 verTypeAST ((GuardExp exp action loc _)) = do exp'    <- verTypeAST exp     
                                               action' <- verTypeAST action
-                                              checkT  <- verGuard (tag exp') (tag action')
+                                              checkT  <- verGuardExp (tag exp') (tag action') loc  
                                               return (GuardExp exp' action' loc checkT)
                                                 
 
 
-verTypeAST ((States t loc exprs _)) = do exprs' <- verTypeASTlist exprs
-                                         checkT <- verState (map tag exprs')
-                                         return (States t loc exprs' checkT)    
+verTypeAST ((States t loc expr _)) = do expr' <- verTypeAST expr
+                                        checkT <- verState (tag expr') loc t 
+                                        return (States t loc expr' checkT)    
 
 
 verTypeAST ((GuardAction loc assert action _)) = do assert' <- verTypeAST assert  
@@ -113,7 +113,7 @@ verTypeAST ((LAssign idlist explist loc _)) = do explist' <- verTypeASTlist expl
 
 
 verTypeAST ((Cond guard loc _)) = do guard' <- verTypeASTlist guard  
-                                     checkT <- verCond (map tag guard')
+                                     checkT <- verCond (map tag guard') loc
                                      return (Cond guard' loc checkT)
 
 

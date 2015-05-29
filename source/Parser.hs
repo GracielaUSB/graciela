@@ -188,7 +188,7 @@ proc follow recSet = do pos <- getPosition
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 precondition follow recSet =  do parseTokLeftPre
-                                 e <- listExp (parseTokRightPre) (recSet <|> parseTokRightPre)
+                                 e <- expr (parseTokRightPre) (recSet <|> parseTokRightPre)
                                  parseTokRightPre
                                  pos <- getPosition
                                  return(AP.liftA2 (States Pre (getLocation pos)) e (return (MyEmpty)))
@@ -197,7 +197,7 @@ precondition follow recSet =  do parseTokLeftPre
 
 postcondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 postcondition follow recSet =  do parseTokLeftPost
-                                  e <- listExp (parseTokRightPost) (recSet <|> parseTokRightPost)
+                                  e <- expr (parseTokRightPost) (recSet <|> parseTokRightPost)
                                   parseTokRightPost
                                   pos <- getPosition
                                   return(AP.liftA2 (States Post (getLocation pos)) e (return (MyEmpty)))
@@ -206,7 +206,7 @@ postcondition follow recSet =  do parseTokLeftPost
 
 bound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 bound follow recSet =  do parseTokLeftBound
-                          e <- listExp (parseTokRightBound) (recSet <|> parseTokRightBound)
+                          e <- expr (parseTokRightBound) (recSet <|> parseTokRightBound)
                           parseTokRightBound
                           pos <- getPosition
                           return(AP.liftA2 (States Bound (getLocation pos)) e (return (MyEmpty)))
@@ -215,7 +215,7 @@ bound follow recSet =  do parseTokLeftBound
 
 assertion :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 assertion follow recSet =  do parseTokLeftA
-                              e <- listExp (parseTokRightA) (recSet <|> parseTokRightA)
+                              e <- expr (parseTokRightA) (recSet <|> parseTokRightA)
                               parseTokRightA
                               pos <- getPosition
                               return(AP.liftA2 (States Assertion (getLocation pos)) e (return (MyEmpty)))
@@ -224,7 +224,7 @@ assertion follow recSet =  do parseTokLeftA
 
 invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 invariant follow recSet =  do parseTokLeftInv
-                              e <- listExp (parseTokRightInv) (recSet <|> parseTokRightInv)
+                              e <- expr (parseTokRightInv) (recSet <|> parseTokRightInv)
                               parseTokRightInv
                               pos <- getPosition
                               return(AP.liftA2 (States Invariant (getLocation pos)) e (return (MyEmpty)))
