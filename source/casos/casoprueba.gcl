@@ -7,12 +7,19 @@ program hola
     {pre true pre}
     |[
         |[ 
-            var b : int;
-            c := a;
-            m := 5
+            skip
         ]|
     ]|
     {post true post}
   ]
-  skip
+
+  func suma : (n : int, m : int, s : string) -> int
+  |[
+      n + m
+  ]|
+
+  |[
+    var x : int;
+    x := suma(21, "ola k ase", 21)
+  ]|
 ]|

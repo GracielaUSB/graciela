@@ -109,7 +109,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | ProcCall     { fname    :: Token, args     :: [AST a], location :: Location, tag :: a                       } -- ^ Llamada a funcion.
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
-         | DefFun       { fname    :: Token, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a                      }
+         | DefFun       { fname    :: Token, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
          | DefProc      { pname    :: Token, prbody   ::  [AST a], nodePre   :: (AST a)
                          ,nodePost :: (AST a), nodeBound :: (AST a), tag    :: a                                       }
          | Ran          { var      :: Token, location :: Location, tag :: a                                            }
@@ -371,7 +371,7 @@ drawAST level ((FunBody loc exp ast)) =
 
 
 
-drawAST level ((DefFun name body bound ast)) =
+drawAST level ((DefFun name _ body bound ast)) =
          putSpacesLn level `mappend` "Función: " `mappend` show name
                            `mappend` " //Tag: "   `mappend` show ast 
                            `mappend` drawAST(level + 4) (bound)   
