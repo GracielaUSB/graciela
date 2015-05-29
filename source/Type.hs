@@ -24,7 +24,8 @@ instance Eq Type where
    MyError          ==  MyError         = True
    MyEmpty          ==  MyEmpty         = True
    (MyProcedure  _) == (MyProcedure  _) = True
-   (MyFunction _ _) == (MyFunction _ _) = True
+   (MyFunction _ t) ==  x               = t == x
+   x                == (MyFunction _ t) = x == t
    (MyArray    t d) ==  x               = t == x
    x                == (MyArray    t d) = x == t  
    _                ==  _               = False

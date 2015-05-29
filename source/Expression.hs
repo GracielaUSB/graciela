@@ -75,11 +75,11 @@ exprLevel2 follow recSet = do e <- exprLevel3 (follow <|> parseTokImplies <|> pa
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseTokImplies
                                            e' <- exprLevel2 follow recSet
-                                           return(AP.liftA3 (Relational Implies (getLocation pos)) e e' (return (MyEmpty)))                                    
+                                           return(AP.liftA3 (Boolean Implies (getLocation pos)) e e' (return (MyEmpty)))                                    
                                     
                                     <|> do parseTokConse
                                            e' <- exprLevel2 follow recSet
-                                           return(AP.liftA3 (Relational Conse (getLocation pos)) e e' (return (MyEmpty)))      
+                                           return(AP.liftA3 (Boolean Conse (getLocation pos)) e e' (return (MyEmpty)))      
                                     
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing

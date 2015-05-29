@@ -20,23 +20,35 @@ checkListType x True  y = x == y
 
 verType MyError _  = MyError 
 verType _  MyError = MyError 
-verType x  y       = if (x == y) then x else MyError
+verType x  y       = if (x == y) then x else MyEmpty
 
 
-verArithmetic :: Type -> Location -> OpNum -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verArithmetic MyInt   _ _    = return MyInt 
-verArithmetic MyFloat _ _    = return MyFloat 
-verArithmetic err     loc op = do RWSS.tell $ DS.singleton $ ArithmeticError op loc
-                                  return MyError
+verArithmetic :: Type -> Type -> Location -> OpNum -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verArithmetic ltype rtype loc op = let checkT = verType ltype rtype
+                                   in case checkT of
+                                          MyInt     -> return MyInt
+                                          MyFloat   -> return MyFloat   
+                                          MyError   -> return MyError
+                                          otherwise -> do RWSS.tell $ DS.singleton $ ArithmeticError ltype rtype op loc 
+                                                          return MyError
 
-verRelational :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verRelational MyError = return MyError 
-verRelational _       = return MyBool
+
+verBoolean :: Type -> Type -> Location -> OpBool -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verBoolean ltype rtype loc op = let checkT = verType ltype rtype
+                                   in case checkT of
+                                          MyBool    -> return MyBool
+                                          MyError   -> return MyError
+                                          otherwise -> do RWSS.tell $ DS.singleton $ BooleanError ltype rtype op loc 
+                                                          return MyError
 
 
-verBoolean :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verBoolean MyBool     = return MyBool     
-verBoolean err        = return MyError 
+verRelational :: Type -> Type -> Location -> OpRel -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verRelational ltype rtype loc op = let checkT = verType ltype rtype
+                                   in case checkT of
+                                          MyError   -> return MyError
+                                          MyEmpty   -> do RWSS.tell $ DS.singleton $ RelationalError ltype rtype op loc 
+                                                          return MyError
+                                          otherwise -> return checkT
 
 
 verConvertion :: Conv -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
@@ -48,27 +60,34 @@ verConvertion ToChar   = return MyChar
 
 verWrite :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verWrite  MyError          = return MyError 
-verWrite (MyArray     _ _) = return MyError
-verWrite (MyFunction  _ _) = return MyError
-verWrite (MyProcedure _  ) = return MyError
 verWrite  _                = return MyEmpty
 
 
-verUnary :: OpUn -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verUnary Minus   MyInt        = return MyInt  
-verUnary Minus   MyFloat      = return MyFloat
-verUnary Minus   err          = return MyError 
-verUnary Not     MyBool       = return MyBool 
-verUnary Not     err          = return MyError 
-verUnary Abs     MyInt        = return MyInt  
-verUnary Abs     MyFloat      = return MyFloat
-verUnary Abs     err          = return MyError
-verUnary Sqrt    MyInt        = return MyInt  
-verUnary Sqrt    MyFloat      = return MyFloat
-verUnary Sqrt    err          = return MyError 
-verUnary Length (MyArray t n) = return MyInt   
-verUnary Length  MyString     = return MyString
-verUnary Length  err          = return MyError
+verUnary :: OpUn -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verUnary _       MyError      _   = return MyError
+
+verUnary Minus   MyInt        loc = return MyInt  
+verUnary Minus   MyFloat      loc = return MyFloat
+verUnary Minus   errType      loc = do RWSS.tell $ DS.singleton $ UnaryError errType Minus loc
+                                       return MyError 
+
+verUnary Not     MyBool       loc = return MyBool 
+verUnary Not     errType      loc = do RWSS.tell $ DS.singleton $ UnaryError errType Not   loc
+                                       return MyError
+
+verUnary Abs     MyInt        loc = return MyInt  
+verUnary Abs     MyFloat      loc = return MyFloat
+verUnary Abs     errType      loc = do RWSS.tell $ DS.singleton $ UnaryError errType Abs   loc
+                                       return MyError
+
+verUnary Sqrt    MyInt        loc = return MyInt  
+verUnary Sqrt    MyFloat      loc = return MyFloat
+verUnary Sqrt    errType      loc = do RWSS.tell $ DS.singleton $ UnaryError errType Sqrt  loc
+                                       return MyError 
+   
+verUnary Length  MyString     loc = return MyString
+verUnary Length  errType      loc = do RWSS.tell $ DS.singleton $ UnaryError errType Length loc
+                                       return MyError
 
 
 verGuardAction :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
@@ -77,10 +96,24 @@ verGuardAction assert action = case ((MyBool == assert) && (MyEmpty == action)) 
                                    False -> return MyError 
 
 
-verGuard :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verGuard exp action = case ((MyBool == exp) && (MyEmpty == action)) of
-                          True  -> return MyEmpty 
-                          False -> return MyError 
+verGuard :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verGuard exp action loc = case action of
+                              MyError -> return MyError
+                              MyEmpty -> case exp of
+                                             MyError   -> return MyError
+                                             MyBool    -> return MyEmpty
+                                             otherwise -> do RWSS.tell $ DS.singleton $ GuardError exp loc
+                                                             return MyError
+
+
+verGuardExp :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verGuardExp exp action loc = case action of
+                                 MyError   -> return MyError
+                                 otherwise -> case exp of
+                                                  MyError   -> return MyError
+                                                  MyBool    -> return action
+                                                  otherwise -> do RWSS.tell $ DS.singleton $ GuardError exp loc
+                                                                  return MyError
 
 
 verDefProc :: [Type] -> Type -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
@@ -105,22 +138,35 @@ verProgram defs accs = let func = checkListType MyEmpty
                               False -> return $ MyError
 
 
-verCond :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verCond guards = let func = checkListType MyBool
-                 in case (foldl func True guards) of
-                        True  -> return MyEmpty
-                        False -> return MyError
+verCond :: [Type] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verCond guards loc = let checkError = (\acc t -> if (acc == MyError) then MyError else verType acc t) 
+                         checkSame  = (\acc t -> if (acc == t      ) then MyError else acc)  
+                         checkT     = foldl1 checkSame guards               
+                     in case (foldl checkError MyEmpty guards) of
+                            MyError   -> return MyError
+                            otherwise -> case checkT of
+                                             MyError   -> do RWSS.tell $ DS.singleton $ CondError loc 
+                                                             return MyError  
+                                             MyEmpty   -> return MyEmpty
+                                             otherwise -> return checkT  
 
 
-verState :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verState exprs = let func = checkListType MyBool 
-                 in case (foldl func True exprs) of
-                        True  -> return MyEmpty 
-                        False -> return MyError
+
+verState :: Type -> Location -> StateCond -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verState expr loc stateCond = 
+        case expr of
+            MyError   -> return MyError
+            otherwise -> let checkT = case stateCond of
+                                          Bound     -> MyInt
+                                          otherwise -> MyBool 
+                         in case (expr == checkT) of
+                                True -> return MyEmpty 
+                                False -> do RWSS.tell $ DS.singleton $ StateError checkT stateCond loc 
+                                            return MyError
 
 
 verRept :: [Type] -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verRept guard inv bound = let func = checkListType MyBool
+verRept guard inv bound = let func = checkListType MyEmpty
                           in case ((foldl func True guard) && (MyBool == inv) && (MyInt == bound)) of
                               True  -> return MyEmpty 
                               False -> return MyError
