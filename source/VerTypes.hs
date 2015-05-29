@@ -157,9 +157,27 @@ verCallExp name args loc locarg =
        }
 
 
-verProcCall :: Token -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verProcCall name args = return MyEmpty
-
+verProcCall :: T.Text -> [Type] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
+verProcCall name args loc locarg = 
+    do sb <- RWSS.ask
+       case lookUpRoot name sb of
+       { Nothing -> 
+            addUndecFuncError loc name
+       ; Just x  -> 
+            case symbolType x of
+            { MyProcedure args' ->
+                  if length args /= length args' then addNumberArgsError loc name
+                  else let t = zip args args' in
+                          if   and $ map (uncurry (==)) $ t then return $ MyEmpty
+                          else do mapM_ (\ ((arg, arg'), larg) -> 
+                                              if arg /= arg' then addFunArgError arg' arg larg 
+                                              else return MyEmpty
+                                        ) (zip t locarg) 
+                                  return $ MyError
+            ; otherwise           -> 
+                  addUndecFuncError loc name
+            }
+       }
 
 verLAssign :: [Type] -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verLAssign explist idlist = 

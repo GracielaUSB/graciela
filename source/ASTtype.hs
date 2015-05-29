@@ -120,7 +120,8 @@ verTypeAST ((Rept guard inv bound loc _)) = do guard' <- verTypeASTlist guard
                                                       
 
 verTypeAST ((ProcCall name args loc _)) = do args'  <- verTypeASTlist args  
-                                             checkT <- verProcCall name (map tag args')  
+                                             locs  <- getLocArgs args
+                                             checkT <- verProcCall (text name) (map tag args') loc locs
                                              return (ProcCall name args' loc checkT)
 
   
