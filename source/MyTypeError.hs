@@ -32,11 +32,11 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , reOp   :: OpRel
                                    , loc    :: Location 
                                    }  
-                 | UnaryError      { rtype  :: Type
+                 | UnaryError      { prType :: Type
                                    , unOp   :: OpUn
                                    , loc    :: Location
                                    }
-                 | StateError      { rtype  :: Type
+                 | StateError      { prType :: Type
                                    , state  :: StateCond
                                    , loc    :: Location
                                    }  
@@ -58,7 +58,16 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , loc    :: Location
                                    }
                  | FunArgError     { waType :: Type
-                                   , acType :: Type
+                                   , prType :: Type
                                    , loc    :: Location
                                    }
+                 | AssignError     { name   :: Token
+                                   , waType :: Type
+                                   , prType :: Type
+                                   , loc    :: Location
+                                   }    
+                 | ArrayCallError  { name   :: Token
+                                   , prType :: Type
+                                   , loc    :: Location
+                                   }                                                     
                 deriving (Show)

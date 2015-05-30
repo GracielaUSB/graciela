@@ -388,6 +388,6 @@ drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level (d))) [] xs
 
 
 drawLAssign level idlist explist = foldl (\acc (id, exp) -> 
-   (acc `mappend` putSpacesLn (level + 4) `mappend` "Variable: " `mappend` show (fst id) 
+   (acc `mappend` putSpacesLn (level + 4) `mappend` "Variable: " `mappend` show ((fst . fst) id) 
         `mappend` putSpacesLn (level + 8) `mappend` "Lado derecho: "
         `mappend` drawAST (level + 12) (exp) )) [] $ zip idlist explist

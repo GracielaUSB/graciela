@@ -72,8 +72,8 @@ verTypeAST ((Write ln exp loc _)) = do exp'   <- verTypeAST (exp)
                                        return (Write ln exp' loc checkT)
 
 
-verTypeAST ((ArrCall loc name args _)) = do args'  <- verTypeASTlist args
-                                            checkT <- verArray name (map tag args') 
+verTypeAST ((ArrCall loc name args t)) = do args'  <- verTypeASTlist args
+                                            checkT <- verArrayCall name (map tag args') t loc 
                                             return (ArrCall loc name args' checkT)    
 
 
@@ -103,7 +103,7 @@ verTypeAST ((GuardAction loc assert action _)) = do assert' <- verTypeAST assert
 
 
 verTypeAST ((LAssign idlist explist loc _)) = do explist' <- verTypeASTlist explist  
-                                                 checkT   <- verLAssign (map tag explist') (map (snd . fst) idlist)
+                                                 checkT   <- verLAssign (map tag explist') (map fst idlist) loc
                                                  return (LAssign [] explist' loc checkT)
 
 

@@ -30,6 +30,8 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
                                    ; (Right (Just ast) , st) -> putStrLn $ show $ runTVerifier (symbolTable st) ast
+                                   ; (Right  _         , st) -> putStrLn $ show $ st
+                                   
                                    --; (Right (ast) , st) -> putStrLn $ show $ st
                                                          -- let check = fmap verTypeAST ast 
 														                             -- in case check of

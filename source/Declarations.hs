@@ -39,8 +39,10 @@ myType follow recSet = do myBasicType follow recSet
                           <|> do parseTokArray
                                  bl <- bracketsList parseOf (recSet <|> parseOf)
                                  parseOf
-                                 t <- myBasicType follow recSet
+                                 t <- myType follow recSet
                                  return (AP.liftA2 (MyArray) t (Just 5))
+                        
+
 
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
 decList follow recSet = do lookAhead follow
