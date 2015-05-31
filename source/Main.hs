@@ -16,12 +16,13 @@ import Parser
 import Lexer
 import State
 import AST
+import Expression
 
 concatLexPar = playParser AP.<$> lexer
 
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
-playParser inp = runStateParse (program) "" (inp) (initialState)
+playParser inp = runStateParse (quantification parseSemicolon parseSemicolon) "" (inp) (initialState)
 
 playLexer inp = putStrLn $ show $ runParser (lexer) () "" (inp)
 

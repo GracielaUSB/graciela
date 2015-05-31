@@ -20,6 +20,7 @@ import Token
 import Lexer
 import State
 import Type
+import ParserType
 import AST
 
 
@@ -29,33 +30,15 @@ data CasesConditional = CExpression | CAction
 program :: MyParser (Maybe (AST(Type)))
 program = do pos <- getPosition
              newScopeParser
-             do try ( do parseProgram
-              
-                         do try ( do id  <- parseID
-                                     do try ( do parseTokOpenBlock
-                                                 parseRestInputProgram id
-                                            )
-                                        <|> do err <- genNewError (parseEnd) (PE.TokenOB)
-                                               return $ Nothing
-                                )
-                            <|> do err <- genNewError (parseTokOpenBlock <|> parseEnd) (PE.Program)
-                                   do try ( do parseTokOpenBlock
-                                               merr <- parseRestInputProgram EmptyToken
-                                               return $ Nothing
-                                          )
-                                      <|> do return $ Nothing
-
-                    )
-                <|> do err <- genNewError (parseID <|> parseEnd) (PE.Program)
-                       do try (do parseID
-                                  id  <- parseID
-                                  parseTokOpenBlock
-                                  merr <- parseRestInputProgram id
-                                  return $ Nothing
-                              )
-                          <|> do return $ Nothing
-
-
+             parseProgram
+             id  <- parseID
+             parseTokOpenBlock
+             ast  <- listDefProc followListDefProc followListDefProc
+             lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
+             parseTokCloseBlock
+             parseEnd
+             pos <- getPosition
+             return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return (MyEmpty))) 
 
 followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
 

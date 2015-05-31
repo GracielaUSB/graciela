@@ -29,6 +29,7 @@ pGreater      = oneOf ">\62"
 pEqual        = oneOf "=\61"
 pNot          = oneOf "!\33"
 pAccent       = oneOf "^\94"
+pPipe         = tryString "|"
 pOpenBlock    = tryString "|["
 pCloseBlock   = tryString "]|"
 pSepGuards    = tryString "[]"
@@ -156,6 +157,7 @@ lexer = do spaces
                               <|> (pProgram      >> spaces >> return (TokProgram))
                               <|> (pOpenBlock    >> spaces >> return (TokOpenBlock))
                               <|> (pCloseBlock   >> spaces >> return (TokCloseBlock))
+                              <|> (pPipe         >> spaces >> return (TokPipe))
                               <|> (pSepGuards    >> spaces >> return (TokSepGuards))
                               <|> (pLeftBracket  >> spaces >> return (TokLeftBracket))
                               <|> (pRightBracket >> spaces >> return (TokRightBracket))

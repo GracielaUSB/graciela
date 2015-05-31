@@ -5,6 +5,7 @@ import Location
 import Token
 import Type
 import AST
+import qualified Data.Text.Read      as TR
 
 
 data MyTypeError = RepSymbolError  { symbol :: T.Text
@@ -70,4 +71,8 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , prType :: Type
                                    , loc    :: Location
                                    }                                                     
+                 | IntOutOfBounds  { val      :: T.Text
+                                   , location :: Location
+                                   }
+                 | UncountError    { location :: Location }
                 deriving (Show)

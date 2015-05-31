@@ -3,7 +3,6 @@ module Expression where
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Text.Parsec.Pos     as P
-import qualified Data.Text.Read      as TR
 import qualified Control.Monad       as M
 import qualified Data.Monoid         as DM
 import qualified Data.Text           as T
@@ -17,7 +16,9 @@ import Token
 import Lexer
 import State
 import Type
+import ParserType
 import AST
+import ParserError
 
 
 
@@ -104,6 +105,7 @@ exprLevel4 follow recSet = do e <- exprLevel5 (follow <|>  parseAnd) (recSet <|>
                               do pos <- getPosition
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseAnd
+                                           pos <- getPosition
                                            e' <- exprLevel4 follow recSet
                                            return(AP.liftA3 (Boolean Con (getLocation pos)) e e' (return (MyEmpty)))
                                    
@@ -117,12 +119,18 @@ exprLevel5 follow recSet = do e <- exprLevel6 (follow <|> parseEqual <|> parseNo
                               do pos <- getPosition
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseEqual
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational Equ (getLocation pos)) e e' (return (MyEmpty)))
+                                           e' <- exprLevel6 (follow <|> parseEqual <|> parseNotEqual) (recSet <|> parseEqual <|> parseNotEqual)
+                                           do verifyNonAsoc relaEquivOp recSet 
+                                              exprLevel5 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational Equ (getLocation pos)) e e' (return (MyEmpty)))
                                    
                                     <|> do parseNotEqual
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational Ine (getLocation pos)) e e' (return (MyEmpty)))              
+                                           e' <- exprLevel6 (follow <|> parseEqual <|> parseNotEqual) (recSet <|> parseEqual <|> parseNotEqual)
+                                           do verifyNonAsoc relaEquivOp recSet
+                                              exprLevel5 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational Ine (getLocation pos)) e e' (return (MyEmpty)))              
                                     
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
@@ -131,31 +139,48 @@ exprLevel5 follow recSet = do e <- exprLevel6 (follow <|> parseEqual <|> parseNo
 
 followExprLevelRel = parseTokLess <|> parseTokGreater <|> parseTokLEqual <|> parseTokGEqual
 
-
-
 exprLevel6 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel6 follow recSet = do e <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
                               do pos <- getPosition
                                  do (lookAhead (follow) >> return e)
                                     <|> do parseTokLess
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational Less (getLocation pos)) e e' (return (MyEmpty)))
+                                           e' <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
+                                           do verifyNonAsoc relaNonEquivOp recSet 
+                                              exprLevel6 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational Less (getLocation pos)) e e' (return (MyEmpty)))
                                         
                                     <|> do parseTokLEqual
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational LEqual (getLocation pos)) e e' (return (MyEmpty)))
+                                           e' <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
+                                           do verifyNonAsoc relaNonEquivOp recSet 
+                                              exprLevel6 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational LEqual (getLocation pos)) e e' (return (MyEmpty)))
                                         
                                     <|> do parseTokGreater
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational Greater (getLocation pos)) e e' (return (MyEmpty)))
+                                           e' <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
+                                           do verifyNonAsoc relaNonEquivOp recSet 
+                                              exprLevel6 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational Greater (getLocation pos)) e e' (return (MyEmpty)))
                                         
                                     <|> do parseTokGEqual
-                                           e' <- exprLevel5 follow recSet
-                                           return(AP.liftA3 (Relational GEqual (getLocation pos)) e e' (return (MyEmpty)))
+                                           e' <- exprLevel7 (follow <|> followExprLevelRel) (recSet <|> followExprLevelRel)
+                                           do verifyNonAsoc relaNonEquivOp recSet 
+                                              exprLevel6 follow recSet
+                                              return Nothing
+                                              <|> return(AP.liftA3 (Relational GEqual (getLocation pos)) e e' (return (MyEmpty)))
 
                                     <|> do genNewError (recSet) (Operator)
                                            return $ Nothing
 
+relaNonEquivOp = parseTokLess <|> parseTokLEqual <|> parseTokGreater <|> parseTokGEqual
+relaEquivOp    = parseEqual   <|> parseNotEqual
+
+verifyNonAsoc ops recSet = do lookAhead ops
+                              parseAnyToken
+                              addNonAsocError
+                              return ()
 
 
 exprLevel7 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
@@ -313,18 +338,20 @@ exprLevel10 follow recSet = do do pos <- getPosition
 
 
 
-quantification follow recSet = do parseTokLeftPer
-                                  op <- parseOpCuant
-                                  id <- parseID
-                                  parseColon
-                                  r <- expr(parseColon) (recSet <|> parseColon)
-                                  parseColon
-                                  t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
-                                  parseTokRightPer
-                                  pos <- getPosition
-                                  return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
-
-
+quantification follow recSet = 
+  do pos <- getPosition
+     parseTokLeftPer
+     op <- parseOpCuant
+     id <- parseID
+     parseColon
+     t <- myType parsePipe (recSet <|> parsePipe)
+     addCuantVar (text id) t (getLocation pos)
+     parsePipe
+     r <- exprLevel3(parsePipe) (recSet <|> parsePipe)
+     parsePipe
+     t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
+     parseTokRightPer
+     return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
 
 parseOpCuant = parseTokExist
                <|> parseTokMod
@@ -350,3 +377,4 @@ bracketsList follow recSet = do  lookAhead follow
                                            -- Modemos levantarnos del error con un hazte el loco  
                                            <|> do err <- genNewError (follow <|> parseLeftBracket) (TokenRB)
                                                   return $ Nothing   
+

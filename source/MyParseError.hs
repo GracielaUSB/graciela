@@ -10,6 +10,7 @@ data MyParseError = MyParseError   { loc       :: Location
                                    }
                   | EmptyError     { loc :: Location }
                   | ScopesError
+                  | NonAsocError   { loc :: Location }
                deriving (Read)
 
 data WaitedToken =  Operator
@@ -44,6 +45,7 @@ instance Show MyParseError where
   show (MyParseError loc wt at)      = show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
   show (EmptyError   loc)            = show loc ++ ": No se permiten expresiones vacías"
   show ScopesError                   = "Error en la tabla de símbolos: intento de salir de un alcance sin padre"
-    
+  show (NonAsocError loc)            = show loc ++ " Operador no asociativo"
+       
 newEmptyError  pos          = EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos)                                 }
 newParseError  msg (e, pos) = MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), waitedTok = msg, actualTok = e }

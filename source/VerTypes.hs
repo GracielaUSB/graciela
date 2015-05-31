@@ -188,7 +188,7 @@ verRept guard inv bound = let func = checkListType MyEmpty
 
 
 verQuant :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
-verQuant range term  = case ((verRango range) && not(MyError == term)) of
+verQuant range term  = case (isCuantificable range && MyBool == term) of
                        { True  -> return MyBool 
                        ; False -> return MyError
                        }
@@ -309,16 +309,5 @@ addTypeError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () 
 addTypeError error = do RWSS.tell $ DS.singleton error
                         return $ MyError
 
-
-
-
---------------------
 verRandom :: Token -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (Type)
 verRandom var = return MyEmpty
-
-
-
-
-                                    
-
-verRango range = True

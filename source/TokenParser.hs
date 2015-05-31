@@ -12,9 +12,9 @@ import Type
 
 makeTokenParser x = tokenPrim showTok posTok testTok
                     where
-                      showTok (t, pos)     = show t
+                      showTok (t, pos)      = show t ++ " " ++ show pos
                       posTok  _ (_ , pos) _ = pos
-                      testTok (t, pos)     = if x == t then Just (t) else Nothing
+                      testTok (t, pos)      = if x == t then Just (t) else Nothing
 
 
 
@@ -50,6 +50,7 @@ parseTokAccent    = verify TokAccent
 parseAnd          = verify TokLogicalAnd
 parseOr           = verify TokLogicalOr
 parseNotEqual     = verify TokNotEqual
+parsePipe         = verify TokPipe
 parseEqual        = verify TokEquiv
 parseSkip         = verify TokSkip        
 parseIf           = verify TokIf

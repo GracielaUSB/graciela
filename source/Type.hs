@@ -10,10 +10,13 @@ instance Show TypeArg where
    show Out   = " Var Out"
    show InOut = " Var Int/Out"
 
+type Dimention = Int
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray Type Int
+                  | MyError | MyEmpty | MyString | MyArray Type Dimention
 
+isCuantificable :: Type -> Bool
+isCuantificable x = x == MyInt || x == MyFloat || x == MyBool
 
 instance Eq Type where
    MyInt            ==  MyInt           = True
@@ -42,6 +45,3 @@ instance Show Type where
    show (MyFunction xs t ) = "Func, return type: " ++ show t
    show (MyArray    t  xs) = "Array of "     ++ show t 
    show (MyProcedure   xs) = "Proc"
-
-
-

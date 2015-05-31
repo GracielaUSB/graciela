@@ -19,6 +19,7 @@ data Token =   TokPlus
              | TokLeftPercent
              | TokRightPercent
              | TokAccent
+             | TokPipe
              | TokLogicalAnd
              | TokLogicalOr
              | TokNotEqual
@@ -222,5 +223,5 @@ instance Show Token where
   show TokSepGuards     = "simbolo separador de guardias"
   show TokArray         = "tipo arreglo de"
   show TokOpenQuant     = "apertura de cuantificador"
-
+  show TokPipe          = "pipe"
 

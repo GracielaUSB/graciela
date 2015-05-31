@@ -40,9 +40,9 @@ addManyUniSymParser (Just xs) (Just t) = f xs t
         f ((id, loc):xs) t = do addSymbolParser id (Contents Variable loc t Nothing)
                                 f xs t
         f [] _             = return()
-addManyUniSymParser _ _                = return()
-
-addManySymParser :: VarBehavour -> Maybe([(T.Text, Location)]) -> Maybe(Type) -> Maybe([AST(Type)]) -> MyParser()
+addManyUniSymParser _ _                = return() 
+                                                  
+addManySymParser :: VarBehavour -> Maybe([(T.Text , Location)]) -> Maybe(Type) -> Maybe([AST(Type)]) -> MyParser()
 addManySymParser vb (Just xs) (Just t) (Just ys) = if   length xs /= length ys then do pos <- getPosition
                                                                                        ST.modify $ addTypeError $ (IncomDefError (getLocation pos))
                                                    else f vb xs t ys
@@ -59,6 +59,11 @@ addFunctionArgParser _ _ _           = return ()
 addSymbolParser :: T.Text -> Contents -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
+
+addCuantVar :: T.Text -> Maybe Type -> Location -> MyParser()
+addCuantVar id (Just t) loc = do addSymbolParser id (Contents CO.Constant loc t Nothing)
+                                 return()
+addCuantVar _ _ _           = return()
 
 lookUpSymbol :: T.Text -> MyParser (Maybe Contents)
 lookUpSymbol id = do st <- get
@@ -93,7 +98,11 @@ addConsIdError id = do pos <- getPosition
 addNonDeclVarError id = do pos <- getPosition 
                            ST.modify $ addTypeError (NonDeclError id (getLocation pos))
                            return ()
-
+addNonAsocError :: MyParser ()
+addNonAsocError = do pos <- getPosition
+                     ST.modify $ addParsingError $ NonAsocError (getLocation pos) 
+                     return ()
+ 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset
                             ST.modify $ addParsingError $ newParseError msg pos
@@ -107,3 +116,11 @@ genNewEmptyError :: MyParser ()
 genNewEmptyError = do  pos <- getPosition
                        ST.modify $ addParsingError $ newEmptyError pos
                        return ()
+
+addOutOfBoundsError :: T.Text -> Location -> MyParser ()
+addOutOfBoundsError t l = do ST.modify $ addTypeError $ IntOutOfBounds t l
+                             return ()
+
+addUncountableError :: Location -> MyParser ()
+addUncountableError loc = do ST.modify $ addTypeError $ UncountError loc
+                             return ()
