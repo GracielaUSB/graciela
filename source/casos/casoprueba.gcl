@@ -1,10 +1,13 @@
 program prueba |[
   |[
-    var x : int;
-    {inv (%forall i : int || i * 2 == 0%) inv}
+    var x,i : int;
+    var arr : array [5] of int;
+    {inv (%forall i : int | i < 2 | (%forall j : int | j < -5 /\ arr[j] < x | i * j * 2 == 0%) %) inv}
     {bound 5 + 5 bound}
     do (i <  2) -> skip
     [] (i >= 2) -> skip
-    od
+    od;
+
+    arr [4] := 5
   ]|
 ]|

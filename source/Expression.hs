@@ -350,11 +350,13 @@ quantification follow recSet =
      id <- parseID
      parseColon
      t <- myType parsePipe (recSet <|> parsePipe)
+     newScopeParser
      addCuantVar (text id) t (getLocation pos)
      parsePipe
      r <- rangeQuantification parsePipe (parsePipe <|> recSet)
      parsePipe
      t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
+     exitScopeParser
      parseTokRightPer
      return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
 
