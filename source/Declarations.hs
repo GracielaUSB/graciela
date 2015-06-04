@@ -13,13 +13,12 @@ import Text.Parsec.Error
 import Text.Parsec
 import TokenParser
 import Expression
+import ParserType
 import Location
 import Token
 import Lexer
 import State
-import Location
 import Type
-import ParserType
 import AST
 
 

@@ -1,11 +1,11 @@
 module MyTypeError where
 
-import Data.Text as T
+import qualified Data.Text.Read as TR
+import Data.Text                as T
 import Location
 import Token
 import Type
 import AST
-import qualified Data.Text.Read      as TR
 
 
 data MyTypeError = RepSymbolError  { symbol :: T.Text
@@ -41,18 +41,18 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , state  :: StateCond
                                    , loc    :: Location
                                    }  
-                 | GuardError      { rtype  :: Type
+                 | GuardError      { prtype :: Type
                                    , loc    :: Location
                                    }   
                  | CondError       { loc    :: Location
                                    }                                                                                            
                  | IncomDefError   { loc    :: Location
                                    }
-                 | UndecFunError   { loc    :: Location
-                                   , symbol :: T.Text
+                 | UndecFunError   { symbol :: T.Text
+                                   , loc    :: Location
                                    }
-                 | NumberArgsError { loc    :: Location
-                                   , symbol :: T.Text
+                 | NumberArgsError { symbol :: T.Text
+                                   , loc    :: Location
                                    }
                  | RetFuncError    { symbol :: T.Text
                                    , ftype  :: Type
@@ -70,9 +70,63 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | ArrayCallError  { name   :: Token
                                    , prType :: Type
                                    , loc    :: Location
-                                   }                                                     
-                 | IntOutOfBounds  { val      :: T.Text
-                                   , location :: Location
+                                   } 
+                 | ArrayDimError   { waDim  :: Int
+                                   , prDim  :: Int
+                                   , loc    :: Location 
+                                   }                                                    
+                 | IntOutOfBounds  { val    :: T.Text
+                                   , loc    :: Location
                                    }
-                 | UncountError    { location :: Location }
-                deriving (Show)
+                 | RanError        { prType :: Type
+                                   , loc    :: Location
+                                   }
+                 | UncountError    { loc    :: Location 
+                                  }
+                --deriving (Show)
+
+
+instance Show MyTypeError where
+   show (RepSymbolError  sym pLoc loc) = "La variable " ++ show sym ++ " ya esta declarada en la " ++ show pLoc 
+   show (ConstIdError    sym      loc) = "Int"
+   show (NonDeclError    sym      loc) = "Int"
+   show (ArithmeticError lt rt op loc) = "Int"
+   show (BooleanError    lt rt op loc) = "Int"
+   show (RelationalError lt rt op loc) = "Int"
+   show (UnaryError       t    op loc) = "Int"
+   show (StateError       t    s  loc) = "Int"
+   show (GuardError       t       loc) = "Int"
+   show (CondError                loc) = "Int"
+   show (IncomDefError            loc) = "Int"
+   show (UndecFunError   sym      loc) = "Int"
+   show (NumberArgsError sym      loc) = "Int"       
+   show (RetFuncError    sym t    loc) = "Int"
+   show (FunArgError        wt pt loc) = "Int"
+   show (AssignError   name wt pt loc) = "Int"
+   show (ArrayDimError      wd pd loc) = "Int"
+   show (ArrayCallError   name pt loc) = "Int"
+   show (IntOutOfBounds       val loc) = "Int"
+   show (RanError              pt loc) = "Int"
+   show (UncountError             loc) = "Int"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

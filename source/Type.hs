@@ -4,19 +4,15 @@ module Type where
 data TypeArg = In | Out | InOut
       deriving (Eq)
 
-
 instance Show TypeArg where
    show In    = " Var Int"
    show Out   = " Var Out"
    show InOut = " Var Int/Out"
 
-type Dimention = Int
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray Type Dimention
+                  | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Int}
 
-isCuantificable :: Type -> Bool
-isCuantificable x = x == MyInt || x == MyFloat || x == MyBool
 
 instance Eq Type where
    MyInt            ==  MyInt           = True
@@ -45,3 +41,12 @@ instance Show Type where
    show (MyFunction xs t ) = "Func, return type: " ++ show t
    show (MyArray    t  xs) = "Array of "     ++ show t 
    show (MyProcedure   xs) = "Proc"
+
+
+getDimention :: Type -> Int -> Int
+getDimention (MyArray t tam) n = getDimention t (n+1)  
+getDimention _               n = n
+
+
+isCuantificable :: Type -> Bool
+isCuantificable x = x == MyInt || x == MyFloat || x == MyBool

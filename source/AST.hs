@@ -124,21 +124,34 @@ instance Show a => Show (AST a) where
   show ast = drawAST 0 ast
 
 
-
+space :: Char
 space = ' '
 
+
+putSpaces :: Int -> String
 putSpaces   level = take level (repeat space)
+
+
+putSpacesLn :: Int -> String
 putSpacesLn level = "\n" `mappend` take level (repeat space)
 
-putLocation   location = " --- en el " `mappend` show location
+
+putLocation :: Location -> String
+putLocation location = " --- en el " `mappend` show location
+
+
+putLocationLn :: Location -> String
 putLocationLn location = " --- en el " `mappend` show location `mappend` "\n"
 
 
+checkMaxMin :: Bool -> Bool -> String
 checkMaxMin True  True  = "MAX_INT"
 checkMaxMin True  False = "MIN_INT"
 checkMaxMin False True  = "MAX_DOUBLE"
 checkMaxMin False False = "MIN_DOUBLE"
 
+
+checkWrite :: Bool -> String
 checkWrite True  = "Escribir con Salto de línea"
 checkWrite False = "Escribir"
 
@@ -382,9 +395,7 @@ drawAST _ (EmptyAST) = ""
 --drawAST _ (ast) = show ast
 
 
-
 drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level (d))) [] xs
-
 
 
 drawLAssign level idlist explist = foldl (\acc (id, exp) -> 

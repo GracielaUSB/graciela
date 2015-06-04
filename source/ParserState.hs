@@ -98,11 +98,17 @@ addConsIdError id = do pos <- getPosition
 addNonDeclVarError id = do pos <- getPosition 
                            ST.modify $ addTypeError (NonDeclError id (getLocation pos))
                            return ()
+
 addNonAsocError :: MyParser ()
 addNonAsocError = do pos <- getPosition
                      ST.modify $ addParsingError $ NonAsocError (getLocation pos) 
                      return ()
  
+-- addArrayCallError :: MyParser ()
+addArrayCallError waDim prDim = do pos <- getPosition
+                                   ST.modify $ addParsingError $ ArrayError waDim prDim (getLocation pos) 
+                                   return ()
+
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset
                             ST.modify $ addParsingError $ newParseError msg pos
