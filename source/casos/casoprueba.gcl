@@ -1,8 +1,14 @@
 program prueba |[
+
+  func pr : (i : int) -> int
+  |[  
+      i
+  ]|
+  
   |[
     var x,i : int;
     var arr : array [5] of int;
-    {inv (%forall i : int | i < 2 | (%forall j : int | j < -5 /\ arr[j] < x | i * j * 2 == 0%) %) inv}
+    {inv (%forall q : int | q < 2 | (%forall j : int | j < -5 /\ pr(j) < x | q * j * 2 == 0%) %) inv}
     {bound 5 + 5 bound}
     do (i <  2) -> skip
     [] (i >= 2) -> skip

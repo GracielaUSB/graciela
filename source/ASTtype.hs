@@ -175,6 +175,7 @@ occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occur
 occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)
 occursCheck (ID _ t _            ) id = return $ id == (text t)
 occursCheck (ArrCall _ _ xs _    ) id = fmap or $ mapM ((flip occursCheck) id) xs
+occursCheck (FCallExp _ _ xs _   ) id = fmap or $ mapM ((flip occursCheck) id) xs
 occursCheck (EmptyRange _ _      ) _  = return $ True
 occursCheck _ _                       = return $ False
 
