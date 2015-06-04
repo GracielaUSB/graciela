@@ -1,15 +1,15 @@
 module ParserType where
 
+import qualified Control.Applicative as AP
+import qualified Data.Text.Read      as TR
+import TokenParser
+import Text.Parsec
+import ParserState
+import Location
+import State
+import Token
 import Type
 import AST
-import TokenParser
-import State
-import Text.Parsec
-import Token
-import qualified Control.Applicative as AP
-import ParserState
-import qualified Data.Text.Read      as TR
-import Location
 
 
 readType :: String -> Maybe (Type)
@@ -48,14 +48,14 @@ countableType follow recSet = do pos  <- getPosition
                                               }
                                  }
 
-parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe (Dimention))
+parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe Int)
 parseConstNumber follow recSet = do  lookAhead follow
                                      genNewEmptyError
                                      return $ Nothing
                                      <|> do e <- number
                                             tokenToInt e
 
-tokenToInt :: Token -> MyParser (Maybe Dimention)
+tokenToInt :: Token -> MyParser (Maybe Int) 
 tokenToInt (TokInteger n) = do pos <- getPosition
                                case TR.decimal n of
                                { Left _         -> do addOutOfBoundsError n (getLocation pos)

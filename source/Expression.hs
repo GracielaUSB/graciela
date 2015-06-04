@@ -11,14 +11,14 @@ import ParserState                   as PS
 import Text.Parsec.Error
 import Text.Parsec
 import TokenParser
+import ParserError
+import ParserType
 import Location
 import Token
 import Lexer
 import State
 import Type
-import ParserType
 import AST
-import ParserError
 
 
 
@@ -263,9 +263,8 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                                           <|> do genNewError (recSet) (TokenRP)
                                                                  return $ Nothing
                                                         
-                                                <|> do blist <- bracketsList follow recSet
+                                                <|> do blist  <- bracketsList follow recSet
                                                        return $ (AP.liftA2 (ArrCall (getLocation pos) idp) blist t)
-
                                          
                                      <|> do parseMaxInt
                                             return $ return $ Constant (getLocation pos) True  True MyEmpty

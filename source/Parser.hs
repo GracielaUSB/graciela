@@ -15,12 +15,12 @@ import Text.Parsec
 import Data.Either
 import TokenParser
 import Expression
+import ParserType
 import Location
 import Token
 import Lexer
 import State
 import Type
-import ParserType
 import AST
 
 

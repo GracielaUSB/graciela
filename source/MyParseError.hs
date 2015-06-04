@@ -8,9 +8,15 @@ data MyParseError = MyParseError   { loc       :: Location
                                    , waitedTok :: WaitedToken
                                    , actualTok :: Token
                                    }
-                  | EmptyError     { loc :: Location }
+                  | EmptyError     { loc       :: Location 
+                                   }
+                  | ArrayError     { waDim     :: Int
+                                   , prDim     :: Int
+                                   , loc       :: Location 
+                                   }
+                  | NonAsocError   { loc       :: Location 
+                                   }
                   | ScopesError
-                  | NonAsocError   { loc :: Location }
                deriving (Read)
 
 data WaitedToken =  Operator
@@ -42,10 +48,11 @@ instance Show WaitedToken where
   show IDError    = "identificador"
 
 instance Show MyParseError where
-  show (MyParseError loc wt at)      = show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
-  show (EmptyError   loc)            = show loc ++ ": No se permiten expresiones vacías"
-  show ScopesError                   = "Error en la tabla de símbolos: intento de salir de un alcance sin padre"
-  show (NonAsocError loc)            = show loc ++ " Operador no asociativo"
+  show (MyParseError loc wt at) = show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
+  show (EmptyError   loc)       = show loc ++ ": No se permiten expresiones vacías"
+  show (NonAsocError loc)       = show loc ++ " Operador no asociativo"
+  show (ArrayError   wt pr loc) = show loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++ ", encontrado Arreglo de dimensión " ++ show pr     
+  show ScopesError              = "Error en la tabla de símbolos: intento de salir de un alcance sin padre"
        
 newEmptyError  pos          = EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos)                                 }
 newParseError  msg (e, pos) = MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), waitedTok = msg, actualTok = e }
