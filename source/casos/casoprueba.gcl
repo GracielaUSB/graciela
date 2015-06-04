@@ -1,3 +1,10 @@
 program prueba |[
-  skip
+  |[
+    var x : int;
+    {inv (%forall i : int | i < 2 /\ i > 3| i * 2 == 0%) inv}
+    {bound 5 + 5 bound}
+    do (i <  2) -> skip
+    [] (i >= 2) -> skip
+    od
+  ]|
 ]|

@@ -37,7 +37,6 @@ program = do pos <- getPosition
              lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
              parseTokCloseBlock
              parseEnd
-             pos <- getPosition
              return (M.liftM3 (AST.Program id (getLocation pos)) ast lacc (return (MyEmpty))) 
 
 followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
@@ -296,10 +295,7 @@ actionAux follow recSet = skip follow recSet
 
 
 
-followAction = (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite <|> parseWriteln)
-
-
-
+followAction = (parseDo <|> parseID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv)
 
 block :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 block follow recSet = 
@@ -322,9 +318,10 @@ random follow recSet =
      return $ return $ Ran id (getLocation pos) MyEmpty
 
 guardsList :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
-guardsList casec follow recSet = do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
-                                    gl <- guardsListAux casec follow recSet
-                                    return(AP.liftA2 (:) g gl)
+guardsList casec follow recSet = 
+    do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
+       gl <- guardsListAux casec follow recSet
+       return(AP.liftA2 (:) g gl)
 
 
 

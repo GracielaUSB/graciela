@@ -9,6 +9,9 @@ import VerTypes
 import Type 
 import AST
 import Token
+import qualified Data.Text                as T
+import qualified Control.Applicative as AP
+import TypeState
 
 runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
 
@@ -152,10 +155,24 @@ verTypeAST ((DefProc name accs pre post bound _)) = do accs'  <- verTypeASTlist 
 verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range  
                                                   term'  <- verTypeAST term 
                                                   checkT <- verQuant (tag range') (tag term')
-                                                  return (Quant op var loc range' term' checkT)
+                                                  case checkT of
+                                                    MyError   -> return (Quant op var loc range' term' checkT)
+                                                    otherwise -> let id = text var in
+                                                                 do r <- occursCheck range id
+                                                                    case r of 
+                                                                      True  -> return $ Quant op var loc range' term' checkT
+                                                                      False -> do addNotOccursVarError id loc
+                                                                                  return $ Quant op var loc range' term' MyError
                                                          
-
 verTypeAST ast = return $ ast
+
+occursCheck :: AST a -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) () (Bool)
+occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
+occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
+occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)
+occursCheck (ID _ t _            ) id = return $ id == (text t)
+occursCheck _ _                       = return $ False
+
 -- verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )
 -- verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
 -- verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )

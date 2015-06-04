@@ -30,7 +30,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                                   ; (Right (Just ast) , st) -> putStrLn $ show $ ast
+                                   ; (Right (Just ast) , st) -> putStrLn $ show $ runTVerifier (symbolTable st) ast
                                    ; (Right  _         , st) -> putStrLn $ show $ st
                                    
                                    --; (Right (ast) , st) -> putStrLn $ show $ st

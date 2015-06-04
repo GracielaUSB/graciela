@@ -75,4 +75,7 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , location :: Location
                                    }
                  | UncountError    { location :: Location }
+                 | NotOccursVar    { symbol   :: T.Text 
+                                   , location :: Location
+                                   } 
                 deriving (Show)
