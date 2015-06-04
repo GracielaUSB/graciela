@@ -20,11 +20,15 @@ import AST
 
 concatLexPar = playParser AP.<$> lexer
 
+
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
-playParser inp = runStateParse program "" (inp) (initialState)
 
-playLexer inp = putStrLn $ show $ runParser (lexer) () "" (inp)
+playParser inp = runStateParse program "" inp initialState
+
+
+playLexer inp = putStrLn $ show $ runParser lexer () "" inp
+
 
 play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
@@ -34,6 +38,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
                                    ; (Right  _         , st) -> putStrLn $ show $ st
                                    }
                   }
+
 
 main = do args <- getArgs 
           s <- TIO.readFile (head args)

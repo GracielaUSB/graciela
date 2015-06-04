@@ -9,6 +9,9 @@ import VerTypes
 import Type 
 import AST
 import Token
+import qualified Data.Text                as T
+import qualified Control.Applicative as AP
+import TypeState
 
 runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
 
@@ -149,20 +152,37 @@ verTypeAST (DefProc name accs pre post bound _) = do accs'  <- verTypeASTlist ac
                                                      return (DefProc name accs' pre' post' bound' checkT)
                                                               
 
-verTypeAST (Quant op var loc range term _) = do range' <- verTypeAST range  
-                                                term'  <- verTypeAST term 
-                                                checkT <- verQuant (tag range') (tag term')
-                                                return (Quant op var loc range' term' checkT)
-                                                         
+verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range  
+                                                  term'  <- verTypeAST term 
+                                                  checkT <- verQuant (tag range') (tag term')
+                                                  case checkT of
+                                                    MyError   -> return (Quant op var loc range' term' checkT)
+                                                    otherwise -> let id = text var in
+                                                                 do r <- occursCheck range id
+                                                                    case r of 
+                                                                      True  -> return $ Quant op var loc range' term' checkT
+                                                                      False -> do addNotOccursVarError id loc
+                                                                                  return $ Quant op var loc range' term' MyError
+
+      
 
 verTypeAST ast = return $ ast
--- verTypeAST (ID     loc cont t) = return (ID     loc cont t       )
--- verTypeAST (Int    loc cont _) = return (Int    loc cont MyInt   )
--- verTypeAST (Float  loc cont _) = return (Float  loc cont MyFloat )
--- verTypeAST (Bool   loc cont _) = return (Bool   loc cont MyBool  )
--- verTypeAST (Char   loc cont _) = return (Char   loc cont MyChar  )
--- verTypeAST (String loc cont _) = return (String loc cont MyString)
--- verTypeAST (EmptyAST)          = return EmptyAST
+
+
+occursCheck :: AST a -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) () (Bool)
+occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
+occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
+occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)
+occursCheck (ID _ t _            ) id = return $ id == (text t)
+occursCheck _ _                       = return $ False
+
+-- verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )
+-- verTypeAST ((Int    loc cont _)) = return (Int    loc cont MyInt   )
+-- verTypeAST ((Float  loc cont _)) = return (Float  loc cont MyFloat )
+-- verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
+-- verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
+-- verTypeAST ((String loc cont _)) = return (String loc cont MyString)
+-- verTypeAST (EmptyAST)            = return EmptyAST
 
 
 getLocArgs args = return $ fmap AST.location args

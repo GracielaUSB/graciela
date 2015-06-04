@@ -1,1 +1,10 @@
-(%forall x : int | 0 < x /\ x < 5| x * 2 %);
+program prueba |[
+  |[
+    var x : int;
+    {inv (%forall i : int | i < 2 /\ i > 3| i * 2 == 0%) inv}
+    {bound 5 + 5 bound}
+    do (i <  2) -> skip
+    [] (i >= 2) -> skip
+    od
+  ]|
+]|

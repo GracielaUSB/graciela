@@ -10,13 +10,13 @@ import State
 import Type
 
 
-makeTokenParser x = tokenPrim showTok posTok testTok
+makeTokenParser x = tokenPrim showTok updatePos testTok
                     where
-                      showTok (t, pos)      = show t ++ " " ++ show pos
-                      posTok  _ (_ , pos) _ = pos
-                      testTok (t, pos)      = if x == t then Just (t) else Nothing
+                      showTok (t, pos)       = show t ++ " " ++ show pos
+                      testTok (t, pos)       = if x == t then Just (t) else Nothing
 
-
+updatePos _ _ ((_, pos):xs) = pos
+updatePos _ (_, pos) []     = pos
 
 verify :: Token ->  MyParser (Token)
 verify token = makeTokenParser token
@@ -114,10 +114,9 @@ parseTokEqual     = verify TokEqual
 
 
 parseID :: MyParser (Token)
-parseID = tokenPrim showTok posTok testTok
+parseID = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
-            posTok  _ (t, pos) _ = pos
             testTok (t, pos) = case t of
                                  { TokId id  -> Just (TokId id)
                                  ; otherwise -> Nothing
@@ -125,10 +124,9 @@ parseID = tokenPrim showTok posTok testTok
 
 
 parseBool :: MyParser (Token)
-parseBool = tokenPrim showTok posTok testTok
+parseBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
-              posTok  _ (t, pos) _ = pos
               testTok (t, pos) = case t of
                                   { TokBool b -> Just (TokBool b)
                                   ; otherwise -> Nothing
@@ -136,10 +134,9 @@ parseBool = tokenPrim showTok posTok testTok
 
 
 parseType :: MyParser (Token)
-parseType = tokenPrim showTok posTok testTok
+parseType = tokenPrim showTok updatePos testTok
               where
                 showTok (t, pos) = show t
-                posTok  _ (t, pos) _ = pos
                 testTok (t, pos) = case t of
                                     { TokType b -> Just (TokType b)
                                     ; otherwise -> Nothing
@@ -147,10 +144,9 @@ parseType = tokenPrim showTok posTok testTok
 
 
 parseChar :: MyParser (Token)
-parseChar = tokenPrim showTok posTok testTok
+parseChar = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
-              posTok  _ (t, pos) _ = pos
               testTok (t, pos) = case t of
                                   { TokChar b -> Just (TokChar b)
                                   ; otherwise -> Nothing
@@ -158,10 +154,9 @@ parseChar = tokenPrim showTok posTok testTok
 
 
 parseString :: MyParser (Token)
-parseString = tokenPrim showTok posTok testTok
+parseString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
-                  posTok  _ (t, pos) _ = pos
                   testTok (t, pos) = case t of
                                       { TokString b -> Just (TokString b)
                                       ; otherwise   -> Nothing
@@ -169,28 +164,25 @@ parseString = tokenPrim showTok posTok testTok
 
 
 parseAnyToken :: MyParser (Token)
-parseAnyToken = tokenPrim showTok posTok testTok
+parseAnyToken = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
-                  posTok  _ (t, pos) _ = pos
                   testTok (t, pos) = Just (t)
 
 
 number :: MyParser (Token)
-number = tokenPrim showTok posTok testTok
+number = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
-           posTok  _ (t, pos) _ = pos
            testTok (t, pos)     = case t of
                                   { TokInteger n -> Just (TokInteger n)
                                   ; otherwise    -> Nothing
                                   }
                                                               
 parseDouble :: MyParser (Token)
-parseDouble = tokenPrim showTok posTok testTok
+parseDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
-           posTok  _ (t, pos) _ = pos
            testTok (t, pos)     = case t of
                                   { TokFlotante n1 n2 -> Just (TokFlotante n1 n2)
                                   ; otherwise         -> Nothing

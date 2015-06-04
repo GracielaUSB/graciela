@@ -78,11 +78,15 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | IntOutOfBounds  { val    :: T.Text
                                    , loc    :: Location
                                    }
+
                  | RanError        { prType :: Type
                                    , loc    :: Location
                                    }
                  | UncountError    { loc    :: Location 
-                                  }
+                                   }
+                 | NotOccursVar    { symbol :: T.Text 
+                                   , loc    :: Location
+                                   } 
                 --deriving (Show)
 
 
@@ -108,10 +112,7 @@ instance Show MyTypeError where
    show (IntOutOfBounds       val loc) = "Int"
    show (RanError              pt loc) = "Int"
    show (UncountError             loc) = "Int"
-
-
-
-
+   show (NotOccursVar    sym      loc) = "Int"
 
 
 

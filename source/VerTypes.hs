@@ -11,7 +11,7 @@ import Location
 import Token
 import Type
 import AST
-
+import TypeState
 
 checkListType :: Type -> Bool -> Type -> Bool 
 checkListType _ False _ = False
@@ -297,29 +297,3 @@ verDefFun name body bound loc = do sb <- RWSS.ask
                                                 ; otherwise       -> addUndecFuncError name loc
                                                 } 
                                    }
-
-
-addFunArgError :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-addFunArgError t t' loc = addTypeError $ FunArgError t t' loc
-
-
-addListError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () ()
-addListError err = do RWSS.tell $ DS.singleton $ err
-
-
-addNumberArgsError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addNumberArgsError name loc = addTypeError $ NumberArgsError name loc
-
-
-addUndecFuncError ::  T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addUndecFuncError name loc = addTypeError $ UndecFunError name loc
-
-
-addRetFuncError :: T.Text -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addRetFuncError name tf loc = addTypeError $ RetFuncError name tf loc
-
-
-addTypeError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addTypeError error = do RWSS.tell $ DS.singleton error
-                        return $ MyError
-
