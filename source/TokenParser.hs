@@ -12,11 +12,12 @@ import Type
 
 makeTokenParser x = tokenPrim showTok posTok testTok
                     where
-                      showTok (t, pos)      = show t ++ " " ++ show pos
-                      posTok  _ (_ , pos) _ = pos
-                      testTok (t, pos)      = if x == t then Just (t) else Nothing
+                      showTok (t, pos)       = show t ++ " " ++ show pos
+                      posTok  _ (_ , pos) xs = updatePos pos xs
+                      testTok (t, pos)       = if x == t then Just (t) else Nothing
 
-
+updatePos _   ((_, pos):xs) = pos
+updatePos pos []            = pos
 
 verify :: Token ->  MyParser (Token)
 verify token = makeTokenParser token
