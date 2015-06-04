@@ -171,6 +171,7 @@ occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occur
 occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
 occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)
 occursCheck (ID _ t _            ) id = return $ id == (text t)
+occursCheck (EmptyRange _ _      ) _  = return $ True
 occursCheck _ _                       = return $ False
 
 -- verTypeAST ((ID     loc cont t)) = return (ID     loc cont t       )

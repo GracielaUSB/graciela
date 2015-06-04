@@ -337,7 +337,12 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                             return $ Nothing
 
 
-
+rangeQuantification follow recSet = 
+  do pos <- getPosition
+     lookAhead follow
+     return $ return $ EmptyRange (getLocation pos) MyBool
+     <|> exprLevel3 follow recSet
+                          
 quantification follow recSet = 
   do pos <- getPosition
      parseTokLeftPer
@@ -347,7 +352,7 @@ quantification follow recSet =
      t <- myType parsePipe (recSet <|> parsePipe)
      addCuantVar (text id) t (getLocation pos)
      parsePipe
-     r <- exprLevel3(parsePipe) (recSet <|> parsePipe)
+     r <- rangeQuantification parsePipe (parsePipe <|> recSet)
      parsePipe
      t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
      parseTokRightPer
