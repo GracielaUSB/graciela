@@ -117,8 +117,10 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
+         | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }
     deriving (Eq)
+
 
 instance Show a => Show (AST a) where
   show ast = drawAST 0 ast
@@ -390,7 +392,11 @@ drawAST level ((DefFun name _ body bound ast)) =
 
 
 
-drawAST _ (EmptyAST _) = ""
+
+
+drawAST _ (EmptyRange _ _) = "rango vacio"
+drawAST _ (EmptyAST _) = "vacio"
+
 --drawAST _ _ = show "No se creo el arbol"
 --drawAST _ (ast) = show ast
 

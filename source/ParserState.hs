@@ -43,12 +43,15 @@ addManyUniSymParser (Just xs) (Just t) = f xs t
 addManyUniSymParser _ _                = return() 
                                                   
 addManySymParser :: VarBehavour -> Maybe([(T.Text , Location)]) -> Maybe(Type) -> Maybe([AST(Type)]) -> MyParser()
-addManySymParser vb (Just xs) (Just t) (Just ys) = if   length xs /= length ys then do pos <- getPosition
-                                                                                       ST.modify $ addTypeError $ (IncomDefError (getLocation pos))
-                                                   else f vb xs t ys
+addManySymParser vb (Just xs) (Just t) (Just ys) =
+    if length xs /= length ys then 
+        do pos <- getPosition
+           ST.modify $ addTypeError $ (IncomDefError (getLocation pos))
+    else f vb xs t ys
       where
-        f vb ((id, loc):xs) t (ast:ys) = do addSymbolParser id (Contents vb loc t (Just ast))
-                                            f vb xs t ys
+        f vb ((id, loc):xs) t (ast:ys) = 
+            do addSymbolParser id (Contents vb loc t (Just ast))
+               f vb xs t ys
         f _ [] _ []                    = return()
 addManySymParser _ _ _ _               = return()
 
