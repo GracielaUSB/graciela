@@ -215,7 +215,7 @@ invariant follow recSet =  do parseTokLeftInv
 
 maybeBound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) ) 
 maybeBound follow recSet = do lookAhead follow
-                              return $ return $ EmptyAST
+                              return $ return $ (EmptyAST MyEmpty)
                               <|> bound follow recSet
 
 listArgProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [Type])

@@ -18,8 +18,8 @@ addListError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () 
 addListError err = do RWSS.tell $ DS.singleton $ err
 
 
-addNumberArgsError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addNumberArgsError name loc = addTypeError $ NumberArgsError name loc
+addNumberArgsError :: T.Text -> Int -> Int -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addNumberArgsError name wtL prL loc = addTypeError $ NumberArgsError name wtL prL loc
 
 
 addUndecFuncError ::  T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 

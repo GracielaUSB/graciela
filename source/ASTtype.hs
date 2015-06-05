@@ -106,7 +106,8 @@ verTypeAST (GuardAction loc assert action _) = do assert' <- verTypeAST assert
 
 
 verTypeAST (LAssign idlist explist loc _) = do explist' <- verTypeASTlist explist  
-                                               checkT   <- verLAssign (map tag explist') (map fst idlist) loc
+                                               expArrT  <- mapM verTypeASTlist (map snd idlist)
+                                               checkT   <- verLAssign (map tag explist') (map fst idlist) (fmap (map tag) expArrT) loc
                                                return (LAssign idlist explist' loc checkT)
 
 
@@ -165,7 +166,7 @@ verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range
                                                                                   return $ Quant op var loc range' term' MyError
 
       
-
+verTypeAST (EmptyAST t)            = return (EmptyAST t)
 verTypeAST ast = return $ ast
 
 
@@ -182,7 +183,7 @@ occursCheck _ _                       = return $ False
 -- verTypeAST ((Bool   loc cont _)) = return (Bool   loc cont MyBool  )
 -- verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
 -- verTypeAST ((String loc cont _)) = return (String loc cont MyString)
--- verTypeAST (EmptyAST)            = return EmptyAST
+
 
 
 getLocArgs args = return $ fmap AST.location args

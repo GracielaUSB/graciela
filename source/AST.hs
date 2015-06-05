@@ -75,11 +75,11 @@ data StateCond = Pre | Post | Assertion | Bound | Invariant
       deriving (Eq)
 
 instance Show StateCond where
-   show Pre       = "Precondición: "
-   show Post      = "Postcondición: "
-   show Assertion = "Aserción: "
-   show Bound     = "Función de Cota: "
-   show Invariant = "Invariante: "
+   show Pre       = "Precondición "
+   show Post      = "Postcondición "
+   show Assertion = "Aserción "
+   show Bound     = "Función de Cota "
+   show Invariant = "Invariante "
 
 
 
@@ -117,7 +117,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
-         | EmptyAST
+         | EmptyAST     { tag :: a                                                                                     }
     deriving (Eq)
 
 instance Show a => Show (AST a) where
@@ -390,7 +390,7 @@ drawAST level ((DefFun name _ body bound ast)) =
 
 
 
-drawAST _ (EmptyAST) = ""
+drawAST _ (EmptyAST _) = ""
 --drawAST _ _ = show "No se creo el arbol"
 --drawAST _ (ast) = show ast
 

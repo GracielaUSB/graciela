@@ -210,7 +210,9 @@ verCallExp name args loc locarg =
        ; Just x  -> 
             case (symbolType x) of
             { MyFunction args' ts ->
-                  if length args /= length args' then addNumberArgsError name loc
+                  let wtL = length args
+                      prL = length args'
+                  in if (wtL /= prL) then addNumberArgsError name wtL prL loc
                   else let t = zip args args' in
                           if   and $ map (uncurry (==)) $ t then return $ ts
                           else do mapM_ (\ ((arg, arg'), larg) -> 
@@ -233,7 +235,9 @@ verProcCall name args loc locarg =
        ; Just x  -> 
             case (symbolType x) of
             { MyProcedure args' ->
-                  if length args /= length args' then addNumberArgsError name loc
+                  let wtL = length args
+                      prL = length args'
+                  in if (wtL /= prL) then addNumberArgsError name wtL prL loc
                   else let t = zip args args' in
                           if   and $ map (uncurry (==)) $ t then return $ MyEmpty
                           else do mapM_ (\ ((arg, arg'), larg) -> 
@@ -247,15 +251,30 @@ verProcCall name args loc locarg =
        }
 
 
-verLAssign :: [Type] -> [(Token, Type)] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verLAssign explist idlist loc = 
-        let checkError' = (\acc t -> if (not(acc == MyError) && not(t == MyError)) then MyEmpty else MyError) 
-            addError    = (\acc ((tok, t), expT) -> case (checkListType t True expT) of 
-                                                    { True  -> acc 
-                                                    ; False -> acc ++ [AssignError tok t expT loc]
-                                                    } )  
-            check       = foldl addError [] $ zip idlist explist
-        in case (foldl1 checkError' explist) of
+
+
+addLAssignError:: Location -> [MyTypeError] -> (((Token, Type), [Type]), Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
+addLAssignError loc acc (((tok, (MyArray t tam)), expArrT), expT) = 
+        do arrT <- verArrayCall tok expArrT (MyArray t tam) loc 
+           case arrT of
+           { MyError   -> return acc 
+           ; otherwise -> case (checkListType arrT True expT) of 
+                          { True  -> return acc 
+                          ; False -> return $ acc ++ [AssignError tok arrT expT loc]
+                          }  
+           }
+addLAssignError loc acc (((tok, t), _), expT) = 
+        case (checkListType t True expT) of 
+        { True  -> return acc 
+        ; False -> return $ acc ++ [AssignError tok t expT loc]
+        }  
+
+
+verLAssign :: [Type] -> [(Token, Type)] -> [[Type]] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verLAssign explist idlist expArrT loc = 
+        do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
+           let checkError' = (\acc t -> if (not(acc == MyError) && not(t == MyError)) then MyEmpty else MyError)   
+           case (foldl1 checkError' explist) of
            { MyError   -> return MyError
            ; otherwise -> case check of 
                           { []        -> return MyEmpty
@@ -270,7 +289,7 @@ verArrayCall name args t loc =
         let waDim = getDimention t 0
             prDim = length args
         in case (waDim == prDim) of
-           { False -> addTypeError $ ArrayDimError waDim prDim loc   
+           { False -> addTypeError $ ArrayDimError name waDim prDim loc   
            ; True  -> case (foldl checkError MyInt args) of
                       { MyError   -> return MyError
                       ; MyInt     -> return $ getType t
