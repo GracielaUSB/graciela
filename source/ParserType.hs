@@ -11,18 +11,9 @@ import Token
 import Type
 import AST
 
-
-readType :: String -> Maybe (Type)
-readType t =      if t == "boolean" then Just $ MyBool
-             else if t == "int"     then Just $ MyInt
-             else if t == "double"  then Just $ MyFloat
-             else if t == "char"    then Just $ MyChar
-             else if t == "string"  then Just $ MyString
-             else Nothing
-
 myBasicType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myBasicType follow recSet = do t <- parseType
-                               return $ readType $ nType t
+                               return $ return $ t
 
 myType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myType follow recSet = do myBasicType follow recSet
@@ -48,17 +39,9 @@ countableType follow recSet = do pos  <- getPosition
                                               }
                                  }
 
-parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe Int)
+parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe Integer)
 parseConstNumber follow recSet = do  lookAhead follow
                                      genNewEmptyError
                                      return $ Nothing
                                      <|> do e <- number
-                                            tokenToInt e
-
-tokenToInt :: Token -> MyParser (Maybe Int) 
-tokenToInt (TokInteger n) = do pos <- getPosition
-                               case TR.decimal n of
-                               { Left _         -> do addOutOfBoundsError n (getLocation pos)
-                                                      return $ Nothing
-                               ; Right (n', _)  -> return $ return n'
-                               }
+                                            return $ return e

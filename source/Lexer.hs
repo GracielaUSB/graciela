@@ -96,11 +96,11 @@ pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
 pToString     = tryString "toString"
-pType         = tryString "boolean"
-            <|> tryString "int"    
-            <|> tryString "double" 
-            <|> tryString "char"   
-            <|> tryString "string" 
+pType         = (tryString "boolean" >> return MyBool)
+            <|> (tryString "int"     >> return MyInt)
+            <|> (tryString "double"  >> return MyFloat)
+            <|> (tryString "char"    >> return MyChar)
+            <|> (tryString "string"  >> return MyString)
 pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
@@ -207,8 +207,8 @@ lexer = do spaces
                               <|> (try (do s <- pBool
                                            spaces
                                            case s of
-                                            { "true"  -> return $ TokBool MyTrue
-                                            ; "false" -> return $ TokBool MyFalse
+                                            { "true"  -> return $ TokBool True
+                                            ; "false" -> return $ TokBool False
                                             }
                                         )
                                   ) 
@@ -218,18 +218,18 @@ lexer = do spaces
                               <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
                               <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
                               <|> (pOf           >> spaces >> return (TokOf))
-                              <|> ((char '"')    AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . (TokString . T.pack))
+                              <|> ((char '"')    AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . TokString)
                               <|> (do char '\''
                                       c <- anyChar
                                       char '\''
                                       spaces
-                                      return (TokChar (T.singleton c))
+                                      return (TokChar c)
                                   )
                               <|> (try( do n1 <- many1 digit
                                            char '.'
                                            n2 <- many1 digit
-                                           return (TokFlotante (T.pack n1) (T.pack n2))))                             
-                              <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . T.pack))
+                                           return (TokFlotante (read (n1 ++ "." ++ n2)))))                             
+                              <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
                               <|> (try (do l <- letter
                                            r <- many (alphaNum <|> char '_' <|> char '?')
                                            spaces

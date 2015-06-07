@@ -64,16 +64,16 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , prType :: Type
                                    , loc    :: Location
                                    }
-                 | AssignError     { name   :: Token
+                 | AssignError     { aeName :: T.Text
                                    , waType :: Type
                                    , prType :: Type
                                    , loc    :: Location
                                    }    
-                 | ArrayCallError  { name   :: Token
+                 | ArrayCallError  { arrName:: T.Text
                                    , prType :: Type
                                    , loc    :: Location
                                    } 
-                 | ArrayDimError   { name   :: Token
+                 | ArrayDimError   { arrName:: T.Text
                                    , waDim  :: Int
                                    , prDim  :: Int
                                    , loc    :: Location 

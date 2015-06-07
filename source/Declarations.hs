@@ -66,7 +66,7 @@ idList follow recSet = do lookAhead (follow)
                           <|> do ac <- parseID
                                  loc <- parseLocation
                                  rl <- idListAux follow recSet
-                                 return (fmap ((text ac, loc) :) rl)
+                                 return (fmap ((ac, loc) :) rl)
 
 idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idListAux follow recSet = do lookAhead follow
@@ -75,21 +75,22 @@ idListAux follow recSet = do lookAhead follow
                                     ac <- parseID
                                     loc <- parseLocation
                                     rl <- idListAux (follow) (recSet)
-                                    return (fmap ((text ac, loc) :) rl)
+                                    return (fmap ((ac, loc) :) rl)
 
 parseLocation = do pos <- getPosition
                    return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
                   
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
-decListWithRead follow recSet = do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
-                                   do parseRead
-                                      parseLeftParent
-                                      lid <- idList (parseRightParent) (recSet <|> parseRightParent)
-                                      parseRightParent
-                                      do parseWith
-                                         id <- parseString
-                                         parseSemicolon
-                                         return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
-                                         <|> do parseSemicolon
-                                                return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
-                                      <|> return(ld >>= (const (return (EmptyAST MyEmpty))))
+decListWithRead follow recSet = 
+    do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
+       do parseRead
+          parseLeftParent
+          lid <- idList (parseRightParent) (recSet <|> parseRightParent)
+          parseRightParent
+          do parseWith
+             id <- parseString
+             parseSemicolon
+             return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
+             <|> do parseSemicolon
+                    return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
+          <|> return(ld >>= (const (return (EmptyAST MyEmpty))))

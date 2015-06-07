@@ -112,57 +112,6 @@ parseTokPi        = verify TokPi
 parseTokUnion     = verify TokUnion
 parseTokEqual     = verify TokEqual
 
-
-parseID :: MyParser (Token)
-parseID = tokenPrim showTok updatePos testTok
-          where
-            showTok (t, pos) = show t
-            testTok (t, pos) = case t of
-                                 { TokId id  -> Just (TokId id)
-                                 ; otherwise -> Nothing
-                                 }
-
-
-parseBool :: MyParser (Token)
-parseBool = tokenPrim showTok updatePos testTok
-            where
-              showTok (t, pos) = show t
-              testTok (t, pos) = case t of
-                                  { TokBool b -> Just (TokBool b)
-                                  ; otherwise -> Nothing
-                                  }
-
-
-parseType :: MyParser (Token)
-parseType = tokenPrim showTok updatePos testTok
-              where
-                showTok (t, pos) = show t
-                testTok (t, pos) = case t of
-                                    { TokType b -> Just (TokType b)
-                                    ; otherwise -> Nothing
-                                    }
-
-
-parseChar :: MyParser (Token)
-parseChar = tokenPrim showTok updatePos testTok
-            where
-              showTok (t, pos) = show t
-              testTok (t, pos) = case t of
-                                  { TokChar b -> Just (TokChar b)
-                                  ; otherwise -> Nothing
-                                  }
-
-
-parseString :: MyParser (Token)
-parseString = tokenPrim showTok updatePos testTok
-                where
-                  showTok (t, pos) = show t
-                  testTok (t, pos) = case t of
-                                      { TokString b -> Just (TokString b)
-                                      ; otherwise   -> Nothing
-                                      }
-
-
 parseAnyToken :: MyParser (Token)
 parseAnyToken = tokenPrim showTok updatePos testTok
                 where
@@ -170,20 +119,79 @@ parseAnyToken = tokenPrim showTok updatePos testTok
                   testTok (t, pos) = Just (t)
 
 
-number :: MyParser (Token)
+parseTokID :: MyParser (Token)
+parseTokID = tokenPrim showTok updatePos testTok
+          where
+            showTok (t, pos) = show t
+            testTok (t, pos) = case t of
+                                 { TokId id  -> Just (TokId id)
+                                 ; otherwise -> Nothing
+                                 }
+parseID :: MyParser (T.Text)
+parseID = tokenPrim showTok updatePos testTok
+          where
+            showTok (t, pos) = show t
+            testTok (t, pos) = case t of
+                                 { TokId id  -> Just id
+                                 ; otherwise -> Nothing
+                                 }
+
+
+parseBool :: MyParser (Bool)
+parseBool = tokenPrim showTok updatePos testTok
+            where
+              showTok (t, pos) = show t
+              testTok (t, pos) = case t of
+                                  { TokBool b -> Just b
+                                  ; otherwise -> Nothing
+                                  }
+
+
+parseType :: MyParser (Type)
+parseType = tokenPrim showTok updatePos testTok
+              where
+                showTok (t, pos) = show t
+                testTok (t, pos) = case t of
+                                    { TokType b -> Just b
+                                    ; otherwise -> Nothing
+                                    }
+
+
+parseChar :: MyParser (Char)
+parseChar = tokenPrim showTok updatePos testTok
+            where
+              showTok (t, pos) = show t
+              testTok (t, pos) = case t of
+                                  { TokChar b -> Just b
+                                  ; otherwise -> Nothing
+                                  }
+
+
+parseString :: MyParser (String)
+parseString = tokenPrim showTok updatePos testTok
+                where
+                  showTok (t, pos) = show t
+                  testTok (t, pos) = case t of
+                                      { TokString b -> Just b
+                                      ; otherwise   -> Nothing
+                                      }
+
+
+
+number :: MyParser (Integer)
 number = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokInteger n -> Just (TokInteger n)
+                                  { TokInteger n -> Just n
                                   ; otherwise    -> Nothing
                                   }
                                                               
-parseDouble :: MyParser (Token)
+parseDouble :: MyParser (Double)
 parseDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokFlotante n1 n2 -> Just (TokFlotante n1 n2)
-                                  ; otherwise         -> Nothing
+                                  { TokFlotante n -> Just n
+                                  ; otherwise     -> Nothing
                                   }

@@ -11,7 +11,7 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Int}
+                  | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Integer}
 
 
 instance Eq Type where

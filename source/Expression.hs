@@ -253,13 +253,13 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                             return $ return $ Int (getLocation pos) n MyInt
 
                                      <|> do idp <- parseID
-                                            t <- lookUpVarParser (text idp)
+                                            t <- lookUpVarParser idp
                                             do      lookAhead follow
                                                     return $ fmap (ID (getLocation pos) idp) t
                                                 <|> do parseLeftParent
                                                        lexp <- listExp (parseEnd <|> parseRightParent) (recSet <|> parseRightParent)
                                                        do parseRightParent
-                                                          return $ (AP.liftA2 (FCallExp (getLocation pos) idp) lexp (return (MyEmpty)))
+                                                          return $ AP.liftA2 (FCallExp (getLocation pos) idp) lexp (return (MyEmpty))
                                                           <|> do genNewError (recSet) (TokenRP)
                                                                  return $ Nothing
                                                         
@@ -267,16 +267,16 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                                        return $ (AP.liftA2 (ArrCall (getLocation pos) idp) blist t)
                                          
                                      <|> do parseMaxInt
-                                            return $ return $ Constant (getLocation pos) True  True MyEmpty
+                                            return $ return $ Constant (getLocation pos) True  True MyInt
                                      
                                      <|> do parseMinInt
-                                            return $ return $ Constant (getLocation pos) True  False MyEmpty
+                                            return $ return $ Constant (getLocation pos) True  False MyInt
                                      
                                      <|> do parseMaxDouble
-                                            return $ return $ Constant (getLocation pos) False True MyEmpty
+                                            return $ return $ Constant (getLocation pos) False True MyFloat
                                      
                                      <|> do parseMinDouble
-                                            return $ return $ Constant (getLocation pos) False False MyEmpty
+                                            return $ return $ Constant (getLocation pos) False False MyFloat
                                      
                                      <|> do e <- parseBool
                                             return $ return $ Bool (getLocation pos) e MyBool
@@ -350,7 +350,7 @@ quantification follow recSet =
      parseColon
      t <- myType parsePipe (recSet <|> parsePipe)
      newScopeParser
-     v <- addCuantVar (text id) t (getLocation pos)
+     v <- addCuantVar id t (getLocation pos)
      parsePipe
      r <- rangeQuantification parsePipe (parsePipe <|> recSet)
      parsePipe

@@ -125,7 +125,7 @@ verTypeAST (Rept guard inv bound loc _) = do guard' <- verTypeASTlist guard
 
 verTypeAST (ProcCall name args loc _) = do args'  <- verTypeASTlist args  
                                            locs   <- getLocArgs args
-                                           checkT <- verProcCall (text name) (map tag args') loc locs
+                                           checkT <- verProcCall name (map tag args') loc locs
                                            return (ProcCall name args' loc checkT)
 
   
@@ -135,12 +135,12 @@ verTypeAST (FunBody loc exp _) = do exp' <- verTypeAST (exp)
 
 verTypeAST (FCallExp loc name args _) = do args'  <- verTypeASTlist args
                                            locs   <- getLocArgs args
-                                           checkT <- verCallExp (text name) (map tag args') loc locs
+                                           checkT <- verCallExp name (map tag args') loc locs
                                            return (FCallExp loc name args' checkT)
 
 verTypeAST (DefFun name loc body bound _) = do body'  <- verTypeAST body   
                                                bound' <- verTypeAST bound
-                                               checkT <- verDefFun (text name) (tag body') (tag bound') loc
+                                               checkT <- verDefFun name (tag body') (tag bound') loc
                                                return (DefFun name loc body' bound' checkT)
                                                     
 
@@ -158,7 +158,7 @@ verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range
                                                   checkT <- verQuant (tag range') (tag term')
                                                   case checkT of
                                                     MyError   -> return (Quant op var loc range' term' checkT)
-                                                    otherwise -> let id = text var in
+                                                    otherwise -> let id = var in
                                                                  do r <- occursCheck range id
                                                                     case r of 
                                                                       True  -> return $ Quant op var loc range' term' checkT
@@ -174,7 +174,7 @@ occursCheck :: AST a -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) ()
 occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
 occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
 occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)
-occursCheck (ID _ t _            ) id = return $ id == (text t)
+occursCheck (ID _ t _            ) id = return $ id == t
 occursCheck (ArrCall _ _ xs _    ) id = fmap or $ mapM ((flip occursCheck) id) xs
 occursCheck (FCallExp _ _ xs _   ) id = fmap or $ mapM ((flip occursCheck) id) xs
 occursCheck (EmptyRange _ _      ) _  = return $ True

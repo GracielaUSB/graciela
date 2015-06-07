@@ -86,14 +86,14 @@ instance Show StateCond where
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
          | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Relacionales de dos expresiones.     
-         | FCallExp     { location :: Location, fname    :: Token   , args     :: [AST a], tag :: a                    } -- ^ Llamada a funcion.
-         | ArrCall      { location :: Location, name     :: Token, list :: [AST a],        tag :: a                    } -- ^ Búsqueda en arreglo.
-         | ID           { location :: Location, id       :: Token, tag :: a                                            } -- ^ Identificador.
-         | Int          { location :: Location, exp      :: Token, tag :: a                                            } -- ^ Numero entero.
-         | Float        { location :: Location, exp      :: Token, tag :: a                                            } -- ^ Numero entero.
-         | Bool         { location :: Location, cbool    :: Token, tag :: a                                            } -- ^ Tipo booleano con el token.
-         | Char         { location :: Location, mchar    :: Token, tag :: a                                            } -- ^ Tipo caracter con el token. 
-         | String       { location :: Location, mstring  :: Token, tag :: a                                            } -- ^ Tipo string con el token.
+         | FCallExp     { location :: Location, fname    :: T.Text, args     :: [AST a], tag :: a                      } -- ^ Llamada a funcion.
+         | ArrCall      { location :: Location, name     :: T.Text, list :: [AST a],        tag :: a                    } -- ^ Búsqueda en arreglo.
+         | ID           { location :: Location, id       :: T.Text, tag :: a                                            } -- ^ Identificador.
+         | Int          { location :: Location, expInt   :: Integer, tag :: a                                          } -- ^ Numero entero.
+         | Float        { location :: Location, expFloat :: Double, tag :: a                                           } -- ^ Numero entero.
+         | Bool         { location :: Location, cbool    :: Bool, tag :: a                                             } -- ^ Tipo booleano con el token.
+         | Char         { location :: Location, mchar    :: Char, tag :: a                                            } -- ^ Tipo caracter con el token. 
+         | String       { location :: Location, mstring  :: String, tag :: a                                            } -- ^ Tipo string con el token.
          | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    tag :: a                      } -- ^ Constantes.   
          | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), tag :: a                      } -- ^ Conversión a entero.
          | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), tag :: a                      } -- ^ Función raíz cuadrada.
@@ -102,20 +102,20 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Cond         { cguard   :: [AST a], location :: Location, tag :: a                                          } -- ^ Instruccion If.
          | Block        { lisAct   :: [AST a], location :: Location, tag :: a                                          }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | LAssign      { idlist   :: [((Token, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a          } -- ^
+         | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a  } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
-         | ProcCall     { fname    :: Token, args     :: [AST a], location :: Location, tag :: a                       } -- ^ Llamada a funcion.
+         | ProcCall     { pname    :: T.Text, args     :: [AST a], location :: Location, tag :: a                       } -- ^ Llamada a funcion.
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
-         | DefFun       { fname    :: Token, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
-         | DefProc      { pname    :: Token, prbody   ::  [AST a], nodePre   :: (AST a)
+         | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
+         | DefProc      { pname    :: T.Text, prbody   ::  [AST a], nodePre   :: (AST a)
                          ,nodePost :: (AST a), nodeBound :: (AST a), tag    :: a                                       }
-         | Ran          { var      :: Token, location :: Location, tag :: a                                            }
-         | Program      { pname    :: Token, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a  }
+         | Ran          { var      :: T.Text, location :: Location, tag :: a                                            }
+         | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a  }
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
-         | Quant        { opQ      :: Token, varQ :: Token, location :: Location, rangeExp :: (AST a)
+         | Quant        { opQ      :: Token, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }

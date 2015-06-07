@@ -2,6 +2,8 @@ module Token where
 
 import qualified Data.Text as T
 import Text.Parsec
+import Data.Int
+import Type
 
 data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
@@ -101,16 +103,16 @@ data Token =   TokPlus
              | TokMAX_DOUBLE 
              | TokOf
              | TokArray
-             | TokChar    { rchar :: T.Text   }
-             | TokBool    { nBool :: TypeBool }      
-             | TokType    { nType :: String   }
-             | TokId      { text  :: T.Text   }
-             | TokString  { st    :: T.Text   }
-             | TokInteger { num   :: T.Text   }
-             | TokFlotante T.Text T.Text
+             | TokChar     Char
+             | TokBool     Bool      
+             | TokType     Type
+             | TokId       T.Text
+             | TokString   String
+             | TokInteger  Integer
+             | TokFlotante Double
              | TokError T.Text
              | EmptyToken
-      deriving (Read, Eq)
+      deriving (Eq)
 
 
 type TokenPos = (Token, SourcePos)
@@ -216,7 +218,7 @@ instance Show Token where
   show (TokId      b)   = show b
   show (TokString  e)   = "cadena de caracteres " ++ show e
   show (TokError   e)   = "cadena no reconocida " ++ show e
-  show (TokFlotante n1 n2) = "Numero flotante : " ++ show n1 ++ "." ++ show n2 
+  show (TokFlotante n)  = "Numero flotante : " ++ show n
   show (TokChar c)      = "caracter " ++ show c  
   show (TokOpenBlock)   = "simbolo de apertura de bloque"
   show (TokCloseBlock)  = "simbolo de cierre de bloque"
@@ -225,3 +227,22 @@ instance Show Token where
   show TokOpenQuant     = "apertura de cuantificador"
   show TokPipe          = "pipe"
 
+tokenToInt :: Token -> Maybe Integer
+tokenToInt (TokInteger n) = return n
+tokenToInt _              = Nothing
+
+tokenToDouble :: Token -> Maybe Double
+tokenToDouble (TokFlotante n) = return n
+tokenToDouble _               = Nothing
+
+tokenToBool :: Token -> Maybe Bool
+tokenToBool (TokBool b) = return b
+tokenToBool _           = Nothing
+
+tokenToChar :: Token -> Maybe Char
+tokenToChar (TokChar c) = return c
+tokenToChar _           = Nothing
+
+tokenToString :: Token -> Maybe String
+tokenToString (TokString s) = return s
+tokenToString _             = Nothing

@@ -17,7 +17,6 @@ data MyParseError = MyParseError   { loc       :: Location
                   | NonAsocError   { loc       :: Location 
                                    }
                   | ScopesError
-               deriving (Read)
 
 data WaitedToken =  Operator
                   | Number
@@ -31,7 +30,6 @@ data WaitedToken =  Operator
                   | ProcOrFunc
                   | Colon
                   | IDError
-                  deriving(Read)
 
 instance Show WaitedToken where
   show Operator   = "operador"

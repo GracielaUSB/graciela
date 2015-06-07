@@ -253,7 +253,7 @@ verProcCall name args loc locarg =
 
 
 
-addLAssignError:: Location -> [MyTypeError] -> (((Token, Type), [Type]), Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
+addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
 addLAssignError loc acc (((tok, (MyArray t tam)), expArrT), expT) = 
         do arrT <- verArrayCall tok expArrT (MyArray t tam) loc 
            case arrT of
@@ -270,7 +270,7 @@ addLAssignError loc acc (((tok, t), _), expT) =
         }  
 
 
-verLAssign :: [Type] -> [(Token, Type)] -> [[Type]] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verLAssign :: [Type] -> [(T.Text, Type)] -> [[Type]] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verLAssign explist idlist expArrT loc = 
         do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
            let checkError' = (\acc t -> if (not(acc == MyError) && not(t == MyError)) then MyEmpty else MyError)   
@@ -284,7 +284,7 @@ verLAssign explist idlist expArrT loc =
             }
 
 
-verArrayCall :: Token -> [Type] -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verArrayCall :: T.Text -> [Type] -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verArrayCall name args t loc =
         let waDim = getDimention t 0
             prDim = length args
