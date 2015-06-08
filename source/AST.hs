@@ -4,6 +4,7 @@ import qualified Data.Text as T
 import Data.Monoid
 import Location
 import Token
+import Data.Range.Range                   as RA
 import Type
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
@@ -87,13 +88,13 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
          | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Relacionales de dos expresiones.     
          | FCallExp     { location :: Location, fname    :: T.Text, args     :: [AST a], tag :: a                      } -- ^ Llamada a funcion.
-         | ArrCall      { location :: Location, name     :: T.Text, list :: [AST a],        tag :: a                    } -- ^ Búsqueda en arreglo.
-         | ID           { location :: Location, id       :: T.Text, tag :: a                                            } -- ^ Identificador.
+         | ArrCall      { location :: Location, name     :: T.Text, list :: [AST a],        tag :: a                   } -- ^ Búsqueda en arreglo.
+         | ID           { location :: Location, id       :: T.Text, tag :: a                                           } -- ^ Identificador.
          | Int          { location :: Location, expInt   :: Integer, tag :: a                                          } -- ^ Numero entero.
          | Float        { location :: Location, expFloat :: Double, tag :: a                                           } -- ^ Numero entero.
          | Bool         { location :: Location, cbool    :: Bool, tag :: a                                             } -- ^ Tipo booleano con el token.
-         | Char         { location :: Location, mchar    :: Char, tag :: a                                            } -- ^ Tipo caracter con el token. 
-         | String       { location :: Location, mstring  :: String, tag :: a                                            } -- ^ Tipo string con el token.
+         | Char         { location :: Location, mchar    :: Char, tag :: a                                             } -- ^ Tipo caracter con el token. 
+         | String       { location :: Location, mstring  :: String, tag :: a                                           } -- ^ Tipo string con el token.
          | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    tag :: a                      } -- ^ Constantes.   
          | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), tag :: a                      } -- ^ Conversión a entero.
          | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), tag :: a                      } -- ^ Función raíz cuadrada.
@@ -102,28 +103,30 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Cond         { cguard   :: [AST a], location :: Location, tag :: a                                          } -- ^ Instruccion If.
          | Block        { lisAct   :: [AST a], location :: Location, tag :: a                                          }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a  } -- ^
+         | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
-         | ProcCall     { pname    :: T.Text, args     :: [AST a], location :: Location, tag :: a                       } -- ^ Llamada a funcion.
+         | ProcCall     { pname    :: T.Text, args     :: [AST a], location :: Location, tag :: a                      } -- ^ Llamada a funcion.
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
          | DefProc      { pname    :: T.Text, prbody   ::  [AST a], nodePre   :: (AST a)
                          ,nodePost :: (AST a), nodeBound :: (AST a), tag    :: a                                       }
-         | Ran          { var      :: T.Text, location :: Location, tag :: a                                            }
-         | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a  }
+         | Ran          { var      :: T.Text, location :: Location, tag :: a                                           }
+         | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: Token, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
+         | QuantRan     { opQ      :: Token, varQ :: T.Text, location :: Location, rangeVExp :: RA.Range Integer
+                         ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }
-    deriving (Eq)
+    deriving (Eq,Show)
 
 
-instance Show a => Show (AST a) where
-  show ast = drawAST 0 ast
+-- instance Show a => Show (AST a) where
+--   show ast = drawAST 0 ast
 
 
 space :: Char

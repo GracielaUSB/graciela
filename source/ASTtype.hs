@@ -4,6 +4,7 @@ import qualified Control.Monad.RWS.Strict as RWSS
 import qualified Data.Sequence            as DS
 import MyParseError                       as PE
 import MyTypeError                        as PT
+import Data.Range.Range                   as RA
 import SymbolTable
 import VerTypes
 import Type 
@@ -12,6 +13,8 @@ import Token
 import qualified Data.Text                as T
 import qualified Control.Applicative as AP
 import TypeState
+import Data.Char
+import Prelude as P
 
 runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
 
@@ -153,22 +156,82 @@ verTypeAST (DefProc name accs pre post bound _) = do accs'  <- verTypeASTlist ac
                                                      return (DefProc name accs' pre' post' bound' checkT)
                                                               
 
-verTypeAST ((Quant op var loc range term _)) = do range' <- verTypeAST range  
-                                                  term'  <- verTypeAST term 
-                                                  checkT <- verQuant (tag range') (tag term')
-                                                  case checkT of
-                                                    MyError   -> return (Quant op var loc range' term' checkT)
-                                                    otherwise -> let id = var in
-                                                                 do r <- occursCheck range id
-                                                                    case r of 
-                                                                      True  -> return $ Quant op var loc range' term' checkT
-                                                                      False -> do addNotOccursVarError id loc
-                                                                                  return $ Quant op var loc range' term' MyError
+verTypeAST ((Quant op var loc range term _)) = 
+    do range' <- verTypeAST range  
+       term'  <- verTypeAST term 
+       checkT <- verQuant (tag range') (tag term')
+       case checkT of
+         MyError   -> return (Quant op var loc range' term' checkT)
+         otherwise -> let id = var in
+                      do r <- occursCheck range id
+                         case r of 
+                           True  -> case astToRange var range' of
+                                           Nothing -> return $ Quant op var loc range' term' checkT
+                                           Just r  -> case r of 
+                                                         []   -> return $ Quant op var loc range' term' MyError
+                                                         x:_  -> return $ QuantRan op var loc x term' checkT
+                           False -> do addNotOccursVarError id loc
+                                       return $ Quant op var loc range' term' MyError
 
       
-verTypeAST (EmptyAST t)            = return (EmptyAST t)
 verTypeAST ast = return $ ast
 
+astToRange id (Relational c _ l r _) = 
+    let lr = reduceAST id l
+        rr = reduceAST id r
+    in
+        if lr == NonReducible || rr == NonReducible then Nothing
+        else buildRange c lr rr
+
+astToRange id (Boolean c _ l r _) = 
+    let lr = astToRange id l
+        rr = astToRange id r
+    in
+      case c of
+        Dis -> AP.liftA2 RA.union lr rr
+        Con -> AP.liftA2 RA.intersection lr rr
+        -- FALTA EL RESTO DE LOS OPERADORES BOOLEANOS
+astToRange _ _ = Nothing
+
+buildRange Less     (QuanVariable id) (Reducible n) = return $ return $ RA.UpperBoundRange $ n - 1 -- i < n
+buildRange Less     (Reducible n) (QuanVariable id) = return $ return $ RA.LowerBoundRange $ n + 1 -- n < i
+buildRange Greater  (QuanVariable id) (Reducible n) = return $ return $ RA.LowerBoundRange $ n + 1 -- i > n
+buildRange Greater  (Reducible n) (QuanVariable id) = return $ return $ RA.UpperBoundRange $ n - 1 -- n > i
+buildRange LEqual   (QuanVariable id) (Reducible n) = return $ return $ RA.UpperBoundRange n -- i <= n
+buildRange LEqual   (Reducible n) (QuanVariable id) = return $ return $ RA.LowerBoundRange n -- n <= i
+buildRange GEqual   (QuanVariable id) (Reducible n) = return $ return $ RA.LowerBoundRange n -- i >= n
+buildRange GEqual   (Reducible n) (QuanVariable id) = return $ return $ RA.UpperBoundRange n -- n >= i
+buildRange Equal    (Reducible n) (QuanVariable id) = return $ return $ RA.SingletonRange n
+buildRange Equal    (QuanVariable id) (Reducible n) = return $ return $ RA.SingletonRange n
+buildRange Ine      (Reducible n) (QuanVariable id) = return $ RA.invert $ [RA.SingletonRange n]
+
+reduceAST id (Arithmetic op _ l r _)  = let lr = reduceAST id l
+                                            rr = reduceAST id r
+                                        in
+                                          if       lr == NonReducible    || rr == NonReducible    then NonReducible
+                                          else  if lr == QuanVariable id || rr == QuanVariable id then NonReducible
+                                                else
+                                                  let nl = getNum lr
+                                                      nr = getNum rr
+                                                  in
+                                                    case op of
+                                                      Sum -> Reducible (nl + nr)
+                                                      Sub -> Reducible (nl - nr)
+                                                      Mul -> Reducible (nl * nr)
+                                                      Div -> Reducible (quot nl nr)
+                                                      Exp -> Reducible (nl ^ nr)
+                                                      Max -> Reducible (P.max nl nr)
+                                                      Min -> Reducible (min nl nr)
+                                                      Mod -> Reducible (mod nl nr)
+-- FALTA EL RESTO DE LOS OPERADORES
+reduceAST id (Int  _ m _)             = Reducible m
+reduceAST id (Char _ m _)             = Reducible $ (toInteger . ord) m
+reduceAST id (Bool _ m _)             = Reducible $ (toInteger . fromEnum) m
+reduceAST id (ID _ id' _ )            = if id' == id then QuanVariable id else NonReducible
+reduceAST _  _                        = NonReducible
+
+data Reducibility = NonReducible | Reducible { getNum :: Integer } | QuanVariable T.Text
+    deriving (Show, Eq)
 
 occursCheck :: AST a -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) () (Bool)
 occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
