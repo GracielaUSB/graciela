@@ -169,7 +169,7 @@ verTypeAST ((Quant op var loc range term _)) =
                                            Nothing -> return $ Quant op var loc range' term' checkT
                                            Just r  -> case r of 
                                                          []   -> return $ Quant op var loc range' term' MyError
-                                                         x:_  -> return $ QuantRan op var loc x term' checkT
+                                                         xs   -> return $ QuantRan op var loc xs term' checkT
                            False -> do addNotOccursVarError id loc
                                        return $ Quant op var loc range' term' MyError
 
@@ -188,9 +188,14 @@ astToRange id (Boolean c _ l r _) =
         rr = astToRange id r
     in
       case c of
-        Dis -> AP.liftA2 RA.union lr rr
-        Con -> AP.liftA2 RA.intersection lr rr
-        -- FALTA EL RESTO DE LOS OPERADORES BOOLEANOS
+        Dis     -> AP.liftA2 RA.union lr rr
+        Con     -> AP.liftA2 RA.intersection lr rr
+        Implies -> AP.liftA2 RA.union (fmap RA.invert lr) rr
+        Conse   -> AP.liftA2 RA.union (fmap RA.invert rr) lr
+astToRange id (Unary Not _ e _) = 
+    let r = astToRange id e
+    in
+      fmap RA.invert r
 astToRange _ _ = Nothing
 
 buildRange Less     (QuanVariable id) (Reducible n) = return $ return $ RA.UpperBoundRange $ n - 1 -- i < n
@@ -204,31 +209,41 @@ buildRange GEqual   (Reducible n) (QuanVariable id) = return $ return $ RA.Upper
 buildRange Equal    (Reducible n) (QuanVariable id) = return $ return $ RA.SingletonRange n
 buildRange Equal    (QuanVariable id) (Reducible n) = return $ return $ RA.SingletonRange n
 buildRange Ine      (Reducible n) (QuanVariable id) = return $ RA.invert $ [RA.SingletonRange n]
+buildRange Ine      (QuanVariable id) (Reducible n) = return $ RA.invert $ [RA.SingletonRange n]
+buildRange _ _ _ = return $ return $ InfiniteRange
 
-reduceAST id (Arithmetic op _ l r _)  = let lr = reduceAST id l
-                                            rr = reduceAST id r
-                                        in
-                                          if       lr == NonReducible    || rr == NonReducible    then NonReducible
-                                          else  if lr == QuanVariable id || rr == QuanVariable id then NonReducible
-                                                else
-                                                  let nl = getNum lr
-                                                      nr = getNum rr
-                                                  in
-                                                    case op of
-                                                      Sum -> Reducible (nl + nr)
-                                                      Sub -> Reducible (nl - nr)
-                                                      Mul -> Reducible (nl * nr)
-                                                      Div -> Reducible (quot nl nr)
-                                                      Exp -> Reducible (nl ^ nr)
-                                                      Max -> Reducible (P.max nl nr)
-                                                      Min -> Reducible (min nl nr)
-                                                      Mod -> Reducible (mod nl nr)
--- FALTA EL RESTO DE LOS OPERADORES
-reduceAST id (Int  _ m _)             = Reducible m
-reduceAST id (Char _ m _)             = Reducible $ (toInteger . ord) m
-reduceAST id (Bool _ m _)             = Reducible $ (toInteger . fromEnum) m
-reduceAST id (ID _ id' _ )            = if id' == id then QuanVariable id else NonReducible
-reduceAST _  _                        = NonReducible
+reduceAST id (Arithmetic op _ l r _)  = 
+    let lr = reduceAST id l
+        rr = reduceAST id r
+    in
+      if       lr == NonReducible    || rr == NonReducible    then NonReducible
+      else  if lr == QuanVariable id || rr == QuanVariable id then NonReducible
+            else
+              let nl = getNum lr
+                  nr = getNum rr
+              in
+                case op of
+                  Sum -> Reducible (nl + nr)
+                  Sub -> Reducible (nl - nr)
+                  Mul -> Reducible (nl * nr)
+                  Div -> Reducible (quot nl nr)
+                  Exp -> Reducible (nl ^ nr)
+                  Max -> Reducible (P.max nl nr)
+                  Min -> Reducible (min nl nr)
+                  Mod -> Reducible (mod nl nr)
+reduceAST id (Unary op _ e _)      = 
+    let  re = reduceAST id e
+    in if re == NonReducible || re == QuanVariable id then NonReducible
+       else let ne = getNum re
+            in case op of
+                 Minus -> Reducible $ -ne
+                 Abs   -> Reducible $ abs ne
+-- Siguen faltando operadores
+reduceAST id (Int  _ m _)          = Reducible m
+reduceAST id (Char _ m _)          = Reducible $ (toInteger . ord) m
+reduceAST id (Bool _ m _)          = Reducible $ (toInteger . fromEnum) m
+reduceAST id (ID _ id' _ )         = if id' == id then QuanVariable id else NonReducible
+reduceAST _  _                     = NonReducible
 
 data Reducibility = NonReducible | Reducible { getNum :: Integer } | QuanVariable T.Text
     deriving (Show, Eq)
@@ -250,11 +265,7 @@ occursCheck _ _                       = return $ False
 -- verTypeAST ((Char   loc cont _)) = return (Char   loc cont MyChar  )
 -- verTypeAST ((String loc cont _)) = return (String loc cont MyString)
 
-
-
 getLocArgs args = return $ fmap AST.location args
-
-
 
 verTypeASTlist []     = return []
 verTypeASTlist (x:xs) = do r  <- verTypeAST x

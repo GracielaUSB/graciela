@@ -55,9 +55,13 @@ addManySymParser vb (Just xs) (Just t) (Just ys) =
         f _ [] _ []                    = return()
 addManySymParser _ _ _ _               = return()
 
-addFunctionArgParser :: T.Text -> Maybe (Type) -> Location -> MyParser ()
-addFunctionArgParser id (Just t) loc = addSymbolParser id (Contents CO.Constant loc t Nothing)
-addFunctionArgParser _ _ _           = return ()
+addFunctionArgParser :: T.Text -> T.Text -> Maybe (Type) -> Location -> MyParser ()
+addFunctionArgParser idf id (Just t) loc = 
+    if id /= idf then
+       addSymbolParser id (Contents CO.Constant loc t Nothing)
+    else
+      addFunctionNameError id loc
+addFunctionArgParser _ _ _ _             = return ()
 
 addSymbolParser :: T.Text -> Contents -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
@@ -69,12 +73,13 @@ addCuantVar id (Just t) loc = do addSymbolParser id (Contents CO.Constant loc t 
 addCuantVar _ _ _           = return()
 
 lookUpSymbol :: T.Text -> MyParser (Maybe Contents)
-lookUpSymbol id = do st <- get
-                     case lookUpVarState id (symbolTable st) of
-                     { Nothing -> do addNonDeclVarError id
-                                     return Nothing
-                     ; Just c  -> return $ Just c
-                     }
+lookUpSymbol id = 
+    do st <- get
+       case lookUpVarState id (symbolTable st) of
+         Nothing -> do addNonDeclVarError id
+                       return Nothing
+         Just c  -> return $ Just c
+       
 
 lookUpVarParser :: T.Text -> MyParser (Maybe Type)
 lookUpVarParser id = do st <- get
@@ -98,14 +103,16 @@ addConsIdError id = do pos <- getPosition
                        ST.modify $ addTypeError (ConstIdError id (getLocation pos))
                        return ()
 
-addNonDeclVarError id = do pos <- getPosition 
-                           ST.modify $ addTypeError (NonDeclError id (getLocation pos))
-                           return ()
+addNonDeclVarError id =
+    do pos <- getPosition 
+       ST.modify $ addTypeError $ NonDeclError id (getLocation pos)
+       return ()
 
 addNonAsocError :: MyParser ()
-addNonAsocError = do pos <- getPosition
-                     ST.modify $ addParsingError $ NonAsocError (getLocation pos) 
-                     return ()
+addNonAsocError = 
+    do pos <- getPosition
+       ST.modify $ addParsingError $ NonAsocError (getLocation pos) 
+       return ()
  
 -- addArrayCallError :: MyParser ()
 addArrayCallError waDim prDim = do pos <- getPosition
@@ -133,3 +140,7 @@ addOutOfBoundsError t l = do ST.modify $ addTypeError $ IntOutOfBounds t l
 addUncountableError :: Location -> MyParser ()
 addUncountableError loc = do ST.modify $ addTypeError $ UncountError loc
                              return ()
+
+addFunctionNameError :: T.Text -> Location -> MyParser ()
+addFunctionNameError id loc = do ST.modify $ addTypeError $ FunNameError id loc
+                                 return ()

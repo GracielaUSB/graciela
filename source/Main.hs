@@ -24,7 +24,7 @@ concatLexPar = playParser AP.<$> lexer
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
 
-playParser inp = runStateParse (quantification parseColon parseColon) "" inp initialState
+playParser inp = runStateParse (program) "" inp initialState
 
 
 playLexer inp = putStrLn $ show $ runParser lexer () "" inp

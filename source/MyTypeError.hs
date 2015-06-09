@@ -90,6 +90,9 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | NotOccursVar    { symbol :: T.Text 
                                    , loc    :: Location
                                    } 
+                 | FunNameError    { symbol :: T.Text 
+                                   , loc    :: Location
+                                   } 
 
 
 instance Show MyTypeError where
@@ -140,6 +143,8 @@ instance Show MyTypeError where
             errorL loc ++ ": La variable es de tipo: " ++ show pt ++ ", se esperaba varible de tipo: Int o Doble."
    show (UncountError                loc) = 
             errorL loc ++ ": -------------------------------------------------"
+   show (FunNameError  id            loc) = 
+            errorL loc ++ ": El parámetro " ++ show id ++ "es del mismo nombre de la función que está siendo definida"
    show (NotOccursVar    sym         loc) = 
             errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del cuantificador."
 

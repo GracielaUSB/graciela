@@ -19,14 +19,14 @@ program main |[
       q := arreglo[3];
 
 		{inv   true inv}
-		{bound true bound}
+		{bound 5 bound}
 		
     	do (r >= b) ->
         b:= b*2
     	od;
 
 		{inv   true  inv} 
-		{bound true  bound}
+		{bound 5  bound}
 
     	do (b != B) ->
         |[

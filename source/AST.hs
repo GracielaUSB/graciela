@@ -31,7 +31,7 @@ data OpBool = Dis | Con | Implies | Conse
       deriving (Eq)
 
 instance Show OpBool where
-   show Dis     = "Disyunción"
+   show Dis     = "Disjunción"
    show Con     = "Conjunción"
    show Implies = "Implicación"
    show Conse   = "Consecuencia"
@@ -118,15 +118,15 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: Token, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
-         | QuantRan     { opQ      :: Token, varQ :: T.Text, location :: Location, rangeVExp :: RA.Range Integer
+         | QuantRan     { opQ      :: Token, varQ :: T.Text, location :: Location, rangeVExp :: [RA.Range Integer]
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }
-    deriving (Eq,Show)
+    deriving (Eq)
 
 
--- instance Show a => Show (AST a) where
---   show ast = drawAST 0 ast
+instance Show a => Show (AST a) where
+  show ast = drawAST 0 ast
 
 
 space :: Char
