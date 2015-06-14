@@ -311,7 +311,7 @@ verDefFun name body bound loc = do sb <- RWSS.ask
                                    ; Just c  -> case (symbolType c) of
                                                 { MyFunction _ tf -> case (tf == body) of
                                                                      { True  -> return MyEmpty
-                                                                     ; False -> addRetFuncError name tf loc
+                                                                     ; False -> addRetFuncError name tf body loc
                                                                      }
                                                 ; otherwise       -> addUndecFuncError name loc
                                                 } 

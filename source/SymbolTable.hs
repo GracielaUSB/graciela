@@ -25,7 +25,7 @@ data SymbolTable = Table { actual :: Tr.Tree ((Diccionario, Scope), Maybe Symbol
 
 
 instance Show SymbolTable where
-   show (Table st)  = drawST 0 st
+   show (Table st)  = (drawST 0 st) ++ "\n" 
 
 
 

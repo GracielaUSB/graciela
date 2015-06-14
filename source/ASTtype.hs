@@ -1,22 +1,24 @@
 module ASTtype where
 
 import qualified Control.Monad.RWS.Strict as RWSS
+import qualified Control.Applicative      as AP
 import qualified Data.Sequence            as DS
+import qualified Data.Text                as T
+import Data.Range.Range                   as RA
 import MyParseError                       as PE
 import MyTypeError                        as PT
-import Data.Range.Range                   as RA
+import Prelude                            as P
 import SymbolTable
+import Data.Char
+import TypeState
 import VerTypes
 import Type 
 import AST
 import Token
-import qualified Data.Text                as T
-import qualified Control.Applicative as AP
-import TypeState
-import Data.Char
-import Prelude as P
 
-runTVerifier stable stree = RWSS.evalRWS (verTypeAST stree) stable () 
+
+runTVerifier :: SymbolTable -> AST Type -> (AST Type, DS.Seq MyTypeError)
+runTVerifier sTable sTree = RWSS.evalRWS (verTypeAST sTree) sTable () 
 
 
 verTypeAST :: (AST Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (AST Type)
@@ -176,6 +178,9 @@ verTypeAST ((Quant op var loc range term _)) =
       
 verTypeAST ast = return $ ast
 
+
+--Rango
+
 astToRange id (Relational c _ l r _) = 
     let lr = reduceAST id l
         rr = reduceAST id r
@@ -198,6 +203,7 @@ astToRange id (Unary Not _ e _) =
       fmap RA.invert r
 astToRange _ _ = Nothing
 
+
 buildRange Less     (QuanVariable id) (Reducible n) = return $ return $ RA.UpperBoundRange $ n - 1 -- i < n
 buildRange Less     (Reducible n) (QuanVariable id) = return $ return $ RA.LowerBoundRange $ n + 1 -- n < i
 buildRange Greater  (QuanVariable id) (Reducible n) = return $ return $ RA.LowerBoundRange $ n + 1 -- i > n
@@ -211,6 +217,7 @@ buildRange Equal    (QuanVariable id) (Reducible n) = return $ return $ RA.Singl
 buildRange Ine      (Reducible n) (QuanVariable id) = return $ RA.invert $ [RA.SingletonRange n]
 buildRange Ine      (QuanVariable id) (Reducible n) = return $ RA.invert $ [RA.SingletonRange n]
 buildRange _ _ _ = return $ return $ InfiniteRange
+
 
 reduceAST id (Arithmetic op _ l r _)  = 
     let lr = reduceAST id l
@@ -271,3 +278,9 @@ verTypeASTlist []     = return []
 verTypeASTlist (x:xs) = do r  <- verTypeAST x
                            rs <- verTypeASTlist xs
                            return (r:rs)
+
+
+drawASTtype (ast, err) = case (DS.null err) of
+                         { True  ->  show ast
+                         ; False -> (show ast) ++ (drawTypeError err) 
+                         } 

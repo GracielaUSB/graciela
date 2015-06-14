@@ -26,8 +26,8 @@ addUndecFuncError ::  T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTy
 addUndecFuncError name loc = addTypeError $ UndecFunError name loc
 
 
-addRetFuncError :: T.Text -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
-addRetFuncError name tf loc = addTypeError $ RetFuncError name tf loc
+addRetFuncError :: T.Text -> Type -> Type ->  Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addRetFuncError name tf body loc = addTypeError $ RetFuncError name tf body loc
 
 
 addTypeError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 

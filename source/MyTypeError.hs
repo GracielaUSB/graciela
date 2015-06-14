@@ -1,7 +1,10 @@
 module MyTypeError where
 
 import qualified Data.Text.Read as TR
-import Data.Text                as T
+import Contents                 as C
+import Data.Text                as T hiding (foldl)
+import Data.Foldable                 hiding (foldl)
+import Data.Monoid
 import Location
 import Token
 import Type
@@ -41,12 +44,13 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , state  :: StateCond
                                    , loc    :: Location
                                    }  
-                 | GuardError      { prtype :: Type
+                 | GuardError      { prType :: Type
                                    , loc    :: Location
                                    }   
                  | CondError       { loc    :: Location
                                    }                                                                                            
-                 | IncomDefError   { loc    :: Location
+                 | IncomDefError   { cont   :: VarBehavour
+                                   , loc    :: Location
                                    }
                  | UndecFunError   { symbol :: T.Text
                                    , loc    :: Location
@@ -57,7 +61,8 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , loc    :: Location
                                    }
                  | RetFuncError    { symbol :: T.Text
-                                   , ftype  :: Type
+                                   , waType :: Type
+                                   , prType :: Type
                                    , loc    :: Location
                                    }
                  | FunArgError     { waType :: Type
@@ -95,19 +100,21 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    } 
 
 
+
+
 instance Show MyTypeError where
    show (RepSymbolError     sym pLoc loc) = 
-            errorL loc ++ "La variable "  ++ show sym ++ " ya fue previamente declarada " ++ show pLoc ++ "."
+            errorL loc ++ ": La variable "  ++ show sym ++ " ya fue previamente declarada " ++ show pLoc ++ "."
    show (ConstIdError       sym      loc) = 
-            errorL loc ++ ": -------------------------------------------------."
+            errorL loc ++ ": No se puede redeclarar una constante."
    show (NonDeclError       sym      loc) = 
             errorL loc ++ ": La variable " ++ show sym ++ " no esta declarada."
    show (ArithmeticError    lt rt op loc) = 
-            errorL loc ++ ": Tipos incompatibles en el operador aritmético: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " y " ++ show rt ++ "."
+            errorL loc ++ ": Tipos incompatibles en el operador aritmético: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " & " ++ show rt ++ "."
    show (BooleanError       lt rt op loc) = 
-            errorL loc ++ ": Tipos incompatibles en el operador booleano: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " y " ++ show rt ++ "."
+            errorL loc ++ ": Tipos incompatibles en el operador booleano: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " & " ++ show rt ++ "."
    show (RelationalError    lt rt op loc) = 
-            errorL loc ++ ": Tipos incompatibles en el operador relacional: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " y " ++ show rt ++ "."
+            errorL loc ++ ": Tipos incompatibles en el operador relacional: " ++ show op ++ ", se encontró el tipo: " ++ show lt ++ " & " ++ show rt ++ "."
    show (UnaryError          t Minus loc) = 
             errorL loc ++ ": Tipo incompatible en el operador unario: Negativo, se encontró el tipo: " ++ show t ++ ", se esperaba el tipo: Int o Doble."  
    show (UnaryError          t Not   loc) = 
@@ -121,14 +128,17 @@ instance Show MyTypeError where
    show (GuardError          t       loc) = 
             errorL loc ++ ": Se esperaba en la guardia el tipo: Boolean, se encontró: " ++ show t ++ "."
    show (CondError                   loc) = 
-            errorL loc ++ ": -------------------------------------------------"
-   show (IncomDefError               loc) = 
-            errorL loc ++ ": -------------------------------------------------"
+            errorL loc ++ ": Los condicionales no son del mismo tipo."
+   show (IncomDefError C.Constant    loc) = 
+            errorL loc ++ ": Definición de constantes incompleta"
+   show (IncomDefError C.Variable    loc) = 
+            errorL loc ++ ": Definición de variables incompleta"
    show (UndecFunError   sym         loc) = 
             errorL loc ++ ": La función " ++ show sym ++ "no se puede usar, no esta definida."
    show (NumberArgsError sym wtL prL loc) = 
             errorL loc ++ ": El número de argumentos es inválido, se esperaba " ++ show wtL ++ " argumentos, se encontró " ++ show prL ++ "."
-   show (RetFuncError    sym t       loc) = "Int"
+   show (RetFuncError    sym wt  pt  loc) = 
+            errorL loc ++ ": En la función " ++ show sym ++ " se esperaba que retornará el tipo: " ++ show wt ++ ", se encontró " ++ show pt ++ "."
    show (FunArgError           wt pt loc) = 
             errorL loc ++ ": Se esperar argumento de tipo: " ++ show wt ++ ", se encontró: " ++ show pt ++ "."
    show (AssignError      name wt pt loc) = 
@@ -138,15 +148,19 @@ instance Show MyTypeError where
    show (ArrayCallError   name    pt loc) =
             errorL loc ++ ": El índice del arreglo " ++ show name ++ " debe ser de tipo: Int, se encontró: " ++ show pt ++ "."
    show (IntOutOfBounds          val loc) = 
-            errorL loc ++ ": -------------------------------------------------"
+            errorL loc ++ ": Int " ++ show val ++ " fuera del rango representable."
    show (RanError                 pt loc) = 
             errorL loc ++ ": La variable es de tipo: " ++ show pt ++ ", se esperaba varible de tipo: Int o Doble."
    show (UncountError                loc) = 
-            errorL loc ++ ": -------------------------------------------------"
+            errorL loc ++ ": Tipo no contable en la definición del cuantificador." 
+   show (NotOccursVar    sym        loc) = 
+            errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del rango del cuantificador."
    show (FunNameError  id            loc) = 
             errorL loc ++ ": El parámetro " ++ show id ++ "es del mismo nombre de la función que está siendo definida"
-   show (NotOccursVar    sym         loc) = 
-            errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del cuantificador."
+
+
+
+drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
 
 
 

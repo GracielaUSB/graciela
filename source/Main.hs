@@ -1,10 +1,10 @@
 module Main where
   
 import qualified Control.Monad.RWS.Strict as RWSS
-import qualified Control.Applicative as AP
-import qualified Data.Text.IO        as TIO
-import qualified Data.Text           as T
-import Control.Monad.State           as ST
+import qualified Control.Applicative      as AP
+import qualified Data.Text.IO             as TIO
+import qualified Data.Text                as T
+import Control.Monad.State                as ST
 import Control.Monad.Identity
 import System.Environment
 import TokenParser
@@ -17,6 +17,7 @@ import Parser
 import State
 import Lexer
 import AST
+import MyTypeError
 
 concatLexPar = playParser AP.<$> lexer
 
@@ -31,12 +32,13 @@ playLexer inp = putStrLn $ show $ runParser lexer () "" inp
 
 
 play inp = case (runParser (concatLexPar) () "" (inp)) of
-            		  { Left  err -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err)
+            		  { Left  err -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err)
             		  ; Right par -> case par of
-           		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err')
-                                   ; (Right (Just ast) , st) -> do putStrLn $ show $ runTVerifier (symbolTable st) ast
-                                                                   putStrLn $ show $ st
-                                   ; (Right  _         , st) -> putStrLn $ show $ st
+           		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
+                                   ; (Right (Just ast) , st) -> do putStrLn $ drawState st
+                                                                   putStrLn $ drawASTtype $ runTVerifier (symbolTable st) ast
+                                                                    
+                                   ; (Right  _         , st) -> putStrLn $ drawState st
                                    }
                   }
 

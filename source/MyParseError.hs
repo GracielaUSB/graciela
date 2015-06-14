@@ -33,7 +33,7 @@ data WaitedToken =  Operator
 
 instance Show WaitedToken where
   show Operator   = "operador"
-  show Number     = "numero"
+  show Number     = "número"
   show TokenRP    = "paréntesis derecho"
   show Comma      = "coma"
   show Final      = "final de archivo"
@@ -41,16 +41,16 @@ instance Show WaitedToken where
   show TokenOB    = "apertura de bloque"
   show TokenCB    = "final de bloque"
   show Program    = "program"
-  show ProcOrFunc = "procedimiento o funcion"
+  show ProcOrFunc = "procedimiento o función"
   show Colon      = "dos puntos"
   show IDError    = "identificador"
 
 instance Show MyParseError where
-  show (MyParseError loc wt at) = show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at
-  show (EmptyError   loc)       = show loc ++ ": No se permiten expresiones vacías"
-  show (NonAsocError loc)       = show loc ++ " Operador no asociativo"
-  show (ArrayError   wt pr loc) = show loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++ ", encontrado Arreglo de dimensión " ++ show pr     
-  show ScopesError              = "Error en la tabla de símbolos: intento de salir de un alcance sin padre"
+  show (MyParseError loc wt at) = errorL loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at ++ "."
+  show (EmptyError   loc)       = errorL loc ++ ": No se permiten expresiones vacías."
+  show (NonAsocError loc)       = errorL loc ++ ": Operador no asociativo."
+  show (ArrayError   wt pr loc) = errorL loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++ ", encontrado Arreglo de dimensión " ++ show pr ++ "."     
+  show ScopesError              = "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
        
 newEmptyError  pos          = EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos)                                 }
 newParseError  msg (e, pos) = MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), waitedTok = msg, actualTok = e }

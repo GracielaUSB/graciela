@@ -1,8 +1,8 @@
 module ParserState where
 
 import qualified Text.Parsec.Pos as P
+import qualified Data.Text       as T 
 import Control.Monad.State       as ST
-import qualified Data.Text       as T
 import Contents                  as CO
 import MyParseError
 import MyTypeError
@@ -46,7 +46,7 @@ addManySymParser :: VarBehavour -> Maybe([(T.Text , Location)]) -> Maybe(Type) -
 addManySymParser vb (Just xs) (Just t) (Just ys) =
     if length xs /= length ys then 
         do pos <- getPosition
-           ST.modify $ addTypeError $ (IncomDefError (getLocation pos))
+           ST.modify $ addTypeError $ (IncomDefError vb (getLocation pos))
     else f vb xs t ys
       where
         f vb ((id, loc):xs) t (ast:ys) = 
