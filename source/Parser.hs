@@ -155,9 +155,10 @@ proc follow recSet =
                     parseTokCloseBlock
                     post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                     parseRightBracket
+                    sb <- getActualScope
                     exitScopeParser
-                    addProcTypeParser id targs (getLocation pos)
-                    return ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return (MyEmpty)))
+                    addProcTypeParser id targs (getLocation pos) sb
+                    return $ (M.liftM4 (DefProc id) la pre post b) AP.<*> (return []) AP.<*> (return MyEmpty)
 
              <|> do dl <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                     pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
@@ -167,9 +168,10 @@ proc follow recSet =
                     parseTokCloseBlock
                     post <- postcondition parseRightBracket (recSet <|> parseRightBracket)
                     parseRightBracket
+                    sb <- getActualScope
                     exitScopeParser
-                    addProcTypeParser id targs (getLocation pos)
-                    return (dl >>= (const ((M.liftM4 (DefProc id) la pre post b) AP.<*> (return (MyEmpty)))))
+                    addProcTypeParser id targs (getLocation pos) sb
+                    return $ (M.liftM5 (DefProc id) la pre post b dl) AP.<*> (return MyEmpty)
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 precondition follow recSet =  do parseTokLeftPre
@@ -221,14 +223,12 @@ maybeBound follow recSet = do lookAhead follow
                               return $ return $ (EmptyAST MyEmpty)
                               <|> bound follow recSet
 
-listArgProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [Type])
 listArgProc follow recSet = do lookAhead follow
                                return $ return []
                                <|> do ar <- arg (follow <|> parseComma) (recSet <|> parseComma)
                                       rl <- listArgProcAux follow recSet
                                       return (AP.liftA2 (:) ar rl)
 
-listArgProcAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [Type])
 listArgProcAux follow recSet = do lookAhead follow
                                   return $ return []
                                   <|> do parseComma
@@ -244,14 +244,14 @@ argType follow recSet = do parseIn
                            <|> do parseInOut
                                   return (return InOut)
 
-arg :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
+arg :: MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
 arg follow recSet = do at <- argType parseTokID (recSet <|> parseTokID)
                        id <- parseID
                        parseColon
                        t <- myType follow recSet
                        pos <- getPosition
                        addArgProcParser id t (getLocation pos) at
-                       return t
+                       return $ fmap ((,) id) t
 
 functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 functionBody follow recSet = do pos <- getPosition
@@ -362,7 +362,8 @@ functionCallOrAssign follow recSet =
        do try (do parseLeftParent
                   lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
                   do parseRightParent
-                     return $ (fmap (ProcCall id) lexp) AP.<*> (return (getLocation pos)) AP.<*> (return MyEmpty)
+                     sb <- getActualScope
+                     return $ (fmap (ProcCall id sb (getLocation pos)) lexp) AP.<*> (return MyEmpty)
                )
           <|> try ( do t <- lookUpConsParser id
                        bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
@@ -373,7 +374,6 @@ functionCallOrAssign follow recSet =
                                 AP.<*> (return (getLocation pos))
                                 AP.<*> (return MyEmpty)
                   )
-      
 
 
 idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([((T.Text, Type), [AST(Type)])]))

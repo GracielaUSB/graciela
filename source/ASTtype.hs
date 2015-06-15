@@ -128,10 +128,10 @@ verTypeAST (Rept guard inv bound loc _) = do guard' <- verTypeASTlist guard
                                              return (Rept guard' inv' bound' loc checkT)
                                                       
 
-verTypeAST (ProcCall name args loc _) = do args'  <- verTypeASTlist args  
-                                           locs   <- getLocArgs args
-                                           checkT <- verProcCall name (map tag args') loc locs
-                                           return (ProcCall name args' loc checkT)
+verTypeAST (ProcCall name sb loc args _) = do args'  <- verTypeASTlist args  
+                                              locs   <- getLocArgs args
+                                              checkT <- verProcCall name sb (zip (map AST.id args') (map tag args')) loc locs
+                                              return (ProcCall name sb loc args' checkT)
 
   
 verTypeAST (FunBody loc exp _) = do exp' <- verTypeAST (exp)
@@ -149,16 +149,23 @@ verTypeAST (DefFun name loc body bound _) = do body'  <- verTypeAST body
                                                return (DefFun name loc body' bound' checkT)
                                                     
 
-verTypeAST (DefProc name accs pre post bound _) = do accs'  <- verTypeASTlist accs 
-                                                     pre'   <- verTypeAST pre  
-                                                     post'  <- verTypeAST post 
-                                                     bound' <- verTypeAST bound
-                                                     checkT <- verDefProc (map tag accs') (tag pre'  )
-                                                                          (tag     post') (tag bound')
-                                                     return (DefProc name accs' pre' post' bound' checkT)
+verTypeAST (DefProc name accs pre post bound cdec _) = 
+    do accs'  <- verTypeASTlist accs 
+       pre'   <- verTypeAST pre  
+       post'  <- verTypeAST post 
+       bound' <- verTypeAST bound
+       cdec'  <- mapM verTypeAST cdec
+       checkT <- verDefProc (map tag accs') (tag pre'  ) (tag post') (tag bound') (map tag cdec')
+       return $ DefProc name accs' pre' post' bound' cdec' checkT
                                                               
 
-verTypeAST ((Quant op var loc range term _)) = 
+verTypeAST (ConsAssign loc xs es t) =
+  do es'    <- mapM verTypeAST es
+     checkT <- verConsAssign xs loc (map tag es') t
+     return $ ConsAssign loc xs es checkT
+
+     
+verTypeAST (Quant op var loc range term _) = 
     do range' <- verTypeAST range  
        term'  <- verTypeAST term 
        checkT <- verQuant (tag range') (tag term')

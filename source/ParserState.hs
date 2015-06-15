@@ -8,6 +8,7 @@ import MyParseError
 import MyTypeError
 import ParserError
 import Text.Parsec
+import SymbolTable
 import TokenParser
 import Data.Monoid
 import Location
@@ -20,9 +21,13 @@ addFunTypeParser :: T.Text -> Maybe [Type] -> Maybe Type -> Location -> MyParser
 addFunTypeParser id (Just lt) (Just t) loc = addSymbolParser id (FunctionCon loc (MyFunction lt t))
 addFunTypeParser _ _ _ _ = return () 
 
-addProcTypeParser :: T.Text -> Maybe [Type]  -> Location -> MyParser()
-addProcTypeParser id (Just lt) loc = addSymbolParser id (FunctionCon loc (MyProcedure lt))
-addProcTypeParser _ _ _ = return () 
+addProcTypeParser :: T.Text -> Maybe [(T.Text, Type)]  -> Location -> SymbolTable -> MyParser()
+addProcTypeParser id (Just xs) loc sb = addSymbolParser id $ ProcCon loc (MyProcedure (map snd xs)) (map fst xs) sb
+addProcTypeParser _ _ _ _             = return () 
+
+getActualScope :: MyParser (SymbolTable)
+getActualScope = do s <- ST.get
+                    return $ symbolTable s
 
 newScopeParser :: MyParser ()
 newScopeParser = ST.modify $ newScopeState 
@@ -37,7 +42,7 @@ exitScopeParser = ST.modify $ exitScopeState
 addManyUniSymParser :: Maybe([(T.Text, Location)]) -> Maybe(Type) -> MyParser()
 addManyUniSymParser (Just xs) (Just t) = f xs t
       where
-        f ((id, loc):xs) t = do addSymbolParser id (Contents Variable loc t Nothing)
+        f ((id, loc):xs) t = do addSymbolParser id $ Contents Variable loc t
                                 f xs t
         f [] _             = return()
 addManyUniSymParser _ _                = return() 
@@ -50,7 +55,7 @@ addManySymParser vb (Just xs) (Just t) (Just ys) =
     else f vb xs t ys
       where
         f vb ((id, loc):xs) t (ast:ys) = 
-            do addSymbolParser id (Contents vb loc t (Just ast))
+            do addSymbolParser id $ Contents vb loc t
                f vb xs t ys
         f _ [] _ []                    = return()
 addManySymParser _ _ _ _               = return()
@@ -58,21 +63,21 @@ addManySymParser _ _ _ _               = return()
 addFunctionArgParser :: T.Text -> T.Text -> Maybe (Type) -> Location -> MyParser ()
 addFunctionArgParser idf id (Just t) loc = 
     if id /= idf then
-       addSymbolParser id (Contents CO.Constant loc t Nothing)
+       addSymbolParser id $ Contents CO.Constant loc t
     else
       addFunctionNameError id loc
 addFunctionArgParser _ _ _ _             = return ()
 
-addSymbolParser :: T.Text -> Contents -> MyParser ()
+addSymbolParser :: T.Text -> (Contents SymbolTable) -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
 
 addCuantVar :: T.Text -> Maybe Type -> Location -> MyParser()
-addCuantVar id (Just t) loc = do addSymbolParser id (Contents CO.Constant loc t Nothing)
+addCuantVar id (Just t) loc = do addSymbolParser id $ Contents CO.Constant loc t
                                  return()
 addCuantVar _ _ _           = return()
 
-lookUpSymbol :: T.Text -> MyParser (Maybe Contents)
+lookUpSymbol :: T.Text -> MyParser (Maybe (Contents SymbolTable))
 lookUpSymbol id = 
     do st <- get
        case lookUpVarState id (symbolTable st) of
@@ -91,8 +96,8 @@ lookUpConsParser id = do c   <- lookUpSymbol id
                          case c of
                          { Nothing   -> return Nothing
                          ; Just a    -> case a of
-                                        { (Contents    CO.Constant _ _ _) -> do addConsIdError id
-                                                                                return $ Nothing
+                                        { (Contents    CO.Constant _ _) -> do addConsIdError id
+                                                                              return $ Nothing
                                         ; (ArgProcCont In    _ _     )    -> do addConsIdError id
                                                                                 return $ Nothing
                                         ; otherwise                       -> return $ Just (symbolType a)

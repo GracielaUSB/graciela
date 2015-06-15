@@ -1,6 +1,5 @@
 module Type where
 
-
 data TypeArg = In | Out | InOut
       deriving (Eq)
 
@@ -13,6 +12,13 @@ instance Show TypeArg where
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
                   | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Integer}
 
+isTypeProc :: Type -> Bool
+isTypeProc (MyProcedure _) = True
+isTypeProc _               = False
+ 
+isTypeFunc :: Type -> Bool
+isTypeFunc (MyFunction _ _ ) = True
+isTypeFunc _                 = False
 
 instance Eq Type where
    MyInt            ==  MyInt           = True

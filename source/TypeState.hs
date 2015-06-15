@@ -29,14 +29,19 @@ addUndecFuncError name loc = addTypeError $ UndecFunError name loc
 addRetFuncError :: T.Text -> Type -> Type ->  Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
 addRetFuncError name tf body loc = addTypeError $ RetFuncError name tf body loc
 
+addDifSizeDecError :: Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addDifSizeDecError loc = addTypeError $ DiffSizeError loc
 
 addTypeError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
 addTypeError error = do RWSS.tell $ DS.singleton error
                         return $ MyError
 
+addTypeDecError :: T.Text -> Location -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 
 addNotOccursVarError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
 
-
+addInvalidPar :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addInvalidPar id loc = addTypeError $ InvalidPar id loc
 

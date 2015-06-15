@@ -2,7 +2,7 @@ module Contents where
 
 import Location
 import Type
-import AST
+import Data.Text               as T
 
 data VarBehavour = Constant | Variable
       deriving (Eq)
@@ -13,13 +13,22 @@ instance Show VarBehavour where
 	show Variable           = " es una Variable"
 
 
-data Contents = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type, cAST :: Maybe (AST (Type)) }
-              | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type                             }
-              | FunctionCon { symbolLoc :: Location, symbolType :: Type                                                         }
+data Contents s = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type         }
+                | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type         }
+                | FunctionCon { symbolLoc :: Location, symbolType :: Type                                     }
+                | ProcCon     { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s  }
         deriving (Eq)
 
+getVarBeh :: Contents a -> Maybe VarBehavour
+getVarBeh (Contents vb _ _) = Just vb
+getVarBeh _                 = Nothing
 
-instance Show Contents where
-   show (Contents var loc t ast) = show var  ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
+getProcArgType :: Contents a -> Maybe TypeArg
+getProcArgType (ArgProcCont pat _ _) = Just pat
+getProcArgType _                     = Nothing
+ 
+instance Show a => Show (Contents a) where
+   show (Contents var loc t )    = show var  ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
    show (ArgProcCont argT loc t) = show argT ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
-   show (FunctionCon loc t) 	 =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
+   show (FunctionCon loc t) 	   =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc
+   show (ProcCon _ _ ln sb)       = show ln ++ show sb

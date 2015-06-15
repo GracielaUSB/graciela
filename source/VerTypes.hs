@@ -12,6 +12,7 @@ import Token
 import Type
 import AST
 import TypeState
+import Data.Maybe
 
 checkListType :: Type -> Bool -> Type -> Bool 
 checkListType _ False _ = False
@@ -128,12 +129,13 @@ verGuardExp exp action loc = case action of
                              }
 
 
-verDefProc :: [Type] -> Type -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verDefProc accs pre post bound = let func = checkListType MyEmpty
-                                 in case ((foldl func True accs) && (pre == MyBool) && (post == MyBool)) of
-                                    { True  -> return MyEmpty 
-                                    ; False -> return MyError
-                                    }
+verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verDefProc accs pre post bound decs = 
+    let func = checkListType MyEmpty
+    in case ((foldl func True accs) && (pre == MyBool) && (post == MyBool) && (and $ map (== MyEmpty) decs)) of
+       { True  -> return MyEmpty 
+       ; False -> return MyError
+       }
 
 
 verBlock :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
@@ -200,6 +202,20 @@ verQuant range term  = case ((isCuantificable range) && (term == MyBool)) of
                        ; False -> return MyError
                        }
 
+verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verConsAssign xs loc ts t =
+    if length xs /= length ts then
+        addDifSizeDecError loc
+    else
+        do r <- fmap and $ fmap (map (== MyEmpty)) $ mapM f (zip xs ts)
+           if r then return MyEmpty
+           else return MyError
+  where
+    f (((id, loc'), t')) = 
+      if t' /= t then
+        addTypeDecError id loc' t' t
+      else
+        return $ MyEmpty
 
 verCallExp :: T.Text -> [Type] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verCallExp name args loc locarg = 
@@ -226,20 +242,23 @@ verCallExp name args loc locarg =
        }
 
 
-verProcCall :: T.Text -> [Type] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verProcCall name args loc locarg = 
+verProcCall :: T.Text -> SymbolTable -> [(T.Text, Type)] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verProcCall name sbc args'' loc locarg = 
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
        { Nothing -> 
             addUndecFuncError name loc
-       ; Just x  -> 
-            case (symbolType x) of
+       ; Just (ProcCon _ t ln sb)  -> 
+            case t of
             { MyProcedure args' ->
-                  let wtL = length args
+                  let wtL = length args''
                       prL = length args'
                   in if (wtL /= prL) then addNumberArgsError name wtL prL loc
-                  else let t = zip args args' in
-                          if   and $ map (uncurry (==)) $ t then return $ MyEmpty
+                  else let args = map snd args''
+                           t    = zip args args' in
+                          if   and $ map (uncurry (==)) $ t then do r <- validProcArgs ln (map fst args'') locarg sb sbc
+                                                                    if r  then return MyEmpty
+                                                                    else return $ MyError
                           else do mapM_ (\ ((arg, arg'), larg) -> 
                                               if arg /= arg' then addFunArgError arg' arg larg 
                                               else return MyEmpty
@@ -250,8 +269,20 @@ verProcCall name args loc locarg =
             }
        }
 
+validProcArgs :: [T.Text] -> [T.Text] -> [Location] -> SymbolTable -> SymbolTable -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+validProcArgs lnp lnc locarg sbp sbc = 
+    let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
+        lvt = map getVarBeh $       map fromJust $ map ((flip checkSymbol) sbc) lnc
+        xs  = zip lat lvt
+    in
+        fmap and $ mapM compare (zip xs (zip lnc locarg))
 
-
+    where
+      compare ((Just Out, Just Contents.Constant), (id, loc)) = 
+          do addInvalidPar id loc
+             return False
+      compare _                                               =
+             return True
 
 addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
 addLAssignError loc acc (((tok, (MyArray t tam)), expArrT), expT) = 

@@ -1,3 +1,27 @@
-// (%forall q : int | q <= 10 \/ q >= 45 \/ q == 5|  q * 2 == 0%);
-(%forall q : int | q <= 10 \/ q >= 45 |  q * 2 == 0%);
-// (%forall q : int | q >= 10 /\ q <= 20 + 5|  q * 2 == 0%);
+program main |[
+
+  func hola2 : (A : int) -> int
+  |[
+      A
+  ]|
+
+  proc hola : (inout A: int, inout B: int)
+  [
+      var  j : int;
+      const h := 5 : int;
+      
+      {pre true pre}
+      |[
+          j := 5;
+          A := j
+      ]|
+      {post true post}
+  ]
+
+  |[
+    const x := 4 : int;
+
+    hola(x, x)
+
+  ]|
+]| 

@@ -4,8 +4,11 @@ import qualified Data.Text as T
 import Data.Monoid
 import Location
 import Token
+import SymbolTable
 import Data.Range.Range                   as RA
 import Type
+import Print
+
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
    del lenguaje. Los campos @line@ y @column@ representan la línea y columna, respectivamente,
@@ -87,7 +90,6 @@ instance Show StateCond where
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
          | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Relacionales de dos expresiones.     
-         | FCallExp     { location :: Location, fname    :: T.Text, args     :: [AST a], tag :: a                      } -- ^ Llamada a funcion.
          | ArrCall      { location :: Location, name     :: T.Text, list :: [AST a],        tag :: a                   } -- ^ Búsqueda en arreglo.
          | ID           { location :: Location, id       :: T.Text, tag :: a                                           } -- ^ Identificador.
          | Int          { location :: Location, expInt   :: Integer, tag :: a                                          } -- ^ Numero entero.
@@ -105,12 +107,25 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
          | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
-         | ProcCall     { pname    :: T.Text, args     :: [AST a], location :: Location, tag :: a                      } -- ^ Llamada a funcion.
+         | FCallExp     { location :: Location, fname    :: T.Text, args     :: [AST a], tag :: a                      } -- ^ Llamada a funcion.
+         | ProcCall     { pname     :: T.Text
+                        , astSTable :: SymbolTable
+                        , location  :: Location
+                        , args      :: [AST a]
+                        , tag :: a                 
+                        } 
+         | ConsAssign   { location :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a              }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
-         | DefProc      { pname    :: T.Text, prbody   ::  [AST a], nodePre   :: (AST a)
-                         ,nodePost :: (AST a), nodeBound :: (AST a), tag    :: a                                       }
+         | DefProc      { pname     :: T.Text
+                        , prbody    :: [AST a]
+                        , nodePre   :: (AST a)
+                        , nodePost  :: (AST a)
+                        , nodeBound :: (AST a)
+                        , constDec  :: [AST a]
+                        , tag       :: a
+                        }
          | Ran          { var      :: T.Text, location :: Location, tag :: a                                           }
          | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
@@ -124,30 +139,12 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | EmptyAST     { tag :: a                                                                                     }
     deriving (Eq)
 
+astToId :: AST a -> Maybe T.Text
+astToId (ID _ id _) = Just id
+astToId _           = Nothing
 
 instance Show a => Show (AST a) where
   show ast = drawAST 0 ast
-
-
-space :: Char
-space = ' '
-
-
-putSpaces :: Int -> String
-putSpaces   level = take level (repeat space)
-
-
-putSpacesLn :: Int -> String
-putSpacesLn level = "\n" `mappend` take level (repeat space)
-
-
-putLocation :: Location -> String
-putLocation location = " --- en el " `mappend` show location
-
-
-putLocationLn :: Location -> String
-putLocationLn location = " --- en el " `mappend` show location `mappend` "\n"
-
 
 checkMaxMin :: Bool -> Bool -> String
 checkMaxMin True  True  = "MAX_INT"
@@ -169,7 +166,7 @@ drawAST level ((Program name loc defs accs ast)) =
 
 
 
-drawAST level ((DefProc name accs pre post bound ast)) = 
+drawAST level ((DefProc name accs pre post bound _ ast)) = 
          putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc
                            `mappend` " //Tag: "        `mappend` show ast  
                            `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
@@ -373,7 +370,7 @@ drawAST level ((ArrCall loc name args ast)) =
 
                                
 
-drawAST level ((ProcCall name args loc ast)) =
+drawAST level ((ProcCall name _ loc args ast)) =
          putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
                            `mappend` " //Tag: "                    `mappend` show ast 
          `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 

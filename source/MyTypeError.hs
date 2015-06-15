@@ -98,7 +98,15 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | FunNameError    { symbol :: T.Text 
                                    , loc    :: Location
                                    } 
-
+                 | InvalidPar      { symbol :: T.Text 
+                                   , loc    :: Location
+                                   } 
+                 | DiffSizeError   { location :: Location }
+                 | TypeDecError    { symbol   :: T.Text
+                                   , location :: Location
+                                   , typeExp  :: Type
+                                   , typeVar  :: Type
+                                   }
 
 
 
@@ -134,7 +142,7 @@ instance Show MyTypeError where
    show (IncomDefError C.Variable    loc) = 
             errorL loc ++ ": Definición de variables incompleta"
    show (UndecFunError   sym         loc) = 
-            errorL loc ++ ": La función " ++ show sym ++ "no se puede usar, no esta definida."
+            errorL loc ++ ": La función " ++ show sym ++ " no se puede usar, no esta definida."
    show (NumberArgsError sym wtL prL loc) = 
             errorL loc ++ ": El número de argumentos es inválido, se esperaba " ++ show wtL ++ " argumentos, se encontró " ++ show prL ++ "."
    show (RetFuncError    sym wt  pt  loc) = 
@@ -156,26 +164,12 @@ instance Show MyTypeError where
    show (NotOccursVar    sym        loc) = 
             errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del rango del cuantificador."
    show (FunNameError  id            loc) = 
-            errorL loc ++ ": El parámetro " ++ show id ++ "es del mismo nombre de la función que está siendo definida"
-
-
+            errorL loc ++ ": El parámetro " ++ show id ++ " es del mismo nombre de la función que está siendo definida"
+   show (InvalidPar  id            loc) = 
+            errorL loc ++ ": El parámetro " ++ show id ++ " es constante y está siendo pasado como parámetro de salida"
+   show (DiffSizeError                loc) = 
+            errorL loc ++ ": El número de variables declaradas es distinto al de expresiones encontradas"
+   show (TypeDecError  id loc te tv) = 
+            errorL loc ++ ": La variable " ++ show id ++ " es del tipo " ++ show tv ++ " pero su expresión correspondiente es del tipo " ++ show te
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

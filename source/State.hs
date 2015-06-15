@@ -32,7 +32,7 @@ addTypeError err ps = ps { sTableErrorList = (sTableErrorList ps) DS.|> err }
 addParsingError :: MyParseError -> ParserState -> ParserState
 addParsingError e ps = ps { synErrorList = (synErrorList ps) DS.|> e }
 
-addNewSymbol :: T.Text -> Contents -> ParserState -> ParserState
+addNewSymbol :: T.Text -> (Contents SymbolTable) -> ParserState -> ParserState
 addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
                         { Left con -> ps { sTableErrorList = (sTableErrorList ps) DS.|> (RepSymbolError id (symbolLoc con) (symbolLoc c)) }
                         ; Right sb -> ps { symbolTable  = sb }
@@ -55,7 +55,7 @@ exitScopeState st = case exitScope (symbolTable st) of
 getScopeState :: ParserState -> Int
 getScopeState st = getScope $ symbolTable st
 
-lookUpVarState :: T.Text -> SymbolTable -> Maybe Contents
+lookUpVarState :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
 lookUpVarState id sb = checkSymbol id sb
 
 

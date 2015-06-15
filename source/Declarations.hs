@@ -22,42 +22,44 @@ import Type
 import AST
 
 
-decList :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
+decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet = do lookAhead follow
-                           return $ return (EmptyAST MyEmpty)
+                           return $ return []
                            <|> do dl <- decListAux follow recSet
                                   return $ dl
                            
 
-decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
-decListAux follow recSet = do lookAhead follow
-                              return $ return (EmptyAST MyEmpty)
-                              <|> do parseVar
-                                     idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
-                                     do     parseColon
-                                            t <- myType parseSemicolon recSet
-                                            addManyUniSymParser idl t
-                                            parseSemicolon
-                                            rl <- decListAux follow recSet
-                                            return((idl >>= (const t)) >>= (const rl) >>= (const (return (EmptyAST MyEmpty))))
-                                        <|> do parseAssign
-                                               lexp <- listExp parseColon (recSet <|> parseColon)
-                                               parseColon
-                                               t <- myType parseSemicolon recSet
-                                               addManySymParser CO.Variable idl t lexp
-                                               parseSemicolon
-                                               rl <- decListAux follow recSet
-                                               return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return (EmptyAST MyEmpty))))
-                                     <|> do parseConst
-                                            idl <- idList (parseAssign) (recSet <|> parseAssign)
-                                            parseAssign
-                                            lexp <- listExp parseColon (recSet <|> parseColon)
-                                            parseColon
-                                            t <- myType parseSemicolon recSet
-                                            addManySymParser CO.Constant idl t lexp
-                                            parseSemicolon
-                                            rl <- decListAux follow recSet
-                                            return(idl >>= (const t) >>= (const rl) >>= (const lexp) >>= (const (return (EmptyAST MyEmpty))))
+decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+decListAux follow recSet = 
+    do loc <- parseLocation
+       do lookAhead follow
+          return $ return []
+          <|> do parseVar
+                 idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
+                 do     parseColon
+                        t <- myType parseSemicolon recSet
+                        addManyUniSymParser idl t
+                        parseSemicolon
+                        rl <- decListAux follow recSet
+                        return $ idl >>= (const t) >>= (const rl)
+                    <|> do parseAssign
+                           lexp <- listExp parseColon (recSet <|> parseColon)
+                           parseColon
+                           t <- myType parseSemicolon recSet
+                           addManySymParser CO.Variable idl t lexp
+                           parseSemicolon
+                           rl <- decListAux follow recSet
+                           return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl
+                 <|> do parseConst
+                        idl <- idList (parseAssign) (recSet <|> parseAssign)
+                        parseAssign
+                        lexp <- listExp parseColon (recSet <|> parseColon)
+                        parseColon
+                        t <- myType parseSemicolon recSet
+                        addManySymParser CO.Constant idl t lexp
+                        parseSemicolon
+                        rl <- decListAux follow recSet
+                        return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl
 
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idList follow recSet = do lookAhead (follow)
@@ -80,7 +82,7 @@ idListAux follow recSet = do lookAhead follow
 parseLocation = do pos <- getPosition
                    return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
                   
-decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)))
+decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListWithRead follow recSet = 
     do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
        do parseRead
@@ -90,7 +92,7 @@ decListWithRead follow recSet =
           do parseWith
              id <- parseString
              parseSemicolon
-             return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
+             return $ lid >>= (const ld)
              <|> do parseSemicolon
-                    return((ld >>= (const lid)) >>= (const (return (EmptyAST MyEmpty))))
-          <|> return(ld >>= (const (return (EmptyAST MyEmpty))))
+                    return $ lid >>= (const ld)
+          <|> (return ld)
