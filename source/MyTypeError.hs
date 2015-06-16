@@ -53,6 +53,7 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , loc    :: Location
                                    }
                  | UndecFunError   { symbol :: T.Text
+                                   , isFunc :: Bool
                                    , loc    :: Location
                                    }
                  | NumberArgsError { symbol :: T.Text
@@ -106,7 +107,7 @@ instance Show MyTypeError where
    show (RepSymbolError     sym pLoc loc) = 
             errorL loc ++ ": La variable "  ++ show sym ++ " ya fue previamente declarada " ++ show pLoc ++ "."
    show (ConstIdError       sym      loc) = 
-            errorL loc ++ ": No se puede redeclarar una constante."
+            errorL loc ++ ": No se puede cambiar el valor de una constante."
    show (NonDeclError       sym      loc) = 
             errorL loc ++ ": La variable " ++ show sym ++ " no esta declarada."
    show (ArithmeticError    lt rt op loc) = 
@@ -120,7 +121,7 @@ instance Show MyTypeError where
    show (UnaryError          t Not   loc) = 
             errorL loc ++ ": Tipo incompatible en el operador unario: Negación, se encontró el tipo: " ++ show t ++ ", se esperaba el tipo: Boolean."  
    show (UnaryError          t    op loc) = 
-            errorL loc ++ ": Tipo incompatible en el operador unario: Negación, se encontró el tipo: " ++ show t ++ ", se esperaba el tipo: Boolean."  
+            errorL loc ++ ": Tipo incompatible en el operador unario: " ++ show op ++ ", se encontró el tipo: " ++ show t ++ ", se esperaba el tipo: Int."  
    show (StateError          t Bound loc) = 
             errorL loc ++ ": Se esperaba en la Función de Cota una expresión de tipo: Int."   
    show (StateError          t s     loc) = 
@@ -133,8 +134,10 @@ instance Show MyTypeError where
             errorL loc ++ ": Definición de constantes incompleta"
    show (IncomDefError C.Variable    loc) = 
             errorL loc ++ ": Definición de variables incompleta"
-   show (UndecFunError   sym         loc) = 
-            errorL loc ++ ": La función " ++ show sym ++ "no se puede usar, no esta definida."
+   show (UndecFunError   sym  True   loc) = 
+            errorL loc ++ ": La función " ++ show sym ++ " no se puede usar, no esta definida."
+   show (UndecFunError   sym  False  loc) = 
+            errorL loc ++ ": El procedimiento " ++ show sym ++ " no se puede usar, no esta definido."
    show (NumberArgsError sym wtL prL loc) = 
             errorL loc ++ ": El número de argumentos es inválido, se esperaba " ++ show wtL ++ " argumentos, se encontró " ++ show prL ++ "."
    show (RetFuncError    sym wt  pt  loc) = 

@@ -1,0 +1,11 @@
+program main |[
+  |[
+      var foo, bar := 5, 9 : int;
+      var baz, qux := true, false : boolean;
+
+      if (foo  <= bar) -> foo := bar
+      [] (!qux == bar) -> bar := foo
+      fi
+
+  ]|
+]|

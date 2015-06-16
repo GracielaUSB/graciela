@@ -1,0 +1,9 @@
+program main |[
+  |[
+      var foo, bar := 232, 1 : int;
+      var arr : array [21] of array [2] of int;
+
+      arr[bar] := foo
+
+  ]|
+]|

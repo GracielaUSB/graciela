@@ -206,7 +206,7 @@ verCallExp name args loc locarg =
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
        { Nothing -> 
-            addUndecFuncError name loc
+            addUndecFuncError name True loc
        ; Just x  -> 
             case (symbolType x) of
             { MyFunction args' ts ->
@@ -221,7 +221,7 @@ verCallExp name args loc locarg =
                                         ) (zip t locarg) 
                                   return $ MyError
             ; otherwise           -> 
-                  addUndecFuncError name loc
+                  addUndecFuncError name True loc
             }
        }
 
@@ -231,7 +231,7 @@ verProcCall name args loc locarg =
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
        { Nothing -> 
-            addUndecFuncError name loc
+            addUndecFuncError name False loc
        ; Just x  -> 
             case (symbolType x) of
             { MyProcedure args' ->
@@ -246,7 +246,7 @@ verProcCall name args loc locarg =
                                         ) (zip t locarg) 
                                   return $ MyError
             ; otherwise           -> 
-                  addUndecFuncError name loc
+                  addUndecFuncError name False loc
             }
        }
 
@@ -307,12 +307,12 @@ verArrayCall name args t loc =
 verDefFun :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verDefFun name body bound loc = do sb <- RWSS.ask
                                    case lookUpRoot name sb of
-                                   { Nothing -> addUndecFuncError name loc
+                                   { Nothing -> addUndecFuncError name True loc
                                    ; Just c  -> case (symbolType c) of
                                                 { MyFunction _ tf -> case (tf == body) of
                                                                      { True  -> return MyEmpty
                                                                      ; False -> addRetFuncError name tf body loc
                                                                      }
-                                                ; otherwise       -> addUndecFuncError name loc
+                                                ; otherwise       -> addUndecFuncError name True loc
                                                 } 
                                    }
