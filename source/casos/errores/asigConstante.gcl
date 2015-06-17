@@ -1,0 +1,11 @@
+program main |[
+  |[
+      var foo, bar := 5, 9 : int;
+      const baz := 777 : int;
+
+      foo := bar;
+      bar := baz;
+      baz := foo
+
+  ]|
+]|

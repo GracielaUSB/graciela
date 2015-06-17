@@ -1,0 +1,9 @@
+program main |[
+  |[
+      var foo, bar:= 17, 52: int;
+      
+      foo := bar;
+      bar := baz
+
+  ]|
+]|
