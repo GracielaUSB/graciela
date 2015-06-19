@@ -55,4 +55,4 @@ getDimention _               n = n
 
 
 isCuantificable :: Type -> Bool
-isCuantificable x = x == MyInt || x == MyFloat || x == MyBool
+isCuantificable x = x == MyInt || x == MyChar || x == MyBool
