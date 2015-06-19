@@ -305,11 +305,11 @@ block follow recSet =
     do pos <- getPosition
        parseTokOpenBlock
        newScopeParser
-       decList followAction (recSet <|> followAction)
+       dl <- decList followAction (recSet <|> followAction)
        la <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
        exitScopeParser
        parseTokCloseBlock
-       return $ (fmap (Block) la) AP.<*> (return (getLocation pos)) AP.<*> (return MyEmpty)
+       return $ (AP.liftA2 (Block (getLocation pos)) dl la) AP.<*> (return MyEmpty)
        
 
 

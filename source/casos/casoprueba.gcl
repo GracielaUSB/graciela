@@ -8,7 +8,7 @@ program main |[
   proc hola : (inout A: int, inout B: int)
   [
       var  j : int;
-      const h := 5 : int;
+      const h := true : int;
       
       {pre true pre}
       |[
