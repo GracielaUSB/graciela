@@ -278,7 +278,10 @@ validProcArgs lnp lnc locarg sbp sbc =
         fmap and $ mapM compare (zip xs (zip lnc locarg))
 
     where
-      compare ((Just Out, Just Contents.Constant), (id, loc)) = 
+      compare ((Just Out, Just Contents.Constant), (id, loc))   = 
+          do addInvalidPar id loc
+             return False
+      compare ((Just InOut, Just Contents.Constant), (id, loc)) = 
           do addInvalidPar id loc
              return False
       compare _                                               =
