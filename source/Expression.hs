@@ -323,10 +323,6 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                             e <- expr follow recSet
                                             return(AP.liftA2  (Unary Sqrt (getLocation pos)) e (return (MyEmpty)))
                                          
-                                     <|> do parseTokLength
-                                            e <- expr follow recSet
-                                            return(AP.liftA2  (Unary Length (getLocation pos)) e (return (MyEmpty)))
-                                         
                                      <|> do parseTokNot
                                             e <- expr follow recSet
                                             return(AP.liftA2  (Unary Not (getLocation pos)) e (return (MyEmpty)))

@@ -87,7 +87,6 @@ pOd           = tryString "od"
 pGcd          = tryString "gcd"
 pAbs          = tryString "abs"
 pSqrt         = tryString "sqrt"     <|> tryString "\8730" 
-pLength       = tryString "length"
 pVar          = tryString "var"
 pConst        = tryString "const"
 pAbort        = tryString "abort"
@@ -195,7 +194,6 @@ lexer = do spaces
                               <|> (pGcd          >> spaces >> return (TokGcd))
                               <|> (pAbs          >> spaces >> return (TokAbs))
                               <|> (pSqrt         >> spaces >> return (TokSqrt))
-                              <|> (pLength       >> spaces >> return (TokLength))
                               <|> (pVar          >> spaces >> return (TokVar))
                               <|> (pConst        >> spaces >> return (TokConst))
                               <|> (pAbort        >> spaces >> return (TokAbort))

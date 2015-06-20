@@ -64,7 +64,7 @@ instance Show Conv where
 
 
 
-data OpUn = Minus | Not | Abs | Sqrt | Length  
+data OpUn = Minus | Not | Abs | Sqrt
       deriving (Eq) 
 
 instance Show OpUn where
@@ -72,7 +72,6 @@ instance Show OpUn where
    show Not    = "Negación: "
    show Abs    = "Valor Absoluto: "
    show Sqrt   = "Raíz Cuadrada: "
-   show Length = "Longitud: "
 
 
 data StateCond = Pre | Post | Assertion | Bound | Invariant

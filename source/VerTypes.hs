@@ -94,11 +94,6 @@ verUnary Abs     errType      loc = addTypeError $ UnaryError errType Abs   loc
 verUnary Sqrt    MyInt        loc = return MyInt  
 verUnary Sqrt    MyFloat      loc = return MyFloat
 verUnary Sqrt    errType      loc = addTypeError $ UnaryError errType Sqrt  loc
- 
-   
-verUnary Length  MyString     loc = return MyString
-verUnary Length  errType      loc = addTypeError $ UnaryError errType Length loc
-
 
 verGuardAction :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verGuardAction assert action = case ((assert == MyBool) && (action == MyEmpty)) of
