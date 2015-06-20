@@ -105,7 +105,6 @@ pType         = (tryString "boolean" >> return MyBool)
             <|> (tryString "int"     >> return MyInt)
             <|> (tryString "double"  >> return MyFloat)
             <|> (tryString "char"    >> return MyChar)
-            <|> (tryString "string"  >> return MyString)
 pArray        = tryString "array"
 pBool         = tryString "true"     <|> tryString "false"
 pMIN_INT      = tryString "MIN_INT"
