@@ -197,10 +197,12 @@ verRandom t loc = case ((t == MyInt) || (t == MyFloat)) of
 
 
 verQuant :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verQuant range term  = case ((isCuantificable range) && (term == MyBool)) of
-                       { True  -> return MyBool 
-                       ; False -> return MyError
-                       }
+verQuant range term  = 
+    if range == MyBool && term == MyBool then
+      return MyBool 
+    else 
+      return MyError
+                       
 
 verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verConsAssign xs loc ts t =
@@ -256,9 +258,10 @@ verProcCall name sbc args'' loc locarg =
                   in if (wtL /= prL) then addNumberArgsError name wtL prL loc
                   else let args = map snd args''
                            t    = zip args args' in
-                          if   and $ map (uncurry (==)) $ t then do r <- validProcArgs ln (map fst args'') locarg sb sbc
-                                                                    if r  then return MyEmpty
-                                                                    else return $ MyError
+                          if   and $ map (uncurry (==)) $ t then 
+                              do r <- validProcArgs ln (map fst args'') locarg sb sbc
+                                 if r  then return MyEmpty
+                                 else return $ MyError
                           else do mapM_ (\ ((arg, arg'), larg) -> 
                                               if arg /= arg' then addFunArgError arg' arg larg 
                                               else return MyEmpty

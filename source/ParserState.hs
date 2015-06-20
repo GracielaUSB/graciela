@@ -68,13 +68,24 @@ addFunctionArgParser idf id (Just t) loc =
       addFunctionNameError id loc
 addFunctionArgParser _ _ _ _             = return ()
 
+addArgProcParser :: T.Text -> T.Text -> Maybe (Type) -> Location -> Maybe (TypeArg) -> MyParser ()
+addArgProcParser id pid (Just t) loc (Just targ) = 
+    if id /= pid then
+      addSymbolParser id $ ArgProcCont targ loc t
+    else
+      addFunctionNameError id loc
+addArgProcParser _ _ _ _ _                     = return()
+
 addSymbolParser :: T.Text -> (Contents SymbolTable) -> MyParser ()
 addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
 
 addCuantVar :: T.Text -> Maybe Type -> Location -> MyParser()
-addCuantVar id (Just t) loc = do addSymbolParser id $ Contents CO.Constant loc t
-                                 return()
+addCuantVar id (Just t) loc = 
+    if isCuantificable t then
+       addSymbolParser id $ Contents CO.Constant loc t
+    else
+       addUncountableError loc
 addCuantVar _ _ _           = return()
 
 lookUpSymbol :: T.Text -> MyParser (Maybe (Contents SymbolTable))
@@ -119,7 +130,6 @@ addNonAsocError =
        ST.modify $ addParsingError $ NonAsocError (getLocation pos) 
        return ()
  
--- addArrayCallError :: MyParser ()
 addArrayCallError waDim prDim = do pos <- getPosition
                                    ST.modify $ addParsingError $ ArrayError waDim prDim (getLocation pos) 
                                    return ()
@@ -128,10 +138,6 @@ genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg = do  pos <- cleanEntry laset
                             ST.modify $ addParsingError $ newParseError msg pos
                             return ()
-
-addArgProcParser :: T.Text -> Maybe (Type) -> Location -> Maybe (TypeArg) -> MyParser ()
-addArgProcParser id (Just t) loc (Just targ) = addSymbolParser id (ArgProcCont targ loc t)
-addArgProcParser _ _ _ _                     = return()
 
 genNewEmptyError :: MyParser ()
 genNewEmptyError = do  pos <- getPosition

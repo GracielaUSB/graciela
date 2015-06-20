@@ -145,7 +145,7 @@ proc follow recSet =
           parseColon
           parseLeftParent
           newScopeParser
-          targs <- listArgProc parseRightParent parseRightParent
+          targs <- listArgProc id parseRightParent parseRightParent
           parseRightParent
           parseLeftBracket
           do        pre <- precondition (parseTokOpenBlock <|> parseTokLeftBound) (recSet <|> parseTokOpenBlock  <|> parseTokLeftBound)
@@ -223,18 +223,20 @@ maybeBound follow recSet = do lookAhead follow
                               return $ return $ (EmptyAST MyEmpty)
                               <|> bound follow recSet
 
-listArgProc follow recSet = do lookAhead follow
-                               return $ return []
-                               <|> do ar <- arg (follow <|> parseComma) (recSet <|> parseComma)
-                                      rl <- listArgProcAux follow recSet
-                                      return (AP.liftA2 (:) ar rl)
+listArgProc id follow recSet = 
+    do lookAhead follow
+       return $ return []
+       <|> do ar <- arg id (follow <|> parseComma) (recSet <|> parseComma)
+              rl <- listArgProcAux id follow recSet
+              return (AP.liftA2 (:) ar rl)
 
-listArgProcAux follow recSet = do lookAhead follow
-                                  return $ return []
-                                  <|> do parseComma
-                                         ar <- arg (follow <|> parseComma) (recSet <|> parseComma)
-                                         rl <- listArgProcAux follow recSet
-                                         return(AP.liftA2 (:) ar rl)
+listArgProcAux id follow recSet = 
+    do lookAhead follow
+       return $ return []
+       <|> do parseComma
+              ar <- arg id (follow <|> parseComma) (recSet <|> parseComma)
+              rl <- listArgProcAux id follow recSet
+              return(AP.liftA2 (:) ar rl)
 
 argType :: MyParser Token -> MyParser Token -> MyParser (Maybe TypeArg)
 argType follow recSet = do parseIn 
@@ -244,14 +246,15 @@ argType follow recSet = do parseIn
                            <|> do parseInOut
                                   return (return InOut)
 
-arg :: MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
-arg follow recSet = do at <- argType parseTokID (recSet <|> parseTokID)
-                       id <- parseID
-                       parseColon
-                       t <- myType follow recSet
-                       pos <- getPosition
-                       addArgProcParser id t (getLocation pos) at
-                       return $ fmap ((,) id) t
+arg :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
+arg pid follow recSet = 
+    do at <- argType parseTokID (recSet <|> parseTokID)
+       id <- parseID
+       parseColon
+       t <- myType follow recSet
+       pos <- getPosition
+       addArgProcParser id pid t (getLocation pos) at
+       return $ fmap ((,) id) t
 
 functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 functionBody follow recSet = do pos <- getPosition
