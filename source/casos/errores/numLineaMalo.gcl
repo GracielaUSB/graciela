@@ -1,7 +1,4 @@
 program main |[
-
-
-
   |[
       var foo, bar := 5, 9 : int;
       var baz, qux := true, false : boolean;
@@ -14,7 +11,5 @@ program main |[
           foo := foo + 1
       ]|
       od
-
-
   ]|
 ]|

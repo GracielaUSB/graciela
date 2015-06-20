@@ -192,36 +192,34 @@ postcondition follow recSet =  do parseTokLeftPost
 
 
 bound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
-bound follow recSet =  do parseTokLeftBound
-                          e <- expr (parseTokRightBound) (recSet <|> parseTokRightBound)
-                          parseTokRightBound
-                          pos <- getPosition
-                          return(AP.liftA2 (States Bound (getLocation pos)) e (return (MyEmpty)))
-
-
+bound follow recSet =
+    do pos <- getPosition
+       parseTokLeftBound
+       e <- expr (parseTokRightBound) (recSet <|> parseTokRightBound)
+       parseTokRightBound
+       return(AP.liftA2 (States Bound (getLocation pos)) e (return (MyEmpty)))
 
 assertion :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
-assertion follow recSet =  do parseTokLeftA
-                              e <- expr (parseTokRightA) (recSet <|> parseTokRightA)
-                              parseTokRightA
-                              pos <- getPosition
-                              return(AP.liftA2 (States Assertion (getLocation pos)) e (return (MyEmpty)))
-
-
+assertion follow recSet =
+    do pos <- getPosition
+       parseTokLeftA
+       e <- expr (parseTokRightA) (recSet <|> parseTokRightA)
+       parseTokRightA
+       return(AP.liftA2 (States Assertion (getLocation pos)) e (return (MyEmpty)))
 
 invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
-invariant follow recSet =  do parseTokLeftInv
-                              e <- expr (parseTokRightInv) (recSet <|> parseTokRightInv)
-                              parseTokRightInv
-                              pos <- getPosition
-                              return(AP.liftA2 (States Invariant (getLocation pos)) e (return (MyEmpty)))
-
-
+invariant follow recSet = 
+    do pos <- getPosition
+       parseTokLeftInv
+       e <- expr (parseTokRightInv) (recSet <|> parseTokRightInv)
+       parseTokRightInv
+       return(AP.liftA2 (States Invariant (getLocation pos)) e (return (MyEmpty)))
 
 maybeBound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) ) 
-maybeBound follow recSet = do lookAhead follow
-                              return $ return $ (EmptyAST MyEmpty)
-                              <|> bound follow recSet
+maybeBound follow recSet =
+    do lookAhead follow
+       return $ return $ (EmptyAST MyEmpty)
+       <|> bound follow recSet
 
 listArgProc id follow recSet = 
     do lookAhead follow
