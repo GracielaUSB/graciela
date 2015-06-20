@@ -7,8 +7,7 @@ import MyTypeError                        as PT
 import SymbolTable
 import Location
 import Type
-
-
+import AST
 
 addFunArgError :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addFunArgError t t' loc = addTypeError $ FunArgError t t' loc
@@ -45,3 +44,8 @@ addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
 addInvalidPar :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addInvalidPar id loc = addTypeError $ InvalidPar id loc
 
+addQuantBoolError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addQuantBoolError op tr tt loc = addTypeError $ QuantBoolError op tr tt loc
+
+addQuantIntError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addQuantIntError op tr tt loc = addTypeError $ QuantIntError op tr tt loc

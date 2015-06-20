@@ -108,6 +108,16 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , typeExp  :: Type
                                    , typeVar  :: Type
                                    }
+                 | QuantIntError   { op       :: OpQuant
+                                   , trange   :: Type
+                                   , tterm    :: Type
+                                   , location :: Location
+                                   }
+                 | QuantBoolError  { op       :: OpQuant
+                                   , trange   :: Type
+                                   , tterm    :: Type
+                                   , location :: Location
+                                   }
 
 
 
@@ -174,5 +184,9 @@ instance Show MyTypeError where
             errorL loc ++ ": El número de variables declaradas es distinto al de expresiones encontradas"
    show (TypeDecError  id loc te tv) = 
             errorL loc ++ ": La variable " ++ show id ++ " es del tipo " ++ show tv ++ " pero su expresión correspondiente es del tipo " ++ show te
+   show (QuantIntError  op tr tt loc) = 
+            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo int en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op
+   show (QuantBoolError  op tr tt loc) = 
+            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo boolean en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)

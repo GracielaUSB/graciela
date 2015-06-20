@@ -3,7 +3,6 @@ module AST where
 import qualified Data.Text as T
 import Data.Monoid
 import Location
-import Token
 import SymbolTable
 import Data.Range.Range                   as RA
 import Type
@@ -84,7 +83,8 @@ instance Show StateCond where
    show Bound     = "Función de Cota "
    show Invariant = "Invariante "
 
-
+data OpQuant = ForAll | Exists | Prod | Summation | Product | Minimum | Maximum
+    deriving(Show, Eq)
 
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
@@ -130,9 +130,9 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
-         | Quant        { opQ      :: Token, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
+         | Quant        { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
-         | QuantRan     { opQ      :: Token, varQ :: T.Text, location :: Location, rangeVExp :: [RA.Range Integer]
+         | QuantRan     { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeVExp :: [RA.Range Integer]
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }

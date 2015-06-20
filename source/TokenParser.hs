@@ -9,7 +9,6 @@ import Token
 import State
 import Type
 
-
 makeTokenParser x = tokenPrim showTok updatePos testTok
                     where
                       showTok (t, pos)       = show t ++ " " ++ show pos
@@ -20,8 +19,6 @@ updatePos _ (_, pos) []     = pos
 
 verify :: Token ->  MyParser (Token)
 verify token = makeTokenParser token
-
-
 
 parsePlus         = verify TokPlus
 parseMinus        = verify TokMinus

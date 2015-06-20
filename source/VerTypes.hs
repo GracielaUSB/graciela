@@ -191,13 +191,15 @@ verRandom t loc = case ((t == MyInt) || (t == MyFloat)) of
                 }
 
 
-verQuant :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verQuant range term  = 
-    if range == MyBool && term == MyBool then
-      return MyBool 
-    else 
-      return MyError
-                       
+verQuant :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verQuant op range term loc = 
+    case op of
+      ForAll    -> if range == MyBool && term == MyBool then return MyBool else addQuantBoolError op range term loc
+      Exists    -> if range == MyBool && term == MyBool then return MyBool else addQuantBoolError op range term loc
+      Product   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
+      Summation -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
+      Maximum   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
+      Minimum   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
 
 verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 verConsAssign xs loc ts t =

@@ -75,10 +75,8 @@ pMax          = tryString "max"
 pMin          = tryString "min"
 pForall       = tryString "forall"   <|> tryString "\8704" 
 pExist        = tryString "exist"    <|> tryString "\8707" 
-pNotExist     = tryString "notExist" <|> tryString "\8708"
 pSigma        = tryString "sigma"    <|> tryString "\8721" 
 pPi           = tryString "pi"       <|> tryString "\960"
-pUnion        = tryString "union"    <|> tryString "\8746"
 pIf           = tryString "if"
 pFi           = tryString "fi"
 pInv          = tryString "inv"
@@ -182,10 +180,8 @@ lexer = do spaces
                               <|> (pMin          >> spaces >> return (TokMin))
                               <|> (pForall       >> spaces >> return (TokForall))
                               <|> (pExist        >> spaces >> return (TokExist))
-                              <|> (pNotExist     >> spaces >> return (TokNotExist))
                               <|> (pSigma        >> spaces >> return (TokSigma))
                               <|> (pPi           >> spaces >> return (TokPi))
-                              <|> (pUnion        >> spaces >> return (TokUnion))
                               <|> (pIf           >> spaces >> return (TokIf))
                               <|> (pFi           >> spaces >> return (TokFi))
                               <|> (pInv          >> spaces >> return (TokInv))

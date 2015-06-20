@@ -170,7 +170,7 @@ verTypeAST (ConsAssign loc xs es t) =
 verTypeAST (Quant op var loc range term _) = 
     do range' <- verTypeAST range  
        term'  <- verTypeAST term 
-       checkT <- verQuant (tag range') (tag term')
+       checkT <- verQuant op (tag range') (tag term') loc
        case checkT of
          MyError   -> return (Quant op var loc range' term' checkT)
          otherwise -> let id = var in
@@ -178,12 +178,9 @@ verTypeAST (Quant op var loc range term _) =
                          case r of 
                            True  -> case astToRange var range' of
                                            Nothing -> return $ Quant op var loc range' term' checkT
-                                           Just r  -> case r of 
-                                                         []   -> return $ Quant op var loc range' term' MyError
-                                                         xs   -> return $ QuantRan op var loc xs term' checkT
+                                           Just r  -> return $ QuantRan op var loc r term' checkT
                            False -> do addNotOccursVarError id loc
                                        return $ Quant op var loc range' term' MyError
-
       
 verTypeAST ast = return $ ast
 

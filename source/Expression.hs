@@ -355,17 +355,13 @@ quantification follow recSet =
      parseTokRightPer
      return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
 
-parseOpCuant = parseTokExist
-               <|> parseTokMod
-               <|> parseTokMax
-               <|> parseTokMin
-               <|> parseTokForall
-               <|> parseTokNotExist
-               <|> parseTokSigma
-               <|> parseTokPi
-               <|> parseTokUnion
-
-
+parseOpCuant :: MyParser (OpQuant)
+parseOpCuant =     (parseTokExist  >> return Exists)
+               <|> (parseTokMax    >> return Maximum)
+               <|> (parseTokMin    >> return Minimum)
+               <|> (parseTokForall >> return ForAll)
+               <|> (parseTokSigma  >> return Summation)
+               <|> (parseTokPi     >> return Product)
 
 bracketsList :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST(Type)]))
 bracketsList follow recSet = do  lookAhead follow

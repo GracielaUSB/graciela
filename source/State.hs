@@ -69,6 +69,3 @@ drawError list = case (DS.null list) of
                  { True  -> ""
                  ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n" (toList list)
                  }
-
-
-
