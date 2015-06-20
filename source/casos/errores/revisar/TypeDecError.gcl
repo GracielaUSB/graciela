@@ -9,17 +9,14 @@ program main |[
       {post m <= m + n post}
   ]
 
-  func restar : (m : int, n : int) -> int
+  func fibonacci : (m : int, n : int) -> int
   |[
       m + n
   ]|
 
   |[
       var   foo, bar := true, false : int;
-
-
       sumar(foo, bar);
-
-      bar := restar(bar, foo)
+      bar := fibonacci(bar, foo)
   ]|
 ]|

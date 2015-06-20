@@ -8,7 +8,12 @@ import Text.Parsec
 import Token
 import Type
 
-tryString = try . string
+tryString s = 
+    try $ do s' <- string s 
+             notFollowedBy $ alphaNum <|> char '_' <|> char '-' <|> char '?'
+             return s'
+
+tryStringOp = try . string
 
 pPlus         = oneOf "+\43"
 pMinus        = oneOf "-\45"
@@ -29,34 +34,33 @@ pGreater      = oneOf ">\62"
 pEqual        = oneOf "=\61"
 pNot          = oneOf "!\33"
 pAccent       = oneOf "^\94"
-pPipe         = tryString "|"
-pOpenBlock    = tryString "|["
-pCloseBlock   = tryString "]|"
-pSepGuards    = tryString "[]"
-pLogicalAnd   = tryString "/\\" <|> tryString "\8743" 
-pLogicalOr    = tryString "\\/" <|> tryString "\8744"
-pNotEqual     = tryString "!="  <|> tryString "\8800"
-pLessEqual    = tryString "<="  <|> tryString "\8804"
-pGreaterEqual = tryString ">="  <|> tryString "\8805"
-pImplies      = tryString "==>" <|> tryString "\8658"
-pConsequent   = tryString "<==" <|> tryString "\8656"
-pEquiv        = tryString "=="  <|> tryString "\8801"
-pNotEqiv      = tryString "!==" <|> tryString "\8802"
-pAsig         = tryString ":="  <|> tryString "\58\61" 
-pArrow        = tryString "->"  <|> tryString "\8594"
-pProgram      = tryString "program"  
-pLeftPercent  = tryString "(%"  
-pRightPercent = tryString "%)"  
-pLeftPre      = tryString "{pre"
-pRightPre     = tryString "pre}"
-pLeftPost     = tryString "{post"
-pRightPost    = tryString "post}"
-pLeftBound    = tryString "{bound"
-pRightBound   = tryString "bound}"
-pLeftA        = tryString "{a"
-pRightA       = tryString "a}"
-pLeftInv      = tryString "{inv"
-pRightInv     = tryString "inv}"
+pPipe         = tryStringOp "|"
+pOpenBlock    = tryStringOp "|["
+pCloseBlock   = tryStringOp "]|"
+pSepGuards    = tryStringOp "[]"
+pLogicalAnd   = tryStringOp "/\\" <|> tryString "\8743" 
+pLogicalOr    = tryStringOp "\\/" <|> tryString "\8744"
+pNotEqual     = tryStringOp "!="  <|> tryString "\8800"
+pLessEqual    = tryStringOp "<="  <|> tryString "\8804"
+pGreaterEqual = tryStringOp ">="  <|> tryString "\8805"
+pImplies      = tryStringOp "==>" <|> tryString "\8658"
+pConsequent   = tryStringOp "<==" <|> tryString "\8656"
+pEquiv        = tryStringOp "=="  <|> tryString "\8801"
+pNotEqiv      = tryStringOp "!==" <|> tryString "\8802"
+pAsig         = tryStringOp ":="  <|> tryString "\58\61" 
+pArrow        = tryStringOp "->"  <|> tryString "\8594"
+pLeftPercent  = tryStringOp "(%"  
+pRightPercent = tryStringOp "%)"  
+pLeftPre      = tryStringOp "{pre"
+pRightPre     = tryStringOp "pre}"
+pLeftPost     = tryStringOp "{post"
+pRightPost    = tryStringOp "post}"
+pLeftBound    = tryStringOp "{bound"
+pRightBound   = tryStringOp "bound}"
+pLeftA        = tryStringOp "{a"
+pRightA       = tryStringOp "a}"
+pLeftInv      = tryStringOp "{inv"
+pRightInv     = tryStringOp "inv}"
 pPre          = tryString "pre"
 pPost         = tryString "post"
 pBound        = tryString "bound"
@@ -92,6 +96,7 @@ pSkip         = tryString "skip"
 pWrite        = tryString "write"
 pWriteln      = tryString "writeln"
 pRead         = tryString "read"
+pProgram      = tryString "program"  
 pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
@@ -203,6 +208,12 @@ lexer = do spaces
                               <|> (pToInt        >> spaces >> return (TokToInt))
                               <|> (pToDouble     >> spaces >> return (TokToDouble))    
                               <|> (pToChar       >> spaces >> return (TokToChar))
+                              <|> (pIn           >> spaces >> return (TokIn))
+                              <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
+                              <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))
+                              <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
+                              <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
+                              <|> (pOf           >> spaces >> return (TokOf))
                               <|> (pToString     >> spaces >> return (TokToString))
                               <|> (try (do s <- pBool
                                            spaces
@@ -212,12 +223,6 @@ lexer = do spaces
                                             }
                                         )
                                   ) 
-                              <|> (pIn           >> spaces >> return (TokIn))
-                              <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
-                              <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))
-                              <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
-                              <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
-                              <|> (pOf           >> spaces >> return (TokOf))
                               <|> ((char '"')    AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . TokString)
                               <|> (do char '\''
                                       c <- anyChar
@@ -228,10 +233,11 @@ lexer = do spaces
                               <|> (try( do n1 <- many1 digit
                                            char '.'
                                            n2 <- many1 digit
-                                           return (TokFlotante (read (n1 ++ "." ++ n2)))))                             
+                                           return (TokFlotante (read (n1 ++ "." ++ n2))))
+                                  )                             
                               <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
                               <|> (try (do l <- letter
-                                           r <- many (alphaNum <|> char '_' <|> char '?')
+                                           r <- many (alphaNum <|> char '_' <|> char '-' <|> char '?')
                                            spaces
                                            return $ TokId (T.cons l (T.pack r)) 
                                        )
