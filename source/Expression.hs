@@ -238,6 +238,22 @@ exprLevel9 follow recSet = do p <- exprLevel10 (follow <|> parseTokAccent) (recS
     Ésta puede ser un número, letra, cadena de caracteres, llamada a función,
     etc.
  -}
+
+constant :: MyParser (Maybe (AST(Type)) ) 
+constant = do pos <- getPosition
+              do n <- parseDouble
+                 return $ return $ Float (getLocation pos) n MyFloat
+                 <|> do n <- number
+                        return $ return $ Int (getLocation pos) n MyInt
+                 <|> do e <- parseBool
+                        return $ return $ Bool (getLocation pos) e MyBool
+                 
+                 <|> do e <- parseChar
+                        return $ return $ Char (getLocation pos) e MyChar
+                 
+                 <|> do e <- parseString
+                        return $ return $ String (getLocation pos) e MyString
+
 exprLevel10 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel10 follow recSet = do do pos <- getPosition
                                   do parseLeftParent
@@ -245,13 +261,6 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                      do  try(parseRightParent >>= return . return e)
                                          <|> do genNewError (recSet) (TokenRP)
                                                 return $ Nothing
-                                  
-                                     <|> do n <- parseDouble
-                                            return $ return $ Float (getLocation pos) n MyFloat
-                                         
-                                     <|> do n <- number
-                                            return $ return $ Int (getLocation pos) n MyInt
-
                                      <|> do idp <- parseID
                                             t <- lookUpVarParser idp
                                             do      lookAhead follow
@@ -278,14 +287,6 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                      <|> do parseMinDouble
                                             return $ return $ Constant (getLocation pos) False False MyFloat
                                      
-                                     <|> do e <- parseBool
-                                            return $ return $ Bool (getLocation pos) e MyBool
-                                     
-                                     <|> do e <- parseChar
-                                            return $ return $ Char (getLocation pos) e MyChar
-                                     
-                                     <|> do e <- parseString
-                                            return $ return $ String (getLocation pos) e MyString
                                      
                                      <|> do parseToInt
                                             parseLeftParent
@@ -328,6 +329,7 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                             return(AP.liftA2  (Unary Not (getLocation pos)) e (return (MyEmpty)))
                                          
                                      <|> quantification follow recSet
+                                     <|> constant
                                      <|> do genNewError (recSet) (Number)
                                             return $ Nothing
 

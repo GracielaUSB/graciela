@@ -1,27 +1,15 @@
 program main |[
-
-  func hola2 : (A : int) -> int
+  func sumar : (m : int, n : int) -> double
   |[
-      A
+      m + n
   ]|
 
-  proc hola : (inout A: int, inout B: int)
-  [
-      var  j : int;
-      const h := true : int;
-      
-      {pre true pre}
-      |[
-          j := 5;
-          A := j
-      ]|
-      {post true post}
-  ]
-
   |[
-    const x := 4 : int;
+    var y : int;
+    const x := 5 : int;
+    var arreglo : array [x] of int;
 
-    hola(x, x)
+    arreglo[0], arreglo[5], arreglo[2] := 2, 6, sumar(2,3)
 
   ]|
 ]| 

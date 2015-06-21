@@ -40,8 +40,11 @@ countableType follow recSet = do pos  <- getPosition
                                  }
 
 parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe Integer)
-parseConstNumber follow recSet = do  lookAhead follow
-                                     genNewEmptyError
-                                     return $ Nothing
-                                     <|> do e <- number
-                                            return $ return e
+parseConstNumber follow recSet = do pos <- getPosition
+                                    do  lookAhead follow
+                                        genNewEmptyError
+                                        return $ Nothing
+                                        <|> do e <- number
+                                               return $ return e
+                                        <|> do id <- parseID
+                                               lookUpConstIntParser id (getLocation pos)

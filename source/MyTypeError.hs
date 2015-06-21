@@ -118,8 +118,12 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , tterm    :: Type
                                    , location :: Location
                                    }
-
-
+                 | NotIntError     { symbol   :: T.Text
+                                   , location :: Location
+                                   }
+                 | NotConstError   { symbol   :: T.Text
+                                   , location :: Location
+                                   }
 
 instance Show MyTypeError where
    show (RepSymbolError     sym pLoc loc) = 
@@ -188,5 +192,9 @@ instance Show MyTypeError where
             errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo int en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op
    show (QuantBoolError  op tr tt loc) = 
             errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo boolean en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op
+   show (NotConstError  id            loc) = 
+            errorL loc ++ ": La variable " ++ show id ++ " no es constante"
+   show (NotIntError  id            loc) = 
+            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int"
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)

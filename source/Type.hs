@@ -45,7 +45,7 @@ instance Show Type where
    show  MyEmpty           = "Vacio"
    show  MyError           = "Error"
    show (MyFunction xs t ) = "Func, return type: " ++ show t
-   show (MyArray    t  xs) = "Array of "     ++ show t 
+   show (MyArray    t  xs) = "Array of "     ++ show t ++ " de tamaño " ++ show xs
    show (MyProcedure   xs) = "Proc"
 
 
