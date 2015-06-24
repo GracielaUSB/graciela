@@ -46,7 +46,7 @@ decListAux follow recSet =
                            lexp <- consListParser parseColon
                            parseColon
                            t <- myType parseSemicolon recSet
-                           addManySymParser CO.Variable idl t lexp
+                           addManyUniSymParser idl t
                            parseSemicolon
                            rl <- decListAux follow recSet
                            return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl
@@ -56,7 +56,7 @@ decListAux follow recSet =
                         lexp <- consListParser parseColon
                         parseColon
                         t <- myType parseSemicolon recSet
-                        addManySymParser CO.Constant idl t lexp
+                        addManyConsParser idl t lexp
                         parseSemicolon
                         rl <- decListAux follow recSet
                         return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl

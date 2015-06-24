@@ -9,8 +9,19 @@ instance Show TypeArg where
    show InOut = " Var Int/Out"
 
 
-data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Integer}
+data Type = MyInt
+          | MyFloat
+          | MyBool
+          | MyChar
+          | MyFunction   [Type] Type
+          | MyProcedure [Type] 
+          | MyError
+          | MyEmpty
+          | MyString
+          | MyArray 
+              { getType :: Type
+              , getTam  :: Integer
+              }
 
 isTypeProc :: Type -> Bool
 isTypeProc (MyProcedure _) = True

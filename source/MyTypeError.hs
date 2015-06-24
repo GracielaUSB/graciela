@@ -49,9 +49,7 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    }   
                  | CondError       { loc    :: Location
                                    }                                                                                            
-                 | IncomDefError   { cont   :: VarBehavour
-                                   , loc    :: Location
-                                   }
+                 | IncomDefError   { loc    :: Location }
                  | UndecFunError   { symbol :: T.Text
                                    , isFunc :: Bool
                                    , loc    :: Location
@@ -152,10 +150,8 @@ instance Show MyTypeError where
             errorL loc ++ ": Se esperaba en la guardia el tipo: Boolean, se encontró: " ++ show t ++ "."
    show (CondError                   loc) = 
             errorL loc ++ ": Los condicionales no son del mismo tipo."
-   show (IncomDefError C.Constant    loc) = 
-            errorL loc ++ ": Definición de constantes incompleta"
-   show (IncomDefError C.Variable    loc) = 
-            errorL loc ++ ": Definición de variables incompleta"
+   show (IncomDefError               loc) = 
+            errorL loc ++ ": Definición incompleta"
    show (UndecFunError   sym  True   loc) = 
             errorL loc ++ ": La función " ++ show sym ++ " no se puede usar, no esta definida."
    show (UndecFunError   sym  False  loc) = 

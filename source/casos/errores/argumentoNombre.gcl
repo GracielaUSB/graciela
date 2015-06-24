@@ -1,25 +1,22 @@
 program main |[
 
-  proc sumar : (inout sumar : int, in n : int) 
+  proc sumar : (inout suma : int, in n : int) 
   [
-      {pre sumar >= 0 /\ n >= 0 pre}  
+      {pre suma >= 0 /\ n >= 0 pre}  
       |[
-          sumar := sumar + n
+          suma := suma + n
       ]|  
-      {post sumar <= sumar + n post}
+      {post suma <= suma + n post}
   ]
 
-  func restar : (m : int, resta : int) -> int
+  func restar : (m : int, restar : int) -> int
   |[
-      m + resta
+      m + restar
   ]|
 
   |[
       var   foo, bar := 2, 797 : int;
-
-
       sumar(foo, bar);
-
       bar := restar(bar, foo)
   ]|
 ]|

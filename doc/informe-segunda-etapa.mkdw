@@ -1,10 +1,12 @@
 # Informe segunda etapa
 
-## Procedo de parseo
+## Proceso de parseo
 
-Continuando con el trabajo del trimestre pasado, apmliamos el parser de la calculadora de ejemplo para hacer el parser del lenguaje. El parser es del tipo recursivo descendente, aprovechando el hecho que la gramática es **LL(1)**, usando la librería *parsec* del lenguaje *haskell*. Esta librería nos permite de forma sencilla trasladar la gramática del lenguaje a un reconocedor, ya que está basada en el uso de combinadores de reconocedores para su funcionamiento, lo que nos permite crear reconocedores para construcciones del lenguaje a partir de otros más simples.
+Continuando con el trabajo del trimestre pasado, ampliamos el parser de la calculadora para hacer el parser del lenguaje. El parser es del tipo recursivo descendente, aprovechando el hecho que la gramática es **LL(1)**, usando la librería *parsec* del lenguaje *haskell*. Esta librería nos permite de forma sencilla trasladar la gramática del lenguaje a un reconocedor, ya que está basada en el uso de combinadores para su funcionamiento, lo que nos permite crear reconocedores para construcciones del lenguaje a partir de otros más simples.
 
-Además, la librería nos permite diseñar un parser con recuperación de errores de manera muy sencilla, ya que el programador tiene control sobre la forma en que se realiza el proceso de reconocimiento.  Por lo que podemos diseñar el reconocedor de manera que al momento de extraer de la entrada un símbolo inesperado pueda seguir leyendo símbolos hasta recuperarse en algún otro desde el cual pueda seguir el reconocimiento. A estos errores los llamaremos **errores de sintaxis**
+Además, la librería nos permite diseñar un parser con recuperación de errores de manera muy sencilla, ya que el programador tiene control sobre la forma en que se realiza el proceso de reconocimiento.  Por lo que podemos diseñar el reconocedor de manera que al momento de extraer de la entrada un símbolo inesperado pueda seguir leyendo símbolos hasta recuperarse en algún otro desde el cual pueda seguir el reconocimiento. A estos errores los llamaremos **errores de sintaxis**.
+
+### AST
 
 Si el proceso de reconocimiento termina, el parser retorna la representación intermedia del programa en forma de árbol. Éste contiene toda la información necesaria para continuar con el proceso de compilación. Para la representación del árbol usamos un tipo algebraico polimórfico provisto por *haskell*. Para esta etapa era necesario crear un árbol que contuviera información parcial de los tipos del lenguaje encontrados durante el reconocimiento, pero para etapas siguientes necesitaremos que éste contenga el código intermedio para ser reconocido por la herramienta que generarará el código final, **LLVM** en nuestro caso. Esta es una de las ventajas de usar un lenguaje como *haskell* que ofrece tipos polimórficos, podemos usar la misma representación para el árbol y almacenar distintas estructuras de datos, dependiendo del momento de la compilación en la que nos encontremos, solo debemos preocuparnos por las transformaciones necesarias.
 
@@ -67,12 +69,12 @@ La representación usada es la siguiente:
                     , location :: Location
                     , tiexp    :: AST a
                     , tag :: a
-                    } -- ^ Conversión a entero.
+                    } -- ^ Conversiones entre tipos.
       | Unary       { opUn     :: OpUn
                     , location :: Location
                     , lenExp   :: AST a
                     , tag      :: a
-                    } -- ^ Función raíz cuadrada.
+                    } -- ^ Operadores unarios.
       | Skip        { location :: Location
                     , tag      :: a
                     } -- ^ Instruccion Skip.
@@ -98,7 +100,7 @@ La representación usada es la siguiente:
                     , explista :: [AST a]
                     , location :: Location
                     , tag      :: a
-                    } 
+                    } -- ^ Lista de asignaciones. 
       | Write       { ln       :: Bool
                     , wexp     :: (AST a)
                     , location :: Location
@@ -114,7 +116,7 @@ La representación usada es la siguiente:
                     , location  :: Location
                     , args      :: [AST a]
                     , tag :: a                 
-                    } 
+                    } -- ^ Llamada a procedimiento.
       | ConsAssign  { location :: Location
                     , caID     :: [(T.Text, Location)]
                     , caExpr   :: [AST a]
@@ -135,7 +137,7 @@ La representación usada es la siguiente:
                     , fbody     :: AST a
                     , nodeBound :: AST a
                     , tag       :: a
-                    }
+                    } -- ^ Definición de función.
       | DefProc     { pname     :: T.Text
                     , prbody    :: [AST a]
                     , nodePre   :: (AST a)
@@ -143,26 +145,26 @@ La representación usada es la siguiente:
                     , nodeBound :: (AST a)
                     , constDec  :: [AST a]
                     , tag       :: a
-                    }
+                    } -- ^ Definición de función.
       | Ran         { var      :: T.Text
                     , location :: Location
                     , tag      :: a
-                    }
+                    } -- ^ Instrucción random.
       | Program     { pname    :: T.Text
                     , location :: Location
                     , listdef  :: [AST a]
                     , listacc  :: [AST a]
                     , tag      :: a
-                    }
+                    } -- ^ Programa principal.
       | FunBody     { location :: Location
                     , fbexpr   :: AST a
                     , tag      :: a
-                    }
+                    } -- ^ Cuerpo de función.
       | GuardAction { location    :: Location
                     , assertionGa :: AST a
                     , actionGa    :: AST a
                     , tag         :: a 
-                    }
+                    } -- ^ Acciones con aserción.
       | States      { tstate   :: StateCond
                     , location :: Location
                     , exps     :: AST a
@@ -174,18 +176,19 @@ La representación usada es la siguiente:
                     , rangeExp :: AST a
                     ,termExpr  :: AST a
                     , tag      :: a
-                    }
+                    } -- ^ Cuantificador.
       | QuantRan    { opQ       :: OpQuant
                     , varQ      :: T.Text
                     , location  :: Location
                     , rangeVExp :: [RA.Range Integer]
                     , termExpr  :: AST a
                     , tag       :: a
-                    }
+                    } -- ^ Cuantificador con rango calculado.
       | EmptyRange  { location :: Location
                     , tag      :: a
-                    }
-      | EmptyAST    { tag :: a }
+                    } -- ^ Rango vacío.
+      | EmptyAST    { tag :: a 
+                    } -- ^ Nodo vacío.
         deriving (Eq)
 
 El árbol retornado por el parser tiene información parcial de los tipos 
@@ -193,7 +196,7 @@ encontrados en el programa. Aprovechando el hecho que en el lenguaje todo símbo
 
 Vale la pena recalcar que esta técnica no puede ser usada con las llamadas funciones y procedimientos porque no se exigue un órden en la definición de estos, una función o procedimiento puede ser definido **después** de ser llamado. En estos casos, la verificación es dejada a una etapa posterior de compilación.
 
-## Tabla de símbolos
+### Tabla de símbolos
 
 Definición: 
 
@@ -208,6 +211,7 @@ Definición:
 Para mantener información de las variables, funciones y procedimientos reconocidos usamos una **tabla de símbolos**. Para modelarla usamos un árbol de diccionarios. Cada nodo del árbol es un diccionario el cual contiene información de cada uno de los símbolos que fueron definidos en el alcance que representa. La raíz del árbol contiene información de las funciones y procedimientos definidos en el programa mientras que cada una de las ramas almacena información de los símbolos definidos en cada uno de los alcances. Para que un nodo sea rama de otro, el alcance que representa debe estar definido dentro del alcance que representa el nodo padre. 
 
 Además, cada nodo mantiene un apuntador a su nodo padre para hacer posible la búsqueda de cada símbolo, por lo que al encontrar un símbolo se busca en el nodo actual y en caso de no ser encontrado se busca en el nodo padre hasta llegar a la raíz en caso de no ser encontrado en los nodos intermedios. Para representar el árbol se usó la librería *Data.Tree* y para los diccionarios *Data.Map*.
+
 
 ### Estado
 
@@ -250,6 +254,14 @@ Hemos definido un constructor por cada tipo que el usuario podrá usar dentro de
 * **MyString**: Usado para representar el tipo *string* del lenguaje.
 * **MyArray**: Describe el tipo *array* del lenguaje. Contiene el tipo de los valores almacenados en el arreglo y la cantidad de estos.
 
-## Errores
+## Verificación de tipos
 
+### Rangos
 
+## Próximos pasos
+
+Los siguientes objetivos que esperamos cumplir son los siguientes:
+
+* Recuperación de errores de sintaxis.
+* Generación de código final.
+* Documentación del lenguaje.

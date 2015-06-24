@@ -223,7 +223,7 @@ verCallExp name args loc locarg =
        { Nothing -> 
             addUndecFuncError name True loc
        ; Just x  -> 
-            case (symbolType x) of
+            case (getContentType x) of
             { MyFunction args' ts ->
                   let wtL = length args
                       prL = length args'
@@ -247,41 +247,46 @@ verProcCall name sbc args'' loc locarg =
        case (lookUpRoot name sb) of
        { Nothing -> 
             addUndecFuncError name False loc
-       ; Just (ProcCon _ t ln sb)  -> 
-            case t of
-            { MyProcedure args' ->
-                  let wtL = length args''
-                      prL = length args'
-                  in if (wtL /= prL) then addNumberArgsError name wtL prL loc
-                  else let args = map snd args''
-                           t    = zip args args' in
-                          if   and $ map (uncurry (==)) $ t then 
-                              do r <- validProcArgs ln (map fst args'') locarg sb sbc
-                                 if r  then return MyEmpty
-                                 else return $ MyError
-                          else do mapM_ (\ ((arg, arg'), larg) -> 
-                                              if arg /= arg' then addFunArgError arg' arg larg 
-                                              else return MyEmpty
-                                        ) (zip t locarg) 
-                                  return $ MyError
-            ; otherwise           -> 
-                  addUndecFuncError name False loc
-            }
+       --; Just (ProcCon _ t ln sb)  -> 
+       ; Just c  ->
+            if isContentProc c then 
+              let t = getContentType c in
+                case t of
+                { MyProcedure args' ->
+                      let wtL = length args''
+                          prL = length args'
+                      in if (wtL /= prL) then addNumberArgsError name wtL prL loc
+                      else let args = map snd args''
+                               t    = zip args args' in
+                              if   and $ map (uncurry (==)) $ t then 
+                                  do r <- validProcArgs (getListNames c) (map fst args'') locarg sb sbc
+                                     if r  then return MyEmpty
+                                     else return $ MyError
+                              else do mapM_ (\ ((arg, arg'), larg) -> 
+                                                  if arg /= arg' then addFunArgError arg' arg larg 
+                                                  else return MyEmpty
+                                            ) (zip t locarg) 
+                                      return $ MyError
+                ; otherwise           -> 
+                      addUndecFuncError name False loc
+                }
+            else
+              addUndecFuncError name False loc
        }
 
 validProcArgs :: [T.Text] -> [T.Text] -> [Location] -> SymbolTable -> SymbolTable -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
 validProcArgs lnp lnc locarg sbp sbc = 
-    let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
-        lvt = map getVarBeh $       map fromJust $ map ((flip checkSymbol) sbc) lnc
+    let lat = map getProcArgType $ map fromJust $ map ((flip checkSymbol) sbp) lnp
+        lvt = map isConstant     $ map fromJust $ map ((flip checkSymbol) sbc) lnc
         xs  = zip lat lvt
     in
         fmap and $ mapM compare (zip xs (zip lnc locarg))
 
     where
-      compare ((Just Out, Just Contents.Constant), (id, loc))   = 
+      compare ((Just Out, True), (id, loc))   = 
           do addInvalidPar id loc
              return False
-      compare ((Just InOut, Just Contents.Constant), (id, loc)) = 
+      compare ((Just InOut, True), (id, loc)) = 
           do addInvalidPar id loc
              return False
       compare _                                               =
@@ -342,7 +347,7 @@ verDefFun :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Se
 verDefFun name body bound loc = do sb <- RWSS.ask
                                    case lookUpRoot name sb of
                                    { Nothing -> addUndecFuncError name True loc
-                                   ; Just c  -> case (symbolType c) of
+                                   ; Just c  -> case getContentType c of
                                                 { MyFunction _ tf -> case (tf == body) of
                                                                      { True  -> return MyEmpty
                                                                      ; False -> addRetFuncError name tf body loc
