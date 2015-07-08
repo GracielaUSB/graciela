@@ -16,11 +16,10 @@ import Token
 import Type
 
 
-data ParserState = 
-        ParserState { synErrorList     :: DS.Seq MyParseError
-                    , symbolTable      :: SymbolTable
-                    , sTableErrorList  :: DS.Seq MyTypeError
-                    }
+data ParserState = ParserState { synErrorList     :: DS.Seq MyParseError
+                               , symbolTable      :: SymbolTable
+                               , sTableErrorList  :: DS.Seq MyTypeError
+                               }
       deriving(Show)
 
 type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
@@ -35,7 +34,7 @@ addParsingError e ps = ps { synErrorList = (synErrorList ps) DS.|> e }
 
 addNewSymbol :: T.Text -> (Contents SymbolTable) -> ParserState -> ParserState
 addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
-                        { Left con -> ps { sTableErrorList = (sTableErrorList ps) DS.|> (RepSymbolError id (getContentLoc con) (getContentLoc c)) }
+                        { Left con -> ps { sTableErrorList = (sTableErrorList ps) DS.|> (RepSymbolError id (symbolLoc con) (symbolLoc c)) }
                         ; Right sb -> ps { symbolTable  = sb }
                         }
 

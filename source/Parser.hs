@@ -360,20 +360,21 @@ guard CExpression follow recSet = do pos <- getPosition
 functionCallOrAssign follow recSet = 
     do pos <- getPosition
        id <- parseID
-       do parseLeftParent
-          lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
-          parseRightParent
-          sb <- getActualScope
-          return $ (fmap (ProcCall id sb (getLocation pos)) lexp) AP.<*> (return MyEmpty)
-          <|> do t   <- lookUpConsParser id
-                 bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
-                 rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
-                 parseAssign
-                 le <- listExp follow recSet
-                 return $ (AP.liftA2 (LAssign) (AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) id) t) bl) rl) le) 
-                          AP.<*> (return (getLocation pos))
-                          AP.<*> (return MyEmpty)
-              
+       do try (do parseLeftParent
+                  lexp <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
+                  do parseRightParent
+                     sb <- getActualScope
+                     return $ (fmap (ProcCall id sb (getLocation pos)) lexp) AP.<*> (return MyEmpty)
+               )
+          <|> try ( do t <- lookUpConsParser id
+                       bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
+                       rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
+                       parseAssign
+                       le <- listExp follow recSet
+                       return $ (AP.liftA2 (LAssign) (AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) id) t) bl) rl) le) 
+                                AP.<*> (return (getLocation pos))
+                                AP.<*> (return MyEmpty)
+                  )
 
 
 idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([((T.Text, Type), [AST(Type)])]))
