@@ -41,7 +41,7 @@ addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 addNotOccursVarError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
 
-addInvalidPar :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addInvalidPar :: AST Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addInvalidPar id loc = addTypeError $ InvalidPar id loc
 
 addQuantBoolError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 

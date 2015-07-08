@@ -99,7 +99,7 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | FunNameError    { symbol :: T.Text 
                                    , loc    :: Location
                                    } 
-                 | InvalidPar      { symbol :: T.Text 
+                 | InvalidPar      { tree   :: AST Type
                                    , loc    :: Location
                                    } 
                  | DiffSizeError   { location :: Location }
@@ -183,7 +183,7 @@ instance Show MyTypeError where
    show (FunNameError  id            loc) = 
             errorL loc ++ ": El parámetro " ++ show id ++ " es del mismo nombre de la función que está siendo definida"
    show (InvalidPar  id            loc) = 
-            errorL loc ++ ": El parámetro " ++ show id ++ " es constante y está siendo pasado como parámetro de salida"
+            errorL loc ++ ": El parámetro " ++ "" ++ " es constante y está siendo pasado como parámetro de salida"
    show (DiffSizeError                loc) = 
             errorL loc ++ ": El número de variables declaradas es distinto al de expresiones encontradas"
    show (TypeDecError  id loc te tv) = 
