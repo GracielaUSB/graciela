@@ -1,12 +1,12 @@
 module AST where
 
 import qualified Data.Text as T
+import Data.Range.Range    as RA
 import Data.Monoid
-import Location
 import SymbolTable
-import Data.Range.Range                   as RA
-import Type
+import Location
 import Print
+import Type
 
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
@@ -28,7 +28,6 @@ instance Show OpNum where
    show Mod     = "Módulo"
 
 
-
 data OpBool = Dis | Con | Implies | Conse
       deriving (Eq)
 
@@ -37,6 +36,7 @@ instance Show OpBool where
    show Con     = "Conjunción"
    show Implies = "Implicación"
    show Conse   = "Consecuencia"
+
 
 data OpRel = Equ | Less | Greater | LEqual | GEqual | Ine | Equal
       deriving (Eq) 
@@ -51,7 +51,6 @@ instance Show OpRel where
    show Equal   = "Inequivalencia"
 
 
-
 data Conv = ToInt | ToDouble | ToString | ToChar  
       deriving (Eq) 
 
@@ -60,7 +59,6 @@ instance Show Conv where
    show ToDouble = "a Flotante"
    show ToString = "a Cadenas de Caracteres"
    show ToChar   = "a Caracter"
-
 
 
 data OpUn = Minus | Not | Abs | Sqrt
@@ -83,8 +81,10 @@ instance Show StateCond where
    show Bound     = "Función de Cota "
    show Invariant = "Invariante "
 
+
 data OpQuant = ForAll | Exists | Prod | Summation | Product | Minimum | Maximum
     deriving(Show, Eq)
+
 
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
@@ -117,9 +117,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
-         | DefProc      { pname     :: T.Text
-                        , prbody    :: [AST a]
-                        , nodePre   :: (AST a)
+         | DefProc      { pname     :: T.Text, prbody    :: [AST a], nodePre   :: (AST a)
                         , nodePost  :: (AST a)
                         , nodeBound :: (AST a)
                         , constDec  :: [AST a]
@@ -138,12 +136,14 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | EmptyAST     { tag :: a                                                                                     }
     deriving (Eq)
 
+
 astToId :: AST a -> Maybe T.Text
 astToId (ID _ id _) = Just id
 astToId _           = Nothing
 
 instance Show a => Show (AST a) where
   show ast = drawAST 0 ast
+
 
 checkMaxMin :: Bool -> Bool -> String
 checkMaxMin True  True  = "MAX_INT"
@@ -157,247 +157,222 @@ checkWrite True  = "Escribir con Salto de línea"
 checkWrite False = "Escribir"
 
 
-
 drawAST level ((Program name loc defs accs ast)) = 
-         putSpacesLn level `mappend` "Programa: " `mappend` show name `mappend` putLocation loc 
-                           `mappend` " //Tag: "   `mappend` show ast 
-                           `mappend` drawASTList (level + 4) defs     `mappend` drawASTList (level + 4) accs
-
+   putSpacesLn level `mappend` "Programa: " `mappend` show name `mappend` putLocation loc 
+                     `mappend` " //Tag: "   `mappend` show ast 
+                     `mappend` drawASTList (level + 4) defs     `mappend` drawASTList (level + 4) accs
 
 
 drawAST level ((DefProc name accs pre post bound _ ast)) = 
-         putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc
-                           `mappend` " //Tag: "        `mappend` show ast  
-                           `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
-                           `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 8) bound  
-                           `mappend` putSpacesLn (level + 4) `mappend` "Acciones: " `mappend` drawASTList (level + 8) accs
-                           `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) post 
-
+   putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc
+                     `mappend` " //Tag: "        `mappend` show ast  
+                     `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
+                     `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 8) bound  
+                     `mappend` putSpacesLn (level + 4) `mappend` "Acciones: " `mappend` drawASTList (level + 8) accs
+                     `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) post 
 
 
 drawAST level ((States t loc expr ast)) = 
-         putSpacesLn level `mappend` show t     `mappend` putLocation loc 
-                           `mappend` " //Tag: " `mappend` show ast       
-                           `mappend` drawAST (level + 4) expr
-
+   putSpacesLn level `mappend` show t     `mappend` putLocation loc 
+                     `mappend` " //Tag: " `mappend` show ast       
+                     `mappend` drawAST (level + 4) expr
 
 
 drawAST level ((Arithmetic t loc lexpr rexp ast)) =
-         putSpacesLn   level `mappend` "Operador Aritmético: " `mappend` show t `mappend` putLocation loc 
-                             `mappend` " //Tag: "              `mappend` show ast 
-                             `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
-                                                               `mappend` drawAST (level + 8) lexpr 
-                             `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
-                                                               `mappend` drawAST (level + 8) rexp       
+   putSpacesLn   level `mappend` "Operador Aritmético: " `mappend` show t `mappend` putLocation loc 
+                       `mappend` " //Tag: "              `mappend` show ast 
+                       `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
+                                                         `mappend` drawAST (level + 8) lexpr 
+                       `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
+                                                         `mappend` drawAST (level + 8) rexp       
   
 
-
 drawAST level ((Relational t loc lexpr rexp ast)) =
-         putSpacesLn level `mappend` "Operador Relacional: " `mappend` show t `mappend` putLocation loc 
-                           `mappend` " //Tag: "              `mappend` show ast 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
-                                                             `mappend` drawAST (level + 8) lexpr 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
-                                                             `mappend` drawAST (level + 8) rexp 
+   putSpacesLn level `mappend` "Operador Relacional: " `mappend` show t `mappend` putLocation loc 
+                     `mappend` " //Tag: "              `mappend` show ast 
+                     `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
+                                                       `mappend` drawAST (level + 8) lexpr 
+                     `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
+                                                       `mappend` drawAST (level + 8) rexp 
                          
 
-
 drawAST level ((Boolean t loc lexpr rexp ast)) =
-         putSpacesLn level `mappend` "Operador Booleano: "   `mappend` show t `mappend` putLocation loc 
-                           `mappend` " //Tag: "              `mappend` show ast 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
-                                                             `mappend` drawAST (level + 8) lexpr
-                           `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
-                                                             `mappend` drawAST (level + 8) rexp 
-                        
-
+   putSpacesLn level `mappend` "Operador Booleano: "   `mappend` show t `mappend` putLocation loc 
+                     `mappend` " //Tag: "              `mappend` show ast 
+                     `mappend` putSpacesLn (level + 4) `mappend` "Lado izquierdo:" 
+                                                       `mappend` drawAST (level + 8) lexpr
+                     `mappend` putSpacesLn (level + 4) `mappend` "Lado derecho:"  
+                                                       `mappend` drawAST (level + 8) rexp 
+                  
 
 drawAST level ((ID loc cont ast)) =
-         putSpacesLn level `mappend` "ID: "        `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "ID: "        `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((Int loc cont ast)) =
-         putSpacesLn level `mappend` "Entero: "    `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "Entero: "    `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((Float loc cont ast)) =
-         putSpacesLn level `mappend` "Flotante: "  `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "Flotante: "  `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((Bool loc cont ast)) =
-         putSpacesLn level `mappend` "Booleano: "  `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "Booleano: "  `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((Char loc cont ast)) =
-         putSpacesLn level `mappend` "Caracter: "  `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
+   putSpacesLn level `mappend` "Caracter: "  `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((String loc cont ast)) =
-         putSpacesLn level `mappend` "String: "    `mappend` show cont `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "String: "    `mappend` show cont `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((Constant loc t max ast)) =
-         putSpacesLn level `mappend` "Constante: " `mappend` checkMaxMin t max `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-
+   putSpacesLn level `mappend` "Constante: " `mappend` checkMaxMin t max `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
 
 
 drawAST level ((LAssign idlist explist loc ast)) =
-         putSpacesLn level `mappend` "Asignación: " `mappend` putLocation loc
-                           `mappend` " //Tag: "     `mappend` show ast  
-                           `mappend` drawLAssign (level) idlist explist
-
+   putSpacesLn level `mappend` "Asignación: " `mappend` putLocation loc
+                     `mappend` " //Tag: "     `mappend` show ast  
+                     `mappend` drawLAssign (level) idlist explist
 
 
 drawAST level ((Rept guard inv bound loc ast)) =
-         putSpacesLn level `mappend` "Repetición: " `mappend` putLocation loc 
-                           `mappend` " //Tag: "     `mappend` show ast 
-                           `mappend` drawASTList (level + 4) guard
-                           `mappend` putSpaces   (level + 4) `mappend` drawAST (level + 4) inv   
-                           `mappend` putSpaces   (level + 4) `mappend` drawAST (level + 4) bound 
-
+   putSpacesLn level `mappend` "Repetición: " `mappend` putLocation loc 
+                     `mappend` " //Tag: "     `mappend` show ast 
+                     `mappend` drawASTList (level + 4) guard
+                     `mappend` putSpaces   (level + 4) `mappend` drawAST (level + 4) inv   
+                     `mappend` putSpaces   (level + 4) `mappend` drawAST (level + 4) bound 
 
 
 drawAST level ((Cond guard loc ast)) =
-         putSpacesLn level `mappend` "Condicional: " `mappend` putLocation loc 
-                           `mappend` " //Tag: "      `mappend` show ast 
-                           `mappend` drawASTList (level + 4) guard
-
+   putSpacesLn level `mappend` "Condicional: " `mappend` putLocation loc 
+                     `mappend` " //Tag: "      `mappend` show ast 
+                     `mappend` drawASTList (level + 4) guard
 
 
 drawAST level ((Guard exp action loc ast)) =
-         putSpacesLn level `mappend` "Guardia: " `mappend` putLocation loc
-                           `mappend` " //Tag: "  `mappend` show ast  
-                           `mappend` drawAST (level + 4) exp 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Acciones:"  
-                           `mappend` drawAST (level + 8) action
-   
+   putSpacesLn level `mappend` "Guardia: " `mappend` putLocation loc
+                     `mappend` " //Tag: "  `mappend` show ast  
+                     `mappend` drawAST (level + 4) exp 
+                     `mappend` putSpacesLn (level + 4) `mappend` "Acciones:"  
+                     `mappend` drawAST (level + 8) action
 
 
 drawAST level ((GuardExp exp action loc ast)) =
-         putSpacesLn level `mappend` "Guardia de Expresión: " `mappend` putLocation loc 
-                           `mappend` " //Tag: "               `mappend` show ast 
-                           `mappend` drawAST (level + 4) exp 
-                           `mappend` putSpacesLn (level + 4) `mappend` "Expresión:"  
-                           `mappend` drawAST (level + 8) action
-   
+   putSpacesLn level `mappend` "Guardia de Expresión: " `mappend` putLocation loc 
+                     `mappend` " //Tag: "               `mappend` show ast 
+                     `mappend` drawAST (level + 4) exp 
+                     `mappend` putSpacesLn (level + 4) `mappend` "Expresión:"  
+                     `mappend` drawAST (level + 8) action
 
 
 drawAST level ((Block loc _ action ast)) =
-         putSpacesLn level `mappend` "Bloque: " `mappend` putLocation loc
-                           `mappend` " //Tag: " `mappend` show ast 
-                           `mappend` drawASTList (level + 4) action
-
+   putSpacesLn level `mappend` "Bloque: " `mappend` putLocation loc
+                     `mappend` " //Tag: " `mappend` show ast 
+                     `mappend` drawASTList (level + 4) action
 
 
 drawAST level ((Skip loc ast)) =
-         putSpacesLn level `mappend` "Saltar: " `mappend` putLocation loc 
-                           `mappend` " //Tag: " `mappend` show ast 
+   putSpacesLn level `mappend` "Saltar: " `mappend` putLocation loc 
+                     `mappend` " //Tag: " `mappend` show ast 
 
 
 drawAST level ((Abort loc ast)) =
-         putSpacesLn level `mappend` "Abortar: " `mappend` putLocation loc 
-                           `mappend` " //Tag: "  `mappend` show ast 
+   putSpacesLn level `mappend` "Abortar: " `mappend` putLocation loc 
+                     `mappend` " //Tag: "  `mappend` show ast 
 
 
 drawAST level ((Ran var loc ast)) =
-         putSpacesLn level `mappend` "Aleatorio: " `mappend` show var `mappend` putLocation loc 
-                           `mappend` " //Tag: "    `mappend` show ast 
-        
+   putSpacesLn level `mappend` "Aleatorio: " `mappend` show var `mappend` putLocation loc 
+                     `mappend` " //Tag: "    `mappend` show ast 
+  
 
 drawAST level ((Write ln exp loc ast)) =
-         putSpacesLn level `mappend` checkWrite ln `mappend` putLocation loc 
-                           `mappend` " //Tag: "  `mappend` show ast 
-                           `mappend` drawAST (level + 4) (exp)
-
+   putSpacesLn level `mappend` checkWrite ln `mappend` putLocation loc 
+                     `mappend` " //Tag: "  `mappend` show ast 
+                     `mappend` drawAST (level + 4) (exp)
 
 
 drawAST level ((GuardAction loc assert action  ast)) =
-         putSpacesLn level `mappend` "Guardia de Acción: " `mappend` putLocation loc 
-                           `mappend` " //Tag: "            `mappend` show ast 
-                           `mappend` drawAST (level + 4) assert
-                           `mappend` putSpacesLn (level + 4) `mappend` "Acciones:"  
-                           `mappend` drawAST (level + 8) action
-   
+   putSpacesLn level `mappend` "Guardia de Acción: " `mappend` putLocation loc 
+                     `mappend` " //Tag: "            `mappend` show ast 
+                     `mappend` drawAST (level + 4) assert
+                     `mappend` putSpacesLn (level + 4) `mappend` "Acciones:"  
+                     `mappend` drawAST (level + 8) action
+
 
 
 drawAST level ((Quant op var loc range term ast)) =
-         putSpacesLn level `mappend` "Cuantificador: " `mappend` show op `mappend` putLocation loc 
-                           `mappend` " //Tag: "        `mappend` show ast 
-         `mappend` putSpacesLn (level + 4) `mappend` "Variable cuantificada: " `mappend` show var          
-         `mappend` putSpacesLn (level + 4) `mappend` "Rango: "  `mappend` drawAST (level + 8) range 
-         `mappend` putSpacesLn (level + 4) `mappend` "Cuerpo: " `mappend` drawAST (level + 8) term   
+   putSpacesLn level `mappend` "Cuantificador: " `mappend` show op `mappend` putLocation loc 
+                     `mappend` " //Tag: "        `mappend` show ast 
+   `mappend` putSpacesLn (level + 4) `mappend` "Variable cuantificada: " `mappend` show var          
+   `mappend` putSpacesLn (level + 4) `mappend` "Rango: "  `mappend` drawAST (level + 8) range 
+   `mappend` putSpacesLn (level + 4) `mappend` "Cuerpo: " `mappend` drawAST (level + 8) term   
 
 
 
 drawAST level ((Convertion t loc exp ast)) =
-         putSpacesLn level `mappend` "Conversión: " `mappend` show t `mappend` putLocation loc 
-                           `mappend` " //Tag: "     `mappend` show ast 
-                           `mappend` drawAST (level + 4) exp  
+   putSpacesLn level `mappend` "Conversión: " `mappend` show t `mappend` putLocation loc 
+                     `mappend` " //Tag: "     `mappend` show ast 
+                     `mappend` drawAST (level + 4) exp  
 
 
 
 drawAST level ((Unary op loc exp ast)) =
-         putSpacesLn level `mappend` show op    `mappend` putLocation loc 
-                           `mappend` " //Tag: " `mappend` show ast 
-                           `mappend` drawAST (level + 4) exp 
+   putSpacesLn level `mappend` show op    `mappend` putLocation loc 
+                     `mappend` " //Tag: " `mappend` show ast 
+                     `mappend` drawAST (level + 4) exp 
 
-     
+
 
 drawAST level ((FCallExp loc name args ast)) =
-         putSpacesLn level `mappend` "Llamada de la Función: " `mappend` show name `mappend` putLocation loc 
-                           `mappend` " //Tag: "                `mappend` show ast 
-         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+   putSpacesLn level `mappend` "Llamada de la Función: " `mappend` show name `mappend` putLocation loc 
+                     `mappend` " //Tag: "                `mappend` show ast 
+   `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
 
 
 drawAST level ((ArrCall loc name args ast)) =
-         putSpacesLn level `mappend` "Llamada del Arreglo: " `mappend` show name `mappend` putLocation loc 
-                           `mappend` " //Tag: "              `mappend` show ast 
-         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+   putSpacesLn level `mappend` "Llamada del Arreglo: " `mappend` show name `mappend` putLocation loc 
+                     `mappend` " //Tag: "              `mappend` show ast 
+   `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
-                               
+                         
 
 drawAST level ((ProcCall name _ loc args ast)) =
-         putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
-                           `mappend` " //Tag: "                    `mappend` show ast 
-         `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+   putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
+                     `mappend` " //Tag: "                    `mappend` show ast 
+   `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
 
 
 drawAST level ((FunBody loc exp ast)) =
-         putSpacesLn level `mappend` "Cuerpo de la Función: " `mappend` putLocation loc
-                           `mappend` " //Tag: "               `mappend` show ast  
-                           `mappend` drawAST(level + 4) (exp) 
+   putSpacesLn level `mappend` "Cuerpo de la Función: " `mappend` putLocation loc
+                     `mappend` " //Tag: "               `mappend` show ast  
+                     `mappend` drawAST(level + 4) (exp) 
 
 
 
 drawAST level ((DefFun name _ body bound ast)) =
-         putSpacesLn level `mappend` "Función: " `mappend` show name
-                           `mappend` " //Tag: "   `mappend` show ast 
-                           `mappend` drawAST(level + 4) bound   
-                           `mappend` drawAST(level + 4) body   
-
-
-
+   putSpacesLn level `mappend` "Función: " `mappend` show name
+                     `mappend` " //Tag: "   `mappend` show ast 
+                     `mappend` drawAST(level + 4) bound   
+                     `mappend` drawAST(level + 4) body   
 
 
 drawAST _ (EmptyRange _ _) = "rango vacio"
 drawAST _ (EmptyAST _) = "vacio"
 
---drawAST _ _ = show "No se creo el arbol"
---drawAST _ (ast) = show ast
 
 
 drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level (d))) [] xs

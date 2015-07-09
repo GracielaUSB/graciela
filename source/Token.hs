@@ -5,8 +5,12 @@ import Text.Parsec
 import Data.Int
 import Type
 
+
 data TypeBool = MyTrue | MyFalse
   deriving (Show, Read, Eq) 
+
+
+type TokenPos = (Token, SourcePos)
 
 
 data Token =   TokPlus
@@ -80,11 +84,9 @@ data Token =   TokPlus
              | TokFi        
              | TokInv       
              | TokDo         
-             | TokOd         
-             | TokGcd        
+             | TokOd                 
              | TokAbs       
              | TokSqrt      
-             | TokLength     
              | TokVar      
              | TokConst     
              | TokAbort       
@@ -111,19 +113,15 @@ data Token =   TokPlus
              | TokInteger  Integer
              | TokFlotante Double
              | TokError T.Text
+             | TokBegin
+             | TokLexEnd
              | EmptyToken
       deriving (Eq)
 
 
-type TokenPos = (Token, SourcePos)
-
-getToken :: TokenPos -> Token
-getToken (token, _) = token
-
-getPos :: TokenPos -> SourcePos
-getPos (_, pos) = pos
-
 instance Show Token where
+  show TokBegin         = "token inicio"
+  show TokLexEnd        = "token final"
   show TokPlus          = "suma"
   show TokMinus         = "resta"
   show TokStar          = "multiplicación"   
@@ -178,23 +176,20 @@ instance Show Token where
   show TokInOut         = "entrada y salida"
   show TokWith          = "token with"   
   show TokMod           = "modulo"
-  show TokMax           = "Maximo"
-  show TokMin           = "Minimo"
-  show TokForall        = "Para Todo"
-  show TokExist         = "Existencial"
-  show TokNotExist      = "No Existencial"
-  show TokSigma         = "Sumatoria"
-  show TokPi            = "Productoria"
-  show TokUnion         = "Union"
+  show TokMax           = "maximo"
+  show TokMin           = "minimo"
+  show TokForall        = "para Todo"
+  show TokExist         = "existencial"
+  show TokSigma         = "sumatoria"
+  show TokPi            = "productoria"
+  show TokUnion         = "union"
   show TokIf            = "if de apertura"
   show TokFi            = "if de cierre"
   show TokInv           = "invariante"
   show TokDo            = "do de apertura"
   show TokOd            = "do de cierre"
-  show TokGcd           = "máximo común divisor"
   show TokAbs           = "valor absoluto"
   show TokSqrt          = "raíz cuadrada"
-  show TokLength        = "longitud"
   show TokVar           = "variable"
   show TokConst         = "constante"
   show TokAbort         = "abortar"
@@ -227,21 +222,34 @@ instance Show Token where
   show TokOpenQuant     = "apertura de cuantificador"
   show TokPipe          = "pipe"
 
+
+getToken :: TokenPos -> Token
+getToken (token, _) = token
+
+
+getPos :: TokenPos -> SourcePos
+getPos (_, pos) = pos
+
+
 tokenToInt :: Token -> Maybe Integer
 tokenToInt (TokInteger n) = return n
 tokenToInt _              = Nothing
+
 
 tokenToDouble :: Token -> Maybe Double
 tokenToDouble (TokFlotante n) = return n
 tokenToDouble _               = Nothing
 
+
 tokenToBool :: Token -> Maybe Bool
 tokenToBool (TokBool b) = return b
 tokenToBool _           = Nothing
 
+
 tokenToChar :: Token -> Maybe Char
 tokenToChar (TokChar c) = return c
 tokenToChar _           = Nothing
+
 
 tokenToString :: Token -> Maybe String
 tokenToString (TokString s) = return s

@@ -1,15 +1,10 @@
 module Declarations where
 
-import Control.Monad.Identity (Identity)
-import qualified Control.Applicative as AP
-import qualified Text.Parsec.Pos     as P
+import qualified Control.Applicative as AP 
 import qualified Control.Monad       as M
-import qualified Data.Monoid         as DM
 import qualified Data.Text           as T
-import MyParseError                  as PE
-import ParserState                   as PS
 import Contents                      as CO
-import Text.Parsec.Error
+import ParserState                 
 import Text.Parsec
 import TokenParser
 import Expression
@@ -23,11 +18,12 @@ import AST
 
 
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
-decList follow recSet = do lookAhead follow
-                           return $ return []
-                           <|> do dl <- decListAux follow recSet
-                                  return $ dl
-                           
+decList follow recSet = 
+    do lookAhead follow
+       return $ return []
+       <|> do dl <- decListAux follow recSet
+              return $ dl
+                             
 
 decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListAux follow recSet = 
@@ -61,6 +57,7 @@ decListAux follow recSet =
                         rl <- decListAux follow recSet
                         return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl
 
+
 consListParser :: MyParser Token -> MyParser (Maybe [AST Type])
 consListParser follow = 
     do c <- constant
@@ -70,26 +67,34 @@ consListParser follow =
                  l <- consListParser follow
                  return $ AP.liftA2 (:) c l
 
+
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
-idList follow recSet = do lookAhead (follow)
-                          genNewEmptyError
-                          return $ Nothing 
-                          <|> do ac <- parseID
-                                 loc <- parseLocation
-                                 rl <- idListAux follow recSet
-                                 return (fmap ((ac, loc) :) rl)
+idList follow recSet = 
+    do lookAhead (follow)
+       genNewEmptyError
+       return $ Nothing 
+       <|> do ac <- parseID
+              loc <- parseLocation
+              rl <- idListAux follow recSet
+              return (fmap ((ac, loc) :) rl)
+
 
 idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
-idListAux follow recSet = do lookAhead follow
-                             return $ return []
-                             <|> do parseComma
-                                    ac <- parseID
-                                    loc <- parseLocation
-                                    rl <- idListAux (follow) (recSet)
-                                    return (fmap ((ac, loc) :) rl)
+idListAux follow recSet =
+    do lookAhead follow
+       return $ return []
+       <|> do parseComma
+              ac <- parseID
+              loc <- parseLocation
+              rl <- idListAux (follow) (recSet)
+              return (fmap ((ac, loc) :) rl)
 
-parseLocation = do pos <- getPosition
-                   return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+
+parseLocation :: MyParser (Location)
+parseLocation =
+    do pos <- getPosition
+       return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+                  
                   
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListWithRead follow recSet = 

@@ -1,5 +1,5 @@
 all: Main.hs
-	 ghc -o main --make Main.hs
+	 ghc -o Main --make Main.hs
 
 clean:
-	$(RM) main *.hs~ *.o *.hi
+	$(RM) Main *.hs~ *.o *.hi

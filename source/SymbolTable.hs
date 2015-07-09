@@ -9,6 +9,7 @@ import Location
 import Contents
 import Print
 
+
 type Scope = Int 
 
 newtype Diccionario = Diccionario { getMap :: M.Map T.Text (Contents SymbolTable) }
@@ -31,8 +32,10 @@ instance Show SymbolTable where
 getActual :: SymbolTable -> Diccionario
 getActual tabla = (fst . fst) $ Tr.rootLabel (actual tabla)
 
+
 getScope :: SymbolTable -> Scope
 getScope tabla = (snd . fst) $ Tr.rootLabel (actual tabla)
+
 
 getPadre :: SymbolTable -> Maybe SymbolTable
 getPadre tabla = snd $ Tr.rootLabel (actual tabla)
@@ -65,34 +68,41 @@ enterScope tabla = Table (Tr.Node ((Diccionario M.empty, getScope tabla), Just (
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla) 
 
+
 lookUpRoot :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
 lookUpRoot = checkSymbol
 
+
 checkSymbol :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
-checkSymbol valor tabla = let dic = getActual tabla in
-                            case M.lookup valor (getMap dic) of
-                              { Just c  -> Just c
-                              ; Nothing -> case getPadre tabla of
-                                             { Nothing   -> Nothing
-                                             ; Just sup  -> checkSymbol valor sup
-                                             }
-                              }
+checkSymbol valor tabla = 
+    let dic = getActual tabla in
+        case M.lookup valor (getMap dic) of
+          { Just c  -> Just c
+          ; Nothing -> case getPadre tabla of
+                         { Nothing  -> Nothing
+                         ; Just sup -> checkSymbol valor sup
+                         }
+          }
+
 
 updateScope :: SymbolTable -> SymbolTable
-updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), fmap updateScope (getPadre sb)) (Tr.subForest (actual sb)) }
+updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), 
+                     fmap updateScope (getPadre sb)) (Tr.subForest (actual sb)) }
+
 
 addSymbol :: T.Text -> (Contents SymbolTable) -> SymbolTable -> (Either (Contents SymbolTable) SymbolTable)
 addSymbol valor content tabla =
-          case checkSymbol valor tabla of
-          { Just c   -> Left c
-          ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
-                            sc = getScope tabla in
-                            Right $ insertTabla (Diccionario newActual) sc tabla
-          }
+    case checkSymbol valor tabla of
+    { Just c   -> Left c
+    ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
+                      sc = getScope tabla 
+                  in Right $ insertTabla (Diccionario newActual) sc tabla
+    }
 
 
 look :: (Either String SymbolTable) -> SymbolTable 
 look (Right tabla) = tabla
+
 
 --drawST level st = show (fst $ Tr.rootLabel st)
 drawST level st =  putSpacesLn level `mappend` "Alcance: " `mappend` show ((snd . fst) $ Tr.rootLabel st)  

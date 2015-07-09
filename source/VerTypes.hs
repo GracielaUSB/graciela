@@ -2,17 +2,16 @@ module VerTypes where
 
 import qualified Control.Monad.RWS.Strict as RWSS
 import qualified Data.Sequence            as DS
-import MyParseError                       as PE
-import MyTypeError                        as PT
 import qualified Data.Text                as T
+import MyTypeError                   
 import Contents
 import SymbolTable
+import Data.Maybe
+import TypeState
 import Location
-import Token
 import Type
 import AST
-import TypeState
-import Data.Maybe
+
 
 checkListType :: Type -> Bool -> Type -> Bool 
 checkListType _ False _ = False
@@ -40,313 +39,362 @@ verType _  MyError = MyError
 verType x  y       = if (x == y) then x else MyEmpty
 
 
-verArithmetic :: Type -> Type -> Location -> OpNum -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verArithmetic ltype rtype loc op = let checkT = verType ltype rtype
-                                   in case checkT of
-                                      { MyInt     -> return MyInt
-                                      ; MyFloat   -> return MyFloat   
-                                      ; MyError   -> return MyError
-                                      ; otherwise -> addTypeError $ ArithmeticError ltype rtype op loc 
-                                      }                   
+verArithmetic :: Type -> Type -> Location -> OpNum -> MyVerType
+verArithmetic ltype rtype loc op =
+    let checkT = verType ltype rtype
+    in case checkT of
+       { MyInt     -> return MyInt
+       ; MyFloat   -> return MyFloat
+       ; MyError   -> return MyError
+       ; otherwise -> addTypeError $ ArithmeticError ltype rtype op loc
+       }                   
 
-verBoolean :: Type -> Type -> Location -> OpBool -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verBoolean ltype rtype loc op = let checkT = verType ltype rtype
-                                   in case checkT of
-                                      { MyBool    -> return MyBool
-                                      ; MyError   -> return MyError
-                                      ; otherwise -> addTypeError $ BooleanError ltype rtype op loc 
-                                      }                   
 
-verRelational :: Type -> Type -> Location -> OpRel -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verRelational ltype rtype loc op = let checkT = verType ltype rtype
-                                   in case checkT of
-                                      { MyError   -> return MyError
-                                      ; MyEmpty   -> addTypeError $ RelationalError ltype rtype op loc 
-                                      ; otherwise -> return MyBool
-                                      }
+verBoolean :: Type -> Type -> Location -> OpBool -> MyVerType
+verBoolean ltype rtype loc op =
+    let checkT = verType ltype rtype
+    in case checkT of
+       { MyBool    -> return MyBool
+       ; MyError   -> return MyError
+       ; otherwise -> addTypeError $ BooleanError ltype rtype op loc
+       }                   
 
-verConvertion :: Conv -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+
+verRelational :: Type -> Type -> Location -> OpRel -> MyVerType
+verRelational ltype rtype loc op =
+    let checkT = verType ltype rtype
+    in case checkT of
+       { MyError   -> return MyError
+       ; MyEmpty   -> addTypeError $ RelationalError ltype rtype op loc
+       ; otherwise -> return MyBool
+       }
+
+
+verConvertion :: Conv -> MyVerType
 verConvertion ToInt    = return MyInt   
 verConvertion ToDouble = return MyFloat 
 verConvertion ToString = return MyString
 verConvertion ToChar   = return MyChar  
 
 
-verWrite :: Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verWrite  MyError          = return MyError 
-verWrite  _                = return MyEmpty
+verWrite :: Type -> MyVerType
+verWrite  MyError = return MyError 
+verWrite  _       = return MyEmpty
 
 
-verUnary :: OpUn -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verUnary _       MyError      _   = return MyError
+verUnary :: OpUn -> Type -> Location -> MyVerType
+verUnary _     MyError _   = return MyError
 
-verUnary Minus   MyInt        loc = return MyInt  
-verUnary Minus   MyFloat      loc = return MyFloat
-verUnary Minus   errType      loc = addTypeError $ UnaryError errType Minus loc
+verUnary Minus MyInt   loc = return MyInt  
+verUnary Minus MyFloat loc = return MyFloat
+verUnary Minus errType loc = addTypeError $ UnaryError errType Minus loc
 
-verUnary Not     MyBool       loc = return MyBool 
-verUnary Not     errType      loc = addTypeError $ UnaryError errType Not   loc
+verUnary Not   MyBool  loc = return MyBool 
+verUnary Not   errType loc = addTypeError $ UnaryError errType Not   loc
 
-verUnary Abs     MyInt        loc = return MyInt  
-verUnary Abs     MyFloat      loc = return MyFloat
-verUnary Abs     errType      loc = addTypeError $ UnaryError errType Abs   loc
+verUnary Abs   MyInt   loc = return MyInt  
+verUnary Abs   MyFloat loc = return MyFloat
+verUnary Abs   errType loc = addTypeError $ UnaryError errType Abs   loc
 
-verUnary Sqrt    MyInt        loc = return MyInt  
-verUnary Sqrt    MyFloat      loc = return MyFloat
-verUnary Sqrt    errType      loc = addTypeError $ UnaryError errType Sqrt  loc
-
-verGuardAction :: Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verGuardAction assert action = case ((assert == MyBool) && (action == MyEmpty)) of
-                               { True  -> return MyEmpty
-                               ; False -> return MyError 
-                               }
+verUnary Sqrt  MyInt   loc = return MyInt  
+verUnary Sqrt  MyFloat loc = return MyFloat
+verUnary Sqrt  errType loc = addTypeError $ UnaryError errType Sqrt  loc
 
 
-verGuard :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) () Type
-verGuard exp action loc = case action of
-                          { MyError -> return MyError
-                          ; MyEmpty -> case exp of
-                                       { MyError   -> return MyError
-                                       ; MyBool    -> return MyEmpty
-                                       ; otherwise -> addTypeError $ GuardError exp loc
-                                       }
-                          }
+verGuardAction :: Type -> Type -> MyVerType
+verGuardAction assert action = 
+    case assert == MyBool && action == MyEmpty of
+    { True  -> return MyEmpty
+    ; False -> return MyError
+    }
 
 
-verGuardExp :: Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verGuardExp exp action loc = case action of
-                             { MyError   -> return MyError
-                             ; otherwise -> case exp of
-                                            { MyError   -> return MyError
-                                            ; MyBool    -> return action
-                                            ; otherwise -> addTypeError $ GuardError exp loc
-                                            }                      
-                             }
+verGuard :: Type -> Type -> Location -> MyVerType
+verGuard exp action loc =
+    case action of
+    { MyError -> return MyError
+    ; MyEmpty -> case exp of
+                 { MyError   -> return MyError
+                 ; MyBool    -> return MyEmpty
+                 ; otherwise -> addTypeError $ GuardError exp loc
+                 }
+    }
 
 
-verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verGuardExp :: Type -> Type -> Location -> MyVerType
+verGuardExp exp action loc =
+    case action of
+    { MyError   -> return MyError
+    ; otherwise -> case exp of
+                   { MyError   -> return MyError
+                   ; MyBool    -> return action
+                   ; otherwise -> addTypeError $ GuardError exp loc
+                   }                      
+    }
+
+
+verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> MyVerType
 verDefProc accs pre post bound decs = 
     let func = checkListType MyEmpty
-    in case ((foldl func True accs) && (pre == MyBool) && (post == MyBool) && (and $ map (== MyEmpty) decs)) of
+    in case pre == MyBool && post == MyBool && 
+            (foldl func True accs) && (and $ map (== MyEmpty) decs) of
        { True  -> return MyEmpty 
        ; False -> return MyError
        }
 
 
-verBlock :: [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verBlock accs = let func = checkListType MyEmpty
-                in case (foldl func True accs) of
-                   { True  -> return MyEmpty
-                   ; False -> return MyError
-                   }
+verBlock :: [Type] -> MyVerType
+verBlock accs =
+    let func = checkListType MyEmpty
+    in case (foldl func True accs) of
+       { True  -> return MyEmpty
+       ; False -> return MyError
+       }
 
 
-verProgram :: [Type] -> [Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verProgram defs accs = let func = checkListType MyEmpty
-                       in case ((foldl func True defs) && (foldl func True accs)) of
-                          { True  -> return $ MyEmpty
-                          ; False -> return $ MyError
-                          }
+verProgram :: [Type] -> [Type] -> MyVerType
+verProgram defs accs =
+    let func = checkListType MyEmpty
+    in case (foldl func True defs) && (foldl func True accs) of
+       { True  -> return $ MyEmpty
+       ; False -> return $ MyError
+       }
 
 
-verCond :: [Type] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verCond guards loc = let checkSame  = (\acc t -> if (acc == t) then acc else MyError)  
-                         checkT     = foldl1 checkSame guards               
-                     in case (foldl checkError MyEmpty guards) of
-                        { MyError   -> return MyError
-                        ; otherwise -> case checkT of
-                                       { MyError   -> addTypeError $ CondError loc   
-                                       ; MyEmpty   -> return MyEmpty
-                                       ; otherwise -> return checkT  
-                                       }
-                        }
+verCond :: [Type] -> Location -> MyVerType
+verCond guards loc =
+    let checkSame  = (\acc t -> if acc == t then acc else MyError)  
+        checkT     = foldl1 checkSame guards               
+    in case (foldl checkError MyEmpty guards) of
+       { MyError   -> return MyError
+       ; otherwise -> case checkT of
+                      { MyError   -> addTypeError $ CondError loc   
+                      ; MyEmpty   -> return MyEmpty
+                      ; otherwise -> return checkT  
+                      }
+       }
 
 
-verState :: Type -> Location -> StateCond -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verState expr loc stateCond = case expr of
-                              { MyError   -> return MyError
-                              ; otherwise -> let checkT = case stateCond of
-                                                          { Bound     -> MyInt
-                                                          ; otherwise -> MyBool 
-                                                          }
-                                             in case (expr == checkT) of
-                                                { True  -> return expr 
-                                                ; False -> addTypeError $ StateError expr stateCond loc 
-                                                }
-                              }
+verState :: Type -> Location -> StateCond -> MyVerType
+verState expr loc stateCond =
+    case expr of
+    { MyError   -> return MyError
+    ; otherwise -> let checkT = case stateCond of
+                                { Bound     -> MyInt
+                                ; otherwise -> MyBool 
+                                }
+                   in case expr == checkT of
+                      { True  -> return expr 
+                      ; False -> addTypeError $ StateError expr stateCond loc 
+                      }
+    }
 
 
-verRept :: [Type] -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verRept guard inv bound = let func = checkListType MyEmpty
-                          in case ((foldl func True guard) && (inv == MyBool) && (bound == MyInt)) of
-                             { True  -> return MyEmpty 
-                             ; False -> return MyError
-                             }
+verRept :: [Type] -> Type -> Type -> MyVerType
+verRept guard inv bound =
+    let func = checkListType MyEmpty
+    in case (foldl func True guard) && inv == MyBool && bound == MyInt of
+       { True  -> return MyEmpty 
+       ; False -> return MyError
+       }
 
 
-verRandom :: Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verRandom t loc = case ((t == MyInt) || (t == MyFloat)) of
-                { True  -> return t 
-                ; False -> addTypeError $ RanError t loc
-                }
+verRandom :: T.Text -> Type -> Location -> MyVerType
+verRandom name t loc =
+    case t == MyInt || t == MyFloat of
+    { True  -> return t 
+    ; False -> addTypeError $ RanError name t loc
+    }
 
 
-verQuant :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType
 verQuant op range term loc = 
     case op of
-      ForAll    -> if range == MyBool && term == MyBool then return MyBool else addQuantBoolError op range term loc
-      Exists    -> if range == MyBool && term == MyBool then return MyBool else addQuantBoolError op range term loc
-      Product   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
-      Summation -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
-      Maximum   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
-      Minimum   -> if range == MyBool && term == MyInt  then return MyBool else addQuantIntError op range term loc
+    { ForAll    -> case range == MyBool && term == MyBool of
+                   { True  -> return MyBool 
+                   ; False -> addQuantBoolError op range term loc
+                   }  
+    ; Exists    -> case range == MyBool && term == MyBool of
+                   { True  -> return MyBool 
+                   ; False -> addQuantBoolError op range term loc
+                   }
+    ; Product   -> case range == MyBool && term == MyInt of 
+                   { True  -> return MyBool 
+                   ; False -> addQuantIntError op range term loc
+                   }
+    ; Summation -> case range == MyBool && term == MyInt of
+                   { True  -> return MyBool 
+                   ; False -> addQuantIntError op range term loc
+                   }
+    ; Maximum   -> case range == MyBool && term == MyInt of
+                   { True  -> return MyBool 
+                   ; False -> addQuantIntError op range term loc
+                   }
+    ; Minimum   -> case range == MyBool && term == MyInt of
+                   { True  -> return MyBool 
+                   ; False -> addQuantIntError op range term loc
+                   }
+    }
 
-verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+
+verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> MyVerType
 verConsAssign xs loc ts t =
-    if length xs /= length ts then
-        addDifSizeDecError loc
-    else
-        do r <- fmap and $ fmap (map (== MyEmpty)) $ mapM f (zip xs ts)
-           if r then return MyEmpty
-           else return MyError
-  where
-    f (((id, loc'), t')) = 
-      if t' /= t then
-        addTypeDecError id loc' t' t
-      else
-        return $ MyEmpty
+    let f (((id, loc'), t')) =
+          case t' /= t of
+          { True  -> addTypeDecError id loc' t' t
+          ; False -> return $ MyEmpty
+          }
+    in case length xs /= length ts of
+       { True  -> addDifSizeDecError loc
+       ; False -> do r <- fmap and $ fmap (map (== MyEmpty)) $ mapM f (zip xs ts)
+                     case r of
+                     { True  -> return MyEmpty
+                     ; False -> return MyError
+                     }
+       }
 
-verCallExp :: T.Text -> [Type] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verCallExp name args loc locarg = 
+
+verCallExp :: T.Text -> [Type] -> Location -> [Location] -> MyVerType
+verCallExp name args loc locarg =
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
-       { Nothing -> 
-            addUndecFuncError name True loc
+       { Nothing -> addUndecFuncError name True loc
        ; Just x  -> 
-            case (symbolType x) of
-            { MyFunction args' ts ->
-                  let wtL = length args
-                      prL = length args'
-                  in if (wtL /= prL) then addNumberArgsError name wtL prL loc
-                  else let t = zip args args' in
-                          if   and $ map (uncurry (==)) $ t then return $ ts
-                          else do mapM_ (\ ((arg, arg'), larg) -> 
-                                              if arg /= arg' then addFunArgError arg' arg larg 
-                                              else return MyEmpty
-                                        ) (zip t locarg) 
-                                  return $ MyError
-            ; otherwise           -> 
-                  addUndecFuncError name True loc
+           case (symbolType x) of
+           { MyFunction args' ts -> 
+               let wtL = length args
+                   prL = length args'
+               in case wtL /= prL of
+                  { True  -> addNumberArgsError name True wtL prL loc
+                  ; False -> let t = zip args args'
+                             in case (and $ map (uncurry (==)) $ t) of
+                                { True  -> return $ ts
+                                ; False -> do mapM_ (\ ((arg, arg'), larg) -> 
+                                                case arg /= arg' of
+                                                { True  -> addFunArgError name True arg' arg larg 
+                                                ; False -> return MyEmpty
+                                                } ) (zip t locarg) 
+                                              return $ MyError
+                                }
+                  }
+            ; otherwise -> addUndecFuncError name True loc
             }
        }
 
 
-verProcCall :: T.Text -> SymbolTable -> [(T.Text, Type)] -> Location -> [Location] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verProcCall :: T.Text -> SymbolTable -> [(T.Text, Type)] -> Location -> [Location] -> MyVerType
 verProcCall name sbc args'' loc locarg = 
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
-       { Nothing -> 
-            addUndecFuncError name False loc
-       ; Just (ProcCon _ t ln sb)  -> 
-            case t of
-            { MyProcedure args' ->
-                  let wtL = length args''
-                      prL = length args'
-                  in if (wtL /= prL) then addNumberArgsError name wtL prL loc
-                  else let args = map snd args''
-                           t    = zip args args' in
-                          if   and $ map (uncurry (==)) $ t then 
-                              do r <- validProcArgs ln (map fst args'') locarg sb sbc
-                                 if r  then return MyEmpty
-                                 else return $ MyError
-                          else do mapM_ (\ ((arg, arg'), larg) -> 
-                                              if arg /= arg' then addFunArgError arg' arg larg 
-                                              else return MyEmpty
-                                        ) (zip t locarg) 
-                                  return $ MyError
-            ; otherwise           -> 
-                  addUndecFuncError name False loc
-            }
-       }
+       { Nothing -> addUndecFuncError name False loc
+       ; Just (ProcCon _ t ln sb) -> 
+           case t of
+           { MyProcedure args' ->
+               let wtL = length args''
+                   prL = length args'
+               in case wtL /= prL of
+                  { True  -> addNumberArgsError name False wtL prL loc
+                  ; False -> let args = map snd args''
+                                 t    = zip args args'
+                             in case (and $ map (uncurry (==)) $ t) of
+                                { True  -> do r <- validProcArgs ln (map fst args'') locarg sb sbc
+                                              case r of
+                                              { True  -> return MyEmpty
+                                              ; False -> return MyError
+                                              }
+                                ; False -> do mapM_ (\ ((arg, arg'), larg) -> 
+                                                case arg /= arg' of
+                                                { True  -> addFunArgError name False arg' arg larg 
+                                                ; False -> return MyEmpty 
+                                                } ) (zip t locarg) 
+                                              return $ MyError
+                                }
 
-validProcArgs :: [T.Text] -> [T.Text] -> [Location] -> SymbolTable -> SymbolTable -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+                  }
+           ; otherwise -> addUndecFuncError name False loc
+           }
+        }
+
+
+validProcArgs :: [T.Text] -> [T.Text] -> [Location] -> SymbolTable -> SymbolTable -> 
+                   RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
 validProcArgs lnp lnc locarg sbp sbc = 
     let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
         lvt = map getVarBeh $       map fromJust $ map ((flip checkSymbol) sbc) lnc
         xs  = zip lat lvt
-    in
-        fmap and $ mapM compare (zip xs (zip lnc locarg))
+    in fmap and $ mapM compare (zip xs (zip lnc locarg))
+      where
+        compare ((Just Out, Just Contents.Constant), (id, loc))   = do addInvalidPar id loc
+                                                                       return False
+        compare ((Just InOut, Just Contents.Constant), (id, loc)) = do addInvalidPar id loc
+                                                                       return False
+        compare _                                                 = return True
 
-    where
-      compare ((Just Out, Just Contents.Constant), (id, loc))   = 
-          do addInvalidPar id loc
-             return False
-      compare ((Just InOut, Just Contents.Constant), (id, loc)) = 
-          do addInvalidPar id loc
-             return False
-      compare _                                               =
-             return True
 
-addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
+addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> 
+                    RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
 addLAssignError loc acc (((tok, (MyArray t tam)), expArrT), expT) = 
-        do arrT <- verArrayCall tok expArrT (MyArray t tam) loc 
-           case arrT of
-           { MyError   -> return acc 
-           ; otherwise -> case (checkListType arrT True expT) of 
-                          { True  -> return acc 
-                          ; False -> return $ acc ++ [AssignError tok arrT expT loc]
-                          }  
-           }
+    do arrT <- verArrayCall tok expArrT (MyArray t tam) loc 
+       case arrT of
+       { MyError   -> return acc 
+       ; otherwise -> case (checkListType arrT True expT) of 
+                      { True  -> return acc 
+                      ; False -> return $ acc ++ [AssignError tok arrT expT loc]
+                      }  
+       }
+
 addLAssignError loc acc (((tok, t), _), expT) = 
-        case (checkListType t True expT) of 
-        { True  -> return acc 
-        ; False -> return $ acc ++ [AssignError tok t expT loc]
-        }  
+    case (checkListType t True expT) of 
+    { True  -> return acc 
+    ; False -> return $ acc ++ [AssignError tok t expT loc]
+    }  
 
 
-verLAssign :: [Type] -> [(T.Text, Type)] -> [[Type]] -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+verLAssign :: [Type] -> [(T.Text, Type)] -> [[Type]] -> Location -> MyVerType
 verLAssign explist idlist expArrT loc = 
-        do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
-           let checkError' = (\acc t -> if (not(acc == MyError) && not(t == MyError)) then MyEmpty else MyError)   
-           case (foldl1 checkError' explist) of
-           { MyError   -> return MyError
-           ; otherwise -> case check of 
-                          { []        -> return MyEmpty
-                          ; otherwise -> do mapM_ addListError check
-                                            return MyError
-                          }
-            }
-
-
-verArrayCall :: T.Text -> [Type] -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verArrayCall name args t loc =
-        let waDim = getDimention t 0
-            prDim = length args
-        in case (waDim == prDim) of
-           { False -> addTypeError $ ArrayDimError name waDim prDim loc   
-           ; True  -> case (foldl checkError MyInt args) of
-                      { MyError   -> return MyError
-                      ; MyInt     -> return $ getType t
-                      ; otherwise -> let addError = (\acc expT -> case (checkListType MyInt True expT) of 
-                                                                  { True  -> acc 
-                                                                  ; False -> acc ++ [ArrayCallError name expT loc]
-                                                                  } )  
-                                         check    = foldl addError [] args
-                                     in do mapM_ addListError check
-                                           return MyError
+    do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
+       let checkError' = (\acc t -> if not(acc == MyError) && not(t == MyError) then MyEmpty else MyError)   
+       case (foldl1 checkError' explist) of
+       { MyError   -> return MyError
+       ; otherwise -> case check of 
+                      { []        -> return MyEmpty
+                      ; otherwise -> do mapM_ addListError check
+                                        return MyError
                       }
-          }
+       }
 
 
-verDefFun :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
-verDefFun name body bound loc = do sb <- RWSS.ask
-                                   case lookUpRoot name sb of
-                                   { Nothing -> addUndecFuncError name True loc
-                                   ; Just c  -> case (symbolType c) of
-                                                { MyFunction _ tf -> case (tf == body) of
-                                                                     { True  -> return MyEmpty
-                                                                     ; False -> addRetFuncError name tf body loc
-                                                                     }
-                                                ; otherwise       -> addUndecFuncError name True loc
-                                                } 
-                                   }
+verArrayCall :: T.Text -> [Type] -> Type -> Location -> MyVerType
+verArrayCall name args t loc =
+    let waDim = getDimention t 0
+        prDim = length args
+    in case (waDim == prDim) of
+       { False -> addTypeError $ ArrayDimError name waDim prDim loc   
+       ; True  -> case (foldl checkError MyInt args) of
+                  { MyError   -> return MyError
+                  ; MyInt     -> return $ getType t
+                  ; otherwise -> let addError = (\acc expT -> 
+                                       case (checkListType MyInt True expT) of 
+                                       { True  -> acc 
+                                       ; False -> acc ++ [ArrayCallError name expT loc]
+                                       } )  
+                                     check    = foldl addError [] args
+                                 in do mapM_ addListError check
+                                       return MyError
+                  }
+       }
+
+
+verDefFun :: T.Text -> Type -> Type -> Location -> MyVerType
+verDefFun name body bound loc =
+    do sb <- RWSS.ask
+       case lookUpRoot name sb of
+       { Nothing -> addUndecFuncError name True loc
+       ; Just c  -> case (symbolType c) of
+                     { MyFunction _ tf -> case tf == body of
+                                         { True  -> return MyEmpty
+                                         ; False -> addRetFuncError name tf body loc
+                                         }
+                     ; otherwise       -> addUndecFuncError name True loc
+                     } 
+       }

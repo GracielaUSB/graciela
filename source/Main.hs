@@ -10,6 +10,7 @@ import System.Environment
 import TokenParser
 import SymbolTable
 import Text.Parsec
+import MyTypeError
 import Expression
 import VerTypes
 import ASTtype
@@ -17,7 +18,6 @@ import Parser
 import State
 import Lexer
 import AST
-import MyTypeError
 
 concatLexPar = playParser AP.<$> lexer
 

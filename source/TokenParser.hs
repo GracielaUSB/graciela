@@ -3,23 +3,29 @@ module TokenParser where
 import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
 import qualified Data.Text           as T
-import Text.Parsec.Error
 import Text.Parsec
 import Token
 import State
 import Type
+
 
 makeTokenParser x = tokenPrim showTok updatePos testTok
                     where
                       showTok (t, pos)       = show t ++ " " ++ show pos
                       testTok (t, pos)       = if x == t then Just (t) else Nothing
 
+
+updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
 updatePos _ _ ((_, pos):xs) = pos
 updatePos _ (_, pos) []     = pos
+
 
 verify :: Token ->  MyParser (Token)
 verify token = makeTokenParser token
 
+
+parseBegin        = verify TokBegin
+parseLexEnd       = verify TokLexEnd
 parsePlus         = verify TokPlus
 parseMinus        = verify TokMinus
 parseSlash        = verify TokSlash
@@ -91,7 +97,6 @@ parseTokLeftA     = verify TokLeftA
 parseTokRightA    = verify TokRightA
 parseTokLeftInv   = verify TokLeftInv
 parseTokRightInv  = verify TokRightInv
-parseTokLength    = verify TokLength
 parseTokNot       = verify TokNot
 parseTokLEqual    = verify TokLessEqual
 parseTokGEqual    = verify TokGreaterEqual
@@ -109,6 +114,7 @@ parseTokPi        = verify TokPi
 parseTokUnion     = verify TokUnion
 parseTokEqual     = verify TokEqual
 
+
 parseAnyToken :: MyParser (Token)
 parseAnyToken = tokenPrim showTok updatePos testTok
                 where
@@ -124,6 +130,7 @@ parseTokID = tokenPrim showTok updatePos testTok
                                  { TokId id  -> Just (TokId id)
                                  ; otherwise -> Nothing
                                  }
+
 parseID :: MyParser (T.Text)
 parseID = tokenPrim showTok updatePos testTok
           where
@@ -172,7 +179,6 @@ parseString = tokenPrim showTok updatePos testTok
                                       { TokString b -> Just b
                                       ; otherwise   -> Nothing
                                       }
-
 
 
 number :: MyParser (Integer)

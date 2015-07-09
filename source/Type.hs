@@ -1,5 +1,6 @@
 module Type where
 
+
 data TypeArg = In | Out | InOut
       deriving (Eq)
 
@@ -12,13 +13,7 @@ instance Show TypeArg where
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
                   | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Integer}
 
-isTypeProc :: Type -> Bool
-isTypeProc (MyProcedure _) = True
-isTypeProc _               = False
- 
-isTypeFunc :: Type -> Bool
-isTypeFunc (MyFunction _ _ ) = True
-isTypeFunc _                 = False
+
 
 instance Eq Type where
    MyInt            ==  MyInt           = True
@@ -49,6 +44,16 @@ instance Show Type where
    show (MyProcedure   xs) = "Proc"
 
 
+isTypeProc :: Type -> Bool
+isTypeProc (MyProcedure _) = True
+isTypeProc _               = False
+ 
+ 
+isTypeFunc :: Type -> Bool
+isTypeFunc (MyFunction _ _ ) = True
+isTypeFunc _                 = False
+
+
 getDimention :: Type -> Int -> Int
 getDimention (MyArray t tam) n = getDimention t (n+1)  
 getDimention _               n = n
@@ -56,3 +61,4 @@ getDimention _               n = n
 
 isCuantificable :: Type -> Bool
 isCuantificable x = x == MyInt || x == MyChar || x == MyBool
+
