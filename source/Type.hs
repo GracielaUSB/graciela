@@ -11,7 +11,7 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray {getType :: Type, getTam :: Integer}
+                  | MyError | MyEmpty | MyString | MyArray { getTam :: Maybe Integer, getType :: Type }
 
 
 
@@ -26,8 +26,8 @@ instance Eq Type where
    (MyProcedure  _) == (MyProcedure  _) = True
    (MyFunction _ t) ==  x               = t == x
    x                == (MyFunction _ t) = x == t
-   (MyArray    t d) ==  x               = t == x
-   x                == (MyArray    t d) = x == t  
+   (MyArray    d t) ==  x               = t == x
+   x                == (MyArray    d t) = x == t  
    _                ==  _               = False
 
 
@@ -55,7 +55,7 @@ isTypeFunc _                 = False
 
 
 getDimention :: Type -> Int -> Int
-getDimention (MyArray t tam) n = getDimention t (n+1)  
+getDimention (MyArray tam t) n = getDimention t (n+1)  
 getDimention _               n = n
 
 

@@ -21,7 +21,6 @@ import AST
 
 data CasesConditional = CExpression | CAction
 
-
 program :: MyParser (Maybe (AST(Type)))
 program = 
     do pos <- getPosition

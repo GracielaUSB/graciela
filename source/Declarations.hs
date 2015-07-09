@@ -39,7 +39,7 @@ decListAux follow recSet =
                         rl <- decListAux follow recSet
                         return $ idl >>= (const t) >>= (const rl)
                     <|> do parseAssign
-                           lexp <- consListParser parseColon
+                           lexp <- consListParser parseColon (parseColon <|> recSet)
                            parseColon
                            t <- myType parseSemicolon recSet
                            addManySymParser CO.Variable idl t lexp
@@ -49,7 +49,7 @@ decListAux follow recSet =
                  <|> do parseConst
                         idl <- idList (parseAssign) (recSet <|> parseAssign)
                         parseAssign
-                        lexp <- consListParser parseColon
+                        lexp <- consListParser parseColon (parseColon <|> recSet)
                         parseColon
                         t <- myType parseSemicolon recSet
                         addManySymParser CO.Constant idl t lexp
@@ -58,13 +58,13 @@ decListAux follow recSet =
                         return $ AP.liftA2 (:) (M.liftM3 (ConsAssign loc) idl lexp t) rl
 
 
-consListParser :: MyParser Token -> MyParser (Maybe [AST Type])
-consListParser follow = 
-    do c <- constant
+consListParser :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+consListParser follow recSet = 
+    do c <- expr (parseComma <|> follow) (parseComma <|> recSet)
        do lookAhead follow
           return $ fmap (:[]) c
           <|> do parseComma
-                 l <- consListParser follow
+                 l <- consListParser follow recSet
                  return $ AP.liftA2 (:) c l
 
 

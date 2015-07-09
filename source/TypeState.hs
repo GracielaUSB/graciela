@@ -49,7 +49,7 @@ addNotOccursVarError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (My
 addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
 
 
-addInvalidPar :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addInvalidPar :: AST Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
 addInvalidPar id loc = addTypeError $ InvalidPar id loc
 
 

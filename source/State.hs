@@ -44,6 +44,10 @@ addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
                         }
 
 
+initVar :: T.Text -> ParserState -> ParserState
+initVar id ps = ps { symbolTable = initSymbol id (symbolTable ps) }
+
+
 newScopeState :: ParserState -> ParserState
 newScopeState st = ParserState { synErrorList    = synErrorList st
                                , symbolTable     = enterScope (symbolTable st)

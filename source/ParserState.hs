@@ -42,7 +42,7 @@ exitScopeParser = ST.modify $ exitScopeState
 addManyUniSymParser :: Maybe([(T.Text, Location)]) -> Maybe(Type) -> MyParser()
 addManyUniSymParser (Just xs) (Just t) = f xs t
       where
-        f ((id, loc):xs) t = do addSymbolParser id $ Contents Variable loc t Nothing
+        f ((id, loc):xs) t = do addSymbolParser id $ Contents Variable loc t Nothing False
                                 f xs t
         f [] _             = return()
 addManyUniSymParser _ _                = return() 
@@ -55,7 +55,7 @@ addManySymParser vb (Just xs) (Just t) (Just ys) =
     else f vb xs t ys
       where
         f vb ((id, loc):xs) t (ast:ys) = 
-            do addSymbolParser id $ Contents vb loc t (astToValue ast)
+            do addSymbolParser id $ Contents vb loc t (astToValue ast) True
                f vb xs t ys
         f _ [] _ []                    = return()
 addManySymParser _ _ _ _               = return()
@@ -90,7 +90,7 @@ addSymbolParser id c = do ST.modify $ addNewSymbol id c
 addCuantVar :: T.Text -> Maybe Type -> Location -> MyParser()
 addCuantVar id (Just t) loc = 
     if isCuantificable t then
-       addSymbolParser id $ Contents CO.Constant loc t Nothing
+       addSymbolParser id $ Contents CO.Constant loc t Nothing False
     else
        addUncountableError loc
 addCuantVar _ _ _           = return()
@@ -105,9 +105,17 @@ lookUpSymbol id =
        
 
 lookUpVarParser :: T.Text -> MyParser (Maybe Type)
-lookUpVarParser id = do st <- get
-                        c  <- lookUpSymbol id
-                        return $ fmap (symbolType) c
+lookUpVarParser id = 
+    do  st <- get
+        c  <- lookUpSymbol id
+        case c of
+          Just c' ->
+            if isInitialized c' then
+              return $ fmap (symbolType) c
+            else
+              do addNotInitError id
+                 return Nothing
+          Nothing -> return Nothing
 
 lookUpConsParser :: T.Text -> MyParser (Maybe Type)
 lookUpConsParser id = 
@@ -115,16 +123,26 @@ lookUpConsParser id =
        case c of
        { Nothing   -> return Nothing
        ; Just a    -> case a of
-                      { (Contents    CO.Constant _ _ _) ->
-                         do addConsIdError id
-                            return $ Nothing
+                      { (Contents    c _ _ _ _) ->
+                          case c of
+                            CO.Constant ->
+                              do addConsIdError id
+                                 return $ Nothing
+                            CO.Variable ->
+                              do newInitVar id    
+                                 return $ Just $ symbolType a
                       ; (ArgProcCont In    _ _     )  -> 
-                         do addConsIdError id
-                            return $ Nothing
+                          do addConsIdError id
+                             return $ Nothing
                       ; otherwise                     -> 
-                            return $ Just (symbolType a)
+                          return $ Just $ symbolType a
                       } 
        }
+
+newInitVar :: T.Text -> MyParser()
+newInitVar id =
+    do ST.modify $ initVar id
+       return ()
 
 lookUpConstIntParser :: T.Text -> Location -> MyParser (Maybe Integer)
 lookUpConstIntParser id loc =
@@ -132,12 +150,10 @@ lookUpConstIntParser id loc =
        case c of
          Nothing -> return Nothing
          Just a  -> case a of
-                      Contents CO.Constant _ _ v ->
+                      Contents _ _ _ v True ->
                         case v of 
                           Just (I n) -> return $ Just n
-                          otherwise  ->
-                            do addNotIntError id loc
-                               return Nothing
+                          otherwise  -> return Nothing
                       otherwise ->
                         do addNotConsIdError id loc
                            return $ Nothing
@@ -190,4 +206,9 @@ addNotIntError id loc = do ST.modify $ addTypeError $ NotIntError id loc
 addNotConsIdError :: T.Text -> Location -> MyParser ()
 addNotConsIdError id loc = 
     do ST.modify $ addTypeError $ NotConstError id loc
+       return ()
+
+addNotInitError :: T.Text -> MyParser()
+addNotInitError id =
+    do ST.modify $ addTypeError $ NotInitError id
        return ()

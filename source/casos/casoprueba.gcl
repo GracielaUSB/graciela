@@ -1,15 +1,25 @@
 program main |[
-  func sumar : (m : int, n : int) -> double
-  |[
-      m + n
-  ]|
+  proc sumar : (out m : int, inout n : int)
+  [
+      {pre true pre}
+      |[
+          n := m + n
+      ]|
+      {post true post}
+  ]
 
   |[
-    var y : int;
-    const x := 5 : int;
+    var y := 5 : int;
+    var z : int;
+    const x := y : int;
     var arreglo : array [x] of int;
 
-    arreglo[0], arreglo[5], arreglo[2] := 2, 6, sumar(2,3)
+    |[
+      |[
+          z := 6
+      ]|
+    ]|;
 
+    sumar(y, y)
   ]|
 ]| 

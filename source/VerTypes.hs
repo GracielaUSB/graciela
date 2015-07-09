@@ -282,7 +282,7 @@ verCallExp name args loc locarg =
        }
 
 
-verProcCall :: T.Text -> SymbolTable -> [(T.Text, Type)] -> Location -> [Location] -> MyVerType
+verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> MyVerType
 verProcCall name sbc args'' loc locarg = 
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
@@ -294,10 +294,10 @@ verProcCall name sbc args'' loc locarg =
                    prL = length args'
                in case wtL /= prL of
                   { True  -> addNumberArgsError name False wtL prL loc
-                  ; False -> let args = map snd args''
+                  ; False -> let args = map tag args''
                                  t    = zip args args'
-                             in case (and $ map (uncurry (==)) $ t) of
-                                { True  -> do r <- validProcArgs ln (map fst args'') locarg sb sbc
+                             in case (and $ map (uncurry (==)) $ t) of   
+                                { True  -> do r <- validProcArgs ln args'' locarg sb sbc
                                               case r of
                                               { True  -> return MyEmpty
                                               ; False -> return MyError
@@ -316,19 +316,37 @@ verProcCall name sbc args'' loc locarg =
         }
 
 
-validProcArgs :: [T.Text] -> [T.Text] -> [Location] -> SymbolTable -> SymbolTable -> 
-                   RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+validProcArgs :: [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTable -> 
+                     RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
 validProcArgs lnp lnc locarg sbp sbc = 
     let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
-        lvt = map getVarBeh $       map fromJust $ map ((flip checkSymbol) sbc) lnc
+        lvt = map (isLValue sbc) lnc
         xs  = zip lat lvt
     in fmap and $ mapM compare (zip xs (zip lnc locarg))
       where
-        compare ((Just Out, Just Contents.Constant), (id, loc))   = do addInvalidPar id loc
-                                                                       return False
-        compare ((Just InOut, Just Contents.Constant), (id, loc)) = do addInvalidPar id loc
-                                                                       return False
-        compare _                                                 = return True
+        compare ((Just Out, False), (id, loc))   = 
+            do addInvalidPar id loc
+               return False
+        compare ((Just InOut, False), (id, loc)) = 
+            do addInvalidPar id loc
+               return False
+        compare _                                =
+               return True
+
+
+isLValue :: SymbolTable -> AST a -> Bool
+isLValue sb id =
+  case astToId id of
+  { Nothing -> False
+  ; Just t  -> case (checkSymbol t sb) of
+               { Nothing -> False -- Esto es un error grave, significa que una variable sin verificacion de contexto llego a la verificacion de tipos
+               ; Just c  -> case (getVarBeh c) of
+                            { Nothing                -> False
+                            ; Just Contents.Constant -> False
+                            ; otherwise              -> True
+                            }
+               }
+  } 
 
 
 addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> 

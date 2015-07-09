@@ -143,12 +143,18 @@ verTypeAST (Rept guard inv bound loc _) =
        checkT <- verRept (map tag guard') (tag inv') (tag bound')
        return $ Rept guard' inv' bound' loc checkT
                                                       
+                                                      
+--verTypeAST (ProcCall name sb loc args _) =
+--    do args'  <- verTypeASTlist args
+--       locs   <- getLocArgs args
+--       checkT <- verProcCall name sb (zip (map AST.id args') (map tag args')) loc locs
+--       return $ ProcCall name sb loc args' checkT
 
-verTypeAST (ProcCall name sb loc args _) =
-    do args'  <- verTypeASTlist args
+verTypeAST (ProcCall name sb loc args _) = 
+    do args'  <- verTypeASTlist args  
        locs   <- getLocArgs args
-       checkT <- verProcCall name sb (zip (map AST.id args') (map tag args')) loc locs
-       return $ ProcCall name sb loc args' checkT
+       checkT <- verProcCall name sb args' loc locs
+       return (ProcCall name sb loc args' checkT)
 
   
 verTypeAST (FunBody loc exp _) =

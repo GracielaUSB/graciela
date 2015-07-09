@@ -13,21 +13,20 @@ import AST
 
 
 myBasicType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
-myBasicType follow recSet = 
-    do t <- parseType
-       return $ return $ t
+myBasicType follow recSet = do t <- parseType
+                               return $ return $ t
 
 
 myType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 myType follow recSet = 
-   do myBasicType follow recSet
-      <|> do parseTokArray
-             parseLeftBracket
-             n <- parseConstNumber parseOf (recSet <|> parseOf)
-             parseRightBracket
-             parseOf
-             t <- myType follow recSet
-             return (AP.liftA2 (MyArray) t n)
+    do myBasicType follow recSet
+       <|> do parseTokArray
+              parseLeftBracket
+              n <- parseConstNumber parseOf (recSet <|> parseOf)
+              parseRightBracket
+              parseOf
+              t <- myType follow recSet
+              return $ fmap (MyArray n) t
 
 
 countableType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
@@ -37,11 +36,11 @@ countableType follow recSet =
        case t' of 
        { Nothing -> return $ Nothing
        ; Just t  -> case t of 
-                    { MyBool     -> return $ return $ t 
-                    ; MyInt      -> return $ return $ t
-                    ; MyChar     -> return $ return $ t
-                    ; otherwise  -> do addUncountableError (getLocation pos)
-                                       return Nothing          
+                    { MyBool    -> return $ return $ t 
+                    ; MyInt     -> return $ return $ t
+                    ; MyChar    -> return $ return $ t
+                    ; otherwise -> do addUncountableError (getLocation pos)
+                                      return Nothing          
                     }
        }
 

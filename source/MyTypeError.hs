@@ -103,7 +103,7 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | FunNameError    { symbol :: T.Text 
                                    , loc    :: Location
                                    } 
-                 | InvalidPar      { symbol :: T.Text 
+                 | InvalidPar      { tree   :: AST Type
                                    , loc    :: Location
                                    } 
                  | DiffSizeError   { location :: Location 
@@ -128,6 +128,8 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    }
                  | NotConstError   { symbol   :: T.Text
                                    , location :: Location
+                                   }
+                 | NotInitError    { symbol   :: T.Text
                                    }
 
 instance Show MyTypeError where
@@ -204,6 +206,8 @@ instance Show MyTypeError where
    show (NotConstError  id            loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es constante."
    show (NotIntError  id            loc) = 
-            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int."
+            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int"
+   show (NotInitError  id               ) = 
+            ": La variable " ++ show id ++ " no esta inicializada."
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
