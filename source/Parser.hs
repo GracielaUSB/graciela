@@ -26,7 +26,6 @@ import AST
 
 data CasesConditional = CExpression | CAction
 
-
 program :: MyParser (Maybe (AST(Type)))
 program = do pos <- getPosition
              newScopeParser
@@ -43,7 +42,6 @@ followListDefProc = followAction <|> parseTokLeftA <|> parseTokLeftInv
 
 parseRestInputProgram :: T.Text -> MyParser (Maybe (AST(Type)))
 parseRestInputProgram id = do ast  <- listDefProc followListDefProc followListDefProc
-
                               do lookAhead followListDefProc
                                  do try ( do lacc <- actionsList parseTokCloseBlock parseTokCloseBlock
                                              parseTokCloseBlock
@@ -297,8 +295,6 @@ actionAux follow recSet = skip follow recSet
                       <|> random follow recSet
                       <|> block follow recSet
 
-
-
 followAction = (parseDo <|> parseTokID <|> parseIf <|> parseAbort <|> parseSkip <|> parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv)
 
 block :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
@@ -366,7 +362,7 @@ functionCallOrAssign follow recSet =
                      sb <- getActualScope
                      return $ (fmap (ProcCall id sb (getLocation pos)) lexp) AP.<*> (return MyEmpty)
                )
-          <|> try ( do t <- lookUpConsParser id
+          <|> try ( do t <-  lookUpConsParser id
                        bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
                        rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
                        parseAssign

@@ -23,7 +23,7 @@ myType follow recSet = do myBasicType follow recSet
                                  parseRightBracket
                                  parseOf
                                  t <- myType follow recSet
-                                 return (AP.liftA2 (MyArray) t n)
+                                 return $ fmap (MyArray n) t
 
 countableType :: MyParser Token -> MyParser Token -> MyParser (Maybe Type)
 countableType follow recSet = do pos  <- getPosition

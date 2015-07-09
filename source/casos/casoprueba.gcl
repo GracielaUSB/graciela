@@ -9,10 +9,17 @@ program main |[
   ]
 
   |[
-    var y : int;
-    const x := 5 : int;
+    var y := 5 : int;
+    var z : int;
+    const x := y : int;
     var arreglo : array [x] of int;
 
-    sumar(y + y, x)
+    |[
+      |[
+          z := 6
+      ]|
+    ]|;
+
+    sumar(y, y)
   ]|
 ]| 

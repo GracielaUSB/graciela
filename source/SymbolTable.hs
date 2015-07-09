@@ -19,17 +19,23 @@ instance Show Diccionario where
    show (Diccionario dic)  =  if M.null dic then "No hay ningun elemento" else drawDic 0 (M.toList dic)
 
 
-data SymbolTable = Table { actual :: Tr.Tree ((Diccionario, Scope), Maybe SymbolTable) }  
+newtype SymbolTable = Table { actual :: Tr.Tree ((Diccionario, Scope), Maybe SymbolTable) }  
         deriving (Eq)
-
 
 instance Show SymbolTable where
    show (Table st)  = (drawST 0 st) ++ "\n" 
 
-
-
 getActual :: SymbolTable -> Diccionario
 getActual tabla = (fst . fst) $ Tr.rootLabel (actual tabla)
+
+modifyActual :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
+modifyActual id f tabla = Table $ fmap (modifyRoot id f) (actual tabla)
+
+modifyPadre tabla padre = Table $ fmap (modifyRootPadre padre) (actual tabla)
+
+modifyRootPadre padre ((dic, sc), _) = ((dic, sc), padre)
+
+modifyRoot id f ((dic, sc), p) = ((Diccionario (M.adjust f id (getMap dic)), sc), p)
 
 getScope :: SymbolTable -> Scope
 getScope tabla = (snd . fst) $ Tr.rootLabel (actual tabla)
@@ -78,6 +84,22 @@ checkSymbol valor tabla = let dic = getActual tabla in
                                              }
                               }
 
+lookUpMap :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
+lookUpMap valor f tabla = 
+    let dic  = modifyActual valor f tabla
+        r    = fmap (lookUpMap valor f) (getPadre dic)
+    in
+      case r of 
+        Nothing -> dic 
+        Just p  -> modifyPadre dic r
+
+      --case getPadre tabla of
+      --  Nothing   -> dic
+      --  Just sup  -> lookUpMap valor sup f padre
+
+initSymbol :: T.Text -> SymbolTable -> SymbolTable
+initSymbol id sb = lookUpMap id initSymbolContent sb
+
 updateScope :: SymbolTable -> SymbolTable
 updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), fmap updateScope (getPadre sb)) (Tr.subForest (actual sb)) }
 
@@ -91,9 +113,6 @@ addSymbol valor content tabla =
           }
 
 
-look :: (Either String SymbolTable) -> SymbolTable 
-look (Right tabla) = tabla
-
 --drawST level st = show (fst $ Tr.rootLabel st)
 drawST level st =  putSpacesLn level `mappend` "Alcance: " `mappend` show ((snd . fst) $ Tr.rootLabel st)  
                                      `mappend` drawDic level (M.toList (getMap ((fst . fst) $ Tr.rootLabel st)))
@@ -104,8 +123,6 @@ drawSTforest level xs = foldl (\acc st -> (acc `mappend` putSpacesLn level `mapp
 
 drawDic level xs = foldl (\acc (var,cont) -> (acc `mappend` putSpacesLn level 
   `mappend` show var `mappend` show cont )) [] xs
-
-
 
 --Casos 
 
