@@ -241,8 +241,8 @@ verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> MyVerType
 verConsAssign xs loc ts t =
     let f (((id, loc'), t')) =
           case t' /= t of
-          { True  -> addTypeDecError id loc' t' t
-          ; False -> return $ MyEmpty
+          { True  -> if t' == MyError then return MyError else addTypeDecError id loc' t' t
+          ; False -> return MyEmpty
           }
     in case length xs /= length ts of
        { True  -> addDifSizeDecError loc
@@ -320,7 +320,7 @@ validProcArgs :: [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTa
                      RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
 validProcArgs lnp lnc locarg sbp sbc = 
     let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
-        lvt = map (isLValue sbc) lnc
+        lvt = map (isASTLValue sbc) lnc
         xs  = zip lat lvt
     in fmap and $ mapM compare (zip xs (zip lnc locarg))
       where
@@ -334,17 +334,13 @@ validProcArgs lnp lnc locarg sbp sbc =
                return True
 
 
-isLValue :: SymbolTable -> AST a -> Bool
-isLValue sb id =
+isASTLValue :: SymbolTable -> AST a -> Bool
+isASTLValue sb id =
   case astToId id of
   { Nothing -> False
   ; Just t  -> case (checkSymbol t sb) of
                { Nothing -> False -- Esto es un error grave, significa que una variable sin verificacion de contexto llego a la verificacion de tipos
-               ; Just c  -> case (getVarBeh c) of
-                            { Nothing                -> False
-                            ; Just Contents.Constant -> False
-                            ; otherwise              -> True
-                            }
+               ; Just c  -> isLValue c
                }
   } 
 

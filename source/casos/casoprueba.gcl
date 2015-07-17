@@ -1,25 +1,35 @@
-program main |[
-  proc sumar : (out m : int, inout n : int)
-  [
-      {pre true pre}
-      |[
-          n := m + n
-      ]|
-      {post true post}
-  ]
+program main
+begin
+  proc leer : (inout m : int, out n : int, in p: int)
+  begin
+    var y : int;
+    const x := 5 + 'a' : int;
+    read (m);
+    {pre m > 0 pre}
+    |[
+        y := m
+    ]|
+    {post true post}
+  end
 
+  func restar : (m : int, n : int) -> int
+  begin
+    m + n
+  end
+  
   |[
-    var y := 5 : int;
+    var y : int;
     var z : int;
-    const x := y : int;
+    const x := 5 : int;
     var arreglo : array [x] of int;
 
     |[
       |[
-          z := 6
+        |[
+            z := 6
+        ]|
       ]|
-    ]|;
-
-    sumar(y, y)
+    ]|
+    // leer(y)
   ]|
-]| 
+end

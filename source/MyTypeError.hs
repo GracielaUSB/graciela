@@ -130,6 +130,10 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , location :: Location
                                    }
                  | NotInitError    { symbol   :: T.Text
+                                   , location :: Location
+                                   }
+                 | NotRValueError  { symbol   :: T.Text
+                                   , location :: Location
                                    }
 
 instance Show MyTypeError where
@@ -138,7 +142,7 @@ instance Show MyTypeError where
    show (ConstIdError       sym      loc) = 
             errorL loc ++ ": No se puede cambiar el valor de la constante " ++ show sym ++ "."
    show (NonDeclError       sym      loc) = 
-            errorL loc ++ ": La variable " ++ show sym ++ " no esta declarada."
+            errorL loc ++ ": La variable " ++ show sym ++ " no está declarada."
    show (ArithmeticError    lt rt op loc) = 
             errorL loc ++ ": Tipos incompatibles en el operador aritmético " ++ show op ++ ", se suministró el tipo " ++ show lt ++ " & " ++ show rt ++ "."
    show (BooleanError       lt rt op loc) = 
@@ -207,7 +211,9 @@ instance Show MyTypeError where
             errorL loc ++ ": La variable " ++ show id ++ " no es constante."
    show (NotIntError  id            loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int"
-   show (NotInitError  id               ) = 
-            ": La variable " ++ show id ++ " no esta inicializada."
+   show (NotInitError  id           loc) = 
+            errorL loc ++ ": La variable " ++ show id ++ " no está inicializada."
+   show (NotRValueError  id           loc) = 
+            errorL loc ++ ": La variable " ++ show id ++ " no es un r-value."
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)

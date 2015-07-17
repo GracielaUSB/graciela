@@ -102,6 +102,7 @@ decListWithRead follow recSet =
        do parseRead
           parseLeftParent
           lid <- idList (parseRightParent) (recSet <|> parseRightParent)
+          verifyReadVars lid
           parseRightParent
           do parseWith
              id <- parseString

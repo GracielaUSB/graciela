@@ -1,9 +1,9 @@
-program main |[
+program main begin
   |[
       var foo, bar := 5, 9 : int;
       var baz, qux := true, false : boolean;
 
-      {inv (%forall i : string | 0 <= i /\ i < bar | foo+1 < bar %) inv} 
+      {inv (%forall i : int | 0 <= i /\ i < bar | foo+1 < bar %) inv} 
       {bound bar - 1 bound}
 
       do (foo < bar) ->
@@ -14,4 +14,4 @@ program main |[
 
 
   ]|
-]|
+end

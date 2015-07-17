@@ -36,10 +36,21 @@ isInitialized (Contents _ _ _ _ True) = True
 isInitialized (ArgProcCont _ _ _)     = True
 isInitialized _                       = False
 
+isRValue :: Contents a -> Bool
+isRValue (Contents _ _ _ _ _    ) = True
+isRValue (ArgProcCont In _ _    ) = True
+isRValue (ArgProcCont InOut _ _ ) = True
+isRValue _                        = False
+
+isLValue :: Contents a -> Bool
+isLValue (Contents Variable _ _ _ _) = True
+isLValue (ArgProcCont Out _ _)       = True
+isLValue (ArgProcCont InOut _ _)     = True
+isLValue _                           = False
 
 initSymbolContent :: Contents a -> Contents a
 initSymbolContent (Contents vb loc t v _) = Contents vb loc t v True
-
+initSymbolContent c                       = c
 
 getVarBeh :: Contents a -> Maybe VarBehavour
 getVarBeh (Contents vb _ _ _ _) = Just vb
@@ -49,4 +60,3 @@ getVarBeh _                     = Nothing
 getProcArgType :: Contents a -> Maybe TypeArg
 getProcArgType (ArgProcCont pat _ _) = Just pat
 getProcArgType _                     = Nothing
- 

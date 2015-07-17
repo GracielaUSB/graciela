@@ -238,8 +238,9 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                      do  try(parseRightParent >>= return . return e)
                                          <|> do genNewError (recSet) (TokenRP)
                                                 return $ Nothing
-                                     <|> do idp <- parseID
-                                            t <- lookUpVarParser idp
+                                     <|> do pos' <- getPosition
+                                            idp <- parseID
+                                            t <- lookUpVarParser idp (getLocation pos)
                                             do      lookAhead follow
                                                     return $ fmap (ID (getLocation pos) idp) t
                                                 <|> do parseLeftParent

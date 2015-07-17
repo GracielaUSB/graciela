@@ -51,7 +51,7 @@ addManySymParser :: VarBehavour -> Maybe([(T.Text , Location)]) -> Maybe(Type) -
 addManySymParser vb (Just xs) (Just t) (Just ys) =
     if length xs /= length ys then 
         do pos <- getPosition
-           ST.modify $ addTypeError $ (IncomDefError vb (getLocation pos))
+           ST.modify $ addTypeError $ IncomDefError vb (getLocation pos)
     else f vb xs t ys
       where
         f vb ((id, loc):xs) t (ast:ys) = 
@@ -67,10 +67,14 @@ astToValue (Char _ c _)   = Just $ C c
 astToValue (String _ s _) = Just $ S s
 astToValue _              = Nothing
 
+verifyReadVars :: Maybe [(T.Text, Location)] -> MyParser ()
+verifyReadVars (Just lid) = mapM_ (lookUpConsParser . fst) lid
+verifyReadVars _          = return ()
+
 addFunctionArgParser :: T.Text -> T.Text -> Maybe (Type) -> Location -> MyParser ()
 addFunctionArgParser idf id (Just t) loc = 
     if id /= idf then
-      addSymbolParser id $ FunctionCon loc t
+      addSymbolParser id $ Contents CO.Constant loc t Nothing True
     else
       addFunctionNameError id loc
 addFunctionArgParser _ _ _ _             = return ()
@@ -90,7 +94,7 @@ addSymbolParser id c = do ST.modify $ addNewSymbol id c
 addCuantVar :: T.Text -> Maybe Type -> Location -> MyParser()
 addCuantVar id (Just t) loc = 
     if isCuantificable t then
-       addSymbolParser id $ Contents CO.Constant loc t Nothing False
+       addSymbolParser id $ Contents CO.Constant loc t Nothing True
     else
        addUncountableError loc
 addCuantVar _ _ _           = return()
@@ -102,18 +106,21 @@ lookUpSymbol id =
          Nothing -> do addNonDeclVarError id
                        return Nothing
          Just c  -> return $ Just c
-       
 
-lookUpVarParser :: T.Text -> MyParser (Maybe Type)
-lookUpVarParser id = 
+lookUpVarParser :: T.Text -> Location -> MyParser (Maybe Type)
+lookUpVarParser id loc = 
     do  st <- get
         c  <- lookUpSymbol id
         case c of
           Just c' ->
-            if isInitialized c' then
-              return $ fmap (symbolType) c
+            if isRValue c' then
+              if isInitialized c' then
+                return $ fmap (symbolType) c
+              else
+                do addNotInitError id loc
+                   return Nothing
             else
-              do addNotInitError id
+              do addNotRValueError id loc
                  return Nothing
           Nothing -> return Nothing
 
@@ -121,22 +128,15 @@ lookUpConsParser :: T.Text -> MyParser (Maybe Type)
 lookUpConsParser id = 
     do c   <- lookUpSymbol id
        case c of
-       { Nothing   -> return Nothing
-       ; Just a    -> case a of
-                      { (Contents    c _ _ _ _) ->
-                          case c of
-                            CO.Constant ->
-                              do addConsIdError id
-                                 return $ Nothing
-                            CO.Variable ->
-                              do newInitVar id    
-                                 return $ Just $ symbolType a
-                      ; (ArgProcCont In    _ _     )  -> 
-                          do addConsIdError id
-                             return $ Nothing
-                      ; otherwise                     -> 
-                          return $ Just $ symbolType a
-                      } 
+       { Nothing   -> 
+          return Nothing
+       ; Just a    ->
+          if isLValue a then 
+            do newInitVar id
+               return $ Just $ symbolType a
+          else
+            do addConsIdError id
+               return $ Nothing
        }
 
 newInitVar :: T.Text -> MyParser()
@@ -208,7 +208,12 @@ addNotConsIdError id loc =
     do ST.modify $ addTypeError $ NotConstError id loc
        return ()
 
-addNotInitError :: T.Text -> MyParser()
-addNotInitError id =
-    do ST.modify $ addTypeError $ NotInitError id
+addNotInitError :: T.Text -> Location -> MyParser()
+addNotInitError id loc =
+    do ST.modify $ addTypeError $ NotInitError id loc
+       return ()
+
+addNotRValueError :: T.Text -> Location -> MyParser()
+addNotRValueError id loc =
+    do ST.modify $ addTypeError $ NotRValueError id loc
        return ()
