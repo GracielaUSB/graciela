@@ -1,7 +1,9 @@
 module IR where
 
 import qualified LLVM.General.AST.FloatingPointPredicate as FL 
-import qualified AST                                     as AST
+import qualified AST                                     as MyAST
+import qualified LLVM.General.AST.Attribute as AT
+import LLVM.General.AST.CallingConvention
 import LLVM.General.AST.Global
 import LLVM.General.AST.Type 
 import Control.Monad.State
@@ -10,54 +12,63 @@ import LLVM.General.AST
 import Type
 
 
-irArithmetic :: AST.OpNum -> Type.Type -> Operand -> Operand -> Instruction
-irArithmetic AST.Sum MyInt   a b = Add False False a b []
-irArithmetic AST.Sum MyFloat a b = FAdd NoFastMathFlags a b []
-irArithmetic AST.Sub MyInt   a b = Sub False False a b []
-irArithmetic AST.Sub MyFloat a b = FSub NoFastMathFlags a b []
-irArithmetic AST.Mul MyInt   a b = Mul False False a b []
-irArithmetic AST.Mul MyFloat a b = FMul NoFastMathFlags a b []
-irArithmetic AST.Div MyInt   a b = SDiv True a b []
-irArithmetic AST.Div MyFloat a b = FDiv NoFastMathFlags a b []
-irArithmetic AST.Mod MyInt   a b = URem a b []
-irArithmetic AST.Mod MyFloat a b = FRem NoFastMathFlags a b []
---irArithmetic AST.Exp MyInt   a b = URem a b []
---irArithmetic AST.Exp MyFloat a b = FRem NoFastMathFlags a b []
---irArithmetic AST.Min MyInt   a b = URem a b []
---irArithmetic AST.Min MyFloat a b = FRem NoFastMathFlags a b []
---irArithmetic AST.Max MyInt   a b = URem a b []
---irArithmetic AST.Max MyFloat a b = FRem NoFastMathFlags a b []
+irArithmetic :: MyAST.OpNum -> Type.Type -> Operand -> Operand -> Instruction
+irArithmetic MyAST.Sum MyInt   a b = Add False False a b []
+irArithmetic MyAST.Sum MyFloat a b = FAdd NoFastMathFlags a b []
+irArithmetic MyAST.Sub MyInt   a b = Sub False False a b []
+irArithmetic MyAST.Sub MyFloat a b = FSub NoFastMathFlags a b []
+irArithmetic MyAST.Mul MyInt   a b = Mul False False a b []
+irArithmetic MyAST.Mul MyFloat a b = FMul NoFastMathFlags a b []
+irArithmetic MyAST.Div MyInt   a b = SDiv True a b []
+irArithmetic MyAST.Div MyFloat a b = FDiv NoFastMathFlags a b []
+irArithmetic MyAST.Mod MyInt   a b = URem a b []
+irArithmetic MyAST.Mod MyFloat a b = FRem NoFastMathFlags a b []
+--irArithmetic MyAST.Exp MyInt   a b = URem a b []
+--irArithmetic MyAST.Exp MyFloat a b = FRem NoFastMathFlags a b []
+--irArithmetic MyAST.Min MyInt   a b = URem a b []
+--irArithmetic MyAST.Min MyFloat a b = FRem NoFastMathFlags a b []
+--irArithmetic MyAST.Max MyInt   a b = URem a b []
+--irArithmetic MyAST.Max MyFloat a b = FRem NoFastMathFlags a b []
 
 
-irBoolean :: AST.OpBool -> Operand -> Operand -> Instruction
-irBoolean AST.Con a b = And a b []
-irBoolean AST.Dis a b = Or  a b []
---irBoolean AST.Implies a b = And a b []
---irBoolean AST.Conse a b = Or  a b []
+irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
+irBoolean MyAST.Con a b = And a b []
+irBoolean MyAST.Dis a b = Or  a b []
+--irBoolean MyAST.Implies a b = And a b []
+--irBoolean MyAST.Conse a b = Or  a b []
 
 
-irRelational :: AST.OpRel -> Operand -> Operand -> Instruction
-irRelational AST.Equ     a b = FCmp FL.OEQ a b []
-irRelational AST.Less    a b = FCmp FL.OLT a b []
-irRelational AST.Greater a b = FCmp FL.OGT a b []
-irRelational AST.LEqual  a b = FCmp FL.OLE a b []
-irRelational AST.GEqual  a b = FCmp FL.OGE a b []
-irRelational AST.Ine     a b = FCmp FL.OEQ a b []
-irRelational AST.Equal   a b = FCmp FL.ONE a b []
+irRelational :: MyAST.OpRel -> Operand -> Operand -> Instruction
+irRelational MyAST.Equ     a b = FCmp FL.OEQ a b []
+irRelational MyAST.Less    a b = FCmp FL.OLT a b []
+irRelational MyAST.Greater a b = FCmp FL.OGT a b []
+irRelational MyAST.LEqual  a b = FCmp FL.OLE a b []
+irRelational MyAST.GEqual  a b = FCmp FL.OGE a b []
+irRelational MyAST.Ine     a b = FCmp FL.OEQ a b []
+irRelational MyAST.Equal   a b = FCmp FL.ONE a b []
 
 
-irConvertion :: AST.Conv -> Type.Type -> Operand -> Instruction
-irConvertion AST.ToInt    MyFloat a = FPToSI a i32    [] 
-irConvertion AST.ToInt    MyChar  a = FPToSI a i32    [] 
-irConvertion AST.ToDouble MyInt   a = SIToFP a double [] 
-irConvertion AST.ToDouble MyChar  a = SIToFP a double [] 
-irConvertion AST.ToChar   MyInt   a = Trunc  a i8     [] 
-irConvertion AST.ToChar   MyFloat a = FPToSI a i8     [] 
+irConvertion :: MyAST.Conv -> Type.Type -> Operand -> Instruction
+irConvertion MyAST.ToInt    MyFloat a = FPToSI a i32    [] 
+irConvertion MyAST.ToInt    MyChar  a = FPToSI a i32    [] 
+irConvertion MyAST.ToDouble MyInt   a = SIToFP a double [] 
+irConvertion MyAST.ToDouble MyChar  a = SIToFP a double [] 
+irConvertion MyAST.ToChar   MyInt   a = Trunc  a i8     [] 
+irConvertion MyAST.ToChar   MyFloat a = FPToSI a i8     [] 
 
 
-irUnary :: AST.OpUn -> Type.Type -> Operand -> Instruction
-irUnary AST.Minus MyInt   a = FPToSI a VoidType [] 
---irUnary AST.Minus MyFloat a = FPToSI a VoidType [] 
---irUnary AST.Not   MyFloat a = FPToSI a VoidType [] 
---irUnary AST.Abs   MyFloat a = FPToSI a VoidType [] 
---irUnary AST.Sqrt  MyFloat a = FPToSI a VoidType [] 
+irUnary :: MyAST.OpUn -> Type.Type -> Operand -> Instruction
+irUnary MyAST.Minus MyInt   a = FPToSI a VoidType [] 
+--irUnary MyAST.Minus MyFloat a = FPToSI a VoidType [] 
+--irUnary MyAST.Not   MyFloat a = FPToSI a VoidType [] 
+--irUnary MyAST.Abs   MyFloat a = FPToSI a VoidType [] 
+--irUnary MyAST.Sqrt  MyFloat a = FPToSI a VoidType [] 
+
+
+toArgs :: [Operand] -> [(Operand, [AT.ParameterAttribute])]
+toArgs = map (\x -> (x, []))
+
+
+--irCallExp :: Operand -> [Operand] -> Instruction
+irCallExp ::  CallableOperand -> [(Operand, [AT.ParameterAttribute])] -> Instruction
+irCallExp fn args = Call False C [] fn args [] []
