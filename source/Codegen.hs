@@ -12,8 +12,9 @@ import LLVM.General.AST
 import LLVM.General.AST.Global
 import LLVM.General.AST.Type 
 import LLVM.General.AST.Float
-import IR
 import Data.Word
+import Data.Char
+import IR
 
 data CodegenSt
   = CodeGenSt {
@@ -54,12 +55,43 @@ astToInstr (AST.Arithmetic op _ lexp rexp t) = do
   instr (toType t) $ irArithmetic op t lexp' rexp'
 
 
+astToInstr (AST.Boolean op _ lexp rexp t) = do
+  lexp' <- astToInstr lexp
+  rexp' <- astToInstr rexp
+  instr (toType t) $ irBoolean op lexp' rexp'
+
+
+astToInstr (AST.Relational op _ lexp rexp t) = do
+  lexp' <- astToInstr lexp
+  rexp' <- astToInstr rexp
+  instr (toType t) $ irRelational op lexp' rexp'
+
+
+astToInstr (AST.Convertion tType _ exp t) = do
+  let t' = AST.tag exp 
+  exp' <- astToInstr exp
+  instr (toType t) $ irConvertion tType t' exp'
+
+
 astToInstr (AST.Int _ n _) = do
   return $ ConstantOperand $ C.Int 32 n
 
 astToInstr (AST.Float _ n _) = do
-  return $ ConstantOperand $ C.Float (Double n) 
+  return $ ConstantOperand $ C.Float $ Double n
+
+astToInstr (AST.Bool _ True  _) = do
+  return $ ConstantOperand $ C.Int 8 1 
+
+astToInstr (AST.Bool _ False _) = do
+  return $ ConstantOperand $ C.Int 8 0 
+
+astToInstr (AST.Char _ n _) = do
+  return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
+
 
 toType :: T.Type -> Type
 toType T.MyInt   = i32
 toType T.MyFloat = double
+toType T.MyBool  = i8
+toType T.MyChar  = i8
+

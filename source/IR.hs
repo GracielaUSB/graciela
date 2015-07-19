@@ -1,13 +1,13 @@
 module IR where
 
 import qualified LLVM.General.AST.FloatingPointPredicate as FL 
-import qualified AST as AST
+import qualified AST                                     as AST
 import LLVM.General.AST.Global
+import LLVM.General.AST.Type 
 import Control.Monad.State
 import Control.Applicative
 import LLVM.General.AST 
 import Type
-
 
 
 irArithmetic :: AST.OpNum -> Type.Type -> Operand -> Operand -> Instruction
@@ -47,12 +47,12 @@ irRelational AST.Equal   a b = FCmp FL.ONE a b []
 
 
 irConvertion :: AST.Conv -> Type.Type -> Operand -> Instruction
-irConvertion AST.ToInt    MyFloat a = FPToSI a VoidType [] 
-irConvertion AST.ToInt    MyChar  a = FPToSI a VoidType [] 
-irConvertion AST.ToDouble MyInt   a = SIToFP a VoidType [] 
-irConvertion AST.ToDouble MyChar  a = SIToFP a VoidType [] 
-irConvertion AST.ToChar   MyInt   a = Trunc  a VoidType [] 
-irConvertion AST.ToChar   MyFloat a = FPToSI a VoidType [] 
+irConvertion AST.ToInt    MyFloat a = FPToSI a i32    [] 
+irConvertion AST.ToInt    MyChar  a = FPToSI a i32    [] 
+irConvertion AST.ToDouble MyInt   a = SIToFP a double [] 
+irConvertion AST.ToDouble MyChar  a = SIToFP a double [] 
+irConvertion AST.ToChar   MyInt   a = Trunc  a i8     [] 
+irConvertion AST.ToChar   MyFloat a = FPToSI a i8     [] 
 
 
 irUnary :: AST.OpUn -> Type.Type -> Operand -> Instruction
