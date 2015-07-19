@@ -18,6 +18,7 @@ import Parser
 import State
 import Lexer
 import AST
+import Codegen
 
 concatLexPar = playParser AP.<$> lexer
 
@@ -25,7 +26,7 @@ concatLexPar = playParser AP.<$> lexer
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
 
-playParser inp = runStateParse (program) "" inp initialState
+playParser inp = runStateParse (exprLevel7 parseSemicolon parseSemicolon) "" inp initialState
 
 
 playLexer inp = putStrLn $ show $ runParser lexer () "" inp
@@ -36,7 +37,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
                                    ; (Right (Just ast) , st) -> do putStrLn $ drawState st
-                                                                   putStrLn $ drawASTtype $ runTVerifier (symbolTable st) ast
+                                                                   putStrLn $ show $ execCodegen $ astToInstr $ fst $ runTVerifier (symbolTable st) ast
                                                                     
                                    ; (Right  _         , st) -> putStrLn $ drawState st
                                    }
