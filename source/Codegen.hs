@@ -4,19 +4,20 @@ module Codegen where
 
 import Control.Monad.State
 import Control.Applicative
-import qualified Data.Sequence            as DS
-import LLVM.General.AST
-import LLVM.General.AST.Global
-import qualified AST as MyAST
-import LLVM.General.AST 
-import IR
-import qualified Type as T
-import Data.Word
 import qualified LLVM.General.AST.Constant as C
+import qualified Data.Sequence            as DS
+import qualified AST as MyAST
+import qualified Type as T
+import LLVM.General.AST as AST
+import LLVM.General.AST.Global
+import LLVM.General.AST.Type 
+import LLVM.General.AST.Float
+import Data.Word
 import LLVM.General.Module
-import qualified LLVM.General.AST as AST
-import qualified Data.Text as T
+import qualified Data.Text as TE
 import Data.Foldable (toList)
+import Data.Char
+import IR
 
 data CodegenSt
   = CodeGenSt {
@@ -75,7 +76,7 @@ instr t ins = do
 
 astToLLVM :: MyAST.AST T.Type -> LLVM ()
 astToLLVM (MyAST.Program name _ _ (acc:_) _) = do
-  defineProc (T.unpack name) [] bls
+  defineProc (TE.unpack name) [] bls
   where
     bls = createBlocks $ execCodegen $ astToInstr acc
 
@@ -88,18 +89,48 @@ astToInstr (MyAST.Arithmetic op _ lexp rexp t) = do
   rexp' <- astToInstr rexp
   instr (toType t) $ irArithmetic op t lexp' rexp'
 
+
+astToInstr (MyAST.Boolean op _ lexp rexp t) = do
+  lexp' <- astToInstr lexp
+  rexp' <- astToInstr rexp
+  instr (toType t) $ irBoolean op lexp' rexp'
+
+
+astToInstr (MyAST.Relational op _ lexp rexp t) = do
+  lexp' <- astToInstr lexp
+  rexp' <- astToInstr rexp
+  instr (toType t) $ irRelational op lexp' rexp'
+
+
+astToInstr (MyAST.Convertion tType _ exp t) = do
+  let t' = MyAST.tag exp 
+  exp' <- astToInstr exp
+  instr (toType t) $ irConvertion tType t' exp'
+
+
 astToInstr (MyAST.Int _ n _) = do
   return $ ConstantOperand $ C.Int 32 n
 
 astToInstr (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
   e' <- astToInstr e
-  let (t', r) = (toType t, (Name (T.unpack id)))
+  let (t', r) = (toType t, (Name (TE.unpack id)))
   i <- alloca t' r
   store t' i e'
   return i
 
 astToInstr (MyAST.Block _ _ (a:_) _) = do
   astToInstr a
+astToInstr (MyAST.Float _ n _) = do
+  return $ ConstantOperand $ C.Float $ Double n
+
+astToInstr (MyAST.Bool _ True  _) = do
+  return $ ConstantOperand $ C.Int 8 1 
+
+astToInstr (MyAST.Bool _ False _) = do
+  return $ ConstantOperand $ C.Int 8 0 
+
+astToInstr (MyAST.Char _ n _) = do
+  return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
 
 alloca :: Type -> Name -> Codegen Operand
 alloca ty r = do
@@ -111,4 +142,8 @@ store :: Type -> Operand -> Operand -> Codegen Operand
 store t ptr val = instr t $ Store False ptr val Nothing 0 []
 
 toType :: T.Type -> Type
-toType T.MyInt = IntegerType 32
+toType T.MyInt   = i32
+toType T.MyFloat = double
+toType T.MyBool  = i8
+toType T.MyChar  = i8
+
