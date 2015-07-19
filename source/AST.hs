@@ -114,7 +114,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
                         , tag :: a                 
                         } 
          | ConsAssign   { location  :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a             }
-         | DecArray     { dimension :: [AST a], tag :: a                                                                 }
+         | DecArray     { dimension :: [AST a], tag :: a                                                               }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
