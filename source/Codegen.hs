@@ -4,15 +4,16 @@ module Codegen where
 
 import Control.Monad.State
 import Control.Applicative
+import qualified LLVM.General.AST.Constant as C
 import qualified Data.Sequence            as DS
+import qualified AST as AST
+import qualified Type as T
 import LLVM.General.AST
 import LLVM.General.AST.Global
-import qualified AST as MyAST
-import LLVM.General.AST 
+import LLVM.General.AST.Type 
+import LLVM.General.AST.Float
 import IR
-import qualified Type as T
 import Data.Word
-import qualified LLVM.General.AST.Constant as C
 
 data CodegenSt
   = CodeGenSt {
@@ -46,14 +47,19 @@ instr t ins = do
   return $ local t (UnName n)
 
   
-astToInstr :: MyAST.AST T.Type -> Codegen (Operand)
-astToInstr (MyAST.Arithmetic op _ lexp rexp t) = do
+astToInstr :: AST.AST T.Type -> Codegen (Operand)
+astToInstr (AST.Arithmetic op _ lexp rexp t) = do
   lexp' <- astToInstr lexp
   rexp' <- astToInstr rexp
   instr (toType t) $ irArithmetic op t lexp' rexp'
 
-astToInstr (MyAST.Int _ n _) = do
+
+astToInstr (AST.Int _ n _) = do
   return $ ConstantOperand $ C.Int 32 n
 
+astToInstr (AST.Float _ n _) = do
+  return $ ConstantOperand $ C.Float (Double n) 
+
 toType :: T.Type -> Type
-toType T.MyInt = IntegerType 32
+toType T.MyInt   = i32
+toType T.MyFloat = double
