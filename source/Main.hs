@@ -22,6 +22,11 @@ import Codegen
 import LLVM.General.Module
 import LLVM.General.Context
 import Control.Monad.Except
+import LLVM.General.Target
+import Data.Set (empty)
+import qualified LLVM.General.Relocation as Reloc
+import qualified LLVM.General.CodeModel as CodeModel
+import qualified LLVM.General.CodeGenOpt as CodeGenOpt
 
 concatLexPar = playParser AP.<$> lexer
 
@@ -36,6 +41,16 @@ playLexer inp = putStrLn $ show $ runParser lexer () "" inp
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
 
+withTargetMipsMachine f = do
+  initializeAllTargets
+  t <- liftError $ lookupTarget (Just "mips") ("x86-unknown-linux-gnu")
+  withTargetOptions $ \options ->
+    withTargetMachine (fst t) (snd t) "mips32" empty options Reloc.Default CodeModel.Default CodeGenOpt.Default f
+  
+generateCode m =
+  do withTargetMipsMachine $ \tm ->
+      liftError $ writeTargetAssemblyToFile tm (File "prueba.s") m
+
 play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err)
             		  ; Right par -> case par of
@@ -44,8 +59,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
                                       do let newast = runLLVM (emptyModule "hola bb") $ astToLLVM $ fst $ runTVerifier (symbolTable st) ast
                                          withContext $ \context ->
                                             liftError $ withModuleFromAST context newast $ \m -> do
-                                              l <- moduleLLVMAssembly m
-                                              putStrLn l
+                                              generateCode m
                                              
                                                                     
                                    ; (Right  _         , st) -> putStrLn $ drawState st
