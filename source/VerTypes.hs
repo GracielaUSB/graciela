@@ -290,7 +290,7 @@ verCallExp name sbc args loc locarg =
 validFuncArgs :: [T.Text] -> [Type] -> [Location] -> SymbolTable -> SymbolTable -> 
                      RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
 validFuncArgs lnp lnc locarg sbp sbc = return True
-               
+---------------------------------------------------------------------
 
 
 verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> MyVerType
