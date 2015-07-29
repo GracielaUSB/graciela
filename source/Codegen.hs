@@ -7,7 +7,9 @@ import qualified Data.Sequence             as DS
 import qualified Data.Text                 as TE
 import qualified Type                      as T
 import qualified AST                       as MyAST
+import qualified Data.Map                  as M
 import LLVM.General.AST                    as AST
+import Data.List                           as L
 import LLVM.General.AST.Global
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
@@ -18,12 +20,22 @@ import Data.Foldable (toList)
 import Data.Word
 import Data.Char
 import IR
-
+import Data.Function
 
 data CodegenSt
   = CodeGenSt {
-    count   :: Word              -- Cantidad de instrucciones sin nombre
-  , instrs  :: DS.Seq (Named Instruction)  -- Lista de instrucciones del programa
+    currentName :: Name
+  , countBlock  :: Int
+  , count       :: Word              -- Cantidad de instrucciones sin nombre
+  , blocks      :: M.Map Name BlockSt -- Lista de instrucciones del programa
+  } deriving (Show)
+
+
+data BlockSt
+  = BlockSt {
+    idx     :: Int              
+  , instrs  :: DS.Seq (Named Instruction)  -- Lista de instrucciones del bloque
+  , term    :: Maybe  (Named Terminator) 
   } deriving (Show)
 
 
@@ -37,6 +49,67 @@ newtype LLVM a = LLVM { unLLVM :: State AST.Module a }
 
 runLLVM :: AST.Module -> LLVM a -> AST.Module
 runLLVM = flip (execState . unLLVM)
+
+
+createBlocks :: CodegenSt -> [BasicBlock]
+createBlocks m = map makeBlock $ sortBlocks $ M.toList (blocks m)
+
+--createBlocks :: CodegenSt -> [BasicBlock]
+--createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((Name "final") := (Ret Nothing []))]
+  
+
+makeBlock :: (Name, BlockSt) -> BasicBlock
+makeBlock (l, (BlockSt _ s t)) = BasicBlock l (toList s) (maketerm t)
+  where
+    maketerm (Just x) = x
+    maketerm Nothing = error $ "Block has no terminator: " ++ (show l)
+
+
+sortBlocks :: [(Name, BlockSt)] -> [(Name, BlockSt)]
+sortBlocks = L.sortBy (compare `on` (idx . snd))
+
+
+addBlock :: String -> Codegen Name
+addBlock bname = do
+  blks <- gets blocks
+  i    <- gets countBlock
+  let new  = emptyBlock i
+      name = Name (bname ++ show i)
+  modify $ \s -> s { blocks = M.insert name new blks, countBlock = i + 1}
+  return name
+
+
+setBlock :: Name -> Codegen Name
+setBlock name = do
+  modify $ \s -> s { currentName = name }
+  return name
+
+
+modifyBlock :: BlockSt -> Codegen ()
+modifyBlock new = do
+  act <- gets currentName
+  modify $ \s -> s { blocks = M.insert act new (blocks s) }
+
+
+emptyBlock :: Int -> BlockSt
+emptyBlock i = BlockSt i DS.empty Nothing
+
+
+
+emptyCodegen :: CodegenSt
+emptyCodegen = CodeGenSt (Name "") 0 0 M.empty
+
+
+execCodegen :: Codegen a -> CodegenSt
+execCodegen m = execState (runCodegen m) emptyCodegen
+
+
+local :: Type -> Name -> Operand
+local = LocalReference
+
+
+global :: Type -> Name -> C.Constant
+global = C.GlobalReference 
 
 
 emptyModule :: String -> AST.Module
@@ -59,16 +132,31 @@ defineProc label argtys body = addDefn $
   }
 
 
-emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 0 DS.empty
+defineFunc ::  Type -> String -> [(Type, Name)] -> [BasicBlock] -> LLVM ()
+defineFunc retTy label argtys body = addDefn $
+  GlobalDefinition $ functionDefaults {
+    name        = Name label
+  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
+  , returnType  = retTy
+  , basicBlocks = body
+  }
 
 
-execCodegen :: Codegen a -> CodegenSt
-execCodegen m = execState (runCodegen m) emptyCodegen
+current :: Codegen BlockSt
+current = do
+  name <- gets currentName
+  blks <- gets blocks
+  case M.lookup name blks of
+  { Just x  -> return x
+  ; Nothing -> error $ "Error Bloque: " ++ show name
+  }
 
 
-local :: Type -> Name -> Operand
-local = LocalReference
+terminator :: Named Terminator -> Codegen (Named Terminator)
+terminator trm = do
+  block <- current
+  modifyBlock (block { term = Just trm })
+  return trm
 
 
 getCount :: Codegen Word
@@ -80,10 +168,11 @@ getCount = do
 
 instr :: Type -> Instruction -> Codegen (Operand)
 instr t ins = do
-  xs <- gets instrs
-  n  <- getCount
-  let ref = UnName n
-  modify $ \s -> s { instrs = xs DS.|> (ref := ins) }
+  n <- getCount
+  let ref = (UnName n)
+  block <- current
+  let xs = instrs block
+  modifyBlock $ block { instrs = xs DS.|> (ref := ins) } 
   return $ local t ref
 
 
@@ -94,9 +183,29 @@ astToLLVM (MyAST.Program name _ _ (acc:_) _) = do
     bls = createBlocks $ execCodegen $ astToInstr acc
 
 
-createBlocks :: CodegenSt -> [BasicBlock]
-createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((Name "final") := (Ret Nothing []))]
-  
+
+
+--astToLLVM :: MyAST.AST T.Type -> LLVM ()
+--astToLLVM (MyAST.FunBody fname _ body bound _) = do
+--  let name = (TE.unpack fname)
+--  retTy <- Buscar Tipo de retorno en la tabla
+--  args  <- Buscar argumentos
+--  defineFunc retTy name fnArgs bls
+--  where
+--    fnArgs = toSig args
+--    bls    = createBlocks $ execCodegen $ do 
+--        entry <- addBlock name
+--        setBlock name
+--        forM args $ \a -> do
+--          var <- alloca TYPEarg
+--          store var (local (AST.Name a))
+--          assign a var
+--        astToInstr body >>= ret
+
+
+-- Hay q cambiarla
+toSig :: [String] -> [(AST.Type, AST.Name)]
+toSig = map (\x -> (double, AST.Name x))
 
 astToInstr :: MyAST.AST T.Type -> Codegen (Operand)
 astToInstr (MyAST.Arithmetic op _ lexp rexp t) = do
@@ -151,12 +260,9 @@ astToInstr (MyAST.Char _ n _) = do
   return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
 
 
-alloca :: Type -> Name -> Codegen Operand
-alloca ty r = do
-  xs <- gets instrs
-  modify $ \s -> s { instrs = xs DS.|> (r := (Alloca ty Nothing 0 [])) }
-  return $ local ty r
 
+alloca :: Type -> Name -> Codegen Operand
+alloca ty r = instr ty $ Alloca ty Nothing 0 []  
 
 store :: Type -> Operand -> Operand -> Codegen Operand
 store t ptr val = instr t $ Store False ptr val Nothing 0 []
