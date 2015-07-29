@@ -17,11 +17,11 @@ import State
 import Type
 import AST
 
-addFunTypeParser :: T.Text -> Maybe [Type] -> Maybe Type -> Location -> MyParser()
-addFunTypeParser id (Just lt) (Just t) loc = addSymbolParser id (FunctionCon loc (MyFunction lt t))
-addFunTypeParser _ _ _ _ = return () 
+addFunTypeParser :: T.Text -> Maybe [(T.Text, Type)] -> Maybe Type -> Location ->  SymbolTable -> MyParser()
+addFunTypeParser id (Just lt) (Just t) loc sb = addSymbolParser id (FunctionCon loc (MyFunction (map snd lt) t) (map fst lt) sb)
+addFunTypeParser _ _ _ _ _ = return () 
 
-addProcTypeParser :: T.Text -> Maybe [(T.Text, Type)]  -> Location -> SymbolTable -> MyParser()
+addProcTypeParser :: T.Text -> Maybe [(T.Text, Type)] -> Location -> SymbolTable -> MyParser()
 addProcTypeParser id (Just xs) loc sb = addSymbolParser id $ ProcCon loc (MyProcedure (map snd xs)) (map fst xs) sb
 addProcTypeParser _ _ _ _             = return () 
 

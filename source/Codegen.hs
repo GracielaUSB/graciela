@@ -207,6 +207,7 @@ astToLLVM (MyAST.Program name _ _ (acc:_) _) = do
 toSig :: [String] -> [(AST.Type, AST.Name)]
 toSig = map (\x -> (double, AST.Name x))
 
+
 astToInstr :: MyAST.AST T.Type -> Codegen (Operand)
 astToInstr (MyAST.Arithmetic op _ lexp rexp t) = do
   lexp' <- astToInstr lexp
@@ -242,7 +243,6 @@ astToInstr (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
 
 astToInstr (MyAST.Block _ _ (a:_) _) = do
   astToInstr a
-
 
 astToInstr (MyAST.Int _ n _) = do
   return $ ConstantOperand $ C.Int 32 n

@@ -143,12 +143,6 @@ verTypeAST (Rept guard inv bound loc _) =
        checkT <- verRept (map tag guard') (tag inv') (tag bound')
        return $ Rept guard' inv' bound' loc checkT
                                                       
-                                                      
---verTypeAST (ProcCall name sb loc args _) =
---    do args'  <- verTypeASTlist args
---       locs   <- getLocArgs args
---       checkT <- verProcCall name sb (zip (map AST.id args') (map tag args')) loc locs
---       return $ ProcCall name sb loc args' checkT
 
 verTypeAST (ProcCall name sb loc args _) = 
     do args'  <- verTypeASTlist args  
@@ -162,28 +156,28 @@ verTypeAST (FunBody loc exp _) =
        return $ FunBody loc exp' (tag exp')
 
 
-verTypeAST (FCallExp loc name args _) =
+verTypeAST (FCallExp name sb loc args _) =
     do args'  <- verTypeASTlist args
        locs   <- getLocArgs args
-       checkT <- verCallExp name (map tag args') loc locs
-       return $ FCallExp loc name args' checkT
+       checkT <- verCallExp name sb (map tag args') loc locs
+       return $ FCallExp name sb loc args' checkT
 
 
-verTypeAST (DefFun name loc body bound _) =
+verTypeAST (DefFun name st loc body bound _) =
     do body'  <- verTypeAST body
        bound' <- verTypeAST bound
        checkT <- verDefFun name (tag body') (tag bound') loc
-       return $ DefFun name loc body' bound' checkT
+       return $ DefFun name st loc body' bound' checkT
                                                     
 
-verTypeAST (DefProc name accs pre post bound cdec _) = 
+verTypeAST (DefProc name st accs pre post bound cdec _) = 
     do accs'  <- verTypeASTlist accs 
        pre'   <- verTypeAST pre  
        post'  <- verTypeAST post 
        bound' <- verTypeAST bound
        cdec'  <- mapM verTypeAST cdec
        checkT <- verDefProc (map tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
-       return $ DefProc name accs' pre' post' bound' cdec' checkT
+       return $ DefProc name st accs' pre' post' bound' cdec' checkT
                                                               
 
 verTypeAST (ConsAssign loc xs es t) =

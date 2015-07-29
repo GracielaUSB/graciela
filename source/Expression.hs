@@ -246,7 +246,8 @@ exprLevel10 follow recSet = do do pos <- getPosition
                                                 <|> do parseLeftParent
                                                        lexp <- listExp (parseEnd <|> parseRightParent) (recSet <|> parseRightParent)
                                                        do parseRightParent
-                                                          return $ AP.liftA2 (FCallExp (getLocation pos) idp) lexp (return (MyEmpty))
+                                                          sb <- getActualScope
+                                                          return $ AP.liftA2 (FCallExp idp sb (getLocation pos) ) lexp (return (MyEmpty))
                                                           <|> do genNewError (recSet) (TokenRP)
                                                                  return $ Nothing         
                                                 <|> do blist  <- bracketsList follow recSet

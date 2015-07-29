@@ -106,24 +106,17 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
          | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
-         | FCallExp     { location :: Location, fname    :: T.Text, args     :: [AST a], tag :: a                      } -- ^ Llamada a funcion.
-         | ProcCall     { pname     :: T.Text
-                        , astSTable :: SymbolTable
-                        , location  :: Location
-                        , args      :: [AST a]
-                        , tag :: a                 
-                        } 
+         | FCallExp     { fname    :: T.Text, astSTable :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
+         | ProcCall     { pname    :: T.Text, astSTable :: SymbolTable, location  :: Location
+                        , args     :: [AST a], tag :: a                                                                } 
          | ConsAssign   { location  :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a             }
          | DecArray     { dimension :: [AST a], tag :: a                                                               }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
-         | DefFun       { dfname   :: T.Text, location :: Location, fbody    ::  (AST a), nodeBound :: (AST a), tag :: a }
-         | DefProc      { pname     :: T.Text, prbody    :: [AST a], nodePre   :: (AST a)
-                        , nodePost  :: (AST a)
-                        , nodeBound :: (AST a)
-                        , constDec  :: [AST a]
-                        , tag       :: a
-                        }
+         | DefFun       { dfname   :: T.Text, astSTable :: SymbolTable, location :: Location, fbody    ::  (AST a)
+                        , nodeBound :: (AST a), tag :: a }
+         | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: [AST a], nodePre   :: (AST a)
+                        , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], tag       :: a             }
          | Ran          { var      :: T.Text, location :: Location, tag :: a                                           }
          | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
@@ -164,7 +157,7 @@ drawAST level ((Program name loc defs accs ast)) =
                      `mappend` drawASTList (level + 4) defs     `mappend` drawASTList (level + 4) accs
 
 
-drawAST level ((DefProc name accs pre post bound _ ast)) = 
+drawAST level ((DefProc name _ accs pre post bound _ ast)) = 
    putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc
                      `mappend` " //Tag: "        `mappend` show ast  
                      `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
@@ -336,7 +329,7 @@ drawAST level ((Unary op loc exp ast)) =
 
 
 
-drawAST level ((FCallExp loc name args ast)) =
+drawAST level ((FCallExp name _ loc args ast)) =
    putSpacesLn level `mappend` "Llamada de la Función: " `mappend` show name `mappend` putLocation loc 
                      `mappend` " //Tag: "                `mappend` show ast 
    `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
@@ -364,7 +357,7 @@ drawAST level ((FunBody loc exp ast)) =
 
 
 
-drawAST level ((DefFun name _ body bound ast)) =
+drawAST level ((DefFun name _ _ body bound ast)) =
    putSpacesLn level `mappend` "Función: " `mappend` show name
                      `mappend` " //Tag: "   `mappend` show ast 
                      `mappend` drawAST(level + 4) bound   
