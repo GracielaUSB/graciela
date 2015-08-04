@@ -48,8 +48,8 @@ withTargetMipsMachine f = do
     withTargetMachine (fst t) (snd t) "mips32" empty options Reloc.Default CodeModel.Default CodeGenOpt.Default f
   
 generateCode m =
-  do withTargetMipsMachine $ \tm ->
-      liftError $ writeTargetAssemblyToFile tm (File "prueba.s") m
+  do withDefaultTargetMachine $ \tm ->
+      liftError $ writeObjectToFile tm (File "prueba") m
 
 play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  { Left  err -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err)
@@ -59,7 +59,8 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
                                       do let newast = runLLVM (emptyModule "hola bb") $ astToLLVM $ fst $ runTVerifier (symbolTable st) ast
                                          withContext $ \context ->
                                             liftError $ withModuleFromAST context newast $ \m -> do
-                                              generateCode m
+                                              --liftError $ generateCode m
+                                              liftError $ writeBitcodeToFile (File "prueba.bc") m
                                              
                                                                     
                                    ; (Right  _         , st) -> putStrLn $ drawState st

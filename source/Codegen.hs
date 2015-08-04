@@ -95,7 +95,7 @@ astToLLVM (MyAST.Program name _ _ (acc:_) _) = do
 
 
 createBlocks :: CodegenSt -> [BasicBlock]
-createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((Name "final") := (Ret Nothing []))]
+createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((UnName 100) := (Ret Nothing []))]
   
 
 astToInstr :: MyAST.AST T.Type -> Codegen (Operand)
