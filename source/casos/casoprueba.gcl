@@ -2,6 +2,7 @@ program main
 begin
   |[
     var x : int;
-    x := 5 + 5
+    x := 10;
+    writeln(x)
   ]|
 end

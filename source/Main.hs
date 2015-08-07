@@ -56,7 +56,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
             		  ; Right par -> case par of
            		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
                                    ; (Right (Just ast) , st) -> 
-                                      do let newast = runLLVM (emptyModule "hola bb") $ astToLLVM $ fst $ runTVerifier (symbolTable st) ast
+                                      do let newast = astToLLVM $ fst $ runTVerifier (symbolTable st) ast
                                          withContext $ \context ->
                                             liftError $ withModuleFromAST context newast $ \m -> do
                                               --liftError $ generateCode m
