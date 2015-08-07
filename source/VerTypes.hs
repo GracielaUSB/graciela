@@ -254,13 +254,13 @@ verConsAssign xs loc ts t =
        }
 
 
-verCallExp :: T.Text -> [Type] -> Location -> [Location] -> MyVerType
-verCallExp name args loc locarg =
+verCallExp :: T.Text -> SymbolTable -> [Type] -> Location -> [Location] -> MyVerType
+verCallExp name sbc args loc locarg =
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
        { Nothing -> addUndecFuncError name True loc
-       ; Just x  -> 
-           case (symbolType x) of
+       ; Just (FunctionCon _ t ln sb)  -> 
+           case t of
            { MyFunction args' ts -> 
                let wtL = length args
                    prL = length args'
@@ -268,7 +268,11 @@ verCallExp name args loc locarg =
                   { True  -> addNumberArgsError name True wtL prL loc
                   ; False -> let t = zip args args'
                              in case (and $ map (uncurry (==)) $ t) of
-                                { True  -> return $ ts
+                                { True  -> do r <- validFuncArgs ln args locarg sb sbc
+                                              case r of
+                                              { True  -> return ts
+                                              ; False -> return MyError
+                                              }
                                 ; False -> do mapM_ (\ ((arg, arg'), larg) -> 
                                                 case arg /= arg' of
                                                 { True  -> addFunArgError name True arg' arg larg 
@@ -280,6 +284,13 @@ verCallExp name args loc locarg =
             ; otherwise -> addUndecFuncError name True loc
             }
        }
+
+
+----------------------------------------------------
+validFuncArgs :: [T.Text] -> [Type] -> [Location] -> SymbolTable -> SymbolTable -> 
+                     RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+validFuncArgs lnp lnc locarg sbp sbc = return True
+---------------------------------------------------------------------
 
 
 verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> MyVerType

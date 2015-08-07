@@ -95,9 +95,10 @@ function follow recSet =
                            t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
                            bo <- maybeBound parseBegin (recSet <|> parseBegin)
                            b  <- functionBody parseLexEnd parseLexEnd
+                           sb <- getActualScope
                            exitScopeParser
-                           addFunTypeParser id lt t (getLocation pos)
-                           return(M.liftM3 (DefFun id (getLocation pos)) b bo (return (MyEmpty)))
+                           addFunTypeParser id lt t (getLocation pos) sb
+                           return(M.liftM3 (DefFun id sb (getLocation pos)) b bo (return (MyEmpty)))
                        )
                   <|> do err <- genNewError follow ProcOrFunc
                          return $ Nothing
@@ -107,33 +108,48 @@ function follow recSet =
                    return $ Nothing
 
 
-listArgFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [Type])
+listArgFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
 listArgFunc idf follow recSet = 
     do lookAhead follow
        return $ return []
-       <|> do id <- parseID
-              parseColon
-              t  <- myType (parseRightParent <|> parseComma)
-                           (recSet <|> parseRightParent <|> parseComma)
-              pos <- getPosition
-              addFunctionArgParser idf id t (getLocation pos)
+       <|> do ar <- argFunc idf (follow <|> parseComma) (recSet <|> parseComma)
               rl <- listArgFuncAux idf follow recSet
-              return(AP.liftA2 (:) t rl)
+              return(AP.liftA2 (:) ar rl)
 
 
-listArgFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [Type])
+argFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
+argFunc idf follow recSet = 
+    do id <- parseID
+       parseColon
+       t  <- myType (parseRightParent <|> parseComma)
+             (recSet <|> parseRightParent <|> parseComma)
+       pos <- getPosition
+       addFunctionArgParser idf id t (getLocation pos)
+       return $ fmap ((,) id) t
+
+
+listArgFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
 listArgFuncAux idf follow recSet = 
     do lookAhead follow
        return $ return []
        <|> do parseComma
-              id <- parseID
-              parseColon
-              t <- myType (parseComma <|> follow) (parseComma <|> recSet)
-              pos <- getPosition
-              addFunctionArgParser idf id t (getLocation pos)
+              ar <- argFuncAux idf (follow <|> parseComma) (recSet <|> parseComma)
               rl <- listArgFuncAux idf follow recSet
-              return(AP.liftA2 (:) t rl)
+              return(AP.liftA2 (:) ar rl)
           
+
+
+argFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
+argFuncAux idf follow recSet = 
+    do id <- parseID
+       parseColon
+       t  <- myType (parseComma <|> follow) (parseComma <|> recSet)
+       pos <- getPosition
+       addFunctionArgParser idf id t (getLocation pos)
+       return $ fmap ((,) id) t
+
+
+
 
 proc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 proc follow recSet = 
@@ -157,7 +173,7 @@ proc follow recSet =
              sb   <- getActualScope
              exitScopeParser
              addProcTypeParser id targs (getLocation pos) sb
-             return $ (M.liftM4 (DefProc id) la pre post b) AP.<*> (return []) AP.<*> (return MyEmpty)
+             return $ (M.liftM5 (DefProc id sb) la pre post b (return [])) AP.<*> (return MyEmpty)
 
              <|> do dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                     pre  <- precondition (parseTokOpenBlock <|> parseTokLeftBound) 
@@ -171,7 +187,7 @@ proc follow recSet =
                     sb   <- getActualScope
                     exitScopeParser
                     addProcTypeParser id targs (getLocation pos) sb
-                    return $ (M.liftM5 (DefProc id) la pre post b dl) AP.<*> (return MyEmpty)
+                    return $ (M.liftM5 (DefProc id sb) la pre post b dl) AP.<*> (return MyEmpty)
 
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )

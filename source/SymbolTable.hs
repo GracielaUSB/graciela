@@ -102,7 +102,6 @@ lookUpMap valor f tabla =
       case r of 
         Nothing -> dic 
         Just p  -> modifyPadre dic r
-
       --case getPadre tabla of
       --  Nothing   -> dic
       --  Just sup  -> lookUpMap valor sup f padre
@@ -136,24 +135,3 @@ drawSTforest level xs = foldl (\acc st -> (acc `mappend` putSpacesLn level `mapp
 drawDic level xs = foldl (\acc (var,cont) -> (acc `mappend` putSpacesLn level 
   `mappend` show var `mappend` show cont )) [] xs
 
---Casos 
-
--- t0 = emptyTable
--- 
--- t1 = addSymbol (T.pack "foo") (Contents (Location 1 2 "archivo1") MyInt) t0
--- 
--- t2 = addSymbol (T.pack "bar") (Contents (Location 3 4 "archivo2") MyInt) (look t1)
--- 
--- t3 = enterScope (look t2)
--- 
--- t4 = addSymbol (T.pack "foo fighters") (Contents (Location 7 8 "archivo2") MyFloat) (t3)
--- 
--- t5 = enterScope (look t4)
--- 
--- t6 = addSymbol (T.pack "metallica") (Contents (Location 7 8 "archivo1") MyChar) (t5)
--- 
--- t7 = exitScope (look t6)
--- 
--- t8 = exitScope (Maybe.fromJust t7)
--- 
--- t9 = exitScope (Maybe.fromJust t8)

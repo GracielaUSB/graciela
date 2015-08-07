@@ -19,7 +19,7 @@ data Value = I Integer | C Char | D Double | S String | B Bool
 
 data Contents s = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type, value :: Maybe Value, ini :: Bool }
                 | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type                                    }
-                | FunctionCon { symbolLoc :: Location, symbolType :: Type                                                                }
+                | FunctionCon { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s                                                                 }
                 | ProcCon     { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s                             }
         deriving (Eq)
 
@@ -27,7 +27,7 @@ data Contents s = Contents    { varBeh      :: VarBehavour, symbolLoc :: Locatio
 instance Show a => Show (Contents a) where
    show (Contents var loc t v i)  = show var  ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc ++ " " ++ show v ++ " " ++ show i
    show (ArgProcCont argT loc t)  = show argT ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
-   show (FunctionCon loc t)       =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc
+   show (FunctionCon loc t _ _)   =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc
    show (ProcCon _ _ ln sb)       = show ln ++ show sb
 
    
