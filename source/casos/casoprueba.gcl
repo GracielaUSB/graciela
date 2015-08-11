@@ -2,7 +2,9 @@ program main
 begin
   |[
     var x : int;
-    x := 10;
-    writeln(x)
+    if 7 < 5 -> writeln(0)
+    [] 7 < 5 -> writeln(1)
+    [] 2 < 5 -> |[ x := 10; writeln(x) ]|
+    fi
   ]|
 end

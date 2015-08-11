@@ -60,7 +60,7 @@ play inp = case (runParser (concatLexPar) () "" (inp)) of
                                          withContext $ \context ->
                                             liftError $ withModuleFromAST context newast $ \m -> do
                                               --liftError $ generateCode m
-                                              liftError $ writeBitcodeToFile (File "prueba.bc") m
+                                              liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
                                              
                                                                     
                                    ; (Right  _         , st) -> putStrLn $ drawState st
