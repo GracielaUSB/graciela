@@ -48,7 +48,7 @@ import IR
 data CodegenSt
   = CodeGenSt {
     insCount    :: Word                        -- Cantidad de instrucciones sin nombre
-  , blockCount  :: Word                        -- Cantidad de bloques básicos en el programa
+  , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
   , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
   , bblocs      :: DS.Seq (BasicBlock)         -- Lista de bloques básicos en la definición actual
   , moduleDefs  :: DS.Seq (Definition)
@@ -58,7 +58,7 @@ newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
   deriving (Functor, Applicative, Monad, MonadState CodegenSt)
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 0 0 DS.empty DS.empty DS.empty
+emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty
 
 execCodegen :: LLVM a -> CodegenSt
 execCodegen m = execState (unLLVM m) emptyCodegen
@@ -79,7 +79,7 @@ createLLVM defs accs = do
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
-createDef (MyAST.DefProc name accs _ _ _ _ _) = do
+createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
     m800 <- retVoid
     createBasicBlocks accs m800
     addDefinition (TE.unpack name) []
@@ -91,12 +91,18 @@ addDefinition name params = do
   modify $ \s -> s { bblocs = DS.empty }
   modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
 
-addBasicBlock :: Name -> Named Terminator -> LLVM ()
-addBasicBlock name t800 = do
+setLabel :: Name -> Named Terminator -> LLVM()
+setLabel name t800 = do
+    addBasicBlock t800
+    modify $ \s -> s { blockName = name }
+
+addBasicBlock :: Named Terminator -> LLVM ()
+addBasicBlock t800 = do
   lins <- gets instrs
   bbl  <- gets bblocs
-  modify $ \s -> s { instrs = DS.empty }
-  modify $ \s -> s { bblocs = bbl DS.|> BasicBlock name (toList lins) t800 }
+  name <- gets blockName
+  modify $ \s -> s { instrs     = DS.empty }
+  modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
 
 addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
 addNamedInstruction t name ins = do
@@ -115,9 +121,16 @@ addUnNamedInstruction t ins = do
 
 getCount :: LLVM Word
 getCount = do
-  n <- gets insCount
-  modify $ \s -> s { insCount = n + 1 }
-  return $ n
+    n <- gets insCount
+    modify $ \s -> s { insCount = n + 1 }
+    return $ n
+
+newLabel :: LLVM(Name)
+newLabel = do
+    n <- getCount
+    let r = UnName $ n
+    return r
+
 
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
@@ -136,6 +149,30 @@ createInstruction (MyAST.Write True e _ t) = do
 createInstruction (MyAST.Block _ _ accs _) = do
     mapM_ createInstruction accs
 
+createInstruction (MyAST.Cond guards _ _) = do
+    final <- newLabel
+    genGuards guards final
+
+branch label = Do $ Br label [] 
+
+cond op true false = Do $ CondBr op true false []
+
+genGuards (guard:xs) final = do
+    next <- newLabel
+    genGuard guard next final
+    setLabel next $ branch final
+    genGuards xs final
+
+genGuards [] final = do
+    setLabel final $ branch final
+    return ()
+
+genGuard (MyAST.Guard guard acc _ _) next final = do
+    tag  <- createExpression guard
+    code <- newLabel
+    setLabel code $ cond tag code next
+    createInstruction acc
+
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
 
@@ -149,11 +186,18 @@ store t ptr val =
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.Int _ n _) = do
-  return $ ConstantOperand $ C.Int 32 n
+    return $ ConstantOperand $ C.Int 32 n
+
+createExpression (MyAST.Relational (MyAST.Less) _ lexp rexp _) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    addUnNamedInstruction bool $ irRelational MyAST.Less lexp' rexp'
 
 createExpression (MyAST.ID _ id t) = do
   let (r, ty) = (TE.unpack id, toType t)
   load (TE.unpack id) ty
+
+bool = i8
 
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
@@ -161,10 +205,15 @@ load name ty = do
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
-  n <- getCount
-  let r = UnName n
-  mapM_ createInstruction accs
-  addBasicBlock r m800
+  genIntructions accs
+    where
+      genIntructions (acc:xs) = do
+          r <- newLabel
+          createInstruction acc
+          genIntructions xs
+      genIntructions [] = do
+          r <- newLabel
+          addBasicBlock m800
 
 defineProc :: String -> [(Type, Name)] -> [BasicBlock] -> Definition
 defineProc label argtys body =
@@ -178,7 +227,7 @@ defineProc label argtys body =
 toType :: T.Type -> Type
 toType T.MyInt   = i32
 toType T.MyFloat = double
-toType T.MyBool  = i8
+toType T.MyBool  = i1
 toType T.MyChar  = i8
 
 local :: Type -> Name -> Operand

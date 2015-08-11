@@ -1,6 +1,7 @@
 module IR where
 
 import qualified LLVM.General.AST.FloatingPointPredicate as FL 
+import qualified LLVM.General.AST.IntegerPredicate       as IL 
 import qualified AST                                     as MyAST
 import qualified LLVM.General.AST.Attribute as AT
 import LLVM.General.AST.CallingConvention
@@ -40,7 +41,7 @@ irBoolean MyAST.Dis a b = Or  a b []
 
 irRelational :: MyAST.OpRel -> Operand -> Operand -> Instruction
 irRelational MyAST.Equ     a b = FCmp FL.OEQ a b []
-irRelational MyAST.Less    a b = FCmp FL.OLT a b []
+irRelational MyAST.Less    a b = ICmp IL.SLT a b []
 irRelational MyAST.Greater a b = FCmp FL.OGT a b []
 irRelational MyAST.LEqual  a b = FCmp FL.OLE a b []
 irRelational MyAST.GEqual  a b = FCmp FL.OGE a b []
