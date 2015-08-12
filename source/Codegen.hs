@@ -174,27 +174,52 @@ createInstruction (MyAST.Convertion tType _ exp t) = do
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
-    genGuards guards final
-
-branch label = Do $ Br label [] 
-
-cond op true false = Do $ CondBr op true false []
-
-genGuards (guard:xs) final = do
-    next <- newLabel
-    genGuard guard next final
-    setLabel next $ branch final
-    genGuards xs final
-
-genGuards [] final = do
-    setLabel final $ branch final
+    createGuards guards final
     return ()
 
+
+branch :: Name -> Named Terminator
+branch label = Do $ Br label [] 
+
+
+condBranch :: Operand -> Name -> Name -> Named Terminator
+condBranch op true false = Do $ CondBr op true false []
+
+
+genGuard :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
 genGuard (MyAST.Guard guard acc _ _) next final = do
     tag  <- createExpression guard
     code <- newLabel
-    setLabel code $ cond tag code next
+    setLabel code $ condBranch tag code next
     createInstruction acc
+    return ()
+
+
+genGuardError :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
+genGuardError (MyAST.Guard guard acc _ _) next error = undefined
+
+
+createGuards :: [MyAST.AST T.Type] -> Name -> LLVM ()
+createGuards (guard:[]) final = do
+    next <- newLabel
+    error <- newLabel
+    genGuardError guard next error
+    setLabel error $ branch final
+    return ()
+
+
+createGuards (guard:xs) final = do
+    next <- newLabel
+    genGuard guard next final
+    setLabel next $ branch final
+    createGuards xs final
+    return ()
+
+
+createGuards [] final = do
+    setLabel final $ branch final
+    return ()
+
 
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
