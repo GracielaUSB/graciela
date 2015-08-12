@@ -39,14 +39,24 @@ irBoolean MyAST.Dis a b = Or  a b []
 --irBoolean MyAST.Conse a b = Or  a b []
 
 
-irRelational :: MyAST.OpRel -> Operand -> Operand -> Instruction
-irRelational MyAST.Equ     a b = FCmp FL.OEQ a b []
-irRelational MyAST.Less    a b = ICmp IL.SLT a b []
-irRelational MyAST.Greater a b = FCmp FL.OGT a b []
-irRelational MyAST.LEqual  a b = FCmp FL.OLE a b []
-irRelational MyAST.GEqual  a b = FCmp FL.OGE a b []
-irRelational MyAST.Ine     a b = FCmp FL.OEQ a b []
-irRelational MyAST.Equal   a b = FCmp FL.ONE a b []
+irRelational :: MyAST.OpRel -> Type.Type -> Operand -> Operand -> Instruction
+irRelational MyAST.Equ     MyFloat a b = FCmp FL.OEQ a b []
+irRelational MyAST.Less    MyFloat a b = FCmp FL.OLT a b []
+irRelational MyAST.Greater MyFloat a b = FCmp FL.OGT a b []
+irRelational MyAST.LEqual  MyFloat a b = FCmp FL.OLE a b []
+irRelational MyAST.GEqual  MyFloat a b = FCmp FL.OGE a b []
+irRelational MyAST.Ine     MyFloat a b = FCmp FL.OEQ a b [] -- Negacion
+irRelational MyAST.Equal   MyFloat a b = FCmp FL.ONE a b [] -- Inequiva  REVISARRR
+
+irRelational MyAST.Equ     MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Less    MyInt   a b = ICmp IL.SLT a b []
+irRelational MyAST.Greater MyInt   a b = ICmp IL.SGT a b []
+irRelational MyAST.LEqual  MyInt   a b = ICmp IL.SLE a b []
+irRelational MyAST.GEqual  MyInt   a b = ICmp IL.SGE a b []
+irRelational MyAST.Ine     MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Equal   MyInt   a b = ICmp IL.NE a b []
+
+
 
 
 irConvertion :: MyAST.Conv -> Type.Type -> Operand -> Instruction

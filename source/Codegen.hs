@@ -57,20 +57,25 @@ data CodegenSt
   , varsLoc     :: DM.Map String Operand
   } deriving (Show)
 
+
 newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
   deriving (Functor, Applicative, Monad, MonadState CodegenSt)
+
 
 emptyCodegen :: CodegenSt
 emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty
 
+
 execCodegen :: LLVM a -> CodegenSt
 execCodegen m = execState (unLLVM m) emptyCodegen
+
 
 astToLLVM :: MyAST.AST T.Type -> AST.Module
 astToLLVM (MyAST.Program name _ defs accs _) =
     defaultModule { moduleName        = TE.unpack name
                   , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM defs accs
     }
+
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
@@ -87,6 +92,7 @@ createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
     createBasicBlocks accs m800
     addDefinition (TE.unpack name) []
 
+
 addDefinition :: String -> [(Type, Name)] -> LLVM ()
 addDefinition name params = do
   bbl  <- gets bblocs
@@ -95,10 +101,12 @@ addDefinition name params = do
   modify $ \s -> s { varsLoc = DM.empty }
   modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
 
+
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do
     addBasicBlock t800
     modify $ \s -> s { blockName = name }
+
 
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
@@ -107,6 +115,7 @@ addBasicBlock t800 = do
   name <- gets blockName
   modify $ \s -> s { instrs     = DS.empty }
   modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
+
 
 addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
 addNamedInstruction t name ins = do
@@ -122,6 +131,7 @@ addVarOperand name op = do
     map <- gets varsLoc
     modify $ \s -> s { varsLoc = DM.insert name op map }
 
+
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do
     n <- getCount
@@ -130,11 +140,13 @@ addUnNamedInstruction t ins = do
     modify $ \s -> s { instrs = lins DS.|> (r := ins) }
     return $ local t r
 
+
 getCount :: LLVM Word
 getCount = do
     n <- gets insCount
     modify $ \s -> s { insCount = n + 1 }
     return $ n
+
 
 newLabel :: LLVM(Name)
 newLabel = do
@@ -142,10 +154,15 @@ newLabel = do
     let r = UnName $ n
     return r
 
+<<<<<<< HEAD
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
     mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) $ DM.toList $ (getMap . getActual) st
     
+=======
+
+--Falta arreglo, y lista
+>>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
     e' <- createExpression e
@@ -160,14 +177,29 @@ createInstruction (MyAST.Write True e _ t) = do
     addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
     return ()
 
+<<<<<<< HEAD
 createInstruction (MyAST.Skip _ _) = return ()
  
 createInstruction (MyAST.Block _ st _ accs _) = do
     sTableToAlloca st
+=======
+
+createInstruction (MyAST.Block _ _ accs _) = do
+>>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
     mapM_ createInstruction accs
+    return ()
+
+
+createInstruction (MyAST.Convertion tType _ exp t) = do
+    let t' = MyAST.tag exp 
+    exp' <- createExpression exp
+    addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
+    return ()
+
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
+<<<<<<< HEAD
     genGuards guards final final
 
 createInstruction (MyAST.Rept guards _ _ _ _) = do
@@ -175,11 +207,17 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
     initial <- newLabel
     setLabel initial $ branch initial
     genGuards guards final initial
+=======
+    createGuards guards final
+    return ()
 
+>>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
+
+branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 
 
-cond op true false = Do $ CondBr op true false []
 
+<<<<<<< HEAD
 genGuards (guard:[]) none one = do
     genGuard guard none
     setLabel none $ branch one
@@ -195,41 +233,119 @@ genGuard (MyAST.Guard guard acc _ _) next = do
     code <- newLabel
     setLabel code $ cond tag code next
     createInstruction acc
+=======
+condBranch :: Operand -> Name -> Name -> Named Terminator
+condBranch op true false = Do $ CondBr op true false []
+
+
+genGuard :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
+genGuard (MyAST.Guard guard acc _ _) next final = do
+    tag  <- createExpression guard
+    code <- newLabel
+    setLabel code $ condBranch tag code next
+    createInstruction acc
+    return ()
+
+
+genGuardError :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
+genGuardError (MyAST.Guard guard acc _ _) next error = undefined
+
+
+createGuards :: [MyAST.AST T.Type] -> Name -> LLVM ()
+createGuards (guard:[]) final = do
+    next <- newLabel
+    error <- newLabel
+    genGuardError guard next error
+    setLabel error $ branch final
+    return ()
+
+
+createGuards (guard:xs) final = do
+    next <- newLabel
+    genGuard guard next final
+    setLabel next $ branch final
+    createGuards xs final
+    return ()
+
+
+createGuards [] final = do
+    setLabel final $ branch final
+    return ()
+
+>>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
+
 
 alloca :: Type -> String -> LLVM Operand
 alloca ty r = do
     addNamedInstruction ty r $ Alloca ty Nothing 0 []
 
+
 store :: Type -> Operand -> Operand -> LLVM Operand
 store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
+
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
+createExpression (MyAST.ID _ id t) = do
+    let (r, ty) = (TE.unpack id, toType t)
+    load (TE.unpack id) ty
+
+
 createExpression (MyAST.Int _ n _) = do
     return $ ConstantOperand $ C.Int 32 n
 
-createExpression (MyAST.Relational (MyAST.Less) _ lexp rexp _) = do
+
+createExpression (MyAST.Float _ n _) = do
+    return $ ConstantOperand $ C.Float $ Double n
+
+
+createExpression (MyAST.Bool _ True  _) = do
+   return $ ConstantOperand $ C.Int 8 1 
+ 
+
+createExpression (MyAST.Bool _ False _) = do
+   return $ ConstantOperand $ C.Int 8 0 
+ 
+
+createExpression (MyAST.Char _ n _) = do
+    return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
+
+
+createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
-    addUnNamedInstruction bool $ irRelational MyAST.Less lexp' rexp'
+    addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
+ 
+ 
+createExpression (MyAST.Boolean op _ lexp rexp t) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    addUnNamedInstruction (toType t) $ irBoolean op lexp' rexp'
+ 
+ 
+createExpression (MyAST.Relational op _ lexp rexp t) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    let t' = MyAST.tag lexp 
+    addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
-createExpression (MyAST.ID _ id t) = do
-  let (r, ty) = (TE.unpack id, toType t)
-  load (TE.unpack id) ty
-
+<<<<<<< HEAD
 createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
   lexp' <- createExpression lexp
   rexp' <- createExpression rexp
   addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
 
 bool = i8
+=======
+>>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
   addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
+
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
@@ -243,6 +359,7 @@ createBasicBlocks accs m800 = do
           r <- newLabel
           addBasicBlock m800
 
+
 defineProc :: String -> [(Type, Name)] -> [BasicBlock] -> Definition
 defineProc label argtys body =
   GlobalDefinition $ functionDefaults {
@@ -252,29 +369,24 @@ defineProc label argtys body =
   , basicBlocks = body
   }
 
+
 toType :: T.Type -> Type
 toType T.MyInt   = i32
 toType T.MyFloat = double
 toType T.MyBool  = i1
 toType T.MyChar  = i8
 
+
 local :: Type -> Name -> Operand
 local = LocalReference
+
 
 retVoid :: LLVM (Named Terminator)
 retVoid = do 
   n <- getCount
   return $ (UnName n) := Ret Nothing []
--- 
--- 
--- instr :: Type -> Instruction -> Codegen (Operand)
--- instr t ins = do
---   xs <- gets instrs
---   n  <- getCount
---   let ref = UnName n
---   modify $ \s -> s { instrs = xs DS.|> (ref := ins) }
---   return $ local t ref
---    
+
+
 -- astNodeToLLVM :: MyAST.AST T.Type -> LLVM ()   
 -- astNodeToLLVM (MyAST.DefProc name accs _ _ _ _) = do
 --   defineProc (TE.unpack name) [] (instListToBasicBlocks accs)
@@ -283,60 +395,3 @@ retVoid = do
 -- 
 -- createBlocks :: CodegenSt -> [BasicBlock]
 -- createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((UnName 100) := (Ret Nothing []))]
---   
-
--- astToInstr :: MyAST.AST T.Type -> Codegen (Operand)
--- astToInstr (MyAST.Arithmetic op _ lexp rexp t) = do
---   lexp' <- astToInstr lexp
---   rexp' <- astToInstr rexp
---   instr (toType t) $ irArithmetic op t lexp' rexp'
--- 
--- 
--- astToInstr (MyAST.Boolean op _ lexp rexp t) = do
---   lexp' <- astToInstr lexp
---   rexp' <- astToInstr rexp
---   instr (toType t) $ irBoolean op lexp' rexp'
--- 
--- 
--- astToInstr (MyAST.Relational op _ lexp rexp t) = do
---   lexp' <- astToInstr lexp
---   rexp' <- astToInstr rexp
---   instr (toType t) $ irRelational op lexp' rexp'
--- 
--- 
--- astToInstr (MyAST.Convertion tType _ exp t) = do
---   let t' = MyAST.tag exp 
---   exp' <- astToInstr exp
---   instr (toType t) $ irConvertion tType t' exp'
--- 
--- 
--- astToInstr (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
---   e' <- astToInstr e
---   let (t', r) = (toType t, (Name (TE.unpack id)))
---   i <- alloca t' r
---   store t' i e'
---   return i
--- 
--- 
--- astToInstr (MyAST.Block _ _ xs _) = do
---   l <- mapM astToInstr xs
--- 
--- 
--- astToInstr (MyAST.Int _ n _) = do
---   return $ ConstantOperand $ C.Int 32 n
--- 
--- astToInstr (MyAST.Float _ n _) = do
---   return $ ConstantOperand $ C.Float $ Double n
--- 
--- astToInstr (MyAST.Bool _ True  _) = do
---   return $ ConstantOperand $ C.Int 8 1 
--- 
--- astToInstr (MyAST.Bool _ False _) = do
---   return $ ConstantOperand $ C.Int 8 0 
--- 
--- astToInstr (MyAST.Char _ n _) = do
---   return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
--- 
--- 
--- 
--- 
