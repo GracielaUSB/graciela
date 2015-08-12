@@ -341,9 +341,10 @@ block follow recSet =
        newScopeParser
        dl  <- decList followAction (recSet <|> followAction)
        la  <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
+       st  <- getActualScope
        exitScopeParser
        parseTokCloseBlock
-       return $ (AP.liftA2 (Block (getLocation pos)) dl la) AP.<*> (return MyEmpty)      
+       return $ (AP.liftA2 (Block (getLocation pos) st) dl la) AP.<*> (return MyEmpty)      
 
 
 random :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))

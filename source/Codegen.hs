@@ -19,8 +19,10 @@ import Data.Foldable (toList)
 import Data.Word
 import Data.Char
 import IR
-
-
+import SymbolTable
+import qualified Data.Map as DM
+import Contents
+import Data.Maybe
 
 -- emptyModule :: String -> AST.Module
 -- emptyModule label = defaultModule { moduleName = label }
@@ -50,15 +52,16 @@ data CodegenSt
     insCount    :: Word                        -- Cantidad de instrucciones sin nombre
   , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
   , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
-  , bblocs      :: DS.Seq (BasicBlock)         -- Lista de bloques básicos en la definición actual
-  , moduleDefs  :: DS.Seq (Definition)
+  , bblocs      :: DS.Seq BasicBlock         -- Lista de bloques básicos en la definición actual
+  , moduleDefs  :: DS.Seq Definition
+  , varsLoc     :: DM.Map String Operand
   } deriving (Show)
 
 newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
   deriving (Functor, Applicative, Monad, MonadState CodegenSt)
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty
+emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty
 
 execCodegen :: LLVM a -> CodegenSt
 execCodegen m = execState (unLLVM m) emptyCodegen
@@ -88,7 +91,8 @@ addDefinition :: String -> [(Type, Name)] -> LLVM ()
 addDefinition name params = do
   bbl  <- gets bblocs
   defs <- gets moduleDefs 
-  modify $ \s -> s { bblocs = DS.empty }
+  modify $ \s -> s { bblocs  = DS.empty }
+  modify $ \s -> s { varsLoc = DM.empty }
   modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
 
 setLabel :: Name -> Named Terminator -> LLVM()
@@ -109,7 +113,14 @@ addNamedInstruction t name ins = do
     lins <- gets instrs
     let r = Name name
     modify $ \s -> s { instrs = lins DS.|> (r := ins) }
-    return $ local t r
+    let op = local t r
+    addVarOperand name op
+    return op 
+
+addVarOperand :: String -> Operand -> LLVM()
+addVarOperand name op = do
+    map <- gets varsLoc
+    modify $ \s -> s { varsLoc = DM.insert name op map }
 
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do
@@ -131,12 +142,15 @@ newLabel = do
     let r = UnName $ n
     return r
 
-
+sTableToAlloca :: SymbolTable -> LLVM ()
+sTableToAlloca st = 
+    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) $ DM.toList $ (getMap . getActual) st
+    
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
     e' <- createExpression e
-    let (t', r) = (toType t, TE.unpack id)
-    i <- alloca t' r
+    map <- gets varsLoc
+    let (t', i) = (toType t, fromJust $ DM.lookup (TE.unpack id) map)
     store t' i e'
     return ()
 
@@ -146,28 +160,37 @@ createInstruction (MyAST.Write True e _ t) = do
     addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
     return ()
 
-createInstruction (MyAST.Block _ _ accs _) = do
+createInstruction (MyAST.Skip _ _) = return ()
+ 
+createInstruction (MyAST.Block _ st _ accs _) = do
+    sTableToAlloca st
     mapM_ createInstruction accs
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
-    genGuards guards final
+    genGuards guards final final
+
+createInstruction (MyAST.Rept guards _ _ _ _) = do
+    final   <- newLabel
+    initial <- newLabel
+    setLabel initial $ branch initial
+    genGuards guards final initial
 
 branch label = Do $ Br label [] 
 
 cond op true false = Do $ CondBr op true false []
 
-genGuards (guard:xs) final = do
+genGuards (guard:[]) none one = do
+    genGuard guard none
+    setLabel none $ branch one
+
+genGuards (guard:xs) none one = do
     next <- newLabel
-    genGuard guard next final
-    setLabel next $ branch final
-    genGuards xs final
+    genGuard guard next
+    setLabel next $ branch one
+    genGuards xs none one
 
-genGuards [] final = do
-    setLabel final $ branch final
-    return ()
-
-genGuard (MyAST.Guard guard acc _ _) next final = do
+genGuard (MyAST.Guard guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
     setLabel code $ cond tag code next
@@ -177,7 +200,7 @@ definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
 
 alloca :: Type -> String -> LLVM Operand
-alloca ty r =
+alloca ty r = do
     addNamedInstruction ty r $ Alloca ty Nothing 0 []
 
 store :: Type -> Operand -> Operand -> LLVM Operand
@@ -196,6 +219,11 @@ createExpression (MyAST.Relational (MyAST.Less) _ lexp rexp _) = do
 createExpression (MyAST.ID _ id t) = do
   let (r, ty) = (TE.unpack id, toType t)
   load (TE.unpack id) ty
+
+createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
+  lexp' <- createExpression lexp
+  rexp' <- createExpression rexp
+  addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
 
 bool = i8
 

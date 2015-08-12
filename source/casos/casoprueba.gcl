@@ -2,9 +2,16 @@ program main
 begin
   |[
     var x : int;
-    if 7 < 5 -> writeln(0)
-    [] 7 < 5 -> writeln(1)
-    [] 2 < 5 -> |[ x := 10; writeln(x) ]|
-    fi
+    var y : int;
+    var z : char;
+
+    y := 10;
+    x := 3;
+
+    {inv true inv}
+    {bound true bound}
+    do x < y  -> |[ writeln(x) ; x := x + 1 ]|
+    [] x < y -> skip
+    od
   ]|
 end

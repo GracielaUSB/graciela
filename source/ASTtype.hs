@@ -68,11 +68,11 @@ verTypeAST (Unary op loc exp _) =
        return $ Unary op loc exp' checkT
 
 
-verTypeAST (Block loc decs accs _) =
+verTypeAST (Block loc st decs accs _) =
     do decs'  <- verTypeASTlist decs
        accs'  <- verTypeASTlist accs
        checkT <- verBlock (map tag accs')
-       return $ Block loc decs accs' checkT
+       return $ Block loc st decs accs' checkT
 
 
 verTypeAST (Skip  loc _) = return $ Skip  loc MyEmpty

@@ -102,7 +102,8 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Skip         { location :: Location, tag :: a                                                               } -- ^ Instruccion Skip.
          | Abort        { location :: Location, tag :: a                                                               } -- ^ Instruccion Abort.
          | Cond         { cguard   :: [AST a], location :: Location, tag :: a                                          } -- ^ Instruccion If.
-         | Block        { location :: Location, listDec :: [AST a], lisAct   :: [AST a], tag :: a                      }
+         | Block        { location :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
+                        , tag :: a                                                                                     }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
          | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
@@ -270,9 +271,9 @@ drawAST level ((GuardExp exp action loc ast)) =
                      `mappend` drawAST (level + 8) action
 
 
-drawAST level ((Block loc _ action ast)) =
+drawAST level ((Block loc st _ action ast)) =
    putSpacesLn level `mappend` "Bloque: " `mappend` putLocation loc
-                     `mappend` " //Tag: " `mappend` show ast 
+                     `mappend` " //Tag: " `mappend` show ast  `mappend` show st
                      `mappend` drawASTList (level + 4) action
 
 
