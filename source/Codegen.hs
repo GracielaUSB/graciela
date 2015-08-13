@@ -110,11 +110,11 @@ setLabel name t800 = do
 
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
-  lins <- gets instrs
-  bbl  <- gets bblocs
-  name <- gets blockName
-  modify $ \s -> s { instrs     = DS.empty }
-  modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
+    lins <- gets instrs
+    bbl  <- gets bblocs
+    name <- gets blockName
+    modify $ \s -> s { instrs     = DS.empty }
+    modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
 
 
 addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
@@ -154,15 +154,13 @@ newLabel = do
     let r = UnName $ n
     return r
 
-<<<<<<< HEAD
+
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
     mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) $ DM.toList $ (getMap . getActual) st
     
-=======
 
 --Falta arreglo, y lista
->>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
     e' <- createExpression e
@@ -177,15 +175,12 @@ createInstruction (MyAST.Write True e _ t) = do
     addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
     return ()
 
-<<<<<<< HEAD
+
 createInstruction (MyAST.Skip _ _) = return ()
  
+
 createInstruction (MyAST.Block _ st _ accs _) = do
     sTableToAlloca st
-=======
-
-createInstruction (MyAST.Block _ _ accs _) = do
->>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
     mapM_ createInstruction accs
     return ()
 
@@ -199,47 +194,27 @@ createInstruction (MyAST.Convertion tType _ exp t) = do
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
-<<<<<<< HEAD
-    genGuards guards final final
+    createGuardIf guards final
+    return ()
+
 
 createInstruction (MyAST.Rept guards _ _ _ _) = do
     final   <- newLabel
     initial <- newLabel
     setLabel initial $ branch initial
-    genGuards guards final initial
-=======
-    createGuards guards final
-    return ()
+    createGuardDo guards final initial
 
->>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 
 branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 
 
 
-<<<<<<< HEAD
-genGuards (guard:[]) none one = do
-    genGuard guard none
-    setLabel none $ branch one
-
-genGuards (guard:xs) none one = do
-    next <- newLabel
-    genGuard guard next
-    setLabel next $ branch one
-    genGuards xs none one
-
-genGuard (MyAST.Guard guard acc _ _) next = do
-    tag  <- createExpression guard
-    code <- newLabel
-    setLabel code $ cond tag code next
-    createInstruction acc
-=======
 condBranch :: Operand -> Name -> Name -> Named Terminator
 condBranch op true false = Do $ CondBr op true false []
 
 
-genGuard :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
-genGuard (MyAST.Guard guard acc _ _) next final = do
+genGuard :: MyAST.AST T.Type -> Name -> LLVM ()
+genGuard (MyAST.Guard guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
     setLabel code $ condBranch tag code next
@@ -247,32 +222,36 @@ genGuard (MyAST.Guard guard acc _ _) next final = do
     return ()
 
 
-genGuardError :: MyAST.AST T.Type -> Name -> Name -> LLVM ()
-genGuardError (MyAST.Guard guard acc _ _) next error = undefined
 
-
-createGuards :: [MyAST.AST T.Type] -> Name -> LLVM ()
-createGuards (guard:[]) final = do
+createGuardIf :: [MyAST.AST T.Type] -> Name -> LLVM ()
+createGuardIf (guard:[]) final = do
     next <- newLabel
-    error <- newLabel
-    genGuardError guard next error
-    setLabel error $ branch final
-    return ()
-
-
-createGuards (guard:xs) final = do
-    next <- newLabel
-    genGuard guard next final
-    setLabel next $ branch final
-    createGuards xs final
-    return ()
-
-
-createGuards [] final = do
+    let error = Name "BlockError"
+    genGuard guard error
     setLabel final $ branch final
     return ()
 
->>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
+createGuardIf (guard:xs) final = do
+    next <- newLabel
+    genGuard guard next 
+    setLabel next $ branch final
+    createGuardIf xs final 
+    return ()
+
+
+createGuardDo :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
+createGuardDo (guard:[]) final initial = do
+    genGuard guard final
+    setLabel final $ branch initial
+    return ()
+
+createGuardDo (guard:xs) final initial= do
+    next <- newLabel
+    genGuard guard next 
+    setLabel next $ branch initial
+    createGuardDo xs final initial 
+    return ()
+
 
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
@@ -332,15 +311,6 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     let t' = MyAST.tag lexp 
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
-<<<<<<< HEAD
-createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
-  lexp' <- createExpression lexp
-  rexp' <- createExpression rexp
-  addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
-
-bool = i8
-=======
->>>>>>> ebd050394d2bb93be532f7c684b1c98347c018b1
 
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
