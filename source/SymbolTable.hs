@@ -35,17 +35,23 @@ modifyActual :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> Symb
 modifyActual id f tabla = Table $ fmap (modifyRoot id f) (actual tabla)
 
 
+modifyPadre :: SymbolTable -> Maybe SymbolTable -> SymbolTable
 modifyPadre tabla padre = Table $ fmap (modifyRootPadre padre) (actual tabla)
 
 
+modifyRootPadre :: Maybe SymbolTable -> ((Diccionario, Scope), Maybe SymbolTable)
+                                     -> ((Diccionario, Scope), Maybe SymbolTable)
 modifyRootPadre padre ((dic, sc), _) = ((dic, sc), padre)
 
 
+modifyRoot :: T.Text -> (Contents SymbolTable -> Contents SymbolTable)
+              -> ((Diccionario, Scope), Maybe SymbolTable) -> ((Diccionario, Scope), Maybe SymbolTable)
 modifyRoot id f ((dic, sc), p) = ((Diccionario (M.adjust f id (getMap dic)), sc), p)
 
 
 getScope :: SymbolTable -> Scope
 getScope tabla = (snd . fst) $ Tr.rootLabel (actual tabla)
+
 
 getPadre :: SymbolTable -> Maybe SymbolTable
 getPadre tabla = snd $ Tr.rootLabel (actual tabla)
@@ -105,6 +111,7 @@ lookUpMap valor f tabla =
       --case getPadre tabla of
       --  Nothing   -> dic
       --  Just sup  -> lookUpMap valor sup f padre
+
 
 initSymbol :: T.Text -> SymbolTable -> SymbolTable
 initSymbol id sb = lookUpMap id initSymbolContent sb

@@ -2,13 +2,15 @@
 
 module Codegen where
 
-import qualified LLVM.General.AST.Constant as C
-import qualified Data.Sequence             as DS
-import qualified Data.Text                 as TE
-import qualified Type                      as T
-import qualified AST                       as MyAST
 import qualified LLVM.General.AST.CallingConvention as CC
-import LLVM.General.AST                    as AST
+import qualified LLVM.General.AST.Constant          as C
+import qualified Data.Sequence                      as DS
+import qualified Data.Text                          as TE
+import qualified Data.Map                           as DM
+import qualified Type                               as T
+import qualified AST                                as MyAST
+import LLVM.General.AST                             as AST
+import LLVM.General.AST.Attribute
 import LLVM.General.AST.Global
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
@@ -16,14 +18,12 @@ import Control.Monad.State
 import Control.Applicative
 import LLVM.General.Module
 import Data.Foldable (toList)
+import SymbolTable
+import Data.Maybe
 import Data.Word
 import Data.Char
-import IR
-import SymbolTable
-import qualified Data.Map as DM
 import Contents
-import Data.Maybe
-
+import IR
 -- emptyModule :: String -> AST.Module
 -- emptyModule label = defaultModule { moduleName = label }
 -- 
@@ -79,11 +79,11 @@ astToLLVM (MyAST.Program name _ defs accs _) =
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
-  addDefinition "writeLnInt" [(i32, (Name ""))]
-  mapM_ createDef defs
-  m800 <- retVoid
-  createBasicBlocks accs m800
-  addDefinition "main" []
+    addDefinition "writeLnInt" [(Name "", i32)]
+    mapM_ createDef defs
+    m800 <- retVoid
+    createBasicBlocks accs m800
+    addDefinition "main" []
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
@@ -93,13 +93,29 @@ createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
     addDefinition (TE.unpack name) []
 
 
-addDefinition :: String -> [(Type, Name)] -> LLVM ()
+
+addDefinition :: String -> [(Name, Type)] -> LLVM ()
 addDefinition name params = do
-  bbl  <- gets bblocs
-  defs <- gets moduleDefs 
-  modify $ \s -> s { bblocs  = DS.empty }
-  modify $ \s -> s { varsLoc = DM.empty }
-  modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
+    bbl  <- gets bblocs
+    defs <- gets moduleDefs 
+    modify $ \s -> s { bblocs  = DS.empty }
+    modify $ \s -> s { varsLoc = DM.empty }
+    modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
+
+
+addDefinitionFunc :: String -> [(Name, Type)] -> Type -> LLVM ()
+addDefinitionFunc name params retTy = do
+    bbl  <- gets bblocs
+    defs <- gets moduleDefs 
+    modify $ \s -> s { bblocs  = DS.empty }
+    modify $ \s -> s { varsLoc = DM.empty }
+    modify $ \s -> s { moduleDefs = defs DS.|> defineFunc name params retTy (toList bbl) }
+
+
+newLabel :: LLVM (Name)
+newLabel = do
+    n <- getCount
+    return $ UnName n
 
 
 setLabel :: Name -> Named Terminator -> LLVM()
@@ -110,9 +126,11 @@ setLabel name t800 = do
 
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
-    lins <- gets instrs
-    bbl  <- gets bblocs
-    name <- gets blockName
+    lins  <- gets instrs
+    bbl   <- gets bblocs
+    name  <- gets blockName
+    name' <- newLabel
+    modify $ \s -> s { blockName  = name'    }
     modify $ \s -> s { instrs     = DS.empty }
     modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
 
@@ -134,9 +152,8 @@ addVarOperand name op = do
 
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do
-    n <- getCount
+    r    <- newLabel
     lins <- gets instrs
-    let r = UnName n
     modify $ \s -> s { instrs = lins DS.|> (r := ins) }
     return $ local t r
 
@@ -148,16 +165,10 @@ getCount = do
     return $ n
 
 
-newLabel :: LLVM(Name)
-newLabel = do
-    n <- getCount
-    let r = UnName $ n
-    return r
-
-
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
-    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) $ DM.toList $ (getMap . getActual) st
+    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
+                                                 $ DM.toList $ (getMap . getActual) st
     
 
 --Falta arreglo, y lista
@@ -172,7 +183,8 @@ createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
 
 createInstruction (MyAST.Write True e _ t) = do
     e' <- createExpression e
-    addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
+    addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                 (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
     return ()
 
 
@@ -220,7 +232,6 @@ genGuard (MyAST.Guard guard acc _ _) next = do
     setLabel code $ condBranch tag code next
     createInstruction acc
     return ()
-
 
 
 createGuardIf :: [MyAST.AST T.Type] -> Name -> LLVM ()
@@ -314,31 +325,40 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
 
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
-  addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
+    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
 
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
-  genIntructions accs
-    where
-      genIntructions (acc:xs) = do
-          r <- newLabel
-          createInstruction acc
-          genIntructions xs
-      genIntructions [] = do
-          r <- newLabel
-          addBasicBlock m800
+    genIntructions accs
+      where
+        genIntructions (acc:xs) = do
+            r <- newLabel
+            createInstruction acc
+            genIntructions xs
+        genIntructions [] = do
+            r <- newLabel
+            addBasicBlock m800
 
 
-defineProc :: String -> [(Type, Name)] -> [BasicBlock] -> Definition
-defineProc label argtys body =
-  GlobalDefinition $ functionDefaults {
-    name        = Name label
-  , parameters  = ([Parameter ty nm [] | (ty, nm) <- argtys], False)
-  , returnType  = VoidType
-  , basicBlocks = body
-  }
+defineProc :: String -> [(Name, Type)] -> [BasicBlock] -> Definition
+defineProc label args body =
+    GlobalDefinition $ functionDefaults {
+      name        = Name label
+    , parameters  = ([Parameter t n [] | (n, t) <- args], False)
+    , returnType  = VoidType
+    , basicBlocks = body
+    }
 
+
+defineFunc :: String -> [(Name, Type)] -> Type -> [BasicBlock] -> Definition
+defineFunc label args retTy body =
+    GlobalDefinition $ functionDefaults {
+      name        = Name label
+    , parameters  = ([Parameter t n [ByVal] | (n, t) <- args], False)
+    , returnType  = retTy
+    , basicBlocks = body
+    }
 
 toType :: T.Type -> Type
 toType T.MyInt   = i32
@@ -351,17 +371,30 @@ local :: Type -> Name -> Operand
 local = LocalReference
 
 
+retType :: Operand -> LLVM (Named Terminator)
+retType op = do 
+    n <- newLabel
+    return $ n := Ret (Just op) []
+
+
 retVoid :: LLVM (Named Terminator)
 retVoid = do 
-  n <- getCount
-  return $ (UnName n) := Ret Nothing []
+    n <- newLabel
+    return $ n := Ret Nothing []
 
 
--- astNodeToLLVM :: MyAST.AST T.Type -> LLVM ()   
--- astNodeToLLVM (MyAST.DefProc name accs _ _ _ _) = do
---   defineProc (TE.unpack name) [] (instListToBasicBlocks accs)
--- 
--- instListToBasicBlocks :: [MyAST.AST T.Type] -> [BasicBlock]
--- 
--- createBlocks :: CodegenSt -> [BasicBlock]
--- createBlocks st = [BasicBlock (Name "program") (toList (instrs st)) ((UnName 100) := (Ret Nothing []))]
+-- FALTA BOUNDDD
+createFunc :: MyAST.AST T.Type -> LLVM ()
+createFunc (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) bound _) = 
+    let funcCont  = fromJust $ checkSymbol fname st
+        reType    = T.retuType $ symbolType funcCont 
+        argsName  = map (Name . TE.unpack) (nameArgs funcCont) 
+        argsType  = map (\i -> toType . symbolType . fromJust $ checkSymbol i st) (nameArgs funcCont) 
+    in do exp'  <- createExpression exp
+          retTy <- retType exp'
+          addBasicBlock retTy
+          addDefinition  (TE.unpack fname) (zip argsName argsType)
+          return ()
+
+
+

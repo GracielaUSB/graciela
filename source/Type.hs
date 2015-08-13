@@ -10,7 +10,7 @@ instance Show TypeArg where
    show InOut = " Var Int/Out"
 
 
-data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction   [Type] Type | MyProcedure [Type] 
+data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction {  paramType :: [Type], retuType :: Type } | MyProcedure [Type] 
                   | MyError | MyEmpty | MyString | MyArray { getTam :: Maybe Integer, getType :: Type }
 
 
