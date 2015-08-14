@@ -98,7 +98,7 @@ function follow recSet =
                            sb <- getActualScope
                            exitScopeParser
                            addFunTypeParser id lt t (getLocation pos) sb
-                           return(M.liftM3 (DefFun id sb (getLocation pos)) b bo (return (MyEmpty)))
+                           return(M.liftM4 (DefFun id sb (getLocation pos)) b t bo (return (MyEmpty)))
                        )
                   <|> do err <- genNewError follow ProcOrFunc
                          return $ Nothing

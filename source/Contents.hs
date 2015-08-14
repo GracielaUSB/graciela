@@ -1,6 +1,6 @@
 module Contents where
 
-import Data.Text as T
+import Data.Text as T hiding (map)
 import Location
 import Type
 
@@ -25,9 +25,9 @@ data Contents s = Contents    { varBeh      :: VarBehavour, symbolLoc :: Locatio
 
 
 instance Show a => Show (Contents a) where
-   show (Contents var loc t v i)  = show var  ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc ++ " " ++ show v ++ " " ++ show i
+   show (Contents var loc t v i)  = show var  ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc ++ ", Valor: " ++ show v ++ ", Inicializada: " ++ show i
    show (ArgProcCont argT loc t)  = show argT ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc 
-   show (FunctionCon loc t _ _)   =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc
+   show (FunctionCon loc t args _)   =              ", Tipo: " ++ show t  ++ ", Declarada en: " ++ show loc ++ ", Argumentos: " ++ show (map T.unpack args)
    show (ProcCon _ _ ln sb)       = show ln ++ show sb
 
    

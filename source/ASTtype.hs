@@ -163,11 +163,11 @@ verTypeAST (FCallExp name sb loc args _) =
        return $ FCallExp name sb loc args' checkT
 
 
-verTypeAST (DefFun name st loc body bound _) =
+verTypeAST (DefFun name st loc body ret bound _) =
     do body'  <- verTypeAST body
        bound' <- verTypeAST bound
        checkT <- verDefFun name (tag body') (tag bound') loc
-       return $ DefFun name st loc body' bound' checkT
+       return $ DefFun name st loc body' ret bound' checkT
                                                     
 
 verTypeAST (DefProc name st accs pre post bound cdec _) = 

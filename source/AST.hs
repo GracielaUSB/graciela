@@ -4,6 +4,7 @@ import qualified Data.Text as T
 import Data.Range.Range    as RA
 import Data.Monoid
 import SymbolTable
+import Data.Maybe
 import Location
 import Print
 import Type
@@ -115,7 +116,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, astSTable :: SymbolTable, location :: Location, fbody    ::  (AST a)
-                        , nodeBound :: (AST a), tag :: a }
+                        , retType  :: Type, nodeBound :: (AST a), tag :: a }
          | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: [AST a], nodePre   :: (AST a)
                         , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], tag       :: a             }
          | Ran          { var      :: T.Text, location :: Location, tag :: a                                           }
@@ -358,11 +359,16 @@ drawAST level ((FunBody loc exp ast)) =
 
 
 
-drawAST level ((DefFun name _ _ body bound ast)) =
+drawAST level ((DefFun name st _ body _ bound ast)) =
    putSpacesLn level `mappend` "Función: " `mappend` show name
                      `mappend` " //Tag: "   `mappend` show ast 
                      `mappend` drawAST(level + 4) bound   
-                     `mappend` drawAST(level + 4) body   
+                     `mappend` drawAST(level + 4) body  
+
+
+                     --`mappend` "\n\n\n iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii \n\n"  
+                     --`mappend` show (fromJust $ getPadre st)
+                     --`mappend` "\n\n\n ffffffffffffffffffffffffffffffffffffffff \n\n"  
 
 
 drawAST _ (EmptyRange _ _) = "rango vacio"

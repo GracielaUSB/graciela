@@ -94,6 +94,17 @@ createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
 
 
 
+--BOUNDDD
+createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = 
+    let funcCont  = DM.toList $ getMap $ getActual st
+        args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) funcCont
+    in do exp'  <- createExpression exp
+          retTy <- retType exp'
+          addBasicBlock retTy
+          addDefinitionFunc (TE.unpack fname) args (toType reType)
+          return ()
+
+
 addDefinitionProc :: String -> [(Name, Type)] -> LLVM ()
 addDefinitionProc name params = do
     bbl  <- gets bblocs
@@ -281,8 +292,8 @@ store t ptr val =
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.ID _ id t) = do
     let (r, ty) = (TE.unpack id, toType t)
-    load (TE.unpack id) ty
-
+    val <- load (TE.unpack id) ty
+    return val
 
 createExpression (MyAST.Int _ n _) = do
     return $ ConstantOperand $ C.Int 32 n
@@ -302,7 +313,7 @@ createExpression (MyAST.Bool _ False _) = do
 
 createExpression (MyAST.Char _ n _) = do
     return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
-
+    
 
 createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
     lexp' <- createExpression lexp
@@ -321,6 +332,12 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     rexp' <- createExpression rexp
     let t' = MyAST.tag lexp 
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
+
+
+
+--POR HAcer
+createExpression (MyAST.FCallExp fname st _ args _) = do
+   return $ ConstantOperand $ C.Int 8 0 
 
 
 load :: String -> Type -> LLVM (Operand)
@@ -355,7 +372,7 @@ defineFunc :: String -> [(Name, Type)] -> Type -> [BasicBlock] -> Definition
 defineFunc label args retTy body =
     GlobalDefinition $ functionDefaults {
       name        = Name label
-    , parameters  = ([Parameter t n [ByVal] | (n, t) <- args], False)
+    , parameters  = ([Parameter t n [] | (n, t) <- args], False)
     , returnType  = retTy
     , basicBlocks = body
     }
@@ -383,18 +400,7 @@ retVoid = do
     return $ n := Ret Nothing []
 
 
--- FALTA BOUNDDD
-createFunc :: MyAST.AST T.Type -> LLVM ()
-createFunc (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) bound _) = 
-    let funcCont  = fromJust $ checkSymbol fname st
-        reType    = toType . T.retuType $ symbolType funcCont 
-        argsName  = map (Name . TE.unpack) (nameArgs funcCont) 
-        argsType  = map (\i -> toType . symbolType . fromJust $ checkSymbol i st) (nameArgs funcCont) 
-    in do exp'  <- createExpression exp
-          retTy <- retType exp'
-          addBasicBlock retTy
-          addDefinitionFunc (TE.unpack fname) (zip argsName argsType) reType
-          return ()
+
 
 
 
