@@ -79,23 +79,23 @@ astToLLVM (MyAST.Program name _ defs accs _) =
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
-    addDefinition "writeLnInt" [(Name "", i32)]
+    addDefinitionProc "writeLnInt" [(Name "", i32)]
     mapM_ createDef defs
     m800 <- retVoid
     createBasicBlocks accs m800
-    addDefinition "main" []
+    addDefinitionProc "main" []
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
     m800 <- retVoid
     createBasicBlocks accs m800
-    addDefinition (TE.unpack name) []
+    addDefinitionProc (TE.unpack name) []
 
 
 
-addDefinition :: String -> [(Name, Type)] -> LLVM ()
-addDefinition name params = do
+addDefinitionProc :: String -> [(Name, Type)] -> LLVM ()
+addDefinitionProc name params = do
     bbl  <- gets bblocs
     defs <- gets moduleDefs 
     modify $ \s -> s { bblocs  = DS.empty }
@@ -387,13 +387,13 @@ retVoid = do
 createFunc :: MyAST.AST T.Type -> LLVM ()
 createFunc (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) bound _) = 
     let funcCont  = fromJust $ checkSymbol fname st
-        reType    = T.retuType $ symbolType funcCont 
+        reType    = toType . T.retuType $ symbolType funcCont 
         argsName  = map (Name . TE.unpack) (nameArgs funcCont) 
         argsType  = map (\i -> toType . symbolType . fromJust $ checkSymbol i st) (nameArgs funcCont) 
     in do exp'  <- createExpression exp
           retTy <- retType exp'
           addBasicBlock retTy
-          addDefinition  (TE.unpack fname) (zip argsName argsType)
+          addDefinitionFunc (TE.unpack fname) (zip argsName argsType) reType
           return ()
 
 
