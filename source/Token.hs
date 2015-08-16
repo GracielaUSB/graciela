@@ -152,7 +152,7 @@ instance Show Token where
   show TokRightBracket  = "corchete de cierre"
   show TokVerticalBar   = "barra" 
   show TokSemicolon     = "punto y coma"
-  show TokColon         = "punto"
+  show TokColon         = "dos puntos"
   show TokLeftBrace     = "llave de apertura"
   show TokRightBrace    = "llave de cierre"
   show TokArrow         = "flecha de tipo de retorno"

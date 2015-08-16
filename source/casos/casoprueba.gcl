@@ -1,5 +1,10 @@
-program main
+program main begin
+
+func sumar : () -> int
 begin
+      2 + 5
+end
+
   |[
     var x : int;
     var y : int;
@@ -8,10 +13,10 @@ begin
     y := 10;
     x := 3;
 
-    {inv true inv}
-    {bound true bound}
-    do x < y  -> |[ writeln(x) ; x := x + 1 ]|
-    [] x < y -> skip
-    od
+    if x < y  -> |[ writeln(x) ; x := x + 1 ]|
+    [] x >= y -> skip
+    fi
+
   ]|
 end
+
