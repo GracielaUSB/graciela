@@ -218,7 +218,7 @@ createInstruction (MyAST.Convertion tType _ exp t) = do
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
-    createGuardIf guards final
+    genGuards guards final final
     return ()
 
 
@@ -226,7 +226,7 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
     final   <- newLabel
     initial <- newLabel
     setLabel initial $ branch initial
-    createGuardDo guards final initial
+    genGuards guards final initial
 
 
 createInstruction (MyAST.ProcCall name st _ args _) = do
@@ -249,44 +249,21 @@ condBranch :: Operand -> Name -> Name -> Named Terminator
 condBranch op true false = Do $ CondBr op true false []
 
 
-genGuard :: MyAST.AST T.Type -> Name -> LLVM ()
+genGuards (guard:[]) none one = do
+    genGuard guard none
+    setLabel none $ branch one
+
+genGuards (guard:xs) none one = do
+    next <- newLabel
+    genGuard guard next
+    setLabel next $ branch one
+    genGuards xs none one
+
 genGuard (MyAST.Guard guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
     setLabel code $ condBranch tag code next
     createInstruction acc
-    return ()
-
-
-createGuardIf :: [MyAST.AST T.Type] -> Name -> LLVM ()
-createGuardIf (guard:[]) final = do
-    next <- newLabel
-    let error = Name "BlockError"
-    genGuard guard error
-    setLabel final $ branch final
-    return ()
-
-createGuardIf (guard:xs) final = do
-    next <- newLabel
-    genGuard guard next 
-    setLabel next $ branch final
-    createGuardIf xs final 
-    return ()
-
-
-createGuardDo :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
-createGuardDo (guard:[]) final initial = do
-    genGuard guard final
-    setLabel final $ branch initial
-    return ()
-
-createGuardDo (guard:xs) final initial= do
-    next <- newLabel
-    genGuard guard next 
-    setLabel next $ branch initial
-    createGuardDo xs final initial 
-    return ()
-
 
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
@@ -346,8 +323,6 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     let t' = MyAST.tag lexp 
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
-
-
 --POR HAcer
 createExpression (MyAST.FCallExp fname st _ args _) = do
    return $ ConstantOperand $ C.Int 8 0 
@@ -392,9 +367,3 @@ retVoid :: LLVM (Named Terminator)
 retVoid = do 
     n <- newLabel
     return $ n := Ret Nothing []
-
-
-
-
-
-
