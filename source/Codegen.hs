@@ -79,48 +79,49 @@ astToLLVM (MyAST.Program name _ defs accs _) =
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
-    addDefinitionProc "writeLnInt" [(Name "", i32)]
+    let params = ([Parameter i32 (Name "") []], False)
+    addDefinition "writeLnInt" params VoidType
     mapM_ createDef defs
     m800 <- retVoid
     createBasicBlocks accs m800
-    addDefinitionProc "main" []
+    addDefinition "main" ([],False) VoidType
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
-createDef (MyAST.DefProc name _ accs _ _ _ _ _) = do
-    m800 <- retVoid
-    createBasicBlocks accs m800
-    addDefinitionProc (TE.unpack name) []
+createDef (MyAST.DefProc name st accs pre post bound _ _) = do
+    let procCont  = DM.toList $ getMap $ getActual st
+   -- let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t, procArgType t)) procCont
+    let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) procCont
+    let args' = ([Parameter t n [] | (n, t) <- args], False) 
+    retTy <- retVoid
+    createBasicBlocks accs retTy
+    addDefinition (TE.unpack name) args' VoidType
 
 
-
---BOUNDDD
-createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = 
+createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = do
     let funcCont  = DM.toList $ getMap $ getActual st
-        args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) funcCont
-    in do exp'  <- createExpression exp
-          retTy <- retType exp'
-          addBasicBlock retTy
-          addDefinitionFunc (TE.unpack fname) args (toType reType)
-          return ()
+    let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) funcCont
+    let args' = ([Parameter t n [] | (n, t) <- args], False)
+    exp'  <- createExpression exp
+    retTy <- retType exp'
+    addBasicBlock retTy
+    addDefinition (TE.unpack fname) args' (toType reType)
+    return ()
 
 
-addDefinitionProc :: String -> [(Name, Type)] -> LLVM ()
-addDefinitionProc name params = do
+addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
+addDefinition name params retTy = do
     bbl  <- gets bblocs
     defs <- gets moduleDefs 
+    let def = GlobalDefinition $ functionDefaults {
+                name        = Name name
+              , parameters  = params
+              , returnType  = retTy
+              , basicBlocks = (toList bbl)
+              }
     modify $ \s -> s { bblocs  = DS.empty }
     modify $ \s -> s { varsLoc = DM.empty }
-    modify $ \s -> s { moduleDefs = defs DS.|> defineProc name params (toList bbl) }
-
-
-addDefinitionFunc :: String -> [(Name, Type)] -> Type -> LLVM ()
-addDefinitionFunc name params retTy = do
-    bbl  <- gets bblocs
-    defs <- gets moduleDefs 
-    modify $ \s -> s { bblocs  = DS.empty }
-    modify $ \s -> s { varsLoc = DM.empty }
-    modify $ \s -> s { moduleDefs = defs DS.|> defineFunc name params retTy (toList bbl) }
+    modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
 newLabel :: LLVM (Name)
@@ -226,6 +227,18 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
     initial <- newLabel
     setLabel initial $ branch initial
     createGuardDo guards final initial
+
+
+createInstruction (MyAST.ProcCall name st _ args _) = do
+    exp   <- mapM_ createExpression args
+    call  <- newLabel
+    final <- newLabel
+  --  let exp' = mapM_ (\i -> (i,[])) exp
+  --  let name' =  ConstantOperand . C.GlobalReference (Name $ TE.unpack name)
+  --  setLabel final $ Do $ (Invoke CC.C [] name' exp' [] final final [])
+    return ()
+
+
 
 
 branch :: Name -> Named Terminator
@@ -357,25 +370,6 @@ createBasicBlocks accs m800 = do
             r <- newLabel
             addBasicBlock m800
 
-
-defineProc :: String -> [(Name, Type)] -> [BasicBlock] -> Definition
-defineProc label args body =
-    GlobalDefinition $ functionDefaults {
-      name        = Name label
-    , parameters  = ([Parameter t n [] | (n, t) <- args], False)
-    , returnType  = VoidType
-    , basicBlocks = body
-    }
-
-
-defineFunc :: String -> [(Name, Type)] -> Type -> [BasicBlock] -> Definition
-defineFunc label args retTy body =
-    GlobalDefinition $ functionDefaults {
-      name        = Name label
-    , parameters  = ([Parameter t n [] | (n, t) <- args], False)
-    , returnType  = retTy
-    , basicBlocks = body
-    }
 
 toType :: T.Type -> Type
 toType T.MyInt   = i32
