@@ -1,9 +1,21 @@
 program main begin
 
-func sumar : () -> int
-begin
-      2 + 5
-end
+  proc sumar : (inout m : int, in n : int) 
+  begin
+      var ss : int; 
+      {pre m >= 0 /\ n >= 0 pre}  
+      |[
+           ss := 548;
+           writeln(ss)
+      ]|  
+      {post m <= m + n post}
+  end
+
+
+  func restar : (m : int, n : int) -> int
+  begin
+      5+5
+  end
 
   |[
     var x : int;
@@ -13,7 +25,7 @@ end
     y := 10;
     x := 3;
 
-    if x < y  -> |[ writeln(x) ; x := x + 1 ]|
+    if x < y  -> |[ x := x + 1 ; sumar(454,5) ; x := x + 1 ; writeln(x) ]|
     [] x >= y -> skip
     fi
 

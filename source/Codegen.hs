@@ -93,20 +93,18 @@ createLLVM defs accs = do
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound _ _) = do
-    let procCont  = DM.toList $ getMap $ getActual st
+    let procCont = DM.toList $ getMap $ getActual st
+    let justArgs = filter (\(id, t) -> isArg t) procCont
+    let locals   = filter (\(id, t) -> not $ isArg t) procCont 
+    localAlloca locals
    -- let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t, procArgType t)) procCont
-    sTableToAlloca st
- --   let sArgs = map (\(id, t) -> let ty = toType $ symbolType t in 
-     --     (ty, fromJust $ DM.lookup (TE.unpack id) vars, local ty (Name $ TE.unpack id) )) procCont
-    let args  = map (\(id, t) -> (Name $ TE.unpack id, toType $ symbolType t)) procCont
-   -- storeList $ head sArgs  
-    let args' = ([Parameter t id [] | (id, t) <- args], False) 
+    let args     = map (\(id, t) -> (Name $ TE.unpack id, toType $ symbolType t)) justArgs
+    let args'    = ([Parameter t id [] | (id, t) <- args], False) 
     retTy <- retVoid
     createBasicBlocks accs retTy
     addDefinition (TE.unpack name) args' VoidType
 
    
-
 createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = do
     let funcCont  = DM.toList $ getMap $ getActual st
     let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) funcCont
@@ -186,6 +184,11 @@ getCount = do
     return $ n
 
 
+localAlloca :: [(TE.Text, Contents a)] -> LLVM ()
+localAlloca idList =
+    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) idList
+
+
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
     mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
@@ -249,8 +252,6 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     return ()
 
 
-
-
 branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 
 
@@ -259,6 +260,7 @@ condBranch :: Operand -> Name -> Name -> Named Terminator
 condBranch op true false = Do $ CondBr op true false []
 
 
+genGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
 genGuards (guard:[]) none one = do
     genGuard guard none
     setLabel none $ branch one
@@ -288,16 +290,19 @@ store :: Type -> Operand -> Operand -> LLVM Operand
 store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
---storeList ::Type -> Operand -> Operand -> LLVM Operand
-storeList (t, ptr,val) =
-    addUnNamedInstruction t $ Store False ptr val Nothing 0 [] 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.ID _ id t) = do
-    let (r, ty) = (TE.unpack id, toType t)
-    val <- load (TE.unpack id) ty
-   -- let val = local ty (Name $ TE.unpack id)
-    return val
+    var <- gets varsLoc
+    let (n, ty) = (TE.unpack id, toType t)
+    let check   = DM.lookup n var
+   
+    case check of 
+    { Just _  -> do val <- load n ty
+                    return val
+    ; Nothing -> do return $ local ty (Name n)
+    }
+
 
 createExpression (MyAST.Int _ n _) = do
     return $ ConstantOperand $ C.Int 32 n
