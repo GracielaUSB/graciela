@@ -10,6 +10,7 @@ import qualified Data.Map                           as DM
 import qualified Type                               as T
 import qualified AST                                as MyAST
 import LLVM.General.AST                             as AST
+import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.Global
 import LLVM.General.AST.Float
@@ -19,11 +20,14 @@ import Control.Applicative
 import LLVM.General.Module
 import Data.Foldable (toList)
 import SymbolTable
+import Data.Either
 import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
 import IR
+
+
 -- emptyModule :: String -> AST.Module
 -- emptyModule label = defaultModule { moduleName = label }
 -- 
@@ -91,12 +95,17 @@ createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound _ _) = do
     let procCont  = DM.toList $ getMap $ getActual st
    -- let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t, procArgType t)) procCont
-    let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) procCont
-    let args' = ([Parameter t n [] | (n, t) <- args], False) 
+    sTableToAlloca st
+ --   let sArgs = map (\(id, t) -> let ty = toType $ symbolType t in 
+     --     (ty, fromJust $ DM.lookup (TE.unpack id) vars, local ty (Name $ TE.unpack id) )) procCont
+    let args  = map (\(id, t) -> (Name $ TE.unpack id, toType $ symbolType t)) procCont
+   -- storeList $ head sArgs  
+    let args' = ([Parameter t id [] | (id, t) <- args], False) 
     retTy <- retVoid
     createBasicBlocks accs retTy
     addDefinition (TE.unpack name) args' VoidType
 
+   
 
 createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = do
     let funcCont  = DM.toList $ getMap $ getActual st
@@ -229,13 +238,14 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
     genGuards guards final initial
 
 
-createInstruction (MyAST.ProcCall name st _ args _) = do
-    exp   <- mapM_ createExpression args
+createInstruction (MyAST.ProcCall pname st _ args _) = do
+    exp   <- mapM createExpression args
     call  <- newLabel
     final <- newLabel
-  --  let exp' = mapM_ (\i -> (i,[])) exp
-  --  let name' =  ConstantOperand . C.GlobalReference (Name $ TE.unpack name)
-  --  setLabel final $ Do $ (Invoke CC.C [] name' exp' [] final final [])
+    let exp'   = map (\i -> (i,[])) exp
+    let op     = definedFunction (VoidType) (Name $ TE.unpack pname)
+    let callop = (Right op) 
+    setLabel final $ Do $ (Invoke CC.C [] callop exp' [] final final [])
     return ()
 
 
@@ -278,11 +288,15 @@ store :: Type -> Operand -> Operand -> LLVM Operand
 store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
+--storeList ::Type -> Operand -> Operand -> LLVM Operand
+storeList (t, ptr,val) =
+    addUnNamedInstruction t $ Store False ptr val Nothing 0 [] 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.ID _ id t) = do
     let (r, ty) = (TE.unpack id, toType t)
     val <- load (TE.unpack id) ty
+   -- let val = local ty (Name $ TE.unpack id)
     return val
 
 createExpression (MyAST.Int _ n _) = do
