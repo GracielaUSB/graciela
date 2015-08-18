@@ -6,7 +6,7 @@ program main begin
       {pre m >= 0 /\ n >= 0 pre}  
       |[
            ss := 548;
-           writeln(ss)
+           writeln(m)
       ]|  
       {post m <= m + n post}
   end
@@ -14,7 +14,7 @@ program main begin
 
   func restar : (m : int, n : int) -> int
   begin
-      5+5
+      m - n
   end
 
   |[
@@ -25,7 +25,7 @@ program main begin
     y := 10;
     x := 3;
 
-    if x < y  -> |[ x := x + 1 ; sumar(454,5) ; x := x + 1 ; writeln(x) ]|
+    if x < y  -> |[ x := x + 1 ; sumar(454,5) ; x := x + 1 ; writeln(restar(5,3)+1) ]|
     [] x >= y -> skip
     fi
 

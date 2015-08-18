@@ -242,13 +242,11 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
 
 
 createInstruction (MyAST.ProcCall pname st _ args _) = do
-    exp   <- mapM createExpression args
-    call  <- newLabel
-    final <- newLabel
-    let exp'   = map (\i -> (i,[])) exp
-    let op     = definedFunction (VoidType) (Name $ TE.unpack pname)
-    let callop = (Right op) 
-    setLabel final $ Do $ (Invoke CC.C [] callop exp' [] final final [])
+    exp <- mapM createExpression args
+    let exp' = map (\i -> (i,[])) exp
+    let op   = definedFunction VoidType (Name $ TE.unpack pname)
+    addUnNamedInstruction VoidType $ Call False CC.C [] (Right op) exp' [] []
+    --setLabel final $ Do $ (Invoke CC.C [] (Right op) exp' [] final final [])
     return ()
 
 
@@ -342,9 +340,14 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     let t' = MyAST.tag lexp 
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
---POR HAcer
-createExpression (MyAST.FCallExp fname st _ args _) = do
-   return $ ConstantOperand $ C.Int 8 0 
+
+createExpression (MyAST.FCallExp fname st _ args t) = do
+    exp <- mapM createExpression args
+    let ty   =  toType t 
+    let exp' = map (\i -> (i,[])) exp
+    let op   = definedFunction ty (Name $ TE.unpack fname)
+    val <- addUnNamedInstruction ty $ Call False CC.C [] (Right op) exp' [] []
+    return val
 
 
 load :: String -> Type -> LLVM (Operand)
