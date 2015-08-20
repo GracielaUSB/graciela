@@ -2,14 +2,16 @@
 
 module Codegen where
 
-import qualified LLVM.General.AST.CallingConvention as CC
-import qualified LLVM.General.AST.Constant          as C
-import qualified Data.Sequence                      as DS
-import qualified Data.Text                          as TE
-import qualified Data.Map                           as DM
-import qualified Type                               as T
-import qualified AST                                as MyAST
-import LLVM.General.AST                             as AST
+import qualified LLVM.General.AST.FloatingPointPredicate as FL 
+import qualified LLVM.General.AST.IntegerPredicate       as IL 
+import qualified LLVM.General.AST.CallingConvention      as CC
+import qualified LLVM.General.AST.Constant               as C
+import qualified Data.Sequence                           as DS
+import qualified Data.Text                               as TE
+import qualified Data.Map                                as DM
+import qualified Type                                    as T
+import qualified AST                                     as MyAST
+import LLVM.General.AST                                  as AST
 import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.Global
@@ -25,38 +27,14 @@ import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
-import IR
 
-
--- emptyModule :: String -> AST.Module
--- emptyModule label = defaultModule { moduleName = label }
--- 
--- 
--- addDefn :: Definition -> LLVM ()
--- addDefn d = do
---   defs <- gets moduleDefinitions
---   modify $ \s -> s { moduleDefinitions = defs ++ [d] }
-
---runLLVM :: AST.Module -> LLVM a -> AST.Module
---runLLVM = flip (execState . unLLVM)
---
--- newtype Codegen a = Codegen { runCodegen :: State CodegenSt a }
---   deriving (Functor, Applicative, Monad, MonadState CodegenSt)
---
--- runLLVM (emptyModule name) $ createLLVM defs accs
---
--- astToLLVM :: MyAST.AST T.Type -> LLVM ()
--- astToLLVM (MyAST.Program name _ defs accs _) = do
---   mapM_ defineProc (TE.unpack name) [] defs' accs'
---   where
---     bls = createBlocks $ execCodegen $ astToInstr acc
 
 data CodegenSt
   = CodeGenSt {
     insCount    :: Word                        -- Cantidad de instrucciones sin nombre
   , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
   , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
-  , bblocs      :: DS.Seq BasicBlock         -- Lista de bloques básicos en la definición actual
+  , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
   , moduleDefs  :: DS.Seq Definition
   , varsLoc     :: DM.Map String Operand
   } deriving (Show)
@@ -81,10 +59,31 @@ astToLLVM (MyAST.Program name _ defs accs _) =
     }
 
 
+createPreDef ::  LLVM () 
+createPreDef = do
+    let params =  ([Parameter i32 (Name "x") []], False)
+    addDefinition "writeLnInt" params VoidType
+    let params2 = ([Parameter i1 (Name "x") []], False)
+    addDefinition "writeLnBool" params2 VoidType
+    let params3 = ([Parameter double (Name "x") []], False)
+    addDefinition "writeLnDouble"  params3 VoidType
+    addDefinition "llvm.sqrt.f64"   params3 double
+    addDefinition "llvm.fabs.f64"   params3 double
+    addDefinition "llvm.minnum.f64" params3 double
+    addDefinition "llvm.maxnum.f64" params3 double
+    let params4 = ([Parameter double (Name "y") [], 
+                    Parameter double (Name "x") []], False)
+    addDefinition "llvm.pow.f64" params4 double
+    return ()
+
+
+
+
+
+
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
-    let params = ([Parameter i32 (Name "") []], False)
-    addDefinition "writeLnInt" params VoidType
+    createPreDef
     mapM_ createDef defs
     m800 <- retVoid
     createBasicBlocks accs m800
@@ -205,10 +204,18 @@ createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
     return ()
 
 
-createInstruction (MyAST.Write True e _ t) = do
-    e' <- createExpression e
-    addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                 (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
+createInstruction (MyAST.Write True exp _ t) = do
+    let ty = MyAST.tag exp 
+    e' <- createExpression exp
+
+    case ty of
+    { T.MyInt   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                        (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
+    ; T.MyFloat -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                        (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
+    ; T.MyBool  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                        (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
+    }
     return ()
 
 
@@ -275,6 +282,7 @@ genGuard (MyAST.Guard guard acc _ _) next = do
     setLabel code $ condBranch tag code next
     createInstruction acc
 
+
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
 
@@ -287,6 +295,11 @@ alloca ty r = do
 store :: Type -> Operand -> Operand -> LLVM Operand
 store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
+
+
+load :: String -> Type -> LLVM (Operand)
+load name ty = do 
+    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
@@ -311,11 +324,11 @@ createExpression (MyAST.Float _ n _) = do
 
 
 createExpression (MyAST.Bool _ True  _) = do
-   return $ ConstantOperand $ C.Int 8 1 
+   return $ ConstantOperand $ C.Int 1 1 
  
 
 createExpression (MyAST.Bool _ False _) = do
-   return $ ConstantOperand $ C.Int 8 0 
+   return $ ConstantOperand $ C.Int 1 0 
  
 
 createExpression (MyAST.Char _ n _) = do
@@ -341,6 +354,11 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
 
+createExpression (MyAST.Unary op _ exp t) = do
+    exp' <- createExpression exp
+    addUnNamedInstruction (toType t) $ irUnary op t exp' 
+
+
 createExpression (MyAST.FCallExp fname st _ args t) = do
     exp <- mapM createExpression args
     let ty   =  toType t 
@@ -348,11 +366,6 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     let op   = definedFunction ty (Name $ TE.unpack fname)
     val <- addUnNamedInstruction ty $ Call False CC.C [] (Right op) exp' [] []
     return val
-
-
-load :: String -> Type -> LLVM (Operand)
-load name ty = do 
-    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
 
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
@@ -389,3 +402,71 @@ retVoid :: LLVM (Named Terminator)
 retVoid = do 
     n <- newLabel
     return $ n := Ret Nothing []
+
+
+irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
+irArithmetic MyAST.Sum T.MyInt   a b = Add False False a b []
+irArithmetic MyAST.Sum T.MyFloat a b = FAdd NoFastMathFlags a b []
+irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []
+irArithmetic MyAST.Sub T.MyFloat a b = FSub NoFastMathFlags a b []
+irArithmetic MyAST.Mul T.MyInt   a b = Mul False False a b []
+irArithmetic MyAST.Mul T.MyFloat a b = FMul NoFastMathFlags a b []
+irArithmetic MyAST.Div T.MyInt   a b = SDiv True a b []
+irArithmetic MyAST.Div T.MyFloat a b = FDiv NoFastMathFlags a b []
+irArithmetic MyAST.Mod T.MyInt   a b = URem a b []
+irArithmetic MyAST.Mod T.MyFloat a b = FRem NoFastMathFlags a b []
+--irArithmetic MyAST.Exp T.MyInt   a b = URem a b []
+irArithmetic MyAST.Exp T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+                                         (Name "llvm.pow.f64"))) [(a, []),(b, [])] [] []
+
+--irArithmetic MyAST.Min T.MyInt   a b = URem a b []
+irArithmetic MyAST.Min T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+                                         (Name "llvm.minnum.f64"))) [(a, []),(b, [])] [] []
+--irArithmetic MyAST.Max T.MyInt   a b = URem a b []
+irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+                                         (Name "llvm.maxnum.f64"))) [(a, []),(b, [])] [] []
+
+
+irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
+irBoolean MyAST.Con a b = And a b []
+irBoolean MyAST.Dis a b = Or  a b []
+--irBoolean MyAST.Implies a b = And a b []
+--irBoolean MyAST.Conse a b = Or  a b []
+
+
+irRelational :: MyAST.OpRel -> T.Type -> Operand -> Operand -> Instruction
+irRelational MyAST.Equ     T.MyFloat a b = FCmp FL.OEQ a b []
+irRelational MyAST.Less    T.MyFloat a b = FCmp FL.OLT a b []
+irRelational MyAST.Greater T.MyFloat a b = FCmp FL.OGT a b []
+irRelational MyAST.LEqual  T.MyFloat a b = FCmp FL.OLE a b []
+irRelational MyAST.GEqual  T.MyFloat a b = FCmp FL.OGE a b []
+irRelational MyAST.Ine     T.MyFloat a b = FCmp FL.OEQ a b [] -- Negacion
+irRelational MyAST.Equal   T.MyFloat a b = FCmp FL.ONE a b [] -- Inequiva  REVISARRR
+
+irRelational MyAST.Equ     T.MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Less    T.MyInt   a b = ICmp IL.SLT a b []
+irRelational MyAST.Greater T.MyInt   a b = ICmp IL.SGT a b []
+irRelational MyAST.LEqual  T.MyInt   a b = ICmp IL.SLE a b []
+irRelational MyAST.GEqual  T.MyInt   a b = ICmp IL.SGE a b []
+irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Equal   T.MyInt   a b = ICmp IL.NE a b []
+
+
+irConvertion :: MyAST.Conv -> T.Type -> Operand -> Instruction
+irConvertion MyAST.ToInt    T.MyFloat a = FPToSI a i32    [] 
+irConvertion MyAST.ToInt    T.MyChar  a = FPToSI a i32    [] 
+irConvertion MyAST.ToDouble T.MyInt   a = SIToFP a double [] 
+irConvertion MyAST.ToDouble T.MyChar  a = SIToFP a double [] 
+irConvertion MyAST.ToChar   T.MyInt   a = Trunc  a i8     [] 
+irConvertion MyAST.ToChar   T.MyFloat a = FPToSI a i8     [] 
+
+
+irUnary :: MyAST.OpUn -> T.Type -> Operand -> Instruction
+irUnary MyAST.Minus T.MyInt   a = Sub False False      (ConstantOperand $ C.Int 32 0) a []
+irUnary MyAST.Minus T.MyFloat a = FSub NoFastMathFlags (ConstantOperand $ C.Float $ Double 0) a []
+irUnary MyAST.Not   T.MyBool  a = Xor a (ConstantOperand $ C.Int 1 1) [] 
+--irUnary MyAST.Abs   T.MyInt a = 
+irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
+                                         (Name "llvm.fabs.f64"))) [(a, [])] [] []
+irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
+                                    (Name "llvm.sqrt.f64"))) [(a, [])] [] []
