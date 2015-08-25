@@ -1,5 +1,25 @@
 program main begin
 
+<<<<<<< HEAD
+=======
+  proc sumar : (inout m : int, in n : int) 
+  begin
+      var ss : int; 
+      {pre m >= 0 /\ n >= 0 pre}  
+      |[
+           ss := 548;
+           writeln(m)
+      ]|  
+      {post m <= m + n post}
+  end
+
+
+  func restar : (m : int, n : int) -> int
+  begin
+      m - n
+  end
+
+>>>>>>> df4e61a91ec3bb084a5bf660064a5aebebf2c401
   |[
     var i := 0 : int;
     var j := 0 : int;
@@ -24,8 +44,14 @@ program main begin
     ]|
     od;
 
+<<<<<<< HEAD
     i := 0;
     j := 0;
+=======
+    if x < y  -> |[ x := x + 1 ; sumar(454,5) ; x := x + 1 ; writeln(restar(5,3)+1) ]|
+    [] x >= y -> skip
+    fi
+>>>>>>> df4e61a91ec3bb084a5bf660064a5aebebf2c401
 
     {inv true inv}
     {bound true bound}
