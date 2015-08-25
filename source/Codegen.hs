@@ -37,6 +37,7 @@ data CodegenSt
   , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
   , moduleDefs  :: DS.Seq Definition
   , varsLoc     :: DM.Map String Operand
+  , arrsDim     :: DM.Map String [Operand]
   } deriving (Show)
 
 
@@ -45,7 +46,7 @@ newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
 
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty
+emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
 
 
 execCodegen :: LLVM a -> CodegenSt
@@ -58,6 +59,10 @@ astToLLVM (MyAST.Program name _ defs accs _) =
                   , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM defs accs
     }
 
+addDimToArray :: String -> Operand -> LLVM()
+addDimToArray name op = do
+    dims <- gets arrsDim
+    modify $ \s -> s { arrsDim = DM.insertWith (++) name [op] dims }
 
 createPreDef ::  LLVM () 
 createPreDef = do
@@ -181,22 +186,93 @@ getCount = do
 
 localAlloca :: [(TE.Text, Contents a)] -> LLVM ()
 localAlloca idList =
-    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) idList
+    mapM_ (uncurry $ alloca Nothing) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) idList
 
 
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
-    mapM_ (uncurry alloca) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
+    mapM_ (uncurry $ alloca Nothing) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
+   
                                                  $ DM.toList $ (getMap . getActual) st
-    
 
---Falta arreglo, y lista
+
+accToAlloca :: MyAST.AST T.Type -> LLVM()
+accToAlloca acc@(MyAST.ID _ id' t) = do
+    let id = TE.unpack id'
+    dim <- typeToOperand id t 
+    alloca dim (toType t) id
+    createInstruction acc
+
+
+accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
+    mapM_ idToAlloca lids
+    createInstruction acc
+
+
+idToAlloca :: ((TE.Text, T.Type), [MyAST.AST a]) -> LLVM()
+idToAlloca ((id, t),arr) = do
+    let id' = TE.unpack id
+    dim <- typeToOperand id' t
+    alloca dim (toType t) id'
+    return ()
+
+
+typeToOperand :: String -> T.Type -> LLVM (Maybe Operand)
+typeToOperand name (T.MyArray dim ty) = do
+    r <- typeToOperand name ty
+    d <- dimToOperand dim
+    addDimToArray name d
+    case r of
+      Nothing -> return $ return d 
+      Just op -> fmap Just $ addUnNamedInstruction (toType T.MyInt) $ irArithmetic MyAST.Mul T.MyInt op d
+typeToOperand _  _             = return $ Nothing
+
+
+dimToOperand :: Either TE.Text Integer -> LLVM Operand
+dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
+dimToOperand (Left id) = load (TE.unpack id) intType
+
+
+opsToArrayIndex :: String -> [Operand] -> LLVM (Operand)
+opsToArrayIndex name ops = do
+    arrD <- gets arrsDim
+    let arrDims' = fromJust $ DM.lookup name arrD
+    mulDims (tail arrDims') ops
+
+
+-- Si la primera lista tiene mas elementos que la segunda paso al muy malo en el chequeo de tipos.
+-- Significa que estas intentando acceder a una dimension del arreglo que no existe.
+mulDims :: [Operand] -> [Operand] -> LLVM Operand
+mulDims _ [acc] = return acc
+
+mulDims (arrDim:xs) (acc:ys) = do
+    op    <- mulDims xs ys
+    opMul <- addUnNamedInstruction intType $ Mul False False arrDim acc []
+    addUnNamedInstruction intType $ Add False False op opMul []
+
+
 createInstruction :: MyAST.AST T.Type -> LLVM ()
-createInstruction (MyAST.LAssign (((id, t), _):_) (e:_) _ _) = do
+createInstruction (MyAST.EmptyAST _ ) = return ()
+createInstruction (MyAST.ID _ _ _)    = return ()
+createInstruction (MyAST.Skip _ _)    = return ()
+
+
+createInstruction (MyAST.LAssign (((id, t), []):_) (e:_) _ _) = do
     e' <- createExpression e
     map <- gets varsLoc
     let (t', i) = (toType t, fromJust $ DM.lookup (TE.unpack id) map)
     store t' i e'
+    return ()
+
+
+createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
+    e'  <- createExpression e
+    ac' <- mapM createExpression accs
+    map <- gets varsLoc
+    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
+    ac'' <- opsToArrayIndex id ac'
+    opa  <- addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
+    store t' opa e'
     return ()
 
 
@@ -215,11 +291,8 @@ createInstruction (MyAST.Write True exp _ t) = do
     return ()
 
 
-createInstruction (MyAST.Skip _ _) = return ()
- 
-
-createInstruction (MyAST.Block _ st _ accs _) = do
-    sTableToAlloca st
+createInstruction (MyAST.Block _ st decs accs _) = do
+    mapM_ accToAlloca decs
     mapM_ createInstruction accs
     return ()
 
@@ -266,11 +339,13 @@ genGuards (guard:[]) none one = do
     genGuard guard none
     setLabel none $ branch one
 
+
 genGuards (guard:xs) none one = do
     next <- newLabel
     genGuard guard next
     setLabel next $ branch one
     genGuards xs none one
+
 
 genGuard (MyAST.Guard guard acc _ _) next = do
     tag  <- createExpression guard
@@ -283,9 +358,9 @@ definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (C.GlobalReference ty)
 
 
-alloca :: Type -> String -> LLVM Operand
-alloca ty r = do
-    addNamedInstruction ty r $ Alloca ty Nothing 0 []
+alloca :: Maybe Operand -> Type -> String -> LLVM Operand
+alloca cant ty r = do
+    addNamedInstruction ty r $ Alloca ty cant 0 []
 
 
 store :: Type -> Operand -> Operand -> LLVM Operand
@@ -293,9 +368,15 @@ store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
 
+--load :: String -> Type -> LLVM (Operand)
+--load name ty = do 
+--    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
+
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
-    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
+    map <- gets varsLoc
+    let i = fromJust $ DM.lookup name map
+    addUnNamedInstruction ty $ Load False i Nothing 0 []
 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
@@ -309,6 +390,15 @@ createExpression (MyAST.ID _ id t) = do
                     return val
     ; Nothing -> do return $ local ty (Name n)
     }
+
+
+createExpression (MyAST.ArrCall _ id' accs t) = do
+    accs' <- mapM createExpression accs
+    map  <- gets varsLoc
+    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
+    accs'' <- opsToArrayIndex id accs'
+    add <- addUnNamedInstruction t' $ GetElementPtr True i [accs''] []
+    addUnNamedInstruction t' $ Load False add Nothing 0 []
 
 
 createExpression (MyAST.Int _ n _) = do
@@ -387,7 +477,6 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     return val
 
 
-
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
     genIntructions accs
@@ -406,6 +495,11 @@ toType T.MyInt   = i32
 toType T.MyFloat = double
 toType T.MyBool  = i1
 toType T.MyChar  = i8
+toType (T.MyArray _ t) = toType t 
+
+
+intType :: Type
+intType = i32
 
 
 intToDouble :: Operand -> LLVM Operand
@@ -432,7 +526,7 @@ retVoid = do
     return $ n := Ret Nothing []
 
 
---irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
+irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
 irArithmetic MyAST.Sum T.MyInt   a b = Add False False a b []
 irArithmetic MyAST.Sum T.MyFloat a b = FAdd NoFastMathFlags a b []
 irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []

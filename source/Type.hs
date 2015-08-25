@@ -1,5 +1,6 @@
 module Type where
 
+import Data.Text
 
 data TypeArg = In | Out | InOut
       deriving (Eq)
@@ -11,7 +12,7 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction {  paramType :: [Type], retuType :: Type } | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray { getTam :: Maybe Integer, getType :: Type }
+                  | MyError | MyEmpty | MyString | MyArray { getTam :: Either Text Integer, getType :: Type }
 
 
 

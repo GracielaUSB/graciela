@@ -106,12 +106,12 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Block        { location :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
                         , tag :: a                                                                                     }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
+         | ConsAssign   { location  :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a             }
          | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
          | FCallExp     { fname    :: T.Text, astSTable :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
          | ProcCall     { pname    :: T.Text, astSTable :: SymbolTable, location  :: Location
                         , args     :: [AST a], tag :: a                                                                } 
-         | ConsAssign   { location  :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a             }
          | DecArray     { dimension :: [AST a], tag :: a                                                               }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
