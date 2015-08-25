@@ -29,3 +29,11 @@ void writeLnBool(int x) {
 
     return;
 }
+
+
+void writeLnString(char *array[]) {
+
+    printf("%s\n",array);
+    return;
+
+}
