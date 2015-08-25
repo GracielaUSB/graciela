@@ -77,10 +77,6 @@ createPreDef = do
     return ()
 
 
-
-
-
-
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
     createPreDef
@@ -335,12 +331,35 @@ createExpression (MyAST.Char _ n _) = do
     return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
     
 
+--Potencia Integer
+createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    a     <- intToDouble lexp'
+    b     <- intToDouble rexp'
+    val   <- addUnNamedInstruction double $ Call False CC.C [] (Right ( definedFunction double 
+                                              (Name "llvm.pow.f64"))) [(a, []),(b, [])] [] []  
+    doubleToInt val
+
+
+--Minimo Integer
+createExpression (MyAST.Arithmetic MyAST.Min _ lexp rexp T.MyInt) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    a     <- intToDouble lexp'
+    b     <- intToDouble rexp'
+    val   <- addUnNamedInstruction double $ Call False CC.C [] (Right ( definedFunction double 
+                                              (Name "llvm.minnum.f64"))) [(a, []),(b, [])] [] []  
+    doubleToInt val
+
+
+
 createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
     addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
- 
- 
+     
+
 createExpression (MyAST.Boolean op _ lexp rexp t) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
@@ -368,6 +387,7 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     return val
 
 
+
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
     genIntructions accs
@@ -388,6 +408,14 @@ toType T.MyBool  = i1
 toType T.MyChar  = i8
 
 
+intToDouble :: Operand -> LLVM Operand
+intToDouble x = addUnNamedInstruction double $ SIToFP x double []
+
+
+doubleToInt :: Operand -> LLVM Operand
+doubleToInt x = addUnNamedInstruction i32 $ FPToSI x i32 [] 
+
+
 local :: Type -> Name -> Operand
 local = LocalReference
 
@@ -404,7 +432,7 @@ retVoid = do
     return $ n := Ret Nothing []
 
 
-irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
+--irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
 irArithmetic MyAST.Sum T.MyInt   a b = Add False False a b []
 irArithmetic MyAST.Sum T.MyFloat a b = FAdd NoFastMathFlags a b []
 irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []
@@ -415,11 +443,8 @@ irArithmetic MyAST.Div T.MyInt   a b = SDiv True a b []
 irArithmetic MyAST.Div T.MyFloat a b = FDiv NoFastMathFlags a b []
 irArithmetic MyAST.Mod T.MyInt   a b = URem a b []
 irArithmetic MyAST.Mod T.MyFloat a b = FRem NoFastMathFlags a b []
---irArithmetic MyAST.Exp T.MyInt   a b = URem a b []
 irArithmetic MyAST.Exp T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.pow.f64"))) [(a, []),(b, [])] [] []
-
---irArithmetic MyAST.Min T.MyInt   a b = URem a b []
 irArithmetic MyAST.Min T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.minnum.f64"))) [(a, []),(b, [])] [] []
 --irArithmetic MyAST.Max T.MyInt   a b = URem a b []
@@ -469,4 +494,4 @@ irUnary MyAST.Not   T.MyBool  a = Xor a (ConstantOperand $ C.Int 1 1) []
 irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.fabs.f64"))) [(a, [])] [] []
 irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
-                                    (Name "llvm.sqrt.f64"))) [(a, [])] [] []
+                                         (Name "llvm.sqrt.f64"))) [(a, [])] [] []
