@@ -1,22 +1,48 @@
 program main begin
 
-func sumar : () -> int
-begin
-      2 + 5
-end
-
   |[
-    var x : int;
-    var y : int;
-    var z : char;
+    var i := 0 : int;
+    var j := 0 : int;
+    const y := 5  : int;
+    var   z := 10 : int;
+    var arrglo : array [y] of array [z] of int;
 
-    y := 10;
-    x := 3;
+    {inv true inv}
+    {bound true bound}
+    do (i < y) ->
+    |[  
+    j := 0;
+    {inv true inv}
+    {bound true bound}
+      do (j < z) ->
+        |[
+            arrglo[i][j] := i + j;
+            j := j + 1
+        ]|
+      od;
+      i := i + 1
+    ]|
+    od;
 
-    if x < y  -> |[ writeln(x) ; x := x + 1 ]|
-    [] x >= y -> skip
-    fi
+    i := 0;
+    j := 0;
 
+    {inv true inv}
+    {bound true bound}
+    do (i < y) ->
+    |[  
+    j := 0;
+    {inv true inv}
+    {bound true bound}
+      do (j < z) ->
+        |[
+            writeln(arrglo[i][j]);
+            j := j + 1
+        ]|
+      od;
+
+      i := i + 1
+    ]|
+    od
   ]|
 end
-

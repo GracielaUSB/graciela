@@ -98,7 +98,7 @@ function follow recSet =
                            sb <- getActualScope
                            exitScopeParser
                            addFunTypeParser id lt t (getLocation pos) sb
-                           return(M.liftM4 (DefFun id sb (getLocation pos)) b t bo (return (MyEmpty)))
+                           return(M.liftM4 (DefFun id sb (getLocation pos)) b (return t) bo (return (MyEmpty)))
                        )
                   <|> do err <- genNewError follow ProcOrFunc
                          return $ Nothing
@@ -125,7 +125,7 @@ argFunc idf follow recSet =
              (recSet <|> parseRightParent <|> parseComma)
        pos <- getPosition
        addFunctionArgParser idf id t (getLocation pos)
-       return $ fmap ((,) id) t
+       return $ return (id, t)
 
 
 listArgFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
@@ -146,7 +146,7 @@ argFuncAux idf follow recSet =
        t  <- myType (parseComma <|> follow) (parseComma <|> recSet)
        pos <- getPosition
        addFunctionArgParser idf id t (getLocation pos)
-       return $ fmap ((,) id) t
+       return $ return (id, t)
 
 
 
@@ -279,7 +279,7 @@ arg pid follow recSet =
        t <- myType follow recSet
        pos <- getPosition
        addArgProcParser id pid t (getLocation pos) at
-       return $ fmap ((,) id) t
+       return $ return (id, t)
 
 
 functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
