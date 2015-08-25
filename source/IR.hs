@@ -1,16 +1,22 @@
 module IR where
 
 import qualified LLVM.General.AST.FloatingPointPredicate as FL 
+import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.IntegerPredicate       as IL 
 import qualified AST                                     as MyAST
-import qualified LLVM.General.AST.Attribute as AT
+import qualified LLVM.General.AST.Attribute              as AT
+import qualified LLVM.General.AST.Constant               as C
 import LLVM.General.AST.CallingConvention
 import LLVM.General.AST.Global
+import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
 import Control.Monad.State
 import Control.Applicative
 import LLVM.General.AST 
 import Type
+
+
+
 
 
 irArithmetic :: MyAST.OpNum -> Type.Type -> Operand -> Operand -> Instruction
@@ -57,8 +63,6 @@ irRelational MyAST.Ine     MyInt   a b = ICmp IL.EQ a b []
 irRelational MyAST.Equal   MyInt   a b = ICmp IL.NE a b []
 
 
-
-
 irConvertion :: MyAST.Conv -> Type.Type -> Operand -> Instruction
 irConvertion MyAST.ToInt    MyFloat a = FPToSI a i32    [] 
 irConvertion MyAST.ToInt    MyChar  a = FPToSI a i32    [] 
@@ -69,17 +73,8 @@ irConvertion MyAST.ToChar   MyFloat a = FPToSI a i8     []
 
 
 irUnary :: MyAST.OpUn -> Type.Type -> Operand -> Instruction
-irUnary MyAST.Minus MyInt   a = FPToSI a VoidType [] 
---irUnary MyAST.Minus MyFloat a = FPToSI a VoidType [] 
---irUnary MyAST.Not   MyFloat a = FPToSI a VoidType [] 
---irUnary MyAST.Abs   MyFloat a = FPToSI a VoidType [] 
---irUnary MyAST.Sqrt  MyFloat a = FPToSI a VoidType [] 
+irUnary MyAST.Minus MyInt   a = Sub False False      (ConstantOperand $ C.Int 32 0) a []
+irUnary MyAST.Minus MyFloat a = FSub NoFastMathFlags (ConstantOperand $ C.Float $ Double 0) a []
+irUnary MyAST.Not   MyBool  a = Xor a (ConstantOperand $ C.Int 1 1) [] 
+irUnary MyAST.Abs   MyFloat a = FPToSI a VoidType [] 
 
-
-toArgs :: [Operand] -> [(Operand, [AT.ParameterAttribute])]
-toArgs = map (\x -> (x, []))
-
-
---irCallExp :: Operand -> [Operand] -> Instruction
-irCallExp ::  CallableOperand -> [(Operand, [AT.ParameterAttribute])] -> Instruction
-irCallExp fn args = Call False C [] fn args [] []
