@@ -4,6 +4,8 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 */
 
 #include "stdio.h"
+#include <string.h>
+
 
 // putchard - putchar that takes a double and returns 0.
 void writeLnInt(int x) {
@@ -31,9 +33,42 @@ void writeLnBool(int x) {
 }
 
 
-void writeLnString(char *array[]) {
+void writeLnString(char *x) {
 
-    printf("%s\n",array);
+    printf("%s\n",x);
+    return;
+
+}
+
+
+void writeInt(int x) {
+    printf("%d", x);
+    return;
+}
+
+
+void writeDouble(double x) {
+
+    printf("%f", x);
+    return;
+
+}
+
+
+void writeBool(int x) {
+
+    if (x == 1) 
+    	printf("%s", "true");
+    else 
+    	printf("%s", "false");
+
+    return;
+}
+
+
+void writeString(char *x) {
+
+    printf("%s",x);
     return;
 
 }
