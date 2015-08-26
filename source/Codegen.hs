@@ -6,6 +6,7 @@ import qualified LLVM.General.AST.FloatingPointPredicate as FL
 import qualified LLVM.General.AST.IntegerPredicate       as IL 
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
+import LLVM.General.AST.AddrSpace
 import qualified Data.Sequence                           as DS
 import qualified Data.Text                               as TE
 import qualified Data.Map                                as DM
@@ -93,16 +94,24 @@ createLLVM defs accs = do
     addDefinition "main" ([],False) VoidType
 
 
+convertParams [] = []
+convertParams ((id',c):xs) = 
+    let id = TE.unpack id' 
+        t  = toType $ symbolType c in
+      case procArgType $ c of
+        T.In      -> (id, t) : convertParams xs
+        otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound _ _) = do
-    let procCont = DM.toList $ getMap $ getActual st
+    let procCont = DM.toList $ getMap $ getActual st -- Esto no esta en orden de declaraciones ni de parametros.
     let justArgs = filter (\(id, t) -> isArg t) procCont
     let locals   = filter (\(id, t) -> not $ isArg t) procCont 
-    localAlloca locals
-   -- let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t, procArgType t)) procCont
-    let args     = map (\(id, t) -> (Name $ TE.unpack id, toType $ symbolType t)) justArgs
-    let args'    = ([Parameter t id [] | (id, t) <- args], False) 
+    localAlloca locals -- Esto va a explotar por la misma razon que explotaba lo otro, locals no esta en orden de declaracion
+    let args     = convertParams justArgs
+    let args'    = ([Parameter t (Name id) [] | (id, t) <- args], False) 
     retTy <- retVoid
+    mapM_ (uncurry addVarOperand) $ zip (map fst args) (map (\(id, t) -> local t (Name id)) args)
     createBasicBlocks accs retTy
     addDefinition (TE.unpack name) args' VoidType
 
@@ -330,13 +339,28 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
 
 
 createInstruction (MyAST.ProcCall pname st _ args _) = do
-    exp <- mapM createExpression args
+    let c     = fromJust $ checkSymbol pname st
+    let dic   = getMap $ getActual $ sTable $ c
+    let nargp = map fst $ filter (\(id, t) -> isArg t) (DM.toList dic)
+    exp <- createArguments dic nargp args
     let exp' = map (\i -> (i,[])) exp
     let op   = definedFunction VoidType (Name $ TE.unpack pname)
     addUnNamedInstruction VoidType $ Call False CC.C [] (Right op) exp' [] []
     --setLabel final $ Do $ (Invoke CC.C [] (Right op) exp' [] final final [])
     return ()
 
+createArguments dicnp (nargp:nargps) (arg:args) = do
+    lr <- createArguments dicnp nargps args
+    let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
+    case argt of
+      T.In -> 
+        do arg' <- createExpression arg
+           return $ arg':lr
+      otherwise ->
+        do dicn <- gets varsLoc
+           return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+
+createArguments _ [] [] = return []
 
 branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 

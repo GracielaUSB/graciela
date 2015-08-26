@@ -1,9 +1,9 @@
 module SymbolTable where
 
-import qualified Data.Maybe as Maybe
-import qualified Data.Tree  as Tr
-import qualified Data.Text  as T
-import qualified Data.Map   as M
+import qualified Data.Maybe        as Maybe
+import qualified Data.Tree         as Tr
+import qualified Data.Text         as T
+import qualified Data.Map.Strict   as M
 import Data.Monoid
 import Location
 import Contents
@@ -108,10 +108,6 @@ lookUpMap valor f tabla =
       case r of 
         Nothing -> dic 
         Just p  -> modifyPadre dic r
-      --case getPadre tabla of
-      --  Nothing   -> dic
-      --  Just sup  -> lookUpMap valor sup f padre
-
 
 initSymbol :: T.Text -> SymbolTable -> SymbolTable
 initSymbol id sb = lookUpMap id initSymbolContent sb
