@@ -13,9 +13,9 @@ import qualified Data.Map                                as DM
 import qualified Type                                    as T
 import qualified AST                                     as MyAST
 import LLVM.General.AST                                  as AST
+import LLVM.General.AST.Global                           as GLOB
 import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
-import LLVM.General.AST.Global
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
 import Control.Monad.State
@@ -28,7 +28,7 @@ import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
-
+import LLVM.General.AST.AddrSpace
 
 data CodegenSt
   = CodeGenSt {
@@ -80,6 +80,8 @@ createPreDef = do
     let params4 = ([Parameter double (Name "y") [], 
                     Parameter double (Name "x") []], False)
     addDefinition "llvm.pow.f64" params4 double
+    let params5 = ([Parameter (PointerType i8 (AddrSpace 0)) (Name "msg") [NoCapture]], False)
+    addDefinition "puts" params5 i32
     return ()
 
 
@@ -138,6 +140,22 @@ addDefinition name params retTy = do
     modify $ \s -> s { bblocs  = DS.empty }
     modify $ \s -> s { varsLoc = DM.empty }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
+
+
+addString :: String -> Name -> Type -> LLVM ()
+addString msg name ty = do
+    defs <- gets moduleDefs
+    let def = GlobalDefinition $ globalVariableDefaults {
+                name        = name
+              , isConstant  = True
+              , GLOB.type'  = ty  
+              , initializer = Just $ stringConst msg
+              }
+    modify $ \s -> s { moduleDefs = defs DS.|> def}
+
+
+stringConst :: String -> C.Constant
+stringConst msg = C.Array i8 [C.Int 8 (fromIntegral (ord c)) | c <- (msg ++ "\0")]    
 
 
 newLabel :: LLVM (Name)
@@ -201,8 +219,7 @@ localAlloca idList =
 sTableToAlloca :: SymbolTable -> LLVM ()
 sTableToAlloca st = 
     mapM_ (uncurry $ alloca Nothing) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
-   
-                                                 $ DM.toList $ (getMap . getActual) st
+                                                        $ DM.toList $ (getMap . getActual) st
 
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
@@ -290,26 +307,21 @@ createInstruction (MyAST.Write True exp _ t) = do
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                        (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
-    ; T.MyFloat -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                        (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
-    ; T.MyBool  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                        (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
-    }
+    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
+    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
+    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
+    ; T.MyString -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "puts"))) [(e', [])] [] []
+    }    
     return ()
 
 
 createInstruction (MyAST.Block _ st decs accs _) = do
     mapM_ accToAlloca decs
     mapM_ createInstruction accs
-    return ()
-
-
-createInstruction (MyAST.Convertion tType _ exp t) = do
-    let t' = MyAST.tag exp 
-    exp' <- createExpression exp
-    addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
     return ()
 
 
@@ -379,7 +391,7 @@ genGuard (MyAST.Guard guard acc _ _) next = do
 
 
 definedFunction :: Type -> Name -> Operand
-definedFunction ty = ConstantOperand . (C.GlobalReference ty)
+definedFunction ty = ConstantOperand . (global ty)
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand
@@ -445,6 +457,22 @@ createExpression (MyAST.Char _ n _) = do
     return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
     
 
+
+createExpression (MyAST.String _ msg _) = do
+    let n  = fromIntegral $ Prelude.length msg + 1
+    let ty = ArrayType n i8 
+    name <- newLabel 
+    addString msg name ty
+    return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
+
+
+
+createExpression (MyAST.Convertion tType _ exp t) = do
+    let t' = MyAST.tag exp 
+    exp' <- createExpression exp
+    addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
+
+
 --Potencia Integer
 createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
     lexp' <- createExpression lexp
@@ -467,6 +495,16 @@ createExpression (MyAST.Arithmetic MyAST.Min _ lexp rexp T.MyInt) = do
     doubleToInt val
 
 
+--Maximo Integer
+createExpression (MyAST.Arithmetic MyAST.Max _ lexp rexp T.MyInt) = do
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    a     <- intToDouble lexp'
+    b     <- intToDouble rexp'
+    val   <- addUnNamedInstruction double $ Call False CC.C [] (Right ( definedFunction double 
+                                              (Name "llvm.maxnum.f64"))) [(a, []),(b, [])] [] []  
+    doubleToInt val
+
 
 createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
     lexp' <- createExpression lexp
@@ -486,6 +524,27 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     let t' = MyAST.tag lexp 
     addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
 
+
+--ValorAbs Integer
+createExpression (MyAST.Unary MyAST.Abs _ exp T.MyInt) = do
+    exp' <- createExpression exp
+    x     <- intToDouble exp'
+    val   <- addUnNamedInstruction double $ Call False CC.C [] (Right ( definedFunction double 
+                                              (Name "llvm.fabs.f64"))) [(x, [])] [] []
+    doubleToInt val
+
+
+--Raiz Integer
+createExpression (MyAST.Unary MyAST.Sqrt _ exp t) = do
+    let ty = MyAST.tag exp
+    exp'  <- createExpression exp
+
+    case ty of 
+    { T.MyFloat -> addUnNamedInstruction (toType ty) $ irUnary MyAST.Sqrt ty exp' 
+    ; T.MyInt   -> do x <- intToDouble exp'
+                      addUnNamedInstruction double $ Call False CC.C [] (Right ( definedFunction double 
+                                                       (Name "llvm.sqrt.f64"))) [(x, [])] [] []
+    }
 
 createExpression (MyAST.Unary op _ exp t) = do
     exp' <- createExpression exp
@@ -538,6 +597,8 @@ local :: Type -> Name -> Operand
 local = LocalReference
 
 
+global = C.GlobalReference
+
 retType :: Operand -> LLVM (Named Terminator)
 retType op = do 
     n <- newLabel
@@ -565,7 +626,6 @@ irArithmetic MyAST.Exp T.MyFloat a b = Call False CC.C [] (Right ( definedFuncti
                                          (Name "llvm.pow.f64"))) [(a, []),(b, [])] [] []
 irArithmetic MyAST.Min T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.minnum.f64"))) [(a, []),(b, [])] [] []
---irArithmetic MyAST.Max T.MyInt   a b = URem a b []
 irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.maxnum.f64"))) [(a, []),(b, [])] [] []
 
@@ -608,7 +668,6 @@ irUnary :: MyAST.OpUn -> T.Type -> Operand -> Instruction
 irUnary MyAST.Minus T.MyInt   a = Sub False False      (ConstantOperand $ C.Int 32 0) a []
 irUnary MyAST.Minus T.MyFloat a = FSub NoFastMathFlags (ConstantOperand $ C.Float $ Double 0) a []
 irUnary MyAST.Not   T.MyBool  a = Xor a (ConstantOperand $ C.Int 1 1) [] 
---irUnary MyAST.Abs   T.MyInt a = 
 irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.fabs.f64"))) [(a, [])] [] []
 irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
