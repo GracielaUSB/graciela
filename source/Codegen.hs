@@ -67,23 +67,32 @@ addDimToArray name op = do
 
 createPreDef ::  LLVM () 
 createPreDef = do
+
     let params =  ([Parameter i32 (Name "x") []], False)
     addDefinition "writeLnInt" params VoidType
+    addDefinition "writeInt"   params VoidType
+
     let params2 = ([Parameter i1 (Name "x") []], False)
     addDefinition "writeLnBool" params2 VoidType
+    addDefinition "writeBool"   params2 VoidType
+
     let params3 = ([Parameter double (Name "x") []], False)
     addDefinition "writeLnDouble"  params3 VoidType
+    addDefinition "writeDouble"    params3 VoidType
+
     addDefinition "llvm.sqrt.f64"   params3 double
     addDefinition "llvm.fabs.f64"   params3 double
     addDefinition "llvm.minnum.f64" params3 double
     addDefinition "llvm.maxnum.f64" params3 double
-    let params4 = ([Parameter double (Name "y") [], 
-                    Parameter double (Name "x") []], False)
+
+    let params4 = ([Parameter double (Name "x") [], 
+                    Parameter double (Name "y") []], False)
     addDefinition "llvm.pow.f64" params4 double
+
     let params5 = ([Parameter (PointerType i8 (AddrSpace 0)) (Name "msg") [NoCapture]], False)
     addDefinition "puts" params5 i32
+    
     return ()
-
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
@@ -319,6 +328,23 @@ createInstruction (MyAST.Write True exp _ t) = do
     return ()
 
 
+createInstruction (MyAST.Write False exp _ t) = do
+    let ty = MyAST.tag exp 
+    e' <- createExpression exp
+
+    case ty of
+    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "writeInt"))) [(e', [])] [] []
+    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction double (Name "writeDouble"))) [(e', [])] [] []   
+    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i1 (Name "writeBool"))) [(e', [])] [] []
+    ; T.MyString -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "puts"))) [(e', [])] [] []
+    }    
+    return ()
+
+
 createInstruction (MyAST.Block _ st decs accs _) = do
     mapM_ accToAlloca decs
     mapM_ createInstruction accs
@@ -348,6 +374,7 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     addUnNamedInstruction VoidType $ Call False CC.C [] (Right op) exp' [] []
     --setLabel final $ Do $ (Invoke CC.C [] (Right op) exp' [] final final [])
     return ()
+
 
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
@@ -457,14 +484,12 @@ createExpression (MyAST.Char _ n _) = do
     return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
     
 
-
 createExpression (MyAST.String _ msg _) = do
     let n  = fromIntegral $ Prelude.length msg + 1
     let ty = ArrayType n i8 
     name <- newLabel 
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
-
 
 
 createExpression (MyAST.Convertion tType _ exp t) = do
@@ -672,3 +697,62 @@ irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction do
                                          (Name "llvm.fabs.f64"))) [(a, [])] [] []
 irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.sqrt.f64"))) [(a, [])] [] []
+
+
+
+
+--Write de C
+
+
+--createInstruction (MyAST.Write check (MyAST.String _ msg _) _ t) = do
+--    let n  = fromIntegral $ Prelude.length msg
+--    let ty = ArrayType n i8 
+--    name <- newLabel 
+--    addString msg name ty
+
+--    let arg     = ConstantOperand $ global ty name
+--    let params5 = ([Parameter (PointerType ty (AddrSpace 0)) (Name "msg") [NoCapture]], False)
+
+--    case check of 
+--    { True  -> do addDefinition "writeLnString" params5 VoidType
+--                  addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i1 
+--                                                       (Name "writeLnString"))) [(arg, [])] [] []
+--    ; False -> do addDefinition "writeString"   params5 VoidType 
+--                  addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i1 
+--                                                       (Name "writeString")))   [(arg, [])] [] []
+--    }
+
+--    --return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
+--    return ()
+
+
+
+--createInstruction (MyAST.Write True exp _ t) = do
+--    let ty = MyAST.tag exp 
+--    e' <- createExpression exp
+      
+--    case ty of
+--    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
+--    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
+--    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
+--    } 
+--    return ()
+
+
+--createInstruction (MyAST.Write False exp _ t) = do
+--    let ty = MyAST.tag exp 
+--    e' <- createExpression exp
+
+--    case ty of
+--    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction i32 (Name "writeInt"))) [(e', [])] [] []
+--    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction double (Name "writeDouble"))) [(e', [])] [] []   
+--    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
+--                         (definedFunction i1 (Name "writeBool"))) [(e', [])] [] []
+--    }    
+    
+--    return ()
