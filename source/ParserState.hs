@@ -145,18 +145,22 @@ newInitVar id =
 lookUpConstIntParser :: T.Text -> Location -> MyParser (Maybe Type)
 lookUpConstIntParser id loc =
     do c <- lookUpSymbol id
+       loc <- getPosition
        case c of
          Nothing -> return Nothing
          Just a  -> 
-          if isInitialized a && isRValue a then
-            if symbolType a == MyInt then
-              return $ return MyInt
+          if isInitialized a then
+            if isRValue a then
+              if symbolType a == MyInt then
+                return $ return MyInt
+              else
+                do addNotIntError id (getLocation loc)
+                   return $ Nothing
             else
-              do loc <- getPosition
-                 addNotIntError id (getLocation loc)
-                 return $ Nothing
+              do addNotRValueError id (getLocation loc)
+                 return Nothing
           else
-            do addConsIdError id
+            do addNotInitError id (getLocation loc)
                return Nothing
 
 addConsIdError id = 
