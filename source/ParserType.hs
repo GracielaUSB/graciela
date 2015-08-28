@@ -38,5 +38,7 @@ parseConstNumber follow recSet =
            <|> do e <- number
                   return $ return $ return e
            <|> do id <- parseID
-                  lookUpConstIntParser id (getLocation pos)
-                  return $ return $ Left id
+                  res <- lookUpConstIntParser id (getLocation pos)
+                  case res of
+                    Nothing -> return Nothing
+                    Just _  -> return $ return $ Left id

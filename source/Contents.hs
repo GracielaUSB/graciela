@@ -19,7 +19,7 @@ data Value = I Integer | C Char | D Double | S String | B Bool
 
 data Contents s = Contents    { varBeh      :: VarBehavour, symbolLoc :: Location, symbolType :: Type, value :: Maybe Value, ini :: Bool }
                 | ArgProcCont { procArgType :: TypeArg    , symbolLoc :: Location, symbolType :: Type                                    }
-                | FunctionCon { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s                                                                 }
+                | FunctionCon { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s                             }
                 | ProcCon     { symbolLoc :: Location, symbolType :: Type, nameArgs :: [T.Text], sTable :: s                             }
         deriving (Eq)
 
