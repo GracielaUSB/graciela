@@ -4,7 +4,8 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 */
 
 #include "stdio.h"
-#include <string.h>
+#include "stdlib.h"
+
 
 
 // putchard - putchar that takes a double and returns 0.
@@ -71,4 +72,27 @@ void writeString(char *x) {
     printf("%s",x);
     return;
 
+}
+
+
+int randomInt() {
+ 
+	return rand();
+
+}
+
+
+void abortt(int x) {
+
+	switch (x) {
+
+		case 1:
+    		printf("%s\n", "Ninguna de las guardias del selector es validad");
+			printf("%s\n", "ABORT");  
+			exit(0);
+
+		case 2:
+			printf("%s\n", "ABORT");  
+			exit(0);
+	} 
 }

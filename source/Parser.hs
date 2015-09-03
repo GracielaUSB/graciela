@@ -351,7 +351,9 @@ random :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 random follow recSet = 
     do pos <- getPosition
        parseRandom
+       parseLeftParent
        id  <- parseID
+       parseRightParent
        lookUpSymbol id
        return $ return $ Ran id (getLocation pos) MyEmpty
 

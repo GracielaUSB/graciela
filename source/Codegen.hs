@@ -68,9 +68,12 @@ addDimToArray name op = do
 createPreDef ::  LLVM () 
 createPreDef = do
 
+    addDefinition "randomInt" ([],False) i32
+
     let params =  ([Parameter i32 (Name "x") []], False)
     addDefinition "writeLnInt" params VoidType
     addDefinition "writeInt"   params VoidType
+    addDefinition "abortt"     params VoidType
 
     let params2 = ([Parameter i1 (Name "x") []], False)
     addDefinition "writeLnBool" params2 VoidType
@@ -94,13 +97,24 @@ createPreDef = do
     
     return ()
 
+
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
     createPreDef
     mapM_ createDef defs
     m800 <- retVoid
     createBasicBlocks accs m800
+
+    -- Tag de error del if
+    modify $ \s -> s { blockName = Name "ifAbort" }
+    let arg   = [(ConstantOperand $ C.Int 32 1, [])]
+    addUnNamedInstruction VoidType $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "abortt"))) arg [] []
+    addBasicBlock (Do $ Unreachable [])
+    --
+
     addDefinition "main" ([],False) VoidType
+
 
 
 convertParams [] = []
@@ -110,6 +124,7 @@ convertParams ((id',c):xs) =
       case procArgType $ c of
         T.In      -> (id, t) : convertParams xs
         otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound _ _) = do
@@ -199,6 +214,7 @@ addNamedInstruction t name ins = do
     addVarOperand name op
     return op 
 
+
 addVarOperand :: String -> Operand -> LLVM()
 addVarOperand name op = do
     map <- gets varsLoc
@@ -260,6 +276,7 @@ typeToOperand name (T.MyArray dim ty) = do
     case r of
       Nothing -> return $ return d 
       Just op -> fmap Just $ addUnNamedInstruction (toType T.MyInt) $ irArithmetic MyAST.Mul T.MyInt op d
+
 typeToOperand _  _             = return $ Nothing
 
 
@@ -290,6 +307,13 @@ createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.EmptyAST _ ) = return ()
 createInstruction (MyAST.ID _ _ _)    = return ()
 createInstruction (MyAST.Skip _ _)    = return ()
+
+
+createInstruction (MyAST.Abort _ _) = do
+    let arg = [(ConstantOperand $ C.Int 32 2, [])]
+    addUnNamedInstruction VoidType $ Call False CC.C [] (Right 
+                         (definedFunction i32 (Name "abortt"))) arg [] []
+    return ()
 
 
 createInstruction (MyAST.LAssign (((id, t), []):_) (e:_) _ _) = do
@@ -342,6 +366,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     ; T.MyString -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
                          (definedFunction i32 (Name "puts"))) [(e', [])] [] []
     }    
+
     return ()
 
 
@@ -353,7 +378,8 @@ createInstruction (MyAST.Block _ st decs accs _) = do
 
 createInstruction (MyAST.Cond guards _ _) = do
     final <- newLabel
-    genGuards guards final final
+    genGuards guards (Name "ifAbort") final
+    setLabel final $ branch final
     return ()
 
 
@@ -361,7 +387,9 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
     final   <- newLabel
     initial <- newLabel
     setLabel initial $ branch initial
-    genGuards guards final initial
+    genGuards guards final initial 
+    setLabel final $ branch initial
+    return ()
 
 
 createInstruction (MyAST.ProcCall pname st _ args _) = do
@@ -376,6 +404,15 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     return ()
 
 
+createInstruction (MyAST.Ran id _ t) = do
+    vars <- gets varsLoc
+    let (ty, i) = (toType t, fromJust $ DM.lookup (TE.unpack id) vars)
+    val <- addUnNamedInstruction ty $ Call False CC.C [] (Right ( definedFunction double 
+                                                                    (Name "randomInt"))) [] [] []  
+    store ty i val
+    return ()
+
+
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
@@ -387,7 +424,9 @@ createArguments dicnp (nargp:nargps) (arg:args) = do
         do dicn <- gets varsLoc
            return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
 
+
 createArguments _ [] [] = return []
+
 
 branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 
@@ -398,18 +437,18 @@ condBranch op true false = Do $ CondBr op true false []
 
 
 genGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
-genGuards (guard:[]) none one = do
+genGuards (guard:[]) none one  = do
     genGuard guard none
-    setLabel none $ branch one
 
 
 genGuards (guard:xs) none one = do
     next <- newLabel
     genGuard guard next
     setLabel next $ branch one
-    genGuards xs none one
+    genGuards xs none one 
 
 
+genGuard :: MyAST.AST T.Type -> Name -> LLVM ()
 genGuard (MyAST.Guard guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
@@ -622,7 +661,9 @@ local :: Type -> Name -> Operand
 local = LocalReference
 
 
+global :: Type -> Name -> C.Constant
 global = C.GlobalReference
+
 
 retType :: Operand -> LLVM (Named Terminator)
 retType op = do 
