@@ -142,19 +142,27 @@ newInitVar id =
     do ST.modify $ initVar id
        return ()
 
-lookUpConstIntParser :: T.Text -> Location -> MyParser (Maybe Integer)
+lookUpConstIntParser :: T.Text -> Location -> MyParser (Maybe Type)
 lookUpConstIntParser id loc =
     do c <- lookUpSymbol id
+       loc <- getPosition
        case c of
          Nothing -> return Nothing
-         Just a  -> case a of
-                      Contents _ _ _ v True ->
-                        case v of 
-                          Just (I n) -> return $ Just n
-                          otherwise  -> return Nothing
-                      otherwise ->
-                        do addNotConsIdError id loc
-                           return $ Nothing
+         Just a  -> 
+          if isInitialized a then
+            if isRValue a then
+              if symbolType a == MyInt then
+                return $ return MyInt
+              else
+                do addNotIntError id (getLocation loc)
+                   return $ Nothing
+            else
+              do addNotRValueError id (getLocation loc)
+                 return Nothing
+          else
+            do addNotInitError id (getLocation loc)
+               return Nothing
+
 addConsIdError id = 
     do pos <- getPosition 
        ST.modify $ addTypeError (ConstIdError id (getLocation pos))

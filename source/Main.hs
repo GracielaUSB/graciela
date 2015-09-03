@@ -27,6 +27,7 @@ import Data.Set (empty)
 import qualified LLVM.General.Relocation as Reloc
 import qualified LLVM.General.CodeModel as CodeModel
 import qualified LLVM.General.CodeGenOpt as CodeGenOpt
+import qualified Data.Foldable as DF
 
 concatLexPar = playParser AP.<$> lexer
 
@@ -51,21 +52,31 @@ generateCode m =
   do withDefaultTargetMachine $ \tm ->
       liftError $ writeObjectToFile tm (File "prueba") m
 
-play inp = case (runParser (concatLexPar) () "" (inp)) of
-            		  { Left  err -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err)
-            		  ; Right par -> case par of
-           		                     { (Left  err', _ ) -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
-                                   ; (Right (Just ast) , st) -> 
-                                      do let newast = astToLLVM $ fst $ runTVerifier (symbolTable st) ast
-                                         withContext $ \context ->
-                                            liftError $ withModuleFromAST context newast $ \m -> do
-                                              --liftError $ generateCode m
-                                              liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
-                                             
-                                                                    
-                                   ; (Right  _         , st) -> putStrLn $ drawState st
-                                   }
-                  }
+play inp = 
+  case (runParser (concatLexPar) () "" (inp)) of
+    { Left  err -> putStrLn $ "Ocurrio un error lexicografico " ++ (show err)
+    ; Right par -> 
+      case par of
+        { (Left  err', _ ) -> putStrLn $ "Ocurrio un error en el proceso de parseo " ++ (show err')
+        ; (Right (Just ast) , st) -> 
+           let lErrType = DF.toList $ sTableErrorList st
+               lErrSyn  = DF.toList $ synErrorList st
+           in
+             if (null lErrType) && (null lErrSyn) then
+               do let (t, l) = runTVerifier (symbolTable st) ast 
+                      l' = DF.toList l 
+                  if not $ null l' then putStrLn $ show $ l'
+                  else 
+                    do let newast = astToLLVM $ fst $ runTVerifier (symbolTable st) ast
+                       withContext $ \context ->
+                          liftError $ withModuleFromAST context newast $ \m -> do
+                            --liftError $ generateCode m
+                            liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
+             else 
+               putStrLn $ drawState st
+        ; (Right  _         , st) -> putStrLn $ drawState st
+        }
+    }
 
 
 main = do args <- getArgs 

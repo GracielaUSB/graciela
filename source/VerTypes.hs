@@ -297,14 +297,14 @@ verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> 
 verProcCall name sbc args'' loc locarg = 
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
-       { Nothing -> addUndecFuncError name False loc
+       { Nothing -> addUndecFuncError name False loc -- Error por procedimiento no declarado
        ; Just (ProcCon _ t ln sb) -> 
            case t of
            { MyProcedure args' ->
                let wtL = length args''
                    prL = length args'
                in case wtL /= prL of
-                  { True  -> addNumberArgsError name False wtL prL loc
+                  { True  -> addNumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada es distinto al de la declaracion
                   ; False -> let args = map tag args''
                                  t    = zip args args'
                              in case (and $ map (uncurry (==)) $ t) of   
@@ -315,14 +315,14 @@ verProcCall name sbc args'' loc locarg =
                                               }
                                 ; False -> do mapM_ (\ ((arg, arg'), larg) -> 
                                                 case arg /= arg' of
-                                                { True  -> addFunArgError name False arg' arg larg 
+                                                { True  -> addFunArgError name False arg' arg larg -- Error porque los tipos uno o mas parametros en la llamada y declaracion no coincidieron
                                                 ; False -> return MyEmpty 
                                                 } ) (zip t locarg) 
                                               return $ MyError
                                 }
 
                   }
-           ; otherwise -> addUndecFuncError name False loc
+           ; otherwise -> addUndecFuncError name False loc -- Error por procedimiento no declarado
            }
         }
 

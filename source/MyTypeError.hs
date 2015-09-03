@@ -135,6 +135,9 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                  | NotRValueError  { symbol   :: T.Text
                                    , location :: Location
                                    }
+                 | IntError        { symbol   :: T.Text
+                                   , location :: Location
+                                   }
 
 instance Show MyTypeError where
    show (RepSymbolError     sym pLoc loc) = 
@@ -215,5 +218,7 @@ instance Show MyTypeError where
             errorL loc ++ ": La variable " ++ show id ++ " no está inicializada."
    show (NotRValueError  id           loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es un r-value."
+   show (IntError  id           loc) = 
+            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo entera"
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
