@@ -12,6 +12,8 @@ import Data.Either
 import TokenParser
 import Expression
 import ParserType
+import Data.Maybe
+import Contents
 import Location
 import Token
 import State
@@ -354,8 +356,9 @@ random follow recSet =
        parseLeftParent
        id  <- parseID
        parseRightParent
-       lookUpSymbol id
-       return $ return $ Ran id (getLocation pos) MyEmpty
+       cont <- lookUpSymbol id
+       let t = symbolType $ fromJust $ cont       
+       return $ return $ Ran id t (getLocation pos) MyEmpty
 
 
 guardsList :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])

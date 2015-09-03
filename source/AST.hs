@@ -119,7 +119,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
                         , retType  :: Type, nodeBound :: (AST a), tag :: a }
          | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: [AST a], nodePre   :: (AST a)
                         , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], tag       :: a             }
-         | Ran          { var      :: T.Text, location :: Location, tag :: a                                           }
+         | Ran          { var      :: T.Text, retType :: Type, location :: Location, tag :: a                                           }
          | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
          | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
@@ -288,7 +288,7 @@ drawAST level ((Abort loc ast)) =
                      `mappend` " //Tag: "  `mappend` show ast 
 
 
-drawAST level ((Ran var loc ast)) =
+drawAST level ((Ran var _ loc ast)) =
    putSpacesLn level `mappend` "Aleatorio: " `mappend` show var `mappend` putLocation loc 
                      `mappend` " //Tag: "    `mappend` show ast 
   

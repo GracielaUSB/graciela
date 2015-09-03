@@ -79,9 +79,9 @@ verTypeAST (Skip  loc _) = return $ Skip  loc MyEmpty
 verTypeAST (Abort loc _) = return $ Abort loc MyEmpty
 
 
-verTypeAST (Ran var loc t) = 
+verTypeAST (Ran var t loc _) = 
     do checkT <- verRandom var t loc
-       return $ Ran var loc checkT
+       return $ Ran var t loc checkT
 
 
 verTypeAST (Write ln exp loc _) = 

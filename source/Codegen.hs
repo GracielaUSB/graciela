@@ -16,6 +16,7 @@ import LLVM.General.AST                                  as AST
 import LLVM.General.AST.Global                           as GLOB
 import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
+import LLVM.General.AST.AddrSpace
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
 import Control.Monad.State
@@ -28,7 +29,6 @@ import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
-import LLVM.General.AST.AddrSpace
 
 data CodegenSt
   = CodeGenSt {
@@ -404,7 +404,7 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     return ()
 
 
-createInstruction (MyAST.Ran id _ t) = do
+createInstruction (MyAST.Ran id _ _ t) = do
     vars <- gets varsLoc
     let (ty, i) = (toType t, fromJust $ DM.lookup (TE.unpack id) vars)
     val <- addUnNamedInstruction ty $ Call False CC.C [] (Right ( definedFunction double 
