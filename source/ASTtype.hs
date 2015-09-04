@@ -151,11 +151,6 @@ verTypeAST (ProcCall name sb loc args _) =
        return (ProcCall name sb loc args' checkT)
 
   
-verTypeAST (FunBody loc exp _) =
-    do exp' <- verTypeAST (exp)
-       return $ FunBody loc exp' (tag exp')
-
-
 verTypeAST (FCallExp name sb loc args _) =
     do args'  <- verTypeASTlist args
        locs   <- getLocArgs args
@@ -163,21 +158,21 @@ verTypeAST (FCallExp name sb loc args _) =
        return $ FCallExp name sb loc args' checkT
 
 
-verTypeAST (DefFun name st loc body ret bound _) =
+verTypeAST (DefFun name st loc body ret bound params _) =
     do body'  <- verTypeAST body
        bound' <- verTypeAST bound
        checkT <- verDefFun name (tag body') (tag bound') loc
-       return $ DefFun name st loc body' ret bound' checkT
+       return $ DefFun name st loc body' ret bound' params checkT
                                                     
 
-verTypeAST (DefProc name st accs pre post bound cdec _) = 
+verTypeAST (DefProc name st accs pre post bound cdec args _) = 
     do accs'  <- verTypeASTlist accs 
        pre'   <- verTypeAST pre  
        post'  <- verTypeAST post 
        bound' <- verTypeAST bound
        cdec'  <- mapM verTypeAST cdec
        checkT <- verDefProc (map tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
-       return $ DefProc name st accs' pre' post' bound' cdec' checkT
+       return $ DefProc name st accs' pre' post' bound' cdec' args checkT
                                                               
 
 verTypeAST (ConsAssign loc xs es t) =

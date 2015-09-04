@@ -96,11 +96,12 @@ function follow recSet =
                            parseArrow
                            t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
                            bo <- maybeBound parseBegin (recSet <|> parseBegin)
-                           b  <- functionBody parseLexEnd parseLexEnd
                            sb <- getActualScope
+                           addFunTypeParser id lt t (getLocation pos) sb
+                           b  <- functionBody parseLexEnd parseLexEnd
                            exitScopeParser
                            addFunTypeParser id lt t (getLocation pos) sb
-                           return(M.liftM4 (DefFun id sb (getLocation pos)) b (return t) bo (return (MyEmpty)))
+                           return(M.liftM5 (DefFun id sb (getLocation pos)) b (return t) bo lt (return (MyEmpty)))
                        )
                   <|> do err <- genNewError follow ProcOrFunc
                          return $ Nothing
@@ -175,7 +176,7 @@ proc follow recSet =
              sb   <- getActualScope
              exitScopeParser
              addProcTypeParser id targs (getLocation pos) sb
-             return $ (M.liftM5 (DefProc id sb) la pre post b (return [])) AP.<*> (return MyEmpty)
+             return $ (M.liftM5 (DefProc id sb) la pre post b (return [])) AP.<*> targs AP.<*> (return MyEmpty)
 
              <|> do dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                     pre  <- precondition (parseTokOpenBlock <|> parseTokLeftBound) 
@@ -189,7 +190,7 @@ proc follow recSet =
                     sb   <- getActualScope
                     exitScopeParser
                     addProcTypeParser id targs (getLocation pos) sb
-                    return $ (M.liftM5 (DefProc id sb) la pre post b dl) AP.<*> (return MyEmpty)
+                    return $ (M.liftM5 (DefProc id sb) la pre post b dl) AP.<*> targs AP.<*> (return MyEmpty)
 
 
 precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
@@ -290,10 +291,10 @@ functionBody follow recSet =
        do parseBegin
           do cif <- conditional CExpression parseLexEnd parseLexEnd
              parseLexEnd
-             return (AP.liftA2 (FunBody (getLocation pos)) cif (return MyEmpty))
+             return cif
              <|> do e <- expr parseLexEnd parseLexEnd
                     parseLexEnd
-                    return (AP.liftA2 (FunBody (getLocation pos)) e (return (MyEmpty)))
+                    return e
 
 
 actionsList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
@@ -390,7 +391,7 @@ guard CExpression follow recSet =
     do pos <- getPosition
        e <- expr (parseArrow) (recSet <|> parseArrow)
        parseArrow
-       a <- expr follow recSet
+       a <- (expr follow recSet) <|> (conditional CExpression follow recSet)
        return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
 
 

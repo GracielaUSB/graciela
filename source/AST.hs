@@ -116,12 +116,13 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, astSTable :: SymbolTable, location :: Location, fbody    ::  (AST a)
-                        , retType  :: Type, nodeBound :: (AST a), tag :: a }
+                        , retType  :: Type, nodeBound :: (AST a), params :: [(T.Text, Type)], tag :: a }
          | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: [AST a], nodePre   :: (AST a)
-                        , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], tag       :: a             }
+                        , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], params :: [(T.Text, Type)]
+                        , tag       :: a
+                        }
          | Ran          { var      :: T.Text, retType :: Type, location :: Location, tag :: a                                           }
          | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
-         | FunBody      { location :: Location , fbexpr      :: (AST a), tag :: a                                      }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
@@ -159,7 +160,7 @@ drawAST level ((Program name loc defs accs ast)) =
                      `mappend` drawASTList (level + 4) defs     `mappend` drawASTList (level + 4) accs
 
 
-drawAST level ((DefProc name _ accs pre post bound _ ast)) = 
+drawAST level ((DefProc name _ accs pre post bound _ _ ast)) = 
    putSpacesLn level `mappend` "Procedimiento: " `mappend` show name  -- `mappend` putLocation loc
                      `mappend` " //Tag: "        `mappend` show ast  
                      `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
@@ -351,15 +352,7 @@ drawAST level ((ProcCall name _ loc args ast)) =
    `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
 
 
-
-drawAST level ((FunBody loc exp ast)) =
-   putSpacesLn level `mappend` "Cuerpo de la Función: " `mappend` putLocation loc
-                     `mappend` " //Tag: "               `mappend` show ast  
-                     `mappend` drawAST(level + 4) (exp) 
-
-
-
-drawAST level ((DefFun name st _ body _ bound ast)) =
+drawAST level ((DefFun name st _ body _ bound _ ast)) =
    putSpacesLn level `mappend` "Función: " `mappend` show name
                      `mappend` " //Tag: "   `mappend` show ast 
                      `mappend` drawAST(level + 4) bound   

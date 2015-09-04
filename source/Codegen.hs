@@ -127,12 +127,9 @@ convertParams ((id',c):xs) =
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
-createDef (MyAST.DefProc name st accs pre post bound _ _) = do
-    let procCont = DM.toList $ getMap $ getActual st -- Esto no esta en orden de declaraciones ni de parametros.
-    let justArgs = filter (\(id, t) -> isArg t) procCont
-    let locals   = filter (\(id, t) -> not $ isArg t) procCont 
-    localAlloca locals -- Esto va a explotar por la misma razon que explotaba lo otro, locals no esta en orden de declaracion
-    let args     = convertParams justArgs
+createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
+    mapM_ accToAlloca decs
+    let args     = convertParams (map (\(id, _) -> (id, fromJust $ checkSymbol id st)) params)
     let args'    = ([Parameter t (Name id) [] | (id, t) <- args], False) 
     retTy <- retVoid
     mapM_ (uncurry addVarOperand) $ zip (map fst args) (map (\(id, t) -> local t (Name id)) args)
@@ -140,16 +137,12 @@ createDef (MyAST.DefProc name st accs pre post bound _ _) = do
     addDefinition (TE.unpack name) args' VoidType
 
    
-createDef (MyAST.DefFun fname st _ (MyAST.FunBody _ exp _) reType bound _) = do
-    let funcCont  = DM.toList $ getMap $ getActual st
-    let args  = map (\(n, t) -> (Name $ TE.unpack n, toType $ symbolType t)) funcCont
-    let args' = ([Parameter t n [] | (n, t) <- args], False)
+createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
+    let args' = ([Parameter (toType t) (Name (TE.unpack id)) [] | (id, t) <- params], False)
     exp'  <- createExpression exp
     retTy <- retType exp'
     addBasicBlock retTy
     addDefinition (TE.unpack fname) args' (toType reType)
-    return ()
-
 
 addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
 addDefinition name params retTy = do
@@ -623,6 +616,35 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     val <- addUnNamedInstruction ty $ Call False CC.C [] (Right op) exp' [] []
     return val
 
+createExpression (MyAST.Cond lguards _ rtype) = do
+   final  <- newLabel 
+   none   <- newLabel
+   lnames <- genExpGuards lguards none final
+   let rtype' = toType rtype
+   setLabel none $ branch final
+   setLabel final $ Do $ Unreachable []
+   addUnNamedInstruction rtype' $ Phi rtype' lnames []
+
+
+genExpGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ([(Operand, Name)])
+genExpGuards (guard:[]) none one  = do
+    r <- genExpGuard guard none
+    return [r]
+
+genExpGuards (guard:xs) none one = do
+    next <- newLabel
+    r <- genExpGuard guard next
+    setLabel next $ branch one
+    rl <- genExpGuards xs none one 
+    return $ r:rl
+
+genExpGuard :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
+genExpGuard (MyAST.GuardExp guard acc _ _) next = do
+    tag  <- createExpression guard
+    code <- newLabel
+    setLabel code $ condBranch tag code next
+    n <- createExpression acc
+    return (n, code)
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
 createBasicBlocks accs m800 = do
