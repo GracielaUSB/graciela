@@ -13,7 +13,6 @@ import qualified Data.Map                                as DM
 import qualified Type                                    as T
 import qualified AST                                     as MyAST
 import LLVM.General.AST                                  as AST
-import LLVM.General.AST.Global                           as GLOB
 import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.AddrSpace
@@ -29,74 +28,63 @@ import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
+import CodegenState
 
-data CodegenSt
-  = CodeGenSt {
-    insCount    :: Word                        -- Cantidad de instrucciones sin nombre
-  , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
-  , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
-  , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
-  , moduleDefs  :: DS.Seq Definition
-  , varsLoc     :: DM.Map String Operand
-  , arrsDim     :: DM.Map String [Operand]
-  } deriving (Show)
+writeLnInt = "_writeLnInt"
+writeLnBool = "_writeLnBool"
+writeLnDouble = "_writeLnDouble"
+writeLnString = "puts"
+writeInt = "_writeInt"
+writeBool = "writeBool"
+writeDouble = "_writeDouble"
+writeString = "puts"
 
+randomInt = "_randomInt"
+abortString = "_abort"
+sqrtString = "llvm.sqrt.f64"
+fabsString = "llvm.fabs.f64"
+minnumString = "llvm.minnum.f64"
+maxnumString = "llvm.maxnum.f64"
+powString = "llvm.pow.f64"
 
-newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
-  deriving (Functor, Applicative, Monad, MonadState CodegenSt)
+createParameters names attrs = (map (\((name, t), attr) -> Parameter t name attr) (zip names attrs), False)
 
+name     = Name
+voidType = VoidType
+boolType = i1
+doubleType = double
 
-emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
+createPreDef ::  LLVM () 
+createPreDef = do
 
+    addDefinition randomInt   (createParameters [] []) intType
 
-execCodegen :: LLVM a -> CodegenSt
-execCodegen m = execState (unLLVM m) emptyCodegen
+    let intParams = createParameters [(name "x", intType)] [[]]
+    addDefinition writeLnInt  intParams voidType
+    addDefinition writeInt    intParams voidType
+    addDefinition abortString intParams voidType
 
+    let boolParams = createParameters [(name "x", boolType)] [[]]
+    addDefinition writeLnBool boolParams voidType
+    addDefinition writeBool   boolParams voidType
+
+    let doubleParams = createParameters [(name "x", doubleType)] [[]]
+    addDefinition writeLnDouble doubleParams VoidType
+    addDefinition writeDouble   doubleParams VoidType
+    addDefinition sqrtString    doubleParams doubleType
+    addDefinition fabsString    doubleParams doubleType
+    addDefinition minnumString  doubleParams doubleType
+    addDefinition maxnumString  doubleParams doubleType
+
+    addDefinition powString (createParameters [(name "x", doubleType), (name "y", doubleType)] [[], []]) doubleType
+
+    return ()
 
 astToLLVM :: MyAST.AST T.Type -> AST.Module
 astToLLVM (MyAST.Program name _ defs accs _) =
     defaultModule { moduleName        = TE.unpack name
                   , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM defs accs
     }
-
-addDimToArray :: String -> Operand -> LLVM()
-addDimToArray name op = do
-    dims <- gets arrsDim
-    modify $ \s -> s { arrsDim = DM.insertWith (++) name [op] dims }
-
-createPreDef ::  LLVM () 
-createPreDef = do
-
-    addDefinition "randomInt" ([],False) i32
-
-    let params =  ([Parameter i32 (Name "x") []], False)
-    addDefinition "writeLnInt" params VoidType
-    addDefinition "writeInt"   params VoidType
-    addDefinition "abortt"     params VoidType
-
-    let params2 = ([Parameter i1 (Name "x") []], False)
-    addDefinition "writeLnBool" params2 VoidType
-    addDefinition "writeBool"   params2 VoidType
-
-    let params3 = ([Parameter double (Name "x") []], False)
-    addDefinition "writeLnDouble"  params3 VoidType
-    addDefinition "writeDouble"    params3 VoidType
-
-    addDefinition "llvm.sqrt.f64"   params3 double
-    addDefinition "llvm.fabs.f64"   params3 double
-    addDefinition "llvm.minnum.f64" params3 double
-    addDefinition "llvm.maxnum.f64" params3 double
-
-    let params4 = ([Parameter double (Name "x") [], 
-                    Parameter double (Name "y") []], False)
-    addDefinition "llvm.pow.f64" params4 double
-
-    let params5 = ([Parameter (PointerType i8 (AddrSpace 0)) (Name "msg") [NoCapture]], False)
-    addDefinition "puts" params5 i32
-    
-    return ()
-
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
@@ -109,7 +97,7 @@ createLLVM defs accs = do
     modify $ \s -> s { blockName = Name "ifAbort" }
     let arg   = [(ConstantOperand $ C.Int 32 1, [])]
     addUnNamedInstruction VoidType $ Call False CC.C [] (Right 
-                         (definedFunction i32 (Name "abortt"))) arg [] []
+                         (definedFunction i32 (Name abortString))) arg [] []
     addBasicBlock (Do $ Unreachable [])
     --
 
@@ -117,13 +105,6 @@ createLLVM defs accs = do
 
 
 
-convertParams [] = []
-convertParams ((id',c):xs) = 
-    let id = TE.unpack id' 
-        t  = toType $ symbolType c in
-      case procArgType $ c of
-        T.In      -> (id, t) : convertParams xs
-        otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
@@ -143,102 +124,6 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     retTy <- retType exp'
     addBasicBlock retTy
     addDefinition (TE.unpack fname) args' (toType reType)
-
-addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
-addDefinition name params retTy = do
-    bbl  <- gets bblocs
-    defs <- gets moduleDefs 
-    let def = GlobalDefinition $ functionDefaults {
-                name        = Name name
-              , parameters  = params
-              , returnType  = retTy
-              , basicBlocks = (toList bbl)
-              }
-    modify $ \s -> s { bblocs  = DS.empty }
-    modify $ \s -> s { varsLoc = DM.empty }
-    modify $ \s -> s { moduleDefs = defs DS.|> def}
-
-
-addString :: String -> Name -> Type -> LLVM ()
-addString msg name ty = do
-    defs <- gets moduleDefs
-    let def = GlobalDefinition $ globalVariableDefaults {
-                name        = name
-              , isConstant  = True
-              , GLOB.type'  = ty  
-              , initializer = Just $ stringConst msg
-              }
-    modify $ \s -> s { moduleDefs = defs DS.|> def}
-
-
-stringConst :: String -> C.Constant
-stringConst msg = C.Array i8 [C.Int 8 (fromIntegral (ord c)) | c <- (msg ++ "\0")]    
-
-
-newLabel :: LLVM (Name)
-newLabel = do
-    n <- getCount
-    return $ UnName n
-
-
-setLabel :: Name -> Named Terminator -> LLVM()
-setLabel name t800 = do
-    addBasicBlock t800
-    modify $ \s -> s { blockName = name }
-
-
-addBasicBlock :: Named Terminator -> LLVM ()
-addBasicBlock t800 = do
-    lins  <- gets instrs
-    bbl   <- gets bblocs
-    name  <- gets blockName
-    name' <- newLabel
-    modify $ \s -> s { blockName  = name'    }
-    modify $ \s -> s { instrs     = DS.empty }
-    modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
-
-
-addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
-addNamedInstruction t name ins = do
-    lins <- gets instrs
-    let r = Name name
-    modify $ \s -> s { instrs = lins DS.|> (r := ins) }
-    let op = local t r
-    addVarOperand name op
-    return op 
-
-
-addVarOperand :: String -> Operand -> LLVM()
-addVarOperand name op = do
-    map <- gets varsLoc
-    modify $ \s -> s { varsLoc = DM.insert name op map }
-
-
-addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
-addUnNamedInstruction t ins = do
-    r    <- newLabel
-    lins <- gets instrs
-    modify $ \s -> s { instrs = lins DS.|> (r := ins) }
-    return $ local t r
-
-
-getCount :: LLVM Word
-getCount = do
-    n <- gets insCount
-    modify $ \s -> s { insCount = n + 1 }
-    return $ n
-
-
-localAlloca :: [(TE.Text, Contents a)] -> LLVM ()
-localAlloca idList =
-    mapM_ (uncurry $ alloca Nothing) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id)) idList
-
-
-sTableToAlloca :: SymbolTable -> LLVM ()
-sTableToAlloca st = 
-    mapM_ (uncurry $ alloca Nothing) $ map (\(id, c) -> ((toType . symbolType) c, TE.unpack id))
-                                                        $ DM.toList $ (getMap . getActual) st
-
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
@@ -272,29 +157,10 @@ typeToOperand name (T.MyArray dim ty) = do
 
 typeToOperand _  _             = return $ Nothing
 
-
-dimToOperand :: Either TE.Text Integer -> LLVM Operand
-dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
-dimToOperand (Left id) = load (TE.unpack id) intType
-
-
-opsToArrayIndex :: String -> [Operand] -> LLVM (Operand)
-opsToArrayIndex name ops = do
-    arrD <- gets arrsDim
-    let arrDims' = fromJust $ DM.lookup name arrD
-    mulDims (tail arrDims') ops
-
-
--- Si la primera lista tiene mas elementos que la segunda paso al muy malo en el chequeo de tipos.
--- Significa que estas intentando acceder a una dimension del arreglo que no existe.
-mulDims :: [Operand] -> [Operand] -> LLVM Operand
-mulDims _ [acc] = return acc
-
-mulDims (arrDim:xs) (acc:ys) = do
-    op    <- mulDims xs ys
-    opMul <- addUnNamedInstruction intType $ Mul False False arrDim acc []
-    addUnNamedInstruction intType $ Add False False op opMul []
-
+procedureCall t pname es = do
+    let es' = map (\e -> (e, [])) es
+    let df  = Right $ definedFunction t (name pname)
+    addUnNamedInstruction t $ Call False CC.C [] df es' [] []
 
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.EmptyAST _ ) = return ()
@@ -327,41 +193,31 @@ createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
     store t' opa e'
     return ()
 
-
 createInstruction (MyAST.Write True exp _ t) = do
-    let ty = MyAST.tag exp 
+    let ty  = MyAST.tag exp 
+    let ty' = toType t
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
-    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
-    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
-    ; T.MyString -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i32 (Name "puts"))) [(e', [])] [] []
-    }    
+    { T.MyInt    -> procedureCall ty' writeLnInt [e']
+    ; T.MyFloat  -> procedureCall ty' writeLnDouble [e']
+    ; T.MyBool   -> procedureCall ty' writeLnBool [e']
+    ; T.MyString -> procedureCall ty' writeLnString [e']
+    }
     return ()
 
 
 createInstruction (MyAST.Write False exp _ t) = do
     let ty = MyAST.tag exp 
+    let ty' = toType t
     e' <- createExpression exp
-
     case ty of
-    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i32 (Name "writeInt"))) [(e', [])] [] []
-    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction double (Name "writeDouble"))) [(e', [])] [] []   
-    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i1 (Name "writeBool"))) [(e', [])] [] []
-    ; T.MyString -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
-                         (definedFunction i32 (Name "puts"))) [(e', [])] [] []
-    }    
-
+    { T.MyInt    -> procedureCall ty' writeInt [e']
+    ; T.MyFloat  -> procedureCall ty' writeDouble [e']
+    ; T.MyBool   -> procedureCall ty' writeBool [e']
+    ; T.MyString -> procedureCall ty' writeString [e']
+    }
     return ()
-
 
 createInstruction (MyAST.Block _ st decs accs _) = do
     mapM_ accToAlloca decs
@@ -390,10 +246,8 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     let dic   = getMap $ getActual $ sTable $ c
     let nargp = map fst $ filter (\(id, t) -> isArg t) (DM.toList dic)
     exp <- createArguments dic nargp args
-    let exp' = map (\i -> (i,[])) exp
-    let op   = definedFunction VoidType (Name $ TE.unpack pname)
-    addUnNamedInstruction VoidType $ Call False CC.C [] (Right op) exp' [] []
-    --setLabel final $ Do $ (Invoke CC.C [] (Right op) exp' [] final final [])
+
+    procedureCall voidType (TE.unpack pname) exp
     return ()
 
 
@@ -448,30 +302,6 @@ genGuard (MyAST.Guard guard acc _ _) next = do
     setLabel code $ condBranch tag code next
     createInstruction acc
 
-
-definedFunction :: Type -> Name -> Operand
-definedFunction ty = ConstantOperand . (global ty)
-
-
-alloca :: Maybe Operand -> Type -> String -> LLVM Operand
-alloca cant ty r = do
-    addNamedInstruction ty r $ Alloca ty cant 0 []
-
-
-store :: Type -> Operand -> Operand -> LLVM Operand
-store t ptr val =
-    addUnNamedInstruction t $ Store False ptr val Nothing 0 []
-
-
---load :: String -> Type -> LLVM (Operand)
---load name ty = do 
---    addUnNamedInstruction ty $ Load False (local ty (Name name)) Nothing 0 []
-
-load :: String -> Type -> LLVM (Operand)
-load name ty = do 
-    map <- gets varsLoc
-    let i = fromJust $ DM.lookup name map
-    addUnNamedInstruction ty $ Load False i Nothing 0 []
 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
@@ -659,44 +489,9 @@ createBasicBlocks accs m800 = do
             addBasicBlock m800
 
 
-toType :: T.Type -> Type
-toType T.MyInt   = i32
-toType T.MyFloat = double
-toType T.MyBool  = i1
-toType T.MyChar  = i8
-toType (T.MyArray _ t) = toType t 
 
 
-intType :: Type
-intType = i32
 
-
-intToDouble :: Operand -> LLVM Operand
-intToDouble x = addUnNamedInstruction double $ SIToFP x double []
-
-
-doubleToInt :: Operand -> LLVM Operand
-doubleToInt x = addUnNamedInstruction i32 $ FPToSI x i32 [] 
-
-
-local :: Type -> Name -> Operand
-local = LocalReference
-
-
-global :: Type -> Name -> C.Constant
-global = C.GlobalReference
-
-
-retType :: Operand -> LLVM (Named Terminator)
-retType op = do 
-    n <- newLabel
-    return $ n := Ret (Just op) []
-
-
-retVoid :: LLVM (Named Terminator)
-retVoid = do 
-    n <- newLabel
-    return $ n := Ret Nothing []
 
 
 irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
@@ -760,62 +555,3 @@ irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction do
                                          (Name "llvm.fabs.f64"))) [(a, [])] [] []
 irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
                                          (Name "llvm.sqrt.f64"))) [(a, [])] [] []
-
-
-
-
---Write de C
-
-
---createInstruction (MyAST.Write check (MyAST.String _ msg _) _ t) = do
---    let n  = fromIntegral $ Prelude.length msg
---    let ty = ArrayType n i8 
---    name <- newLabel 
---    addString msg name ty
-
---    let arg     = ConstantOperand $ global ty name
---    let params5 = ([Parameter (PointerType ty (AddrSpace 0)) (Name "msg") [NoCapture]], False)
-
---    case check of 
---    { True  -> do addDefinition "writeLnString" params5 VoidType
---                  addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i1 
---                                                       (Name "writeLnString"))) [(arg, [])] [] []
---    ; False -> do addDefinition "writeString"   params5 VoidType 
---                  addUnNamedInstruction (toType t) $ Call False CC.C [] (Right (definedFunction i1 
---                                                       (Name "writeString")))   [(arg, [])] [] []
---    }
-
---    --return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
---    return ()
-
-
-
---createInstruction (MyAST.Write True exp _ t) = do
---    let ty = MyAST.tag exp 
---    e' <- createExpression exp
-      
---    case ty of
---    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction i32 (Name "writeLnInt"))) [(e', [])] [] []
---    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction double (Name "writeLnDouble"))) [(e', [])] [] []   
---    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction i1 (Name "writeLnBool"))) [(e', [])] [] []
---    } 
---    return ()
-
-
---createInstruction (MyAST.Write False exp _ t) = do
---    let ty = MyAST.tag exp 
---    e' <- createExpression exp
-
---    case ty of
---    { T.MyInt    -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction i32 (Name "writeInt"))) [(e', [])] [] []
---    ; T.MyFloat  -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction double (Name "writeDouble"))) [(e', [])] [] []   
---    ; T.MyBool   -> do addUnNamedInstruction (toType t) $ Call False CC.C [] (Right 
---                         (definedFunction i1 (Name "writeBool"))) [(e', [])] [] []
---    }    
-    
---    return ()

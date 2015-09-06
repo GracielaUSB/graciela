@@ -236,7 +236,7 @@ lexer =
                               )                             
                           <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
                           <|> (try (do l <- letter
-                                       r <- many (alphaNum <|> char '_' <|> char '-' <|> char '?')
+                                       r <- many (alphaNum <|> char '_' <|> char '?')
                                        spaces
                                        return $ TokId (T.cons l (T.pack r)) 
                                    )

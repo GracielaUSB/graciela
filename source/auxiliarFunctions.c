@@ -6,16 +6,13 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "stdio.h"
 #include "stdlib.h"
 
-
-
-// putchard - putchar that takes a double and returns 0.
-void writeLnInt(int x) {
+void _writeLnInt(int x) {
     printf("%d\n", x);
     return;
 }
 
 
-void writeLnDouble(double x) {
+void _writeLnDouble(double x) {
 
     printf("%f\n", x);
     return;
@@ -23,7 +20,7 @@ void writeLnDouble(double x) {
 }
 
 
-void writeLnBool(int x) {
+void _writeLnBool(int x) {
 
     if (x == 1) 
     	printf("%s\n", "true");
@@ -34,7 +31,7 @@ void writeLnBool(int x) {
 }
 
 
-void writeLnString(char *x) {
+void _writeLnString(char *x) {
 
     printf("%s\n",x);
     return;
@@ -42,13 +39,13 @@ void writeLnString(char *x) {
 }
 
 
-void writeInt(int x) {
+void _writeInt(int x) {
     printf("%d", x);
     return;
 }
 
 
-void writeDouble(double x) {
+void _writeDouble(double x) {
 
     printf("%f", x);
     return;
@@ -56,7 +53,7 @@ void writeDouble(double x) {
 }
 
 
-void writeBool(int x) {
+void _writeBool(int x) {
 
     if (x == 1) 
     	printf("%s", "true");
@@ -67,7 +64,7 @@ void writeBool(int x) {
 }
 
 
-void writeString(char *x) {
+void _writeString(char *x) {
 
     printf("%s",x);
     return;
@@ -75,19 +72,19 @@ void writeString(char *x) {
 }
 
 
-int randomInt() {
+int _randomInt() {
  
 	return rand();
 
 }
 
 
-void abortt(int x) {
+void _abort(int x) {
 
 	switch (x) {
 
 		case 1:
-    		printf("%s\n", "Ninguna de las guardias del selector es validad");
+    	printf("%s\n", "Ninguna de las guardias del selector es valida");
 			printf("%s\n", "ABORT");  
 			exit(0);
 

@@ -32,10 +32,11 @@ instance Show a => Show (Contents a) where
 
    
 isInitialized :: Contents a -> Bool
-isInitialized (Contents _ _ _ _ True) = True
-isInitialized (ArgProcCont _ _ _)     = True
+isInitialized (Contents _ _ _ _ True)  = True
+isInitialized (ArgProcCont _ _ _)      = True
 isInitialized (FunctionCon _ _ _ _   ) = True
-isInitialized _                       = False
+isInitialized (ProcCon _ _ _ _   )     = True
+isInitialized _                        = False
 
 
 isRValue :: Contents a -> Bool
@@ -43,6 +44,7 @@ isRValue (Contents _ _ _ _ _    ) = True
 isRValue (ArgProcCont In _ _    ) = True
 isRValue (ArgProcCont InOut _ _ ) = True
 isRValue (FunctionCon _ _ _ _   ) = True
+isRValue (ProcCon _ _ _ _   )     = True
 isRValue _                        = False
 
 
