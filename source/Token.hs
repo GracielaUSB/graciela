@@ -69,7 +69,8 @@ data Token =   TokPlus
              | TokProc     
              | TokIn      
              | TokOut 
-             | TokInOut       
+             | TokInOut  
+             | TokRef     
              | TokWith             
              | TokMod    
              | TokMax         
@@ -174,6 +175,7 @@ instance Show Token where
   show TokIn            = "entrada"
   show TokOut           = "salida"
   show TokInOut         = "entrada y salida"
+  show TokRef           = "referencia"
   show TokWith          = "token with"   
   show TokMod           = "modulo"
   show TokMax           = "maximo"

@@ -273,14 +273,20 @@ createInstruction (MyAST.Ran id _ _ t) = do
 
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
+
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
-    case argt of
-      T.In -> 
-        do arg' <- createExpression arg
-           return $ arg':lr
-      otherwise ->
-        do dicn <- gets varsLoc
-           return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+
+    dicn <- gets varsLoc
+    return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+
+
+    --case argt of
+    --  T.In -> 
+    --    do arg' <- createExpression arg
+    --       return $ arg':lr
+    --  otherwise ->
+    --    do dicn <- gets varsLoc
+    --       return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
 
 
 createArguments _ [] [] = return []

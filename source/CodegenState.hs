@@ -109,8 +109,6 @@ setLabel name t800 = do
     modify $ \s -> s { blockName = name }
 
 
-
-
 addVarOperand :: String -> Operand -> LLVM()
 addVarOperand name op = do
     map <- gets varsLoc
@@ -206,10 +204,12 @@ retVoid = do
 convertParams [] = []
 convertParams ((id',c):xs) = 
     let id = TE.unpack id' 
-        t  = toType $ symbolType c in
-      case procArgType $ c of
-        T.In      -> (id, t) : convertParams xs
-        otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+        t  = toType $ symbolType c 
+    in (id, PointerType t (AddrSpace 0)) : convertParams xs
+
+      --case procArgType $ c of
+      --  T.In      -> (id, t) : convertParams xs
+      --  otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 
 toType :: T.Type -> Type
 toType T.MyInt   = i32

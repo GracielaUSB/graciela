@@ -272,7 +272,8 @@ argType follow recSet =
               return (return (Out))
        <|> do parseInOut
               return (return InOut)
-
+       <|> do parseRef
+              return (return Ref)
 
 arg :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
 arg pid follow recSet = 
