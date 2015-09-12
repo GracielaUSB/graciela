@@ -84,12 +84,17 @@ void _abort(int x) {
 	switch (x) {
 
 		case 1:
-    	printf("%s\n", "Ninguna de las guardias del selector es valida");
+    	printf("%s\n", "El valor suministrado no cumplio ninguna de las guardias.");
 			printf("%s\n", "ABORT");  
 			exit(0);
 
 		case 2:
 			printf("%s\n", "ABORT");  
 			exit(0);
+
+        case 3:
+            printf("%s\n", "ADVERTENCIA: La precondicion no es correcta");
+            break;
+
 	} 
 }

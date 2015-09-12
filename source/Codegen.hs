@@ -103,7 +103,7 @@ createLLVM defs accs = do
     -- Tag de error del if
     modify $ \s -> s { blockName = Name "ifAbort" }
     let arg   = [(ConstantOperand $ C.Int 32 1, [])]
-    let df = Right $ definedFunction i32 (Name abortString)
+    let df = Right $ definedFunction intType (Name abortString)
     caller voidType df arg
     addBasicBlock (Do $ Unreachable [])
     --
@@ -111,9 +111,34 @@ createLLVM defs accs = do
     addDefinition "main" ([],False) voidType
 
 
+
+createState (MyAST.States cond _ exp _) = do 
+
+    e' <- createExpression exp
+
+    case cond of
+    { MyAST.Pre  -> do i <- alloca Nothing boolType "resPre"
+                       store boolType i e'
+                       warning <- newLabel
+                       next    <- newLabel
+                       setLabel warning $ condBranch e' next warning
+
+                       -- Tag advertendia pre
+                       let arg   = [(ConstantOperand $ C.Int 32 3, [])]
+                       let df = Right $ definedFunction intType (Name abortString)
+                       caller voidType df arg
+                       setLabel next $ branch next 
+                       --
+
+                       return ()
+    ; MyAST.Post -> return ()
+    }
+
+    
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     mapM_ accToAlloca decs
+    createState pre
     let args     = convertParams (map (\(id, _) -> (id, fromJust $ checkSymbol id st)) params)
     let args'    = ([Parameter t (Name id) [] | (id, t) <- args], False) 
     retTy <- retVoid
