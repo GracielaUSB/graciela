@@ -201,15 +201,14 @@ retVoid = do
     n <- newLabel
     return $ n := Ret Nothing []
 
-convertParams [] = []
-convertParams ((id',c):xs) = 
-    let id = TE.unpack id' 
-        t  = toType $ symbolType c 
-    in (id, PointerType t (AddrSpace 0)) : convertParams xs
 
-      --case procArgType $ c of
-      --  T.In      -> (id, t) : convertParams xs
-      --  otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+convertParams [] = []
+convertParams ((id,c):xs) = 
+    let t  = toType $ symbolType c in
+      case procArgType $ c of
+        T.In      -> (id, t) : convertParams xs
+        otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+
 
 toType :: T.Type -> Type
 toType T.MyInt   = i32

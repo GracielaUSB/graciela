@@ -110,6 +110,29 @@ createLLVM defs accs = do
 
     addDefinition "main" ([],False) voidType
 
+convertID :: String -> String
+convertID name = '_':name
+
+addArgOperand :: [(String, Type)] -> LLVM()
+addArgOperand [] = return ()
+addArgOperand ((id',t):xs) = do
+    let id = convertID id'
+    op <- alloca Nothing t id
+    let exp' = local t (Name id')
+    exp <- addUnNamedInstruction t $ Load False exp' Nothing 0 []
+    store t op exp
+    addVarOperand id' op
+    addArgOperand xs
+    
+
+constantInt n = ConstantOperand $ C.Int 0 n
+
+retVarOperand [] = return()
+retVarOperand ((id', t):xs) = do
+    let exp = local t (Name id')
+    add <- load id' t 
+    store t exp add
+    retVarOperand xs
 
 
 createState (MyAST.States cond _ exp _) = do 
@@ -139,13 +162,16 @@ createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     mapM_ accToAlloca decs
     createState pre
-    let args     = convertParams (map (\(id, _) -> (id, fromJust $ checkSymbol id st)) params)
-    let args'    = ([Parameter t (Name id) [] | (id, t) <- args], False) 
+    let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
+    let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
+    let args''   = map (\(id, c) -> (id, toType $ symbolType c)) args
     retTy <- retVoid
-    mapM_ (uncurry addVarOperand) $ zip (map fst args) (map (\(id, t) -> local t (Name id)) args)
-    createBasicBlocks accs retTy
+    addArgOperand args''
+    mapM_ createInstruction accs 
+    retVarOperand args''
+    addBasicBlock retTy
     addDefinition (TE.unpack name) args' voidType
-
+   
    
 createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     let args' = ([Parameter (toType t) (Name (TE.unpack id)) [] | (id, t) <- params], False)
@@ -313,9 +339,7 @@ createArguments dicnp (nargp:nargps) (arg:args) = do
     --    do dicn <- gets varsLoc
     --       return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
 
-
 createArguments _ [] [] = return []
-
 
 branch :: Name -> Named Terminator
 branch label = Do $ Br label [] 
