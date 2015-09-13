@@ -113,14 +113,23 @@ createLLVM defs accs = do
 convertID :: String -> String
 convertID name = '_':name
 
-addArgOperand :: [(String, Type)] -> LLVM()
 addArgOperand [] = return ()
-addArgOperand ((id',t):xs) = do
+addArgOperand ((id',c):xs) = do
+    let t  = toType $ symbolType c
+    let tp = procArgType c 
     let id = convertID id'
     op <- alloca Nothing t id
     let exp' = local t (Name id')
-    exp <- addUnNamedInstruction t $ Load False exp' Nothing 0 []
-    store t op exp
+    case tp of
+      T.InOut -> 
+        do exp <- addUnNamedInstruction t $ Load False exp' Nothing 0 []
+           store t op exp
+           return ()
+      T.In ->
+        do store t op exp'
+           return ()
+      T.Out -> 
+        return ()
     addVarOperand id' op
     addArgOperand xs
     
@@ -128,7 +137,8 @@ addArgOperand ((id',t):xs) = do
 constantInt n = ConstantOperand $ C.Int 0 n
 
 retVarOperand [] = return()
-retVarOperand ((id', t):xs) = do
+retVarOperand ((id', c):xs) = do
+    let t = toType $ symbolType c
     let exp = local t (Name id')
     add <- load id' t 
     store t exp add
@@ -139,11 +149,10 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     mapM_ accToAlloca decs
     let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
     let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
-    let args''   = map (\(id, c) -> (id, toType $ symbolType c)) args
     retTy <- retVoid
-    addArgOperand args''
+    addArgOperand args
     mapM_ createInstruction accs 
-    retVarOperand args''
+    retVarOperand args
     addBasicBlock retTy
     addDefinition (TE.unpack name) args' voidType
    
