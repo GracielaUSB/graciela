@@ -1,9 +1,9 @@
 program main begin
 
-  proc sumar : (in m : int, inout n : int) 
+  proc sumar : (inout m : int, inout n : int) 
   begin
       var ss : int; 
-      {pre false pre}  
+      {pre 0 >= 0 \/ -1 >= 0 pre}  
       |[
            ss := 548;
            random(ss);
@@ -11,7 +11,7 @@ program main begin
            writeln(n)
 
       ]|  
-      {post m <= m + n post}
+      {post 5 <= 0 + 0 post}
   end
 
 

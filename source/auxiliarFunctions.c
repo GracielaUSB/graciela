@@ -84,8 +84,7 @@ void _abort(int x) {
 	switch (x) {
 
 		case 1:
-    	printf("%s\n", "El valor suministrado no cumplio ninguna de las guardias.");
-			printf("%s\n", "ABORT");  
+    	    printf("%s\n", "ABORT: El valor suministrado no cumplió ninguna de las guardias.");
 			exit(0);
 
 		case 2:
@@ -93,8 +92,12 @@ void _abort(int x) {
 			exit(0);
 
         case 3:
-            printf("%s\n", "ADVERTENCIA: La precondicion no es correcta");
+            printf("%s\n", "ADVERTENCIA: La Precondición no es correcta.");
             break;
+
+        case 4:
+            printf("%s\n", "ABORT: La Postcondición no se cumplió.");  
+            exit(0);
 
 	} 
 }

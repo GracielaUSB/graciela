@@ -134,34 +134,47 @@ retVarOperand ((id', t):xs) = do
     store t exp add
     retVarOperand xs
 
+createState :: String -> MyAST.AST T.Type -> LLVM ()
+createState name (MyAST.States cond _ exp _) = do 
 
-createState (MyAST.States cond _ exp _) = do 
-
+    let checkPre = "resPre" ++ name
     e' <- createExpression exp
+    next     <- newLabel
+    warAbort <- newLabel
 
     case cond of
-    { MyAST.Pre  -> do i <- alloca Nothing boolType "resPre"
-                       store boolType i e'
-                       warning <- newLabel
-                       next    <- newLabel
-                       setLabel warning $ condBranch e' next warning
-
-                       -- Tag advertendia pre
+    { MyAST.Pre  -> do op <- alloca Nothing boolType checkPre
+                       store boolType op e'
+                       addVarOperand checkPre op
+                       setLabel warAbort $ condBranch e' next warAbort
                        let arg   = [(ConstantOperand $ C.Int 32 3, [])]
                        let df = Right $ definedFunction intType (Name abortString)
                        caller voidType df arg
-                       setLabel next $ branch next 
-                       --
 
-                       return ()
-    ; MyAST.Post -> return ()
-    }
-
+    ; MyAST.Post -> do op <- load checkPre boolType
+                       let ty = T.MyBool
+                       a      <- addUnNamedInstruction boolType $ irUnary   MyAST.Not ty op
+                       check  <- addUnNamedInstruction boolType $ irBoolean MyAST.Dis a e' 
+                       setLabel warAbort $ condBranch check next warAbort
+                       let arg   = [(ConstantOperand $ C.Int 32 4, [])]
+                       let df = Right $ definedFunction intType (Name abortString)
+                       caller voidType df arg
     
+    ; MyAST.Assertion -> do setLabel warAbort $ condBranch e' next warAbort
+                            let arg   = [(ConstantOperand $ C.Int 32 5, [])]
+                            let df = Right $ definedFunction intType (Name abortString)
+                            caller voidType df arg 
+    }
+    
+    setLabel next $ branch next 
+    return ()
+
+
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
+    let name' = (TE.unpack name)
     mapM_ accToAlloca decs
-    createState pre
+    createState name' pre
     let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
     let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
     let args''   = map (\(id, c) -> (id, toType $ symbolType c)) args
@@ -169,8 +182,9 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     addArgOperand args''
     mapM_ createInstruction accs 
     retVarOperand args''
+    createState name' post
     addBasicBlock retTy
-    addDefinition (TE.unpack name) args' voidType
+    addDefinition name' args' voidType
    
    
 createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
@@ -255,6 +269,7 @@ createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
     store t' opa e'
     return ()
 
+
 createInstruction (MyAST.Write True exp _ t) = do
     let ty  = MyAST.tag exp 
     let ty' = toType t
@@ -280,6 +295,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     ; T.MyString -> procedureCall ty' writeString [e']
     }
     return ()
+
 
 createInstruction (MyAST.Block _ st decs accs _) = do
     mapM_ accToAlloca decs
