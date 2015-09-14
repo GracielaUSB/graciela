@@ -1,17 +1,17 @@
 program main begin
 
-  proc sumar : (in m : int, inout n : int) 
+  proc sumar : (inout m : int, inout n : int) 
   begin
       var ss : int; 
-      {pre m >= 0 /\ n >= 0 pre}  
+      {pre 0 >= 0 \/ -1 >= 0 pre}  
       |[
            ss := 548;
-           writeln("gola ppii \00");
            random(ss);
-           writeln(ss)
+           n := 444;
+           writeln(n)
 
       ]|  
-      {post m <= m + n post}
+      {post 5 <= 0 + 0 post}
   end
 
 
@@ -26,11 +26,10 @@ program main begin
     var z : char;
 
     y := 10;
-    x := 3;
+    x := abs(-3);
 
-    if x <= 1000  -> |[ x := x + 1 ; sumar(55,x) ; writeln(x)  ]|
-    [] x >= 0 -> abort
-    [] x <= 0 -> writeln(x)
+    if x <= 1000  -> |[ x := x + 1 ; sumar(y,x) ; writeln("hola como \n estas ")  ]|
+    [] x >= 100 -> writeln(x)
 
     fi;
 

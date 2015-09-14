@@ -72,6 +72,7 @@ pProc         = tryString "proc"
 pIn           = tryString "in"
 pOut          = tryString "out"
 pInOut        = tryString "inout"
+pRef          = tryString "ref"
 pWith         = tryString "with"
 pMod          = tryString "mod"
 pMax          = tryString "max"
@@ -181,6 +182,7 @@ lexer =
                           <|> (pProc         >> spaces >> return (TokProc))
                           <|> (pInOut        >> spaces >> return (TokInOut))    
                           <|> (pOut          >> spaces >> return (TokOut))
+                          <|> (pRef          >> spaces >> return (TokRef))
                           <|> (pWith         >> spaces >> return (TokWith))
                           <|> (pMod          >> spaces >> return (TokMod))
                           <|> (pMax          >> spaces >> return (TokMax))

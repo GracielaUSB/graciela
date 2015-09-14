@@ -41,8 +41,9 @@ isInitialized _                        = False
 
 isRValue :: Contents a -> Bool
 isRValue (Contents _ _ _ _ _    ) = True
-isRValue (ArgProcCont In _ _    ) = True
+isRValue (ArgProcCont In    _ _ ) = True
 isRValue (ArgProcCont InOut _ _ ) = True
+isRValue (ArgProcCont Ref   _ _ ) = True
 isRValue (FunctionCon _ _ _ _   ) = True
 isRValue (ProcCon _ _ _ _   )     = True
 isRValue _                        = False
@@ -50,8 +51,9 @@ isRValue _                        = False
 
 isLValue :: Contents a -> Bool
 isLValue (Contents Variable _ _ _ _) = True
-isLValue (ArgProcCont Out _ _)       = True
+isLValue (ArgProcCont Out   _ _)     = True
 isLValue (ArgProcCont InOut _ _)     = True
+isLValue (ArgProcCont Ref   _ _)     = True
 isLValue _                           = False
 
 

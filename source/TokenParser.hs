@@ -1,3 +1,4 @@
+
 module TokenParser where
 
 import Control.Monad.Identity (Identity)
@@ -77,6 +78,7 @@ parseProc         = verify TokProc
 parseIn           = verify TokIn
 parseOut          = verify TokOut
 parseInOut        = verify TokInOut
+parseRef          = verify TokRef
 parseRead         = verify TokRead
 parseWith         = verify TokWith
 parseWriteln      = verify TokWriteln

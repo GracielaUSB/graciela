@@ -103,7 +103,7 @@ createLLVM defs accs = do
     -- Tag de error del if
     modify $ \s -> s { blockName = Name "ifAbort" }
     let arg   = [(ConstantOperand $ C.Int 32 1, [])]
-    let df = Right $ definedFunction i32 (Name abortString)
+    let df = Right $ definedFunction intType (Name abortString)
     caller voidType df arg
     addBasicBlock (Do $ Unreachable [])
     --
@@ -144,17 +144,61 @@ retVarOperand ((id', c):xs) = do
     store t exp add
     retVarOperand xs
 
+createState :: String -> MyAST.AST T.Type -> LLVM ()
+createState name (MyAST.States cond _ exp _) = do 
+
+    let checkPre = "resPre" ++ name
+    e' <- createExpression exp
+    next     <- newLabel
+    warAbort <- newLabel
+
+    case cond of
+    { MyAST.Pre  -> do op <- alloca Nothing boolType checkPre
+                       store boolType op e'
+                       addVarOperand checkPre op
+                       setLabel warAbort $ condBranch e' next warAbort
+                       let arg   = [(ConstantOperand $ C.Int 32 3, [])]
+                       let df = Right $ definedFunction intType (Name abortString)
+                       caller voidType df arg
+
+    ; MyAST.Post -> do op <- load checkPre boolType
+                       let ty = T.MyBool
+                       a      <- addUnNamedInstruction boolType $ irUnary   MyAST.Not ty op
+                       check  <- addUnNamedInstruction boolType $ irBoolean MyAST.Dis a e' 
+                       setLabel warAbort $ condBranch check next warAbort
+                       let arg   = [(ConstantOperand $ C.Int 32 4, [])]
+                       let df = Right $ definedFunction intType (Name abortString)
+                       caller voidType df arg
+    
+    ; MyAST.Assertion -> do setLabel warAbort $ condBranch e' next warAbort
+                            let arg   = [(ConstantOperand $ C.Int 32 5, [])]
+                            let df = Right $ definedFunction intType (Name abortString)
+                            caller voidType df arg 
+    }
+    
+    setLabel next $ branch next 
+    return ()
+
+
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
+    let name' = (TE.unpack name)
     mapM_ accToAlloca decs
+    createState name' pre
     let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
     let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
     retTy <- retVoid
     addArgOperand args
     mapM_ createInstruction accs 
+<<<<<<< HEAD
     retVarOperand args
+=======
+    retVarOperand args''
+    createState name' post
+>>>>>>> ffc52410ac08ddb3cedc9b350cc29698383359f4
     addBasicBlock retTy
-    addDefinition (TE.unpack name) args' voidType
+    addDefinition name' args' voidType
+   
    
 createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     let args' = ([Parameter (toType t) (Name (TE.unpack id)) [] | (id, t) <- params], False)
@@ -238,6 +282,7 @@ createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
     store t' opa e'
     return ()
 
+
 createInstruction (MyAST.Write True exp _ t) = do
     let ty  = MyAST.tag exp 
     let ty' = toType t
@@ -263,6 +308,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     ; T.MyString -> procedureCall ty' writeString [e']
     }
     return ()
+
 
 createInstruction (MyAST.Block _ st decs accs _) = do
     mapM_ accToAlloca decs
@@ -307,14 +353,20 @@ createInstruction (MyAST.Ran id _ _ t) = do
 
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
+
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
-    case argt of
-      T.In -> 
-        do arg' <- createExpression arg
-           return $ arg':lr
-      otherwise ->
-        do dicn <- gets varsLoc
-           return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+
+    dicn <- gets varsLoc
+    return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+
+
+    --case argt of
+    --  T.In -> 
+    --    do arg' <- createExpression arg
+    --       return $ arg':lr
+    --  otherwise ->
+    --    do dicn <- gets varsLoc
+    --       return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
 
 createArguments _ [] [] = return []
 

@@ -2,13 +2,14 @@ module Type where
 
 import Data.Text
 
-data TypeArg = In | Out | InOut
+data TypeArg = In | Out | InOut | Ref
       deriving (Eq)
 
 instance Show TypeArg where
    show In    = " Var Int"
    show Out   = " Var Out"
    show InOut = " Var Int/Out"
+   show Ref   = " Var Ref"  
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction {  paramType :: [Type], retuType :: Type } | MyProcedure [Type] 
