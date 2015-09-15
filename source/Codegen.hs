@@ -140,8 +140,18 @@ retVarOperand [] = return()
 retVarOperand ((id', c):xs) = do
     let t = toType $ symbolType c
     let exp = local t (Name id')
-    add <- load id' t 
-    store t exp add
+    let tp = procArgType c 
+    case tp of
+      T.InOut -> 
+        do add <- load id' t 
+           store t exp add
+           return ()
+      T.Out -> 
+        do add <- load id' t 
+           store t exp add
+           return ()
+      T.In ->
+        return ()
     retVarOperand xs
 
 createState :: String -> MyAST.AST T.Type -> LLVM ()
@@ -190,12 +200,8 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     retTy <- retVoid
     addArgOperand args
     mapM_ createInstruction accs 
-<<<<<<< HEAD
     retVarOperand args
-=======
-    retVarOperand args''
     createState name' post
->>>>>>> ffc52410ac08ddb3cedc9b350cc29698383359f4
     addBasicBlock retTy
     addDefinition name' args' voidType
    
@@ -335,7 +341,7 @@ createInstruction (MyAST.Rept guards _ _ _ _) = do
 createInstruction (MyAST.ProcCall pname st _ args _) = do
     let c     = fromJust $ checkSymbol pname st
     let dic   = getMap $ getActual $ sTable $ c
-    let nargp = map fst $ filter (\(id, t) -> isArg t) (DM.toList dic)
+    let nargp = nameArgs c
     exp <- createArguments dic nargp args
 
     procedureCall voidType (TE.unpack pname) exp
@@ -353,20 +359,14 @@ createInstruction (MyAST.Ran id _ _ t) = do
 
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
-
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
-
-    dicn <- gets varsLoc
-    return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
-
-
-    --case argt of
-    --  T.In -> 
-    --    do arg' <- createExpression arg
-    --       return $ arg':lr
-    --  otherwise ->
-    --    do dicn <- gets varsLoc
-    --       return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+    case argt of
+      T.In -> 
+        do arg' <- createExpression arg
+           return $ arg':lr
+      otherwise ->
+        do dicn <- gets varsLoc
+           return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
 
 createArguments _ [] [] = return []
 
