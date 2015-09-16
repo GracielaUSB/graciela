@@ -16,3 +16,7 @@ errorL loc = "Error " ++ show loc
 
 getLocation :: SourcePos -> Location
 getLocation pos = Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+
+
+emptyLoc :: Location
+emptyLoc = Location 0 0 ""

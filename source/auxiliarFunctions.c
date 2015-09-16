@@ -79,25 +79,37 @@ int _randomInt() {
 }
 
 
-void _abort(int x) {
+void _abort(int x, int line, int column) {
 
 	switch (x) {
 
 		case 1:
-    	    printf("%s\n", "ABORT: El valor suministrado no cumplió ninguna de las guardias.");
+            printf("ABORT: En la línea %d, columna %d. El valor suministrado no cumplió ninguna de las guardias. \n", line, column);  
 			exit(0);
 
 		case 2:
-			printf("%s\n", "ABORT");  
+            printf("ABORT: En la línea %d, columna %d.  \n", line, column);  
 			exit(0);
 
         case 3:
-            printf("%s\n", "ADVERTENCIA: La Precondición no es correcta.");
+            printf("ADVERTENCIA: En la línea %d, columna %d. La Precondición no es correcta. \n", line, column);  
             break;
 
         case 4:
-            printf("%s\n", "ABORT: La Postcondición no se cumplió.");  
+            printf("ABORT: En la línea %d, columna %d. La Postcondición no se cumplió. \n", line, column);  
             exit(0);
 
-	} 
+        case 5:
+            printf("ABORT: En la línea %d, columna %d. La Aserción no se cumplió. \n", line, column);  
+            exit(0);
+
+        case 6:
+            printf("ABORT: En la línea %d, columna %d. Divisón por cero.\n", line, column);  
+            exit(0);
+	
+
+    } 
 }
+
+
+    

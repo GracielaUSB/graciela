@@ -22,13 +22,15 @@ import Control.Monad.State
 import Control.Applicative
 import LLVM.General.Module
 import Data.Foldable (toList)
+import CodegenState
 import SymbolTable
 import Data.Either
 import Data.Maybe
 import Data.Word
 import Data.Char
 import Contents
-import CodegenState
+import Location
+import Aborts 
 
 
 writeLnInt    = "_writeLnInt"
@@ -40,7 +42,6 @@ writeBool     = "writeBool"
 writeDouble   = "_writeDouble"
 writeString   = "puts"
 randomInt     = "_randomInt"
-abortString   = "_abort"
 sqrtString    = "llvm.sqrt.f64"
 fabsString    = "llvm.fabs.f64"
 minnumString  = "llvm.minnum.f64"
@@ -48,13 +49,8 @@ maxnumString  = "llvm.maxnum.f64"
 powString     = "llvm.pow.f64"
 
 
+createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
 createParameters names attrs = (map (\((name, t), attr) -> Parameter t name attr) (zip names attrs), False)
-
-
-voidType   = VoidType
-boolType   = i1
-doubleType = double
-stringType = PointerType i8 (AddrSpace 0)
 
 
 createPreDef ::  LLVM () 
@@ -65,7 +61,9 @@ createPreDef = do
     let intParams = createParameters [(Name "x", intType)] [[]]
     addDefinition writeLnInt  intParams voidType
     addDefinition writeInt    intParams voidType
-    addDefinition abortString intParams voidType
+
+    addDefinition abortString (createParameters [(Name "x", intType), 
+          (Name "line", intType), (Name "column", intType)] [[], [], []]) voidType
 
     let boolParams = createParameters [(Name "x", boolType)] [[]]
     addDefinition writeLnBool boolParams voidType
@@ -79,7 +77,8 @@ createPreDef = do
     addDefinition minnumString  doubleParams doubleType
     addDefinition maxnumString  doubleParams doubleType
 
-    addDefinition powString (createParameters [(Name "x", doubleType), (Name "y", doubleType)] [[], []]) doubleType
+    addDefinition powString (createParameters [(Name "x", doubleType), 
+                                               (Name "y", doubleType)] [[], []]) doubleType
 
     let stringParams = createParameters [(Name "msg", stringType)] [[NoCapture]]
     addDefinition writeLnString stringParams intType
@@ -93,26 +92,22 @@ astToLLVM (MyAST.Program name _ defs accs _) =
     }
 
 
+
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM defs accs = do
+
     createPreDef
     mapM_ createDef defs
     m800 <- retVoid
     createBasicBlocks accs m800
-
-    -- Tag de error del if
-    modify $ \s -> s { blockName = Name "ifAbort" }
-    let arg   = [(ConstantOperand $ C.Int 32 1, [])]
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df arg
-    addBasicBlock (Do $ Unreachable [])
-    --
-
     addDefinition "main" ([],False) voidType
+
 
 convertID :: String -> String
 convertID name = '_':name
 
+
+addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 addArgOperand [] = return ()
 addArgOperand ((id',c):xs) = do
     let t  = toType $ symbolType c
@@ -134,8 +129,11 @@ addArgOperand ((id',c):xs) = do
     addArgOperand xs
     
 
+constantInt :: Integer -> Operand
 constantInt n = ConstantOperand $ C.Int 0 n
 
+
+retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 retVarOperand [] = return()
 retVarOperand ((id', c):xs) = do
     let t = toType $ symbolType c
@@ -154,8 +152,9 @@ retVarOperand ((id', c):xs) = do
         return ()
     retVarOperand xs
 
+
 createState :: String -> MyAST.AST T.Type -> LLVM ()
-createState name (MyAST.States cond _ exp _) = do 
+createState name (MyAST.States cond loc exp _) = do 
 
     let checkPre = "resPre" ++ name
     e' <- createExpression exp
@@ -167,31 +166,25 @@ createState name (MyAST.States cond _ exp _) = do
                        store boolType op e'
                        addVarOperand checkPre op
                        setLabel warAbort $ condBranch e' next warAbort
-                       let arg   = [(ConstantOperand $ C.Int 32 3, [])]
-                       let df = Right $ definedFunction intType (Name abortString)
-                       caller voidType df arg
+                       createTagPre next loc 
 
     ; MyAST.Post -> do op <- load checkPre boolType
                        let ty = T.MyBool
                        a      <- addUnNamedInstruction boolType $ irUnary   MyAST.Not ty op
                        check  <- addUnNamedInstruction boolType $ irBoolean MyAST.Dis a e' 
                        setLabel warAbort $ condBranch check next warAbort
-                       let arg   = [(ConstantOperand $ C.Int 32 4, [])]
-                       let df = Right $ definedFunction intType (Name abortString)
-                       caller voidType df arg
+                       createTagPost next loc
     
     ; MyAST.Assertion -> do setLabel warAbort $ condBranch e' next warAbort
-                            let arg   = [(ConstantOperand $ C.Int 32 5, [])]
-                            let df = Right $ definedFunction intType (Name abortString)
-                            caller voidType df arg 
+                            createTagAsert next loc
     }
     
-    setLabel next $ branch next 
     return ()
 
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
+    
     let name' = (TE.unpack name)
     mapM_ accToAlloca decs
     createState name' pre
@@ -227,10 +220,6 @@ accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     createInstruction acc
 
 
-caller :: Type -> CallableOperand -> [(Operand, [ParameterAttribute])] -> LLVM Operand
-caller ty df args = addUnNamedInstruction ty $ Call False CC.C [] df args [] []
-
-
 idToAlloca :: ((TE.Text, T.Type), [MyAST.AST a]) -> LLVM()
 idToAlloca ((id, t),arr) = do
     let id' = TE.unpack id
@@ -257,16 +246,15 @@ procedureCall t pname es = do
     let df  = Right $ definedFunction t (Name pname)
     caller t df es' 
 
+
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.EmptyAST _ ) = return ()
 createInstruction (MyAST.ID _ _ _)    = return ()
 createInstruction (MyAST.Skip _ _)    = return ()
 
 
-createInstruction (MyAST.Abort _ _) = do
-    let arg = [(ConstantOperand $ C.Int 32 2, [])]
-    let df  = Right $ definedFunction i32 (Name abortString)
-    caller voidType df arg 
+createInstruction (MyAST.Abort loc _) = do
+    createTagAbort loc
     return ()
 
 
@@ -322,10 +310,14 @@ createInstruction (MyAST.Block _ st decs accs _) = do
     return ()
 
 
-createInstruction (MyAST.Cond guards _ _) = do
+createInstruction (MyAST.Cond guards loc _) = do
     final <- newLabel
-    genGuards guards (Name "ifAbort") final
-    setLabel final $ branch final
+    abort <- newLabel
+    genGuards guards abort final
+
+    setLabel abort $ branch final
+    createTagIf final loc
+
     return ()
 
 
@@ -357,6 +349,8 @@ createInstruction (MyAST.Ran id _ _ t) = do
     return ()
 
 
+createArguments :: DM.Map TE.Text (Contents SymbolTable)
+                    -> [TE.Text] -> [MyAST.AST T.Type] -> LLVM [Operand]
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
@@ -367,15 +361,7 @@ createArguments dicnp (nargp:nargps) (arg:args) = do
       otherwise ->
         do dicn <- gets varsLoc
            return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
-
 createArguments _ [] [] = return []
-
-branch :: Name -> Named Terminator
-branch label = Do $ Br label [] 
-
-
-condBranch :: Operand -> Name -> Name -> Named Terminator
-condBranch op true false = Do $ CondBr op true false []
 
 
 genGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
@@ -485,6 +471,28 @@ createExpression (MyAST.Arithmetic MyAST.Max _ lexp rexp T.MyInt) = do
     b     <- intToDouble rexp'
     val   <- caller double df [(a, []),(b, [])] 
     doubleToInt val
+
+
+createExpression (MyAST.Arithmetic MyAST.Div loc lexp rexp ty) = do
+
+    lexp' <- createExpression lexp
+    rexp' <- createExpression rexp
+    next  <- newLabel
+    abort <- newLabel
+    
+    case ty of 
+    { T.MyInt   -> do let zero = ConstantOperand $ C.Int 32 0
+                      check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
+                      setLabel abort $ condBranch check abort next 
+                      createTagZero next loc
+                      addUnNamedInstruction (toType ty) $ irArithmetic MyAST.Div ty lexp' rexp' 
+   
+    ; T.MyFloat -> do let zero = ConstantOperand $ C.Float $ Double 0.0
+                      check <- addUnNamedInstruction double $ FCmp FL.OEQ rexp' zero []
+                      setLabel abort $ condBranch check abort next 
+                      createTagZero next loc
+                      addUnNamedInstruction (toType ty) $ irArithmetic MyAST.Div ty lexp' rexp' 
+    }
 
 
 createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
