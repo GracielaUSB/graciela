@@ -538,8 +538,7 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     let ty   =  toType t 
     let exp' = map (\i -> (i,[])) exp
     let op   = definedFunction ty (Name $ TE.unpack fname)
-    val     <- caller ty (Right op) exp'
-    return val
+    caller ty (Right op) exp'
 
 
 createExpression (MyAST.Cond lguards _ rtype) = do
