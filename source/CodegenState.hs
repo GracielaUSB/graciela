@@ -4,24 +4,28 @@ module CodegenState where
 import qualified Data.Map                                as DM
 import qualified Data.Sequence                           as DS
 import qualified AST                                     as MyAST
+import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified Data.Text                               as TE
-import qualified Type                                    as T
 import qualified LLVM.General.AST.Constant               as C
+import qualified Location                                as L
+import qualified Type                                    as T
 import LLVM.General.AST                                  as AST
 import LLVM.General.AST.Global                           as GLOB
 import LLVM.General.AST.InlineAssembly
-import Data.Foldable (toList)
-import Data.Char
-import Control.Monad.State
-import Control.Applicative
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.AddrSpace
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
 import LLVM.General.Module
+import Control.Monad.State
+import Control.Applicative
+import Data.Foldable (toList)
+import SymbolTable
 import Data.Maybe
 import Data.Word
+import Data.Char
 import Contents
+
 
 data CodegenSt
   = CodeGenSt {
@@ -32,6 +36,7 @@ data CodegenSt
   , moduleDefs  :: DS.Seq Definition
   , varsLoc     :: DM.Map String Operand
   , arrsDim     :: DM.Map String [Operand]
+  , loc         :: L.Location
   } deriving (Show)
 
 
@@ -40,7 +45,7 @@ newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
 
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
+emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty L.emptyLoc
 
 
 execCodegen :: LLVM a -> CodegenSt
@@ -52,10 +57,12 @@ newLabel = do
     n <- getCount
     return $ UnName n
 
+
 addDimToArray :: String -> Operand -> LLVM()
 addDimToArray name op = do
     dims <- gets arrsDim
     modify $ \s -> s { arrsDim = DM.insertWith (++) name [op] dims }
+
 
 addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
 addDefinition name params retTy = do
@@ -83,6 +90,7 @@ addString msg name ty = do
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
+
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
     lins  <- gets instrs
@@ -102,6 +110,7 @@ addNamedInstruction t name ins = do
     let op = local t r
     addVarOperand name op
     return op 
+
 
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do
@@ -129,8 +138,10 @@ getCount = do
     modify $ \s -> s { insCount = n + 1 }
     return $ n
 
+
 stringConst :: String -> C.Constant
 stringConst msg = C.Array i8 [C.Int 8 (fromIntegral (ord c)) | c <- (msg ++ "\0")]    
+
 
 local :: Type -> Name -> Operand
 local = LocalReference
@@ -138,6 +149,7 @@ local = LocalReference
 
 global :: Type -> Name -> C.Constant
 global = C.GlobalReference
+
 
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (global ty)
@@ -152,11 +164,25 @@ store :: Type -> Operand -> Operand -> LLVM Operand
 store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
+
 load :: String -> Type -> LLVM (Operand)
 load name ty = do 
     map <- gets varsLoc
     let i = fromJust $ DM.lookup name map
     addUnNamedInstruction ty $ Load False i Nothing 0 []
+
+
+caller :: Type -> CallableOperand -> [(Operand, [ParameterAttribute])] -> LLVM Operand
+caller ty df args = addUnNamedInstruction ty $ Call False CC.C [] df args [] []
+
+
+branch :: Name -> Named Terminator
+branch label = Do $ Br label [] 
+
+
+condBranch :: Operand -> Name -> Name -> Named Terminator
+condBranch op true false = Do $ CondBr op true false []
+
 
 dimToOperand :: Either TE.Text Integer -> LLVM Operand
 dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
@@ -180,8 +206,10 @@ mulDims (arrDim:xs) (acc:ys) = do
     opMul <- addUnNamedInstruction intType $ Mul False False arrDim acc []
     addUnNamedInstruction intType $ Add False False op opMul []
 
+
 intType :: Type
 intType = i32
+
 
 intToDouble :: Operand -> LLVM Operand
 intToDouble x = addUnNamedInstruction double $ SIToFP x double []
@@ -189,6 +217,7 @@ intToDouble x = addUnNamedInstruction double $ SIToFP x double []
 
 doubleToInt :: Operand -> LLVM Operand
 doubleToInt x = addUnNamedInstruction i32 $ FPToSI x i32 [] 
+
 
 retType :: Operand -> LLVM (Named Terminator)
 retType op = do 
@@ -202,6 +231,7 @@ retVoid = do
     return $ n := Ret Nothing []
 
 
+convertParams :: [(String, Contents SymbolTable)] -> [(String, Type)]
 convertParams [] = []
 convertParams ((id,c):xs) = 
     let t  = toType $ symbolType c in
@@ -216,3 +246,9 @@ toType T.MyFloat = double
 toType T.MyBool  = i1
 toType T.MyChar  = i8
 toType (T.MyArray _ t) = toType t 
+
+
+voidType   = VoidType
+boolType   = i1
+doubleType = double
+stringType = PointerType i8 (AddrSpace 0)
