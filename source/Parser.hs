@@ -396,7 +396,7 @@ guard CExpression follow recSet =
        return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
 
 
-functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 functionCallOrAssign follow recSet = 
     do pos <- getPosition
        id <- parseID
@@ -412,23 +412,41 @@ functionCallOrAssign follow recSet =
                        rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
                        parseAssign
                        le <- listExp follow recSet
-                       return $ (AP.liftA2 (LAssign) (AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) id) t) bl) rl) le) 
-                                AP.<*> (return (getLocation pos))
-                                AP.<*> (return MyEmpty)
+                       case bl of
+                         Nothing  -> return Nothing
+                         Just bl' ->
+                           case bl' of
+                             [] -> 
+                               do let idast = fmap (ID (getLocation pos) id) t
+                                  return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (getLocation pos)) (return MyEmpty)
+                             otherwise -> 
+                               do let idast = (fmap (ArrCall (getLocation pos) id) bl) AP.<*>  t 
+                                  return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (getLocation pos)) (return MyEmpty)
+                       --let idast = fmap (ID (getLocation pos) id) t
                   )
 
 
-idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([((T.Text, Type), [AST(Type)])]))
+idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST Type]))
 idAssignListAux follow recSet = 
     do lookAhead follow
        return $ return []
        <|> do parseComma
+              pos <- getPosition
               ac <- parseID
               t  <- lookUpConsParser ac
               bl <- bracketsList (parseComma <|> parseAssign) 
                       (parseComma <|> parseAssign <|> recSet)
               rl <- idAssignListAux (follow) (recSet)
-              return ((AP.liftA2 (:) (AP.liftA2 (,) (fmap ((,) ac) t) bl) rl))
+              case bl of
+                Nothing  -> return Nothing
+                Just bl' ->
+                  case bl' of
+                    [] -> 
+                      do let ast = fmap (ID (getLocation pos) ac) t
+                         return $ AP.liftA2 (:) ast rl
+                    otherwise -> 
+                      do let ast = (fmap (ArrCall (getLocation pos) ac) bl) AP.<*>  t 
+                         return $ AP.liftA2 (:) ast rl
 
 
 action :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )

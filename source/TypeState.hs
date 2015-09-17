@@ -59,3 +59,6 @@ addQuantBoolError op tr tt loc = addTypeError $ QuantBoolError op tr tt loc
 
 addQuantIntError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
 addQuantIntError op tr tt loc = addTypeError $ QuantIntError op tr tt loc
+
+addAssignError :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type  
+addAssignError name op1 op2 loc = addTypeError $ AssignError name op1 op2 loc

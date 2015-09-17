@@ -18,19 +18,17 @@ data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction {  paramType :: [T
 
 
 instance Eq Type where
-   MyInt            ==  MyInt           = True
-   MyFloat          ==  MyFloat         = True           
-   MyBool           ==  MyBool          = True
-   MyChar           ==  MyChar          = True
-   MyString         ==  MyString        = True
-   MyError          ==  MyError         = True
-   MyEmpty          ==  MyEmpty         = True
-   (MyProcedure  _) == (MyProcedure  _) = True
-   (MyFunction _ t) ==  x               = t == x
-   x                == (MyFunction _ t) = x == t
-   (MyArray    d t) ==  x               = t == x
-   x                == (MyArray    d t) = x == t  
-   _                ==  _               = False
+   MyInt            ==  MyInt             = True
+   MyFloat          ==  MyFloat           = True           
+   MyBool           ==  MyBool            = True
+   MyChar           ==  MyChar            = True
+   MyString         ==  MyString          = True
+   MyError          ==  MyError           = True
+   MyEmpty          ==  MyEmpty           = True
+   (MyProcedure  _) == (MyProcedure  _)   = True
+   (MyFunction _ t) == (MyFunction _ t')  = t == t'
+   (MyArray    d t) == (MyArray d' t')    = t == t'
+   _                ==  _                 = False
 
 
 instance Show Type where
@@ -56,9 +54,9 @@ isTypeFunc (MyFunction _ _ ) = True
 isTypeFunc _                 = False
 
 
-getDimention :: Type -> Int -> Int
-getDimention (MyArray tam t) n = getDimention t (n+1)  
-getDimention _               n = n
+getDimention :: Type -> Int
+getDimention (MyArray tam t)= 1 + getDimention t
+getDimention _              = 0
 
 
 isCuantificable :: Type -> Bool

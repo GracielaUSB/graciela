@@ -15,6 +15,7 @@ import Location
 import Token
 import Type 
 import AST
+import Data.Maybe
 
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, DS.Seq MyTypeError)
@@ -124,10 +125,10 @@ verTypeAST (GuardAction loc assert action _) =
                                                            
 
 verTypeAST (LAssign idlist explist loc _) =
-    do explist' <- verTypeASTlist explist
-       expArrT  <- mapM verTypeASTlist (map snd idlist)
-       checkT   <- verLAssign (map tag explist') (map fst idlist) (fmap (map tag) expArrT) loc
-       return $ LAssign idlist explist' loc checkT
+    do explist' <- mapM verTypeAST explist
+       idlist'  <- mapM verTypeAST idlist
+       checkT   <- verLAssign (map (fromJust . astToId) idlist') (map tag idlist') (map tag explist') (map AST.location idlist)
+       return $ LAssign idlist' explist' loc checkT
 
 
 verTypeAST (Cond guard loc _) =

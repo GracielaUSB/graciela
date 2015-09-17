@@ -11,7 +11,7 @@ import TypeState
 import Location
 import Type
 import AST
-
+import Data.List (zip4)
 
 checkListType :: Type -> Bool -> Type -> Bool 
 checkListType _ False _ = False
@@ -356,56 +356,63 @@ isASTLValue sb id =
   } 
 
 
-addLAssignError:: Location -> [MyTypeError] -> (((T.Text, Type), [Type]), Type) -> 
-                    RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [MyTypeError]
-addLAssignError loc acc (((tok, (MyArray t tam)), expArrT), expT) = 
-    do arrT <- verArrayCall tok expArrT (MyArray t tam) loc 
-       case arrT of
-       { MyError   -> return acc 
-       ; otherwise -> case (checkListType arrT True expT) of 
-                      { True  -> return acc 
-                      ; False -> return $ acc ++ [AssignError tok arrT expT loc]
-                      }  
-       }
+addLAssignError:: [Bool] -> [(T.Text, Type, Type, Location)] -> MyVerType
+addLAssignError (res:rs) ((name, op1, op2, loc):xs) = 
+  if res then
+    addLAssignError rs xs
+  else
+    do addAssignError name op1 op2 loc
+       addLAssignError rs xs
 
-addLAssignError loc acc (((tok, t), _), expT) = 
-    case (checkListType t True expT) of 
-    { True  -> return acc 
-    ; False -> return $ acc ++ [AssignError tok t expT loc]
-    }  
+addLAssignError [] [] = return MyError
 
 
-verLAssign :: [Type] -> [(T.Text, Type)] -> [[Type]] -> Location -> MyVerType
-verLAssign explist idlist expArrT loc = 
-    do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
-       let checkError' = (\acc t -> if not(acc == MyError) && not(t == MyError) then MyEmpty else MyError)   
-       case (foldl1 checkError' explist) of
-       { MyError   -> return MyError
-       ; otherwise -> case check of 
-                      { []        -> return MyEmpty
-                      ; otherwise -> do mapM_ addListError check
-                                        return MyError
-                      }
-       }
+verLAssign :: [T.Text] -> [Type] -> [Type] -> [Location] -> MyVerType
+verLAssign ids idlist explist locs = 
+    if length idlist /= length explist then
+      addDifSizeDecError $ head locs
+    else
+      let res = map (uncurry (==)) $ zip idlist explist in
+        if and res then
+          return MyEmpty
+        else
+          addLAssignError res $ zip4 ids idlist explist locs
+           
+      
+    -- do check <- RWSS.foldM (addLAssignError loc) [] $ zip (zip idlist expArrT) explist
+    --    let checkError' = (\acc t -> if not(acc == MyError) && not(t == MyError) then MyEmpty else MyError)   
+    --    case (foldl1 checkError' explist) of
+    --    { MyError   -> return MyError
+    --    ; otherwise -> case check of 
+    --                   { []        -> return MyEmpty
+    --                   ; otherwise -> do mapM_ addListError check
+    --                                     return MyError
+    --                   }
+    --    }
 
+
+getArrayType :: Int -> Type -> Type
+getArrayType 0 t = t
+getArrayType n t = getArrayType (n-1) (getType t)
 
 verArrayCall :: T.Text -> [Type] -> Type -> Location -> MyVerType
 verArrayCall name args t loc =
-    let waDim = getDimention t 0
+    let waDim = getDimention t
         prDim = length args
-    in case (waDim == prDim) of
+    in case (waDim >= prDim) of
        { False -> addTypeError $ ArrayDimError name waDim prDim loc   
        ; True  -> case (foldl checkError MyInt args) of
                   { MyError   -> return MyError
-                  ; MyInt     -> return $ getType t
-                  ; otherwise -> let addError = (\acc expT -> 
-                                       case (checkListType MyInt True expT) of 
-                                       { True  -> acc 
-                                       ; False -> acc ++ [ArrayCallError name expT loc]
-                                       } )  
-                                     check    = foldl addError [] args
-                                 in do mapM_ addListError check
-                                       return MyError
+                  ; MyInt     -> return $ getArrayType prDim t
+                  ; otherwise -> 
+                    let addError = (\acc expT -> 
+                          case (checkListType MyInt True expT) of 
+                          { True  -> acc 
+                          ; False -> acc ++ [ArrayCallError name expT loc]
+                          } )  
+                        check    = foldl addError [] args
+                    in do mapM_ addListError check
+                          return MyError
                   }
        }
 
