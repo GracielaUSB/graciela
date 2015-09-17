@@ -35,10 +35,12 @@ import Aborts
 
 writeLnInt    = "_writeLnInt"
 writeLnBool   = "_writeLnBool"
+writeLnChar   = "_writeLnChar"
 writeLnDouble = "_writeLnDouble"
 writeLnString = "puts"
 writeInt      = "_writeInt"
-writeBool     = "writeBool"
+writeBool     = "_writeBool"
+writeChar     = "_writeChar"
 writeDouble   = "_writeDouble"
 writeString   = "puts"
 randomInt     = "_randomInt"
@@ -61,6 +63,8 @@ createPreDef = do
     let intParams = createParameters [(Name "x", intType)] [[]]
     addDefinition writeLnInt  intParams voidType
     addDefinition writeInt    intParams voidType
+    addDefinition writeChar   intParams voidType
+    addDefinition writeLnChar intParams voidType
 
     addDefinition abortString (createParameters [(Name "x", intType), 
           (Name "line", intType), (Name "column", intType)] [[], [], []]) voidType
@@ -74,11 +78,13 @@ createPreDef = do
     addDefinition writeDouble   doubleParams voidType
     addDefinition sqrtString    doubleParams doubleType
     addDefinition fabsString    doubleParams doubleType
-    addDefinition minnumString  doubleParams doubleType
-    addDefinition maxnumString  doubleParams doubleType
 
-    addDefinition powString (createParameters [(Name "x", doubleType), 
-                                               (Name "y", doubleType)] [[], []]) doubleType
+
+    let doubleParams2 = (createParameters [(Name "x", doubleType), 
+                                           (Name "y", doubleType)] [[], []])
+    addDefinition minnumString  doubleParams2 doubleType
+    addDefinition maxnumString  doubleParams2 doubleType
+    addDefinition powString     doubleParams2 doubleType
 
     let stringParams = createParameters [(Name "msg", stringType)] [[NoCapture]]
     addDefinition writeLnString stringParams intType
@@ -297,6 +303,7 @@ createInstruction (MyAST.Write True exp _ t) = do
     { T.MyInt    -> procedureCall ty' writeLnInt [e']
     ; T.MyFloat  -> procedureCall ty' writeLnDouble [e']
     ; T.MyBool   -> procedureCall ty' writeLnBool [e']
+    ; T.MyChar   -> procedureCall intType writeLnChar [e']   
     ; T.MyString -> procedureCall ty' writeLnString [e']
     }
     return ()
@@ -310,6 +317,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     { T.MyInt    -> procedureCall ty' writeInt [e']
     ; T.MyFloat  -> procedureCall ty' writeDouble [e']
     ; T.MyBool   -> procedureCall ty' writeBool [e']
+    ; T.MyChar   -> procedureCall intType writeChar [e']
     ; T.MyString -> procedureCall ty' writeString [e']
     }
     return ()
@@ -434,7 +442,7 @@ createExpression (MyAST.Bool _ False _) = do
  
 
 createExpression (MyAST.Char _ n _) = do
-    return $ ConstantOperand $ C.Int 8 $ toInteger $ digitToInt n
+    return $ ConstantOperand $ C.Int 32 $ toInteger $ ord n
     
 
 createExpression (MyAST.String _ msg _) = do
@@ -453,23 +461,21 @@ createExpression (MyAST.Convertion tType _ exp t) = do
 
 --Potencia Integer
 createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
-    let df = Right $ definedFunction double (Name powString)
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
     a     <- intToDouble lexp'
     b     <- intToDouble rexp'
-    val   <- caller double df [(a, []),(b, [])] 
+    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Exp T.MyFloat a b 
     doubleToInt val
 
 
 --Minimo Integer
 createExpression (MyAST.Arithmetic MyAST.Min _ lexp rexp T.MyInt) = do
-    let df = Right $ definedFunction double (Name minnumString)
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
     a     <- intToDouble lexp'
     b     <- intToDouble rexp'
-    val   <- caller double df [(a, []),(b, [])] 
+    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Min T.MyFloat a b 
     doubleToInt val
 
 
@@ -480,37 +486,22 @@ createExpression (MyAST.Arithmetic MyAST.Max _ lexp rexp T.MyInt) = do
     rexp' <- createExpression rexp
     a     <- intToDouble lexp'
     b     <- intToDouble rexp'
-    val   <- caller double df [(a, []),(b, [])] 
+    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Max T.MyFloat a b 
     doubleToInt val
 
 
-createExpression (MyAST.Arithmetic MyAST.Div loc lexp rexp ty) = do
+createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
 
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
-    next  <- newLabel
-    abort <- newLabel
-    
-    case ty of 
-    { T.MyInt   -> do let zero = ConstantOperand $ C.Int 32 0
-                      check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
-                      setLabel abort $ condBranch check abort next 
-                      createTagZero next loc
-                      addUnNamedInstruction (toType ty) $ irArithmetic MyAST.Div ty lexp' rexp' 
-   
-    ; T.MyFloat -> do let zero = ConstantOperand $ C.Float $ Double 0.0
-                      check <- addUnNamedInstruction double $ FCmp FL.OEQ rexp' zero []
-                      setLabel abort $ condBranch check abort next 
-                      createTagZero next loc
-                      addUnNamedInstruction (toType ty) $ irArithmetic MyAST.Div ty lexp' rexp' 
+
+    case op of
+    {
+    ; MyAST.Div -> checkDivZero op loc lexp' rexp' ty
+    ; MyAST.Mod -> checkDivZero op loc lexp' rexp' ty
+    ; otherwise ->  addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
     }
 
-
-createExpression (MyAST.Arithmetic op _ lexp rexp t) = do
-    lexp' <- createExpression lexp
-    rexp' <- createExpression rexp
-    addUnNamedInstruction (toType t) $ irArithmetic op t lexp' rexp'
-     
 
 createExpression (MyAST.Boolean op _ lexp rexp t) = do
     lexp' <- createExpression lexp
@@ -527,10 +518,9 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
 
 --ValorAbs Integer
 createExpression (MyAST.Unary MyAST.Abs _ exp T.MyInt) = do
-    let df = Right $ definedFunction double (Name fabsString)
     exp' <- createExpression exp
     x     <- intToDouble exp'
-    val   <- caller double df [(x, [])]
+    val   <- addUnNamedInstruction intType $ irUnary MyAST.Abs T.MyFloat x
     doubleToInt val
 
 
@@ -543,7 +533,7 @@ createExpression (MyAST.Unary MyAST.Sqrt _ exp t) = do
     case ty of 
     { T.MyFloat -> addUnNamedInstruction (toType ty) $ irUnary MyAST.Sqrt ty exp' 
     ; T.MyInt   -> do x <- intToDouble exp'
-                      caller double df [(x, [])]
+                      addUnNamedInstruction (toType ty) $ irUnary MyAST.Sqrt T.MyFloat x
     }
 
 
@@ -568,6 +558,27 @@ createExpression (MyAST.Cond lguards _ rtype) = do
    setLabel none $ branch final
    setLabel final $ Do $ Unreachable []
    addUnNamedInstruction rtype' $ Phi rtype' lnames []
+
+
+checkDivZero :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM Operand
+checkDivZero op loc lexp' rexp' ty = do 
+    
+    next  <- newLabel
+    abort <- newLabel
+    
+    case ty of 
+    { T.MyInt   -> do let zero = ConstantOperand $ C.Int 32 0
+                      check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
+                      setLabel abort $ condBranch check abort next 
+                      createTagZero next loc
+                      addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp' 
+   
+    ; T.MyFloat -> do let zero = ConstantOperand $ C.Float $ Double 0.0
+                      check <- addUnNamedInstruction double $ FCmp FL.OEQ rexp' zero []
+                      setLabel abort $ condBranch check abort next 
+                      createTagZero next loc
+                      addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp' 
+    }
 
 
 genExpGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ([(Operand, Name)])

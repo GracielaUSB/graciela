@@ -217,7 +217,8 @@ exprLevel7 follow recSet =
 
 exprLevel8 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel8 follow recSet = 
-   do p <- exprLevel9 (follow <|> parseSlash <|> parseStar <|> parseTokMod) (recSet <|> parseSlash <|> parseStar <|> parseTokMod)
+   do p <- exprLevel9 (follow <|> parseSlash <|> parseStar <|> parseTokMod <|> parseTokMax <|> parseTokMin) 
+                      (recSet <|> parseSlash <|> parseStar <|> parseTokMod <|> parseTokMax <|> parseTokMin)
       do pos <- getPosition
          do (lookAhead(follow) >> return p)
             <|> do parseSlash
@@ -229,6 +230,12 @@ exprLevel8 follow recSet =
             <|> do parseTokMod
                    e <- exprLevel8 follow recSet
                    return $ AP.liftA3 (Arithmetic Mod (getLocation pos)) p e (return (MyEmpty))
+            <|> do parseTokMax
+                   e <- exprLevel8 follow recSet
+                   return $ AP.liftA3 (Arithmetic Max (getLocation pos)) p e (return (MyEmpty))
+            <|> do parseTokMin
+                   e <- exprLevel8 follow recSet
+                   return $ AP.liftA3 (Arithmetic Min (getLocation pos)) p e (return (MyEmpty))
             <|> do genNewError (recSet) (Operator)
                    return $ Nothing
 

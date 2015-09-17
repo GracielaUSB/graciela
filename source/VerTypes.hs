@@ -96,7 +96,7 @@ verUnary Abs   MyInt   loc = return MyInt
 verUnary Abs   MyFloat loc = return MyFloat
 verUnary Abs   errType loc = addTypeError $ UnaryError errType Abs   loc
 
-verUnary Sqrt  MyInt   loc = return MyInt  
+verUnary Sqrt  MyInt   loc = return MyFloat  
 verUnary Sqrt  MyFloat loc = return MyFloat
 verUnary Sqrt  errType loc = addTypeError $ UnaryError errType Sqrt  loc
 

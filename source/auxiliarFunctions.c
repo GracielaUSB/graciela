@@ -31,6 +31,13 @@ void _writeLnBool(int x) {
 }
 
 
+void _writeLnChar(int x) {
+    char c = x;
+    printf("%c\n", c);
+    return;
+
+}
+
 void _writeLnString(char *x) {
 
     printf("%s\n",x);
@@ -61,6 +68,14 @@ void _writeBool(int x) {
     	printf("%s", "false");
 
     return;
+}
+
+
+void _writeChar(int x) {
+    char c = x;
+    printf("%c", c);
+    return;
+
 }
 
 
