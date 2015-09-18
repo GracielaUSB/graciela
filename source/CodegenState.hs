@@ -123,6 +123,10 @@ addVarOperand name op = do
     map <- gets varsLoc
     modify $ \s -> s { varsLoc = DM.insert name op map }
 
+getVarOperand :: String -> LLVM Operand
+getVarOperand name = do
+    map <- gets varsLoc
+    return $ fromJust $ DM.lookup name map
 
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do

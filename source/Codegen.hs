@@ -226,8 +226,8 @@ accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     createInstruction acc
 
 
-idToAlloca :: ((TE.Text, T.Type), [MyAST.AST a]) -> LLVM()
-idToAlloca ((id, t),arr) = do
+idToAlloca :: MyAST.AST T.Type -> LLVM()
+idToAlloca (MyAST.ID _ id t) = do
     let id' = TE.unpack id
     dim <- typeToOperand id' t
     alloca dim (toType t) id'
@@ -253,6 +253,21 @@ procedureCall t pname es = do
     caller t df es' 
 
 
+getStoreDir (MyAST.ID _ name _) = getVarOperand (TE.unpack name)
+getStoreDir (MyAST.ArrCall _ name exps _) = do
+    ac' <- mapM createExpression exps
+    map <- gets varsLoc
+    let (i, id) = (fromJust $ DM.lookup id map, TE.unpack name)
+    ac'' <- opsToArrayIndex id ac'
+    addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
+    
+createAssign id e = do
+    e'  <- createExpression e
+    id' <- getStoreDir id 
+    let t' = toType $ MyAST.tag id
+    store t' id' e'
+    return ()
+
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.EmptyAST _ ) = return ()
 createInstruction (MyAST.ID _ _ _)    = return ()
@@ -264,23 +279,19 @@ createInstruction (MyAST.Abort loc _) = do
     return ()
 
 
-createInstruction (MyAST.LAssign (((id, t), []):_) (e:_) _ _) = do
-    e' <- createExpression e
-    map <- gets varsLoc
-    let (t', i) = (toType t, fromJust $ DM.lookup (TE.unpack id) map)
-    store t' i e'
-    return ()
+createInstruction (MyAST.LAssign ids exps _ _) = do
+    mapM_ (uncurry createAssign) $ zip ids exps
 
 
-createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
-    e'  <- createExpression e
-    ac' <- mapM createExpression accs
-    map <- gets varsLoc
-    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
-    ac'' <- opsToArrayIndex id ac'
-    opa  <- addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
-    store t' opa e'
-    return ()
+--createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
+--    e'  <- createExpression e
+--    ac' <- mapM createExpression accs
+--    map <- gets varsLoc
+--    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
+--    ac'' <- opsToArrayIndex id ac'
+--    opa  <- addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
+--    store t' opa e'
+--    return ()
 
 
 createInstruction (MyAST.Write True exp _ t) = do

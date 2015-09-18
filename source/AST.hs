@@ -108,7 +108,9 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
                         , tag :: a                                                                                     }
          | Rept         { rguard   :: [AST a], rinv   :: (AST a), rbound   :: (AST a), location ::Location, tag :: a   } -- ^ Instruccion Do.
          | ConsAssign   { location  :: Location, caID :: [(T.Text, Location)], caExpr :: [AST a], tag :: a             }
-         | LAssign      { idlist   :: [((T.Text, Type), [AST a])], explista :: [AST a], location :: Location, tag :: a } -- ^
+
+         | LAssign      { idlist   :: [AST a], explista :: [AST a], location :: Location, tag :: a                     } -- ^
+         
          | Write        { ln       :: Bool , wexp     :: (AST a), location :: Location, tag :: a                       } -- ^ Escribir.
          | FCallExp     { fname    :: T.Text, astSTable :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
          | ProcCall     { pname    :: T.Text, astSTable :: SymbolTable, location  :: Location
@@ -137,6 +139,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
 
 astToId :: AST a -> Maybe T.Text
 astToId (ID _ id _) = Just id
+astToId (ArrCall _ id _ _) = Just id
 astToId _           = Nothing
 
 instance Show a => Show (AST a) where
@@ -374,6 +377,6 @@ drawASTList level xs = foldl (\acc d -> (acc `mappend` drawAST level (d))) [] xs
 
 
 drawLAssign level idlist explist = foldl (\acc (id, exp) -> 
-   (acc `mappend` putSpacesLn (level + 4) `mappend` "Variable: " `mappend` show ((fst . fst) id) 
+   (acc `mappend` putSpacesLn (level + 4) `mappend` "Variable: " `mappend` show (id) 
         `mappend` putSpacesLn (level + 8) `mappend` "Lado derecho: "
-        `mappend` drawAST (level + 12) (exp) )) [] $ zip idlist explist
+        `mappend` drawAST (level + 12) (exp))) [] $ zip idlist explist
