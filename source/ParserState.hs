@@ -110,16 +110,7 @@ lookUpVarParser id loc =
     do  st <- get
         c  <- lookUpSymbol id
         case c of
-          Just c' ->
-            if isRValue c' then
-              if isInitialized c' then
-                return $ fmap (symbolType) c
-              else
-                do addNotInitError id loc
-                   return Nothing
-            else
-              do addNotRValueError id loc
-                 return Nothing
+          Just c' -> return $ fmap (symbolType) c
           Nothing -> return Nothing
 
 lookUpConsParser :: T.Text -> MyParser (Maybe Type)
