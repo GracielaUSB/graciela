@@ -293,7 +293,8 @@ createInstruction (MyAST.Write True exp _ t) = do
     ; T.MyFloat  -> procedureCall ty' writeLnDouble [e']
     ; T.MyBool   -> procedureCall ty' writeLnBool [e']
     ; T.MyChar   -> procedureCall intType writeLnChar [e']   
-    ; T.MyString -> procedureCall ty' writeLnString [e']
+    ; T.MyString -> do let msj = lines $ MyAST.mstring exp
+                       procedureCall ty' writeLnString [e']
     }
     return ()
 
