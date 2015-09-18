@@ -130,14 +130,14 @@ addArgOperand ((id',c):xs) = do
         do store t op exp'
            return ()
       T.Out -> 
-        return ()
+        do store t op $ constantInt 0
+           return ()
     addVarOperand id' op
     addArgOperand xs
     
 
 constantInt :: Integer -> Operand
-constantInt n = ConstantOperand $ C.Int 0 n
-
+constantInt n = ConstantOperand $ C.Int 32 n
 
 retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 retVarOperand [] = return()
@@ -199,7 +199,7 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     retTy <- retVoid
     addArgOperand args
     mapM_ createInstruction accs 
-    retVarOperand args
+    retVarOperand $ reverse args
     createState name' post
     addBasicBlock retTy
     addDefinition name' args' voidType
@@ -213,11 +213,17 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     addDefinition (TE.unpack fname) args' (toType reType)
 
 
+initialize id i32 = do
+   op <- getVarOperand id
+   store i32 op $ constantInt 0
+
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
     let id = TE.unpack id'
     dim <- typeToOperand id t 
-    alloca dim (toType t) id
+    let t' = toType t
+    alloca dim t' id
+    initialize id t'
     createInstruction acc
 
 
