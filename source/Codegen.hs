@@ -54,6 +54,10 @@ powString     = "llvm.pow.f64"
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
 createParameters names attrs = (map (\((name, t), attr) -> Parameter t name attr) (zip names attrs), False)
 
+createEmptyParameters :: [(Name, Type)] -> ([Parameter], Bool)
+createEmptyParameters names = (map (\(name, t) -> Parameter t name []) names, False)
+
+charType = i8
 
 createPreDef ::  LLVM () 
 createPreDef = do
@@ -63,8 +67,10 @@ createPreDef = do
     let intParams = createParameters [(Name "x", intType)] [[]]
     addDefinition writeLnInt  intParams voidType
     addDefinition writeInt    intParams voidType
-    addDefinition writeChar   intParams voidType
-    addDefinition writeLnChar intParams voidType
+
+    let charParams = createEmptyParameters [(Name "x", charType)]
+    addDefinition writeChar   charParams voidType
+    addDefinition writeLnChar charParams voidType
 
     addDefinition abortString (createParameters [(Name "x", intType), 
           (Name "line", intType), (Name "column", intType)] [[], [], []]) voidType
@@ -138,6 +144,15 @@ addArgOperand ((id',c):xs) = do
 
 constantInt :: Integer -> Operand
 constantInt n = ConstantOperand $ C.Int 32 n
+
+constantDouble :: Double -> Operand
+constantDouble n = ConstantOperand $ C.Float $ Double n
+
+constantChar :: Char -> Operand
+constantChar c = ConstantOperand $ C.Int 8 $ toInteger (ord c)
+
+defaultChar :: Operand
+defaultChar = ConstantOperand $ C.Int 8 0
 
 retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 retVarOperand [] = return()
@@ -213,9 +228,15 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     addDefinition (TE.unpack fname) args' (toType reType)
 
 
-initialize id i32 = do
+initialize id T.MyInt = do
    op <- getVarOperand id
    store i32 op $ constantInt 0
+initialize id T.MyChar = do
+   op <- getVarOperand id
+   store i8 op $ defaultChar
+initialize id T.MyFloat = do
+   op <- getVarOperand id
+   store double op $ constantDouble 0.0
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
@@ -223,7 +244,7 @@ accToAlloca acc@(MyAST.ID _ id' t) = do
     dim <- typeToOperand id t 
     let t' = toType t
     alloca dim t' id
-    initialize id t'
+    initialize id t
     createInstruction acc
 
 
@@ -448,7 +469,7 @@ createExpression (MyAST.Bool _ False _) = do
  
 
 createExpression (MyAST.Char _ n _) = do
-    return $ ConstantOperand $ C.Int 32 $ toInteger $ ord n
+    return $ constantChar n
     
 
 createExpression (MyAST.String _ msg _) = do
