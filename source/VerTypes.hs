@@ -341,6 +341,9 @@ validProcArgs lnp lnc locarg sbp sbc =
         compare ((Just InOut, False), (id, loc)) = 
             do addInvalidPar id loc
                return False
+        compare ((Just Ref, False), (id, loc))   = 
+            do addInvalidPar id loc
+               return False
         compare _                                =
                return True
 

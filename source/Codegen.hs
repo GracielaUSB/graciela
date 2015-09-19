@@ -64,7 +64,7 @@ createPreDef = do
 
     addDefinition randomInt (createParameters [] []) intType
 
-    let intParams = createParameters [(Name "x", intType)] [[]]
+    let intParams = createEmptyParameters [(Name "x", intType)]
     addDefinition writeLnInt  intParams voidType
     addDefinition writeInt    intParams voidType
 
@@ -72,22 +72,21 @@ createPreDef = do
     addDefinition writeChar   charParams voidType
     addDefinition writeLnChar charParams voidType
 
-    addDefinition abortString (createParameters [(Name "x", intType), 
-          (Name "line", intType), (Name "column", intType)] [[], [], []]) voidType
+    addDefinition abortString (createEmptyParameters [(Name "x", intType), 
+          (Name "line", intType), (Name "column", intType)]) voidType
 
-    let boolParams = createParameters [(Name "x", boolType)] [[]]
+    let boolParams = createEmptyParameters [(Name "x", boolType)]
     addDefinition writeLnBool boolParams voidType
     addDefinition writeBool   boolParams voidType
 
-    let doubleParams = createParameters [(Name "x", doubleType)] [[]]
+    let doubleParams = createEmptyParameters [(Name "x", double)]
     addDefinition writeLnDouble doubleParams voidType
     addDefinition writeDouble   doubleParams voidType
     addDefinition sqrtString    doubleParams doubleType
     addDefinition fabsString    doubleParams doubleType
 
 
-    let doubleParams2 = (createParameters [(Name "x", doubleType), 
-                                           (Name "y", doubleType)] [[], []])
+    let doubleParams2 = createEmptyParameters [(Name "x", double), (Name "y", double)]
     addDefinition minnumString  doubleParams2 doubleType
     addDefinition maxnumString  doubleParams2 doubleType
     addDefinition powString     doubleParams2 doubleType
@@ -125,20 +124,27 @@ addArgOperand ((id',c):xs) = do
     let t  = toType $ symbolType c
     let tp = procArgType c 
     let id = convertID id'
-    op <- alloca Nothing t id
     let exp' = local t (Name id')
     case tp of
       T.InOut -> 
         do exp <- addUnNamedInstruction t $ Load False exp' Nothing 0 []
+           op <- alloca Nothing t id
            store t op exp
+           addVarOperand id' op
            return ()
       T.In ->
-        do store t op exp'
+        do op <- alloca Nothing t id
+           store t op exp'
+           addVarOperand id' op
            return ()
       T.Out -> 
-        do store t op $ constantInt 0
+        do op <- alloca Nothing t id
+           store t op $ constantInt 0
+           addVarOperand id' op
            return ()
-    addVarOperand id' op
+      T.Ref -> 
+        do addVarOperand id' exp'
+           return ()
     addArgOperand xs
     
 
@@ -170,6 +176,8 @@ retVarOperand ((id', c):xs) = do
            store t exp add
            return ()
       T.In ->
+        return ()
+      T.Ref ->
         return ()
     retVarOperand xs
 
