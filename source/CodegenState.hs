@@ -123,10 +123,12 @@ addVarOperand name op = do
     map <- gets varsLoc
     modify $ \s -> s { varsLoc = DM.insert name op map }
 
+
 getVarOperand :: String -> LLVM Operand
 getVarOperand name = do
     map <- gets varsLoc
     return $ fromJust $ DM.lookup name map
+
 
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do
@@ -162,8 +164,18 @@ constantInt n = ConstantOperand $ C.Int 32 n
 constantFloat :: Double -> Operand
 constantFloat n = ConstantOperand $ C.Float $ Double n
 
+
 constantBool :: Integer -> Operand
 constantBool n = ConstantOperand $ C.Int 1 n 
+
+
+constantChar :: Char -> Operand
+constantChar c = ConstantOperand $ C.Int 8 $ toInteger (ord c)
+
+
+defaultChar :: Operand
+defaultChar = ConstantOperand $ C.Int 8 0
+
 
 
 definedFunction :: Type -> Name -> Operand
