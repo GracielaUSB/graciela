@@ -19,6 +19,7 @@ import Lexer
 import State
 import Type
 import AST
+import Limits
 
 
 listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
@@ -273,13 +274,13 @@ exprLevel10 follow recSet =
                     <|> do blist  <- bracketsList follow recSet
                            return $ (AP.liftA2 (ArrCall (getLocation pos) idp) blist t)
          <|> do parseMaxInt
-                return $ return $ Constant (getLocation pos) True  True MyInt    
+                return $ return $ Int (getLocation pos) maxInteger MyInt
          <|> do parseMinInt
-                return $ return $ Constant (getLocation pos) True  False MyInt           
+                return $ return $ Int (getLocation pos) minInteger MyInt
          <|> do parseMaxDouble
-                return $ return $ Constant (getLocation pos) False True MyFloat                
+                return $ return $ Float (getLocation pos) maxDouble MyFloat
          <|> do parseMinDouble
-                return $ return $ Constant (getLocation pos) False False MyFloat
+                return $ return $ Float (getLocation pos) minDouble MyFloat
          <|> do parseToInt
                 parseLeftParent
                 e <- expr parseRightParent parseRightParent
@@ -316,7 +317,6 @@ exprLevel10 follow recSet =
          <|> constant
          <|> do genNewError (recSet) (Number)
                 return $ Nothing
-
 
 rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 rangeQuantification follow recSet = 
