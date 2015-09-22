@@ -49,7 +49,6 @@ pGreaterEqual = tryStringOp ">="  <|> tryString "\8805"
 pImplies      = tryStringOp "==>" <|> tryString "\8658"
 pConsequent   = tryStringOp "<==" <|> tryString "\8656"
 pEquiv        = tryStringOp "=="  <|> tryString "\8801"
-pNotEqiv      = tryStringOp "!==" <|> tryString "\8802"
 pAsig         = tryStringOp ":="  <|> tryString "\58\61" 
 pArrow        = tryStringOp "->"  <|> tryString "\8594"
 pLeftPercent  = tryStringOp "(%"  
@@ -157,7 +156,6 @@ lexer =
                           <|> (pGreaterEqual >> spaces >> return (TokGreaterEqual))
                           <|> (pEquiv        >> spaces >> return (TokEquiv))
                           <|> (pArray        >> spaces >> return (TokArray))
-                          <|> (pNotEqiv      >> spaces >> return (TokNotEqiv))
                           <|> (pAsig         >> spaces >> return (TokAsig))
                           <|> (pLess         >> spaces >> return (TokLess))
                           <|> (pGreater      >> spaces >> return (TokGreater))

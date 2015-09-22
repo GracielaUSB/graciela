@@ -568,11 +568,21 @@ createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
 
 
 createExpression (MyAST.Boolean op _ lexp rexp t) = do
+
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
-    addUnNamedInstruction (toType t) $ irBoolean op lexp' rexp'
+    
+    case op of
+    { MyAST.Implies -> do notA <- addUnNamedInstruction boolType $ irUnary MyAST.Not T.MyBool lexp'
+                          addUnNamedInstruction boolType $ irBoolean MyAST.Dis notA rexp'
+   
+    ; MyAST.Conse   -> do notA <- addUnNamedInstruction boolType $ irUnary MyAST.Not T.MyBool rexp'
+                          addUnNamedInstruction boolType $ irBoolean MyAST.Dis notA lexp'
+    
+    ; otherwise     -> addUnNamedInstruction boolType $ irBoolean op lexp' rexp'
+    }
  
- 
+
 createExpression (MyAST.Relational op _ lexp rexp t) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
@@ -842,8 +852,6 @@ irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFuncti
 irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
 irBoolean MyAST.Con a b = And a b []
 irBoolean MyAST.Dis a b = Or  a b []
---irBoolean MyAST.Implies a b = And a b []
---irBoolean MyAST.Conse a b = Or  a b []
 
 
 irRelational :: MyAST.OpRel -> T.Type -> Operand -> Operand -> Instruction
