@@ -7,7 +7,6 @@ import qualified AST                                     as MyAST
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified Data.Text                               as TE
 import qualified LLVM.General.AST.Constant               as C
-import qualified Location                                as L
 import qualified Type                                    as T
 import LLVM.General.AST                                  as AST
 import LLVM.General.AST.Global                           as GLOB
@@ -36,7 +35,6 @@ data CodegenSt
   , moduleDefs  :: DS.Seq Definition
   , varsLoc     :: DM.Map String Operand
   , arrsDim     :: DM.Map String [Operand]
-  , loc         :: L.Location
   } deriving (Show)
 
 
@@ -45,7 +43,7 @@ newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
 
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty L.emptyLoc
+emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
 
 
 execCodegen :: LLVM a -> CodegenSt
@@ -177,9 +175,25 @@ defaultChar :: Operand
 defaultChar = ConstantOperand $ C.Int 8 0
 
 
-
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (global ty)
+
+
+initialize :: String -> T.Type -> LLVM (Operand)
+initialize id T.MyInt = do
+   op <- getVarOperand id
+   store intType op $ constantInt 0
+
+
+initialize id T.MyChar = do
+   op <- getVarOperand id
+   store charType op $ defaultChar
+
+
+initialize id T.MyFloat = do
+   op <- getVarOperand id
+   store floatType op $ constantFloat 0.0
+
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand
@@ -234,10 +248,6 @@ mulDims (arrDim:xs) (acc:ys) = do
     addUnNamedInstruction intType $ Add False False op opMul []
 
 
-intType :: Type
-intType = i32
-
-
 intToDouble :: Operand -> LLVM Operand
 intToDouble x = addUnNamedInstruction double $ SIToFP x double []
 
@@ -267,15 +277,32 @@ convertParams ((id,c):xs) =
         otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 
 
+floatType :: Type
+floatType = double
+
+intType :: Type
+intType = i32
+
+charType :: Type
+charType = i8
+
+voidType :: Type
+voidType   = VoidType
+
+boolType :: Type
+boolType   = i1
+
+doubleType :: Type
+doubleType = double
+
+stringType :: Type
+stringType = PointerType i8 (AddrSpace 0)
+
+
 toType :: T.Type -> Type
-toType T.MyInt   = i32
-toType T.MyFloat = double
-toType T.MyBool  = i1
-toType T.MyChar  = i8
+toType T.MyInt   = intType
+toType T.MyFloat = floatType
+toType T.MyBool  = boolType
+toType T.MyChar  = charType
 toType (T.MyArray _ t) = toType t 
 
-
-voidType   = VoidType
-boolType   = i1
-doubleType = double
-stringType = PointerType i8 (AddrSpace 0)

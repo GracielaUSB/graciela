@@ -32,6 +32,8 @@ import Data.Char
 import Contents
 import Location
 import Aborts 
+import Limits
+
 
 writeLnInt    = "_writeLnInt"
 writeLnBool   = "_writeLnBool"
@@ -43,52 +45,57 @@ writeBool     = "_writeBool"
 writeChar     = "_writeChar"
 writeDouble   = "_writeDouble"
 writeString   = "puts"
-randomInt     = "_randomInt"
+randomInt     = "_random"
 sqrtString    = "llvm.sqrt.f64"
 fabsString    = "llvm.fabs.f64"
-minnumString  = "llvm.minnum.f64"
-maxnumString  = "llvm.maxnum.f64"
+minnumString  = "_min"
+maxnumString  = "_max"
+minnumFstring = "_minF"
+maxnumFtring  = "_maxF"
 powString     = "llvm.pow.f64"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
 createParameters names attrs = (map (\((name, t), attr) -> Parameter t name attr) (zip names attrs), False)
 
+
 createEmptyParameters :: [(Name, Type)] -> ([Parameter], Bool)
 createEmptyParameters names = (map (\(name, t) -> Parameter t name []) names, False)
 
-charType = i8
 
 createPreDef ::  LLVM () 
 createPreDef = do
 
     addDefinition randomInt (createParameters [] []) intType
 
+    addDefinition abortString (createEmptyParameters [(Name "x", intType), 
+          (Name "line", intType), (Name "column", intType)]) voidType
+
     let intParams = createEmptyParameters [(Name "x", intType)]
-    addDefinition writeLnInt  intParams voidType
-    addDefinition writeInt    intParams voidType
+    addDefinition writeLnInt intParams voidType
+    addDefinition writeInt   intParams voidType
+
+    let intParams2 = createEmptyParameters [(Name "x", intType), (Name "y", intType)]
+    addDefinition minnumString intParams2 intType
+    addDefinition maxnumString intParams2 intType
 
     let charParams = createEmptyParameters [(Name "x", charType)]
     addDefinition writeChar   charParams voidType
     addDefinition writeLnChar charParams voidType
 
-    addDefinition abortString (createEmptyParameters [(Name "x", intType), 
-          (Name "line", intType), (Name "column", intType)]) voidType
-
     let boolParams = createEmptyParameters [(Name "x", boolType)]
     addDefinition writeLnBool boolParams voidType
     addDefinition writeBool   boolParams voidType
 
-    let doubleParams = createEmptyParameters [(Name "x", double)]
+    let doubleParams = createEmptyParameters [(Name "x", floatType)]
     addDefinition writeLnDouble doubleParams voidType
     addDefinition writeDouble   doubleParams voidType
     addDefinition sqrtString    doubleParams doubleType
     addDefinition fabsString    doubleParams doubleType
 
-
-    let doubleParams2 = createEmptyParameters [(Name "x", double), (Name "y", double)]
-    addDefinition minnumString  doubleParams2 doubleType
-    addDefinition maxnumString  doubleParams2 doubleType
+    let doubleParams2 = createEmptyParameters [(Name "x", floatType), (Name "y", floatType)]
+    addDefinition minnumFstring doubleParams2 doubleType
+    addDefinition maxnumFtring  doubleParams2 doubleType
     addDefinition powString     doubleParams2 doubleType
 
     let stringParams = createParameters [(Name "msg", stringType)] [[NoCapture]]
@@ -245,16 +252,6 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
     addDefinition (TE.unpack fname) args' (toType reType)
 
 
-initialize id T.MyInt = do
-   op <- getVarOperand id
-   store i32 op $ constantInt 0
-initialize id T.MyChar = do
-   op <- getVarOperand id
-   store i8 op $ defaultChar
-initialize id T.MyFloat = do
-   op <- getVarOperand id
-   store double op $ constantFloat 0.0
-
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
     let id = TE.unpack id'
@@ -285,7 +282,7 @@ typeToOperand name (T.MyArray dim ty) = do
     addDimToArray name d
     case r of
       Nothing -> return $ return d 
-      Just op -> fmap Just $ addUnNamedInstruction (toType T.MyInt) $ irArithmetic MyAST.Mul T.MyInt op d
+      Just op -> fmap Just $ addUnNamedInstruction intType $ irArithmetic MyAST.Mul T.MyInt op d
 
 typeToOperand _  _             = return $ Nothing
 
@@ -304,7 +301,7 @@ getStoreDir (MyAST.ArrCall _ name exps _) = do
     map <- gets varsLoc
     let (i, id) = (fromJust $ DM.lookup id map, TE.unpack name)
     ac'' <- opsToArrayIndex id ac'
-    addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
+    addUnNamedInstruction intType $ GetElementPtr True i [ac''] []
 
  
 createAssign :: MyAST.AST T.Type -> MyAST.AST T.Type -> LLVM () 
@@ -334,17 +331,6 @@ createInstruction (MyAST.GuardAction _ assert action ty) = do
 
 createInstruction (MyAST.LAssign ids exps _ _) = do
     mapM_ (uncurry createAssign) $ zip ids exps
-
-
---createInstruction (MyAST.LAssign (((id', t), accs):_) (e:_) _ _) = do
---    e'  <- createExpression e
---    ac' <- mapM createExpression accs
---    map <- gets varsLoc
---    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
---    ac'' <- opsToArrayIndex id ac'
---    opa  <- addUnNamedInstruction (toType T.MyInt) $ GetElementPtr True i [ac''] []
---    store t' opa e'
---    return ()
 
 
 createInstruction (MyAST.Write True exp _ t) = do
@@ -403,7 +389,7 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
     name <- getCount
     let boundName = show name
     op <- alloca Nothing intType boundName
-    store intType op $ constantInt 5555555555 -- max int
+    store intType op $ constantInt maxInteger
     addVarOperand (show boundName) op
 
     setLabel initial $ branch initial
@@ -426,7 +412,7 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
 createInstruction (MyAST.Ran id _ _ t) = do
     vars <- gets varsLoc
     let (ty, i) = (toType t, fromJust $ DM.lookup (TE.unpack id) vars)
-    let df      = Right $ definedFunction double (Name randomInt)
+    let df      = Right $ definedFunction floatType (Name randomInt)
     val <- caller ty df [] 
     store ty i val
     return ()
@@ -511,10 +497,10 @@ createExpression (MyAST.Char _ n _) = do
 
 createExpression (MyAST.String _ msg _) = do
     let n  = fromIntegral $ Prelude.length msg + 1
-    let ty = ArrayType n i8 
+    let ty = ArrayType n charType 
     name <- newLabel 
     addString msg name ty
-    return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
+    return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
 
 
 createExpression (MyAST.Convertion tType _ exp t) = do
@@ -529,28 +515,7 @@ createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
     rexp' <- createExpression rexp
     a     <- intToDouble lexp'
     b     <- intToDouble rexp'
-    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Exp T.MyFloat a b 
-    doubleToInt val
-
-
---Minimo Integer
-createExpression (MyAST.Arithmetic MyAST.Min _ lexp rexp T.MyInt) = do
-    lexp' <- createExpression lexp
-    rexp' <- createExpression rexp
-    a     <- intToDouble lexp'
-    b     <- intToDouble rexp'
-    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Min T.MyFloat a b 
-    doubleToInt val
-
-
---Maximo Integer
-createExpression (MyAST.Arithmetic MyAST.Max _ lexp rexp T.MyInt) = do
-    let df = Right $ definedFunction double (Name maxnumString)
-    lexp' <- createExpression lexp
-    rexp' <- createExpression rexp
-    a     <- intToDouble lexp'
-    b     <- intToDouble rexp'
-    val   <- addUnNamedInstruction double $ irArithmetic MyAST.Max T.MyFloat a b 
+    val   <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.MyFloat a b 
     doubleToInt val
 
 
@@ -563,7 +528,7 @@ createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
     {
     ; MyAST.Div -> checkDivZero op loc lexp' rexp' ty
     ; MyAST.Mod -> checkDivZero op loc lexp' rexp' ty
-    ; otherwise ->  addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+    ; otherwise -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
     }
 
 
@@ -587,7 +552,7 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
     let t' = MyAST.tag lexp 
-    addUnNamedInstruction (toType t) $ irRelational op t' lexp' rexp'
+    addUnNamedInstruction boolType $ irRelational op t' lexp' rexp'
 
 
 --ValorAbs Integer
@@ -601,13 +566,13 @@ createExpression (MyAST.Unary MyAST.Abs _ exp T.MyInt) = do
 --Raiz Integer
 createExpression (MyAST.Unary MyAST.Sqrt _ exp t) = do
     let ty = MyAST.tag exp
-    let df = Right $ definedFunction double (Name sqrtString)
+    let df = Right $ definedFunction floatType (Name sqrtString)
     exp'  <- createExpression exp
 
     case ty of 
-    { T.MyFloat -> addUnNamedInstruction (toType ty) $ irUnary MyAST.Sqrt ty exp' 
+    { T.MyFloat -> addUnNamedInstruction floatType $ irUnary MyAST.Sqrt ty exp' 
     ; T.MyInt   -> do x <- intToDouble exp'
-                      addUnNamedInstruction (toType ty) $ irUnary MyAST.Sqrt T.MyFloat x
+                      addUnNamedInstruction floatType $ irUnary MyAST.Sqrt T.MyFloat x
     }
 
 
@@ -639,19 +604,56 @@ createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
     let name = TE.unpack varQ
 
     case opQ of
-    { MyAST.ForAll -> do mapM_ (createQuant opQ name loc termExp) rangeExp
-                         return $ constantBool 1
-    ; MyAST.Exists -> do mapM_ (createQuant opQ name loc termExp) rangeExp
-                         return $ constantBool 1
-    ; otherwise    -> do -- res <- mapM_ (createQuant opQ name loc termExp) rangeExp
-                         res <- mapM (createQuant opQ name loc termExp) $ rangeExp
-                         return $ head res
+    { MyAST.ForAll -> do check <- mapM (createQuant True  opQ name loc termExp) rangeExp
+                         res   <- joinRange opQ check loc
+                         return $ res 
+
+    ; MyAST.Exists -> do check <- mapM (createQuant True  opQ name loc termExp) rangeExp
+                         res   <- joinRange opQ check loc
+                         return $ res
+
+    ; otherwise    -> do check <- mapM (createQuant False opQ name loc termExp) rangeExp
+                         res   <- joinRange opQ check loc
+                         return $ res
+
     }
 
 
-createQuant :: MyAST.OpQuant -> String -> Location -> 
+joinRange :: MyAST.OpQuant -> [Operand] -> Location -> LLVM (Operand)
+joinRange MyAST.Summation res _ =
+    foldM (\acc i -> do ret <- addUnNamedInstruction intType $ irArithmetic MyAST.Sum T.MyInt acc i
+                        return ret) (head res) (tail res)
+
+joinRange MyAST.Product res _ =
+    foldM (\acc i -> do ret <- addUnNamedInstruction intType $ irArithmetic MyAST.Mul T.MyInt acc i
+                        return ret) (head res) (tail res)
+
+joinRange MyAST.Maximum res _ =
+    foldM (\acc i -> do ret <- addUnNamedInstruction intType $ irArithmetic MyAST.Max T.MyInt acc i
+                        return ret) (head res) (tail res)
+
+joinRange MyAST.Minimum res _ =
+    foldM (\acc i -> do ret <- addUnNamedInstruction intType $ irArithmetic MyAST.Min T.MyInt acc i
+                        return ret) (head res) (tail res)
+
+joinRange opQ res loc = do
+    warAbort <- newLabel
+    next     <- newLabel
+    check <- foldM (\acc i -> do ret <- addUnNamedInstruction intType $ irBoolean MyAST.Con acc i
+                                 return ret) (head res) (tail res)
+    setLabel warAbort $ condBranch check next warAbort
+
+    case opQ of 
+    { MyAST.ForAll -> createTagForAll next loc
+    ; MyAST.Exists -> createTagExists next loc
+    }
+    
+    return check
+
+
+createQuant :: Bool -> MyAST.OpQuant -> String -> Location -> 
                    MyAST.AST T.Type -> Range Integer -> LLVM (Operand)
-createQuant MyAST.ForAll var loc exp (SpanRange a b) = do
+createQuant True opQ var loc exp (SpanRange a b) = do
    
     let ini = constantInt a
     let fin = constantInt b
@@ -662,42 +664,12 @@ createQuant MyAST.ForAll var loc exp (SpanRange a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
-    abort   <- newLabel
 
-    setLabel initial $ branch initial
-
-    varQ <- load var intType
-    tag  <- addUnNamedInstruction boolType $ irRelational MyAST.LEqual T.MyInt varQ fin 
-    setLabel code $ condBranch tag code final
-
-    e'   <- createExpression exp
-    sum' <- addUnNamedInstruction boolType $ irArithmetic MyAST.Sum T.MyInt varQ $ constantInt 1 
-    store intType op sum' 
-    setLabel abort $ condBranch e' initial abort
-
-    createTagForAll final loc
-    return $ constantBool 1
-
-
-createQuant MyAST.Exists var loc exp (SpanRange a b) = do
-   
-    let ini = constantInt a
-    let fin = constantInt b
-    op <- alloca Nothing intType var
-    store intType op ini
-    addVarOperand var op   
-
-    initial <- newLabel
-    code    <- newLabel
-    final   <- newLabel
-    check   <- newLabel
-    abort   <- newLabel
-
-    let varBool = "Exists_" ++ var 
+    name <- getCount
+    let varBool = show name
     op' <- alloca Nothing boolType varBool
     store boolType op' $ constantBool 1
     addVarOperand varBool op'
-
     setLabel initial $ branch initial
 
     varQ   <- load var intType
@@ -705,23 +677,30 @@ createQuant MyAST.Exists var loc exp (SpanRange a b) = do
 
     checkBool <- load varBool boolType
     tag       <- addUnNamedInstruction boolType $ irBoolean MyAST.Con check' checkBool
-    setLabel code $ condBranch tag code check
+    setLabel code $ condBranch tag code final
 
     e'   <- createExpression exp
     sum' <- addUnNamedInstruction boolType $ irArithmetic MyAST.Sum T.MyInt varQ $ constantInt 1 
-    bool <- addUnNamedInstruction boolType $ irUnary MyAST.Not T.MyBool e'
     store intType  op  sum' 
-    store boolType op' bool 
-    setLabel check $ branch initial
 
-    checkAbort <- addUnNamedInstruction boolType $ irRelational MyAST.Equ T.MyInt checkBool $ constantBool 1 
-    setLabel abort $ condBranch checkAbort abort final
+    case opQ of 
+    { MyAST.ForAll -> store boolType op' e'
+    ; MyAST.Exists -> do bool <- addUnNamedInstruction boolType $ irUnary MyAST.Not T.MyBool e'
+                         store boolType op' bool 
+    }
 
-    createTagExists final loc
-    return $ constantBool 1
+    setLabel final $ branch initial
+
+    case opQ of 
+    { MyAST.ForAll -> do checkBool' <- load varBool boolType
+                         return checkBool'
+    ; MyAST.Exists -> do checkBool' <- load varBool boolType
+                         res <- addUnNamedInstruction boolType $ irUnary MyAST.Not T.MyBool checkBool'
+                         return res 
+    }
 
 
-createQuant opQ var loc exp (SpanRange a b) = do
+createQuant False opQ var loc exp (SpanRange a b) = do
    
     let ini = constantInt a
     let fin = constantInt b
@@ -732,7 +711,6 @@ createQuant opQ var loc exp (SpanRange a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
-    check   <- newLabel
 
     let varInt = "Quant_" ++ var 
     op' <- alloca Nothing intType varInt
@@ -740,8 +718,8 @@ createQuant opQ var loc exp (SpanRange a b) = do
     case opQ of
     { MyAST.Summation -> store intType op' $ constantInt 0
     ; MyAST.Product   -> store intType op' $ constantInt 1
-    ; MyAST.Minimum   -> store intType op' $ constantInt   555555  --minimo int
-    ; MyAST.Maximum   -> store intType op' $ constantInt (-555555) --maximo int
+    ; MyAST.Maximum   -> store intType op' $ constantInt minInteger
+    ; MyAST.Minimum   -> store intType op' $ constantInt maxInteger
     }
 
     addVarOperand varInt op'
@@ -757,17 +735,16 @@ createQuant opQ var loc exp (SpanRange a b) = do
     store intType op  sum 
 
     case opQ of
-    { MyAST.Summation -> do sum' <- addUnNamedInstruction boolType $ irArithmetic MyAST.Sum T.MyInt res e'
-                            store intType op' sum' 
-    ; MyAST.Product   -> do sum' <- addUnNamedInstruction boolType $ irArithmetic MyAST.Mul T.MyInt res e'
-                            store intType op' sum' 
-    ; MyAST.Minimum   -> do checkMin <- addUnNamedInstruction boolType $ irRelational MyAST.Less T.MyInt e' res
-                            setLabel check $ condBranch checkMin check initial   
-                            store intType op' e' 
-    ; MyAST.Maximum   -> do checkMax <- addUnNamedInstruction boolType $ irRelational MyAST.Greater T.MyInt e' res
-                            setLabel check $ condBranch checkMax check initial   
-                            store intType op' e' 
-    }      
+    { MyAST.Summation -> do check <- addUnNamedInstruction intType $ irArithmetic MyAST.Sum T.MyInt res e'
+                            store intType op' check 
+    ; MyAST.Product   -> do check <- addUnNamedInstruction intType $ irArithmetic MyAST.Mul T.MyInt res e'
+                            store intType op' check 
+    ; MyAST.Maximum   -> do check <- addUnNamedInstruction intType $ irArithmetic MyAST.Max T.MyInt res e' 
+                            store intType op' check 
+    ; MyAST.Minimum   -> do check <- addUnNamedInstruction intType $ irArithmetic MyAST.Min T.MyInt res e' 
+                            store intType op' check 
+    }
+
 
     setLabel final $ branch initial
     return $ res
@@ -784,13 +761,13 @@ checkDivZero op loc lexp' rexp' ty = do
                       check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
                       setLabel abort $ condBranch check abort next 
                       createTagZero next loc
-                      addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp' 
+                      addUnNamedInstruction intType $ irArithmetic op ty lexp' rexp' 
    
     ; T.MyFloat -> do let zero = constantFloat 0.0
-                      check <- addUnNamedInstruction double $ FCmp FL.OEQ rexp' zero []
+                      check <- addUnNamedInstruction floatType $ FCmp FL.OEQ rexp' zero []
                       setLabel abort $ condBranch check abort next 
                       createTagZero next loc
-                      addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp' 
+                      addUnNamedInstruction floatType $ irArithmetic op ty lexp' rexp' 
     }
 
 
@@ -841,12 +818,16 @@ irArithmetic MyAST.Div T.MyInt   a b = SDiv True a b []
 irArithmetic MyAST.Div T.MyFloat a b = FDiv NoFastMathFlags a b []
 irArithmetic MyAST.Mod T.MyInt   a b = URem a b []
 irArithmetic MyAST.Mod T.MyFloat a b = FRem NoFastMathFlags a b []
-irArithmetic MyAST.Exp T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+irArithmetic MyAST.Exp T.MyFloat a b = Call False CC.C [] (Right ( definedFunction floatType 
                                          (Name powString)))    [(a, []),(b, [])] [] []
-irArithmetic MyAST.Min T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+irArithmetic MyAST.Min T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
                                          (Name minnumString))) [(a, []),(b, [])] [] []
-irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFunction double 
+irArithmetic MyAST.Min T.MyFloat a b = Call False CC.C [] (Right ( definedFunction floatType 
+                                         (Name minnumFstring))) [(a, []),(b, [])] [] []
+irArithmetic MyAST.Max T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
                                          (Name maxnumString))) [(a, []),(b, [])] [] []
+irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFunction floatType 
+                                         (Name maxnumFtring))) [(a, []),(b, [])] [] []
 
 
 irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
@@ -872,19 +853,19 @@ irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.EQ a b []
 
 
 irConvertion :: MyAST.Conv -> T.Type -> Operand -> Instruction
-irConvertion MyAST.ToInt    T.MyFloat a = FPToSI a i32    [] 
-irConvertion MyAST.ToInt    T.MyChar  a = FPToSI a i32    [] 
-irConvertion MyAST.ToDouble T.MyInt   a = SIToFP a double [] 
-irConvertion MyAST.ToDouble T.MyChar  a = SIToFP a double [] 
-irConvertion MyAST.ToChar   T.MyInt   a = Trunc  a i8     [] 
-irConvertion MyAST.ToChar   T.MyFloat a = FPToSI a i8     [] 
+irConvertion MyAST.ToInt    T.MyFloat a = FPToSI a intType   [] 
+irConvertion MyAST.ToInt    T.MyChar  a = FPToSI a intType   [] 
+irConvertion MyAST.ToDouble T.MyInt   a = SIToFP a floatType [] 
+irConvertion MyAST.ToDouble T.MyChar  a = SIToFP a floatType [] 
+irConvertion MyAST.ToChar   T.MyInt   a = Trunc  a charType  [] 
+irConvertion MyAST.ToChar   T.MyFloat a = FPToSI a charType  [] 
 
 
 irUnary :: MyAST.OpUn -> T.Type -> Operand -> Instruction
 irUnary MyAST.Minus T.MyInt   a = Sub False False      (constantInt 0) a []
 irUnary MyAST.Minus T.MyFloat a = FSub NoFastMathFlags (constantFloat 0) a []
 irUnary MyAST.Not   T.MyBool  a = Xor a (constantBool 1) [] 
-irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
+irUnary MyAST.Abs   T.MyFloat a = Call False CC.C [] (Right ( definedFunction floatType 
                                          (Name fabsString))) [(a, [])] [] []
-irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction double 
+irUnary MyAST.Sqrt  T.MyFloat a = Call False CC.C [] (Right ( definedFunction floatType 
                                          (Name sqrtString))) [(a, [])] [] []
