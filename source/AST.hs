@@ -40,7 +40,7 @@ instance Show OpBool where
    show Conse   = "Consecuencia"
 
 
-data OpRel = Equ | Less | Greater | LEqual | GEqual | Ine | Equal
+data OpRel = Equ | Less | Greater | LEqual | GEqual | Ine 
       deriving (Eq) 
 
 instance Show OpRel where
@@ -50,7 +50,6 @@ instance Show OpRel where
    show LEqual  = "Menor o igual que"
    show GEqual  = "Mayor o igual que"
    show Ine     = "Negación"
-   show Equal   = "Inequivalencia"
 
 
 data Conv = ToInt | ToDouble | ToString | ToChar  
@@ -84,7 +83,7 @@ instance Show StateCond where
    show Invariant = "Invariante "
 
 
-data OpQuant = ForAll | Exists | Prod | Summation | Product | Minimum | Maximum
+data OpQuant = ForAll | Exists | Summation | Product | Minimum | Maximum
     deriving(Show, Eq)
 
 

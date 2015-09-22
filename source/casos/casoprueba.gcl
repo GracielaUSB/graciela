@@ -6,9 +6,7 @@ program main begin
       {pre 0 >= 0 /\ 0 >= 0 pre}  
       |[
            ss := 548;
-           random(ss);
-           {a ss == 42 a}
-           m := 555/0;
+           
            writeln(m)
 
       ]|  
@@ -24,10 +22,30 @@ program main begin
   |[
     var x : int;
     var y : int;
-    var z : char;
+    var ll : int;
+    var mm : int;
+
 
     y := 10;
     x := abs(-3);
+
+
+    mm := 1055;
+
+
+    {inv (%sigma i : int | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | 1 %) == 10 inv} 
+    {bound mm-5  bound}
+    do (ll < 10) -> 
+    |[
+        ll := 777;
+        writeln(ll);
+        mm := mm-5
+    ]|
+    od;
+
+
+
+
 
     if x <= 1000  -> |[ x := x + 1 ; sumar(x,y) ; writeln(y)  ]|
     [] x >= 100 -> writeln(x)

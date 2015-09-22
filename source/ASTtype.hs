@@ -237,8 +237,6 @@ buildRange LEqual   (QuanVariable id) (Reducible n) = return $ return $ RA.Upper
 buildRange LEqual   (Reducible n) (QuanVariable id) = return $ return $ RA.LowerBoundRange n -- n <= i
 buildRange GEqual   (QuanVariable id) (Reducible n) = return $ return $ RA.LowerBoundRange n -- i >= n
 buildRange GEqual   (Reducible n) (QuanVariable id) = return $ return $ RA.UpperBoundRange n -- n >= i
-buildRange Equal    (Reducible n) (QuanVariable id) = return $ return $ RA.SingletonRange n
-buildRange Equal    (QuanVariable id) (Reducible n) = return $ return $ RA.SingletonRange n
 buildRange Ine      (Reducible n) (QuanVariable id) = return $ RA.invert $ [RA.SingletonRange n]
 buildRange Ine      (QuanVariable id) (Reducible n) = return $ RA.invert $ [RA.SingletonRange n]
 buildRange _ _ _                                    = return $ return $ InfiniteRange

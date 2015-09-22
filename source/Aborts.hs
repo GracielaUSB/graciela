@@ -76,7 +76,7 @@ createTagPost next loc = do
     setLabel next $ branch next 
 
 
-createTagAsert:: Name -> Location -> LLVM ()
+createTagAsert :: Name -> Location -> LLVM ()
 createTagAsert next loc = do
 
     let x  = (ConstantOperand $ C.Int 32 5, [])
@@ -85,10 +85,52 @@ createTagAsert next loc = do
     setLabel next $ branch next 
 
 
+createTagInv :: Name -> Location -> LLVM ()
+createTagInv next loc = do
+
+    let x  = (ConstantOperand $ C.Int 32 6, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+    setLabel next $ branch next 
+
+
+createTagBound :: Name -> Location -> Int -> LLVM ()
+createTagBound next loc 1 = do
+
+    let x  = (ConstantOperand $ C.Int 32 7, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+    setLabel next $ branch next 
+
+createTagBound next loc 2 = do
+
+    let x  = (ConstantOperand $ C.Int 32 8, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+    setLabel next $ branch next 
+
 createTagZero :: Name -> Location -> LLVM ()
 createTagZero next loc = do 
 
-    let x  = (ConstantOperand $ C.Int 32 6, [])
+    let x  = (ConstantOperand $ C.Int 32 9, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+    setLabel next $ (Do $ Unreachable [])
+
+
+createTagForAll :: Name -> Location -> LLVM ()
+createTagForAll next loc = do
+
+    let x  = (ConstantOperand $ C.Int 32 10, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+    setLabel next $ (Do $ Unreachable [])
+
+
+createTagExists :: Name -> Location -> LLVM ()
+createTagExists next loc = do
+
+    let x  = (ConstantOperand $ C.Int 32 11, [])
     let df = Right $ definedFunction intType (Name abortString)
     caller voidType df $ abortArgs x loc
     setLabel next $ (Do $ Unreachable [])

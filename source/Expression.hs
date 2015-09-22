@@ -97,9 +97,7 @@ exprLevel1 follow recSet =
    do e <- exprLevel2 (follow <|> parseTokEqual) (recSet <|> parseTokEqual)
       do pos <- getPosition
          do (lookAhead (follow) >> return e)
-            <|> do parseTokEqual
-                   e' <- exprLevel1 follow recSet
-                   return(AP.liftA3 (Relational Equal (getLocation pos)) e e' (return (MyEmpty)))  
+            <|> do return e 
             <|> do genNewError (recSet) (Operator)
                    return $ Nothing
 

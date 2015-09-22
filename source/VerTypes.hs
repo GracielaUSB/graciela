@@ -219,19 +219,19 @@ verQuant op range term loc =
                    ; False -> addQuantBoolError op range term loc
                    }
     ; Product   -> case range == MyBool && term == MyInt of 
-                   { True  -> return MyBool 
+                   { True  -> return MyInt 
                    ; False -> addQuantIntError op range term loc
                    }
     ; Summation -> case range == MyBool && term == MyInt of
-                   { True  -> return MyBool 
+                   { True  -> return MyInt 
                    ; False -> addQuantIntError op range term loc
                    }
     ; Maximum   -> case range == MyBool && term == MyInt of
-                   { True  -> return MyBool 
+                   { True  -> return MyInt 
                    ; False -> addQuantIntError op range term loc
                    }
     ; Minimum   -> case range == MyBool && term == MyInt of
-                   { True  -> return MyBool 
+                   { True  -> return MyInt 
                    ; False -> addQuantIntError op range term loc
                    }
     }

@@ -155,6 +155,17 @@ global :: Type -> Name -> C.Constant
 global = C.GlobalReference
 
 
+constantInt :: Integer -> Operand
+constantInt n = ConstantOperand $ C.Int 32 n
+
+
+constantFloat :: Double -> Operand
+constantFloat n = ConstantOperand $ C.Float $ Double n
+
+constantBool :: Integer -> Operand
+constantBool n = ConstantOperand $ C.Int 1 n 
+
+
 definedFunction :: Type -> Name -> Operand
 definedFunction ty = ConstantOperand . (global ty)
 

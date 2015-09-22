@@ -117,11 +117,30 @@ void _abort(int x, int line, int column) {
         case 5:
             printf("ABORT: En la línea %d, columna %d. La Aserción no se cumplió. \n", line, column);  
             exit(0);
-
+       
         case 6:
+            printf("ABORT: En la línea %d, columna %d. La Invariante no se cumplió. \n", line, column);  
+            exit(0);
+        
+        case 7:
+            printf("ABORT: En la línea %d, columna %d. La Cota no se cumplió. \n", line, column);  
+            exit(0);
+
+        case 8:
+            printf("ABORT: En la línea %d, columna %d. La Cota no se cumplió ZEROO. \n", line, column);  
+            exit(0);
+
+        case 9:
             printf("ABORT: En la línea %d, columna %d. Divisón por cero.\n", line, column);  
             exit(0);
 	
+        case 10:
+            printf("ABORT: En la línea %d, columna %d. FORALL.\n", line, column);  
+            exit(0);
+
+        case 11:
+            printf("ABORT: En la línea %d, columna %d. EXISTT satisfaceeeeee.\n", line, column);  
+            exit(0);
 
     } 
 }
