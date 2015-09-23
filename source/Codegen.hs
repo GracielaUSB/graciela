@@ -6,7 +6,6 @@ import qualified LLVM.General.AST.FloatingPointPredicate as FL
 import qualified LLVM.General.AST.IntegerPredicate       as IL 
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
-import LLVM.General.AST.AddrSpace
 import qualified Data.Sequence                           as DS
 import qualified Data.Text                               as TE
 import qualified Data.Map                                as DM
@@ -48,14 +47,14 @@ writeString   = "puts"
 randomInt     = "_random"
 sqrtString    = "llvm.sqrt.f64"
 fabsString    = "llvm.fabs.f64"
+powString     = "llvm.pow.f64"
 minnumString  = "_min"
 maxnumString  = "_max"
 minnumFstring = "_minF"
 maxnumFtring  = "_maxF"
-powString     = "llvm.pow.f64"
 readIntStd    = "_readIntStd"
-readCharStd    = "_readCharStd"
-readDoubleStd    = "_readDoubleStd"
+readCharStd   = "_readCharStd"
+readDoubleStd = "_readDoubleStd"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
@@ -109,12 +108,12 @@ createPreDef = do
     addDefinition readCharStd (createEmptyParameters []) charType
     addDefinition readDoubleStd (createEmptyParameters []) double
 
+
 astToLLVM :: MyAST.AST T.Type -> AST.Module
 astToLLVM (MyAST.Program name _ defs accs _) =
     defaultModule { moduleName        = TE.unpack name
                   , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM defs accs
     }
-
 
 
 createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
@@ -133,52 +132,59 @@ convertID name = '_':name
 
 addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 addArgOperand [] = return ()
+
 addArgOperand ((id',c):xs) = do
-    let t  = toType $ symbolType c
-    let tp = procArgType c 
-    let id = convertID id'
-    let exp' = local t (Name id')
+
+    let t    = toType $ symbolType c
+    let tp   = procArgType c 
+    let id   = convertID id'
+    let e'   = local t (Name id')
     case tp of
-      T.InOut -> 
-        do exp <- addUnNamedInstruction t $ Load False exp' Nothing 0 []
-           op <- alloca Nothing t id
-           store t op exp
-           addVarOperand id' op
-           return ()
-      T.In ->
-        do op <- alloca Nothing t id
-           store t op exp'
-           addVarOperand id' op
-           return ()
-      T.Out -> 
-        do op <- alloca Nothing t id
-           addVarOperand id' op
-           initialize id $ symbolType c
-           return ()
-      T.Ref -> 
-        do addVarOperand id' exp'
-           return ()
+    { T.InOut -> do exp <- addUnNamedInstruction t $ Load False e' Nothing 0 []
+                    op  <- alloca Nothing t id
+                    store t op exp
+                    addVarOperand id' op
+                    return ()
+    
+    ; T.In    -> do op <- alloca Nothing t id
+                    store t op e'
+                    addVarOperand id' op
+                    return ()
+      
+    ; T.Out   -> do op <- alloca Nothing t id
+                    addVarOperand id' op
+                    initialize id $ symbolType c
+                    return ()
+    
+    ; T.Ref   -> do addVarOperand id' e'
+                    return ()
+    }
+
     addArgOperand xs
+
 
 retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 retVarOperand [] = return()
+
 retVarOperand ((id', c):xs) = do
-    let t = toType $ symbolType c
+
+    let t   = toType $ symbolType c
     let exp = local t (Name id')
-    let tp = procArgType c 
+    let tp  = procArgType c 
+   
     case tp of
-      T.InOut -> 
-        do add <- load id' t 
-           store t exp add
-           return ()
-      T.Out -> 
-        do add <- load id' t 
-           store t exp add
-           return ()
-      T.In ->
-        return ()
-      T.Ref ->
-        return ()
+    { T.InOut -> do add <- load id' t 
+                    store t exp add
+                    return ()
+
+    ; T.Out   -> do add <- load id' t 
+                    store t exp add
+                    return ()
+
+    ; T.In     -> return ()
+    ; T.Ref    -> return ()
+    }
+
     retVarOperand xs
 
 
@@ -198,8 +204,8 @@ createState name (MyAST.States cond loc exp _) = do
                              createTagPre next loc 
 
     ; MyAST.Post       -> do let checkPre = "_resPre" ++ name
-                             op <- load checkPre boolType
-                             a      <- addUnNamedInstruction boolType $ irUnary   MyAST.Not T.MyBool op
+                             op     <- load checkPre boolType
+                             a      <- addUnNamedInstruction boolType $ _not op
                              check  <- addUnNamedInstruction boolType $ _or a e' 
                              setLabel warAbort $ condBranch check next warAbort
                              createTagPost next loc
@@ -247,6 +253,7 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
    
    
 createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
+
     let args' = ([Parameter (toType t) (Name (TE.unpack id)) [] | (id, t) <- params], False)
     exp'  <- createExpression exp
     retTy <- retType exp'
@@ -256,6 +263,7 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
+    
     let id = TE.unpack id'
     dim <- typeToOperand id t 
     let t' = toType t
@@ -268,18 +276,24 @@ accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     mapM_ idToAlloca lids
     createInstruction acc
 
+
 accToAlloca (MyAST.Read _ Nothing types vars _) = do
     res <- mapM callRead $ types
     ads <- mapM (getVarOperand . TE.unpack . fst) vars
     mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
     return ()
 
-callRead T.MyInt = do
-    caller intType (Right $ definedFunction intType (Name readIntStd)) []
-callRead T.MyChar = do
-    caller charType (Right $ definedFunction charType (Name readCharStd)) []
-callRead T.MyFloat = do
-    caller double (Right $ definedFunction double (Name readDoubleStd)) []
+
+callRead :: T.Type -> LLVM (Operand)
+callRead T.MyInt   = do 
+    caller intType   (Right $ definedFunction intType   (Name readIntStd))    []
+
+callRead T.MyChar  = do 
+    caller charType  (Right $ definedFunction charType  (Name readCharStd))   []
+
+callRead T.MyFloat = do 
+    caller floatType (Right $ definedFunction floatType (Name readDoubleStd)) []
+
 
 idToAlloca :: MyAST.AST T.Type -> LLVM()
 idToAlloca (MyAST.ID _ id t) = do
@@ -294,9 +308,11 @@ typeToOperand name (T.MyArray dim ty) = do
     r <- typeToOperand name ty
     d <- dimToOperand dim
     addDimToArray name d
+
     case r of
-      Nothing -> return $ return d 
-      Just op -> fmap Just $ addUnNamedInstruction intType $ _mul op d
+    { Nothing -> return $ return d 
+    ; Just op -> fmap Just $ addUnNamedInstruction intType $ _mul op d
+    }
 
 typeToOperand _  _             = return $ Nothing
 
@@ -319,11 +335,11 @@ getStoreDir (MyAST.ArrCall _ name exps _) = do
 
  
 createAssign :: MyAST.AST T.Type -> MyAST.AST T.Type -> LLVM () 
-createAssign id e = do
-    e'  <- createExpression e
+createAssign id exp = do
+    e'  <- createExpression exp
     id' <- getStoreDir id 
-    let t' = toType $ MyAST.tag id
-    store t' id' e'
+    let ty = toType $ MyAST.tag id
+    store ty id' e'
     return ()
 
 
@@ -346,6 +362,7 @@ createInstruction (MyAST.GuardAction _ assert action ty) = do
 createInstruction (MyAST.LAssign ids exps _ _) = do
     mapM_ (uncurry createAssign) $ zip ids exps
 
+
 createInstruction (MyAST.Write True exp _ t) = do
     let ty  = MyAST.tag exp 
     let ty' = toType t
@@ -359,6 +376,7 @@ createInstruction (MyAST.Write True exp _ t) = do
     ; T.MyString -> do let msj = lines $ MyAST.mstring exp
                        procedureCall ty' writeLnString [e']
     }
+
     return ()
 
 
@@ -366,6 +384,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     let ty = MyAST.tag exp 
     let ty' = toType t
     e' <- createExpression exp
+
     case ty of
     { T.MyInt    -> procedureCall ty' writeInt [e']
     ; T.MyFloat  -> procedureCall ty' writeDouble [e']
@@ -373,6 +392,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     ; T.MyChar   -> procedureCall intType writeChar [e']
     ; T.MyString -> procedureCall ty' writeString [e']
     }
+
     return ()
 
 
@@ -389,7 +409,6 @@ createInstruction (MyAST.Cond guards loc _) = do
 
     setLabel abort $ branch final
     createTagIf final loc
-
     return ()
 
 
@@ -398,7 +417,6 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
     initial <- newLabel
     createState "" inv
 
-    --Bound
     name <- getCount
     let boundName = show name
     op <- alloca Nothing intType boundName
@@ -417,7 +435,6 @@ createInstruction (MyAST.ProcCall pname st _ args _) = do
     let dic   = getMap $ getActual $ sTable $ c
     let nargp = nameArgs c
     exp <- createArguments dic nargp args
-
     procedureCall voidType (TE.unpack pname) exp
     return ()
 
@@ -436,13 +453,15 @@ createArguments :: DM.Map TE.Text (Contents SymbolTable)
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
     let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
+
     case argt of
-      T.In -> 
-        do arg' <- createExpression arg
-           return $ arg':lr
-      otherwise ->
-        do dicn <- gets varsLoc
-           return $ (fromJust $ DM.lookup (TE.unpack $ fromJust $ MyAST.astToId arg) dicn) : lr
+    { T.In      -> do arg' <- createExpression arg
+                      return $ arg':lr
+    ; otherwise -> do dicn <- gets varsLoc
+                      return $ (fromJust $ DM.lookup (TE.unpack $
+                                fromJust $ MyAST.astToId arg) dicn) : lr
+    }
+
 createArguments _ [] [] = return []
 
 
@@ -481,10 +500,10 @@ createExpression (MyAST.ID _ id t) = do
 
 createExpression (MyAST.ArrCall _ id' accs t) = do
     accs' <- mapM createExpression accs
-    map  <- gets varsLoc
+    map   <- gets varsLoc
     let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
     accs'' <- opsToArrayIndex id accs'
-    add <- addUnNamedInstruction t' $ GetElementPtr True i [accs''] []
+    add    <- addUnNamedInstruction t' $ GetElementPtr True i [accs''] []
     addUnNamedInstruction t' $ Load False add Nothing 0 []
 
 
@@ -523,7 +542,7 @@ createExpression (MyAST.Convertion tType _ exp t) = do
     addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
 
 
---Potencia Integer
+
 createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
     lexp' <- createExpression lexp
     rexp' <- createExpression rexp
@@ -570,7 +589,7 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
 
 
 createExpression (MyAST.Unary MyAST.Abs _ exp T.MyInt) = do
-    exp' <- createExpression exp
+    exp'  <- createExpression exp
     x     <- intToDouble exp'
     val   <- addUnNamedInstruction intType $ irUnary MyAST.Abs T.MyFloat x
     doubleToInt val
@@ -757,7 +776,6 @@ createQuant False opQ var loc exp (SpanRange a b) = do
                             store intType op' check 
     }
 
-
     setLabel final $ branch initial
     return $ res
 
@@ -883,16 +901,16 @@ irUnary MyAST.Not   T.MyBool  a = _not a
 
 
 
-_add a b  = Add False False a b []
-_mul a b =  Mul False False a b []
-_min a b = Call False CC.C [] (Right ( definedFunction intType 
-                     (Name minnumString))) [(a, []),(b, [])] [] []
-_max a b = Call False CC.C [] (Right ( definedFunction intType 
-                     (Name maxnumString))) [(a, []),(b, [])] [] []
-_and a b = And a b []
-_or  a b = Or  a b [] 
-_lequal a b = ICmp IL.SLE a b []
+_and    a b = And a b []
+_not    a   = Xor a (constantBool 1) [] 
+_or     a b = Or  a b [] 
 _less   a b = ICmp IL.SLT a b []
-_not a = Xor a (constantBool 1) [] 
+_lequal a b = ICmp IL.SLE a b []
+_add    a b = Add False False a b []
+_mul    a b = Mul False False a b []
+_min    a b = Call False CC.C [] (Right ( definedFunction intType 
+                         (Name minnumString))) [(a, []),(b, [])] [] []
+_max    a b = Call False CC.C [] (Right ( definedFunction intType 
+                         (Name maxnumString))) [(a, []),(b, [])] [] []
 
 

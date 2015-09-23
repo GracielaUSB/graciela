@@ -84,7 +84,7 @@ addString msg name ty = do
                 name        = name
               , isConstant  = True
               , GLOB.type'  = ty  
-              , initializer = Just $ stringConst msg
+              , initializer = Just $ constantString msg
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
@@ -143,14 +143,6 @@ getCount = do
     return $ n
 
 
-stringConst :: String -> C.Constant
-stringConst msg =
-  let lastTwo res = (last $ init res):[last res]
-      res = tail $ tail $ foldl (\acc i -> if (lastTwo acc == "\\n")
-                then (init $ init acc) ++ " \n" ++ [i] else acc ++ [i]) "  " msg
-  in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- ( res ++ "\0")]    
-
-
 local :: Type -> Name -> Operand
 local = LocalReference
 
@@ -177,6 +169,20 @@ constantChar c = ConstantOperand $ C.Int 8 $ toInteger (ord c)
 
 defaultChar :: Operand
 defaultChar = ConstantOperand $ C.Int 8 0
+
+
+constantString :: String -> C.Constant
+constantString msg =
+    let lastTwo res = (last $ init res):[last res]
+    
+        f = (\acc i -> if lastTwo acc == "\\n" then 
+                          (init $ init acc) ++ " \n" ++ [i]
+                       else 
+                          acc ++ [i])
+
+        res = tail $ tail $ foldl f "  " msg
+  
+    in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- ( res ++ "\0")]    
 
 
 definedFunction :: Type -> Name -> Operand
@@ -226,6 +232,10 @@ condBranch :: Operand -> Name -> Name -> Named Terminator
 condBranch op true false = Do $ CondBr op true false []
 
 
+nothing :: Named Terminator
+nothing = (Do $ Unreachable [])
+
+
 dimToOperand :: Either TE.Text Integer -> LLVM Operand
 dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
 dimToOperand (Left id) = load (TE.unpack id) intType
@@ -273,9 +283,11 @@ convertParams :: [(String, Contents SymbolTable)] -> [(String, Type)]
 convertParams [] = []
 convertParams ((id,c):xs) = 
     let t  = toType $ symbolType c in
-      case procArgType $ c of
-        T.In      -> (id, t) : convertParams xs
-        otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+
+    case procArgType $ c of
+    { T.In      -> (id, t) : convertParams xs
+    ; otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+    }
 
 
 floatType :: Type

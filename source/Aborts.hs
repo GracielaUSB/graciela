@@ -34,104 +34,88 @@ import Location
 
 abortString   = "_abort"
 
-
 abortArgs :: (Operand, [ParameterAttribute]) -> Location -> [(Operand, [ParameterAttribute])]
 abortArgs x loc = [x, (ConstantOperand $ C.Int 32 (fromIntegral $ line   loc), []), 
                       (ConstantOperand $ C.Int 32 (fromIntegral $ column loc), []) ]
 
 
+callAbort :: Integer -> Location -> LLVM (Operand)
+callAbort num loc = do
+    let x  = (ConstantOperand $ C.Int 32 num, [])
+    let df = Right $ definedFunction intType (Name abortString)
+    caller voidType df $ abortArgs x loc
+
+
 createTagIf :: Name -> Location -> LLVM ()
 createTagIf next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 1, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    callAbort 1 loc
+    setLabel next $ nothing
 
 
 createTagAbort :: Location -> LLVM ()
 createTagAbort loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 2, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 2 loc
     return ()
 
 
 createTagPre :: Name -> Location -> LLVM ()
 createTagPre next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 3, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 3 loc
     setLabel next $ branch next 
 
 
 createTagPost :: Name -> Location -> LLVM ()
 createTagPost next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 4, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 4 loc
     setLabel next $ branch next 
 
 
 createTagAsert :: Name -> Location -> LLVM ()
 createTagAsert next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 5, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 5 loc
     setLabel next $ branch next 
 
 
 createTagInv :: Name -> Location -> LLVM ()
 createTagInv next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 6, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 6 loc
     setLabel next $ branch next 
 
 
 createTagBound :: Name -> Location -> Int -> LLVM ()
 createTagBound next loc 1 = do
 
-    let x  = (ConstantOperand $ C.Int 32 7, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    callAbort 7 loc
+    setLabel next $ nothing
 
 createTagBound next loc 2 = do
 
-    let x  = (ConstantOperand $ C.Int 32 8, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    callAbort 8 loc
+    setLabel next $ nothing
 
 
 createTagZero :: Name -> Location -> LLVM ()
 createTagZero next loc = do 
 
-    let x  = (ConstantOperand $ C.Int 32 9, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    callAbort 9 loc
+    setLabel next $ nothing
 
 
 createTagForAll :: Name -> Location -> LLVM ()
 createTagForAll next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 10, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 10 loc
     setLabel next $ branch next 
 
 
 createTagExists :: Name -> Location -> LLVM ()
 createTagExists next loc = do
 
-    let x  = (ConstantOperand $ C.Int 32 11, [])
-    let df = Right $ definedFunction intType (Name abortString)
-    caller voidType df $ abortArgs x loc
+    callAbort 11 loc
     setLabel next $ branch next 

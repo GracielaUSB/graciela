@@ -6,31 +6,40 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "stdio.h"
 #include "stdlib.h"
 
+
 int _readIntStd () {
-  int n;
-  char c;
-  scanf("%d", &n);
-  scanf("%c", &c);
-  return n;
+    int  n;
+    char c;
+  
+    scanf("%d", &n);
+    scanf("%c", &c);
+    return n;
 }
+
 
 char _readCharStd () {
-  char n;
-  char c;
-  scanf("%c", &n);
-  scanf("%c", &c);
-  return n;
+  
+    char n;
+    char c;
+  
+    scanf("%c", &n);
+    scanf("%c", &c);
+    return n;
 }
+
 
 double _readDoubleStd () {
-  double n;
-  char c;
-  scanf("%lf", &n);
-  scanf("%c", &c);
-  return n;
+    double n;
+    char   c;
+
+    scanf("%lf", &n);
+    scanf("%c" , &c);
+    return n;
 }
 
+
 void _writeLnInt(int x) {
+
     printf("%d\n", x);
     return;
 }
@@ -55,7 +64,9 @@ void _writeLnBool(int x) {
 
 
 void _writeLnChar(int x) {
+
     char c = x;
+
     printf("%c\n", c);
     return;
 }
@@ -69,6 +80,7 @@ void _writeLnString(char *x) {
 
 
 void _writeInt(int x) {
+
     printf("%d", x);
     return;
 }
@@ -93,7 +105,9 @@ void _writeBool(int x) {
 
 
 void _writeChar(int x) {
+
     char c = x;
+    
     printf("%c", c);
     return;
 }
@@ -153,7 +167,7 @@ void _abort(int x, int line, int column) {
 	switch (x) {
 
 		case 1:
-            printf("ABORT: En la línea %d, columna %d. El valor suministrado no cumple ninguna de las guardias. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, El valor suministrado no cumple ninguna de las guardias. \n", line, column);  
 			exit(0);
 
 		case 2:
@@ -161,39 +175,39 @@ void _abort(int x, int line, int column) {
 			exit(0);
 
         case 3:
-            printf("ADVERTENCIA: En la línea %d, columna %d. La Precondición no se satisface. \n", line, column);  
+            printf("ADVERTENCIA: En la línea %d, columna %d, La Precondición no se satisface. \n", line, column);  
             break;
 
         case 4:
-            printf("ABORT: En la línea %d, columna %d. La Postcondición no se satisface. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, La Postcondición no se satisface. \n", line, column);  
             exit(0);
 
         case 5:
-            printf("ABORT: En la línea %d, columna %d. La Aserción no se satisface. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, La Aserción no se satisface. \n", line, column);  
             exit(0);
        
         case 6:
-            printf("ABORT: En la línea %d, columna %d. La Invariante no se satisface. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, La Invariante no se satisface. \n", line, column);  
             exit(0);
         
         case 7:
-            printf("ABORT: En la línea %d, columna %d. La Cota no decremento. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, La Cota no decremento. \n", line, column);  
             exit(0);
 
         case 8:
-            printf("ABORT: En la línea %d, columna %d. El resultado de la función de cota no puede ser negativa. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, El resultado de la función de cota no puede ser negativa. \n", line, column);  
             exit(0);
 
         case 9:
-            printf("ABORT: En la línea %d, columna %d. Divisón por cero.\n", line, column);  
+            printf("ABORT: En la línea %d, columna %d, Divisón por cero.\n", line, column);  
             exit(0);
 	
         case 10:
-            printf("ADVERTENCIA: En la línea %d, columna %d. El Cuantificador Universal no se satisface.\n", line, column);  
+            printf("ADVERTENCIA: En la línea %d, columna %d, El Cuantificador Universal no se satisface.\n", line, column);  
             break;
 
         case 11:
-            printf("ADVERTENCIA: En la línea %d, columna %d. El Cuantificador Existencial no se satisface.\n", line, column);  
+            printf("ADVERTENCIA: En la línea %d, columna %d, El Cuantificador Existencial no se satisface.\n", line, column);  
             break;
     } 
 }
