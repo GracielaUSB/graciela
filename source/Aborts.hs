@@ -100,14 +100,15 @@ createTagBound next loc 1 = do
     let x  = (ConstantOperand $ C.Int 32 7, [])
     let df = Right $ definedFunction intType (Name abortString)
     caller voidType df $ abortArgs x loc
-    setLabel next $ branch next 
+    setLabel next $ (Do $ Unreachable [])
 
 createTagBound next loc 2 = do
 
     let x  = (ConstantOperand $ C.Int 32 8, [])
     let df = Right $ definedFunction intType (Name abortString)
     caller voidType df $ abortArgs x loc
-    setLabel next $ branch next 
+    setLabel next $ (Do $ Unreachable [])
+
 
 createTagZero :: Name -> Location -> LLVM ()
 createTagZero next loc = do 
@@ -124,7 +125,7 @@ createTagForAll next loc = do
     let x  = (ConstantOperand $ C.Int 32 10, [])
     let df = Right $ definedFunction intType (Name abortString)
     caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    setLabel next $ branch next 
 
 
 createTagExists :: Name -> Location -> LLVM ()
@@ -133,4 +134,4 @@ createTagExists next loc = do
     let x  = (ConstantOperand $ C.Int 32 11, [])
     let df = Right $ definedFunction intType (Name abortString)
     caller voidType df $ abortArgs x loc
-    setLabel next $ (Do $ Unreachable [])
+    setLabel next $ branch next 

@@ -30,15 +30,16 @@ program main begin
     x := abs(-3);
 
 
-    mm := 1055;
+    mm := 105;
 
 
-    {inv (%sigma i : int | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | 1 %) == 10 inv} 
+    {inv (%forall i : int | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | i*2 < 99 %) inv} 
     {bound mm-5  bound}
     do (ll < 10) -> 
     |[
         ll := 777;
-        writeln(ll);
+        writeln("ffff");
+        writeln((%min i : int | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | i %));
         mm := mm-5
     ]|
     od;

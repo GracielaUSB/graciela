@@ -40,7 +40,6 @@ void _writeLnDouble(double x) {
 
     printf("%f\n", x);
     return;
-
 }
 
 
@@ -59,14 +58,13 @@ void _writeLnChar(int x) {
     char c = x;
     printf("%c\n", c);
     return;
-
 }
+
 
 void _writeLnString(char *x) {
 
     printf("%s\n",x);
     return;
-
 }
 
 
@@ -80,7 +78,6 @@ void _writeDouble(double x) {
 
     printf("%f", x);
     return;
-
 }
 
 
@@ -99,7 +96,6 @@ void _writeChar(int x) {
     char c = x;
     printf("%c", c);
     return;
-
 }
 
 
@@ -107,14 +103,48 @@ void _writeString(char *x) {
 
     printf("%s",x);
     return;
-
 }
 
 
-int _randomInt() {
+int _random() {
  
 	return rand();
+}
 
+
+int _max(int x, int y) {
+ 
+    if (x < y) 
+        return y; 
+    else 
+        return x;
+}
+
+
+double _maxF(double x, double y) {
+ 
+    if (x < y) 
+        return y; 
+    else 
+        return x;
+}
+
+
+int _min(int x, int y) {
+ 
+    if (x < y)
+        return x; 
+    else 
+        return y;
+}
+
+
+double _minF(double x, double y) {
+ 
+    if (x < y)
+        return x; 
+    else 
+        return y;
 }
 
 
@@ -123,7 +153,7 @@ void _abort(int x, int line, int column) {
 	switch (x) {
 
 		case 1:
-            printf("ABORT: En la línea %d, columna %d. El valor suministrado no cumplió ninguna de las guardias. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. El valor suministrado no cumple ninguna de las guardias. \n", line, column);  
 			exit(0);
 
 		case 2:
@@ -131,27 +161,27 @@ void _abort(int x, int line, int column) {
 			exit(0);
 
         case 3:
-            printf("ADVERTENCIA: En la línea %d, columna %d. La Precondición no es correcta. \n", line, column);  
+            printf("ADVERTENCIA: En la línea %d, columna %d. La Precondición no se satisface. \n", line, column);  
             break;
 
         case 4:
-            printf("ABORT: En la línea %d, columna %d. La Postcondición no se cumplió. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. La Postcondición no se satisface. \n", line, column);  
             exit(0);
 
         case 5:
-            printf("ABORT: En la línea %d, columna %d. La Aserción no se cumplió. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. La Aserción no se satisface. \n", line, column);  
             exit(0);
        
         case 6:
-            printf("ABORT: En la línea %d, columna %d. La Invariante no se cumplió. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. La Invariante no se satisface. \n", line, column);  
             exit(0);
         
         case 7:
-            printf("ABORT: En la línea %d, columna %d. La Cota no se cumplió. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. La Cota no decremento. \n", line, column);  
             exit(0);
 
         case 8:
-            printf("ABORT: En la línea %d, columna %d. La Cota no se cumplió ZEROO. \n", line, column);  
+            printf("ABORT: En la línea %d, columna %d. El resultado de la función de cota no puede ser negativa. \n", line, column);  
             exit(0);
 
         case 9:
@@ -159,13 +189,12 @@ void _abort(int x, int line, int column) {
             exit(0);
 	
         case 10:
-            printf("ABORT: En la línea %d, columna %d. FORALL.\n", line, column);  
-            exit(0);
+            printf("ADVERTENCIA: En la línea %d, columna %d. El Cuantificador Universal no se satisface.\n", line, column);  
+            break;
 
         case 11:
-            printf("ABORT: En la línea %d, columna %d. EXISTT satisfaceeeeee.\n", line, column);  
-            exit(0);
-
+            printf("ADVERTENCIA: En la línea %d, columna %d. El Cuantificador Existencial no se satisface.\n", line, column);  
+            break;
     } 
 }
 
