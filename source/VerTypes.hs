@@ -39,7 +39,7 @@ verType _  MyError = MyError
 verType x  y       = if (x == y) then x else MyEmpty
 
 
-verArithmetic :: Type -> Type -> Location -> OpNum -> MyVerType
+verArithmetic :: Type -> Type -> Location -> OpNum -> MyVerType Type
 verArithmetic ltype rtype loc op =
     let checkT = verType ltype rtype
     in case checkT of
@@ -50,7 +50,7 @@ verArithmetic ltype rtype loc op =
        }                   
 
 
-verBoolean :: Type -> Type -> Location -> OpBool -> MyVerType
+verBoolean :: Type -> Type -> Location -> OpBool -> MyVerType Type
 verBoolean ltype rtype loc op =
     let checkT = verType ltype rtype
     in case checkT of
@@ -60,7 +60,7 @@ verBoolean ltype rtype loc op =
        }                   
 
 
-verRelational :: Type -> Type -> Location -> OpRel -> MyVerType
+verRelational :: Type -> Type -> Location -> OpRel -> MyVerType Type
 verRelational ltype rtype loc op =
     let checkT = verType ltype rtype
     in case checkT of
@@ -70,19 +70,19 @@ verRelational ltype rtype loc op =
        }
 
 
-verConvertion :: Conv -> MyVerType
+verConvertion :: Conv -> MyVerType Type
 verConvertion ToInt    = return MyInt   
 verConvertion ToDouble = return MyFloat 
 verConvertion ToString = return MyString
 verConvertion ToChar   = return MyChar  
 
 
-verWrite :: Type -> MyVerType
+verWrite :: Type -> MyVerType Type
 verWrite  MyError = return MyError 
 verWrite  _       = return MyEmpty
 
 
-verUnary :: OpUn -> Type -> Location -> MyVerType
+verUnary :: OpUn -> Type -> Location -> MyVerType Type
 verUnary _     MyError _   = return MyError
 
 verUnary Minus MyInt   loc = return MyInt  
@@ -101,7 +101,7 @@ verUnary Sqrt  MyFloat loc = return MyFloat
 verUnary Sqrt  errType loc = addTypeError $ UnaryError errType Sqrt  loc
 
 
-verGuardAction :: Type -> Type -> MyVerType
+verGuardAction :: Type -> Type -> MyVerType Type
 verGuardAction assert action = 
     case assert == MyBool && action == MyEmpty of
     { True  -> return MyEmpty
@@ -109,7 +109,7 @@ verGuardAction assert action =
     }
 
 
-verGuard :: Type -> Type -> Location -> MyVerType
+verGuard :: Type -> Type -> Location -> MyVerType Type
 verGuard exp action loc =
     case action of
     { MyError -> return MyError
@@ -121,7 +121,7 @@ verGuard exp action loc =
     }
 
 
-verGuardExp :: Type -> Type -> Location -> MyVerType
+verGuardExp :: Type -> Type -> Location -> MyVerType Type
 verGuardExp exp action loc =
     case action of
     { MyError   -> return MyError
@@ -133,7 +133,7 @@ verGuardExp exp action loc =
     }
 
 
-verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> MyVerType
+verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> MyVerType Type
 verDefProc accs pre post bound decs = 
     let func = checkListType MyEmpty
     in case pre == MyBool && post == MyBool && 
@@ -143,7 +143,7 @@ verDefProc accs pre post bound decs =
        }
 
 
-verBlock :: [Type] -> MyVerType
+verBlock :: [Type] -> MyVerType Type
 verBlock accs =
     let func = checkListType MyEmpty
     in case (foldl func True accs) of
@@ -152,7 +152,7 @@ verBlock accs =
        }
 
 
-verProgram :: [Type] -> [Type] -> MyVerType
+verProgram :: [Type] -> [Type] -> MyVerType Type
 verProgram defs accs =
     let func = checkListType MyEmpty
     in case (foldl func True defs) && (foldl func True accs) of
@@ -161,7 +161,7 @@ verProgram defs accs =
        }
 
 
-verCond :: [Type] -> Location -> MyVerType
+verCond :: [Type] -> Location -> MyVerType Type
 verCond guards loc =
     let checkSame  = (\acc t -> if acc == t then acc else MyError)  
         checkT     = foldl1 checkSame guards               
@@ -175,7 +175,7 @@ verCond guards loc =
        }
 
 
-verState :: Type -> Location -> StateCond -> MyVerType
+verState :: Type -> Location -> StateCond -> MyVerType Type
 verState expr loc stateCond =
     case expr of
     { MyError   -> return MyError
@@ -190,7 +190,7 @@ verState expr loc stateCond =
     }
 
 
-verRept :: [Type] -> Type -> Type -> MyVerType
+verRept :: [Type] -> Type -> Type -> MyVerType Type
 verRept guard inv bound =
     let func = checkListType MyEmpty
     in case (foldl func True guard) && inv == MyBool && bound == MyInt of
@@ -199,7 +199,7 @@ verRept guard inv bound =
        }
 
 
-verRandom :: T.Text -> Type -> Location -> MyVerType
+verRandom :: T.Text -> Type -> Location -> MyVerType Type
 verRandom name t loc =
     case t == MyInt || t == MyFloat of
     { True  -> return t 
@@ -207,7 +207,7 @@ verRandom name t loc =
     }
 
 
-verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType
+verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType Type
 verQuant op range term loc = 
     case op of
     { ForAll    -> case range == MyBool && term == MyBool of
@@ -237,7 +237,7 @@ verQuant op range term loc =
     }
 
 
-verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> MyVerType
+verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> MyVerType Type
 verConsAssign xs loc ts t =
     let f (((id, loc'), t')) =
           case t' /= t of
@@ -254,7 +254,7 @@ verConsAssign xs loc ts t =
        }
 
 
-verCallExp :: T.Text -> SymbolTable -> [Type] -> Location -> [Location] -> MyVerType
+verCallExp :: T.Text -> SymbolTable -> [Type] -> Location -> [Location] -> MyVerType Type
 verCallExp name sbc args loc locarg =
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
@@ -287,13 +287,12 @@ verCallExp name sbc args loc locarg =
 
 
 ----------------------------------------------------
-validFuncArgs :: [T.Text] -> [Type] -> [Location] -> SymbolTable -> SymbolTable -> 
-                     RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+validFuncArgs :: [T.Text] -> [Type] -> [Location] -> SymbolTable -> SymbolTable -> MyVerType Bool
 validFuncArgs lnp lnc locarg sbp sbc = return True
 ---------------------------------------------------------------------
 
 
-verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> MyVerType
+verProcCall :: T.Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> MyVerType Type
 verProcCall name sbc args'' loc locarg = 
     do sb <- RWSS.ask
        case (lookUpRoot name sb) of
@@ -327,8 +326,7 @@ verProcCall name sbc args'' loc locarg =
         }
 
 
-validProcArgs :: [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTable -> 
-                     RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Bool
+validProcArgs :: [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTable -> MyVerType Bool
 validProcArgs lnp lnc locarg sbp sbc = 
     let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
         lvt = map (isASTLValue sbc) lnc
@@ -359,7 +357,7 @@ isASTLValue sb id =
   } 
 
 
-addLAssignError:: [Bool] -> [(T.Text, Type, Type, Location)] -> MyVerType
+addLAssignError:: [Bool] -> [(T.Text, Type, Type, Location)] -> MyVerType Type
 addLAssignError (res:rs) ((name, op1, op2, loc):xs) = 
   if res then
     addLAssignError rs xs
@@ -370,7 +368,7 @@ addLAssignError (res:rs) ((name, op1, op2, loc):xs) =
 addLAssignError [] [] = return MyError
 
 
-verLAssign :: [T.Text] -> [Type] -> [Type] -> [Location] -> MyVerType
+verLAssign :: [T.Text] -> [Type] -> [Type] -> [Location] -> MyVerType Type
 verLAssign ids idlist explist locs = 
     if length idlist /= length explist then
       addDifSizeDecError $ head locs
@@ -398,7 +396,7 @@ getArrayType :: Int -> Type -> Type
 getArrayType 0 t = t
 getArrayType n t = getArrayType (n-1) (getType t)
 
-verArrayCall :: T.Text -> [Type] -> Type -> Location -> MyVerType
+verArrayCall :: T.Text -> [Type] -> Type -> Location -> MyVerType Type
 verArrayCall name args t loc =
     let waDim = getDimention t
         prDim = length args
@@ -414,13 +412,13 @@ verArrayCall name args t loc =
                           ; False -> acc ++ [ArrayCallError name expT loc]
                           } )  
                         check    = foldl addError [] args
-                    in do mapM_ addListError check
+                    in do mapM_ addTypeError check
                           return MyError
                   }
        }
 
 
-verDefFun :: T.Text -> Type -> Type -> Location -> MyVerType
+verDefFun :: T.Text -> Type -> Type -> Location -> MyVerType Type
 verDefFun name body bound loc =
     do sb <- RWSS.ask
        case lookUpRoot name sb of

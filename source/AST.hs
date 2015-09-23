@@ -133,6 +133,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }
+         | Read         { location :: Location, file :: Maybe String, varTypes :: [Type], vars :: [(T.Text, Location)], tag :: a                       }
     deriving (Eq)
 
 

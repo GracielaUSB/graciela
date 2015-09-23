@@ -11,6 +11,7 @@ import SymbolTable
 import Data.Char
 import Type 
 import AST
+import TypeState
 
 
 data Reducibility = NonReducible | Reducible { getNum :: Integer } | QuanVariable T.Text
@@ -56,7 +57,7 @@ reduceAST id (ID _ id' _ ) = if id' == id then QuanVariable id else NonReducible
 reduceAST _  _             = NonReducible
 
 
-occursCheck :: AST a -> T.Text -> RWSS.RWS (SymbolTable) (DS.Seq MyTypeError) () (Bool)
+occursCheck :: AST a -> T.Text -> MyVerType Bool
 occursCheck (Arithmetic _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
 occursCheck (Relational _ _ l r _) id = AP.liftA2 (||) (occursCheck l id) (occursCheck r id)
 occursCheck (Boolean    _ _ l r _) id = AP.liftA2 (&&) (occursCheck l id) (occursCheck r id)

@@ -16,6 +16,7 @@ import Token
 import State
 import Type
 import AST
+import Data.Maybe
 
 addFunTypeParser :: T.Text -> Maybe [(T.Text, Type)] -> Type -> Location ->  SymbolTable -> MyParser()
 addFunTypeParser id (Just lt) t loc sb = addSymbolParser id (FunctionCon loc (MyFunction (map snd lt) t) (map fst lt) sb)
@@ -67,9 +68,9 @@ astToValue (Char _ c _)   = Just $ C c
 astToValue (String _ s _) = Just $ S s
 astToValue _              = Nothing
 
-verifyReadVars :: Maybe [(T.Text, Location)] -> MyParser ()
-verifyReadVars (Just lid) = mapM_ (lookUpConsParser . fst) lid
-verifyReadVars _          = return ()
+verifyReadVars :: Maybe [(T.Text, Location)] -> MyParser ([Type])
+verifyReadVars (Just lid) = fmap catMaybes $ mapM (lookUpConsParser . fst) lid
+verifyReadVars _          = return []
 
 addFunctionArgParser :: T.Text -> T.Text -> Type -> Location -> MyParser ()
 addFunctionArgParser idf id t loc = 
