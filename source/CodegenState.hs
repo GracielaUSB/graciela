@@ -144,7 +144,12 @@ getCount = do
 
 
 stringConst :: String -> C.Constant
-stringConst msg = C.Array i8 [C.Int 8 (fromIntegral (ord c)) | c <- (msg ++ "\0")]    
+stringConst msg =
+  let lastTwo res = (last $ init res):[last res]
+      res = tail $ tail $ foldl (\acc i -> if (lastTwo acc == "\\n")
+                then (init $ init acc) ++ " \n" ++ [i] else acc ++ [i]) "  " msg
+  
+  in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- ( res ++ "\0")]    
 
 
 local :: Type -> Name -> Operand
@@ -184,16 +189,13 @@ initialize id T.MyInt = do
    op <- getVarOperand id
    store intType op $ constantInt 0
 
-
 initialize id T.MyChar = do
    op <- getVarOperand id
    store charType op $ defaultChar
 
-
 initialize id T.MyFloat = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
-
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand

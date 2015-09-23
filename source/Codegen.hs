@@ -499,6 +499,7 @@ createExpression (MyAST.String _ msg _) = do
     let n  = fromIntegral $ Prelude.length msg + 1
     let ty = ArrayType n charType 
     name <- newLabel 
+
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
 
