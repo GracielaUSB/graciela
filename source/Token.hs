@@ -12,7 +12,6 @@ data TypeBool = MyTrue | MyFalse
 
 type TokenPos = (Token, SourcePos)
 
-
 data Token =   TokPlus
              | TokMinus 
              | TokStar 
@@ -34,21 +33,17 @@ data Token =   TokPlus
              | TokImplies
              | TokConsequent
              | TokEquiv
-             | TokNotEqiv
              | TokAsig
              | TokLess
              | TokGreater
-             | TokEqual
              | TokNot 
              | TokProgram  
              | TokOpenBlock
              | TokCloseBlock
              | TokLeftBracket
              | TokRightBracket
-             | TokVerticalBar
              | TokSemicolon
              | TokColon
-             | TokOpenQuant
              | TokLeftBrace
              | TokRightBrace
              | TokArrow
@@ -62,9 +57,6 @@ data Token =   TokPlus
              | TokRightA
              | TokLeftInv
              | TokRightInv  
-             | TokPre        
-             | TokPost      
-             | TokBound 
              | TokFunc      
              | TokProc     
              | TokIn      
@@ -79,11 +71,9 @@ data Token =   TokPlus
              | TokExist    
              | TokNotExist   
              | TokSigma      
-             | TokPi          
-             | TokUnion      
+             | TokPi             
              | TokIf         
-             | TokFi        
-             | TokInv       
+             | TokFi            
              | TokDo         
              | TokOd                 
              | TokAbs       
@@ -98,8 +88,7 @@ data Token =   TokPlus
              | TokRead     
              | TokToInt      
              | TokToDouble   
-             | TokToChar      
-             | TokToString                
+             | TokToChar                    
              | TokMIN_INT     
              | TokMIN_DOUBLE 
              | TokMAX_INT   
@@ -121,108 +110,110 @@ data Token =   TokPlus
 
 
 instance Show Token where
-  show TokBegin         = "token inicio"
-  show TokLexEnd        = "token final"
-  show TokPlus          = "suma"
-  show TokMinus         = "resta"
-  show TokStar          = "multiplicación"   
-  show TokSlash         = "división"        
-  show TokEnd           = "fin de archivo"
-  show TokComma         = "coma"
-  show TokLeftParent    = "paréntesis izquierdo"
-  show TokRightParent   = "paréntesis derecho"
-  show TokLeftPercent   = "cuantificador de apertura"
-  show TokRightPercent  = "cuantificador de cierre"
-  show TokAccent        = "potencia"
-  show TokLogicalAnd    = "y lógico"
-  show TokLogicalOr     = "o lógico"
-  show TokNotEqual      = "inequivalencia"
-  show TokLessEqual     = "menor o igual que"
-  show TokGreaterEqual  = "mayor o igual que"
-  show TokImplies       = "implicación"
-  show TokConsequent    = "consecuencia"
-  show TokEquiv         = "equivalencia"
-  show TokNotEqiv       = "no equivalencia"
-  show TokAsig          = "asignación"
-  show TokLess          = "menor que"
-  show TokGreater       = "mayor que"
-  show TokEqual         = "igual" 
-  show TokNot           = "negacion"
-  show TokProgram       = "programa"
-  show TokLeftBracket   = "corchete de apertura"
-  show TokRightBracket  = "corchete de cierre"
-  show TokVerticalBar   = "barra" 
-  show TokSemicolon     = "punto y coma"
-  show TokColon         = "dos puntos"
-  show TokLeftBrace     = "llave de apertura"
-  show TokRightBrace    = "llave de cierre"
-  show TokArrow         = "flecha de tipo de retorno"
-  show TokLeftPre       = "precondición de apertura"
-  show TokRightPre      = "precondición de cierre"
-  show TokLeftPost      = "postcondición de apertura"
-  show TokRightPost     = "postcondición de cierre"
-  show TokLeftBound     = "cuota de apertura"
-  show TokRightBound    = "cuota de cierre"
-  show TokLeftA         = "absorción de apertura"
-  show TokRightA        = "absorción de cierre"
-  show TokLeftInv       = "invariante de apertura"
-  show TokRightInv      = "invariante de cierre"
-  show TokPre           = "precondición"
-  show TokPost          = "postcondición"
-  show TokBound         = "cuota"
-  show TokFunc          = "función"
-  show TokProc          = "procedimiento"
-  show TokIn            = "entrada"
-  show TokOut           = "salida"
-  show TokInOut         = "entrada y salida"
-  show TokRef           = "referencia"
-  show TokWith          = "token with"   
-  show TokMod           = "modulo"
-  show TokMax           = "maximo"
-  show TokMin           = "minimo"
-  show TokForall        = "para Todo"
-  show TokExist         = "existencial"
-  show TokSigma         = "sumatoria"
-  show TokPi            = "productoria"
-  show TokUnion         = "union"
-  show TokIf            = "if de apertura"
-  show TokFi            = "if de cierre"
-  show TokInv           = "invariante"
-  show TokDo            = "do de apertura"
-  show TokOd            = "do de cierre"
-  show TokAbs           = "valor absoluto"
-  show TokSqrt          = "raíz cuadrada"
-  show TokVar           = "variable"
-  show TokConst         = "constante"
-  show TokAbort         = "abortar"
-  show TokRandom        = "random"
-  show TokSkip          = "saltar"
-  show TokWrite         = "escribir"
-  show TokWriteln       = "escribir con salto de línea"
-  show TokRead          = "leer"
-  show TokToInt         = "conversión a entero"
-  show TokToDouble      = "conversión a flotante"
-  show TokToChar        = "conversión a caracter"
-  show TokToString      = "conversión a cadena de caracteres"          
-  show TokMIN_INT       = "entero mínimo"
-  show TokMIN_DOUBLE    = "flotante mínimo"
-  show TokMAX_INT       = "entero máximo" 
-  show TokMAX_DOUBLE    = "flotante máximo"
-  show TokOf            = "token of"
-  show (TokBool b)      = "booleano : " ++ show b
-  show (TokType b)      = "tipo: " ++ show b
-  show (TokInteger b)   = "numero : " ++ show b
-  show (TokId      b)   = show b
-  show (TokString  e)   = "cadena de caracteres " ++ show e
-  show (TokError   e)   = "cadena no reconocida " ++ show e
-  show (TokFlotante n)  = "Numero flotante : " ++ show n
-  show (TokChar c)      = "caracter " ++ show c  
-  show (TokOpenBlock)   = "simbolo de apertura de bloque"
-  show (TokCloseBlock)  = "simbolo de cierre de bloque"
-  show TokSepGuards     = "simbolo separador de guardias"
-  show TokArray         = "tipo arreglo de"
-  show TokOpenQuant     = "apertura de cuantificador"
-  show TokPipe          = "pipe"
+  show TokBegin         = " \"begin\" - Inicio de Procedimiento o Función"
+  show TokLexEnd        = " \"end\" - Fin de Procedimiento o Función"
+  show TokPlus          = " \"+\" - Suma"
+  show TokMinus         = " \"-\" - Resta"
+  show TokStar          = " \"*\" - Multiplicación"   
+  show TokSlash         = " \"/\" - División"        
+  show TokEnd           = " \"end\" - Fin de Archivo"
+  show TokComma         = " \",\" - Coma"
+  show TokLeftParent    = " \"(\" - Paréntesis Izquierdo"
+  show TokRightParent   = " \")\" - Paréntesis Derecho"
+  show TokLeftPercent   = " \"(%\" - Apertura de Cuantificador"
+  show TokRightPercent  = " \"%)\" - Cierre de Cuantificador"
+  show TokAccent        = " \"^\" - Potencia"
+  show TokLogicalAnd    = " \"/\\\" - Conjunción Lógica"
+  show TokLogicalOr     = " \"\\/\" - Disyunción Lógica"
+  show TokNotEqual      = " \"!=\" - Inequivalencia"
+  show TokLessEqual     = " \"<=\" - Menor o Igual que"
+  show TokGreaterEqual  = " \">=\" - Mayor o Igual que"
+  show TokImplies       = " \"==>\" - Implicación"
+  show TokConsequent    = " \"<==\" - Consecuencia"
+  show TokEquiv         = " \"==\" - Equivalencia"
+  show TokAsig          = " \":=\" - Asignación"
+  show TokLess          = " \"<\" - Menor que"
+  show TokGreater       = " \">\" - Mayor que"
+  show TokNot           = " \"!\" - Negación"
+  show TokProgram       = " \"program\" - Inicio del Programa"
+  show TokLeftBracket   = " \"[\" - Corchete Izquierdo"
+  show TokRightBracket  = " \"]\" - Corchete Derecho"
+  show TokSemicolon     = " \";\" - Punto y Coma"
+  show TokColon         = " \":\" - Dos Puntos"
+  show TokLeftBrace     = " \"{\" - Llave Izquierda"
+  show TokRightBrace    = " \"}\" - Llave Derecho"
+  show TokArrow         = " \"->\" - Flecha"
+  show TokLeftPre       = " \"{pre\" - Apertura de Precondición"
+  show TokRightPre      = " \"pre}\" - Cierre de Precondición"
+  show TokLeftPost      = " \"{post\" - Apertura de Postcondición"
+  show TokRightPost     = " \"post}\" - Cierre de Postcondición"
+  show TokLeftBound     = " \"{bound\" - Apertura de la Función de Cota"
+  show TokRightBound    = " \"bound}\" - Cierre de la Función de Cota"
+  show TokLeftA         = " \"{a\" - Apertura de Aserción"
+  show TokRightA        = " \"a}\" - Cierre de Aserción"
+  show TokLeftInv       = " \"{inv\" - Apertura de Invariante"
+  show TokRightInv      = " \"inv}\" - Cierre de Invariante"
+  show TokFunc          = " \"func\" - Función"
+  show TokProc          = " \"proc\" - Procedimiento"
+  show TokIn            = " \"in\" - Parámetro de Entrada"
+  show TokOut           = " \"out\" - Parámetro de Salida"
+  show TokInOut         = " \"inout\" - Parámetro de Entrada y Salida"
+  show TokRef           = " \"ref\" - Parámetro por Referencia"
+  show TokWith          = " \"with\" - Indicador de Archivo de Entrada"
+  show TokMod           = " \"mod\" - Modulo"
+  show TokMax           = " \"max\" - Máximo"
+  show TokMin           = " \"min\" - Mínimo"
+  show TokForall        = " \"forall\" - Para Todo"
+  show TokExist         = " \"exist\" - Existencial"
+  show TokSigma         = " \"sigma\" - Sumatioria"
+  show TokPi            = " \"pi\" - Productoria"
+  show TokIf            = " \"if\" - Apertura de Selector"
+  show TokFi            = " \"fi\" - Cierre de Selector"
+  show TokDo            = " \"do\" - Apertura de Repetidor"
+  show TokOd            = " \"od\" - Cierre de Repetidor"
+  show TokAbs           = " \"abs\" - Valor Absoluto"
+  show TokSqrt          = " \"sqrt\" - Raíz Cuadrada"
+  show TokVar           = " \"var\" - Definidor de Variables"
+  show TokConst         = " \"const\" - Definidor de Constantes"
+  show TokAbort         = " \"abort\" - Abortador de Programa"
+  show TokRandom        = " \"random\" - Random"
+  show TokSkip          = " \"skip\" - Instrucción de Salto"
+  show TokWrite         = " \"write\" - Escritor"
+  show TokWriteln       = " \"writeln\" - Escritor con Salto de Línea"
+  show TokRead          = " \"read\" - Lector"
+  show TokToInt         = " \"toInt\" - Conversión a Entero"
+  show TokToDouble      = " \"toDouble\" - Conversión a Flotante"
+  show TokToChar        = " \"toChar\" - Conversión a Caracter"        
+  show TokMIN_INT       = " \"MIN_INT\" - Mínimo Entero"
+  show TokMIN_DOUBLE    = " \"MIN_DOUBLE\" - Mínimo Flotante"
+  show TokMAX_INT       = " \"MAX_INT\" - Máximo Entero" 
+  show TokMAX_DOUBLE    = " \"MAX_DOUBLE\" - Máximo Flotante"
+  show TokOf            = " \"of\" - of del Arreglo"
+  show (TokBool     b)  = " \"" ++ showBool b ++ "\" - Booleano"
+  show (TokType     t)  = " \"" ++ show t ++ "\" - Tipo " ++ showType t
+  show (TokInteger  n)  = " \"" ++ show n ++ "\" - Entero"
+  show (TokFlotante n)  = " \"" ++ show n ++ "\" - Flotante"
+  show (TokChar     c)  = " " ++ show c ++ " - Caracter"
+  show (TokId       i)  = " " ++ show i ++ " - Variable"
+  show (TokString   e)  = " " ++ show e ++ " - Cadena de Caracteres"
+  show (TokError    e)  = " " ++ show e ++ " - Cadena no Reconocida" 
+  show (TokOpenBlock)   = " \"|[\" - Apertura de Bloque"
+  show (TokCloseBlock)  = " \"]|\" - Cierre de Bloque"
+  show TokSepGuards     = " \"[]\" - Separador de Guardias"
+  show TokArray         = " \"array\" - Tipo Arreglo" 
+  show TokPipe          = " \"|\" - Barra Vertical" 
+
+
+showBool :: Bool -> String
+showBool True  = "true"
+showBool False = "false"
+
+
+showType :: Type -> String
+showType MyInt   = "Entero "
+showType MyFloat = "Flotante "
+showType MyChar  = "Caracter "
+showType MyBool  = "Booleano "
 
 
 getToken :: TokenPos -> Token

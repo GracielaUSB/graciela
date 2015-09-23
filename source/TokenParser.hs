@@ -8,12 +8,18 @@ import Text.Parsec
 import Token
 import State
 import Type
+import Text.Parsec.Pos
 
 
-makeTokenParser x = tokenPrim showTok updatePos testTok
-                    where
-                      showTok (t, pos)       = show t ++ " " ++ show pos
-                      testTok (t, pos)       = if x == t then Just (t) else Nothing
+makeTokenParser x = 
+    tokenPrim showTok updatePos testTok
+    where
+        showTok (t, pos) = let line   = sourceLine pos
+                               column = sourceColumn pos
+                           in ":" ++ show t ++ ", en la línea " ++ show line
+                                            ++ ", columna "     ++ show column ++ "."
+
+        testTok (t, pos)                       = if x == t then Just (t) else Nothing
 
 
 updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
@@ -45,7 +51,6 @@ parseRBracket     = verify TokRightBracket
 parseToInt        = verify TokToInt
 parseToDouble     = verify TokToDouble
 parseToChar       = verify TokToChar
-parseToString     = verify TokToString
 parseLeftBracket  = verify TokLeftBracket
 parseRightBracket = verify TokRightBracket
 parseTokAbs       = verify TokAbs
@@ -84,13 +89,11 @@ parseWith         = verify TokWith
 parseWriteln      = verify TokWriteln
 parseOf           = verify TokOf 
 parseTokArray     = verify TokArray
-parseTokPre       = verify TokPre
 parseTokLeftPre   = verify TokLeftPre
 parseTokRightPre  = verify TokRightPre
 parseTokLeftPost  = verify TokLeftPost
 parseTokRightPost = verify TokRightPost
 parseTokExist     = verify TokExist
-parseTokOpenQuant = verify TokOpenQuant
 parseTokLeftPer   = verify TokLeftPercent
 parseTokRightPer  = verify TokRightPercent
 parseTokLeftBound = verify TokLeftBound
@@ -113,8 +116,6 @@ parseTokForall    = verify TokForall
 parseTokNotExist  = verify TokNotExist
 parseTokSigma     = verify TokSigma
 parseTokPi        = verify TokPi
-parseTokUnion     = verify TokUnion
-parseTokEqual     = verify TokEqual
 
 
 parseAnyToken :: MyParser (Token)

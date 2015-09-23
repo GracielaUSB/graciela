@@ -263,7 +263,7 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
 accToAlloca acc@(MyAST.ID _ id' t) = do
-    
+
     let id = TE.unpack id'
     dim <- typeToOperand id t 
     let t' = toType t
@@ -365,16 +365,15 @@ createInstruction (MyAST.LAssign ids exps _ _) = do
 
 createInstruction (MyAST.Write True exp _ t) = do
     let ty  = MyAST.tag exp 
-    let ty' = toType t
+    let ty' = voidType
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt    -> procedureCall ty' writeLnInt [e']
+    { T.MyInt    -> procedureCall ty' writeLnInt    [e']
     ; T.MyFloat  -> procedureCall ty' writeLnDouble [e']
-    ; T.MyBool   -> procedureCall ty' writeLnBool [e']
-    ; T.MyChar   -> procedureCall intType writeLnChar [e']   
-    ; T.MyString -> do let msj = lines $ MyAST.mstring exp
-                       procedureCall ty' writeLnString [e']
+    ; T.MyBool   -> procedureCall ty' writeLnBool   [e']
+    ; T.MyChar   -> procedureCall ty' writeLnChar   [e']   
+    ; T.MyEmpty  -> procedureCall ty' writeLnString [e']
     }
 
     return ()
@@ -382,15 +381,15 @@ createInstruction (MyAST.Write True exp _ t) = do
 
 createInstruction (MyAST.Write False exp _ t) = do
     let ty = MyAST.tag exp 
-    let ty' = toType t
+    let ty' = voidType
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt    -> procedureCall ty' writeInt [e']
+    { T.MyInt    -> procedureCall ty' writeInt    [e']
     ; T.MyFloat  -> procedureCall ty' writeDouble [e']
-    ; T.MyBool   -> procedureCall ty' writeBool [e']
-    ; T.MyChar   -> procedureCall intType writeChar [e']
-    ; T.MyString -> procedureCall ty' writeString [e']
+    ; T.MyBool   -> procedureCall ty' writeBool   [e']
+    ; T.MyChar   -> procedureCall ty' writeChar   [e']
+    ; T.MyEmpty  -> procedureCall ty' writeString [e']
     }
 
     return ()

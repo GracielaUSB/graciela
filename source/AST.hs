@@ -52,13 +52,12 @@ instance Show OpRel where
    show Ine     = "Negación"
 
 
-data Conv = ToInt | ToDouble | ToString | ToChar  
+data Conv = ToInt | ToDouble | ToChar  
       deriving (Eq) 
 
 instance Show Conv where
    show ToInt    = "a Entero"
    show ToDouble = "a Flotante"
-   show ToString = "a Cadenas de Caracteres"
    show ToChar   = "a Caracter"
 
 
