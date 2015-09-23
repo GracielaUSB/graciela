@@ -18,6 +18,9 @@ import Type
 import AST
 import Data.Maybe
 
+addFileToReadParser :: String -> MyParser()
+addFileToReadParser file = modify $ addFileToRead file
+
 addFunTypeParser :: T.Text -> Maybe [(T.Text, Type)] -> Type -> Location ->  SymbolTable -> MyParser()
 addFunTypeParser id (Just lt) t loc sb = addSymbolParser id (FunctionCon loc (MyFunction (map snd lt) t) (map fst lt) sb)
 addFunTypeParser _ _ _ _ _ = return () 

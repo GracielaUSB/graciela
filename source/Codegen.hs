@@ -55,6 +55,10 @@ maxnumFtring  = "_maxF"
 readIntStd    = "_readIntStd"
 readCharStd   = "_readCharStd"
 readDoubleStd = "_readDoubleStd"
+openFileStr   = "_openFile"
+readFileInt   = "_readFileInt"
+readFileChar    = "_readFileChar"
+readFileDouble  = "_readFileDouble"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
@@ -65,8 +69,8 @@ createEmptyParameters :: [(Name, Type)] -> ([Parameter], Bool)
 createEmptyParameters names = (map (\(name, t) -> Parameter t name []) names, False)
 
 
-createPreDef ::  LLVM () 
-createPreDef = do
+createPreDef :: [String] -> LLVM () 
+createPreDef files = do
 
     addDefinition randomInt (createParameters [] []) intType
 
@@ -108,22 +112,42 @@ createPreDef = do
     addDefinition readCharStd (createEmptyParameters []) charType
     addDefinition readDoubleStd (createEmptyParameters []) double
 
+    addDefinition openFileStr (createEmptyParameters [(Name "nombreArchivo", ptr charType)]) (ptr charType)
 
-astToLLVM :: MyAST.AST T.Type -> AST.Module
-astToLLVM (MyAST.Program name _ defs accs _) =
+    mapM addFile files
+
+    addDefinition readFileInt (createEmptyParameters [(Name "f", ptr charType)]) intType
+    addDefinition readFileChar (createEmptyParameters [(Name "f", ptr charType)]) charType
+    addDefinition readFileDouble (createEmptyParameters [(Name "f", ptr charType)]) doubleType
+
+convertFile :: String -> String
+convertFile file = '_': ('_':file)
+
+addFile :: String -> LLVM ()
+addFile file = globalVariable (Name (convertFile file)) (ptr charType) (C.Null (ptr charType))
+
+astToLLVM :: [String] -> MyAST.AST T.Type -> AST.Module
+astToLLVM files (MyAST.Program name _ defs accs _) =
     defaultModule { moduleName        = TE.unpack name
-                  , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM defs accs
+                  , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
     }
 
+openFile file = do
+    let file' = convertFile file
+    ops <- addStringOpe file
+    op <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
+    store (ptr charType) (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) op
 
-createLLVM :: [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
-createLLVM defs accs = do
+createLLVM :: [String] -> [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
+createLLVM files defs accs = do
 
-    createPreDef
+    createPreDef files
     mapM_ createDef defs
     m800 <- retVoid
+    mapM openFile files
     createBasicBlocks accs m800
     addDefinition "main" ([],False) voidType
+    return ()
 
 
 convertID :: String -> String
@@ -283,6 +307,25 @@ accToAlloca (MyAST.Read _ Nothing types vars _) = do
     mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
     return ()
 
+accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
+    res <- mapM (callReadFile arch) $ types
+    ads <- mapM (getVarOperand . TE.unpack . fst) vars
+    mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
+    return ()
+    
+callReadFile :: String -> T.Type -> LLVM Operand
+callReadFile arch T.MyInt = do
+    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    caller intType (Right $ definedFunction intType (Name readFileInt)) [(op, [])]
+callReadFile arch T.MyFloat = do
+    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    caller doubleType (Right $ definedFunction doubleType (Name readFileDouble)) [(op, [])]
+callReadFile arch T.MyChar = do
+    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    caller charType (Right $ definedFunction charType (Name readFileChar)) [(op, [])]
 
 callRead :: T.Type -> LLVM (Operand)
 callRead T.MyInt   = do 
@@ -528,13 +571,7 @@ createExpression (MyAST.Char _ n _) = do
 
 
 createExpression (MyAST.String _ msg _) = do
-    let n  = fromIntegral $ Prelude.length msg + 1
-    let ty = ArrayType n charType 
-    name <- newLabel 
-
-    addString msg name ty
-    return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
-
+    addStringOpe msg
 
 createExpression (MyAST.Convertion tType _ exp t) = do
     let t' = MyAST.tag exp 

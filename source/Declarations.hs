@@ -110,6 +110,7 @@ decListWithRead follow recSet =
           parseRightParent
           do parseWith
              id <- parseString
+             addFileToReadParser id
              parseSemicolon
              return $ AP.liftA2 (++) ld $ fmap (:[]) $ AP.liftA2 (Read loc (Just id) ts) lid (return MyEmpty)
              <|> do parseSemicolon

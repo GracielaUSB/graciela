@@ -15,6 +15,7 @@ import LLVM.General.AST.Attribute
 import LLVM.General.AST.AddrSpace
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
+import LLVM.General.AST.Linkage
 import LLVM.General.Module
 import Control.Monad.State
 import Control.Applicative
@@ -76,6 +77,16 @@ addDefinition name params retTy = do
     modify $ \s -> s { varsLoc = DM.empty }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
+globalVariable name ty init = do
+    defs <- gets moduleDefs
+    let def = GlobalDefinition $ globalVariableDefaults {
+          name  = name
+        , linkage = Private
+        , GLOB.type' = ty
+        , initializer = Just init
+        , isConstant  = False
+    }
+    modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 addString :: String -> Name -> Type -> LLVM ()
 addString msg name ty = do
@@ -109,6 +120,13 @@ addNamedInstruction t name ins = do
     addVarOperand name op
     return op 
 
+addStringOpe msg = do
+    let n  = fromIntegral $ Prelude.length msg + 1
+    let ty = ArrayType n charType 
+    name <- newLabel 
+
+    addString msg name ty
+    return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
 
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do

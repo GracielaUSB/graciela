@@ -6,6 +6,75 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "stdio.h"
 #include "stdlib.h"
 
+int8_t* _openFile(char* nombreArchivo) {
+    FILE* file;
+
+    file = fopen(nombreArchivo, "r");
+    if(file == NULL) 
+    {
+      printf ("%s %s", "Error abriendo el archivo: ", nombreArchivo);
+      exit(EXIT_FAILURE);
+    }
+    return (int8_t *) file;
+}
+
+int _readFileInt(int8_t* file) {
+  FILE* f = (FILE*) file;
+
+  int n;
+  int r = fscanf(f, "%d", &n);
+
+  if (r == EOF)
+  {
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura"); 
+    exit(EXIT_FAILURE);
+  }
+  if (r == 0)
+  {
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo int");
+    exit(EXIT_FAILURE);
+  }
+
+  return n;
+}
+
+char _readFileChar(int8_t* file) {
+  FILE* f = (FILE*) file;
+  char n;
+  int r = fscanf(f, "%c", &n);
+
+  if (r == EOF)
+  {
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura"); 
+    exit(EXIT_FAILURE);
+  }
+  if (r == 0)
+  {
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo char");
+    exit(EXIT_FAILURE);
+  }
+
+  return n;
+}
+
+double _readFileDouble(int8_t* file) {
+  FILE* f = (FILE*) file;
+  double n;
+  int r = fscanf(f, "%lf", &n);
+
+  if (r == EOF)
+  {
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura"); 
+    exit(EXIT_FAILURE);
+  }
+  if (r == 0)
+  { 
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo double");
+    exit(EXIT_FAILURE);
+  }
+
+  return n;
+}
 
 int _readIntStd () {
     int  n;

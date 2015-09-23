@@ -67,7 +67,7 @@ play inp =
                       l' = DF.toList l 
                   if not $ null l' then putStrLn $ show $ l'
                   else 
-                    do let newast = astToLLVM $ fst $ runTVerifier (symbolTable st) ast
+                    do let newast = astToLLVM (filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
                        withContext $ \context ->
                           liftError $ withModuleFromAST context newast $ \m -> do
                             --liftError $ generateCode m

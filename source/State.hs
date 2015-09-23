@@ -20,13 +20,16 @@ type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
 data ParserState = ParserState { synErrorList     :: DS.Seq MyParseError
                                , symbolTable      :: SymbolTable
                                , sTableErrorList  :: DS.Seq MyTypeError
+                               , filesToRead      :: [String]
                                }
       deriving(Show)
 
 
 initialState :: ParserState
-initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, sTableErrorList = DS.empty }
+initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, sTableErrorList = DS.empty, filesToRead = [] }
 
+addFileToRead :: String -> ParserState -> ParserState
+addFileToRead file ps = ps { filesToRead = file : (filesToRead ps) }
 
 addTypeError :: MyTypeError -> ParserState -> ParserState
 addTypeError err ps = ps { sTableErrorList = (sTableErrorList ps) DS.|> err }
@@ -49,18 +52,12 @@ initVar id ps = ps { symbolTable = initSymbol id (symbolTable ps) }
 
 
 newScopeState :: ParserState -> ParserState
-newScopeState st = ParserState { synErrorList    = synErrorList st
-                               , symbolTable     = enterScope (symbolTable st)
-                               , sTableErrorList = sTableErrorList st
-                               } 
+newScopeState st = st { symbolTable     = enterScope (symbolTable st) } 
 
 
 exitScopeState :: ParserState -> ParserState
 exitScopeState st = case exitScope (symbolTable st) of
-                    { Just sbtl -> ParserState { synErrorList    = synErrorList st
-                                               , symbolTable     = sbtl
-                                               , sTableErrorList = sTableErrorList st 
-                                               }
+                    { Just sbtl -> st { symbolTable = sbtl }
                     ; Nothing   -> addParsingError ScopesError st
                     }
 
