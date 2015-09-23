@@ -6,6 +6,29 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "stdio.h"
 #include "stdlib.h"
 
+int _readIntStd () {
+  int n;
+  char c;
+  scanf("%d", &n);
+  scanf("%c", &c);
+  return n;
+}
+
+char _readCharStd () {
+  char n;
+  char c;
+  scanf("%c", &n);
+  scanf("%c", &c);
+  return n;
+}
+
+double _readDoubleStd () {
+  double n;
+  char c;
+  scanf("%lf", &n);
+  scanf("%c", &c);
+  return n;
+}
 
 void _writeLnInt(int x) {
     printf("%d\n", x);

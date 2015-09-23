@@ -10,55 +10,51 @@ import Type
 import AST
 
 
-type MyVerType = RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+type MyVerType a = RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) a
 
 
-addFunArgError :: T.Text -> Bool -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addFunArgError :: T.Text -> Bool -> Type -> Type -> Location -> MyVerType Type
 addFunArgError name isFunc t t' loc = addTypeError $ FunArgError name isFunc t t' loc 
 
 
-addListError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () ()
-addListError err = do RWSS.tell $ DS.singleton $ err
-
-
-addNumberArgsError :: T.Text -> Bool -> Int -> Int -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addNumberArgsError :: T.Text -> Bool -> Int -> Int -> Location -> MyVerType Type 
 addNumberArgsError name isFunc wtL prL loc = addTypeError $ NumberArgsError name isFunc wtL prL loc
 
 
-addUndecFuncError :: T.Text -> Bool -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addUndecFuncError :: T.Text -> Bool -> Location -> MyVerType Type 
 addUndecFuncError name isFunc loc = addTypeError $ UndecFunError name isFunc loc
 
 
-addRetFuncError :: T.Text -> Type -> Type ->  Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addRetFuncError :: T.Text -> Type -> Type ->  Location -> MyVerType Type 
 addRetFuncError name tf body loc = addTypeError $ RetFuncError name tf body loc
 
 
-addDifSizeDecError :: Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addDifSizeDecError :: Location -> MyVerType Type
 addDifSizeDecError loc = addTypeError $ DiffSizeError loc
 
 
-addTypeError :: MyTypeError -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addTypeError :: MyTypeError -> MyVerType Type 
 addTypeError error = do RWSS.tell $ DS.singleton error
                         return $ MyError
 
-addTypeDecError :: T.Text -> Location -> Type -> Type -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addTypeDecError :: T.Text -> Location -> Type -> Type -> MyVerType Type 
 addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 
 
-addNotOccursVarError :: T.Text -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addNotOccursVarError :: T.Text -> Location -> MyVerType Type
 addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
 
 
-addInvalidPar :: AST Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type
+addInvalidPar :: AST Type -> Location -> MyVerType Type
 addInvalidPar id loc = addTypeError $ InvalidPar id loc
 
 
-addQuantBoolError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addQuantBoolError :: OpQuant -> Type -> Type -> Location -> MyVerType Type 
 addQuantBoolError op tr tt loc = addTypeError $ QuantBoolError op tr tt loc
 
 
-addQuantIntError :: OpQuant -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type 
+addQuantIntError :: OpQuant -> Type -> Type -> Location -> MyVerType Type 
 addQuantIntError op tr tt loc = addTypeError $ QuantIntError op tr tt loc
 
-addAssignError :: T.Text -> Type -> Type -> Location -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () Type  
+addAssignError :: T.Text -> Type -> Type -> Location -> MyVerType Type  
 addAssignError name op1 op2 loc = addTypeError $ AssignError name op1 op2 loc

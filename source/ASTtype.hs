@@ -19,13 +19,13 @@ import Data.Maybe
 
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, DS.Seq MyTypeError)
-runTVerifier sTable sTree = RWSS.evalRWS (verTypeAST sTree) sTable () 
+runTVerifier sTable sTree = RWSS.evalRWS (verTypeAST sTree) sTable [] 
 
 
-verTypeAST :: (AST Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () (AST Type)
+verTypeAST :: (AST Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) (AST Type)
 verTypeAST (AST.Program name loc defs accs _) =
-    do defs'    <- verTypeASTlist defs
-       accs'    <- verTypeASTlist accs
+    do defs'    <- mapM verTypeAST defs
+       accs'    <- mapM verTypeAST accs
        let defsT = map tag defs'
        let accsT = map tag accs'
        checkT   <- verProgram defsT accsT
@@ -70,8 +70,8 @@ verTypeAST (Unary op loc exp _) =
 
 
 verTypeAST (Block loc st decs accs _) =
-    do decs'  <- verTypeASTlist decs
-       accs'  <- verTypeASTlist accs
+    do decs'  <- mapM verTypeAST decs
+       accs'  <- mapM verTypeAST accs
        checkT <- verBlock (map tag accs')
        return $ Block loc st decs accs' checkT
 
@@ -92,7 +92,7 @@ verTypeAST (Write ln exp loc _) =
 
 
 verTypeAST (ArrCall loc name args t) = 
-    do args'  <- verTypeASTlist args
+    do args'  <- mapM verTypeAST args
        checkT <- verArrayCall name (map tag args') t loc
        return $ ArrCall loc name args' checkT    
 
@@ -132,13 +132,13 @@ verTypeAST (LAssign idlist explist loc _) =
 
 
 verTypeAST (Cond guard loc _) =
-    do guard' <- verTypeASTlist guard
+    do guard' <- mapM verTypeAST guard
        checkT <- verCond (map tag guard') loc
        return $ Cond guard' loc checkT
 
 
 verTypeAST (Rept guard inv bound loc _) =
-    do guard' <- verTypeASTlist guard
+    do guard' <- mapM verTypeAST guard
        inv'   <- verTypeAST inv
        bound' <- verTypeAST bound
        checkT <- verRept (map tag guard') (tag inv') (tag bound')
@@ -146,14 +146,14 @@ verTypeAST (Rept guard inv bound loc _) =
                                                       
 
 verTypeAST (ProcCall name sb loc args _) = 
-    do args'  <- verTypeASTlist args  
+    do args'  <- mapM verTypeAST args  
        locs   <- getLocArgs args
        checkT <- verProcCall name sb args' loc locs
        return (ProcCall name sb loc args' checkT)
 
   
 verTypeAST (FCallExp name sb loc args _) =
-    do args'  <- verTypeASTlist args
+    do args'  <- mapM verTypeAST args
        locs   <- getLocArgs args
        checkT <- verCallExp name sb (map tag args') loc locs
        return $ FCallExp name sb loc args' checkT
@@ -167,7 +167,7 @@ verTypeAST (DefFun name st loc body ret bound params _) =
                                                     
 
 verTypeAST (DefProc name st accs pre post bound cdec args _) = 
-    do accs'  <- verTypeASTlist accs 
+    do accs'  <- mapM verTypeAST accs 
        pre'   <- verTypeAST pre  
        post'  <- verTypeAST post 
        bound' <- verTypeAST bound
@@ -242,14 +242,8 @@ buildRange Ine      (QuanVariable id) (Reducible n) = return $ RA.invert $ [RA.S
 buildRange _ _ _                                    = return $ return $ InfiniteRange
 
 
-getLocArgs :: [AST Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [Location]
+getLocArgs :: [AST Type] -> MyVerType [Location]
 getLocArgs args = return $ fmap AST.location args
-
-
-verTypeASTlist :: [AST Type] -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) () [AST Type]
-verTypeASTlist []   = return []
-verTypeASTlist list = mapM verTypeAST list
-
 
 drawASTtype :: (AST Type, DS.Seq MyTypeError) -> String
 drawASTtype (ast, err) = case (DS.null err) of

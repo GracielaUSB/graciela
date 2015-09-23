@@ -53,6 +53,9 @@ maxnumString  = "_max"
 minnumFstring = "_minF"
 maxnumFtring  = "_maxF"
 powString     = "llvm.pow.f64"
+readIntStd    = "_readIntStd"
+readCharStd    = "_readCharStd"
+readDoubleStd    = "_readDoubleStd"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
@@ -102,6 +105,9 @@ createPreDef = do
     addDefinition writeLnString stringParams intType
     return ()
 
+    addDefinition readIntStd (createEmptyParameters []) intType
+    addDefinition readCharStd (createEmptyParameters []) charType
+    addDefinition readDoubleStd (createEmptyParameters []) double
 
 astToLLVM :: MyAST.AST T.Type -> AST.Module
 astToLLVM (MyAST.Program name _ defs accs _) =
@@ -146,17 +152,13 @@ addArgOperand ((id',c):xs) = do
            return ()
       T.Out -> 
         do op <- alloca Nothing t id
-           store t op $ constantInt 0
            addVarOperand id' op
+           initialize id $ symbolType c
            return ()
       T.Ref -> 
         do addVarOperand id' exp'
            return ()
     addArgOperand xs
-    
-
-
-
 
 retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 retVarOperand [] = return()
@@ -231,12 +233,12 @@ createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     
     let name' = (TE.unpack name)
-    mapM_ accToAlloca decs
     createState name' pre
     let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
     let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
     retTy <- retVoid
     addArgOperand args
+    mapM_ accToAlloca decs
     mapM_ createInstruction accs 
     retVarOperand $ reverse args
     createState name' post
@@ -266,6 +268,18 @@ accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     mapM_ idToAlloca lids
     createInstruction acc
 
+accToAlloca (MyAST.Read _ Nothing types vars _) = do
+    res <- mapM callRead $ types
+    ads <- mapM (getVarOperand . TE.unpack . fst) vars
+    mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
+    return ()
+
+callRead T.MyInt = do
+    caller intType (Right $ definedFunction intType (Name readIntStd)) []
+callRead T.MyChar = do
+    caller charType (Right $ definedFunction charType (Name readCharStd)) []
+callRead T.MyFloat = do
+    caller double (Right $ definedFunction double (Name readDoubleStd)) []
 
 idToAlloca :: MyAST.AST T.Type -> LLVM()
 idToAlloca (MyAST.ID _ id t) = do
@@ -331,7 +345,6 @@ createInstruction (MyAST.GuardAction _ assert action ty) = do
 
 createInstruction (MyAST.LAssign ids exps _ _) = do
     mapM_ (uncurry createAssign) $ zip ids exps
-
 
 createInstruction (MyAST.Write True exp _ t) = do
     let ty  = MyAST.tag exp 
