@@ -148,7 +148,6 @@ stringConst msg =
   let lastTwo res = (last $ init res):[last res]
       res = tail $ tail $ foldl (\acc i -> if (lastTwo acc == "\\n")
                 then (init $ init acc) ++ " \n" ++ [i] else acc ++ [i]) "  " msg
-  
   in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- ( res ++ "\0")]    
 
 
