@@ -59,6 +59,7 @@ openFileStr   = "_openFile"
 readFileInt   = "_readFileInt"
 readFileChar    = "_readFileChar"
 readFileDouble  = "_readFileDouble"
+closeFileStr = "_closeFile"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
@@ -120,6 +121,8 @@ createPreDef files = do
     addDefinition readFileChar (createEmptyParameters [(Name "f", ptr charType)]) charType
     addDefinition readFileDouble (createEmptyParameters [(Name "f", ptr charType)]) doubleType
 
+    addDefinition closeFileStr (createEmptyParameters [(Name "f", ptr charType)]) voidType
+
 convertFile :: String -> String
 convertFile file = '_': ('_':file)
 
@@ -138,6 +141,13 @@ openFile file = do
     op <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
     store (ptr charType) (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) op
 
+closeFile file = do
+    let file' = convertFile file
+    
+    -- Cargamos la variable gobal perteneciente al archivo.
+    op <- addUnNamedInstruction voidType $ Load False (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) Nothing 0 []
+    caller voidType (Right $ definedFunction voidType (Name closeFileStr)) [(op, [])]
+
 createLLVM :: [String] -> [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM files defs accs = do
 
@@ -145,7 +155,9 @@ createLLVM files defs accs = do
     mapM_ createDef defs
     m800 <- retVoid
     mapM openFile files
-    createBasicBlocks accs m800
+    mapM_ createInstruction accs
+    mapM closeFile files
+    addBasicBlock m800
     addDefinition "main" ([],False) voidType
     return ()
 
@@ -865,11 +877,9 @@ createBasicBlocks accs m800 = do
     genIntructions accs
       where
         genIntructions (acc:xs) = do
-            r <- newLabel
             createInstruction acc
             genIntructions xs
         genIntructions [] = do
-            r <- newLabel
             addBasicBlock m800
 
 

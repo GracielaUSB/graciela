@@ -30,6 +30,7 @@ import Lexer
 import Token
 import Type 
 import AST
+import qualified Data.Set as SET
 
 
 concatLexPar :: ParsecT T.Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
@@ -81,7 +82,7 @@ play inp =
                       l' = DF.toList l 
                   if not $ null l' then putStrLn $ show $ l'
                   else 
-                    do let newast = astToLLVM (filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
+                    do let newast = astToLLVM (SET.toList $ filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
                        withContext $ \context ->
                           liftError $ withModuleFromAST context newast $ \m -> do
                             --liftError $ generateCode m

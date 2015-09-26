@@ -18,6 +18,11 @@ int8_t* _openFile(char* nombreArchivo) {
     return (int8_t *) file;
 }
 
+void _closeFile(int8_t* file) {
+    FILE* f = (FILE*) file;
+    fclose(f);
+}
+
 int _readFileInt(int8_t* file) {
   FILE* f = (FILE*) file;
 
