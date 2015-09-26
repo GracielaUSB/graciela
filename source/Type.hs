@@ -13,7 +13,7 @@ instance Show TypeArg where
 
 
 data Type = MyInt | MyFloat | MyBool  | MyChar   | MyFunction {  paramType :: [Type], retuType :: Type } | MyProcedure [Type] 
-                  | MyError | MyEmpty | MyString | MyArray { getTam :: Either Text Integer, getType :: Type }
+                  | MyError | MyEmpty | MyArray { getTam :: Either Text Integer, getType :: Type }
 
 
 
@@ -22,7 +22,6 @@ instance Eq Type where
    MyFloat          ==  MyFloat           = True           
    MyBool           ==  MyBool            = True
    MyChar           ==  MyChar            = True
-   MyString         ==  MyString          = True
    MyError          ==  MyError           = True
    MyEmpty          ==  MyEmpty           = True
    (MyProcedure  _) == (MyProcedure  _)   = True
@@ -32,13 +31,12 @@ instance Eq Type where
 
 
 instance Show Type where
-   show  MyInt             = "Int"
-   show  MyFloat           = "Double"
+   show  MyInt             = "int"
+   show  MyFloat           = "double"
    show  MyBool            = "Boolean"
-   show  MyString          = "String"
-   show  MyChar            = "Char"
-   show  MyEmpty           = "Vacio"
-   show  MyError           = "Error"
+   show  MyChar            = "char"
+   show  MyEmpty           = "vacio"
+   show  MyError           = "error"
    show (MyFunction xs t ) = "Func, return type: " ++ show t
    show (MyArray    t  xs) = "Array of "     ++ show t ++ " de tamaño " ++ show xs
    show (MyProcedure   xs) = "Proc"

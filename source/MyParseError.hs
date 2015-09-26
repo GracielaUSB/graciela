@@ -34,25 +34,25 @@ data WaitedToken =  Operator
                   | IDError
 
 instance Show WaitedToken where
-  show Operator   = "operador"
-  show Number     = "número"
-  show TokenRP    = "paréntesis derecho"
-  show Comma      = "coma"
-  show Final      = "final de archivo"
-  show TokenRB    = "corchete derecho"
-  show TokenOB    = "apertura de bloque"
-  show TokenCB    = "final de bloque"
-  show Program    = "program"
-  show ProcOrFunc = "procedimiento o función"
-  show Colon      = "dos puntos"
-  show IDError    = "identificador"
+  show Operator   = " Operador "
+  show Number     = " Número "
+  show TokenRP    = " Paréntesis Derecho "
+  show Comma      = " Coma "
+  show Final      = " Final de Archivo "
+  show TokenRB    = " Corchete Derecho "
+  show TokenOB    = " Apertura de Bloque "
+  show TokenCB    = " Final de Bloque "
+  show Program    = " Program "
+  show ProcOrFunc = " Procedimiento o Función "
+  show Colon      = " Dos puntos "
+  show IDError    = " Identificador "
 
 
 instance Show MyParseError where
   show (MyParseError loc wt at) = 
       errorL loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++ show at ++ "."
   show (EmptyError   loc)       = 
-      errorL loc ++ ": No se permiten expresiones vacías."
+      errorL loc ++ ": No se permiten Expresiones vacías."
   show (NonAsocError loc)       = 
       errorL loc ++ ": Operador no asociativo."
   show (ArrayError   wt pr loc) = 
@@ -62,7 +62,7 @@ instance Show MyParseError where
     
 
 newEmptyError  pos          = 
-    EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos)                                 }
+    EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos) }
 newParseError  msg (e, pos) = 
     MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), 
                                                                 waitedTok = msg, actualTok = e }

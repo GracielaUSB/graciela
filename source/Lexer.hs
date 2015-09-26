@@ -27,14 +27,12 @@ pLeftParent   = oneOf "("
 pRightParent  = oneOf ")"
 pLeftBracket  = oneOf "["
 pRightBracket = oneOf "]"
-pVerticalBar  = oneOf "|"
 pSemicolon    = oneOf ";"
 pColon        = oneOf ":" 
 pLeftBrace    = oneOf "{"
 pRightBrace   = oneOf "}"
 pLess         = oneOf "<\60"
 pGreater      = oneOf ">\62"
-pEqual        = oneOf "=\61"
 pNot          = oneOf "!\33"
 pAccent       = oneOf "^\94"
 pPipe         = tryStringOp "|"
@@ -63,9 +61,6 @@ pLeftA        = tryStringOp "{a"
 pRightA       = tryStringOp "a}"
 pLeftInv      = tryStringOp "{inv"
 pRightInv     = tryStringOp "inv}"
-pPre          = tryString "pre"
-pPost         = tryString "post"
-pBound        = tryString "bound"
 pFunc         = tryString "func"
 pProc         = tryString "proc"
 pIn           = tryString "in"
@@ -82,7 +77,6 @@ pSigma        = tryString "sigma"    <|> tryString "\8721"
 pPi           = tryString "pi"       <|> tryString "\960"
 pIf           = tryString "if"
 pFi           = tryString "fi"
-pInv          = tryString "inv"
 pDo           = tryString "do"
 pOd           = tryString "od"
 pAbs          = tryString "abs"
@@ -99,7 +93,6 @@ pProgram      = tryString "program"
 pToInt        = tryString "toInt"
 pToDouble     = tryString "toDouble"
 pToChar       = tryString "toChar"
-pToString     = tryString "toString"
 pType         = (tryString "boolean" >> return MyBool)
             <|> (tryString "int"     >> return MyInt)
             <|> (tryString "double"  >> return MyFloat)
@@ -159,7 +152,6 @@ lexer =
                           <|> (pAsig         >> spaces >> return (TokAsig))
                           <|> (pLess         >> spaces >> return (TokLess))
                           <|> (pGreater      >> spaces >> return (TokGreater))
-                          <|> (pEqual        >> spaces >> return (TokEqual))
                           <|> (pNot          >> spaces >> return (TokNot))
                           <|> (pProgram      >> spaces >> return (TokProgram))
                           <|> (pOpenBlock    >> spaces >> return (TokOpenBlock))
@@ -168,14 +160,10 @@ lexer =
                           <|> (pSepGuards    >> spaces >> return (TokSepGuards))
                           <|> (pLeftBracket  >> spaces >> return (TokLeftBracket))
                           <|> (pRightBracket >> spaces >> return (TokRightBracket))
-                          <|> (pVerticalBar  >> spaces >> return (TokVerticalBar))
                           <|> (pSemicolon    >> spaces >> return (TokSemicolon))
                           <|> (pColon        >> spaces >> return (TokColon))
                           <|> (pLeftBrace    >> spaces >> return (TokLeftBrace))
                           <|> (pRightBrace   >> spaces >> return (TokRightBrace))
-                          <|> (pPre          >> spaces >> return (TokPre))
-                          <|> (pPost         >> spaces >> return (TokPost))
-                          <|> (pBound        >> spaces >> return (TokBound))
                           <|> (pFunc         >> spaces >> return (TokFunc))
                           <|> (pProc         >> spaces >> return (TokProc))
                           <|> (pInOut        >> spaces >> return (TokInOut))    
@@ -191,7 +179,6 @@ lexer =
                           <|> (pPi           >> spaces >> return (TokPi))
                           <|> (pIf           >> spaces >> return (TokIf))
                           <|> (pFi           >> spaces >> return (TokFi))
-                          <|> (pInv          >> spaces >> return (TokInv))
                           <|> (pDo           >> spaces >> return (TokDo))  
                           <|> (pOd           >> spaces >> return (TokOd))
                           <|> (pAbs          >> spaces >> return (TokAbs))
@@ -213,7 +200,6 @@ lexer =
                           <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
                           <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
                           <|> (pOf           >> spaces >> return (TokOf))
-                          <|> (pToString     >> spaces >> return (TokToString))
                           <|> (try (do s <- pBool
                                        spaces
                                        case s of

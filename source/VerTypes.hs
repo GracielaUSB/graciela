@@ -73,7 +73,6 @@ verRelational ltype rtype loc op =
 verConvertion :: Conv -> MyVerType Type
 verConvertion ToInt    = return MyInt   
 verConvertion ToDouble = return MyFloat 
-verConvertion ToString = return MyString
 verConvertion ToChar   = return MyChar  
 
 

@@ -70,7 +70,7 @@ constant =
         <|> do e <- parseChar
                return $ return $ Char (getLocation pos) e MyChar     
         <|> do e <- parseString
-               return $ return $ String (getLocation pos) e MyString
+               return $ return $ String (getLocation pos) e MyEmpty
 
 
 followExprLevelRel :: MyParser (Token)
@@ -95,7 +95,7 @@ verifyNonAsoc ops recSet =
 
 exprLevel1 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel1 follow recSet = 
-   do e <- exprLevel2 (follow <|> parseTokEqual) (recSet <|> parseTokEqual)
+   do e <- exprLevel2 follow recSet
       do pos <- getPosition
          do (lookAhead (follow) >> return e)
             <|> do return e 
@@ -291,11 +291,6 @@ exprLevel10 follow recSet =
                 e <- expr parseRightParent parseRightParent
                 parseRightParent 
                 return(AP.liftA2  (Convertion ToDouble (getLocation pos)) e  (return (MyEmpty)))    
-         <|> do parseToString
-                parseLeftParent
-                e <- expr parseRightParent parseRightParent
-                parseRightParent
-                return(AP.liftA2  (Convertion ToString (getLocation pos)) e (return (MyEmpty))) 
          <|> do parseToChar
                 parseLeftParent
                 e <- expr parseRightParent parseRightParent
