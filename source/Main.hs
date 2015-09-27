@@ -8,13 +8,14 @@ import qualified Control.Applicative      as AP
 import qualified Data.Foldable            as DF
 import qualified Data.Text.IO             as TIO
 import qualified Data.Text                as T
+import qualified Data.Set                 as SET
 import Control.Monad.State                as ST
 import Control.Monad.Identity
-import System.Environment
-import LLVM.General.Module
 import LLVM.General.Context
 import Control.Monad.Except
 import LLVM.General.Target
+import LLVM.General.Module
+import System.Environment
 import Text.Parsec.Error
 import TokenParser
 import SymbolTable
@@ -93,7 +94,8 @@ play inp =
                            if not $ null l' then 
                                putStrLn $ show $ l'
                            else 
-                               do let newast = astToLLVM (filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
+                               do let newast = 
+                                        astToLLVM (SET.toList $ filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m
