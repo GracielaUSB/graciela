@@ -34,18 +34,18 @@ data WaitedToken =  Operator
                   | IDError
 
 instance Show WaitedToken where
-  show Operator   = " Operador "
-  show Number     = " Número "
-  show TokenRP    = " Paréntesis Derecho "
-  show Comma      = " Coma "
-  show Final      = " Final de Archivo "
-  show TokenRB    = " Corchete Derecho "
-  show TokenOB    = " Apertura de Bloque "
-  show TokenCB    = " Final de Bloque "
-  show Program    = " Program "
-  show ProcOrFunc = " Procedimiento o Función "
-  show Colon      = " Dos puntos "
-  show IDError    = " Identificador "
+  show Operator   = "Operador"
+  show Number     = "Número"
+  show TokenRP    = "Paréntesis Derecho"
+  show Comma      = "Coma"
+  show Final      = "Final de Archivo"
+  show TokenRB    = "Corchete Derecho"
+  show TokenOB    = "Apertura de Bloque"
+  show TokenCB    = "Final de Bloque"
+  show Program    = "Program"
+  show ProcOrFunc = "Procedimiento o Función"
+  show Colon      = "Dos puntos"
+  show IDError    = "Identificador"
 
 
 instance Show MyParseError where

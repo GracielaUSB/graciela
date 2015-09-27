@@ -15,6 +15,7 @@ import LLVM.General.Module
 import LLVM.General.Context
 import Control.Monad.Except
 import LLVM.General.Target
+import Text.Parsec.Error
 import TokenParser
 import SymbolTable
 import Text.Parsec
@@ -67,29 +68,41 @@ generateCode m =
 
 play :: T.Text -> IO ()
 play inp = 
-  case (runParser (concatLexPar) () "" (inp)) of
-    { Left  err -> putStrLn $ "\nABORT: Ocurrio un error lexicografico\n" ++ (show err)
+
+    case (runParser (concatLexPar) () "" (inp)) of
+    { Left err -> 
+
+          do let msg  = head $ messageString $ head $ errorMessages err
+             let col  = sourceColumn $ errorPos err
+             let line = sourceLine   $ errorPos err
+             putStrLn $ "\nABORT: En la línea " ++ show line ++ ", columna " ++ show col ++
+                        ", Ocurrio un ERROR Lexicografico, Caracter " ++ show msg ++ " inválido. \n"
+
     ; Right par -> 
-      case par of
-        { (Left  err', _ ) -> putStrLn $ "\nABORT: Ocurrio un error en el proceso de parseo\n " ++ (show err')
-        ; (Right (Just ast) , st) -> 
-           let lErrType = DF.toList $ sTableErrorList st
-               lErrSyn  = DF.toList $ synErrorList st
-           in
-             if (null lErrType) && (null lErrSyn) then
-               do let (t, l) = runTVerifier (symbolTable st) ast 
-                      l' = DF.toList l 
-                  if not $ null l' then putStrLn $ show $ l'
-                  else 
-                    do let newast = astToLLVM (filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
-                       withContext $ \context ->
-                          liftError $ withModuleFromAST context newast $ \m -> do
-                            --liftError $ generateCode m
-                            liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
-             else 
-               putStrLn $ drawState st
-        ; (Right  _         , st) -> putStrLn $ drawState st
-        }
+          case par of
+          { (Left  err', _ ) -> 
+                 putStrLn $ "\nABORT: Ocurrio un error en el proceso de parseo " ++ (show err')
+          
+          ; (Right (Just ast) , st) -> 
+                 let lErrType = DF.toList $ sTableErrorList st
+                     lErrSyn  = DF.toList $ synErrorList    st
+                 in if (null lErrType) && (null lErrSyn) then
+                        do let (t, l) = runTVerifier (symbolTable st) ast 
+                               l' = DF.toList l 
+
+                           if not $ null l' then 
+                               putStrLn $ show $ l'
+                           else 
+                               do let newast = astToLLVM (filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
+                                  withContext $ \context ->
+                                      liftError $ withModuleFromAST context newast $ \m -> do
+                                      --liftError $ generateCode m
+                                      liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
+                    else 
+                        putStrLn $ drawState st
+
+          ; (Right  _         , st) -> putStrLn $ drawState st
+          }
     }
 
 

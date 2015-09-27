@@ -219,6 +219,6 @@ instance Show MyTypeError where
    show (NotRValueError  id           loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es un r-value."
    show (IntError  id           loc) = 
-            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo entera"
+            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo entera."
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)

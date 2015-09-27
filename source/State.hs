@@ -73,11 +73,11 @@ lookUpVarState id sb = checkSymbol id sb
 drawState :: ParserState -> String
 drawState st = case (DS.null $ synErrorList st) && (DS.null $ sTableErrorList st) of
                { True  -> "\nTABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
-               ; False -> "\n\n" ++ (drawError $ synErrorList st) ++ (drawError $ sTableErrorList st)
+               ; False -> "\n" ++ (drawError $ synErrorList st) ++ (drawError $ sTableErrorList st)
                }
 
 
 drawError list = case (DS.null list) of
                  { True  -> ""
-                 ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n" (toList list)
+                 ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "" (toList list)
                  }
