@@ -61,8 +61,12 @@ instance Show MyParseError where
       "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
     
 
+newEmptyError :: P.SourcePos -> MyParseError
 newEmptyError  pos          = 
     EmptyError   { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos) }
+
+
+newParseError :: WaitedToken -> (Token, P.SourcePos) -> MyParseError
 newParseError  msg (e, pos) = 
     MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), 
                                                                 waitedTok = msg, actualTok = e }

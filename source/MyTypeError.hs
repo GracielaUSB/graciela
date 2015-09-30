@@ -1,12 +1,10 @@
 module MyTypeError where
 
-import qualified Data.Text.Read as TR
-import Contents                 as C
-import Data.Text                as T hiding (foldl)
-import Data.Foldable                 hiding (foldl)
+import Contents       as C
+import Data.Text      as T hiding (foldl)
+import Data.Foldable       hiding (foldl)
 import Data.Monoid
 import Location
-import Token
 import Type
 import AST
 
@@ -220,5 +218,7 @@ instance Show MyTypeError where
             errorL loc ++ ": La variable " ++ show id ++ " no es un r-value."
    show (IntError  id           loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es del tipo entera."
+
+
 
 drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)

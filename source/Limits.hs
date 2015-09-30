@@ -1,5 +1,6 @@
 module Limits where
 
+
 maxDouble :: Double
 maxDouble = 10 ** 308.25
 

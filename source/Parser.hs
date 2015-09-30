@@ -8,7 +8,6 @@ import MyParseError                  as PE
 import ParserState                  
 import Declarations
 import Text.Parsec
-import Data.Either
 import TokenParser
 import Expression
 import ParserType
@@ -22,6 +21,7 @@ import AST
 
 
 data CasesConditional = CExpression | CAction
+
 
 program :: MyParser (Maybe (AST(Type)))
 program = 
@@ -152,8 +152,6 @@ argFuncAux idf follow recSet =
        return $ return (id, t)
 
 
-
-
 proc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 proc follow recSet = 
     do pos <- getPosition
@@ -274,6 +272,7 @@ argType follow recSet =
               return (return InOut)
        <|> do parseRef
               return (return Ref)
+
 
 arg :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
 arg pid follow recSet = 

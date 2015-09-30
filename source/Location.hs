@@ -2,6 +2,7 @@ module Location where
 
 import Text.Parsec
 
+
 data Location = Location { line :: Int, column :: Int, name :: String }
   deriving (Read, Eq) 
 
@@ -18,5 +19,3 @@ getLocation :: SourcePos -> Location
 getLocation pos = Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
 
 
-emptyLoc :: Location
-emptyLoc = Location 0 0 ""

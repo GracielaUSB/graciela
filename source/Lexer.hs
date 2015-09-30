@@ -1,13 +1,11 @@
 module Lexer where
 
-import Control.Monad.Identity (Identity)
-import qualified Control.Applicative     as AP
-import qualified Data.Text               as T
-import Text.Parsec.Error
+import qualified Control.Applicative as AP
+import qualified Data.Text           as T
 import Text.Parsec
 import Token
 import Type
-import qualified Text.ParserCombinators.Parsec.Prim as P
+
 
 tryString s = 
     try $ do s' <- string s 

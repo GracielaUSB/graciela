@@ -11,7 +11,6 @@ import Expression
 import ParserType
 import Location
 import Token
-import Lexer
 import State
 import Type
 import AST

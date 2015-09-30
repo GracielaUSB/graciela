@@ -1,16 +1,13 @@
-
 module TokenParser where
 
-import Control.Monad.Identity (Identity)
-import qualified Control.Applicative as AP
-import qualified Data.Text           as T
+import qualified Data.Text as T
 import Text.Parsec
 import Token
 import State
 import Type
-import Text.Parsec.Pos
 
 
+makeTokenParser :: Token -> MyParser Token
 makeTokenParser x = 
     tokenPrim showTok updatePos testTok
     where

@@ -1,17 +1,17 @@
 module VerTypes where
 
 import qualified Control.Monad.RWS.Strict as RWSS
-import qualified Data.Sequence            as DS
 import qualified Data.Text                as T
 import MyTypeError                   
-import Contents
 import SymbolTable
 import Data.Maybe
+import Data.List  (zip4)
 import TypeState
 import Location
+import Contents
 import Type
 import AST
-import Data.List (zip4)
+
 
 checkListType :: Type -> Bool -> Type -> Bool 
 checkListType _ False _ = False
@@ -19,18 +19,20 @@ checkListType x True  y = x == y
  
 
 checkError :: Type -> Type -> Type
-checkError acc t = let check = verType acc t
-                   in case acc of
-                      { MyError   -> MyError 
-                      ; MyEmpty   -> case check of
-                                     { MyError   -> MyError
-                                     ; otherwise -> MyEmpty
-                                     }  
-                      ; otherwise -> case check of
-                                     { MyError   -> MyError
-                                     ; otherwise -> check
-                                     }  
+checkError acc t = 
+    let check = verType acc t
+    in case acc of
+       { MyError   -> MyError 
+       ; MyEmpty   -> case check of
+                      { MyError   -> MyError
+                      ; otherwise -> MyEmpty
                       }
+
+       ; otherwise -> case check of
+                      { MyError   -> MyError
+                      ; otherwise -> check
+                      } 
+       }
 
 
 verType :: Type -> Type -> Type

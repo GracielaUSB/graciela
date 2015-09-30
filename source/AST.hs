@@ -5,7 +5,6 @@ import qualified Data.Text as T
 import Data.Range.Range    as RA
 import Data.Monoid
 import SymbolTable
-import Data.Maybe
 import Location
 import Print
 import Type
@@ -155,6 +154,7 @@ checkMaxMin False False = "MIN_DOUBLE"
 checkWrite :: Bool -> String
 checkWrite True  = "Escribir con Salto de línea"
 checkWrite False = "Escribir"
+
 
 
 drawAST level ((Program name loc defs accs ast)) = 

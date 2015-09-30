@@ -2,7 +2,6 @@ module Token where
 
 import qualified Data.Text as T
 import Text.Parsec
-import Data.Int
 import Type
 
 

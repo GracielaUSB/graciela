@@ -1,6 +1,5 @@
 module ParserType where
 
-import qualified Control.Applicative as AP
 import qualified Data.Text as T
 import TokenParser
 import Text.Parsec
@@ -9,7 +8,6 @@ import Location
 import State
 import Token
 import Type
-import AST
 
 
 myBasicType :: MyParser Token -> MyParser Token -> MyParser Type
@@ -25,9 +23,11 @@ myType follow recSet =
               parseRightBracket
               parseOf
               t <- myType follow recSet
+              
               case n of
-                Nothing -> return $ MyEmpty
-                Just n' -> return $ MyArray n' t
+              { Nothing -> return $ MyEmpty
+              ; Just n' -> return $ MyArray n' t
+              }
 
 parseConstNumber :: MyParser Token -> MyParser Token -> MyParser (Maybe (Either T.Text Integer))
 parseConstNumber follow recSet = 

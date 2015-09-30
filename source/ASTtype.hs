@@ -7,15 +7,13 @@ import qualified Data.Text                as T
 import Data.Range.Range                   as RA   
 import MyTypeError           
 import SymbolTable
+import Data.Maybe
 import TypeState
-import Data.Char
 import ReduceAST
 import VerTypes
 import Location
-import Token
 import Type 
 import AST
-import Data.Maybe
 
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, DS.Seq MyTypeError)
@@ -127,7 +125,8 @@ verTypeAST (GuardAction loc assert action _) =
 verTypeAST (LAssign idlist explist loc _) =
     do explist' <- mapM verTypeAST explist
        idlist'  <- mapM verTypeAST idlist
-       checkT   <- verLAssign (map (fromJust . astToId) idlist') (map tag idlist') (map tag explist') (map AST.location idlist)
+       checkT   <- verLAssign (map (fromJust . astToId) idlist')
+                     (map tag idlist') (map tag explist') (map AST.location idlist)
        return $ LAssign idlist' explist' loc checkT
 
 
@@ -212,6 +211,7 @@ astToRange id (Relational c _ l r _) =
          then Nothing
          else buildRange c lr rr
 
+
 astToRange id (Boolean c _ l r _) = 
     let lr = astToRange id l
         rr = astToRange id r
@@ -222,8 +222,10 @@ astToRange id (Boolean c _ l r _) =
        ; Conse   -> AP.liftA2 RA.union (fmap RA.invert rr) lr
        }
 
+
 astToRange id (Unary Not _ e _) = 
     let r = astToRange id e in fmap RA.invert r
+
 
 astToRange _ _ = Nothing
 
@@ -244,6 +246,7 @@ buildRange _ _ _                                    = return $ return $ Infinite
 
 getLocArgs :: [AST Type] -> MyVerType [Location]
 getLocArgs args = return $ fmap AST.location args
+
 
 drawASTtype :: (AST Type, DS.Seq MyTypeError) -> String
 drawASTtype (ast, err) = case (DS.null err) of

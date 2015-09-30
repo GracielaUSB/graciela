@@ -2,33 +2,10 @@
 
 module Aborts where
 
-import qualified LLVM.General.AST.FloatingPointPredicate as FL 
-import qualified LLVM.General.AST.IntegerPredicate       as IL 
-import qualified LLVM.General.AST.CallingConvention      as CC
-import qualified LLVM.General.AST.Constant               as C
-import LLVM.General.AST.AddrSpace
-import qualified Data.Sequence                           as DS
-import qualified Data.Text                               as TE
-import qualified Data.Map                                as DM
-import qualified Type                                    as T
-import qualified AST                                     as MyAST
-import LLVM.General.AST                                  as AST
-import LLVM.General.AST.InlineAssembly
+import qualified LLVM.General.AST.Constant  as C
 import LLVM.General.AST.Attribute
-import LLVM.General.AST.AddrSpace
-import LLVM.General.AST.Float
-import LLVM.General.AST.Type 
-import Control.Monad.State
-import Control.Applicative
-import LLVM.General.Module
-import Data.Foldable (toList)
+import LLVM.General.AST                
 import CodegenState
-import SymbolTable
-import Data.Either
-import Data.Maybe
-import Data.Word
-import Data.Char
-import Contents
 import Location
 
 

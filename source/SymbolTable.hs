@@ -1,6 +1,5 @@
 module SymbolTable where
 
-import qualified Data.Maybe        as Maybe
 import qualified Data.Tree         as Tr
 import qualified Data.Text         as T
 import qualified Data.Map.Strict   as M
@@ -8,6 +7,7 @@ import Data.Monoid
 import Location
 import Contents
 import Print
+
 
 type Scope = Int 
 
@@ -90,24 +90,27 @@ lookUpRoot = checkSymbol
 
 
 checkSymbol :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
-checkSymbol valor tabla = let dic = getActual tabla in
-                            case M.lookup valor (getMap dic) of
-                              { Just c  -> Just c
-                              ; Nothing -> case getPadre tabla of
-                                             { Nothing   -> Nothing
-                                             ; Just sup  -> checkSymbol valor sup
-                                             }
-                              }
+checkSymbol valor tabla = 
+    let dic = getActual tabla 
+    in case M.lookup valor (getMap dic) of
+       { Just c  -> Just c
+       ; Nothing -> case getPadre tabla of
+                    { Nothing   -> Nothing
+                    ; Just sup  -> checkSymbol valor sup
+                    }
+       }
 
 
 lookUpMap :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
 lookUpMap valor f tabla = 
     let dic  = modifyActual valor f tabla
         r    = fmap (lookUpMap valor f) (getPadre dic)
-    in
-      case r of 
-        Nothing -> dic 
-        Just p  -> modifyPadre dic r
+    
+    in case r of 
+       { Nothing -> dic 
+       ; Just p  -> modifyPadre dic r
+       }
+
 
 initSymbol :: T.Text -> SymbolTable -> SymbolTable
 initSymbol id sb = lookUpMap id initSymbolContent sb
@@ -119,12 +122,12 @@ updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), fmap 
 
 addSymbol :: T.Text -> (Contents SymbolTable) -> SymbolTable -> (Either (Contents SymbolTable) SymbolTable)
 addSymbol valor content tabla =
-          case checkSymbol valor tabla of
-          { Just c   -> Left c
-          ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
-                            sc = getScope tabla in
-                            Right $ insertTabla (Diccionario newActual) sc tabla
-          }
+    case checkSymbol valor tabla of
+    { Just c   -> Left c
+    ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
+                      sc = getScope tabla 
+                  in Right $ insertTabla (Diccionario newActual) sc tabla
+    }
 
 
 --drawST level st = show (fst $ Tr.rootLabel st)

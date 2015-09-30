@@ -1,25 +1,17 @@
 module Expression where
 
-import Control.Monad.Identity (Identity)
 import qualified Control.Applicative as AP
-import qualified Text.Parsec.Pos     as P
-import qualified Control.Monad       as M
-import qualified Data.Monoid         as DM
-import qualified Data.Text           as T
 import MyParseError                  as PE
 import ParserState                   as PS
-import Text.Parsec.Error
 import Text.Parsec
 import TokenParser
-import ParserError
 import ParserType
 import Location
+import Limits
 import Token
-import Lexer
 import State
 import Type
 import AST
-import Limits
 
 
 listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
@@ -162,8 +154,6 @@ exprLevel5 follow recSet =
                       <|> return(AP.liftA3 (Relational Ine (getLocation pos)) e e' (return (MyEmpty)))              
             <|> do genNewError (recSet) (Operator)
                    return $ Nothing
-
-
 
 
 exprLevel6 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
@@ -312,6 +302,7 @@ exprLevel10 follow recSet =
          <|> constant
          <|> do genNewError (recSet) (Number)
                 return $ Nothing
+
 
 rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 rangeQuantification follow recSet = 

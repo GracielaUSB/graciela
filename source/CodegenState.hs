@@ -3,20 +3,17 @@ module CodegenState where
 
 import qualified Data.Map                                as DM
 import qualified Data.Sequence                           as DS
-import qualified AST                                     as MyAST
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified Data.Text                               as TE
 import qualified LLVM.General.AST.Constant               as C
 import qualified Type                                    as T
 import LLVM.General.AST                                  as AST
 import LLVM.General.AST.Global                           as GLOB
-import LLVM.General.AST.InlineAssembly
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.AddrSpace
 import LLVM.General.AST.Float
 import LLVM.General.AST.Type 
 import LLVM.General.AST.Linkage
-import LLVM.General.Module
 import Control.Monad.State
 import Control.Applicative
 import Data.Foldable (toList)

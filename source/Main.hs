@@ -1,6 +1,5 @@
 module Main where
   
-import qualified Control.Monad.RWS.Strict as RWSS
 import qualified LLVM.General.CodeGenOpt  as CodeGenOpt
 import qualified LLVM.General.Relocation  as Reloc
 import qualified LLVM.General.CodeModel   as CodeModel
@@ -11,18 +10,13 @@ import qualified Data.Text                as T
 import qualified Data.Set                 as SET
 import Control.Monad.State                as ST
 import Control.Monad.Identity
-import LLVM.General.Context
 import Control.Monad.Except
+import LLVM.General.Context
 import LLVM.General.Target
 import LLVM.General.Module
 import System.Environment
 import Text.Parsec.Error
-import TokenParser
-import SymbolTable
 import Text.Parsec
-import MyTypeError
-import Expression
-import VerTypes
 import Data.Set (empty)
 import ASTtype
 import Codegen

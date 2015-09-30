@@ -1,7 +1,8 @@
 module State where
 
-import Control.Monad.Identity  (Identity)
 import qualified Data.Sequence as DS
+import qualified Data.Set      as SET
+import Control.Monad.Identity        (Identity)
 import Control.Monad.State     as ST
 import Data.Text               as T   hiding (foldl) 
 import Data.Foldable                  hiding (foldl)
@@ -12,7 +13,6 @@ import MyTypeError
 import SymbolTable
 import Contents
 import Token
-import qualified Data.Set as SET
 
 
 type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
@@ -29,8 +29,10 @@ data ParserState = ParserState { synErrorList     :: DS.Seq MyParseError
 initialState :: ParserState
 initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, sTableErrorList = DS.empty, filesToRead = SET.empty }
 
+
 addFileToRead :: String -> ParserState -> ParserState
 addFileToRead file ps = ps { filesToRead = SET.insert file $ filesToRead ps }
+
 
 addTypeError :: MyTypeError -> ParserState -> ParserState
 addTypeError err ps = ps { sTableErrorList = (sTableErrorList ps) DS.|> err }

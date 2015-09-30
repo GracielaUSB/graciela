@@ -1,17 +1,12 @@
 module ReduceAST where
 
-import qualified Control.Monad.RWS.Strict as RWSS
-import qualified Control.Applicative      as AP
-import qualified Data.Sequence            as DS
-import qualified Data.Text                as T
-import Data.Range.Range                   as RA
-import MyTypeError                        as PT
-import Prelude                            as P
-import SymbolTable
+import qualified Control.Applicative as AP
+import qualified Data.Text           as T
+import Prelude                       as P
 import Data.Char
+import TypeState
 import Type 
 import AST
-import TypeState
 
 
 data Reducibility = NonReducible | Reducible { getNum :: Integer } | QuanVariable T.Text
@@ -28,6 +23,7 @@ reduceAST id (Arithmetic op _ l r _)  =
                 then NonReducible
                 else let nl = getNum lr
                          nr = getNum rr
+
                      in case op of
                         { Sum -> Reducible (nl + nr)
                         ; Sub -> Reducible (nl - nr)
@@ -38,6 +34,7 @@ reduceAST id (Arithmetic op _ l r _)  =
                         ; Min -> Reducible (min nl nr)
                         ; Mod -> Reducible (mod nl nr)
                         }
+
 
 reduceAST id (Unary op _ e _) = 
     let re = reduceAST id e
