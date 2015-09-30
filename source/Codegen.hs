@@ -29,12 +29,12 @@ writeLnInt    = "_writeLnInt"
 writeLnBool   = "_writeLnBool"
 writeLnChar   = "_writeLnChar"
 writeLnDouble = "_writeLnDouble"
-writeLnString = "puts"
+writeLnString = "_writeLnString"
 writeInt      = "_writeInt"
 writeBool     = "_writeBool"
 writeChar     = "_writeChar"
 writeDouble   = "_writeDouble"
-writeString   = "puts"
+writeString   = "_writeString"
 randomInt     = "_random"
 sqrtString    = "llvm.sqrt.f64"
 fabsString    = "llvm.fabs.f64"
@@ -48,9 +48,9 @@ readCharStd   = "_readCharStd"
 readDoubleStd = "_readDoubleStd"
 openFileStr   = "_openFile"
 readFileInt   = "_readFileInt"
-readFileChar    = "_readFileChar"
-readFileDouble  = "_readFileDouble"
-closeFileStr = "_closeFile"
+closeFileStr  = "_closeFile"
+readFileChar  = "_readFileChar"
+readFileDouble= "_readFileDouble"
 
 
 createParameters :: [(Name, Type)] -> [[ParameterAttribute]] -> ([Parameter], Bool)
@@ -78,8 +78,8 @@ createPreDef files = do
     addDefinition maxnumString intParams2 intType
 
     let charParams = createEmptyParameters [(Name "x", charType)]
-    addDefinition writeChar   charParams voidType
     addDefinition writeLnChar charParams voidType
+    addDefinition writeChar   charParams voidType
 
     let boolParams = createEmptyParameters [(Name "x", boolType)]
     addDefinition writeLnBool boolParams voidType
@@ -98,27 +98,31 @@ createPreDef files = do
 
     let stringParams = createParameters [(Name "msg", stringType)] [[NoCapture]]
     addDefinition writeLnString stringParams intType
-    return ()
+    addDefinition writeString   stringParams intType
 
-    addDefinition readIntStd (createEmptyParameters []) intType
-    addDefinition readCharStd (createEmptyParameters []) charType
+    addDefinition readIntStd    (createEmptyParameters []) intType
+    addDefinition readCharStd   (createEmptyParameters []) charType
     addDefinition readDoubleStd (createEmptyParameters []) double
 
     addDefinition openFileStr (createEmptyParameters [(Name "nombreArchivo", ptr charType)]) (ptr charType)
 
     mapM addFile files
 
-    addDefinition readFileInt (createEmptyParameters [(Name "f", ptr charType)]) intType
-    addDefinition readFileChar (createEmptyParameters [(Name "f", ptr charType)]) charType
+    addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr charType)]) intType
+    addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr charType)]) charType
     addDefinition readFileDouble (createEmptyParameters [(Name "f", ptr charType)]) doubleType
+    addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr charType)]) voidType
 
-    addDefinition closeFileStr (createEmptyParameters [(Name "f", ptr charType)]) voidType
+    return ()
+
 
 convertFile :: String -> String
 convertFile file = '_': ('_':file)
 
+
 addFile :: String -> LLVM ()
 addFile file = globalVariable (Name (convertFile file)) (ptr charType) (C.Null (ptr charType))
+
 
 astToLLVM :: [String] -> MyAST.AST T.Type -> AST.Module
 astToLLVM files (MyAST.Program name _ defs accs _) =
@@ -126,18 +130,23 @@ astToLLVM files (MyAST.Program name _ defs accs _) =
                   , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
     }
 
+
+openFile :: String -> LLVM (Operand)
 openFile file = do
     let file' = convertFile file
     ops <- addStringOpe file
-    op <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
+    op  <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
     store (ptr charType) (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) op
 
+
+closeFile :: String -> LLVM (Operand)
 closeFile file = do
     let file' = convertFile file
-    
     -- Cargamos la variable gobal perteneciente al archivo.
-    op <- addUnNamedInstruction voidType $ Load False (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) Nothing 0 []
+    let load' = Load False (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) Nothing 0 []
+    op <- addUnNamedInstruction voidType $ load' 
     caller voidType (Right $ definedFunction voidType (Name closeFileStr)) [(op, [])]
+
 
 createLLVM :: [String] -> [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
 createLLVM files defs accs = do
@@ -295,8 +304,12 @@ accToAlloca acc@(MyAST.ID _ id' t) = do
     dim <- typeToOperand id t 
     let t' = toType t
     alloca dim t' id
-    initialize id t
-    createInstruction acc
+
+    case t of
+    { T.MyArray d ty -> createInstruction acc
+    ; otherwise      -> do initialize id t 
+                           createInstruction acc
+    }
 
 
 accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
@@ -316,19 +329,24 @@ accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
     mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
     return ()
     
+
+
 callReadFile :: String -> T.Type -> LLVM Operand
 callReadFile arch T.MyInt = do
     let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
     caller intType (Right $ definedFunction intType (Name readFileInt)) [(op, [])]
+
 callReadFile arch T.MyFloat = do
     let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
     caller doubleType (Right $ definedFunction doubleType (Name readFileDouble)) [(op, [])]
+
 callReadFile arch T.MyChar = do
     let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
     caller charType (Right $ definedFunction charType (Name readFileChar)) [(op, [])]
+
 
 callRead :: T.Type -> LLVM (Operand)
 callRead T.MyInt   = do 
@@ -460,15 +478,15 @@ createInstruction (MyAST.Cond guards loc _) = do
 createInstruction (MyAST.Rept guards inv bound _ _) = do
     final   <- newLabel
     initial <- newLabel
-    createState "" inv
 
     name <- getCount
     let boundName = show name
-    op <- alloca Nothing intType boundName
-    store intType op $ constantInt maxInteger
-    addVarOperand (show boundName) op
+    op' <- alloca Nothing intType boundName
+    store intType op' $ constantInt maxInteger
+    addVarOperand (show boundName) op'
 
     setLabel initial $ branch initial
+    createState "" inv
     createState boundName bound
     genGuards guards final initial 
     setLabel final $ branch initial
@@ -907,15 +925,15 @@ irRelational MyAST.Less    T.MyFloat a b = FCmp FL.OLT a b []
 irRelational MyAST.Greater T.MyFloat a b = FCmp FL.OGT a b []
 irRelational MyAST.LEqual  T.MyFloat a b = FCmp FL.OLE a b []
 irRelational MyAST.GEqual  T.MyFloat a b = FCmp FL.OGE a b []
-irRelational MyAST.Ine     T.MyFloat a b = FCmp FL.OEQ a b [] 
+irRelational MyAST.Ine     T.MyFloat a b = FCmp FL.ONE a b [] 
 
 
-irRelational MyAST.Equ     T.MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Equ     T.MyInt   a b = ICmp IL.EQ  a b []
 irRelational MyAST.Less    T.MyInt   a b = _less   a b 
 irRelational MyAST.Greater T.MyInt   a b = ICmp IL.SGT a b []
 irRelational MyAST.LEqual  T.MyInt   a b = _lequal a b 
 irRelational MyAST.GEqual  T.MyInt   a b = ICmp IL.SGE a b []
-irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.EQ a b []
+irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.NE  a b []
 
 
 irConvertion :: MyAST.Conv -> T.Type -> Operand -> Instruction

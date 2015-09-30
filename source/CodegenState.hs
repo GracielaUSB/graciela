@@ -74,6 +74,7 @@ addDefinition name params retTy = do
     modify $ \s -> s { varsLoc = DM.empty }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
+
 globalVariable name ty init = do
     defs <- gets moduleDefs
     let def = GlobalDefinition $ globalVariableDefaults {
@@ -84,6 +85,7 @@ globalVariable name ty init = do
         , isConstant  = False
     }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
+
 
 addString :: String -> Name -> Type -> LLVM ()
 addString msg name ty = do
@@ -117,13 +119,15 @@ addNamedInstruction t name ins = do
     addVarOperand name op
     return op 
 
+
+addStringOpe :: String -> LLVM (Operand)
 addStringOpe msg = do
-    let n  = fromIntegral $ Prelude.length msg + 1
+    let n  = fromIntegral $ Prelude.length msg+1
     let ty = ArrayType n charType 
     name <- newLabel 
-
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
+
 
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do
@@ -197,7 +201,7 @@ constantString msg =
 
         res = tail $ tail $ foldl f "  " msg
   
-    in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- ( res ++ "\0")]    
+    in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- (res ++ "\0")]    
 
 
 definedFunction :: Type -> Name -> Operand
