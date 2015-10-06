@@ -1,6 +1,6 @@
 
  Proyecto creado por Joel Araujo y José Luis Jiménez.
- Tutores: Ricardo Monascal y Ernesto Hernández Novich.
+ Tutores: Ricardo Monascal y Ernesto Hernández-Novich.
 
 - - -
 
@@ -64,8 +64,6 @@
 
 * No se permite solapamiento de variables, por lo tanto no se puede definir ninguna variable que posea el mismo nombre de alguna variable que se encuentre en el alcance actual.
 
-* Si se declara una variable que ya estaba declarada en un nivel superior, ésta será solapada por la nueva declaración.
-
 * Las variables de un alcance inferior no pueden ser vistas (utilizadas) en un alcance superior.
 
 * Los parámetros de un procedimiento tiene el mismo nivel de anidamiento que las variables locales del procedimiento y por lo tanto no se puede declarar una variable local con el mismo nombre de un parámetro.
@@ -76,21 +74,19 @@
 
 #### Boleanos
 
-* Corresponde a los valores lógicos de comparación y son representador por las palabras reservadas `True` y `False`. Se declaran utilizando la palabra reservada `boolean`. Ocupan 1 Bit de memoria.
+* Corresponde a los valores lógicos de comparación y son representador por las palabras reservadas `True` y `False`. Se declaran utilizando la palabra reservada `boolean`.
 
 #### Enteros
 
-*  Corresponde a los números enteros, pueden tomar valores positivos y negativos que no contengan parte decimal. Se declaran utilizando la palabra reservada `int`. Ocupan 32 Bits de memoria.
+*  Corresponde a los números enteros, pueden tomar valores positivos y negativos. Se declaran utilizando la palabra reservada `int`. Ocupan 32 bits de memoria.
 
 #### Flotantes
 
-*  Corresponde a los números reales o punto flotantes IEEE-754, pueden tomar valores positivos y negativos que contengan parte decimal. Se declaran utilizando la palabra reservada `double`. Ocupan 32 Bits de memoria.
-
+*  Corresponde a los números reales o punto flotantes IEEE-754, pueden tomar valores positivos y negativos que contengan parte decimal. Se declaran utilizando la palabra reservada `double`. Ocupan 64 bits de memoria.
 
 #### Caracteres
 
-*  Corresponde a un carácter imprimible de **ASCII**.  Se declaran utilizando la palabra reservada `char`. Ocupan 8 Bits de memoria.
-
+*  Corresponde a un carácter imprimible de **ASCII**.  Se declaran utilizando la palabra reservada `char`. Ocupan 8 bits de memoria.
 
 ### Compuestos
 
@@ -100,11 +96,11 @@
 
 * Son unidimensionales con base cero.
 
-* Solo pueden ser de un solo tipo específico.
+* Solo pueden ser de un solo tipo específico (monomórficos).
 
 * Su ocupación en memoria corresponde a la anchura del tipo por el tamaño del arreglo.
 
-* Deben ser **estrictamente** de indicie mayor o igual a 1, y únicamente del tipo `int`.
+* Los índices solo pueden ser expresados usando valores no negativos del tipo`int`.
 
 * Se pueden utilizar variable previamente declaradas para dar el número de la dimensión del arreglo, siempre y cuando sean del tipo `int`.
 
@@ -137,11 +133,9 @@
 
 * Los operadores aritméticos ( `+`, `-`, `*`, `^`, `div`, `mod`, `max`, `min`) sólo pueden ser utilizados en conjunto con operandos enteros o flotantes, los dos operandos deben ser del mismo tipo. El resultado es del mismo tipo que los operandos.
 
-* El operador unitario (`-`) sólo puede ser utilizado con operandos enteros o flotantes.
+* El operador unario (`-`) sólo puede ser utilizado con operandos enteros o flotantes.
 
-* Los operadores relacionales (`>=`, `<=`, `>`, `<`) permite cual tipo primitivo, siempre y cuando los dos operadores sean del mismo tipo. El resultado es de tipo booleano.
-
-* Los operadores de comparación (`==`, `!=`) operan sobre todos los tipos primitivos y compuestos. El resultado es de tipo booleano.
+* Los operadores relacionales (`>=`, `<=`, `>`, `<`,`==`, `!=`) permite cual tipo primitivo, siempre y cuando los dos operadores sean del mismo tipo. El resultado es de tipo booleano.
 
 * Los operadores lógicos (`\/`, `/\`, `!`, `==>`, `<==`) sólo pueden ser utilizados con operandos booleanos. El resultado es de tipo booleano.
 
@@ -156,7 +150,6 @@
         == != (comparación)
         /\ \/ ("y" y "o" Lógico)
         ==> <== (implicación , consecuente)
-        := (Asignación)
 
 ## Variables
 
@@ -184,8 +177,6 @@
 
 ## Constantes
 
-* Las constantes pueden ser de cualquier tipo primitivo o compuesto. Se declaran utilizando la palabra reservada `var`.
-
 * Las constantes son "variables" que solo se les asigna un valor y no pueden ser redefinidas en ningún momento. Se declaran utilizando la palabra reservada `const`.
 
 * La inicialización de las constantes es **obligatoria**.
@@ -200,7 +191,7 @@
 
 ## Asignación
 
-* Solo se puede asignar una expresión (`R-Value`) que sean del mismo tipo que la del variable (`L-Value`).
+* Solo se puede asignar una expresión (`R-Value`) que sean del mismo tipo que la de la variable (`L-Value`).
 
 * Se permite hacer más de una asignación en una misma instrucción.
 
@@ -223,8 +214,7 @@
 
 * Existen dos tipo de selector, el primero el cual puede contener una o mas condiciones cada una con su respectiva secuencia de acciones, y el segundo que **solo** puede ser utilizado en el cuerpo de las funciones, puede contener una o mas condiciones cada una con su respectiva expresión que será el resultado de la función.
 
-* El selector evalúa la expresión de los condicionales, en caso de que uno o mas sean verdaderos pasa a ejecutar las lista de acciones asociada a la **primera** que resulto verdadera, en caso de que ninguna sea verdadera entonces no se ejecutara ninguna y el programa terminara su ejecución con un mensaje de **"ABORT"**.
-
+* El selector evalúa una por una las guardias del condicional y ejecuta la acción asociada a la **primera** que resulto verdadera, en caso de que ninguna sea verdadera entonces no se ejecutara ninguna y el programa terminará su ejecución con un mensaje de **"ABORT"**.
 
 *  El selector es de la siguiente manera:
 
@@ -245,7 +235,7 @@
 
 ## Iteración
 
-* El iterador evalúa la expresión de los condicionales, en caso de que uno o mas sean verdaderos pasa a ejecutar las lista de acciones asociada a la primera que resulto verdadera y luego se vuelven a evaluar de nuevo todos los condicionales, en caso de que ninguna sea verdadera entonces no el ciclo termina.
+* El iterador evalúa la una por una las guardias de la iteración y es ejecutada la acción asociada a la primera que resulto verdadera. Así sucesivamente hasta que ninguna guardia sea cierta y continua la ejecución del programa.
 
 * La expresión asociada a la palabra reservada `inv` representa la invariante que debe cumplir el ciclo en el inicio de cada iteración, si el invariante no se cumple el programa terminara su ejecución con un mensaje de  **"ABORT"**.
 
@@ -266,7 +256,7 @@
 
 #### Precondición
 
-* La precondición corresponde a la condición que **deberían cumplir** los procedimientos definidos por el programador, su función es verificar que los valores de las variables de entrada y locales (Ya sean inicializadas, leídas de un archivo o entrada estándar) cumplan la expresión especificada.
+* La precondición corresponde a la condición que **deben cumplir** los procedimientos definidos por el programador, su función es verificar que los valores de las variables de entrada y locales (Ya sean inicializadas, leídas de un archivo o entrada estándar) cumplan la expresión especificada.
 
 * Si la precondición no se satisface se dará un mensaje de **advertencia** al programador y la postcondición del procedimiento **no** será verificada.
 
@@ -276,7 +266,7 @@
 
 #### Postcondición
 
-* La postcondición corresponde a la condición que **debe cumplir** los procedimientos definidos por el programador al final de su ejecución, por lo que determina el rango de resultados posibles que tendrá el procedimiento.
+* La postcondición corresponde a la condición que **debe cumplir** los procedimientos definidos por el programador al final de su ejecución.
 
 * Si la postcondición no se satisface el programa terminara su ejecución con su mensaje de error correspondiente, al menos que la precondición no fuera correcta.
 
@@ -298,18 +288,13 @@
 
 #### Invariantes
 
-* La invariante corresponde a la condición que se **debe cumplir** tanto antes de entrar al ciclo como también después de cada iteración para verificar el buen funcionamiento del mismo, generalmente contiene un cuantificador.
+* La invariante corresponde a la condición que se **debe cumplir** tanto antes de entrar al ciclo como también después de cada iteración para verificar el buen funcionamiento del mismo.
 
-* Si la invariante no se satisface el programa terminara su ejecución con su mensaje de error correspondiente.
-
+* Si el invariante no se satisface el programa terminara su ejecución con su mensaje de error correspondiente.
 
 #### Función de Cota
 
-* La función de cota corresponde a la condición que garantiza que el ciclo terminara, por cada una de las iteraciones de un iterador se verificara que el valor sea menor al valor obtenido en el ciclo anterior, si no se cumple, el programa terminara su ejecución con su mensaje de error correspondiente.
-
-
-* Las cotas también verifican que su valor actual no sea menor o igual a numero entero `0`, si no se satisface el programa terminara su ejecución con su mensaje de error correspondiente.
-
+* La función de cota corresponde a la condición que garantiza que el ciclo terminará. Por cada una de las iteraciones de un iterador se verificará que el valor sea menor al valor obtenido en la iteración anterior y además sea mayor o igual a **0**, si no se cumple, el programa terminará su ejecución con el mensaje de error correspondiente.
 
 
 		{inv   <Expresión>   inv}
@@ -324,10 +309,6 @@
 * Todos los parámetros de las funciones son pasados por valor.
 
 * Se pueden retornar cualquier tipo existente en el lenguaje.
-
-* En caso de que la función no retorne nada, se debe colocar `void` como tipo de retorno.
-
-* El alcance entre las funciones es **distinto**, por lo que no se puede utilizar sus variables entre ellas.
 
 * Las funciones pueden ser recursivas.
 
@@ -351,7 +332,7 @@
 
 * Las llamadas de funciones se utilizan como **expresiones** en el programa, por lo que solo pueden estar en un `R-Value`.
 
-* La llama de funciones es de la siguiente manera:
+* La llamada de funciones es de la siguiente manera:
 
         <Variable> := <Identificador>(<Parámetros>);
 
@@ -361,7 +342,7 @@
 
 * Los procedimientos tienen cero o más parámetros de entrada.
 
-* Todos los parámetros de los procedimientos pueden pasarse por valor o por referencia.
+* El comportamiento de los parámetros de los procedimientos solo puede ser: `in`, `inout`, `out` y `ref`.
 
 * Los parámetros de entrada de los procedimientos tienen el mismo alcance que las variables locales de los procedimientos.
 
@@ -392,11 +373,11 @@
 
 ##### Tipos de parametros
 
-* Los parámetros de entrada de los procedimientos tiene **tres** tipos de comportamiento distintos, `in`, `inout`, `out` y `ref`.
+* Los parámetros de entrada de los procedimientos tiene **cuatro** tipos de comportamiento distintos, `in`, `inout`, `out` y `ref`.
 
 * Los `in` son parámetros pasados por **valor**, por lo que no pueden ser utilizados como `L-Value`.
 
-* Los `out` son parámetros que no poseen ningún valor de entrada por lo tanto, para poder usarlos como `L-Value` deben de ser inicializados dentro del procedimiento; al finalizar el procedimiento se retorna el último valor asociado a la variable.
+* Los `out` son parámetros cuyo valor al momento de la llamada del procedimiento no es tomado en cuenta, por lo que solo importa la dirección de memoria de la variable asociada a la llamada. Son inicializadas antes de ejecutar el cuerpo del procedimiento con el valor por defecto correspondiente al tipo del parámetro, y en caso de no ser modificadas, éste será el valor que será copiado a la variable de llamada correspondiente.
 
 * Los `inout` son parámetros que poseen un valor de entrada y retornan su ultimo valor asociado al final del procedimiento.
 
@@ -407,9 +388,9 @@
 
 ##### Llamada de procedimientos
 
-* Se puede utilizar los procedimientos dentro de cualquier otro procedimiento o en el programa principal.
+* Se puede hacer llamadas a procedimientos dentro de cualquier otro procedimiento o en el programa principal.
 
-* Las llamadas de procedimientos se utilizan como **instrucciones** en el programa, por lo que pueden ser usadas en una expresión.
+* Las llamadas de procedimientos se utilizan como **instrucciones** en el programa.
 
 * La llama de funciones es de la siguiente manera:
 
@@ -431,37 +412,31 @@
 
  ####Tipo de Cuantificadores
 
-* **Universal (**`forall`**):**  Es utilizado para verificar que todos los elementos que componen el rango cumplen la expresión dada, la expresión necesariamente debe de ser tipo booleana. Si el cuantificador no se cumple se dará una **advertencia** al programador y el resultado será `false`, su expresión neutra es `True`.
+* **Universal (**`forall`**):**  Es utilizado para verificar que todos los elementos que componen el rango cumplen la expresión dada, la expresión necesariamente debe de ser tipo booleana. Si el cuantificador no se cumple se dará una **advertencia** al programador y el resultado será `false`.
 
-* **Existencial (**`exist`**):** Es utilizado para verificar que al menos uno los elementos que componen el rango cumplen la expresión dada, la expresión necesariamente debe de ser tipo booleana. Si el cuantificador no se cumple se dará una **advertencia** al programador y el resultado será `false`, su expresión neutra es `True`.
+* **Existencial (**`exist`**):** Es utilizado para verificar que al menos uno los elementos que componen el rango cumplen la expresión dada, la expresión necesariamente debe de ser tipo booleana. Si el cuantificador no se cumple se dará una **advertencia** al programador y el resultado será `false`.
 
-* **Sumatoria (**`sigma`**):** Es utilizado para sumar **todos** los valores que resultan de la expresión en el rango dado, por lo que la expresión debe ser de tipo entero. Su expresión neutra es el numero entero `0`.
+* **Sumatoria (**`sigma`**):** Es utilizado para sumar **todos** los valores que resultan de la expresión en el rango dado, por lo que la expresión debe ser de tipo entero o flotante.
 
+* **Productoria (**`pi`**):** Es utilizado para multiplicar **todos** los valores que resultan de la expresión en el rango dado, por lo que la expresión debe ser de tipo entero.
 
-* **Productoria (**`pi`**):** Es utilizado para multiplicar **todos** los valores que resultan de la expresión en el rango dado, por lo que la expresión debe ser de tipo entero. Su expresión neutra es el numero entero `1`.
+* **Máximo (**`max`**):**  Es utilizado para obtener el numero entero mayor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
 
-
-* **Máximo (**`max`**):**  Es utilizado para obtener el numero entero mayor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera. Su expresión neutra es `MAX_INT`.
-
-
-* **Mínimo (**`min`**):**  Es utilizado para obtener el numero entero menor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera. Su expresión neutra es `MIN_INT`.
-
-
-
+* **Mínimo (**`min`**):**  Es utilizado para obtener el numero entero menor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
 
 ## Entrada
 
-* Se utiliza la palabra reservada `read` para leer valor tanto del **pront** como para leer valores almacenados en un archivo.
+* Se utiliza la palabra reservada `read` para leer valor tanto de **entrada estándar** como para leer valores de un archivo.
 
 * La entrada solo puede ser utilizada dentro de un **procedimiento** antes de su respectiva precondición y luego de la declaración de variables locales.
 
-* Para poder leer de un archivo se utiliza la palabra reservada `with` seguido del nombre del archivo, mientras que para leer valores en el **pront** no se utiliza ninguna palabra reservada.
+* Para poder leer de un archivo se utiliza la palabra reservada `with` seguido del nombre del archivo, mientras que para leer valores en el **entrada estándar** no se utiliza ninguna palabra reservada.
 
 * La variable empleada para almacenar la información debe estar previamente declarada, también pueden ser utilizados los parámetros de entrada del procedimiento siempre y cuando **no** sean del tipo `in`.
 
-* Por cada una de las variables que se utilicen como parámetros de la entrada, se leerá un valor de la entrada, los tipos de las variables necesariamente deben ser del mismo tipo de los valores ingresados.
+* Por cada una de las variables usadas para entrada debe suministrarse un valor del tipo correspondiente. En caso contrario el programa escribe un mensaje por salida estándar y aborta.
 
-* Los archivos que se utilicen para leer son abiertos y manejados por el mismo lenguaje por lo que el programador no tiene que manejar el descriptor de archivos, cuando un archivo es utilizado de nuevo por el programador el lenguaje prosigue a leer los valores que queden en el archivo.
+* Todos los archivos utilizados por el programador son abiertos y cerrados al principio y final de la ejecución del programa. EL programa comienza la lectura al principio del archuvo y por cada lectura hecha el programa avanza su posición. En caso de intentar una lectura cuando el programa alcanzó el final del archivo, el programa aborta y escribe por salida estándar el error correspondiente.
 
 * La entrada de datos se especifica como sigue:
 
@@ -491,11 +466,11 @@
 
 ### Conversión de Tipos
 
-* `toInt` dado un parámetro de entrada de tipo flotante, retorna un numero entero asociado.
+* `toInt` dado un parámetro de entrada de tipo flotante, retorna un número entero asociado.
 
-* `toDouble` dado un parámetro de entrada de tipo entero, retorna un numero entero asociado.
+* `toDouble` dado un parámetro de entrada de tipo entero, retorna un número flotante asociado.
 
-* `toChar` dado un parámetro de entrada de tipo entero o flotante, retorna un carácter asociado al numero.
+* `toChar` dado un parámetro de entrada de tipo entero, retorna un carácter asociado al numero.
 
 * La conversión explicita de tipos es como sigue:
 
