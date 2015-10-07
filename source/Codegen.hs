@@ -593,11 +593,16 @@ createExpression (MyAST.Char _ n _) = do
 createExpression (MyAST.String _ msg _) = do
     addStringOpe msg
 
+
 createExpression (MyAST.Convertion tType _ exp t) = do
     let t' = MyAST.tag exp 
     exp' <- createExpression exp
-    addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
 
+    if t' == T.MyChar && tType == MyAST.ToInt then do 
+        op <- intToDouble exp'
+        doubleToInt op
+    else
+        addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
 
 
 createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
@@ -892,6 +897,14 @@ createBasicBlocks accs m800 = do
             addBasicBlock m800
 
 
+intToDouble :: Operand -> LLVM Operand
+intToDouble x = addUnNamedInstruction floatType $ _toFloat x
+
+
+doubleToInt :: Operand -> LLVM Operand
+doubleToInt x = addUnNamedInstruction intType $ _toInt x 
+
+
 irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
 irArithmetic MyAST.Sum T.MyInt   a b = _add  a b
 irArithmetic MyAST.Sum T.MyFloat a b = FAdd NoFastMathFlags a b []
@@ -911,7 +924,6 @@ irArithmetic MyAST.Max T.MyFloat a b = Call False CC.C [] (Right ( definedFuncti
                                          (Name maxnumFtring))) [(a, []),(b, [])] [] []
 irArithmetic MyAST.Max T.MyInt   a b = _max a b
 irArithmetic MyAST.Min T.MyInt   a b = _min a b
-
 
 
 irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
@@ -937,10 +949,9 @@ irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.NE  a b []
 
 
 irConvertion :: MyAST.Conv -> T.Type -> Operand -> Instruction
-irConvertion MyAST.ToInt    T.MyFloat a = FPToSI a intType   [] 
-irConvertion MyAST.ToInt    T.MyChar  a = FPToSI a intType   [] 
-irConvertion MyAST.ToDouble T.MyInt   a = SIToFP a floatType [] 
-irConvertion MyAST.ToDouble T.MyChar  a = SIToFP a floatType [] 
+irConvertion MyAST.ToInt    T.MyFloat a = _toInt   a  
+irConvertion MyAST.ToDouble T.MyInt   a = _toFloat a
+irConvertion MyAST.ToDouble T.MyChar  a = _toFloat a 
 irConvertion MyAST.ToChar   T.MyInt   a = Trunc  a charType  [] 
 irConvertion MyAST.ToChar   T.MyFloat a = FPToSI a charType  [] 
 
@@ -967,5 +978,5 @@ _min    a b = Call False CC.C [] (Right ( definedFunction intType
                          (Name minnumString))) [(a, []),(b, [])] [] []
 _max    a b = Call False CC.C [] (Right ( definedFunction intType 
                          (Name maxnumString))) [(a, []),(b, [])] [] []
-
-
+_toFloat a = SIToFP a floatType [] 
+_toInt   a = FPToSI a intType   [] 

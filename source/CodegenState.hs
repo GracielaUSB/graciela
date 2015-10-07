@@ -217,14 +217,13 @@ initialize id T.MyFloat = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
 
-initialize id T.Bool = do
+initialize id T.MyBool = do
    op <- getVarOperand id
    store charType op $ constantBool 0
 
 initialize id T.MyChar = do
    op <- getVarOperand id
    store charType op $ defaultChar
-
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand
@@ -281,14 +280,6 @@ mulDims (arrDim:xs) (acc:ys) = do
     op    <- mulDims xs ys
     opMul <- addUnNamedInstruction intType $ Mul False False arrDim acc []
     addUnNamedInstruction intType $ Add False False op opMul []
-
-
-intToDouble :: Operand -> LLVM Operand
-intToDouble x = addUnNamedInstruction double $ SIToFP x double []
-
-
-doubleToInt :: Operand -> LLVM Operand
-doubleToInt x = addUnNamedInstruction i32 $ FPToSI x i32 [] 
 
 
 retType :: Operand -> LLVM (Named Terminator)
