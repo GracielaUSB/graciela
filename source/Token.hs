@@ -104,6 +104,7 @@ data Token =   TokPlus
              | TokError Char
              | TokBegin
              | TokLexEnd
+             | TokComment
              | EmptyToken
       deriving (Eq)
 
@@ -201,6 +202,7 @@ instance Show Token where
   show TokSepGuards     = "\"[]\" - Separador de Guardias"
   show TokArray         = "\"array\" - Tipo Arreglo" 
   show TokPipe          = "\"|\" - Barra Vertical" 
+  show TokComment       = "\"//\" - Comentatios" 
 
 
 showBool :: Bool -> String

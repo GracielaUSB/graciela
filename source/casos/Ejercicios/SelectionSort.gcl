@@ -1,69 +1,95 @@
 //SelectionSort
 
-program main |[
+program main begin
 
+    proc swap : (ref h1: array [10] of int, in x: int, in y: int) 
+    begin
 
-  proc : swap(inout h1: array [50] of int, in x: int, in y: int) 
-  [
-      var aux : int;
+        var aux : int;
 
-      {pre x>0 /\ y>0 pre}  
-      |[
-          aux   := h1[x];
-          h1[x] := h1[y];
-          h1[y] := aux;
-      ]|
-      {post true post}
-
-  ]
+        {pre x>=0 /\ y>=0 pre}  
+        |[
+            aux   := h1[x];
+            h1[x] := h1[y];
+            h1[y] := aux
+        ]|
+        {post true post}
+    end
 
     
-  proc : ord(in N: int, inout h: array [50] of int) 
-  [ 
-  	var n: int;
+    proc ord : (in N: int, ref h: array [10] of int) 
+    begin
+
+  	    var n, cot: int;
     
-    {pre N > 0 pre}  
+        {pre N > 0 pre}  
     |[  
     	n := 0;
 
+        cot := 5555;
 		{inv   true  inv} 
-		{bound true  bound}
+		{bound cot -1  bound}
 
-    	do (n !== N) ->
-     	    [|
-                var a, b: int;
+    	do (n != N) ->
+     	|[
+            var a, b: int;
 
-                a, b := n, N-1;
+            a, b := n, N-1;
 
-                {inv   true  inv} 
-                {bound true  bound}
+            {inv   true  inv} 
+            {bound cot-1 bound}
+            do (a != b) ->
+            |[
+	        
+            	if (h[a] <= h[b]) -> b := b-1
+	          	[] (h[b] <= h[a]) -> a := a+1
+	          	fi;
 
-                do (a != b) ->
-	           		if (h[a] <= h[b]) -> b := b-1
-	            	[] (h[b] <= h[a]) -> a := a+1
-	            	fi  
-                od
+                cot:= cot -1
+            
+            ]|
+            od;
 
-                swap(h, n, a);
-            |]
+            swap(h, n, a);
+            cot:= cot -1;
 
             n := n+1                
+        ]|
     	od
 
     ]|
-    {post true post}
-  ]
+        {post true post}
+    end
 
   |[
-    var arreglo: array [50] of int
-    var tamano: int;
+        var arr : array [10] of int;
+        var d := 1111 : int;
+        var i : int;
 
-    //Crear arreglo
 
-    tamano := lenght(arreglo);
+        arr[0]:= 3;
+        arr[1]:= 7;
+        arr[2]:= 2;
+        arr[3]:= 5;
+        arr[4]:= -8;
+        arr[5]:= 11;
+        arr[6]:= 2;
+        arr[7]:= 1;
+        arr[8]:= 8;
+        arr[9]:= -2;
 
-    ord(tamano, arreglo);
+        ord(10, arr);
     
+        {inv true inv}
+        {bound d-1 bound}
+
+        do (i < 10) ->
+        |[
+            write(arr[i]);
+            write(", ");
+            i,d := i+1, d-1
+        ]|
+        od
   ]|
 
-]|
+end

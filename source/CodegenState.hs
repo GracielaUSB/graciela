@@ -187,7 +187,7 @@ constantChar c = ConstantOperand $ C.Int 8 $ toInteger (ord c)
 
 
 defaultChar :: Operand
-defaultChar = ConstantOperand $ C.Int 8 0
+defaultChar = ConstantOperand $ C.Int 8 1
 
 
 constantString :: String -> C.Constant
@@ -213,13 +213,18 @@ initialize id T.MyInt = do
    op <- getVarOperand id
    store intType op $ constantInt 0
 
+initialize id T.MyFloat = do
+   op <- getVarOperand id
+   store floatType op $ constantFloat 0.0
+
+initialize id T.Bool = do
+   op <- getVarOperand id
+   store charType op $ constantBool 0
+
 initialize id T.MyChar = do
    op <- getVarOperand id
    store charType op $ defaultChar
 
-initialize id T.MyFloat = do
-   op <- getVarOperand id
-   store floatType op $ constantFloat 0.0
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand

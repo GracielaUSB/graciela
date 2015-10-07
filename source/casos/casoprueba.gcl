@@ -25,11 +25,11 @@ program main begin
       var ll : int;
       var mm : int;
       var dddd : array [50] of int;
-
+      var qw : boolean;
       dddd[2] := 55;
       y,x := 10,0;
       x := abs(2);
-
+      writeln(qw);
 
       mm := 105;
 
