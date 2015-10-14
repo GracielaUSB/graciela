@@ -5,16 +5,16 @@ program main |[
       m + n
   ]|
 
-  proc dividir: (out A: int, out B: int) 
+  proc dividir: (out a : int, out b : int) 
   [ 
   	var q, r, b : int;
     var f : double;
     var arreglo : array [5] of int;
-    read(A, B); 
+    read(a, b); 
 
-    {pre A >= 0 /\ B >= 0 pre}  
+    {pre a >= 0 /\ b >= 0 pre}  
     |[  
-    	q, r, b := 0, A, B;
+    	q, r, b := 0, a, b;
       arreglo[3] := q;
       q := arreglo[3];
 

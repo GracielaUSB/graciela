@@ -1,44 +1,56 @@
 //Searching by Elimination
 
-program main |[
+program main begin
 
-  proc buscar: (in N: int, in f: array [50] of int, out x: int) 
-  [ 
-  	var a, b: int;
+    proc buscar: (in N: int, ref f: array [10] of int, out x: int) 
+    begin
+
+        var a, b, cota: int;
     
-    {pre N > 0 pre}  
-    |[  
-    	a, b := 0, N;
+        {pre N > 0 pre}  
+        |[  
+    	    a, b, cota := 0, N, 5000;
 
-		  {inv   true  inv} 
-		  {bound true  bound}
+		    {inv true inv} 
+		    {bound cota-1 bound}
 
-    	do (a != b) ->
-     	
-       		if (f[a] <= f[b]) -> a := a+1
-        	[] (f[b] <= f[a]) -> b := b-1
-        	fi
-    	od;
+    	    do (a != b) ->
+     	    |[
+       	        if (f[a] <= f[b]) -> a := a+1
+        	    [] (f[b] <= f[a]) -> b := b-1
+            	fi;
 
-      x := a
+                cota := cota-1
+            ]|
+            od;
+
+            x := a
+
+        ]|
+        // 0<=x /\ x<=N /\ f[x] == (%max i: int | 0<=i /\ i<=N | f[i] %) 
+        {post true post}
+    end
+
+    |[
+
+        var arr  : array [10] of int;
+        var resultado: int;
+
+        arr[0]:= 3;
+        arr[1]:= 7;
+        arr[2]:= 2;
+        arr[3]:= 5;
+        arr[4]:= -8;
+        arr[5]:= 11;
+        arr[6]:= 8;
+        arr[7]:= 1;
+        arr[8]:= 8;
+        arr[9]:= -2;
+        
+        buscar(10, arr, resultado);
+        
+        write("El resultado es: ");
+        writeln(resultado)
 
     ]|
-    {post 0<=x<=N /\ f[x] = (%max i: 0<=i<=N: f[i] %) post}
-  ]
-
-  |[
-    var arreglo: array [50] of int;
-    var tamano, resultado: int;
-
-    //Crear arreglo
-
-    tamano := lenght(arreglo);
-
-    buscar(tamano, arreglo, resultado);
-    
-    write("El resultado es: ");
-    writeln(resultado)
-
-  ]|
-
-]|
+end

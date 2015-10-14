@@ -104,9 +104,9 @@ pMAX_DOUBLE   = tryString "MAX_DOUBLE"
 pOf           = tryString "of"
 pBegin        = tryString "begin"
 pEnd          = tryString "end"
-pComment      = optional(do { tryStringOp "//"; manyTill anyChar (lookAhead (newline)); spaces })
+pComment      = optional(do many (tryStringOp "//" >> manyTill anyChar (lookAhead (newline)) >> spaces))
 
-                   
+                  
 lexer :: Parsec T.Text () ([TokenPos])
 lexer = 
     do spaces

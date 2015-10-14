@@ -377,11 +377,11 @@
 
 * Los `in` son parámetros pasados por **valor**, por lo que no pueden ser utilizados como `L-Value`.
 
-* Los `out` son parámetros cuyo valor al momento de la llamada del procedimiento no es tomado en cuenta, por lo que solo importa la dirección de memoria de la variable asociada a la llamada. Son inicializadas antes de ejecutar el cuerpo del procedimiento con el valor por defecto correspondiente al tipo del parámetro, y en caso de no ser modificadas, éste será el valor que será copiado a la variable de llamada correspondiente.
+* Los `out` son parámetros cuyo valor al momento de la llamada del procedimiento no es tomado en cuenta, por lo que solo importa la dirección de memoria de la variable asociada a la llamada. Son inicializados antes de ejecutar el cuerpo del procedimiento con el valor por defecto correspondiente al tipo del parámetro. Por ultimo, su ultimo valor asociado será copiado a la variable de llamada correspondiente.
 
 * Los `inout` son parámetros que poseen un valor de entrada y retornan su ultimo valor asociado al final del procedimiento.
 
-* Los `ref` son parámetros pasados por **referencia** por lo tanto todo valor que se le asigné dentro del procedimiento también cambiara el valor de la variable que fue utilizada en la llamada del procedimiento.
+* Los `ref` son parámetros pasados por **referencia**, por lo tanto, todo valor que se le asigné dentro del procedimiento también cambiara el valor de la variable que fue utilizada en la llamada del procedimiento.
 
 * Es importante destacar que los arreglos **únicamente** pueden ser pasados como parámetro `ref`, por otro lado, los parámetros de tipo `out` e `inout` solo permiten pasar variables, por lo que no acepta ningún tipo de expresión.
 

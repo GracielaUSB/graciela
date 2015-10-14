@@ -1,52 +1,54 @@
-//Integer Division
+program main begin
 
-program main |[
-
-  proc : dividir(out A: int, out B: int) 
-  [ 
-  	var q, r, b : int;
-    read(A, B); 
+    proc dividir : (out A: int, out B: int, out q: int, out r: int) 
+    begin 
+  	    var b, cota : int;
+        read(A, B); 
 
     {pre A >= 0 /\ B >= 0 pre}  
     |[  
-    	q, r, b := 0, A, B;
+    	q, r, b, cota := 0, A, B, 5000;
 
-		{inv   true inv} 
-		{bound true bound}
+		{inv true inv} 
+		{bound cota-1 bound}
 		
     	do (r >= b) -> 
-    		b:= b*2
-    	od
+    		b, cota := b*2, cota-1
+    	od;
 
-		{inv   true  inv} 
-		{bound true  bound}
+        cota := 5000;
 
-    	do (b !== B) ->
-    		q, b := q*2, b/2;
+		{inv true inv} 
+		{bound cota-1 bound}
+
+    	do (b != B) ->
+        |[  
+            q, b := q*2, b/2;
 
     		if (r <  b) -> skip
     		[] (r >= b) -> q, r := q+1, r-b
-    		fi
+    		fi;
+
+            cota := cota-1
+        ]|
     	od
 
-    ]|
-    {post q = A div B /\ r = A mod B post}
-  ]
+        ]|
+        {post q == A / B /\ r == A mod B post}
+    end
 
-  |[
-      var resultado, resto : int;
+    |[
+      var dividendo, divisor, resultado, resto : int;
 
-      write("Escriba el dividendo y el divisor:");
+      write("Escriba el dividendo y el divisor: ");
 
-      dividir(resultado, resto);
+      dividir(dividendo, divisor, resultado, resto);
 
       write("El resultado es: ");
       writeln(resultado);
       
       write("El resto es: ");
-      writeln(resto);
+      writeln(resto)
 
-  ]|
-
-
-]|
+    ]|
+end

@@ -275,12 +275,12 @@ createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     
     let name' = (TE.unpack name)
-    createState name' pre
     let args     = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
     let args'    = ([Parameter t (Name id) [] | (id, t) <- (convertParams args)], False) 
     retTy <- retVoid
     addArgOperand args
     mapM_ accToAlloca decs
+    createState name' pre
     mapM_ createInstruction accs 
     retVarOperand $ reverse args
     createState name' post

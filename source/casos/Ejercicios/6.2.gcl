@@ -1,40 +1,51 @@
-//Bounded Linear Search
+// Bounded Linear Search
+// Busca el ultimo valor, donde todos sus anteriores son false
+program main begin
 
-program main |[
+    proc buscar : (in N: int, ref b: array [10] of boolean, out x: int) 
+    begin 
 
-  proc buscar: (in N: int, in b: array [50] of boolean, out x: int) 
-  [ 
-  	var y: int;
+  	    var y, cota: int;
+
+        {pre N >= 0 pre}  
+        |[  
+    	    x, y, cota := 0, N, 5000;
+
+		    {inv true inv} 
+		    {bound cota-1 bound}
+
+    	    do (x != y) ->
+    		|[
+                if (!b[x]) -> x := x+1
+    		    []  (b[x]) -> y := x
+                fi;
+
+                cota := cota-1
+            ]|
+    	    od
+        ]|
+        //x == (%max i : int | 0<=i /\ i<=N /\ (%forall j : int | 0<=j /\ j<i | !b[j]%) | i%)
+        {post true post}
+    end
+
+    |[
+     var arr : array [10] of boolean;
+        var resultado: int;
+
+        arr[0]:= false;
+        arr[1]:= false;
+        arr[2]:= true;
+        arr[3]:= false;
+        arr[4]:= false;
+        arr[5]:= false;
+        arr[6]:= true;
+        arr[7]:= false;
+        arr[8]:= false;
+        arr[9]:= false;
+
+        buscar(10, arr, resultado);
     
-    {pre N >= 0 pre}  
-    |[  
-    	x, y := 0, N;
-
-		  {inv   true  inv} 
-		  {bound true  bound}
-
-    	do (x != y) ->
-    		if (!b[x]) -> x := x+1
-    		[]  (b[x]) -> y := x
-    		fi
-    	od
-
+        write("El resultado es: ");
+        writeln(resultado)
     ]|
-    {post x = (%max i: 0<=i<=N /\ (%forall j : 0<=j<i : !b[j]%) : i%) post}
-  ]
-
-  |[
-    var arreglo  : array [50] of boolean;
-    var tamano, resultado: int;
-
-    //Crear arreglo
-
-    tamano := lenght(arreglo);
-
-    buscar(tamano, arreglo, resultado);
-    
-    write("El resultado es: ");
-    writeln(resultado)
-  ]|
-
-]|
+end

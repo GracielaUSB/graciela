@@ -1,35 +1,47 @@
 //Linear Search
+// Busca el ultimo valor, donde todos sus anteriores son false
+program main begin
 
-program main |[
+    proc buscar : (ref b: array [10] of boolean, out x: int) 
+    begin 
+        var cota : int;
+        // (%exist i : int | 0<=i | b[i]%) 
+        {pre true pre}  
+        |[  
+    	    x, cota := 0, 5000;
 
-  proc buscar : (in b: array [50] of boolean, out x: int) 
-  [ 
+            //0<=x /\ (%forall i : int | 0<=i /\ i<x | b[i]%)
+		    {inv true inv} 
+		    {bound cota-1  bound}
 
-    {pre (%exist i: 0<=i : b[i]%) pre}  
-    |[  
-    	x := 0;
+    	    do (!b[x]) -> 
+                x, cota := x+1, cota-1 
+    	    od
 
-		  {inv 0<=x /\ (%forall i: 0<=i<x : b[i]%) inv} 
-		  {bound true  bound}
+        ]|
+        // x == (%min i : int | 0<=i /\ b[i] | i%)
+        {post true post}
+    end
 
-    	do (!b[x]) -> x := x+1 
-    	od
+    |[
+        var arr : array [10] of boolean;
+        var resultado: int;
+
+        arr[0]:= false;
+        arr[1]:= false;
+        arr[2]:= false;
+        arr[3]:= false;
+        arr[4]:= true;
+        arr[5]:= false;
+        arr[6]:= false;
+        arr[7]:= false;
+        arr[8]:= true;
+        arr[9]:= false;
+
+        buscar(arr, resultado);
+    
+        write("El resultado es: ");
+        writeln(resultado)
 
     ]|
-    {post x = (%min i: 0<=i /\ b[i] : i%) post}
-  ]
-
-  |[
-    var arreglo  : array [50] of boolean;
-    var resultado: int;
-
-    //Crear arreglo
-
-    buscar(arreglo, resultado);
-    
-    write("El resultado es: ");
-    writeln(resultado)
-
-  ]|
-
-]|
+end
