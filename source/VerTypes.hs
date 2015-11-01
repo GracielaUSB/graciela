@@ -219,20 +219,20 @@ verQuant op range term loc =
                    { True  -> return MyBool 
                    ; False -> addQuantBoolError op range term loc
                    }
-    ; Product   -> case range == MyBool && term == MyInt of 
-                   { True  -> return MyInt 
+    ; Product   -> case range == MyBool && (term == MyInt || term == MyFloat) of 
+                   { True  -> return term 
                    ; False -> addQuantIntError op range term loc
                    }
-    ; Summation -> case range == MyBool && term == MyInt of
-                   { True  -> return MyInt 
+    ; Summation -> case range == MyBool && (term == MyInt || term == MyFloat) of
+                   { True  -> return term 
                    ; False -> addQuantIntError op range term loc
                    }
-    ; Maximum   -> case range == MyBool && term == MyInt of
-                   { True  -> return MyInt 
+    ; Maximum   -> case range == MyBool && (term == MyInt || term == MyFloat) of
+                   { True  -> return term 
                    ; False -> addQuantIntError op range term loc
                    }
-    ; Minimum   -> case range == MyBool && term == MyInt of
-                   { True  -> return MyInt 
+    ; Minimum   -> case range == MyBool && (term == MyInt || term == MyFloat) of
+                   { True  -> return term 
                    ; False -> addQuantIntError op range term loc
                    }
     }
@@ -308,7 +308,7 @@ verProcCall name sbc args'' loc locarg =
                   ; False -> let args = map tag args''
                                  t    = zip args args'
                              in case (and $ map (uncurry (==)) $ t) of   
-                                { True  -> do r <- validProcArgs ln args'' locarg sb sbc
+                                { True  -> do r <- validProcArgs name ln args'' locarg sb sbc
                                               case r of
                                               { True  -> return MyEmpty
                                               ; False -> return MyError
@@ -327,21 +327,21 @@ verProcCall name sbc args'' loc locarg =
         }
 
 
-validProcArgs :: [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTable -> MyVerType Bool
-validProcArgs lnp lnc locarg sbp sbc = 
+validProcArgs :: T.Text -> [T.Text] -> [AST Type] -> [Location] -> SymbolTable -> SymbolTable -> MyVerType Bool
+validProcArgs name lnp lnc locarg sbp sbc = 
     let lat = map getProcArgType $  map fromJust $ map ((flip checkSymbol) sbp) lnp
         lvt = map (isASTLValue sbc) lnc
         xs  = zip lat lvt
     in fmap and $ mapM compare (zip xs (zip lnc locarg))
       where
         compare ((Just Out, False), (id, loc))   = 
-            do addInvalidPar id loc
+            do addInvalidPar name id loc
                return False
         compare ((Just InOut, False), (id, loc)) = 
-            do addInvalidPar id loc
+            do addInvalidPar name id loc
                return False
         compare ((Just Ref, False), (id, loc))   = 
-            do addInvalidPar id loc
+            do addInvalidPar name id loc
                return False
         compare _                                =
                return True

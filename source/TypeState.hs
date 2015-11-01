@@ -41,12 +41,12 @@ addTypeDecError :: T.Text -> Location -> Type -> Type -> MyVerType Type
 addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 
 
-addNotOccursVarError :: T.Text -> Location -> MyVerType Type
-addNotOccursVarError id loc = addTypeError $ NotOccursVar id loc
+addNotOccursVarError :: OpQuant -> T.Text -> Location -> MyVerType Type
+addNotOccursVarError op sym loc = addTypeError $ NotOccursVar op sym loc
 
 
-addInvalidPar :: AST Type -> Location -> MyVerType Type
-addInvalidPar id loc = addTypeError $ InvalidPar id loc
+addInvalidPar :: T.Text -> AST Type -> Location -> MyVerType Type
+addInvalidPar name id loc = addTypeError $ InvalidPar name id loc
 
 
 addQuantBoolError :: OpQuant -> Type -> Type -> Location -> MyVerType Type 

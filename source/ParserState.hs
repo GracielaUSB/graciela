@@ -109,12 +109,12 @@ addSymbolParser id c = do ST.modify $ addNewSymbol id c
                           return()
 
 
-addCuantVar :: T.Text -> Type -> Location -> MyParser()
-addCuantVar id t loc = 
+addCuantVar :: OpQuant -> T.Text -> Type -> Location -> MyParser()
+addCuantVar op id t loc = 
     if isCuantificable t then
        addSymbolParser id $ Contents CO.Constant loc t Nothing True
     else
-       addUncountableError loc
+       addUncountableError op loc
 
 
 lookUpSymbol :: T.Text -> MyParser (Maybe (Contents SymbolTable))
@@ -221,9 +221,9 @@ addOutOfBoundsError t l = do ST.modify $ addTypeError $ IntOutOfBounds t l
                              return ()
 
 
-addUncountableError :: Location -> MyParser ()
-addUncountableError loc = do ST.modify $ addTypeError $ UncountError loc
-                             return ()
+addUncountableError :: OpQuant -> Location -> MyParser ()
+addUncountableError op loc = do ST.modify $ addTypeError $ UncountError op loc
+                                return ()
 
 
 addFunctionNameError :: T.Text -> Location -> MyParser ()

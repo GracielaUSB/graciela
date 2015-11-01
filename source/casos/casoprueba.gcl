@@ -34,7 +34,7 @@ program main begin
       mm := 105;
 
 
-      {inv (%forall i : int | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | i*x < 99 %) inv} 
+      {inv (%forall i : char | 0 <= i /\ i < 10 \/ 25 <= i /\ i < 50 | i*x < 99 %) inv} 
       {bound mm-5  bound}
       do (ll < 10) -> 
       |[
@@ -42,7 +42,7 @@ program main begin
          
           mm := mm-5;
           
-          if ll == 11 -> x:= 10 
+          if ll == 11 -> x:= 10.6 
           [] ll != 11 -> skip
           fi 
       ]|
@@ -57,12 +57,12 @@ program main begin
 
       writeln(dddd[2]);
 
-      if x <= 1000  -> |[ x := x + 1 ; sumar(x,y,dddd) ; writeln(dddd[2])  ]|
+      if x <= 1000.5  -> |[ x := x + 1 ; sumar(x,y,dddd) ; writeln(dddd[2])  ]|
       [] x >= 100 -> writeln(x)
 
       fi;
 
-      y := 55555
+      writeln((% pi ss : char | 1 <= ss /\ ss <= 10 | toDouble(ss)*1.0 %))
   ]|
 end
 

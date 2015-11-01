@@ -16,6 +16,7 @@ import LLVM.General.Target
 import LLVM.General.Module
 import System.Environment
 import Text.Parsec.Error
+import MyTypeError
 import Text.Parsec
 import Data.Set (empty)
 import ASTtype
@@ -26,7 +27,6 @@ import Lexer
 import Token
 import Type 
 import AST
-
 
 concatLexPar :: ParsecT T.Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
 concatLexPar = playParser AP.<$> lexer
@@ -86,7 +86,7 @@ play inp =
                                l' = DF.toList l 
 
                            if not $ null l' then 
-                               putStrLn $ show $ l'
+                               putStrLn $ drawTypeError l'
                            else 
                                do let newast = 
                                         astToLLVM (SET.toList $ filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
@@ -106,3 +106,5 @@ main :: IO ()
 main = do args <- getArgs 
           s <- TIO.readFile (head args)
           play s
+
+

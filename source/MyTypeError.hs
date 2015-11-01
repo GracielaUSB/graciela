@@ -93,15 +93,18 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , prType :: Type
                                    , loc    :: Location
                                    }
-                 | UncountError    { loc    :: Location 
+                 | UncountError    { op     :: OpQuant
+                                   , loc    :: Location 
                                    }
-                 | NotOccursVar    { symbol :: T.Text 
+                 | NotOccursVar    { op     :: OpQuant
+                                   , symbol :: T.Text 
                                    , loc    :: Location
                                    } 
                  | FunNameError    { symbol :: T.Text 
                                    , loc    :: Location
                                    } 
-                 | InvalidPar      { tree   :: AST Type
+                 | InvalidPar      { name   :: T.Text
+                                   , tree   :: AST Type
                                    , loc    :: Location
                                    } 
                  | DiffSizeError   { location :: Location 
@@ -161,7 +164,7 @@ instance Show MyTypeError where
    show (StateError          t s     loc) = 
             errorL loc ++ ": Se esperaba en la " ++ show s ++ " una expresión de tipo boolean."
    show (GuardError          t       loc) = 
-            errorL loc ++ ": Se esperaba en la guardia el tipo boolean, se suministró " ++ show t ++ "."
+            errorL loc ++ ": Se esperaba un tipo boolean en la guardia, se suministró " ++ show t ++ "."
    show (CondError                   loc) = 
             errorL loc ++ ": Los condicionales no son del mismo tipo."
    show (IncomDefError C.Constant    loc) = 
@@ -192,22 +195,22 @@ instance Show MyTypeError where
             errorL loc ++ ": int " ++ show val ++ " fuera del rango representable."
    show (RanError          sym    pt loc) = 
             errorL loc ++ ": La variable" ++ show sym ++ " es de tipo " ++ show pt ++ ", se esperaba varible de tipo int o double."
-   show (UncountError                loc) = 
-            errorL loc ++ ": Tipo no contable en la definición del cuantificador." 
-   show (NotOccursVar    sym        loc) = 
-            errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del rango del cuantificador."
+   show (UncountError  op            loc) = 
+            errorL loc ++ ": Tipo no contable en la definición del Cuantificador " ++ show op ++ "." 
+   show (NotOccursVar  op  sym       loc) = 
+            errorL loc ++ ": La varible " ++ show sym ++ " no ocurre dentro del rango del Cuantificador " ++ show op ++ "."
    show (FunNameError  id            loc) = 
             errorL loc ++ ": El parámetro " ++ show id ++ " es del mismo nombre de la función que está siendo definida."
-   show (InvalidPar  id            loc) = 
-            errorL loc ++ ": El parámetro " ++ show id ++ " es constante y está siendo pasado como parámetro de salida."
+   show (InvalidPar  name _         loc) = 
+            errorL loc ++ ": En el procedimiento " ++ show name ++ " se suministrado una constante como parámetro de salida." 
    show (DiffSizeError                loc) = 
-            errorL loc ++ ": El número de variables declaradas es distinto al de expresiones encontradas."
+            errorL loc ++ ": El número de variables declaradas es distinto al de expresiones de inicialización encontradas."
    show (TypeDecError  id loc te tv) = 
             errorL loc ++ ": La variable " ++ show id ++ " es del tipo " ++ show tv ++ " pero su expresión correspondiente es del tipo " ++ show te ++ "."
    show (QuantIntError  op tr tt loc) = 
-            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo int en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op ++ "."
+            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo int o double, en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del Cuantificador " ++ show op ++ "."
    show (QuantBoolError  op tr tt loc) = 
-            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo boolean en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del cuantificador " ++ show op ++ "."
+            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo boolean en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del Cuantificador " ++ show op ++ "."
    show (NotConstError  id            loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es constante."
    show (NotIntError  id            loc) = 
@@ -217,8 +220,12 @@ instance Show MyTypeError where
    show (NotRValueError  id           loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es un r-value."
    show (IntError  id           loc) = 
-            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo entera."
+            errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int."
 
 
 
-drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
+--drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
+
+drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list)
+
+

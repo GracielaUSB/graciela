@@ -96,3 +96,10 @@ createTagExists next loc = do
 
     callAbort 11 loc
     setLabel next $ branch next 
+
+
+createTagOverflow :: Name -> Location -> LLVM ()
+createTagOverflow next loc = do
+
+    callAbort 12 loc
+    setLabel next $ nothing

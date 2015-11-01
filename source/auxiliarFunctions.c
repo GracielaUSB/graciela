@@ -249,7 +249,7 @@ void _abort(int x, int line, int column) {
 			exit(0);
 
         case 3:
-            printf("\nADVERTENCIA: En la línea %d, columna %d, La Precondición no se satisface. \n\n", line, column);  
+            printf("\nADVERTENCIA: En la línea %d, columna %d, La Precondición no se satisface. \n", line, column);  
             break;
 
         case 4:
@@ -277,12 +277,16 @@ void _abort(int x, int line, int column) {
             exit(0);
 	
         case 10:
-            printf("\nADVERTENCIA: En la línea %d, columna %d, El Cuantificador Universal no se satisface.\n\n", line, column);  
+            printf("\nADVERTENCIA: En la línea %d, columna %d, El Cuantificador Universal no se satisface.\n", line, column);  
             break;
 
         case 11:
-            printf("\nADVERTENCIA: En la línea %d, columna %d, El Cuantificador Existencial no se satisface.\n\n", line, column);  
+            printf("\nADVERTENCIA: En la línea %d, columna %d, El Cuantificador Existencial no se satisface.\n", line, column);  
             break;
+
+        case 12:
+            printf("\nABORT: En la línea %d, columna %d, Overflow.\n\n", line, column);  
+            exit(0);
     } 
 }
 

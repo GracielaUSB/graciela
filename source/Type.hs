@@ -33,13 +33,13 @@ instance Eq Type where
 instance Show Type where
    show  MyInt             = "int"
    show  MyFloat           = "double"
-   show  MyBool            = "Boolean"
+   show  MyBool            = "boolean"
    show  MyChar            = "char"
    show  MyEmpty           = "vacio"
    show  MyError           = "error"
-   show (MyFunction xs t ) = "Func, return type: " ++ show t
-   show (MyArray    t  xs) = "Array of "     ++ show t ++ " de tamaño " ++ show xs
-   show (MyProcedure   xs) = "Proc"
+   show (MyFunction xs t ) = "func, tipo de Retorno: " ++ show t
+   show (MyArray    t  xs) = "array of " ++ show t ++ " de tamaño " ++ show xs
+   show (MyProcedure   xs) = "proc"
 
 
 isTypeProc :: Type -> Bool

@@ -259,6 +259,10 @@ nothing :: Named Terminator
 nothing = (Do $ Unreachable [])
 
 
+extracValue :: Operand -> Word32 -> LLVM Operand 
+extracValue name n = addUnNamedInstruction voidType $ ExtractValue name [n] []
+
+
 dimToOperand :: Either TE.Text Integer -> LLVM Operand
 dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
 dimToOperand (Left id) = load (TE.unpack id) intType

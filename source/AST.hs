@@ -3,7 +3,7 @@ module AST where
 
 import qualified Data.Text as T
 import Data.Range.Range    as RA
-import Data.Monoid
+import Data.Monoid hiding (Product)
 import SymbolTable
 import Location
 import Print
@@ -55,9 +55,9 @@ data Conv = ToInt | ToDouble | ToChar
       deriving (Eq) 
 
 instance Show Conv where
-   show ToInt    = "a Entero"
-   show ToDouble = "a Flotante"
-   show ToChar   = "a Caracter"
+   show ToInt    = "a int"
+   show ToDouble = "a double"
+   show ToChar   = "a char"
 
 
 data OpUn = Minus | Not | Abs | Sqrt
@@ -82,7 +82,15 @@ instance Show StateCond where
 
 
 data OpQuant = ForAll | Exists | Summation | Product | Minimum | Maximum
-    deriving(Show, Eq)
+    deriving(Eq)
+
+instance Show OpQuant where
+   show ForAll    = "Universal (forall)"
+   show Exists    = "Existencial (exist)"
+   show Summation = "Sumatoria (sigma)"
+   show Product   = "Productoria (pi)"
+   show Minimum   = "Minimo (min)"
+   show Maximum   = "Maximo (max)"
 
 
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.

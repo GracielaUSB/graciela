@@ -12,10 +12,10 @@
 
  * Las palabras descritas a continuación son reservadas por el lenguaje, por lo tanto no pueden ser utilizadas como identificadores ni ser redefinidas.
 
-|          |             |           |             |         |           |        |           |
-|----------|-------------|-----------|-------------|---------|-----------|--------|-----------|
+|          |             |           |             |          |           |        |          |
+|----------|-------------|-----------|-------------|----------|-----------|--------|----------|
 | program  | pre         | post      | bound       | func     | proc      | in     | out      |
-| inout    | ref         | max       | min         | exist    | sigma     | pi     | union    |
+| inout    | ref         | max       | min         | exist    | sigma     | pi     | forall   |
 | if       | fi          | inv       | do          | od       | mod       | abs    | sqrt     |
 | with     | var         | const     | abort       | random   | skip      | write  | writeln  |
 | read     | toInt       | toDouble  | toChar      | toString | true      | false  | array    |
@@ -72,9 +72,9 @@
 
 ### Primitivos
 
-#### Boleanos
+#### Booleanos
 
-* Corresponde a los valores lógicos de comparación y son representador por las palabras reservadas `True` y `False`. Se declaran utilizando la palabra reservada `boolean`.
+* Corresponde a los valores lógicos de comparación y son representados por las palabras reservadas `true` y `false`. Se declaran utilizando la palabra reservada `boolean`.
 
 #### Enteros
 
@@ -86,7 +86,7 @@
 
 #### Caracteres
 
-*  Corresponde a un carácter imprimible de **ASCII**.  Se declaran utilizando la palabra reservada `char`. Ocupan 8 bits de memoria.
+*  Corresponde a un carácter imprimibles de **ASCII**.  Se declaran utilizando la palabra reservada `char`. Ocupan 8 bits de memoria.
 
 ### Compuestos
 
@@ -144,7 +144,7 @@
 * Precedencia de los operadores de mayor precedencia a la menor:
 
         ! - (unitario lógico y aritmético)
-        * / mod max min (multiplicación, división, mod, máximo, mínimo)
+        * / ^ mod max min (multiplicación, división, potencia, mod, máximo, mínimo)
         + - (suma, resta)
         < <= > >= (relacionales)
         == != (comparación)
@@ -159,7 +159,7 @@
 
 * Las variables pueden inicializarse al mismo tiempo de que son declaradas.
 
-* Las variables no deben ser inicializadas obligatoriamente, es responsabilidad del programador inicializar variables antes de ser utilizadas. En caso de no ser inicializadas tendrán el valor por defecto (`0`, `0.0`, `true`, `''`).
+* Las variables no deben ser inicializadas obligatoriamente, es responsabilidad del programador inicializar variables antes de ser utilizadas. En caso de no ser inicializadas tendrán el valor por defecto (`0`, `0.0`, `false`, `''`).
 
 * Se pueden declarar una o más variables de un mismo tipo en la misma declaración, como también pueden ser inicializadas al mismo tiempo.
 
@@ -205,7 +205,7 @@
 
 		<Variable> := <Expresión>;
 		<Variable>, ..., <Variable> := <Expresión>, ..., <Expresión>;
-        <Variable>[<Numero>] := <Expresión>;
+        <Variable>[<Número>] := <Expresión>;
 
 
 
@@ -235,7 +235,7 @@
 
 ## Iteración
 
-* El iterador evalúa la una por una las guardias de la iteración y es ejecutada la acción asociada a la primera que resulto verdadera. Así sucesivamente hasta que ninguna guardia sea cierta y continua la ejecución del programa.
+* El iterador evalúa una por una las guardias de la iteración y es ejecutada la acción asociada a la primera que resulto verdadera. Así sucesivamente hasta que ninguna guardia sea cierta y continua la ejecución del programa.
 
 * La expresión asociada a la palabra reservada `inv` representa la invariante que debe cumplir el ciclo en el inicio de cada iteración, si el invariante no se cumple el programa terminara su ejecución con un mensaje de  **"ABORT"**.
 
@@ -273,7 +273,7 @@
 
 		(post <Expresión> post)
 
-#### Aserción
+#### Instruccion con Aserción
 
 * La aserción corresponde a la condición que se debe cumplir en un momento específico del flujo del programa, ya sea de un procedimiento o del cuerpo principal del programa.
 
@@ -420,9 +420,9 @@
 
 * **Productoria (**`pi`**):** Es utilizado para multiplicar **todos** los valores que resultan de la expresión en el rango dado, por lo que la expresión debe ser de tipo entero.
 
-* **Máximo (**`max`**):**  Es utilizado para obtener el numero entero mayor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
+* **Máximo (**`max`**):**  Es utilizado para obtener el número entero mayor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
 
-* **Mínimo (**`min`**):**  Es utilizado para obtener el numero entero menor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
+* **Mínimo (**`min`**):**  Es utilizado para obtener el número entero menor de todos los resultados de la expresión verificada para el rango dado, la expresión necesariamente debe de ser tipo entera.
 
 ## Entrada
 
@@ -451,7 +451,7 @@
 
 * Se pueden imprimir todos los tipos primitivos del lenguaje, como también se pueden imprimir cadenas de caracteres.
 
-* Si se desea imprimir la información de una variable, ésta debe estar previamente declarada e inicializada.
+* Si se desea imprimir la información de una variable, ésta debe estar previamente declarada.
 
 * El lenguaje incorpora la función `writeln` que imprime un salto de línea inmediatamente después de la información indicada.
 
@@ -466,14 +466,13 @@
 
 ### Conversión de Tipos
 
-* `toInt` dado un parámetro de entrada de tipo flotante, retorna un número entero asociado.
+* `toInt` dado un parámetro de entrada de tipo caracter o flotante, retorna un número entero asociado.
 
-* `toDouble` dado un parámetro de entrada de tipo entero, retorna un número flotante asociado.
+* `toDouble` dado un parámetro de entrada de tipo entero o caracter, retorna un número flotante asociado.
 
-* `toChar` dado un parámetro de entrada de tipo entero, retorna un carácter asociado al numero.
+* `toChar` dado un parámetro de entrada de tipo entero o flotante, retorna un carácter asociado al número.
 
 * La conversión explicita de tipos es como sigue:
-
 
 		toInt(<Expresión>);
 		toDouble(<Expresión>);
@@ -484,9 +483,9 @@
 
 #### Valor Absoluto
 
-* `abs` dado una variable entera o flotante retorna el numero natural asociado.
+* `abs` dado una variable entera o flotante retorna el número natural asociado.
 
 #### Raíz  Cuadrada
 
-* `sqrt` dado una variable entera o flotante retorna la raíz  cuadrada del numero, el resultado es de tipo flotante.
+* `sqrt` dado una variable entera o flotante retorna la raíz cuadrada del número, el resultado es de tipo flotante.
 

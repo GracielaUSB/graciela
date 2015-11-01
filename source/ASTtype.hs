@@ -194,7 +194,7 @@ verTypeAST (Quant op var loc range term _) =
                                     { Nothing -> return $ Quant op var loc range' term' checkT
                                     ; Just r  -> return $ QuantRan op var loc r term' checkT
                                     }
-                         ; False -> do addNotOccursVarError id loc
+                         ; False -> do addNotOccursVarError op id loc
                                        return $ Quant op var loc range' term' MyError
                          }
         }

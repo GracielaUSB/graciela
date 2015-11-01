@@ -321,7 +321,7 @@ quantification follow recSet =
      parseColon
      t <- myType parsePipe (recSet <|> parsePipe)
      newScopeParser
-     v <- addCuantVar id t (getLocation pos)
+     v <- addCuantVar op id t (getLocation pos)
      parsePipe
      r <- rangeQuantification parsePipe (parsePipe <|> recSet)
      parsePipe
