@@ -1,5 +1,6 @@
 module MyTypeError where
 
+import Data.List
 import Contents       as C
 import Data.Text      as T hiding (foldl)
 import Data.Foldable       hiding (foldl)
@@ -107,38 +108,41 @@ data MyTypeError = RepSymbolError  { symbol :: T.Text
                                    , tree   :: AST Type
                                    , loc    :: Location
                                    } 
-                 | DiffSizeError   { location :: Location 
+                 | DiffSizeError   { loc    :: Location 
                                    }
-                 | TypeDecError    { symbol   :: T.Text
-                                   , location :: Location
-                                   , typeExp  :: Type
-                                   , typeVar  :: Type
+                 | TypeDecError    { symbol :: T.Text
+                                   , loc    :: Location
+                                   , tyExp  :: Type
+                                   , tyVar  :: Type
                                    }
-                 | QuantIntError   { op       :: OpQuant
-                                   , trange   :: Type
-                                   , tterm    :: Type
-                                   , location :: Location
+                 | QuantRangeError { op     :: OpQuant
+                                   , trange :: Type
+                                   , loc    :: Location
+                                   } 
+                 | QuantIntError   { op     :: OpQuant
+                                   , tterm  :: Type
+                                   , loc    :: Location
                                    }
-                 | QuantBoolError  { op       :: OpQuant
-                                   , trange   :: Type
-                                   , tterm    :: Type
-                                   , location :: Location
+                 | QuantBoolError  { op     :: OpQuant
+                                   , tterm  :: Type
+                                   , loc    :: Location
                                    }
-                 | NotIntError     { symbol   :: T.Text
-                                   , location :: Location
+                 | NotIntError     { symbol :: T.Text
+                                   , loc    :: Location
                                    }
-                 | NotConstError   { symbol   :: T.Text
-                                   , location :: Location
+                 | NotConstError   { symbol :: T.Text
+                                   , loc    :: Location
                                    }
-                 | NotInitError    { symbol   :: T.Text
-                                   , location :: Location
+                 | NotInitError    { symbol :: T.Text
+                                   , loc    :: Location
                                    }
-                 | NotRValueError  { symbol   :: T.Text
-                                   , location :: Location
+                 | NotRValueError  { symbol :: T.Text
+                                   , loc    :: Location
                                    }
-                 | IntError        { symbol   :: T.Text
-                                   , location :: Location
+                 | IntError        { symbol :: T.Text
+                                   , loc    :: Location
                                    }
+                                   
 
 instance Show MyTypeError where
    show (RepSymbolError     sym pLoc loc) = 
@@ -207,10 +211,12 @@ instance Show MyTypeError where
             errorL loc ++ ": El número de variables declaradas es distinto al de expresiones de inicialización encontradas."
    show (TypeDecError  id loc te tv) = 
             errorL loc ++ ": La variable " ++ show id ++ " es del tipo " ++ show tv ++ " pero su expresión correspondiente es del tipo " ++ show te ++ "."
-   show (QuantIntError  op tr tt loc) = 
-            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo int o double, en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del Cuantificador " ++ show op ++ "."
-   show (QuantBoolError  op tr tt loc) = 
-            errorL loc ++ ": Esperaba un rango del tipo boolean y un término del tipo boolean en vez de " ++ show tr ++ " y " ++ show tt ++ ", en el uso del Cuantificador " ++ show op ++ "."
+   show (QuantRangeError op tr loc) = 
+            errorL loc ++ ": El Cuantificador " ++ show op ++ " esperaba un rango del tipo boolean, se suministró " ++ show tr ++ "."
+   show (QuantIntError  op tt loc) = 
+            errorL loc ++ ": El Cuantificador " ++ show op ++ " esperaba un término del tipo int o double, se suministró " ++ show tt ++ "."
+   show (QuantBoolError  op tt loc) = 
+            errorL loc ++ ": El Cuantificador " ++ show op ++ " esperaba un término del tipo boolean, se suministró " ++ show tt ++ "."
    show (NotConstError  id            loc) = 
             errorL loc ++ ": La variable " ++ show id ++ " no es constante."
    show (NotIntError  id            loc) = 
@@ -223,9 +229,12 @@ instance Show MyTypeError where
             errorL loc ++ ": La variable " ++ show id ++ " no es del tipo int."
 
 
+checkErrorPosT :: MyTypeError -> MyTypeError -> Ordering
+checkErrorPosT x y = getFirstLoc (loc x) (loc y)  
 
 --drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n\n\nERRORES DE TIPOS:\n\n" (toList list)
 
-drawTypeError list = foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list)
+drawTypeError list = let list'' = sortBy checkErrorPosT list 
+                     in foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list'')
 
 

@@ -184,21 +184,23 @@ verTypeAST (ConsAssign loc xs es t) =
 verTypeAST (Quant op var loc range term _) = 
     do range' <- verTypeAST range  
        term'  <- verTypeAST term 
-       checkT <- verQuant op (tag range') (tag term') loc
-       case checkT of
-       { MyError   -> return (Quant op var loc range' term' checkT)
-       ; otherwise -> do let id = var
-                         r <- occursCheck range id
-                         case r of 
-                         { True  -> case astToRange var range' of
-                                    { Nothing -> return $ Quant op var loc range' term' checkT
-                                    ; Just r  -> return $ QuantRan op var loc r term' checkT
-                                    }
-                         ; False -> do addNotOccursVarError op id loc
-                                       return $ Quant op var loc range' term' MyError
-                         }
+       case (tag range' == MyError) || (tag term' == MyError) of
+       { True  -> return $ Quant op var loc range' term' MyError
+       ; False -> do checkT <- verQuant op (tag range') (tag term') loc
+                     case checkT of
+                     { MyError   -> return (Quant op var loc range' term' checkT)
+                     ; otherwise -> do let id = var
+                                       r <- occursCheck range id
+                                       case r of 
+                                       { True  -> case astToRange var range' of
+                                                  { Nothing -> return $ Quant op var loc range' term' checkT
+                                                  ; Just r  -> return $ QuantRan op var loc r term' checkT
+                                                  }
+                                       ; False -> do addNotOccursVarError op id loc
+                                                     return $ Quant op var loc range' term' MyError
+                                       }
+                      }
         }
-
 
 verTypeAST ast = return $ ast
 
@@ -248,8 +250,8 @@ getLocArgs :: [AST Type] -> MyVerType [Location]
 getLocArgs args = return $ fmap AST.location args
 
 
-drawASTtype :: (AST Type, DS.Seq MyTypeError) -> String
-drawASTtype (ast, err) = case (DS.null err) of
-                         { True  ->  show ast
-                         ; False -> (show ast) ++ (drawTypeError err) 
-                         } 
+--drawASTtype :: (AST Type, DS.Seq MyTypeError) -> String
+--drawASTtype (ast, err) = case (DS.null err) of
+--                         { True  ->  show ast
+--                         ; False -> (show ast) ++ (drawTypeError err) 
+--                         } 

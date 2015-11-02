@@ -19,3 +19,10 @@ getLocation :: SourcePos -> Location
 getLocation pos = Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
 
 
+--getFirstLoc :: Location -> Location -> Location
+getFirstLoc x y = case compare (line x) (line y) of
+				  { LT -> LT
+				  ; GT -> GT
+				  ; EQ -> compare (column x) (column y) 
+				  } 
+    

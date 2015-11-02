@@ -83,7 +83,7 @@ play inp =
                      lErrSyn  = DF.toList $ synErrorList    st
                  in if (null lErrType) && (null lErrSyn) then
                         do let (t, l) = runTVerifier (symbolTable st) ast 
-                               l' = DF.toList l 
+                               l'     = DF.toList l 
 
                            if not $ null l' then 
                                putStrLn $ drawTypeError l'

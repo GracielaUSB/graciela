@@ -64,21 +64,21 @@ data OpUn = Minus | Not | Abs | Sqrt
       deriving (Eq) 
 
 instance Show OpUn where
-   show Minus  = "Negativo: "
-   show Not    = "Negación: "
-   show Abs    = "Valor Absoluto: "
-   show Sqrt   = "Raíz Cuadrada: "
+   show Minus  = "Negativo"
+   show Not    = "Negación"
+   show Abs    = "Valor Absoluto"
+   show Sqrt   = "Raíz Cuadrada"
 
 
 data StateCond = Pre | Post | Assertion | Bound | Invariant
       deriving (Eq)
 
 instance Show StateCond where
-   show Pre       = "Precondición "
-   show Post      = "Postcondición "
-   show Assertion = "Aserción "
-   show Bound     = "Función de Cota "
-   show Invariant = "Invariante "
+   show Pre       = "Precondición"
+   show Post      = "Postcondición"
+   show Assertion = "Aserción"
+   show Bound     = "Función de Cota"
+   show Invariant = "Invariante"
 
 
 data OpQuant = ForAll | Exists | Summation | Product | Minimum | Maximum

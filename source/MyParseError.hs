@@ -18,7 +18,7 @@ data MyParseError = MyParseError   { loc       :: Location
                   | NonAsocError   { loc       :: Location 
                                    }
                   | ScopesError
-
+                  
 
 data WaitedToken =  Operator
                   | Number
@@ -70,3 +70,7 @@ newParseError :: WaitedToken -> (Token, P.SourcePos) -> MyParseError
 newParseError  msg (e, pos) = 
     MyParseError { loc = Location (P.sourceLine pos) (P.sourceColumn pos) (P.sourceName pos), 
                                                                 waitedTok = msg, actualTok = e }
+
+
+checkErrorPosP :: MyParseError -> MyParseError -> Ordering
+checkErrorPosP x y = getFirstLoc (loc x) (loc y)  

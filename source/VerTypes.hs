@@ -210,33 +210,36 @@ verRandom name t loc =
 
 verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType Type
 verQuant op range term loc = 
-    case op of
-    { ForAll    -> case range == MyBool && term == MyBool of
-                   { True  -> return MyBool 
-                   ; False -> addQuantBoolError op range term loc
-                   }  
-    ; Exists    -> case range == MyBool && term == MyBool of
-                   { True  -> return MyBool 
-                   ; False -> addQuantBoolError op range term loc
-                   }
-    ; Product   -> case range == MyBool && (term == MyInt || term == MyFloat) of 
-                   { True  -> return term 
-                   ; False -> addQuantIntError op range term loc
-                   }
-    ; Summation -> case range == MyBool && (term == MyInt || term == MyFloat) of
-                   { True  -> return term 
-                   ; False -> addQuantIntError op range term loc
-                   }
-    ; Maximum   -> case range == MyBool && (term == MyInt || term == MyFloat) of
-                   { True  -> return term 
-                   ; False -> addQuantIntError op range term loc
-                   }
-    ; Minimum   -> case range == MyBool && (term == MyInt || term == MyFloat) of
-                   { True  -> return term 
-                   ; False -> addQuantIntError op range term loc
-                   }
-    }
 
+    case range of     
+    { MyBool    ->  case op of
+                    { ForAll    -> case term == MyBool of
+                                   { True  -> return MyBool 
+                                   ; False -> addQuantBoolError op term loc
+                                   }  
+                    ; Exists    -> case term == MyBool of
+                                   { True  -> return MyBool 
+                                   ; False -> addQuantBoolError op term loc
+                                   }
+                    ; Product   -> case term == MyInt || term == MyFloat of 
+                                   { True  -> return term 
+                                   ; False -> addQuantIntError op term loc
+                                   }
+                    ; Summation -> case term == MyInt || term == MyFloat of
+                                   { True  -> return term 
+                                   ; False -> addQuantIntError op term loc
+                                   }
+                    ; Maximum   -> case term == MyInt || term == MyFloat of
+                                   { True  -> return term 
+                                   ; False -> addQuantIntError op term loc
+                                   }
+                    ; Minimum   -> case term == MyInt || term == MyFloat of
+                                   { True  -> return term 
+                                   ; False -> addQuantIntError op term loc
+                                   }
+                    }
+    ; otherwise -> addQuantRangeError op range loc
+    }
 
 verConsAssign :: [(T.Text, Location)] -> Location -> [Type] -> Type -> MyVerType Type
 verConsAssign xs loc ts t =
@@ -363,8 +366,11 @@ addLAssignError (res:rs) ((name, op1, op2, loc):xs) =
   if res then
     addLAssignError rs xs
   else
-    do addAssignError name op1 op2 loc
-       addLAssignError rs xs
+    do case op1 == MyError || op2 == MyError of 
+       { True  -> addLAssignError rs xs
+       ; False -> do addAssignError name op1 op2 loc
+                     addLAssignError rs xs
+       } 
 
 addLAssignError [] [] = return MyError
 

@@ -12,8 +12,8 @@ import Text.Parsec
 import MyTypeError
 import SymbolTable
 import Contents
+import Location
 import Token
-
 
 type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
 
@@ -74,13 +74,18 @@ lookUpVarState id sb = checkSymbol id sb
 
 
 drawState :: ParserState -> String
-drawState st = case (DS.null $ synErrorList st) && (DS.null $ sTableErrorList st) of
-               { True  -> "\nTABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
-               ; False -> "\n" ++ (drawError $ synErrorList st) ++ (drawError $ sTableErrorList st)
+drawState st = case (DS.null $ synErrorList st) of
+               { False  -> drawError $ DS.sortBy checkErrorPosP (synErrorList st)
+               ; True   -> case (DS.null $ sTableErrorList st) of
+                          { True  ->  "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
+                                      --TABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
+                          ; False -> drawError $ DS.sortBy checkErrorPosT (sTableErrorList st)
+                          }
                }
 
 
 drawError list = case (DS.null list) of
-                 { True  -> ""
-                 ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "" (toList list)
+                 { True  -> "LISTA DE ERRORES VACIA"
+                 ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list)
                  }
+

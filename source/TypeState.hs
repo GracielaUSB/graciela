@@ -13,6 +13,11 @@ import AST
 type MyVerType a = RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) a
 
 
+addTypeError :: MyTypeError -> MyVerType Type 
+addTypeError error = do RWSS.tell $ DS.singleton error
+                        return $ MyError
+
+
 addFunArgError :: T.Text -> Bool -> Type -> Type -> Location -> MyVerType Type
 addFunArgError name isFunc t t' loc = addTypeError $ FunArgError name isFunc t t' loc 
 
@@ -33,10 +38,6 @@ addDifSizeDecError :: Location -> MyVerType Type
 addDifSizeDecError loc = addTypeError $ DiffSizeError loc
 
 
-addTypeError :: MyTypeError -> MyVerType Type 
-addTypeError error = do RWSS.tell $ DS.singleton error
-                        return $ MyError
-
 addTypeDecError :: T.Text -> Location -> Type -> Type -> MyVerType Type 
 addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 
@@ -49,12 +50,17 @@ addInvalidPar :: T.Text -> AST Type -> Location -> MyVerType Type
 addInvalidPar name id loc = addTypeError $ InvalidPar name id loc
 
 
-addQuantBoolError :: OpQuant -> Type -> Type -> Location -> MyVerType Type 
-addQuantBoolError op tr tt loc = addTypeError $ QuantBoolError op tr tt loc
+addQuantRangeError  :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantRangeError op range loc = addTypeError $ QuantRangeError op range loc
 
 
-addQuantIntError :: OpQuant -> Type -> Type -> Location -> MyVerType Type 
-addQuantIntError op tr tt loc = addTypeError $ QuantIntError op tr tt loc
+addQuantBoolError :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantBoolError op tt loc = addTypeError $ QuantBoolError op tt loc
+
+
+addQuantIntError :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantIntError op tt loc = addTypeError $ QuantIntError op tt loc
+
 
 addAssignError :: T.Text -> Type -> Type -> Location -> MyVerType Type  
 addAssignError name op1 op2 loc = addTypeError $ AssignError name op1 op2 loc
