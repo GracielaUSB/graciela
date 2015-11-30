@@ -183,7 +183,7 @@ constantBool n = ConstantOperand $ C.Int 1 n
 
 
 constantChar :: Char -> Operand
-constantChar c = ConstantOperand $ C.Int 8 $ toInteger (ord c)
+constantChar c = ConstantOperand $ C.Int 9 $ toInteger (ord c)
 
 
 defaultChar :: Operand
@@ -316,7 +316,7 @@ intType :: Type
 intType = i32
 
 charType :: Type
-charType = i8
+charType = IntegerType 9
 
 voidType :: Type
 voidType   = VoidType
