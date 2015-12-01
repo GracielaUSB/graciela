@@ -5,6 +5,8 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 
 #include "stdio.h"
 #include "stdlib.h"
+#include "wchar.h"
+#include "locale.h"
 
 int8_t* _openFile(char* nombreArchivo) {
     FILE* file;
@@ -139,9 +141,10 @@ void _writeLnBool(int x) {
 
 void _writeLnChar(int x) {
 
-    char c = x;
+    setlocale(LC_CTYPE, "");
+    wint_t ch = x;
+    printf("%lc\n", ch);
 
-    printf("%c\n", c);
     return;
 }
 
@@ -180,9 +183,10 @@ void _writeBool(int x) {
 
 void _writeChar(int x) {
 
-    char c = x;
-    
-    printf("%c", c);
+    setlocale(LC_CTYPE, "");
+    wint_t ch = x;
+    printf("%lc", ch);
+
     return;
 }
 
