@@ -153,10 +153,10 @@ verBlock accs =
        }
 
 
-verProgram :: [Type] -> [Type] -> MyVerType Type
+verProgram :: [Type] -> Type -> MyVerType Type
 verProgram defs accs =
     let func = checkListType MyEmpty
-    in case (foldl func True defs) && (foldl func True accs) of
+    in case (foldl func True defs) && (accs == MyEmpty) of
        { True  -> return $ MyEmpty
        ; False -> return $ MyError
        }

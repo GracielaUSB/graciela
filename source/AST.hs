@@ -130,7 +130,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
                         , tag       :: a
                         }
          | Ran          { var      :: T.Text, retType :: Type, location :: Location, tag :: a                                           }
-         | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: [AST a], tag :: a }
+         | Program      { pname    :: T.Text, location  :: Location, listdef :: [AST a],  listacc :: AST a, tag :: a }
          | GuardAction  { location :: Location , assertionGa :: (AST a), actionGa :: (AST a), tag :: a                 }
          | States       { tstate   :: StateCond, location :: Location,   exps     :: (AST a), tag :: a                 }
          | Quant        { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
@@ -168,7 +168,7 @@ checkWrite False = "Escribir"
 drawAST level ((Program name loc defs accs ast)) = 
    putSpacesLn level `mappend` "Programa: " `mappend` show name `mappend` putLocation loc 
                      `mappend` " //Tag: "   `mappend` show ast 
-                     `mappend` drawASTList (level + 4) defs     `mappend` drawASTList (level + 4) accs
+                     `mappend` drawASTList (level + 4) defs     `mappend` drawAST (level + 4) accs
 
 
 drawAST level ((DefProc name _ accs pre post bound _ _ ast)) = 

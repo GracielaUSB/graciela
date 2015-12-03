@@ -3,6 +3,7 @@ module ParserState where
 import qualified Data.Text  as T 
 import Control.Monad.State  as ST
 import Contents              as CO
+import TokenParser
 import MyParseError
 import MyTypeError
 import ParserError
@@ -206,9 +207,12 @@ addArrayCallError waDim prDim = do pos <- getPosition
 
 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
-genNewError laset msg = do  pos <- cleanEntry laset
-                            ST.modify $ addParsingError $ newParseError msg pos
-                            return ()
+genNewError laset msg =
+    do lookAhead (parseEnd <|> laset)
+       return ()
+       <|> do  pos <- cleanEntry laset
+               ST.modify $ addParsingError $ newParseError msg pos
+               return ()
 
 
 genNewEmptyError :: MyParser ()
