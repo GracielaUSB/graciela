@@ -40,6 +40,8 @@ data WaitedToken =  Operator
                   | TokenOA
                   | TokenCA
                   | TokenArg
+                  | SColon
+                  | Action
 
 instance Show WaitedToken where
   show Operator   = "Operador"
@@ -62,6 +64,8 @@ instance Show WaitedToken where
   show TokenCA    = "Token representante de final de aserción"
   show TokenOA    = "Token representande de inicio de aserción"
   show TokenArg   = "Token representante de clase de argumento"
+  show SColon     = "punto y coma (;)"
+  show Action     = "acción"
 
 instance Show MyParseError where
   show (MyParseError loc wt at) = 

@@ -309,28 +309,21 @@ arg pid follow recSet =
 functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 functionBody follow recSet = 
     do pos <- getPosition
-       try (
-         do parseBegin
-            cif <- (conditional CExpression parseLexEnd parseLexEnd) <|> (expr parseLexEnd parseLexEnd)
-            try (
-              do parseLexEnd
-                 return cif
-                )
-                <|> do genNewError follow PE.Begin
-                       return Nothing
-            )
-            <|> do genNewError follow PE.Begin
-                   return Nothing
+       do parseBegin
+          cif <- (conditional CExpression parseLexEnd parseLexEnd) <|> (expr parseLexEnd parseLexEnd)
+          do parseLexEnd
+             return cif
+             <|> do genNewError follow PE.LexEnd
+                    return Nothing
+          <|> do genNewError follow PE.Begin
+                 return Nothing
 
 
 actionsList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
 actionsList follow recSet = 
-    do lookAhead (follow)
-       genNewEmptyError
-       return $ Nothing
-       <|> do ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
-              rl <- actionsListAux follow recSet
-              return (AP.liftA2 (:) ac rl)
+     do ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
+        rl <- actionsListAux follow recSet
+        return (AP.liftA2 (:) ac rl)
      
 
 actionsListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
@@ -341,9 +334,8 @@ actionsListAux follow recSet =
               ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
               rl <- actionsListAux follow recSet
               return (AP.liftA2 (:) ac rl)
-       -- Aqui paso algo raro pero ese no es mi peo
-       <|> (return $ Nothing)
-                                         
+              <|> do genNewError follow PE.SColon
+                     return Nothing
 
 actionAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 actionAux follow recSet = 
@@ -360,7 +352,7 @@ actionAux follow recSet =
 
 followAction ::  MyParser Token
 followAction = (parseDo <|> parseTokID <|> parseIf <|> parseAbort <|> parseSkip <|> 
-                parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv)
+                  parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv <|> parseRandom)
 
 
 block :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
@@ -477,10 +469,17 @@ idAssignListAux follow recSet =
 action :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 action follow recSet = 
     do pos <- getPosition
-       do  actionAux follow recSet
-           <|> do as  <- assertion followAction (followAction <|> recSet)
-                  res <- actionAux follow recSet
-                  return $ AP.liftA3 (GuardAction (getLocation pos)) as res (return MyEmpty)
+       do  lookAhead followAction
+           actionAux follow recSet
+           <|> do lookAhead parseTokLeftA
+                  as  <- assertion followAction (followAction <|> recSet)
+                  do lookAhead followAction
+                     res <- actionAux follow recSet
+                     return $ AP.liftA3 (GuardAction (getLocation pos)) as res (return MyEmpty)
+                     <|> do genNewError follow Action 
+                            return Nothing
+           <|> do genNewError follow Action 
+                  return Nothing
 
 write :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 write follow recSet = 
