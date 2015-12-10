@@ -1,16 +1,16 @@
 
  Proyecto creado por Joel Araujo y José Luis Jiménez.
- Tutores: Ricardo Monascal y Ernesto Hernández-Novich.
+ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 - - -
 
-# GaCeLa 2.0
+# GraCieLa
 
 * Hablar filosoficamente del lenguaje ****
 
 ## Consideraciones Léxicográficas
 
- * Las palabras descritas a continuación son reservadas por el lenguaje, por lo tanto no pueden ser utilizadas como identificadores ni ser redefinidas.
+ * Las palabras descritas a continuación son reservadas por el lenguaje, por lo tanto, no pueden ser utilizadas como identificadores ni ser redefinidas.
 
 |          |             |           |             |          |           |        |          |
 |----------|-------------|-----------|-------------|----------|-----------|--------|----------|
@@ -38,7 +38,7 @@
 
 ## Estructura del programa
 
-* Todo programa en **GaCeLa 2.0** consta de un `program` obligatorio con su respectivo identificador.
+* Todo programa en **GraCieLa** consta de un `program` obligatorio con su respectivo identificador.
 
 * Los programas pueden definir varios procedimientos y funciones, como también podría no tener ninguno.
 
@@ -47,7 +47,8 @@
 * La estructura del programa es la siguiente:
 
 
-		program <Identificador> begin
+		program <Identificador> 
+		begin
 			<Funciones y Procedimientos>
             |[
 				<Declaracion de variables>
@@ -126,7 +127,7 @@
 * La declaración de los arreglos multidimensionales es la siguiente:
 
 
-		var <Identificador> : array [<Número>] of <array [<Número>] of ... <array 		      [<Número>] of <Tipo>;
+		var <Identificador> : array [<Número>] of <array [<Número>] of ... <array [<Número>] of <Tipo>;
 
 
 ## Operadores
@@ -148,7 +149,7 @@
         + - (suma, resta)
         < <= > >= (relacionales)
         == != (comparación)
-        /\ \/ ("y" y "o" Lógico)
+        /\ \/ (disjunción, conjunción)
         ==> <== (implicación , consecuente)
 
 ## Variables
@@ -219,9 +220,9 @@
 *  El selector es de la siguiente manera:
 
 
-		if <Expresión> -> <Acciones>
+		if <Expresión> -> <Acción>
         []  ...
-        [] <Expresión> -> <Acciones>
+        [] <Expresión> -> <Acción>
         fi
 
         func <Identificador> : (<Parámetros>) -> <Tipo de Retorno>
@@ -244,9 +245,9 @@
 * La iteración acotada es la siguiente:
 
 
-		 {inv <Expresion> inv}
-         {bound <Expresion> bound}
- 		do <Expresion> -> <Acciones>
+		 {inv   <Expresion> }
+         {bound <Expresion> }
+ 		 do <Expresion> -> <Acciones>
          []  ...
          [] <Expresion> -> <Acciones>
          od
@@ -283,7 +284,7 @@
 
 
 		<Instrucción>
-		{a <Expresión> a}
+		{a <Expresión> }
 
 
 #### Invariantes
@@ -297,8 +298,8 @@
 * La función de cota corresponde a la condición que garantiza que el ciclo terminará. Por cada una de las iteraciones de un iterador se verificará que el valor sea menor al valor obtenido en la iteración anterior y además sea mayor o igual a **0**, si no se cumple, el programa terminará su ejecución con el mensaje de error correspondiente.
 
 
-		{inv   <Expresión>   inv}
-        {bound <Expresión> bound}
+		{inv   <Expresión> }
+        {bound <Expresión> }
     	<Iteración>
 
 
