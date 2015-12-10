@@ -7,6 +7,7 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "stdlib.h"
 #include "wchar.h"
 #include "locale.h"
+#include "string.h"
 
 int8_t* _openFile(char* nombreArchivo) {
     FILE* file;
@@ -114,48 +115,6 @@ double _readDoubleStd () {
 }
 
 
-void _writeLnInt(int x) {
-
-    printf("%d\n", x);
-    return;
-}
-
-
-void _writeLnDouble(double x) {
-
-    printf("%f\n", x);
-    return;
-}
-
-
-void _writeLnBool(int x) {
-
-    if (x == 1) 
-    	printf("%s\n", "true");
-    else 
-    	printf("%s\n", "false");
-
-    return;
-}
-
-
-void _writeLnChar(int x) {
-
-    setlocale(LC_CTYPE, "");
-    wint_t ch = x;
-    printf("%lc\n", ch);
-
-    return;
-}
-
-
-void _writeLnString(char *x) {
-
-    printf("%s\n",x);
-    return;
-}
-
-
 void _writeInt(int x) {
 
     printf("%d", x);
@@ -185,15 +144,71 @@ void _writeChar(int x) {
 
     setlocale(LC_CTYPE, "");
     wint_t ch = x;
-    printf("%lc", ch);
+
+    printf("%lc", x);
+    return;
+}
+
+
+void _writeString(short *x) {
+
+    int i=0;
+    setlocale(LC_CTYPE, "");
+
+    while (!(x[i] == 0)) {
+
+        if ((x[i] == 92) && (x[i+1] == 110)) {
+          printf("\n");
+          i++;
+        } else
+          printf("%lc",x[i]);
+        
+        i++;
+    };
 
     return;
 }
 
 
-void _writeString(char *x) {
+void _writeLnInt(int x) {
 
-    printf("%s",x);
+    printf("%d\n", x);
+    return;
+}
+
+
+void _writeLnDouble(double x) {
+
+    printf("%f\n", x);
+    return;
+}
+
+
+void _writeLnBool(int x) {
+
+    if (x == 1) 
+      printf("%s\n", "true");
+    else 
+      printf("%s\n", "false");
+
+    return;
+}
+
+
+void _writeLnChar(int x) {
+
+    setlocale(LC_CTYPE, "");
+    wint_t ch = x;
+
+    printf("%lc\n", x);
+    return;
+}
+
+
+void _writeLnString(short *x) {
+
+    _writeString(x);
+    printf("\n");
     return;
 }
 

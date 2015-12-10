@@ -70,14 +70,19 @@ play inp =
           do let msg  = head $ messageString $ head $ errorMessages err
              let col  = sourceColumn $ errorPos err
              let line = sourceLine   $ errorPos err
-             putStrLn $ "\nABORT: En la línea " ++ show line ++ ", columna " ++ show col ++
-                        ", Ocurrio un ERROR Lexicografico, Caracter " ++ show msg ++ " inválido. \n"
+             putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
+                        ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
 
     ; Right par -> 
           case par of
           { (Left  err', _ ) -> 
-                 putStrLn $ "\nABORT: Ocurrio un error en el proceso de parseo " ++ (show err')
+                 putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
           
+                 --do let msg  = head $ messageString $ head $ errorMessages err'
+                 --   let col  = sourceColumn $ errorPos err'
+                 --   let line = sourceLine   $ errorPos err'
+                 --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
+
           ; (Right (Just ast) , st) -> 
                  let lErrType = DF.toList $ sTableErrorList st
                      lErrSyn  = DF.toList $ synErrorList    st

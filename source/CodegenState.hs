@@ -87,18 +87,6 @@ globalVariable name ty init = do
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
-addString :: String -> Name -> Type -> LLVM ()
-addString msg name ty = do
-    defs <- gets moduleDefs
-    let def = GlobalDefinition $ globalVariableDefaults {
-                name        = name
-              , isConstant  = True
-              , GLOB.type'  = ty  
-              , initializer = Just $ constantString msg
-              }
-    modify $ \s -> s { moduleDefs = defs DS.|> def}
-
-
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
     lins  <- gets instrs
@@ -120,19 +108,43 @@ addNamedInstruction t name ins = do
     return op 
 
 
+
+addString :: String -> Name -> Type -> LLVM ()
+addString msg name ty = do
+    defs <- gets moduleDefs
+    let def = GlobalDefinition $ globalVariableDefaults {
+                name        = name
+              , isConstant  = True
+              , GLOB.type'  = ty  
+              , initializer = Just $ constantString msg
+              }
+    modify $ \s -> s { moduleDefs = defs DS.|> def}
+
+
+
 addStringOpe :: String -> LLVM (Operand)
 addStringOpe msg = do
     let n  = fromIntegral $ Prelude.length msg+1
-    let ty = ArrayType n charType 
+    let ty = ArrayType n i16 
     name <- newLabel 
     addString msg name ty
-    return $ ConstantOperand $ C.GetElementPtr True (global charType name) [C.Int 64 0, C.Int 64 0]
+    return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
 
 
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do
     addBasicBlock t800
     modify $ \s -> s { blockName = name }
+
+
+checkVar :: String -> Type -> LLVM Operand
+checkVar id ty = do 
+    vars <- gets varsLoc
+    case DM.lookup id vars of
+    { Just op -> return op 
+    ; Nothing -> do op <- alloca Nothing ty id 
+                    return op
+    }
 
 
 addVarOperand :: String -> Operand -> LLVM()
@@ -187,21 +199,12 @@ constantChar c = ConstantOperand $ C.Int 9 $ toInteger (ord c)
 
 
 defaultChar :: Operand
-defaultChar = ConstantOperand $ C.Int 8 1
+defaultChar = ConstantOperand $ C.Int 9 1
 
 
 constantString :: String -> C.Constant
 constantString msg =
-    let lastTwo res = (last $ init res):[last res]
-    
-        f = (\acc i -> if lastTwo acc == "\\n" then 
-                          (init $ init acc) ++ " \n" ++ [i]
-                       else 
-                          acc ++ [i])
-
-        res = tail $ tail $ foldl f "  " msg
-  
-    in C.Array i8 [C.Int 8 (toInteger (ord c)) | c <- (res ++ "\0")]    
+   C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- (msg ++ "\0")]    
 
 
 definedFunction :: Type -> Name -> Operand
@@ -328,7 +331,7 @@ doubleType :: Type
 doubleType = double
 
 stringType :: Type
-stringType = PointerType i8 (AddrSpace 0)
+stringType = PointerType i16 (AddrSpace 0)
 
 
 toType :: T.Type -> Type

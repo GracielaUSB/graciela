@@ -175,6 +175,10 @@ createLLVM files defs accs = do
 convertID :: String -> String
 convertID name = '_':name
 
+convertID' :: MyAST.AST T.Type -> String
+convertID' (MyAST.ArrCall _ id _ _) = "__" ++ (TE.unpack id)
+convertID' (MyAST.ID        _ id _) = "__" ++ (TE.unpack id)
+
 
 addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 addArgOperand [] = return ()
@@ -407,11 +411,21 @@ getStoreDir (MyAST.ArrCall _ name exps _) = do
     addUnNamedInstruction intType $ GetElementPtr True i [ac''] []
 
  
-createAssign :: MyAST.AST T.Type -> MyAST.AST T.Type -> LLVM () 
-createAssign id exp = do
+createAssign :: MyAST.AST T.Type -> MyAST.AST T.Type -> LLVM String 
+createAssign id' exp = do
+    let id = convertID' id'
+    let ty = toType $ MyAST.tag exp
     e'  <- createExpression exp
-    id' <- getStoreDir id 
+    op  <- checkVar id ty 
+    res <- store ty op e'
+    return id
+
+
+createMultyAssign :: MyAST.AST T.Type -> String -> LLVM ()
+createMultyAssign id aux = do
     let ty = toType $ MyAST.tag id
+    id' <- getStoreDir id
+    e'  <- load aux ty
     store ty id' e'
     return ()
 
@@ -432,8 +446,17 @@ createInstruction (MyAST.GuardAction _ assert action ty) = do
     createInstruction action
 
 
+createInstruction (MyAST.LAssign (id:[]) (exp:[]) _ _) = do
+    let ty = toType $ MyAST.tag id
+    e'  <- createExpression exp
+    id' <- getStoreDir id 
+    store ty id' e'
+    return ()
+
+
 createInstruction (MyAST.LAssign ids exps _ _) = do
-    mapM_ (uncurry createAssign) $ zip ids exps
+    list <- mapM (uncurry createAssign) $ zip ids exps
+    mapM_   (uncurry createMultyAssign) $ zip ids list
 
 
 createInstruction (MyAST.Write True exp _ t) = do
