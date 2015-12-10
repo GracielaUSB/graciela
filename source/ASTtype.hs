@@ -23,9 +23,9 @@ runTVerifier sTable sTree = RWSS.evalRWS (verTypeAST sTree) sTable []
 verTypeAST :: (AST Type) -> RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) (AST Type)
 verTypeAST (AST.Program name loc defs accs _) =
     do defs'    <- mapM verTypeAST defs
-       accs'    <- mapM verTypeAST accs
+       accs'    <- verTypeAST accs
        let defsT = map tag defs'
-       let accsT = map tag accs'
+       let accsT = tag accs'
        checkT   <- verProgram defsT accsT
        return $ AST.Program name loc defs' accs' checkT
 

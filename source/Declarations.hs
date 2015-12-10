@@ -100,18 +100,22 @@ parseLocation =
                   
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListWithRead follow recSet = 
-    do ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
-       do loc <- parseLocation
-          parseRead
-          parseLeftParent
-          lid <- idList (parseRightParent) (recSet <|> parseRightParent)
-          ts <- verifyReadVars lid
-          parseRightParent
-          do parseWith
-             id <- parseString
-             addFileToReadParser id
-             parseSemicolon
-             return $ AP.liftA2 (++) ld $ fmap (:[]) $ AP.liftA2 (Read loc (Just id) ts) lid (return MyEmpty)
-             <|> do parseSemicolon
-                    return $ AP.liftA2 (++) ld $ fmap (:[]) $ AP.liftA2 (Read loc Nothing ts) lid (return MyEmpty)
-          <|> (return ld)
+    do lookAhead follow
+       return $ return []
+    <|> do lookAhead (parseRead <|> parseConst <|> parseVar)
+           ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
+           do loc <- parseLocation
+              parseRead
+              parseLeftParent
+              lid <- idList (parseRightParent) (recSet <|> parseRightParent)
+              ts <- verifyReadVars lid
+              parseRightParent
+              do parseWith
+                 id <- parseString
+                 addFileToReadParser id
+                 parseSemicolon
+                 return $ AP.liftA2 (++) ld $ fmap (:[]) $ AP.liftA2 (Read loc (Just id) ts) lid (return MyEmpty)
+                 <|> do parseSemicolon
+                        return $ AP.liftA2 (++) ld $ fmap (:[]) $ AP.liftA2 (Read loc Nothing ts) lid (return MyEmpty)
+              <|> (return ld)
+    <|> return Nothing

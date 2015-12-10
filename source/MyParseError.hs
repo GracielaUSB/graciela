@@ -32,11 +32,20 @@ data WaitedToken =  Operator
                   | ProcOrFunc
                   | Colon
                   | IDError
+                  | Begin
+                  | LexEnd
+                  | TokenFunc
+                  | Arrow
+                  | TokenLP
+                  | TokenOA
+                  | TokenCA
+                  | TokenArg
 
 instance Show WaitedToken where
   show Operator   = "Operador"
   show Number     = "Número"
   show TokenRP    = "Paréntesis Derecho"
+  show TokenLP    = "Paréntesis Iquierdo"
   show Comma      = "Coma"
   show Final      = "Final de Archivo"
   show TokenRB    = "Corchete Derecho"
@@ -46,7 +55,13 @@ instance Show WaitedToken where
   show ProcOrFunc = "Procedimiento o Función"
   show Colon      = "Dos puntos"
   show IDError    = "Identificador"
-
+  show Begin      = "Begin"
+  show LexEnd     = "Token end"
+  show TokenFunc  = "Token func"
+  show Arrow      = "Token ->"
+  show TokenCA    = "Token representante de final de aserción"
+  show TokenOA    = "Token representande de inicio de aserción"
+  show TokenArg   = "Token representante de clase de argumento"
 
 instance Show MyParseError where
   show (MyParseError loc wt at) = 

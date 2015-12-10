@@ -158,14 +158,14 @@ closeFile file = do
     caller voidType (Right $ definedFunction voidType (Name closeFileStr)) [(op, [])]
 
 
-createLLVM :: [String] -> [MyAST.AST T.Type] -> [MyAST.AST T.Type] -> LLVM ()
+createLLVM :: [String] -> [MyAST.AST T.Type] -> MyAST.AST T.Type -> LLVM ()
 createLLVM files defs accs = do
 
     createPreDef files
     mapM_ createDef defs
     m800 <- retVoid
     mapM openFile files
-    mapM_ createInstruction accs
+    createInstruction accs
     mapM closeFile files
     addBasicBlock m800
     addDefinition "main" ([],False) voidType
