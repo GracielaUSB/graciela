@@ -27,37 +27,35 @@ decList follow recSet =
 decListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListAux follow recSet = 
     do loc <- parseLocation
-       do lookAhead follow
-          return $ return []
-          <|> do parseVar
-                 idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
-                 do     parseColon
-                        t <- myType parseSemicolon recSet
-                        addManyUniSymParser idl t
-                        parseSemicolon
-                        rl <- decListAux follow recSet
-                        return $ AP.liftA2 (++) (fmap (map (\(name,loc') -> AST.ID loc' name t)) idl) rl
-                    <|> do parseAssign
-                           lexp <- consListParser parseColon (parseColon <|> recSet)
-                           parseColon
-                           t <- myType parseSemicolon recSet
-                           addManySymParser CO.Variable idl t lexp
-                           parseSemicolon
-                           rl <- decListAux follow recSet
-                           let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
-                           return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return MyEmpty)) rl
-
-                 <|> do parseConst
-                        idl <- idList (parseAssign) (recSet <|> parseAssign)
-                        parseAssign
-                        lexp <- consListParser parseColon (parseColon <|> recSet)
-                        parseColon
-                        t <- myType parseSemicolon recSet
-                        addManySymParser CO.Constant idl t lexp
-                        parseSemicolon
-                        rl <- decListAux follow recSet
-                        let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
-                        return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return MyEmpty)) rl
+       do parseVar
+          idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
+          do     parseColon
+                 t <- myType parseSemicolon recSet
+                 addManyUniSymParser idl t
+                 parseSemicolon
+                 rl <- decListAux follow recSet
+                 return $ AP.liftA2 (++) (fmap (map (\(name,loc') -> AST.ID loc' name t)) idl) rl
+             <|> do parseAssign
+                    lexp <- consListParser parseColon (parseColon <|> recSet)
+                    parseColon
+                    t <- myType parseSemicolon recSet
+                    addManySymParser CO.Variable idl t lexp
+                    parseSemicolon
+                    rl <- decListAux follow recSet
+                    let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
+                    return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return MyEmpty)) rl
+          <|> do parseConst
+                 idl <- idList (parseAssign) (recSet <|> parseAssign)
+                 parseAssign
+                 lexp <- consListParser parseColon (parseColon <|> recSet)
+                 parseColon
+                 t <- myType parseSemicolon recSet
+                 addManySymParser CO.Constant idl t lexp
+                 parseSemicolon
+                 rl <- decListAux follow recSet
+                 let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
+                 return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return MyEmpty)) rl
+          <|> do return $ return []
 
 
 consListParser :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])

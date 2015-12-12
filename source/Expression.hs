@@ -334,9 +334,6 @@ bracketsList follow recSet =
      do parseRightBracket
         lexp <- bracketsList follow recSet
         return(AP.liftA2 (:) e lexp)
-        -- FALTA ARREGLAR EL CASO RARO
-        -- Modemos levantarnos del error con un hazte el loco  
         <|> do err <- genNewError (follow <|> parseLeftBracket) (TokenRB)
                return $ Nothing   
      <|> do return $ return []
-

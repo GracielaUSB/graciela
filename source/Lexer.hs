@@ -7,10 +7,7 @@ import Token
 import Type
 
 
-tryString s = 
-    try $ do s' <- string s 
-             notFollowedBy $ alphaNum <|> char '_' <|> char '-' <|> char '?'
-             return s'
+tryString = tryStringOp
 
 
 tryStringOp = try . string

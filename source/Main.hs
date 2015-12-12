@@ -111,5 +111,3 @@ main :: IO ()
 main = do args <- getArgs 
           s <- TIO.readFile (head args)
           play s
-
-
