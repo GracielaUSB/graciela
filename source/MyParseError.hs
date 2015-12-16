@@ -48,36 +48,44 @@ data WaitedToken =  Operator
                   | TokenAs
                   | TokenDO
                   | TokenOD
-
+                  | Cuant
+                  | Pipe
+                  | RightPer
+                  | AssignOrColon
+ 
 instance Show WaitedToken where
-  show Operator   = "Operador"
-  show Number     = "Número"
-  show TokenRP    = "Paréntesis Derecho"
-  show TokenLP    = "Paréntesis Iquierdo"
-  show Comma      = "Coma"
-  show Final      = "Final de Archivo"
-  show TokenRB    = "Corchete Derecho"
-  show TokenOB    = "Apertura de Bloque"
-  show TokenCB    = "Final de Bloque"
-  show Program    = "Program"
-  show ProcOrFunc = "Procedimiento o Función"
-  show Colon      = "Dos puntos"
-  show IDError    = "Identificador"
-  show Begin      = "Begin"
-  show LexEnd     = "Token end"
-  show TokenFunc  = "Token func"
-  show Arrow      = "Token ->"
-  show TokenCA    = "Token representante de final de aserción"
-  show TokenOA    = "Token representande de inicio de aserción"
-  show TokenArg   = "Token representante de clase de argumento"
-  show SColon     = "punto y coma (;)"
-  show Action     = "acción"
-  show GuardSep   = "separador de guardias"
-  show TokenIF    = "if"
-  show TokenFI    = "fi"
-  show TokenAs    = ":="
-  show TokenDO    = "do"
-  show TokenOD    = "od"
+  show Operator      = "Operador"
+  show Number        = "Número"
+  show TokenRP       = "Paréntesis Derecho"
+  show TokenLP       = "Paréntesis Iquierdo"
+  show Comma         = "Coma"
+  show Final         = "Final de Archivo"
+  show TokenRB       = "Corchete Derecho"
+  show TokenOB       = "Apertura de Bloque"
+  show TokenCB       = "Final de Bloque"
+  show Program       = "Program"
+  show ProcOrFunc    = "Procedimiento o Función"
+  show Colon         = "Dos puntos"
+  show IDError       = "Identificador"
+  show Begin         = "Begin"
+  show LexEnd        = "Token end"
+  show TokenFunc     = "Token func"
+  show Arrow         = "Token ->"
+  show TokenCA       = "Token representante de final de aserción"
+  show TokenOA       = "Token representande de inicio de aserción"
+  show TokenArg      = "Token representante de clase de argumento"
+  show SColon        = "punto y coma (;)"
+  show Action        = "acción"
+  show GuardSep      = "separador de guardias"
+  show TokenIF       = "if"
+  show TokenFI       = "fi"
+  show TokenAs       = ":="
+  show TokenDO       = "do"
+  show TokenOD       = "od"
+  show Cuant         = "cuantificador"
+  show Pipe          = "barra vertical"
+  show RightPer      = "cierre de cuantificador"
+  show AssignOrColon = "asignación o dos puntos"
 
 instance Show MyParseError where
   show (MyParseError loc wt at) = 

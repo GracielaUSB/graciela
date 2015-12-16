@@ -16,22 +16,19 @@ import AST
 
 listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
 listExp follow recSet = 
-    do  lookAhead follow
-        return $ return $ []
-    <|> do e     <- expr (follow <|> parseComma) (recSet <|> parseComma)
-           lexp  <- listExpAux follow recSet
-           return $ AP.liftA2 (:) e lexp
+  do lookAhead lookaheadExpr
+     e     <- expr (follow <|> parseComma) (recSet <|> parseComma)
+     lexp  <- listExpAux follow recSet
+     return $ AP.liftA2 (:) e lexp
+     <|> do return $ return []
 
 listExpAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
 listExpAux follow recSet = 
-   do lookAhead follow
-      return $ return $ []
-   <|> do parseComma
-          e  <- expr (follow <|> parseComma) (recSet <|> parseComma)
-          lexp  <- listExpAux follow recSet
-          return(AP.liftA2 (:) e lexp)
-          <|> do err <- genNewError follow Comma
-                 return $ Nothing
+  do parseComma
+     e  <- expr (follow <|> parseComma) (recSet <|> parseComma)
+     lexp  <- listExpAux follow recSet
+     return(AP.liftA2 (:) e lexp)
+     <|> do return $ return []
                                
 
 
@@ -40,20 +37,6 @@ listExpAux follow recSet =
     etc.
  -}
 
-
-constant :: MyParser (Maybe (AST(Type)) ) 
-constant = 
-  do pos <- getPosition
-     do n <- parseDouble
-        return $ return $ Float (getLocation pos) n MyFloat
-        <|> do n <- number
-               return $ return $ Int (getLocation pos) n MyInt
-        <|> do e <- parseBool
-               return $ return $ Bool (getLocation pos) e MyBool
-        <|> do e <- parseChar
-               return $ return $ Char (getLocation pos) e MyChar     
-        <|> do e <- parseString
-               return $ return $ String (getLocation pos) e MyEmpty
 
 
 followExprLevelRel :: MyParser (Token)
@@ -66,15 +49,6 @@ relaNonEquivOp = parseTokLess <|> parseTokLEqual <|> parseTokGreater <|> parseTo
 
 relaEquivOp:: MyParser (Token)
 relaEquivOp    = parseEqual   <|> parseNotEqual
-
-
-verifyNonAsoc :: MyParser Token -> MyParser Token -> MyParser ()
-verifyNonAsoc ops recSet = 
-   do lookAhead ops
-      parseAnyToken
-      addNonAsocError
-      return ()
-
 
 expr :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 expr follow recSet =  
@@ -228,6 +202,41 @@ exprLevel9' follow e =
         return $ AP.liftA3 (Arithmetic Exp (getLocation pos)) e r (return (MyEmpty))
         <|> return e
 
+lookaheadExpr =
+  do parseLeftParent
+     <|> parseMaxInt
+     <|> parseMinInt
+     <|> parseMaxDouble
+     <|> parseMinDouble
+     <|> parseToInt
+     <|> parseToDouble
+     <|> parseToChar
+     <|> parseMinus
+     <|> parseTokSqrt
+     <|> parseTokAbs
+     <|> parseTokNot
+     <|> parseTokLeftPer
+     <|> parseTokDouble
+     <|> parseTokNumber
+     <|> parseTokBool
+     <|> parseTokChar
+     <|> parseTokString
+     <|> parseTokID
+
+constant :: MyParser (Maybe (AST Type)) 
+constant = 
+  do pos <- getPosition
+     do n <- parseDouble
+        return $ return $ Float (getLocation pos) n MyFloat
+        <|> do n <- number
+               return $ return $ Int (getLocation pos) n MyInt
+        <|> do e <- parseBool
+               return $ return $ Bool (getLocation pos) e MyBool
+        <|> do e <- parseChar
+               return $ return $ Char (getLocation pos) e MyChar     
+        <|> do e <- parseString
+               return $ return $ String (getLocation pos) e MyEmpty
+
 exprLevel10 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel10 follow =   
    do pos <- getPosition
@@ -293,28 +302,40 @@ exprLevel10 follow =
 rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 rangeQuantification follow recSet = 
   do pos <- getPosition
-     lookAhead follow
-     return $ return $ EmptyRange (getLocation pos) MyBool
-     <|> exprLevel3 follow
+     do lookAhead follow
+        return $ return $ EmptyRange (getLocation pos) MyBool
+        <|> exprLevel3 follow
             
 
 quantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 quantification follow recSet = 
   do pos <- getPosition
      parseTokLeftPer
-     op <- parseOpCuant
-     id <- parseID
-     parseColon
-     t <- myType parsePipe (recSet <|> parsePipe)
-     newScopeParser
-     v <- addCuantVar op id t (getLocation pos)
-     parsePipe
-     r <- rangeQuantification parsePipe (parsePipe <|> recSet)
-     parsePipe
-     t <- expr(parseTokRightPer) (recSet <|> parseTokRightPer)
-     exitScopeParser
-     parseTokRightPer
-     return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
+     do op <- parseOpCuant
+        do id <- parseID
+           do parseColon
+              t <- myType parsePipe (recSet <|> parsePipe)
+              newScopeParser
+              v <- addCuantVar op id t (getLocation pos)
+              do parsePipe
+                 r <- rangeQuantification parsePipe (parsePipe <|> recSet)
+                 do parsePipe
+                    t <- expr parseTokRightPer (recSet <|> parseTokRightPer)
+                    exitScopeParser
+                    do parseTokRightPer
+                       return(AP.liftA3 (Quant op id (getLocation pos)) r t (return (MyEmpty)))
+                       <|> do genNewError follow RightPer
+                              return Nothing
+                    <|> do genNewError follow Pipe
+                           return Nothing
+                 <|> do genNewError follow Pipe
+                        return Nothing
+              <|> do genNewError follow Colon
+                     return Nothing
+           <|> do genNewError follow IDError
+                  return Nothing
+        <|> do genNewError follow Cuant
+               return Nothing
 
 
 parseOpCuant :: MyParser (OpQuant)
@@ -334,6 +355,6 @@ bracketsList follow recSet =
      do parseRightBracket
         lexp <- bracketsList follow recSet
         return(AP.liftA2 (:) e lexp)
-        <|> do err <- genNewError (follow <|> parseLeftBracket) (TokenRB)
+        <|> do genNewError follow TokenRB
                return $ Nothing   
      <|> do return $ return []
