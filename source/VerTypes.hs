@@ -307,7 +307,8 @@ verProcCall name sbc args'' loc locarg =
                let wtL = length args''
                    prL = length args'
                in case wtL /= prL of
-                  { True  -> addNumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada es distinto al de la declaracion
+                  { True  -> addNumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada 
+                                                                       -- es distinto al de la declaracion
                   ; False -> let args = map tag args''
                                  t    = zip args args'
                              in case (and $ map (uncurry (==)) $ t) of   
@@ -318,7 +319,8 @@ verProcCall name sbc args'' loc locarg =
                                               }
                                 ; False -> do mapM_ (\ ((arg, arg'), larg) -> 
                                                 case arg /= arg' of
-                                                { True  -> addFunArgError name False arg' arg larg -- Error porque los tipos uno o mas parametros en la llamada y declaracion no coincidieron
+                                                { True  -> addFunArgError name False arg' arg larg -- Error porque los tipos uno o mas parametros 
+                                                                                                   -- en la llamada y declaracion no coincidieron
                                                 ; False -> return MyEmpty 
                                                 } ) (zip t locarg) 
                                               return $ MyError
@@ -355,7 +357,8 @@ isASTLValue sb id =
   case astToId id of
   { Nothing -> False
   ; Just t  -> case (checkSymbol t sb) of
-               { Nothing -> False -- Esto es un error grave, significa que una variable sin verificacion de contexto llego a la verificacion de tipos
+               { Nothing -> False -- Esto es un error grave, significa que una variable sin 
+                                  -- verificacion de contexto llego a la verificacion de tipos
                ; Just c  -> isLValue c
                }
   } 

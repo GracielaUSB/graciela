@@ -55,7 +55,7 @@ instance Show WaitedToken where
   show ProcOrFunc = "Procedimiento o Función"
   show Colon      = "Dos puntos"
   show IDError    = "Identificador"
-  show Begin      = "Begin"
+  show Begin      = "begin"
   show LexEnd     = "Token end"
   show TokenFunc  = "Token func"
   show Arrow      = "Token ->"

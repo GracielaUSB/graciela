@@ -306,6 +306,10 @@ void _abort(int x, int line, int column) {
         case 12:
             printf("\nABORT: En la línea %d, columna %d, Overflow.\n\n", line, column);  
             exit(0);
+
+        case 13:
+            printf("\nABORT: En la línea %d, columna %d, Rango vacio.\n\n", line, column);  
+            exit(0);
     } 
 }
 

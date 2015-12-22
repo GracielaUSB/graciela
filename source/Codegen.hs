@@ -179,6 +179,12 @@ convertID' :: MyAST.AST T.Type -> String
 convertID' (MyAST.ArrCall _ id _ _) = "__" ++ (TE.unpack id)
 convertID' (MyAST.ID        _ id _) = "__" ++ (TE.unpack id)
 
+convertID'' :: MyAST.AST T.Type -> String
+convertID'' (MyAST.ArrCall _ id _ _) = "___" ++ (TE.unpack id)
+convertID'' (MyAST.ID        _ id _) = "___" ++ (TE.unpack id)
+
+
+
 
 addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
 addArgOperand [] = return ()
@@ -726,7 +732,7 @@ createExpression (MyAST.Cond lguards _ rtype) = do
 
 createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
    
-    let name = TE.unpack varQ
+    let name  = TE.unpack varQ
     let tyExp = MyAST.tag termExp
     
     case opQ of
@@ -739,6 +745,30 @@ createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
                          return $ res
 
     ; otherwise    -> do check <- mapM (createQuant False opQ name loc termExp) rangeExp
+                         res   <- joinRange opQ check loc tyExp
+                         return $ res
+
+    }
+
+
+createExpression (MyAST.QuantRanUn opQ varQ loc rangeExp termExp t) = do
+   
+    let name  = TE.unpack varQ
+    let tyExp = MyAST.tag termExp
+    
+    ranges  <- doRange rangeExp loc
+    rangesF <- makeRanges ranges
+
+    case opQ of
+    { MyAST.ForAll -> do check <- mapM (createQuant' True  opQ name loc termExp) rangesF
+                         res   <- joinRange opQ check loc tyExp
+                         return $ res 
+
+    ; MyAST.Exists -> do check <- mapM (createQuant' True  opQ name loc termExp) rangesF
+                         res   <- joinRange opQ check loc tyExp
+                         return $ res
+
+    ; otherwise    -> do check <- mapM (createQuant' False opQ name loc termExp) rangesF
                          res   <- joinRange opQ check loc tyExp
                          return $ res
 
@@ -931,6 +961,206 @@ createQuant False opQ var loc exp (SpanRange a b) = do
                       setLabel final $ branch initial
                       return $ res
     }
+
+
+
+
+data RangeCodegen = SetOp   { getOp :: MyAST.OpSet, getLexp :: RangeCodegen, getRexp :: RangeCodegen } 
+                  | RangeOp { getLeft :: Operand, getRight :: Operand } 
+      deriving (Eq)
+
+
+
+doRange (MyAST.SetRange op lexp rexp) loc = do
+
+    l <- doRange lexp loc
+    r <- doRange rexp loc
+
+    case op of
+    { MyAST.Intersec -> do res <- intersecRange l r loc
+                           return res 
+    ; MyAST.Union    -> return $ SetOp MyAST.Union l r 
+    }
+
+
+doRange (MyAST.TupleRange lexp rexp) loc = do
+    l <- createExpression lexp 
+    r <- createExpression rexp 
+    return $ RangeOp l r
+
+
+intersecRange (RangeOp l1 r1) (RangeOp l2 r2) loc = do
+
+    l <- addUnNamedInstruction intType $ _max l1 l2 
+    r <- addUnNamedInstruction intType $ _min r1 r2 
+
+    check <- addUnNamedInstruction boolType $ _lequal r l 
+
+    error <- newLabel
+    final <- newLabel
+
+    setLabel error $ condBranch check error final
+    createTagRange final loc
+
+    return $ RangeOp l r
+
+
+makeRanges (SetOp _ lexp rexp) = do
+    l <- makeRanges lexp
+    r <- makeRanges rexp
+
+    return $ l ++ r
+
+makeRanges res@(RangeOp _ _) = return [res]
+
+
+createQuant' :: Bool -> MyAST.OpQuant -> String -> Location -> 
+                   MyAST.AST T.Type -> RangeCodegen -> LLVM (Operand)
+createQuant' True opQ var loc exp (RangeOp a b) = do
+   
+    let ini = a
+    let fin = b
+    op <- alloca Nothing intType var
+    store intType op ini
+    addVarOperand var op   
+
+    initial <- newLabel
+    code    <- newLabel
+    final   <- newLabel
+
+    name <- getCount
+    let varBool = show name
+    op' <- alloca Nothing boolType varBool
+    store boolType op' $ constantBool 1
+    addVarOperand varBool op'
+    setLabel initial $ branch initial
+
+    varQ   <- load var intType
+    check' <- addUnNamedInstruction boolType $ _lequal varQ fin 
+
+    checkBool <- load varBool boolType
+    tag       <- addUnNamedInstruction boolType $ _and check' checkBool
+    setLabel code $ condBranch tag code final
+
+    e'   <- createExpression exp
+    sum' <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1 
+    store intType  op  sum' 
+
+    case opQ of 
+    { MyAST.ForAll -> store boolType op' e'
+    ; MyAST.Exists -> do bool <- addUnNamedInstruction boolType $ _not e'
+                         store boolType op' bool 
+    }
+
+    setLabel final $ branch initial
+
+    case opQ of 
+    { MyAST.ForAll -> do checkBool' <- load varBool boolType
+                         return checkBool'
+    ; MyAST.Exists -> do checkBool' <- load varBool boolType
+                         res <- addUnNamedInstruction boolType $ _not checkBool'
+                         return res 
+    }
+
+
+createQuant' False opQ var loc exp (RangeOp a b) = do
+   
+    let ini = a
+    let fin = b
+    op <- alloca Nothing intType var
+    store intType op ini
+    addVarOperand var op   
+
+    initial <- newLabel
+    code    <- newLabel
+    final   <- newLabel
+
+    let varQuant = "Quant_" ++ var 
+    let tyExp = MyAST.tag exp
+
+    case tyExp of 
+    { T.MyInt   -> do op' <- alloca Nothing intType varQuant
+                      
+                      case opQ of
+                      { MyAST.Summation -> store intType op' $ constantInt 0
+                      ; MyAST.Product   -> store intType op' $ constantInt 1
+                      ; MyAST.Maximum   -> store intType op' $ constantInt minInteger
+                      ; MyAST.Minimum   -> store intType op' $ constantInt maxInteger
+                      }
+
+                      addVarOperand varQuant op'
+
+                      setLabel initial $ branch initial
+                      varQ <- load var intType
+                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin 
+                      res  <- load varQuant intType
+                       
+                      setLabel code $ condBranch tag code final
+
+                      e'   <- createExpression exp
+
+                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1 
+                      store intType op  sum 
+
+                      case opQ of
+                      { MyAST.Summation -> do check <- checkOverflow MyAST.Sum loc res e' T.MyInt
+                                              store intType op' check 
+                      ; MyAST.Product   -> do check <- checkOverflow MyAST.Mul loc res e' T.MyInt
+                                              store intType op' check 
+                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction intType $ _max res e' 
+                                              store intType op' check 
+                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction intType $ _min res e' 
+                                              store intType op' check 
+                      }
+                      setLabel final $ branch initial
+                      return $ res
+
+    ; T.MyFloat -> do op' <- alloca Nothing floatType varQuant
+                      
+                      case opQ of
+                      { MyAST.Summation -> store floatType op' $ constantFloat 0.0
+                      ; MyAST.Product   -> store floatType op' $ constantFloat 1.0
+                      ; MyAST.Maximum   -> store floatType op' $ constantFloat minDouble
+                      ; MyAST.Minimum   -> store floatType op' $ constantFloat maxDouble
+                      }
+
+                      addVarOperand varQuant op'
+
+                      setLabel initial $ branch initial
+                      varQ <- load var floatType
+                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin 
+                      res  <- load varQuant floatType
+                       
+                      setLabel code $ condBranch tag code final
+
+                      e'   <- createExpression exp
+
+                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1 
+                      store floatType op  sum 
+
+                      case opQ of
+                      { MyAST.Summation -> do check <- addUnNamedInstruction floatType $ _addF res e' 
+                                              store floatType op' check 
+                      ; MyAST.Product   -> do check <- addUnNamedInstruction floatType $ _mulF res e' 
+                                              store floatType op' check 
+                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction floatType $ _maxF res e' 
+                                              store floatType op' check 
+                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction floatType $ _minF res e' 
+                                              store floatType op' check 
+                      }
+
+                      setLabel final $ branch initial
+                      return $ res
+    }
+
+
+
+
+
+
+
+
+
 
 
 

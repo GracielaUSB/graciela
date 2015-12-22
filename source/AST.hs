@@ -5,6 +5,7 @@ import Data.Range.Range    as RA
 import Data.Monoid hiding (Product)
 import SymbolTable
 import Location
+import Limits
 import Print
 import Type
 
@@ -92,6 +93,15 @@ instance Show OpQuant where
    show Maximum   = "Maximo (max)"
 
 
+--Rangos
+data OpSet = Union | Intersec
+      deriving (Eq)
+
+data UnknownRange = SetRange   { getOp :: OpSet, getLexp :: UnknownRange, getRexp :: UnknownRange } 
+                  | TupleRange { getLeft :: AST Type, getRight :: AST Type } 
+      deriving (Eq)
+
+
 data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
          | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
          | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: (AST a), rexp :: (AST a), tag :: a      } -- ^ Operadores Relacionales de dos expresiones.     
@@ -135,6 +145,8 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Quant        { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeExp :: (AST a)
                          ,termExpr :: (AST a), tag :: a                                                                }
          | QuantRan     { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeVExp :: [RA.Range Integer]
+                         ,termExpr :: (AST a), tag :: a                                                                }
+         | QuantRanUn   { opQ      :: OpQuant, varQ :: T.Text, location :: Location, rangeUExp :: UnknownRange
                          ,termExpr :: (AST a), tag :: a                                                                }
          | EmptyRange   { location :: Location, tag :: a                                                               }
          | EmptyAST     { tag :: a                                                                                     }

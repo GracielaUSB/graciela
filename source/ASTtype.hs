@@ -12,9 +12,9 @@ import TypeState
 import ReduceAST
 import VerTypes
 import Location
+import Limits
 import Type 
 import AST
-
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, DS.Seq MyTypeError)
 runTVerifier sTable sTree = RWSS.evalRWS (verTypeAST sTree) sTable [] 
@@ -193,7 +193,8 @@ verTypeAST (Quant op var loc range term _) =
                                        r <- occursCheck range id
                                        case r of 
                                        { True  -> case astToRange var range' of
-                                                  { Nothing -> return $ Quant op var loc range' term' checkT
+                                                  { Nothing -> let rang = createRange var range
+                                                               in return $ QuantRanUn op var loc rang term' checkT
                                                   ; Just r  -> return $ QuantRan op var loc r term' checkT
                                                   }
                                        ; False -> do addNotOccursVarError op id loc
@@ -255,3 +256,63 @@ getLocArgs args = return $ fmap AST.location args
 --                         { True  ->  show ast
 --                         ; False -> (show ast) ++ (drawTypeError err) 
 --                         } 
+
+
+
+createRange :: T.Text -> AST Type -> UnknownRange
+createRange var (Boolean    op  _ lexp rexp _) = 
+    let l = createRange var lexp    
+        r = createRange var rexp          
+    in case op of
+       { Dis     -> SetRange Union    l r
+       ; Con     -> SetRange Intersec l r
+       ; Implies -> SetRange Union    l r --FALTAA
+       ; Conse   -> SetRange Union    l r
+       }
+    
+
+createRange var (Relational op _ lexp rexp _) = 
+    let (l, r) = checkNode var op lexp rexp  
+    in case op of
+       { Less    -> TupleRange l r
+       ; LEqual  -> TupleRange l r
+       ; Greater -> TupleRange r l
+       ; GEqual  -> TupleRange r l
+       }
+
+
+
+checkNode :: T.Text -> OpRel -> AST Type -> AST Type -> (AST Type, AST Type)
+checkNode id op lexp@(ID loc id' t) rexp = 
+    case id == id' of
+    { True  -> case op of
+               { Less    -> (Int loc minInteger t, sub1 rexp)    
+               ; LEqual  -> (Int loc minInteger t, rexp)   
+               ; Greater -> (sub1 (Int loc maxInteger t), rexp)  
+               ; GEqual  -> (Int loc maxInteger t, rexp)   
+               } 
+    ; False -> let loc = location rexp
+                   ty  = tag rexp  
+               in case op of
+                  { Less    -> (lexp, sub1 (Int loc maxInteger ty))    
+                  ; LEqual  -> (lexp, Int loc maxInteger ty)   
+                  ; Greater -> (sub1 lexp, Int loc minInteger ty)  
+                  ; GEqual  -> (lexp, Int loc minInteger ty)   
+                  }
+    }
+
+checkNode id op lexp (ID loc id' t) = 
+
+    case op of
+    { Less    -> (lexp, sub1 (Int loc maxInteger t))  
+    ; LEqual  -> (lexp, Int loc maxInteger t)   
+    ; Greater -> (sub1 lexp, Int loc minInteger t)  
+    ; GEqual  -> (lexp, Int loc minInteger t)   
+    }
+
+
+sub1 :: AST Type -> AST Type 
+sub1 exp = 
+    let loc = location exp
+        ty  = tag exp 
+    in Arithmetic Sub loc exp (Int loc 1 ty) ty

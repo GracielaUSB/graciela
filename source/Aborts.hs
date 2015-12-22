@@ -103,3 +103,10 @@ createTagOverflow next loc = do
 
     callAbort 12 loc
     setLabel next $ nothing
+
+
+createTagRange :: Name -> Location -> LLVM ()
+createTagRange next loc = do
+
+    callAbort 13 loc
+    setLabel next $ nothing
