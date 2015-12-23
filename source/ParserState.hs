@@ -208,11 +208,9 @@ addArrayCallError waDim prDim = do pos <- getPosition
 
 genNewError :: MyParser (Token) -> WaitedToken -> MyParser ()
 genNewError laset msg =
-    do lookAhead (parseEnd <|> laset)
-       return ()
-       <|> do  pos <- cleanEntry laset
-               ST.modify $ addParsingError $ newParseError msg pos
-               return ()
+  do  pos <- cleanEntry laset
+      ST.modify $ addParsingError $ newParseError msg pos
+      return ()
 
 
 genNewEmptyError :: MyParser ()

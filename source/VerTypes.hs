@@ -287,6 +287,7 @@ verCallExp name sbc args loc locarg =
                   }
             ; otherwise -> addUndecFuncError name True loc
             }
+       ; otherwise -> addUndecFuncError name True loc
        }
 
 
