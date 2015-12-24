@@ -288,7 +288,7 @@ checkNode id op lexp@(ID loc id' t) rexp =
     { True  -> case op of
                { Less    -> (Int loc minInteger t, sub1 rexp)    
                ; LEqual  -> (Int loc minInteger t, rexp)   
-               ; Greater -> (sub1 (Int loc maxInteger t), rexp)  
+               ; Greater -> (Int loc maxInteger t, sum1 rexp)  
                ; GEqual  -> (Int loc maxInteger t, rexp)   
                } 
     ; False -> let loc = location rexp
