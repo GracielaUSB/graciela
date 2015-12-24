@@ -294,7 +294,7 @@ checkNode id op lexp@(ID loc id' t) rexp =
     ; False -> let loc = location rexp
                    ty  = tag rexp  
                in case op of
-                  { Less    -> (lexp, sub1 (Int loc maxInteger ty))    
+                  { Less    -> (sum1 lexp, Int loc maxInteger ty)    
                   ; LEqual  -> (lexp, Int loc maxInteger ty)   
                   ; Greater -> (sub1 lexp, Int loc minInteger ty)  
                   ; GEqual  -> (lexp, Int loc minInteger ty)   
@@ -304,7 +304,7 @@ checkNode id op lexp@(ID loc id' t) rexp =
 checkNode id op lexp (ID loc id' t) = 
 
     case op of
-    { Less    -> (lexp, sub1 (Int loc maxInteger t))  
+    { Less    -> (sum1 lexp, Int loc maxInteger t)  
     ; LEqual  -> (lexp, Int loc maxInteger t)   
     ; Greater -> (sub1 lexp, Int loc minInteger t)  
     ; GEqual  -> (lexp, Int loc minInteger t)   
@@ -316,3 +316,10 @@ sub1 exp =
     let loc = location exp
         ty  = tag exp 
     in Arithmetic Sub loc exp (Int loc 1 ty) ty
+
+
+sum1 :: AST Type -> AST Type 
+sum1 exp = 
+    let loc = location exp
+        ty  = tag exp 
+    in Arithmetic Sum loc exp (Int loc 1 ty) ty
