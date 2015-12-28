@@ -20,11 +20,9 @@ instance Show Diccionario where
 
 
 newtype SymbolTable = Table { actual :: Tr.Tree ((Diccionario, Scope), Maybe SymbolTable) }  
-        deriving (Eq)
+        deriving (Eq, Show)
 
 
-instance Show SymbolTable where
-   show (Table st)  = (drawST 0 st) ++ "\n" 
 
 
 getActual :: SymbolTable -> Diccionario

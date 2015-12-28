@@ -1,0 +1,104 @@
+program main begin
+
+proc merge : (ref arr: array [10] of int, ref arrf: array [10] of int, in lo : int, in mid : int, in hi : int)
+begin
+  var i, j, k : int;
+  var b := 5000 : int;
+  {pre true pre}
+  |[
+      i := lo;
+      k := lo;
+      j := mid + 1;
+
+      {inv true inv}
+      {bound 1000 - k bound}
+      do(k <= hi) ->
+        |[
+          arrf[k] := arr[k];
+          k := k + 1
+        ]|
+      od;
+      
+      k := lo;
+
+      {inv true inv}
+      {bound 1000 - k bound}
+      do (k <= hi) ->
+      |[ 
+        if (i > mid) ->
+          |[
+            arr[k] := arrf[j];
+            j := j + 1
+          ]|
+        [] (j > hi) ->
+          |[
+            arr[k] := arrf[i];
+            i := i + 1
+          ]|
+        [] (arrf[j] <= arrf[i]) ->
+          |[
+            arr[k] := arr[j];
+            j := j + 1
+          ]|
+        [] ((arrf[j] >= arrf[i])) ->
+          |[
+            arr[k] := arrf[i];
+            i := i + 1
+          ]|
+        fi;
+        k := k + 1
+      ]|
+      od
+  ]|
+  {post true post}
+end
+
+proc sort : (ref arr: array [10] of int, ref arrf: array [10] of int, in lo: int, in hi : int)
+begin
+  var mid : int;
+  {pre true pre}
+  |[
+    if (hi <= lo) -> skip
+    [] (hi > lo) ->
+       |[
+          mid := lo + ((hi - lo) / 2);
+          sort(arr, arrf, lo, mid);
+          sort(arr, arrf, mid + 1, hi);
+          merge(arr, arrf, lo, mid, hi)
+       ]|
+    fi
+  ]|
+  {post true post}
+end
+
+|[
+		var arr, arrf : array [10] of int;
+    var d := 1111 : int;
+    var i : int;
+
+    arr[0]:= 3;
+    arr[1]:= 7;
+    arr[2]:= 2;
+    arr[3]:= 5;
+    arr[4]:= -8;
+    arr[5]:= 11;
+    arr[6]:= 2;
+    arr[7]:= 1;
+    arr[8]:= 8;
+    arr[9]:= -2;
+
+    sort(arr, arrf, 0, 9);
+    
+    {inv true inv}
+    {bound d-1 bound}
+
+    do (i < 10) ->
+    |[
+        write(arr[i]);
+        write(", ");
+        i,d := i+1, d-1
+    ]|
+    od
+    
+	]|
+end

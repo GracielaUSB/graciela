@@ -34,7 +34,7 @@ program main begin
                 {bound cota2 -1 bound}
 
                 do (a != b) ->
-                |[
+                |
 	           		if (h[a] <= h[b]) -> b := b-1
 	            	[] (h[b] <= h[a]) -> a := a+1
 	            	fi;

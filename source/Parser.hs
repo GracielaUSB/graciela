@@ -184,6 +184,7 @@ proc follow recSet =
                                                 try ( 
                                                   do parseLexEnd
                                                      sb   <- getActualScope
+                                                     addProcTypeParser id targs (getLocation pos) sb
                                                      exitScopeParser
                                                      addProcTypeParser id targs (getLocation pos) sb
                                                      return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST MyEmpty)) dl) AP.<*> targs AP.<*> (return MyEmpty)

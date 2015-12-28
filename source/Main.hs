@@ -94,7 +94,7 @@ play inp =
                                putStrLn $ drawTypeError l'
                            else 
                                do let newast = 
-                                        astToLLVM (SET.toList $ filesToRead st) $ fst $ runTVerifier (symbolTable st) ast
+                                        astToLLVM (SET.toList $ filesToRead st) $ t
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m

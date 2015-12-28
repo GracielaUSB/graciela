@@ -8,6 +8,7 @@ import Location
 import Limits
 import Print
 import Type
+import qualified  Contents as Cont
 
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
@@ -129,6 +130,8 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | FCallExp     { fname    :: T.Text, astSTable :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
          | ProcCall     { pname    :: T.Text, astSTable :: SymbolTable, location  :: Location
                         , args     :: [AST a], tag :: a                                                                } 
+         | ProcCallCont { pname    :: T.Text, astSTable :: SymbolTable, location  :: Location
+                        , args     :: [AST a], con :: Cont.Contents SymbolTable, tag :: a                                           } 
          | DecArray     { dimension :: [AST a], tag :: a                                                               }
          | Guard        { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia.
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
@@ -368,10 +371,12 @@ drawAST level ((ArrCall loc name args ast)) =
 
                          
 
-drawAST level ((ProcCall name _ loc args ast)) =
+drawAST level ((ProcCall name st loc args ast)) =
    putSpacesLn level `mappend` "Llamada del Procedimiento: " `mappend` show name `mappend` putLocation loc 
                      `mappend` " //Tag: "                    `mappend` show ast 
-   `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args 
+   `mappend` putSpacesLn (level + 4) `mappend` "Argumentos: " `mappend` drawASTList (level + 8) args
+   `mappend` "------------------------------------------------------------------------------------"
+   `mappend` show st
 
 
 drawAST level ((DefFun name st _ body _ bound _ ast)) =
