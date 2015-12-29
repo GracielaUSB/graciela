@@ -134,11 +134,11 @@ verGuardExp exp action loc =
     }
 
 
-verDefProc :: [Type] -> Type -> Type -> Type -> [Type] -> MyVerType Type
+verDefProc :: Type -> Type -> Type -> Type -> [Type] -> MyVerType Type
 verDefProc accs pre post bound decs = 
     let func = checkListType MyEmpty
     in case pre == MyBool && post == MyBool && 
-            (foldl func True accs) && (and $ map (== MyEmpty) decs) of
+            (accs == MyEmpty) && (and $ map (== MyEmpty) decs) of
        { True  -> return MyEmpty 
        ; False -> return MyError
        }

@@ -167,12 +167,12 @@ verTypeAST (DefFun name st loc body ret bound params _) =
                                                     
 
 verTypeAST (DefProc name st accs pre post bound cdec args _) = 
-    do accs'  <- mapM verTypeAST accs 
+    do accs'  <- verTypeAST accs 
        pre'   <- verTypeAST pre  
        post'  <- verTypeAST post 
        bound' <- verTypeAST bound
        cdec'  <- mapM verTypeAST cdec
-       checkT <- verDefProc (map tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
+       checkT <- verDefProc (tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
        return $ DefProc name st accs' pre' post' bound' cdec' args checkT
                                                               
 

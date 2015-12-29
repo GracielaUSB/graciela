@@ -104,14 +104,14 @@ createPreDef files = do
     addDefinition readCharStd   (createEmptyParameters []) charType
     addDefinition readDoubleStd (createEmptyParameters []) double
 
-    addDefinition openFileStr (createEmptyParameters [(Name "nombreArchivo", ptr charType)]) (ptr charType)
+    addDefinition openFileStr (createEmptyParameters [(Name "nombreArchivo", ptr pointerType)]) (ptr pointerType)
 
     mapM addFile files
 
-    addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr charType)]) intType
-    addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr charType)]) charType
-    addDefinition readFileDouble (createEmptyParameters [(Name "f", ptr charType)]) doubleType
-    addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr charType)]) voidType
+    addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr pointerType)]) intType
+    addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr pointerType)]) charType
+    addDefinition readFileDouble (createEmptyParameters [(Name "f", ptr pointerType)]) doubleType
+    addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
 
     return ()
 
@@ -121,7 +121,7 @@ convertFile file = '_': ('_':file)
 
 
 addFile :: String -> LLVM ()
-addFile file = globalVariable (Name (convertFile file)) (ptr charType) (C.Null (ptr charType))
+addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
 
 
 astToLLVM :: [String] -> MyAST.AST T.Type -> AST.Module
@@ -134,7 +134,7 @@ astToLLVM files (MyAST.Program name _ defs accs _) =
 openFile :: String -> LLVM (Operand)
 openFile file = do
     let file' = convertFile file
-    ops <- addStringOpe file
+    ops <- addFileNameOpe file
     op  <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
     store (ptr charType) (AST.ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) op
 
@@ -281,7 +281,7 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
     addArgOperand args
     mapM_ accToAlloca decs
     createState name' pre
-    mapM_ createInstruction accs 
+    createInstruction accs 
     retVarOperand $ reverse args
     createState name' post
     addBasicBlock retTy
@@ -333,18 +333,18 @@ accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
 
 callReadFile :: String -> T.Type -> LLVM Operand
 callReadFile arch T.MyInt = do
-    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
-    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller intType (Right $ definedFunction intType (Name readFileInt)) [(op, [])]
 
 callReadFile arch T.MyFloat = do
-    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
-    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller doubleType (Right $ definedFunction doubleType (Name readFileDouble)) [(op, [])]
 
 callReadFile arch T.MyChar = do
-    let i = AST.ConstantOperand $ global (ptr charType) (Name (convertFile arch))
-    op <- addUnNamedInstruction (ptr charType) $ Load False i Nothing 0 []
+    let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
+    op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller charType (Right $ definedFunction charType (Name readFileChar)) [(op, [])]
 
 

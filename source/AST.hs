@@ -137,7 +137,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | GuardExp     { gexp     :: (AST a), gact   ::  (AST a), location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
          | DefFun       { dfname   :: T.Text, astSTable :: SymbolTable, location :: Location, fbody    ::  (AST a)
                         , retType  :: Type, nodeBound :: (AST a), params :: [(T.Text, Type)], tag :: a }
-         | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: [AST a], nodePre   :: (AST a)
+         | DefProc      { pname     :: T.Text, astSTable :: SymbolTable, prbody    :: AST a, nodePre   :: (AST a)
                         , nodePost  :: (AST a), nodeBound :: (AST a), constDec  :: [AST a], params :: [(T.Text, Type)]
                         , tag       :: a
                         }
@@ -190,7 +190,7 @@ drawAST level ((DefProc name _ accs pre post bound _ _ ast)) =
                      `mappend` " //Tag: "        `mappend` show ast  
                      `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) pre      
                      `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 8) bound  
-                     `mappend` putSpacesLn (level + 4) `mappend` "Acciones: " `mappend` drawASTList (level + 8) accs
+                     `mappend` putSpacesLn (level + 4) `mappend` "Acciones: " `mappend` drawAST (level + 8) accs
                      `mappend` putSpaces (level + 4)   `mappend` drawAST (level + 4) post 
 
 

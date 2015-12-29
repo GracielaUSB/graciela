@@ -1,6 +1,6 @@
 program main begin
 
-proc merge : (ref arr: array [10] of int, ref arrf: array [10] of int, in lo : int, in mid : int, in hi : int)
+proc merge : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo : int, in mid : int, in hi : int)
 begin
   var i, j, k : int;
   var b := 5000 : int;
@@ -11,7 +11,7 @@ begin
       j := mid + 1;
 
       {inv true inv}
-      {bound 1000 - k bound}
+      {bound (x - k) + 1000 bound}
       do(k <= hi) ->
         |[
           arrf[k] := arr[k];
@@ -22,7 +22,7 @@ begin
       k := lo;
 
       {inv true inv}
-      {bound 1000 - k bound}
+      {bound (x - k) + 1000 bound}
       do (k <= hi) ->
       |[ 
         if (i > mid) ->
@@ -37,10 +37,10 @@ begin
           ]|
         [] (arrf[j] <= arrf[i]) ->
           |[
-            arr[k] := arr[j];
+            arr[k] := arrf[j];
             j := j + 1
           ]|
-        [] ((arrf[j] >= arrf[i])) ->
+        [] ((arrf[j] > arrf[i])) ->
           |[
             arr[k] := arrf[i];
             i := i + 1
@@ -53,7 +53,7 @@ begin
   {post true post}
 end
 
-proc sort : (ref arr: array [10] of int, ref arrf: array [10] of int, in lo: int, in hi : int)
+proc sort : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo: int, in hi : int)
 begin
   var mid : int;
   {pre true pre}
@@ -62,43 +62,72 @@ begin
     [] (hi > lo) ->
        |[
           mid := lo + ((hi - lo) / 2);
-          sort(arr, arrf, lo, mid);
-          sort(arr, arrf, mid + 1, hi);
-          merge(arr, arrf, lo, mid, hi)
+          sort(x, arr, arrf, lo, mid);
+          sort(x, arr, arrf, mid + 1, hi);
+          merge(x, arr, arrf, lo, mid, hi)
        ]|
     fi
   ]|
   {post true post}
 end
 
-|[
-		var arr, arrf : array [10] of int;
-    var d := 1111 : int;
-    var i : int;
+proc readFromInput : (out x : int)
+begin
+  read(x) with "input.txt";
+  {pre true pre}
+  |[
+    skip
+  ]|
+  {post true post}
+end
 
-    arr[0]:= 3;
-    arr[1]:= 7;
-    arr[2]:= 2;
-    arr[3]:= 5;
-    arr[4]:= -8;
-    arr[5]:= 11;
-    arr[6]:= 2;
-    arr[7]:= 1;
-    arr[8]:= 8;
-    arr[9]:= -2;
-
-    sort(arr, arrf, 0, 9);
-    
+proc readInput : (in x : int, ref input : array [x] of int)
+begin
+  var i := 0 : int;
+  var y : int;
+  {pre x >= 0 pre}
+  |[
     {inv true inv}
-    {bound d-1 bound}
-
-    do (i < 10) ->
+    {bound (x - i) + 2 bound}
+    do (i <= x) ->
     |[
-        write(arr[i]);
-        write(", ");
-        i,d := i+1, d-1
+      readFromInput(y);
+      input[i] := y;
+      i := i + 1
     ]|
     od
+  ]|
+  {post true post}
+end
+
+proc process : ()
+begin
+  var x : int;
+  read(x) with "input.txt";
+  {pre x >= 0 pre}
+  |[
+    var input : array [x] of int;
+    var aux : array [x] of int;
+    var d := 1111 : int;
+    var i : int;
     
-	]|
+    readInput(x, input);
+    sort(x, input, aux, 0, x-1);
+
+    {inv true inv}
+    {bound (x - i) + 1 bound}
+    do (i < x) ->
+    |[
+      write(input[i]);
+      write(", ");
+      i := i+1
+    ]|
+    od
+  ]|
+  {post true post}
+end
+
+|[
+  process()
+]|
 end
