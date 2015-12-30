@@ -180,9 +180,9 @@ instance Show MyTypeError where
    show (UndecFunError   sym  False  loc) = 
             errorL loc ++ ": El procedimiento " ++ show sym ++ " no se puede usar, no esta definido."
    show (NumberArgsError sym True wtL prL loc) = 
-            errorL loc ++ ": El número de argumentos de la función " ++ show sym ++ " es inválido, se esperaba " ++ show wtL ++ " argumentos, se suministró " ++ show prL ++ "."
+            errorL loc ++ ": El número de argumentos de la función " ++ show sym ++ " es inválido, se esperaba " ++ show prL ++ " argumentos, se suministró " ++ show wtL ++ "."
    show (NumberArgsError sym False wtL prL loc) = 
-            errorL loc ++ ": El número de argumentos del procedimiento " ++ show sym ++ " es inválido, se esperaba " ++ show wtL ++ " argumentos, se suministró " ++ show prL ++ "."
+            errorL loc ++ ": El número de argumentos del procedimiento " ++ show sym ++ " es inválido, se esperaba " ++ show prL ++ " argumentos, se suministró " ++ show wtL ++ "."
    show (RetFuncError    sym wt  pt  loc) = 
             errorL loc ++ ": En la función " ++ show sym ++ " se esperaba que retornará el tipo " ++ show wt ++ ", se suministró " ++ show pt ++ "."
    show (FunArgError sym True  wt pt loc) = 

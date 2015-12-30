@@ -8,8 +8,23 @@ program main begin
 		fi
 	end
 
+	proc readNum : ()
+	begin
+		var num : int;
+		
+		read(num);
+		
+		{pre num >= 0 pre}
+		|[
+		    write("\nEl resultado es: ");
+	        writeln(fibonacci(num))
+		]|
+		{post true post}
+	end	
+
 	|[
-    writeln(fibonacci(10))
+	    write("Numero de Fibonacci, ingrese un numero: ");
+		readNum()
 	]|
 
 end
