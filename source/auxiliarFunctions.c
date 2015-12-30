@@ -9,7 +9,7 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "locale.h"
 #include "string.h"
 
-int8_t* _openFile(char* nombreArchivo) {
+int8_t* _openFile(short* nombreArchivo) {
     FILE* file;
 
     file = fopen(nombreArchivo, "r");

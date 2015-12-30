@@ -120,6 +120,17 @@ addString msg name ty = do
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
+addFileName :: String -> Name -> Type -> LLVM ()
+addFileName msg name ty = do
+    defs <- gets moduleDefs
+    let def = GlobalDefinition $ globalVariableDefaults {
+                name        = name
+              , isConstant  = True
+              , GLOB.type'  = ty  
+              , initializer = Just $ constantFileName msg
+              }
+    modify $ \s -> s { moduleDefs = defs DS.|> def}
+
 
 
 addStringOpe :: String -> LLVM (Operand)
@@ -129,6 +140,14 @@ addStringOpe msg = do
     name <- newLabel 
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
+
+addFileNameOpe :: String -> LLVM (Operand)
+addFileNameOpe msg = do
+    let n  = fromIntegral $ Prelude.length msg+1
+    let ty = ArrayType n i8 
+    name <- newLabel 
+    addFileName msg name ty
+    return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
 
 
 setLabel :: Name -> Named Terminator -> LLVM()
@@ -205,6 +224,10 @@ defaultChar = ConstantOperand $ C.Int 9 1
 constantString :: String -> C.Constant
 constantString msg =
    C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- (msg ++ "\0")]    
+
+constantFileName:: String -> C.Constant
+constantFileName msg =
+   C.Array pointerType [C.Int 8 (toInteger (ord c)) | c <- (msg ++ "\0")]    
 
 
 definedFunction :: Type -> Name -> Operand
@@ -320,6 +343,9 @@ intType = i32
 
 charType :: Type
 charType = IntegerType 9
+
+pointerType :: Type
+pointerType = IntegerType 8
 
 voidType :: Type
 voidType   = VoidType

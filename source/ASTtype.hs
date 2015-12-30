@@ -148,7 +148,8 @@ verTypeAST (ProcCall name sb loc args _) =
     do args'  <- mapM verTypeAST args  
        locs   <- getLocArgs args
        checkT <- verProcCall name sb args' loc locs
-       return (ProcCall name sb loc args' checkT)
+       sbc <- RWSS.ask  
+       return (ProcCallCont name sb loc args' (myFromJust (lookUpRoot name sbc)) checkT)
 
   
 verTypeAST (FCallExp name sb loc args _) =
@@ -166,12 +167,12 @@ verTypeAST (DefFun name st loc body ret bound params _) =
                                                     
 
 verTypeAST (DefProc name st accs pre post bound cdec args _) = 
-    do accs'  <- mapM verTypeAST accs 
+    do accs'  <- verTypeAST accs 
        pre'   <- verTypeAST pre  
        post'  <- verTypeAST post 
        bound' <- verTypeAST bound
        cdec'  <- mapM verTypeAST cdec
-       checkT <- verDefProc (map tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
+       checkT <- verDefProc (tag accs') (tag pre') (tag post') (tag bound') (map tag cdec')
        return $ DefProc name st accs' pre' post' bound' cdec' args checkT
                                                               
 
@@ -205,6 +206,7 @@ verTypeAST (Quant op var loc range term _) =
 
 verTypeAST ast = return $ ast
 
+myFromJust (Just t) = t
 
 astToRange :: T.Text -> AST Type -> Maybe [Range Integer]
 astToRange id (Relational c _ l r _) = 

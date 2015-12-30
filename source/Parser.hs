@@ -175,27 +175,18 @@ proc follow recSet =
                                    do parseBegin
                                       dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                                       pre  <- precondition parseTokOpenBlock (recSet <|> parseTokOpenBlock)
+                                      la   <- block parseTokLeftPost parseTokLeftPost
+                                      post <- postcondition parseLexEnd (recSet <|> parseLexEnd)
                                       try ( 
-                                        do parseTokOpenBlock
-                                           la   <- actionsList parseTokCloseBlock (parseTokCloseBlock <|> recSet)
-                                           try ( 
-                                             do parseTokCloseBlock
-                                                post <- postcondition parseLexEnd (recSet <|> parseLexEnd)
-                                                try ( 
-                                                  do parseLexEnd
-                                                     sb   <- getActualScope
-                                                     exitScopeParser
-                                                     addProcTypeParser id targs (getLocation pos) sb
-                                                     return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST MyEmpty)) dl) AP.<*> targs AP.<*> (return MyEmpty)
-                                                    )
-                                                    <|> do genNewError follow PE.LexEnd
-                                                           return Nothing
-                                                )
-                                                <|> do genNewError follow PE.TokenCB
-                                                       return Nothing
-                                           )
-                                           <|> do genNewError follow PE.TokenOB
-                                                  return Nothing
+                                        do parseLexEnd
+                                           sb   <- getActualScope
+                                           addProcTypeParser id targs (getLocation pos) sb
+                                           exitScopeParser
+                                           addProcTypeParser id targs (getLocation pos) sb
+                                           return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST MyEmpty)) dl) AP.<*> targs AP.<*> (return MyEmpty)
+                                          )
+                                          <|> do genNewError follow PE.LexEnd
+                                                 return Nothing
                                       )
                                       <|> do genNewError follow PE.Begin
                                              return Nothing
