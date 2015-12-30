@@ -132,7 +132,7 @@ parseOperatorLevel6 =
      <|> do parseTokGreater
             return Greater
      <|> do parseTokGEqual
-            return Greater
+            return GEqual
 
 exprLevel6' follow e =
       do pos <- getPosition
