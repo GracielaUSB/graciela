@@ -290,8 +290,7 @@ createState name (MyAST.States cond loc exp _) = do
 
 addFuncParam (id'', t@(T.MyArray _ _)) = do
   do let id = TE.unpack id''
-     let id' = convertID id
-     let e'   = local (toType t) (Name id')
+     let e'   = local (toType t) (Name id)
      addVarOperand id e'
      return ()
 addFuncParam _ = return ()
@@ -608,6 +607,14 @@ createExpression (MyAST.ID _ id t) = do
     ; Nothing -> do return $ local ty (Name n)
     }
 
+createExpression (MyAST.Cond lguards _ rtype) = do
+   final  <- newLabel 
+   none   <- newLabel
+   lnames <- genExpGuards lguards none final
+   let rtype' = toType rtype
+   setLabel none $ branch final
+   setLabel final $ Do $ Unreachable []
+   addUnNamedInstruction rtype' $ Phi rtype' lnames []
 
 createExpression (MyAST.ArrCall _ id' accs t) = do
     accs' <- mapM createExpression accs
@@ -751,15 +758,6 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     let op   = definedFunction ty (Name $ TE.unpack fname)
     caller ty (Right op) exp'
 
-
-createExpression (MyAST.Cond lguards _ rtype) = do
-   final  <- newLabel 
-   none   <- newLabel
-   lnames <- genExpGuards lguards none final
-   let rtype' = toType rtype
-   setLabel none $ branch final
-   setLabel final $ Do $ Unreachable []
-   addUnNamedInstruction rtype' $ Phi rtype' lnames []
 
 
 createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
@@ -1234,14 +1232,25 @@ genExpGuards (guard:xs) none one = do
     rl <- genExpGuards xs none one 
     return $ r:rl
 
-
+createGuardExp (MyAST.Cond lguards _ rtype) _ = do
+    final  <- newLabel 
+    none   <- newLabel
+    lnames <- genExpGuards lguards none final
+    let rtype' = toType rtype
+    setLabel none $ branch final
+    setLabel final $ Do $ Unreachable []
+    n <- addUnNamedInstruction rtype' $ Phi rtype' lnames []
+    return (n, final)
+createGuardExp acc code = do 
+    n <- createExpression acc
+    return (n, code)
+    
 genExpGuard :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
 genExpGuard (MyAST.GuardExp guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
     setLabel code $ condBranch tag code next
-    n <- createExpression acc
-    return (n, code)
+    createGuardExp acc code
 
 
 createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
