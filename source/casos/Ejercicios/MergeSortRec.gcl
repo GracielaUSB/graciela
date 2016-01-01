@@ -1,16 +1,34 @@
 program main begin
 
+func isSorted : (x : int, arr : array [x] of int, lo : int, hi : int) -> boolean
+begin
+  if (lo == hi) -> true
+  [] (lo < hi) -> 
+    if (arr[lo] <= arr[lo+1]) -> isSorted(x, arr, lo+1, hi)
+    [] (arr[lo] > arr[lo+1]) -> false
+    fi
+  fi
+end
+//func isSorted : (x : int, arr : array [x] of int, lo : int, hi : int) -> boolean
+//begin
+//  if (lo == hi) -> true
+//  [] (lo < hi) -> 
+//    if (arr[lo] <= arr[lo+1]) -> isSorted(x, arr, lo+1, hi)
+//    [] (arr[lo] > arr[lo+1]) -> false
+//    fi
+//  fi
+//end
+
 proc merge : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo : int, in mid : int, in hi : int)
 begin
   var i, j, k : int;
-  var b := 5000 : int;
   {pre true pre}
   |[
       i := lo;
       k := lo;
       j := mid + 1;
 
-      {inv true inv}
+      {inv (%forall l : int | lo <= l /\ l <= k | arrf[l] == arr[l] %) inv}
       {bound (x - k) + 1000 bound}
       do(k <= hi) ->
         |[
@@ -21,7 +39,7 @@ begin
       
       k := lo;
 
-      {inv true inv}
+      {inv (%forall l : int | lo <= l /\ l <= k | true %) inv}
       {bound (x - k) + 1000 bound}
       do (k <= hi) ->
       |[ 

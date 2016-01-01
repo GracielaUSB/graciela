@@ -288,6 +288,13 @@ createState name (MyAST.States cond loc exp _) = do
 
     return ()
 
+addFuncParam (id'', t@(T.MyArray _ _)) = do
+  do let id = TE.unpack id''
+     let id' = convertID id
+     let e'   = local (toType t) (Name id')
+     addVarOperand id e'
+     return ()
+addFuncParam _ = return ()
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
@@ -307,8 +314,8 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
    
    
 createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
-
-    let args' = ([Parameter (toType t) (Name (TE.unpack id)) [] | (id, t) <- params], False)
+    let args' = ([Parameter t (Name id) [] | (id, t) <- convertFuncParams params], False)
+    mapM_ addFuncParam params
     exp'  <- createExpression exp
     retTy <- retType exp'
     addBasicBlock retTy
@@ -583,6 +590,7 @@ genGuard (MyAST.Guard guard acc _ _) next = do
     setLabel code $ condBranch tag code next
     createInstruction acc
 
+myFromJust (Just x) = x
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.ID _ id t) = do
@@ -591,8 +599,12 @@ createExpression (MyAST.ID _ id t) = do
     let check   = DM.lookup n var
    
     case check of 
-    { Just _  -> do val <- load n ty
-                    return val
+    { Just add  -> 
+      if (T.isArray t) then
+        return add
+      else
+        do val <- load n ty
+           return val
     ; Nothing -> do return $ local ty (Name n)
     }
 
@@ -600,7 +612,7 @@ createExpression (MyAST.ID _ id t) = do
 createExpression (MyAST.ArrCall _ id' accs t) = do
     accs' <- mapM createExpression accs
     map   <- gets varsLoc
-    let (t', i, id) = (toType t, fromJust $ DM.lookup id map, TE.unpack id')
+    let (t', i, id) = (toType t, myFromJust $ DM.lookup id map, TE.unpack id')
     accs'' <- opsToArrayIndex id accs'
     add    <- addUnNamedInstruction t' $ GetElementPtr True i [accs''] []
     addUnNamedInstruction t' $ Load False add Nothing 0 []

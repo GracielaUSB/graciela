@@ -423,8 +423,11 @@ guard CExpression follow recSet =
     do pos <- getPosition
        e <- expr (parseArrow) (recSet <|> parseArrow)
        parseArrow
-       a <- (expr follow recSet) <|> (conditional CExpression follow recSet)
-       return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
+       do lookAhead parseIf
+          a <-(conditional CExpression follow recSet) 
+          return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
+          <|> do a <- expr follow recSet
+                 return (AP.liftA2 (\f -> f (getLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
 
 
 functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))

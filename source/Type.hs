@@ -41,6 +41,8 @@ instance Show Type where
    show (MyArray    t  xs) = "array of " ++ show t ++ " de tamaño " ++ show xs
    show (MyProcedure   xs) = "proc"
 
+isArray (MyArray _ _) = True
+isArray _             = False
 
 isTypeProc :: Type -> Bool
 isTypeProc (MyProcedure _) = True

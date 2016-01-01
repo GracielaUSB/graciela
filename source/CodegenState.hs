@@ -334,6 +334,16 @@ convertParams ((id,c):xs) =
     ; otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
     }
 
+convertFuncParams [] = []
+convertFuncParams ((id', t'):xs) =
+  let
+    id = TE.unpack id'
+    t = toType t'
+  in
+    if (T.isArray t') then
+      (id, PointerType t (AddrSpace 0)) : convertFuncParams xs
+    else
+      (id, t) : convertFuncParams xs
 
 floatType :: Type
 floatType = double
