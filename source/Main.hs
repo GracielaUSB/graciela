@@ -46,23 +46,13 @@ runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) ini
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
 
-
-withTargetMipsMachine :: (TargetMachine -> IO ()) -> IO ()
-withTargetMipsMachine f = do
-    initializeAllTargets
-    t <- liftError $ lookupTarget (Just "mips") ("x86-unknown-linux-gnu")
-    withTargetOptions $ \options -> withTargetMachine (fst t) (snd t) 
-               "mips32" empty options Reloc.Default CodeModel.Default CodeGenOpt.Default f
-  
-
 generateCode :: Module -> ExceptT String IO ()
 generateCode m =
   do withDefaultTargetMachine $ \tm ->
       liftError $ writeObjectToFile tm (File "prueba") m
 
 
-play :: T.Text -> IO ()
-play inp = 
+play inp fileName = 
 
     case (runParser (concatLexPar) () "" (inp)) of
     { Left err -> 
@@ -98,7 +88,7 @@ play inp =
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile (File "prueba.bc") m
+                                      liftError $ writeLLVMAssemblyToFile (File $ "prueba.bc") m
                     else 
                         putStrLn $ drawState st
 
@@ -109,5 +99,6 @@ play inp =
 
 main :: IO ()
 main = do args <- getArgs 
-          s <- TIO.readFile (head args)
-          play s
+          let fileName = head args
+          s <- TIO.readFile fileName
+          play s fileName
