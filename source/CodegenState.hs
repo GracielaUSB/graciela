@@ -27,7 +27,7 @@ import Contents
 data CodegenSt
   = CodeGenSt {
     insCount    :: Word                        -- Cantidad de instrucciones sin nombre
-  , help        :: Name
+  , condName    :: Name
   , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
   , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
   , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
