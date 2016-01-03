@@ -845,6 +845,7 @@ createQuant True opQ var loc exp (SpanRange a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
+    modify $ \s -> s { condName = initial }
 
     name <- getCount
     let varBool = show name
@@ -892,6 +893,7 @@ createQuant False opQ var loc exp (SpanRange a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
+    modify $ \s -> s { condName = initial }
 
     let varQuant = "Quant_" ++ var 
     let tyExp = MyAST.tag exp
@@ -1033,6 +1035,7 @@ createQuant' True opQ var loc exp (RangeOp a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
+    modify $ \s -> s { condName = initial }
 
     name <- getCount
     let varBool = show name
@@ -1080,6 +1083,7 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
+    modify $ \s -> s { condName = initial }
 
     let varQuant = "Quant_" ++ var 
     let tyExp = MyAST.tag exp
@@ -1165,6 +1169,7 @@ checkDivZero op loc lexp' rexp' ty = do
     
     next  <- newLabel
     abort <- newLabel
+    modify $ \s -> s { condName = next }
     
     case ty of 
     { T.MyInt   -> do let zero = constantInt 0
