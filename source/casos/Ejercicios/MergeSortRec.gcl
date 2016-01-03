@@ -19,7 +19,7 @@ begin
       k := lo;
       j := mid + 1;
 
-      {inv true inv}
+      {inv (%forall l : int | lo <= l /\ l <= k | arrf[l] == arr[l] %) inv}
       {bound (x - k) + 1000 bound}
       do(k <= hi) ->
         |[
@@ -30,7 +30,7 @@ begin
       
       k := lo;
 
-      {inv  true inv}
+      {inv (%forall l : int | lo <= l /\ l <= k | true %) inv}
       {bound (x - k) + 1000 bound}
       do (k <= hi) ->
       |[ 
