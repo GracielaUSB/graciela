@@ -288,12 +288,15 @@ createState name (MyAST.States cond loc exp _) = do
 
     return ()
 
+
+addFuncParam :: (TE.Text, T.Type) -> LLVM ()
 addFuncParam (id'', t@(T.MyArray _ _)) = do
   do let id = TE.unpack id''
      let e'   = local (toType t) (Name id)
      addVarOperand id e'
      return ()
 addFuncParam _ = return ()
+
 
 createDef :: MyAST.AST T.Type -> LLVM()
 createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
@@ -335,11 +338,9 @@ accToAlloca acc@(MyAST.ID _ id' t) = do
                            createInstruction acc
     }
 
-
 accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     mapM_ idToAlloca lids
     createInstruction acc
-
 
 accToAlloca (MyAST.Read _ Nothing types vars _) = do
     res <- mapM callRead $ types
@@ -353,7 +354,6 @@ accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
     mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
     return ()
     
-
 
 callReadFile :: String -> T.Type -> LLVM Operand
 callReadFile arch T.MyInt = do
@@ -569,11 +569,9 @@ createArguments dicnp (nargp:nargps) (arg:args) = do
     }
 
 
-
 genGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
 genGuards (guard:[]) none one  = do
     genGuard guard none
-
 
 genGuards (guard:xs) none one = do
     next <- newLabel
@@ -591,6 +589,7 @@ genGuard (MyAST.Guard guard acc _ _) next = do
 
 myFromJust (Just x) = x
 
+
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.ID _ id t) = do
     var <- gets varsLoc
@@ -607,14 +606,16 @@ createExpression (MyAST.ID _ id t) = do
     ; Nothing -> do return $ local ty (Name n)
     }
 
-createExpression (MyAST.Cond lguards _ rtype) = do
-   final  <- newLabel 
-   none   <- newLabel
-   lnames <- genExpGuards lguards none final
-   let rtype' = toType rtype
-   setLabel none $ branch final
-   setLabel final $ Do $ Unreachable []
-   addUnNamedInstruction rtype' $ Phi rtype' lnames []
+
+createExpression (MyAST.Cond lguards loc rtype) = do
+    final  <- newLabel 
+    abort  <- newLabel
+    lnames <- genExpGuards lguards abort final
+    let rtype' = toType rtype
+    setLabel abort $ branch final
+    createTagIf final loc
+    addUnNamedInstruction rtype' $ Phi rtype' lnames []
+
 
 createExpression (MyAST.ArrCall _ id' accs t) = do
     accs' <- mapM createExpression accs
@@ -660,37 +661,6 @@ createExpression (MyAST.Convertion tType _ exp t) = do
         addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
 
 
-createExpression (MyAST.Arithmetic MyAST.Exp _ lexp rexp T.MyInt) = do
-    lexp' <- createExpression lexp
-    rexp' <- createExpression rexp
-    a     <- intToDouble lexp'
-    b     <- intToDouble rexp'
-    val   <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.MyFloat a b 
-    doubleToInt val
-
-
---createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
-
---    lexp' <- createExpression lexp
---    rexp' <- createExpression rexp
-
---    case op of
---    {
---    ; MyAST.Exp -> do a   <- intToDouble lexp'
---                      b   <- intToDouble rexp'
---                      val <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.MyFloat a b 
---                      doubleToInt val  
---    ; MyAST.Max -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
---    ; MyAST.Min -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
---    ; MyAST.Div -> checkDivZero  op loc lexp' rexp' ty
---    ; MyAST.Mod -> checkDivZero  op loc lexp' rexp' ty
---    ; otherwise -> case ty of 
---                   { T.MyInt   -> checkOverflow op loc lexp' rexp' ty
---                   ; T.MyFloat -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
---                   }
---    }
-
-
 createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
 
     lexp' <- createExpression lexp
@@ -698,9 +668,18 @@ createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
 
     case op of
     {
-    ; MyAST.Div -> checkDivZero op loc lexp' rexp' ty
-    ; MyAST.Mod -> checkDivZero op loc lexp' rexp' ty
-    ; otherwise -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+    ; MyAST.Exp -> do a   <- intToDouble lexp'
+                      b   <- intToDouble rexp'
+                      val <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.MyFloat a b 
+                      doubleToInt val  
+    ; MyAST.Max -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+    ; MyAST.Min -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+    ; MyAST.Div -> checkDivZero  op loc lexp' rexp' ty
+    ; MyAST.Mod -> checkDivZero  op loc lexp' rexp' ty
+    ; otherwise -> case ty of 
+                   { T.MyInt   -> checkOverflow op loc lexp' rexp' ty
+                   ; T.MyFloat -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+                   }
     }
 
 
@@ -757,7 +736,6 @@ createExpression (MyAST.FCallExp fname st _ args t) = do
     let exp' = map (\i -> (i,[])) exp
     let op   = definedFunction ty (Name $ TE.unpack fname)
     caller ty (Right op) exp'
-
 
 
 createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
@@ -998,7 +976,6 @@ data RangeCodegen = SetOp   { getOp :: MyAST.OpSet, getLexp :: RangeCodegen, get
       deriving (Eq)
 
 
-
 doRange (MyAST.SetRange op lexp rexp) loc = do
 
     l <- doRange lexp loc
@@ -1022,7 +999,7 @@ intersecRange (RangeOp l1 r1) (RangeOp l2 r2) loc = do
     l <- addUnNamedInstruction intType $ _max l1 l2 
     r <- addUnNamedInstruction intType $ _min r1 r2 
 
-    check <- addUnNamedInstruction boolType $ _lequal r l 
+    check <- addUnNamedInstruction boolType $ _less r l 
 
     error <- newLabel
     final <- newLabel
@@ -1193,6 +1170,8 @@ checkDivZero op loc lexp' rexp' ty = do
                       check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
                       setLabel abort $ condBranch check abort next 
                       createTagZero next loc
+
+
                       addUnNamedInstruction intType $ irArithmetic op ty lexp' rexp' 
    
     ; T.MyFloat -> do let zero = constantFloat 0.0
@@ -1203,27 +1182,24 @@ checkDivZero op loc lexp' rexp' ty = do
     }
 
 
---checkOverflow :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM Operand
---checkOverflow op loc lexp rexp ty = do 
---    next      <- newLabel
---    overAbort <- newLabel
---    res   <- addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp rexp
---    check <- extracValue res 1
-
---    setLabel overAbort $ condBranch check overAbort next
---    createTagOverflow next loc
---    extracValue res 0
-
 checkOverflow :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM Operand
-checkOverflow op loc lexp rexp ty = do
-       res   <- addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp rexp
-       return res
-    
+checkOverflow op loc lexp rexp ty = do 
+    overAbort <- newLabel
+    next      <- newLabel
+    res   <- addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp rexp
+    check <- extracValue res 1
+
+    setLabel overAbort $ condBranch check overAbort next
+    createTagOverflow next loc
+
+    modify $ \s -> s { condName = next }
+    extracValue res 0
+
+
 genExpGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ([(Operand, Name)])
 genExpGuards (guard:[]) none one  = do
     r <- genExpGuard guard none
     return [r]
-
 
 genExpGuards (guard:xs) none one = do
     next <- newLabel
@@ -1232,23 +1208,29 @@ genExpGuards (guard:xs) none one = do
     rl <- genExpGuards xs none one 
     return $ r:rl
 
-createGuardExp (MyAST.Cond lguards _ rtype) _ = do
-    final  <- newLabel 
-    none   <- newLabel
-    lnames <- genExpGuards lguards none final
-    let rtype' = toType rtype
-    setLabel none $ branch final
-    setLabel final $ Do $ Unreachable []
-    n <- addUnNamedInstruction rtype' $ Phi rtype' lnames []
-    return (n, final)
+
+createGuardExp :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
+--createGuardExp (MyAST.Cond lguards _ rtype) _ = do
+--    final  <- newLabel 
+--    none   <- newLabel
+--    lnames <- genExpGuards lguards none final
+--    let rtype' = toType rtype
+--    setLabel none $ branch final
+--    setLabel final $ Do $ Unreachable []
+--    n <- addUnNamedInstruction rtype' $ Phi rtype' lnames []
+--    return (n, final)
+
 createGuardExp acc code = do 
-    n <- createExpression acc
-    return (n, code)
-    
+    exp   <- createExpression acc
+    label <- gets condName
+    return (exp, label)
+
+
 genExpGuard :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
 genExpGuard (MyAST.GuardExp guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
+    modify $ \s -> s { condName = code }
     setLabel code $ condBranch tag code next
     createGuardExp acc code
 
@@ -1273,18 +1255,18 @@ doubleToInt x = addUnNamedInstruction intType $ _toInt x
 
 
 irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
-irArithmetic MyAST.Sum T.MyInt   a b = _add  a b
-irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []
-irArithmetic MyAST.Mul T.MyInt   a b = _mul a b
+--irArithmetic MyAST.Sum T.MyInt   a b = _add  a b
+--irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []
+--irArithmetic MyAST.Mul T.MyInt   a b = _mul a b
+irArithmetic MyAST.Sum T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
+                                         (Name intAdd))) [(a, []),(b, [])] [] []
+irArithmetic MyAST.Sub T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
+                                         (Name intSub))) [(a, []),(b, [])] [] []
+irArithmetic MyAST.Mul T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
+                                         (Name intMul))) [(a, []),(b, [])] [] []
 irArithmetic MyAST.Sum T.MyFloat a b = _addF   a b
 irArithmetic MyAST.Mul T.MyFloat a b = _mulF   a b
 irArithmetic MyAST.Sub T.MyFloat a b = FSub NoFastMathFlags a b []
---irArithmetic MyAST.Sum T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
---                                         (Name intAdd))) [(a, []),(b, [])] [] []
---irArithmetic MyAST.Sub T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
---                                         (Name intSub))) [(a, []),(b, [])] [] []
---irArithmetic MyAST.Mul T.MyInt   a b = Call False CC.C [] (Right ( definedFunction intType 
---                                         (Name intMul))) [(a, []),(b, [])] [] []
 irArithmetic MyAST.Div T.MyInt   a b = SDiv True a b []
 irArithmetic MyAST.Div T.MyFloat a b = FDiv NoFastMathFlags a b []
 irArithmetic MyAST.Mod T.MyInt   a b = URem a b []

@@ -27,6 +27,7 @@ import Contents
 data CodegenSt
   = CodeGenSt {
     insCount    :: Word                        -- Cantidad de instrucciones sin nombre
+  , help        :: Name
   , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
   , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
   , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
@@ -41,7 +42,7 @@ newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
 
 
 emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
+emptyCodegen = CodeGenSt 1 (UnName 0) (UnName 0) DS.empty DS.empty DS.empty DM.empty DM.empty
 
 
 execCodegen :: LLVM a -> CodegenSt
@@ -108,7 +109,6 @@ addNamedInstruction t name ins = do
     return op 
 
 
-
 addString :: String -> Name -> Type -> LLVM ()
 addString msg name ty = do
     defs <- gets moduleDefs
@@ -119,6 +119,7 @@ addString msg name ty = do
               , initializer = Just $ constantString msg
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
+
 
 addFileName :: String -> Name -> Type -> LLVM ()
 addFileName msg name ty = do
@@ -140,6 +141,7 @@ addStringOpe msg = do
     name <- newLabel 
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
+
 
 addFileNameOpe :: String -> LLVM (Operand)
 addFileNameOpe msg = do
@@ -285,6 +287,10 @@ nothing :: Named Terminator
 nothing = (Do $ Unreachable [])
 
 
+returnVal :: Operand -> Named Terminator
+returnVal op = Do $ Ret (Just op) []
+
+
 extracValue :: Operand -> Word32 -> LLVM Operand 
 extracValue name n = addUnNamedInstruction voidType $ ExtractValue name [n] []
 
@@ -344,6 +350,7 @@ convertFuncParams ((id', t'):xs) =
       (id, PointerType t (AddrSpace 0)) : convertFuncParams xs
     else
       (id, t) : convertFuncParams xs
+
 
 floatType :: Type
 floatType = double
