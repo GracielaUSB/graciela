@@ -765,7 +765,7 @@ createExpression (MyAST.QuantRanUn opQ varQ loc rangeExp termExp t) = do
     let name  = TE.unpack varQ
     let tyExp = MyAST.tag termExp
     
-    ranges  <- doRange rangeExp loc
+    ranges  <- doRange opQ rangeExp loc
     rangesF <- makeRanges ranges
 
     case opQ of
@@ -977,25 +977,25 @@ data RangeCodegen = SetOp   { getOp :: MyAST.OpSet, getLexp :: RangeCodegen, get
       deriving (Eq)
 
 
-doRange (MyAST.SetRange op lexp rexp) loc = do
+doRange opQ (MyAST.SetRange op lexp rexp) loc = do
 
-    l <- doRange lexp loc
-    r <- doRange rexp loc
+    l <- doRange opQ lexp loc
+    r <- doRange opQ rexp loc
 
     case op of
-    { MyAST.Intersec -> do res <- intersecRange l r loc
+    { MyAST.Intersec -> do res <- intersecRange opQ l r loc
                            return res 
     ; MyAST.Union    -> return $ SetOp MyAST.Union l r 
     }
 
 
-doRange (MyAST.TupleRange lexp rexp) loc = do
+doRange _ (MyAST.TupleRange lexp rexp) _ = do
     l <- createExpression lexp 
     r <- createExpression rexp 
     return $ RangeOp l r
 
 
-intersecRange (RangeOp l1 r1) (RangeOp l2 r2) loc = do
+intersecRange opQ (RangeOp l1 r1) (RangeOp l2 r2) loc = do
 
     l <- addUnNamedInstruction intType $ _max l1 l2 
     r <- addUnNamedInstruction intType $ _min r1 r2 
@@ -1006,7 +1006,12 @@ intersecRange (RangeOp l1 r1) (RangeOp l2 r2) loc = do
     final <- newLabel
 
     setLabel error $ condBranch check error final
-    createTagRange final loc
+    
+    case opQ of 
+    { MyAST.Maximum -> createTagRangeAbort final loc
+    ; MyAST.Minimum -> createTagRangeAbort final loc
+    ; otherwise     -> createTagRange      final loc
+    }
 
     return $ RangeOp l r
 
@@ -1026,10 +1031,12 @@ createQuant' True opQ var loc exp (RangeOp a b) = do
    
     let ini = a
     let fin = b
+
     op <- alloca Nothing intType var
     store intType op ini
     addVarOperand var op   
 
+    empty   <- newLabel
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
@@ -1039,8 +1046,13 @@ createQuant' True opQ var loc exp (RangeOp a b) = do
     op' <- alloca Nothing boolType varBool
     store boolType op' $ constantBool 1
     addVarOperand varBool op'
-    setLabel initial $ branch initial
 
+    -- Revisar Rango Vacio
+    checkRange <- addUnNamedInstruction boolType $ _lequal ini fin 
+    setLabel empty $ condBranch checkRange initial empty
+
+
+    setLabel initial $ branch final
     varQ   <- load var intType
     check' <- addUnNamedInstruction boolType $ _lequal varQ fin 
 
@@ -1077,6 +1089,7 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
     store intType op ini
     addVarOperand var op   
 
+    empty   <- newLabel
     initial <- newLabel
     code    <- newLabel
     final   <- newLabel
@@ -1096,7 +1109,12 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
 
                       addVarOperand varQuant op'
 
-                      setLabel initial $ branch initial
+                      -- Revisar Rango Vacio
+                      checkRange <- addUnNamedInstruction boolType $ _lequal ini fin 
+                      setLabel empty $ condBranch checkRange initial empty
+
+
+                      setLabel initial $ branch final
                       varQ <- load var intType
                       tag  <- addUnNamedInstruction boolType $ _lequal varQ fin 
                       res  <- load varQuant intType
@@ -1106,7 +1124,7 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
                       e'   <- createExpression exp
 
                       sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1 
-                      store intType op  sum 
+                      store intType op sum 
 
                       case opQ of
                       { MyAST.Summation -> do check <- checkOverflow MyAST.Sum loc res e' T.MyInt
@@ -1119,6 +1137,8 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
                                               store intType op' check 
                       }
                       setLabel final $ branch initial
+
+                      res  <- load varQuant intType
                       return $ res
 
     ; T.MyFloat -> do op' <- alloca Nothing floatType varQuant
@@ -1132,7 +1152,12 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
 
                       addVarOperand varQuant op'
 
-                      setLabel initial $ branch initial
+                      -- Revisar Rango Vacio
+                      checkRange <- addUnNamedInstruction boolType $ _lequal ini fin 
+                      setLabel empty $ condBranch checkRange initial empty
+
+
+                      setLabel initial $ branch final
                       varQ <- load var floatType
                       tag  <- addUnNamedInstruction boolType $ _lequal varQ fin 
                       res  <- load varQuant floatType
@@ -1156,6 +1181,8 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
                       }
 
                       setLabel final $ branch initial
+                      
+                      res  <- load varQuant floatType
                       return $ res
     }
   

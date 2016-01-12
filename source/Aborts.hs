@@ -109,4 +109,10 @@ createTagRange :: Name -> Location -> LLVM ()
 createTagRange next loc = do
 
     callAbort 13 loc
+    setLabel next $ branch next 
+
+createTagRangeAbort :: Name -> Location -> LLVM ()
+createTagRangeAbort next loc = do
+
+    callAbort 14 loc
     setLabel next $ nothing

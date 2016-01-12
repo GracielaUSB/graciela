@@ -9,7 +9,7 @@ $ clang -fPIC -shared auxiliarFunctions.c -o auxiliarFunctions.so
 #include "locale.h"
 #include "string.h"
 
-int8_t* _openFile(short* nombreArchivo) {
+int8_t* _openFile(char* nombreArchivo) {
     FILE* file;
 
     file = fopen(nombreArchivo, "r");
@@ -308,8 +308,13 @@ void _abort(int x, int line, int column) {
             exit(0);
 
         case 13:
+            printf("\nABORT: En la línea %d, columna %d, Rango vacio.\n", line, column);  
+            break;
+
+        case 14:
             printf("\nABORT: En la línea %d, columna %d, Rango vacio.\n\n", line, column);  
             exit(0);
+
     } 
 }
 
