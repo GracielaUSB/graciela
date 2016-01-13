@@ -16,9 +16,11 @@ import LLVM.General.Target
 import LLVM.General.Module
 import System.Environment
 import Text.Parsec.Error
+import Data.String.Utils
 import MyTypeError
 import Text.Parsec
 import Data.Set (empty)
+import Data.List
 import ASTtype
 import Codegen
 import Parser
@@ -88,7 +90,8 @@ play inp fileName =
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile (File $ "prueba.bc") m
+                                      liftError $ writeLLVMAssemblyToFile 
+                                          (File $ (init . init . init . init $ fileName) ++ ".bc") m
                     else 
                         putStrLn $ drawState st
 
@@ -100,5 +103,9 @@ play inp fileName =
 main :: IO ()
 main = do args <- getArgs 
           let fileName = head args
-          s <- TIO.readFile fileName
-          play s fileName
+          case isSuffixOf ".gcl" fileName of      
+          { True  -> do s <- TIO.readFile fileName
+                        play s fileName
+          ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión \".gcl\" \n"  
+          }
+ 
