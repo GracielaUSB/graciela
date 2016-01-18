@@ -17,6 +17,7 @@ import LLVM.General.Module
 import System.Environment
 import Text.Parsec.Error
 import Data.String.Utils
+import System.Directory
 import MyTypeError
 import Text.Parsec
 import Data.Set (empty)
@@ -29,6 +30,7 @@ import Lexer
 import Token
 import Type 
 import AST
+
 
 concatLexPar :: ParsecT T.Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
 concatLexPar = playParser AP.<$> lexer
@@ -101,11 +103,22 @@ play inp fileName =
 
 
 main :: IO ()
-main = do args <- getArgs 
-          let fileName = head args
-          case isSuffixOf ".gcl" fileName of      
-          { True  -> do s <- TIO.readFile fileName
-                        play s fileName
-          ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión \".gcl\" \n"  
-          }
+main = do 
+    args <- getArgs 
+    let fileName = head args
+
+    check <- doesFileExist fileName
+
+    case isSuffixOf ".gcl" fileName of      
+    { True  -> case check of      
+               { True  -> do s <- TIO.readFile fileName
+                             play s fileName
+               ; False -> putStrLn $ "\nERROR: El archivo no existe en el directorio.\n"  
+               }
+
+    ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión. \".gcl\" \n"  
+    }
+
+
  
+
