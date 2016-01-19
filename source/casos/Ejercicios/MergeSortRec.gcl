@@ -7,7 +7,6 @@ begin
     if (arr[lo] <= arr[lo+1]) -> isSorted(x, arr, lo+1, hi)
     [] (arr[lo] > arr[lo+1]) -> false
     fi
-  [] (lo > hi) -> true
   fi
 end
 
@@ -21,7 +20,7 @@ begin
       j := mid + 1;
 
       {inv (%forall l : int | lo <= l /\ l < k | arrf[l] == arr[l] %) inv}
-      {bound (x - k) + 1000 bound}
+      {bound (hi - k) + 2 bound}
       do(k <= hi) ->
         |[
           arrf[k] := arr[k];
@@ -32,7 +31,7 @@ begin
       k := lo;
 
       {inv (%forall l : int | lo <= l /\ l <= k | isSorted(x, arr, lo, k-1) %) inv}
-      {bound (x - k) + 1000 bound}
+      {bound (hi - k) + 2 bound}
       do (k <= hi) ->
       |[ 
         if (i > mid) ->
@@ -88,7 +87,7 @@ begin
   |[
     skip
   ]|
-  {post true post}
+  {post x > 0 post}
 end
 
 proc readInput : (in x : int, ref input : array [x] of int)
