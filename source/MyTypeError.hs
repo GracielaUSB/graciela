@@ -238,3 +238,7 @@ drawTypeError list = let list'' = sortBy checkErrorPosT list
                      in foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list'')
 
 
+drawTypeError2 list = let list'' = [Data.List.head $ sortBy checkErrorPosT list]
+                     in foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list'')
+
+

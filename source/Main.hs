@@ -102,6 +102,53 @@ play inp fileName =
     }
 
 
+
+play2 inp fileName = 
+
+    case (runParser (concatLexPar) () "" (inp)) of
+    { Left err -> 
+
+          do let msg  = head $ messageString $ head $ errorMessages err
+             let col  = sourceColumn $ errorPos err
+             let line = sourceLine   $ errorPos err
+             putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
+                        ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
+
+    ; Right par -> 
+          case par of
+          { (Left  err', _ ) -> 
+                 putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
+          
+                 --do let msg  = head $ messageString $ head $ errorMessages err'
+                 --   let col  = sourceColumn $ errorPos err'
+                 --   let line = sourceLine   $ errorPos err'
+                 --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
+
+          ; (Right (Just ast) , st) -> 
+                 let lErrType = DF.toList $ sTableErrorList st
+                     lErrSyn  = DF.toList $ synErrorList    st
+                 in if (null lErrType) && (null lErrSyn) then
+                        do let (t, l) = runTVerifier (symbolTable st) ast 
+                               l'     = DF.toList l 
+
+                           if not $ null l' then 
+                               putStrLn $ drawTypeError2 l'
+                           else 
+                               do let newast = 
+                                        astToLLVM (SET.toList $ filesToRead st) $ t
+                                  withContext $ \context ->
+                                      liftError $ withModuleFromAST context newast $ \m -> do
+                                      --liftError $ generateCode m
+                                      liftError $ writeLLVMAssemblyToFile 
+                                          (File $ (init . init . init . init $ fileName) ++ ".bc") m
+                    else 
+                        putStrLn $ drawState2 st
+
+          ; (Right  _         , st) -> putStrLn $ drawState2 st
+          }
+    }
+
+
 main :: IO ()
 main = do 
     args <- getArgs 
@@ -111,8 +158,14 @@ main = do
 
     case isSuffixOf ".gcl" fileName of      
     { True  -> case check of      
-               { True  -> do s <- TIO.readFile fileName
-                             play s fileName
+               { True  -> case last args of
+                          { "0" -> do s <- TIO.readFile fileName
+                                      play s fileName
+
+                          ; "1" -> do s <- TIO.readFile fileName
+                                      play2 s fileName
+                          }
+
                ; False -> putStrLn $ "\nERROR: El archivo no existe en el directorio.\n"  
                }
 

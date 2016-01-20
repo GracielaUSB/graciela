@@ -89,3 +89,14 @@ drawError list = case (DS.null list) of
                  ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list)
                  }
 
+
+
+drawState2 :: ParserState -> String
+drawState2 st = case (DS.null $ synErrorList st) of
+               { False  -> drawError $ DS.take 1 $ DS.sortBy checkErrorPosP (synErrorList st)
+               ; True   -> case (DS.null $ sTableErrorList st) of
+                          { True  ->  "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
+                                      --TABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
+                          ; False -> drawError $ DS.take 1 $ DS.sortBy checkErrorPosT (sTableErrorList st)
+                          }
+               }
