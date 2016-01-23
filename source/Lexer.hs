@@ -2,11 +2,13 @@ module Lexer where
 
 import qualified Control.Applicative as AP
 import qualified Data.Text           as T
+import Data.Functor.Identity
 import Text.Parsec
 import Token
 import Type
 
 
+tryString :: String -> ParsecT T.Text u Data.Functor.Identity.Identity String
 tryString s = 
   try $ do n <- string s
            notFollowedBy $ alphaNum <|> char '_' <|> char '?'

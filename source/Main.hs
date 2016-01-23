@@ -44,6 +44,8 @@ playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
 playParser inp = runStateParse (program) "" inp initialState
 
 
+runStateParse :: MyParser (Maybe (AST Type)) -> String -> [TokenPos] -> ParserState -> 
+                                 (Either ParseError (Maybe (AST Type)), ParserState)
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
 

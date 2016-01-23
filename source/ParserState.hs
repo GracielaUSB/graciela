@@ -2,7 +2,8 @@ module ParserState where
 
 import qualified Data.Text  as T 
 import Control.Monad.State  as ST
-import Contents              as CO
+import Contents             as CO
+import Data.Functor.Identity
 import TokenParser
 import MyParseError
 import MyTypeError
@@ -181,13 +182,15 @@ lookUpConstIntParser id loc =
                return Nothing
        }
 
-       
+
+addConsIdError :: T.Text -> MyParser ()
 addConsIdError id = 
     do pos <- getPosition 
        ST.modify $ addTypeError (ConstIdError id (getLocation pos))
        return ()
 
 
+addNonDeclVarError :: T.Text -> MyParser ()
 addNonDeclVarError id =
     do pos <- getPosition 
        ST.modify $ addTypeError $ NonDeclError id (getLocation pos)
@@ -201,6 +204,7 @@ addNonAsocError =
        return ()
  
 
+addArrayCallError :: Int -> Int -> MyParser ()
 addArrayCallError waDim prDim = do pos <- getPosition
                                    ST.modify $ addParsingError $ ArrayError waDim prDim (getLocation pos) 
                                    return ()

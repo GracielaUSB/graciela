@@ -76,6 +76,7 @@ addDefinition name params retTy = do
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
+globalVariable :: Name -> Type -> C.Constant -> LLVM ()
 globalVariable name ty init = do
     defs <- gets moduleDefs
     let def = GlobalDefinition $ globalVariableDefaults {

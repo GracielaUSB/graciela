@@ -309,6 +309,7 @@ void _abort(int x, int line, int column) {
 
         case 13:
             //printf("\nABORT: En la línea %d, columna %d, Rango vacio.\n", line, column);  
+            //exit(0); 
             break;
 
         case 14:
