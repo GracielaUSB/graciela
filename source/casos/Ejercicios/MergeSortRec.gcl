@@ -65,7 +65,7 @@ end
 proc sort : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo: int, in hi : int)
 begin
   var mid : int;
-  {pre true pre}
+  {pre lo < hi pre}
   |[
     if (hi <= lo) -> skip
     [] (hi > lo) ->
@@ -77,7 +77,7 @@ begin
        ]|
     fi
   ]|
-  {post true post}
+  {post isSorted(x, arr, lo, hi) post}
 end
 
 proc readFromInput : (out x : int)
@@ -98,7 +98,7 @@ begin
   |[
     {inv true inv}
     {bound (x - i) + 2 bound}
-    do (i <= x) ->
+    do (i < x) ->
     |[
       readFromInput(y);
       input[i] := y;
@@ -117,7 +117,6 @@ begin
   |[
     var input : array [x] of int;
     var aux : array [x] of int;
-    var d := 1111 : int;
     var i : int;
     
     readInput(x, input);
