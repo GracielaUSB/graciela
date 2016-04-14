@@ -1,3 +1,11 @@
+{-|
+Module      : Declarations
+Description : Parseo y almacenamiento de las declaraciones
+Copyright   : GraCieLa
+
+Modulo donde se encuentra todo lo referente al almacenamiento de las variables
+en la tabla de simbolos, mientras se esta realizando el parser. 
+-}
 module Declarations where
 
 import qualified Control.Applicative as AP 
@@ -16,6 +24,11 @@ import Type
 import AST
 import MyParseError
 
+
+{-|
+  La función 'decList' posee el parseo de las variables y 
+  el almacenamiento en la tabla 
+-}
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet = 
     do loc <- parseLocation
@@ -61,6 +74,10 @@ decList follow recSet =
           <|> do return $ return []
 
 
+{-|
+  La función 'consListParser' posee el parseo de una lista de
+  constantes o variables con inicializacion
+-}
 consListParser :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 consListParser follow recSet = 
     do c <- expr (parseComma <|> follow) (parseComma <|> recSet)
@@ -70,6 +87,9 @@ consListParser follow recSet =
           <|> do return $ fmap (:[]) c
 
 
+{-|
+  La función 'idList' parsea el ID de la variable
+-}
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idList follow recSet = 
     do lookAhead follow
@@ -81,6 +101,9 @@ idList follow recSet =
               return (fmap ((ac, loc) :) rl)
 
 
+{-|
+  La función 'idListAux' parsea de una lista de ID's de las variables
+-}
 idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idListAux follow recSet =
   do parseComma
@@ -90,12 +113,20 @@ idListAux follow recSet =
      return (fmap ((ac, loc) :) rl)
      <|> do return $ return []
 
+
+{-|
+  La función 'parseLocation' genera la posicion de los ID's
+-}
 parseLocation :: MyParser (Location)
 parseLocation =
     do pos <- getPosition
        return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+   
                   
-
+{-|
+  La función 'reading' parseo de la lectura de variables
+  dentro de los procedimientos
+-}
 reading follow ld = 
   do loc <- parseLocation
      do parseRead
@@ -119,6 +150,8 @@ reading follow ld =
            <|> do genNewError follow TokenLP
                   return Nothing
 
+
+-- Verificar variables utilizadas en el read
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListWithRead follow recSet = 
   do lookAhead (parseConst <|> parseVar)

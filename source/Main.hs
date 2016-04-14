@@ -1,5 +1,5 @@
 module Main where
-  
+
 import qualified LLVM.General.CodeGenOpt  as CodeGenOpt
 import qualified LLVM.General.Relocation  as Reloc
 import qualified LLVM.General.CodeModel   as CodeModel

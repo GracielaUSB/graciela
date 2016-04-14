@@ -1,3 +1,11 @@
+{-|
+Module      : Lexer
+Description : Analizador lexicografico
+Copyright   : GraCieLa
+
+Modulo del analizador lexicografico, 
+retorna una lista con los tokens de las palabras reservadas
+-}
 module Lexer where
 
 import qualified Control.Applicative as AP
@@ -8,6 +16,9 @@ import Token
 import Type
 
 
+{-|
+  La función 'tryString' revisa una palabra 
+-}
 tryString :: String -> ParsecT T.Text u Data.Functor.Identity.Identity String
 tryString s = 
   try $ do n <- string s
@@ -15,9 +26,16 @@ tryString s =
            return n
 
 
+{-|
+  La función 'tryStringOp' revisa un operador 
+-}
 tryStringOp = try . string
 
 
+{-|
+  La funciones desde 'pPlus' hasta 'pEnd' representan las palabras
+  y caracteres reservados
+-}
 pPlus         = oneOf "+\43"
 pMinus        = oneOf "-\45"
 pStar         = oneOf "*\215"
@@ -106,9 +124,18 @@ pMAX_DOUBLE   = tryString "MAX_DOUBLE"
 pOf           = tryString "of"
 pBegin        = tryString "begin"
 pEnd          = tryString "end"
+
+{-|
+  La función 'pComment' es usada para los comentarios
+  del lenguaje, por lo que toda la linea se ignora
+-}
 pComment      = optional(do many (tryStringOp "//" >> manyTill anyChar (lookAhead (newline)) >> spaces))
 
-                  
+
+ {-|
+  La función 'lexer' se encarga de generar la lista
+  con todos los tokens  
+-}  
 lexer :: Parsec T.Text () ([TokenPos])
 lexer = 
     do spaces
