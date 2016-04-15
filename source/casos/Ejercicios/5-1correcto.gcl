@@ -1,0 +1,53 @@
+//Calcula el resultado y el resto de una division
+
+program main
+begin
+
+    proc dividir : (out q : int, out r : int) 
+    begin
+        var A, B, b, i : int;
+        var f : double;
+
+        read(A, B); 
+
+        {pre A >= 0 /\ B >= 0 pre}  
+
+        |[  
+            q, r, b, i := 0, A, B, A;
+            //(% exist k : int | 0 <= k /\ k < A | b == 2^k * B %)
+            {inv true inv}
+            {bound i-1 bound}
+            do (r >= b) -> b, i:= b*2, i-1 od;
+
+            {inv   true  inv} 
+            {bound b-1  bound}
+
+            do (b != B) ->
+            |[
+                q, b := q*2, b/2;
+
+                if (r <  b) -> skip
+                [] (r >= b) -> q, r := q+1, r-b
+                fi
+            ]|
+            od
+
+        ]|
+        {post q == A/B /\ r == A mod B post}
+    end
+
+|[
+    var resultado, resto : int;
+
+    write("Escriba el dividendo y el divisor: ");
+
+    dividir(resultado, resto);
+
+    write("El resultado es: ");
+    writeln(resultado);
+
+    write("El resto es: ");
+    writeln(resto)
+    ]|
+
+end

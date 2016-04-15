@@ -1,6 +1,7 @@
 //Longest Segments, All zeros
 
-program main begin
+program main 
+begin
 
     proc TodosCeros: (in N: int, ref X: array [10] of int, out res: int) 
     begin
@@ -34,13 +35,13 @@ program main begin
         var arr  : array [10] of int;
         var resultado: int;
 
-        arr[0]:= 3;
+        arr[0]:= 0;
         arr[1]:= 0;
-        arr[2]:= 2;
+        arr[2]:= 6;
         arr[3]:= 5;
         arr[4]:= -8;
-        arr[5]:= 11;
-        arr[6]:= 0;
+        arr[5]:= 5;
+        arr[6]:= 5;
         arr[7]:= 1;
         arr[8]:= 8;
         arr[9]:= -2;

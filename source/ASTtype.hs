@@ -35,10 +35,10 @@ verTypeAST (Constant loc False max _) = return $ Constant loc False max MyFloat
 
 
 verTypeAST (Arithmetic t loc lexpr rexp _) =
-	do lexpr' <- verTypeAST lexpr
-	   rexp'  <- verTypeAST rexp
-	   checkT <- verArithmetic (tag lexpr') (tag rexp') loc t
-	   return $ Arithmetic t loc lexpr' rexp' checkT
+  do lexpr' <- verTypeAST lexpr
+     rexp'  <- verTypeAST rexp
+     checkT <- verArithmetic (tag lexpr') (tag rexp') loc t
+     return $ Arithmetic t loc lexpr' rexp' checkT
 
 
 verTypeAST (Relational t loc lexpr rexp _) =

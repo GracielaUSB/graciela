@@ -3,15 +3,18 @@ Module      : Declarations
 Description : Parseo y almacenamiento de las declaraciones
 Copyright   : GraCieLa
 
-Modulo donde se encuentra todo lo referente al almacenamiento de las variables
+Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser. 
 -}
 module Declarations where
 
-import qualified Control.Applicative as AP 
-import qualified Control.Monad       as M
-import qualified Data.Text           as T
-import Contents                      as CO
+import qualified Control.Applicative  as AP 
+import qualified Control.Monad        as M
+import qualified Data.Text            as T
+import Contents                       as CO
+import Control.Monad.Trans.State.Lazy  
+import Data.Functor.Identity         
+import MyParseError
 import ParserState                 
 import Text.Parsec
 import TokenParser
@@ -22,13 +25,9 @@ import Token
 import State
 import Type
 import AST
-import MyParseError
 
 
-{-|
-  La función 'decList' posee el parseo de las variables y 
-  el almacenamiento en la tabla 
--}
+-- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet = 
     do loc <- parseLocation
@@ -74,10 +73,7 @@ decList follow recSet =
           <|> do return $ return []
 
 
-{-|
-  La función 'consListParser' posee el parseo de una lista de
-  constantes o variables con inicializacion
--}
+-- | Se encarga del parseo de una lista de constantes o variables con inicializacion
 consListParser :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 consListParser follow recSet = 
     do c <- expr (parseComma <|> follow) (parseComma <|> recSet)
@@ -87,9 +83,7 @@ consListParser follow recSet =
           <|> do return $ fmap (:[]) c
 
 
-{-|
-  La función 'idList' parsea el ID de la variable
--}
+-- | Se encarga del parseo del ID de una variable
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idList follow recSet = 
     do lookAhead follow
@@ -101,9 +95,7 @@ idList follow recSet =
               return (fmap ((ac, loc) :) rl)
 
 
-{-|
-  La función 'idListAux' parsea de una lista de ID's de las variables
--}
+-- | Se encarga del parseo de la lista de ID's de las variables
 idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idListAux follow recSet =
   do parseComma
@@ -114,19 +106,16 @@ idListAux follow recSet =
      <|> do return $ return []
 
 
-{-|
-  La función 'parseLocation' genera la posicion de los ID's
--}
+-- | Se encarga de generar la posicion de los ID's
 parseLocation :: MyParser (Location)
 parseLocation =
     do pos <- getPosition
        return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
-   
-                  
-{-|
-  La función 'reading' parseo de la lectura de variables
-  dentro de los procedimientos
--}
+  
+
+-- | Se encarga del parseo de la lectura de variables
+reading :: MyParser Token -> Maybe [AST Type] -> ParsecT [TokenPos] () 
+           (StateT ParserState Identity) (Maybe [AST Type])
 reading follow ld = 
   do loc <- parseLocation
      do parseRead
@@ -151,7 +140,7 @@ reading follow ld =
                   return Nothing
 
 
--- Verificar variables utilizadas en el read
+-- | Verifica las variables utilizadas en la lectura 
 decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decListWithRead follow recSet = 
   do lookAhead (parseConst <|> parseVar)

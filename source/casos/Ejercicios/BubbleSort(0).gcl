@@ -1,6 +1,7 @@
 //BubbleSort(0)
 
-program main begin
+program main 
+begin
 
 
     proc swap : (ref h1: array [10] of int, in x: int, in y: int) 

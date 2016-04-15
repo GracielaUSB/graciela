@@ -1,3 +1,11 @@
+{-|
+Module      : Token
+Description : Todos los tokens del lenguaje
+Copyright   : GraCieLa
+
+Posee todo lo referente a tokens generados por el lexer, que seran
+luego utilizados por el parser 
+-}
 module Token where
 
 import qualified Data.Text as T
@@ -5,12 +13,11 @@ import Text.Parsec
 import Type
 
 
-data TypeBool = MyTrue | MyFalse
-  deriving (Show, Read, Eq) 
-
-
+-- | Rpresenta una tupla con un token y su posicion
 type TokenPos = (Token, SourcePos)
 
+
+-- | Representa a todos las palabras reservadas en el lenguaje
 data Token =   TokPlus
              | TokMinus 
              | TokStar 
@@ -109,6 +116,7 @@ data Token =   TokPlus
       deriving (Eq)
 
 
+-- | Instancia 'Show' para los tokens
 instance Show Token where
   show TokBegin         = "\"begin\" - Inicio de Procedimiento o Función"
   show TokLexEnd        = "\"end\" - Fin de Procedimiento o Función"
@@ -205,11 +213,13 @@ instance Show Token where
   show TokComment       = "\"//\" - Comentatios" 
 
 
+-- | Se encarga de imprimir los boleanos
 showBool :: Bool -> String
 showBool True  = "true"
 showBool False = "false"
 
 
+-- | Se encarga de imprimir los tipos
 showType :: Type -> String
 showType MyInt   = "Entero "
 showType MyFloat = "Flotante "
@@ -217,34 +227,40 @@ showType MyChar  = "Caracter "
 showType MyBool  = "Booleano "
 
 
+-- | Retorna el token de una tupla 'TokenPos'
 getToken :: TokenPos -> Token
 getToken (token, _) = token
 
 
+-- | Retorna la posicion de una tupla 'TokenPos'
 getPos :: TokenPos -> SourcePos
 getPos (_, pos) = pos
 
 
+-- | Retorna el entero asociado a un token
 tokenToInt :: Token -> Maybe Integer
 tokenToInt (TokInteger n) = return n
 tokenToInt _              = Nothing
 
-
+-- | Retorna el flotante asociado a un token
 tokenToDouble :: Token -> Maybe Double
 tokenToDouble (TokFlotante n) = return n
 tokenToDouble _               = Nothing
 
 
+-- | Retorna el boleano asociado a un token
 tokenToBool :: Token -> Maybe Bool
 tokenToBool (TokBool b) = return b
 tokenToBool _           = Nothing
 
 
+-- | Retorna el caracter asociado a un token
 tokenToChar :: Token -> Maybe Char
 tokenToChar (TokChar c) = return c
 tokenToChar _           = Nothing
 
 
+-- | Retorna la lista de caracteres asociado a un token
 tokenToString :: Token -> Maybe String
 tokenToString (TokString s) = return s
 tokenToString _             = Nothing
