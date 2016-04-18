@@ -1,14 +1,13 @@
 module AST where
 
 import qualified Data.Text as T
+import qualified Contents  as Cont
 import Data.Range.Range    as RA
 import Data.Monoid hiding (Product)
 import SymbolTable
 import Location
 import Limits
-import Print
 import Type
-import qualified  Contents as Cont
 
 {- |
    Tipo de dato que nos permite representar el árbol sintáctico abstracto
@@ -177,6 +176,12 @@ checkWrite :: Bool -> String
 checkWrite True  = "Escribir con Salto de línea"
 checkWrite False = "Escribir"
 
+putLocation :: Location -> String
+putLocation location = " --- en el " `mappend` show location
+
+
+putLocationLn :: Location -> String
+putLocationLn location = " --- en el " `mappend` show location `mappend` "\n"
 
 
 drawAST level ((Program name loc defs accs ast)) = 

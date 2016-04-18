@@ -1,0 +1,10 @@
+program main |[
+  |[
+      var foo, bar := 232, 1 : int;
+      var baz, qux := true, false : boolean;
+
+      foo := 2.2;
+
+      bar, qux := baz, foo
+  ]|
+]|

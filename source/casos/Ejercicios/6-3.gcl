@@ -1,0 +1,60 @@
+//Binary Search
+
+program main begin
+
+    proc buscar: (in N: int, in A: int, ref f: array [10] of int, out b: boolean) 
+    begin
+        var x, y, cota: int;
+    
+        {pre true pre}  
+        |[  
+    	    x, y, cota := 0, N, 5000;
+
+		    {inv true inv} 
+		    {bound cota-1 bound}
+
+    	    do (x+1 != y) ->
+            |[
+                var h: int;
+
+                h := (x+y)/2;
+
+        		if (f[h] <= A) -> x := h
+        		[] (A  < f[h]) -> y := h
+        		fi;
+
+                cota := cota-1
+            ]|
+    	    od;
+
+            b := f[x] == A
+
+        ]|
+        //b == (%exist i: int | 0<=i /\ i<=length(f) | f[i] == A %)
+        {post true post}
+    end
+
+    |[
+
+        var arr  : array [10] of int;
+        var resultado: boolean;
+
+        arr[0]:= 3;
+        arr[1]:= 7;
+        arr[2]:= 2;
+        arr[3]:= 5;
+        arr[4]:= -8;
+        arr[5]:= 11;
+        arr[6]:= 2;
+        arr[7]:= 1;
+        arr[8]:= 8;
+        arr[9]:= -2;
+        
+        buscar(10, 3, arr, resultado);
+        
+        write("El resultado es: ");
+        writeln(resultado)
+
+    ]|
+
+end

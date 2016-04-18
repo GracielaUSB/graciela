@@ -1,0 +1,141 @@
+program main begin
+
+func isSorted : (x : int, arr : array [x] of int, lo : int, hi : int) -> boolean
+begin
+  if (lo == hi) -> true
+  [] (lo < hi) -> 
+    if (arr[lo] <= arr[lo+1]) -> isSorted(x, arr, lo+1, hi)
+    [] (arr[lo] > arr[lo+1]) -> false
+    fi
+  fi
+end
+
+proc merge : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo : int, in mid : int, in hi : int)
+begin
+  var i, j, k : int;
+  {pre isSorted(x, arr, lo, mid) /\ isSorted(x, arr, mid+1, hi) pre}
+  |[
+      i := lo;
+      k := lo;
+      j := mid + 1;
+
+      {inv (%forall l : int | lo <= l /\ l < k | arrf[l] == arr[l] %) inv}
+      {bound (hi - k) + 2 bound}
+      do(k <= hi) ->
+        |[
+          arrf[k] := arr[k];
+          k := k + 1
+        ]|
+      od;
+      
+      k := lo;
+
+      {inv (%forall l : int | lo <= l /\ l <= k | isSorted(x, arr, lo, k-1) %) inv}
+      {bound (hi - k) + 2 bound}
+      do (k <= hi) ->
+      |[ 
+        if (i > mid) ->
+          |[
+            arr[k] := arrf[j];
+            j := j + 1
+          ]|
+        [] (j > hi) ->
+          |[
+            arr[k] := arrf[i];
+            i := i + 1
+          ]|
+        [] (arrf[j] <= arrf[i]) ->
+          |[
+            arr[k] := arrf[j];
+            j := j + 1
+          ]|
+        [] ((arrf[j] > arrf[i])) ->
+          |[
+            arr[k] := arrf[i];
+            i := i + 1
+          ]|
+        fi;
+        k := k + 1
+      ]|
+      od
+  ]|
+  {post isSorted(x, arr, lo, hi) post}
+end
+
+proc sort : (in x : int, ref arr: array [x] of int, ref arrf: array [x] of int, in lo: int, in hi : int)
+begin
+  var mid : int;
+  {pre lo < hi pre}
+  |[
+    if (hi <= lo) -> skip
+    [] (hi > lo) ->
+       |[
+          mid := lo + ((hi - lo) / 2);
+          sort(x, arr, arrf, lo, mid);
+          sort(x, arr, arrf, mid + 1, hi);
+          merge(x, arr, arrf, lo, mid, hi)
+       ]|
+    fi
+  ]|
+  {post isSorted(x, arr, lo, hi) post}
+end
+
+proc readFromInput : (out x : int)
+begin
+  read(x) with "input.txt";
+  {pre true pre}
+  |[
+    skip
+  ]|
+  {post x > 0 post}
+end
+
+proc readInput : (in x : int, ref input : array [x] of int)
+begin
+  var i := 0 : int;
+  var y : int;
+  {pre x >= 0 pre}
+  |[
+    {inv true inv}
+    {bound (x - i) + 2 bound}
+    do (i < x) ->
+    |[
+      readFromInput(y);
+      input[i] := y;
+      i := i + 1
+    ]|
+    od
+  ]|
+  {post true post}
+end
+
+proc process : ()
+begin
+  var x : int;
+  read(x) with "input.txt";
+  {pre x >= 0 pre}
+  |[
+    var input : array [x] of int;
+    var aux : array [x] of int;
+    var i : int;
+    
+    readInput(x, input);
+    sort(x, input, aux, 0, x-1);
+
+    {inv true inv}
+    {bound (x - i) + 1 bound}
+    do (i < x) ->
+    |[
+      write(input[i]);
+      write(", ");
+      i := i+1
+    ]|
+    od
+  ]|
+  {post true post}
+end
+
+|[
+  process()
+]|
+end

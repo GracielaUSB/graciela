@@ -1,3 +1,11 @@
+{-|
+Module      : TypeState
+Description : Monad State para agregar los errores
+Copyright   : GraCieLa
+
+Modulo donde se encuentra las funciones utilizadas para agregar los errores
+encontrados al estado.
+-}
 module TypeState where
 
 import qualified Control.Monad.RWS.Strict as RWSS
@@ -10,6 +18,8 @@ import Type
 import AST
 
 
+-- | Tipo del Monad el cual contiene, la tabla de simbolos, una secuencia de errores y una lista de strings,
+-- | usados para el manejo de los errores a momento de ejecucion
 type MyVerType a = RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) a
 
 

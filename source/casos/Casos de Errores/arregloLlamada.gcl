@@ -1,0 +1,11 @@
+
+program main |[
+  |[
+      var foo, bar := 232, 1 : int;
+      var arr : array [11] of int;
+      var qux := true : boolean;
+
+      foo := arr[qux] 
+
+  ]|
+]|
