@@ -7,7 +7,7 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 * ***TO DO*** Hablar filosoficamente del lenguaje
 
-El diseño del lenguaje está disponible [aquí](doc/diseno.md).
+El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
 ## Instalación
 
