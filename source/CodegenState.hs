@@ -12,7 +12,7 @@ import LLVM.General.AST.Global                           as GLOB
 import LLVM.General.AST.Attribute
 import LLVM.General.AST.AddrSpace
 import LLVM.General.AST.Float
-import LLVM.General.AST.Type 
+import LLVM.General.AST.Type
 import LLVM.General.AST.Linkage
 import Control.Monad.State
 import Control.Applicative
@@ -64,7 +64,7 @@ addDimToArray name op = do
 addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
 addDefinition name params retTy = do
     bbl  <- gets bblocs
-    defs <- gets moduleDefs 
+    defs <- gets moduleDefs
     let def = GlobalDefinition $ functionDefaults {
                 name        = Name name
               , parameters  = params
@@ -107,7 +107,7 @@ addNamedInstruction t name ins = do
     modify $ \s -> s { instrs = lins DS.|> (r := ins) }
     let op = local t r
     addVarOperand name op
-    return op 
+    return op
 
 
 addString :: String -> Name -> Type -> LLVM ()
@@ -116,7 +116,7 @@ addString msg name ty = do
     let def = GlobalDefinition $ globalVariableDefaults {
                 name        = name
               , isConstant  = True
-              , GLOB.type'  = ty  
+              , GLOB.type'  = ty
               , initializer = Just $ constantString msg
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
@@ -128,7 +128,7 @@ addFileName msg name ty = do
     let def = GlobalDefinition $ globalVariableDefaults {
                 name        = name
               , isConstant  = True
-              , GLOB.type'  = ty  
+              , GLOB.type'  = ty
               , initializer = Just $ constantFileName msg
               }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
@@ -138,8 +138,8 @@ addFileName msg name ty = do
 addStringOpe :: String -> LLVM (Operand)
 addStringOpe msg = do
     let n  = fromIntegral $ Prelude.length msg+1
-    let ty = ArrayType n i16 
-    name <- newLabel 
+    let ty = ArrayType n i16
+    name <- newLabel
     addString msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
 
@@ -147,8 +147,8 @@ addStringOpe msg = do
 addFileNameOpe :: String -> LLVM (Operand)
 addFileNameOpe msg = do
     let n  = fromIntegral $ Prelude.length msg+1
-    let ty = ArrayType n i8 
-    name <- newLabel 
+    let ty = ArrayType n i8
+    name <- newLabel
     addFileName msg name ty
     return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
 
@@ -160,11 +160,11 @@ setLabel name t800 = do
 
 
 checkVar :: String -> Type -> LLVM Operand
-checkVar id ty = do 
+checkVar id ty = do
     vars <- gets varsLoc
     case DM.lookup id vars of
-    { Just op -> return op 
-    ; Nothing -> do op <- alloca Nothing ty id 
+    { Just op -> return op
+    ; Nothing -> do op <- alloca Nothing ty id
                     return op
     }
 
@@ -213,7 +213,7 @@ constantFloat n = ConstantOperand $ C.Float $ Double n
 
 
 constantBool :: Integer -> Operand
-constantBool n = ConstantOperand $ C.Int 1 n 
+constantBool n = ConstantOperand $ C.Int 1 n
 
 
 constantChar :: Char -> Operand
@@ -226,11 +226,11 @@ defaultChar = ConstantOperand $ C.Int 9 1
 
 constantString :: String -> C.Constant
 constantString msg =
-   C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- (msg ++ "\0")]    
+   C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- (msg ++ "\0")]
 
 constantFileName:: String -> C.Constant
 constantFileName msg =
-   C.Array pointerType [C.Int 8 (toInteger (ord c)) | c <- (msg ++ "\0")]    
+   C.Array pointerType [C.Int 8 (toInteger (ord c)) | c <- (msg ++ "\0")]
 
 
 definedFunction :: Type -> Name -> Operand
@@ -266,18 +266,18 @@ store t ptr val =
 
 
 load :: String -> Type -> LLVM (Operand)
-load name ty = do 
+load name ty = do
     map <- gets varsLoc
     let i = fromJust $ DM.lookup name map
     addUnNamedInstruction ty $ Load False i Nothing 0 []
 
 
 caller :: Type -> CallableOperand -> [(Operand, [ParameterAttribute])] -> LLVM Operand
-caller ty df args = addUnNamedInstruction ty $ Call False CC.C [] df args [] []
+caller ty df args = addUnNamedInstruction ty $ Call Nothing CC.C [] df args [] []
 
 
 branch :: Name -> Named Terminator
-branch label = Do $ Br label [] 
+branch label = Do $ Br label []
 
 
 condBranch :: Operand -> Name -> Name -> Named Terminator
@@ -292,7 +292,7 @@ returnVal :: Operand -> Named Terminator
 returnVal op = Do $ Ret (Just op) []
 
 
-extracValue :: Operand -> Word32 -> LLVM Operand 
+extracValue :: Operand -> Word32 -> LLVM Operand
 extracValue name n = addUnNamedInstruction voidType $ ExtractValue name [n] []
 
 
@@ -320,20 +320,20 @@ mulDims (arrDim:xs) (acc:ys) = do
 
 
 retType :: Operand -> LLVM (Named Terminator)
-retType op = do 
+retType op = do
     n <- newLabel
     return $ n := Ret (Just op) []
 
 
 retVoid :: LLVM (Named Terminator)
-retVoid = do 
+retVoid = do
     n <- newLabel
     return $ n := Ret Nothing []
 
 
 convertParams :: [(String, Contents SymbolTable)] -> [(String, Type)]
 convertParams [] = []
-convertParams ((id,c):xs) = 
+convertParams ((id,c):xs) =
     let t  = toType $ symbolType c in
 
     case procArgType $ c of
@@ -383,5 +383,5 @@ toType T.MyInt   = intType
 toType T.MyFloat = floatType
 toType T.MyBool  = boolType
 toType T.MyChar  = charType
-toType (T.MyArray _ t) = toType t 
+toType (T.MyArray _ t) = toType t
 

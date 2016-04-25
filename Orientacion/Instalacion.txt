@@ -6,7 +6,7 @@ Primero que todo debes de bajarte la plataforma de haskell 7.10.3, yo la instale
 https://www.haskell.org/platform/#linux-generic
 
 
-...y siguiendo los pasos que dice para la instalacion. 
+...y siguiendo los pasos que dice para la instalacion.
 
 
 
@@ -14,13 +14,11 @@ Por ultimo, hacen los siguientes pasos en la terminal para instalar el resto de 
 
 
 apt-get update
-apt-get install llvm 
-apt-get install llvm-3.4
+apt-get install llvm
+apt-get install llvm-3.5
 apt-get install cabal-install
 cabal update
-cabal install range-0.1.1.0
-cabal install llvm-general-pure-3.4.5.3
-cabal install llvm-general-3.4.5.3
+cabal install llvm-general-3.5.1.2
 
 
 y ya deberian tener todo listo para poder compilar los archivos de Haskell.

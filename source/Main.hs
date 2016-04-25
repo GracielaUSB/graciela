@@ -28,7 +28,7 @@ import Parser
 import State
 import Lexer
 import Token
-import Type 
+import Type
 import AST
 
 
@@ -44,7 +44,7 @@ playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
 playParser inp = runStateParse (program) "" inp initialState
 
 
-runStateParse :: MyParser (Maybe (AST Type)) -> String -> [TokenPos] -> ParserState -> 
+runStateParse :: MyParser (Maybe (AST Type)) -> String -> [TokenPos] -> ParserState ->
                                  (Either ParseError (Maybe (AST Type)), ParserState)
 runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
 
@@ -54,14 +54,14 @@ liftError = runExceptT >=> either fail return
 
 generateCode :: Module -> ExceptT String IO ()
 generateCode m =
-  do withDefaultTargetMachine $ \tm ->
+  do withHostTargetMachine $ \tm ->
       liftError $ writeObjectToFile tm (File "prueba") m
 
 
-play inp fileName = 
+play inp fileName =
 
     case (runParser (concatLexPar) () "" (inp)) of
-    { Left err -> 
+    { Left err ->
 
           do let msg  = head $ messageString $ head $ errorMessages err
              let col  = sourceColumn $ errorPos err
@@ -69,34 +69,34 @@ play inp fileName =
              putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
                         ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
 
-    ; Right par -> 
+    ; Right par ->
           case par of
-          { (Left  err', _ ) -> 
+          { (Left  err', _ ) ->
                  putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
-          
+
                  --do let msg  = head $ messageString $ head $ errorMessages err'
                  --   let col  = sourceColumn $ errorPos err'
                  --   let line = sourceLine   $ errorPos err'
                  --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
 
-          ; (Right (Just ast) , st) -> 
+          ; (Right (Just ast) , st) ->
                  let lErrType = DF.toList $ sTableErrorList st
                      lErrSyn  = DF.toList $ synErrorList    st
                  in if (null lErrType) && (null lErrSyn) then
-                        do let (t, l) = runTVerifier (symbolTable st) ast 
-                               l'     = DF.toList l 
+                        do let (t, l) = runTVerifier (symbolTable st) ast
+                               l'     = DF.toList l
 
-                           if not $ null l' then 
+                           if not $ null l' then
                                putStrLn $ drawTypeError l'
-                           else 
-                               do let newast = 
+                           else
+                               do let newast =
                                         astToLLVM (SET.toList $ filesToRead st) $ t
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile 
+                                      liftError $ writeLLVMAssemblyToFile
                                           (File $ (init . init . init . init $ fileName) ++ ".bc") m
-                    else 
+                    else
                         putStrLn $ drawState st
 
           ; (Right  _         , st) -> putStrLn $ drawState st
@@ -105,10 +105,10 @@ play inp fileName =
 
 
 
-play2 inp fileName = 
+play2 inp fileName =
 
     case (runParser (concatLexPar) () "" (inp)) of
-    { Left err -> 
+    { Left err ->
 
           do let msg  = head $ messageString $ head $ errorMessages err
              let col  = sourceColumn $ errorPos err
@@ -116,34 +116,34 @@ play2 inp fileName =
              putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
                         ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
 
-    ; Right par -> 
+    ; Right par ->
           case par of
-          { (Left  err', _ ) -> 
+          { (Left  err', _ ) ->
                  putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
-          
+
                  --do let msg  = head $ messageString $ head $ errorMessages err'
                  --   let col  = sourceColumn $ errorPos err'
                  --   let line = sourceLine   $ errorPos err'
                  --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
 
-          ; (Right (Just ast) , st) -> 
+          ; (Right (Just ast) , st) ->
                  let lErrType = DF.toList $ sTableErrorList st
                      lErrSyn  = DF.toList $ synErrorList    st
                  in if (null lErrType) && (null lErrSyn) then
-                        do let (t, l) = runTVerifier (symbolTable st) ast 
-                               l'     = DF.toList l 
+                        do let (t, l) = runTVerifier (symbolTable st) ast
+                               l'     = DF.toList l
 
-                           if not $ null l' then 
+                           if not $ null l' then
                                putStrLn $ drawTypeError2 l'
-                           else 
-                               do let newast = 
+                           else
+                               do let newast =
                                         astToLLVM (SET.toList $ filesToRead st) $ t
                                   withContext $ \context ->
                                       liftError $ withModuleFromAST context newast $ \m -> do
                                       --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile 
+                                      liftError $ writeLLVMAssemblyToFile
                                           (File $ (init . init . init . init $ fileName) ++ ".bc") m
-                    else 
+                    else
                         putStrLn $ drawState2 st
 
           ; (Right  _         , st) -> putStrLn $ drawState2 st
@@ -152,14 +152,14 @@ play2 inp fileName =
 
 
 main :: IO ()
-main = do 
-    args <- getArgs 
+main = do
+    args <- getArgs
     let fileName = head args
 
     check <- doesFileExist fileName
 
-    case isSuffixOf ".gcl" fileName of      
-    { True  -> case check of      
+    case isSuffixOf ".gcl" fileName of
+    { True  -> case check of
                { True  -> case last args of
                           { "0" -> do s <- TIO.readFile fileName
                                       play s fileName
@@ -168,12 +168,12 @@ main = do
                                       play2 s fileName
                           }
 
-               ; False -> putStrLn $ "\nERROR: El archivo no existe en el directorio.\n"  
+               ; False -> putStrLn $ "\nERROR: El archivo no existe en el directorio.\n"
                }
 
-    ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión. \".gcl\" \n"  
+    ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión. \".gcl\" \n"
     }
 
 
- 
+
 
