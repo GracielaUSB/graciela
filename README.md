@@ -7,6 +7,8 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 * ***TO DO*** Hablar filosoficamente del lenguaje
 
+El diseño del lenguaje está disponible [aquí](doc/diseno.md).
+
 ## Instalación
 
 Para instalar el compilador de GraCieLa en Linux, es necesario seguir estos
