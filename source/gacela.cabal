@@ -58,19 +58,20 @@ executable gacela
     -- Other library packages from which modules are imported.
     build-depends:
         base              >=4.8 && <4.9,
-        mtl               >=2.2 && <2.3,
-        text              >=1.2 && <1.3,
-        transformers      >=0.4 && <0.5,
-        parsec            >=3.1 && <3.2,
         containers        >=0.5 && <0.6,
-        llvm-general-pure >=3.5 && <3.6,
-        range             >=0.1 && <0.2,
+        directory         >=1.2 && <1.3,
+        filepath          >=1.4 && <1.5,
         llvm-general      >=3.5 && <3.6,
+        llvm-general-pure >=3.5 && <3.6,
         MissingH          >=1.3 && <1.4,
-        directory         >=1.2 && <1.3
+        mtl               >=2.2 && <2.3,
+        parsec            >=3.1 && <3.2,
+        range             >=0.1 && <0.2,
+        text              >=1.2 && <1.3,
+        transformers      >=0.4 && <0.5
 
     -- Directories containing source files.
-    hs-source-dirs:      source
+    hs-source-dirs:
 
     -- Base language which the package is written in.
     default-language:    Haskell2010

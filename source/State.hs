@@ -1,102 +1,99 @@
 module State where
+--------------------------------------------------------------------------------
+import           Contents
+import           Data.Monoid
+import           Location
+import           MyParseError           as P
+import           MyTypeError            as T
+import           SymbolTable
+import           Text.Parsec
+import           Token
+--------------------------------------------------------------------------------
+import           Control.Monad.Identity (Identity)
+import           Control.Monad.State    (StateT)
+import           Data.Foldable          (toList)
+import           Data.Function          (on)
+import           Data.Sequence          (Seq, (|>))
+import qualified Data.Sequence          as Seq (empty, null, sortBy)
+import qualified Data.Set               as Set (Set, empty, insert)
+import           Data.Text              (Text)
+--------------------------------------------------------------------------------
 
-import qualified Data.Sequence as DS
-import qualified Data.Set      as SET
-import Control.Monad.Identity        (Identity)
-import Control.Monad.State     as ST
-import Data.Text               as T   hiding (foldl) 
-import Data.Foldable                  hiding (foldl)
-import MyParseError
-import Data.Monoid
-import Text.Parsec
-import MyTypeError
-import SymbolTable
-import Contents
-import Location
-import Token
-
-type MyParser a = ParsecT [TokenPos] () (ST.StateT (ParserState) Identity) a
+type MyParser a = ParsecT [TokenPos] () (StateT ParserState Identity) a
 
 
-data ParserState = ParserState { synErrorList     :: DS.Seq MyParseError
-                               , symbolTable      :: SymbolTable
-                               , sTableErrorList  :: DS.Seq MyTypeError
-                               , filesToRead      :: SET.Set String
-                               }
-      deriving(Show)
+data ParserState = ParserState
+    { synErrorList    :: Seq MyParseError
+    , symbolTable     :: SymbolTable
+    , sTableErrorList :: Seq MyTypeError
+    , filesToRead     :: Set.Set String
+    }
+    deriving(Show)
 
 
 initialState :: ParserState
-initialState = ParserState { synErrorList = DS.empty, symbolTable = emptyTable, sTableErrorList = DS.empty, filesToRead = SET.empty }
+initialState = ParserState
+    { synErrorList    = Seq.empty
+    , symbolTable     = emptyTable
+    , sTableErrorList = Seq.empty
+    , filesToRead     = Set.empty
+    }
 
 
 addFileToRead :: String -> ParserState -> ParserState
-addFileToRead file ps = ps { filesToRead = SET.insert file $ filesToRead ps }
+addFileToRead file ps =
+    ps { filesToRead = Set.insert file $ filesToRead ps }
 
 
 addTypeError :: MyTypeError -> ParserState -> ParserState
-addTypeError err ps = ps { sTableErrorList = (sTableErrorList ps) DS.|> err }
-      
+addTypeError err ps =
+    ps { sTableErrorList = sTableErrorList ps |> err }
+
 
 addParsingError :: MyParseError -> ParserState -> ParserState
-addParsingError e ps = ps { synErrorList = (synErrorList ps) DS.|> e }
+addParsingError e ps =
+    ps { synErrorList = synErrorList ps |> e }
 
 
-addNewSymbol :: T.Text -> (Contents SymbolTable) -> ParserState -> ParserState
-addNewSymbol id c ps = case addSymbol id c (symbolTable ps) of
-                        { Left con -> ps { sTableErrorList = (sTableErrorList ps) DS.|> 
-                                           (RepSymbolError id (symbolLoc con) (symbolLoc c)) }
-                        ; Right sb -> ps { symbolTable = sb }
-                        }
+addNewSymbol :: Text -> Contents SymbolTable -> ParserState -> ParserState
+addNewSymbol sym c ps = case addSymbol sym c (symbolTable ps) of
+    Left con ->
+        ps { sTableErrorList =
+            sTableErrorList ps |> (RepSymbolError sym `on` symbolLoc) con c }
+    Right sb ->
+        ps { symbolTable = sb }
 
 
-initVar :: T.Text -> ParserState -> ParserState
-initVar id ps = ps { symbolTable = initSymbol id (symbolTable ps) }
+initVar :: Text -> ParserState -> ParserState
+initVar sym ps = ps { symbolTable = initSymbol sym (symbolTable ps) }
 
 
 newScopeState :: ParserState -> ParserState
-newScopeState st = st { symbolTable     = enterScope (symbolTable st) } 
+newScopeState st = st { symbolTable     = enterScope (symbolTable st) }
 
 
 exitScopeState :: ParserState -> ParserState
 exitScopeState st = case exitScope (symbolTable st) of
-                    { Just sbtl -> st { symbolTable = sbtl }
-                    ; Nothing   -> addParsingError ScopesError st
-                    }
+    Just sbtl -> st { symbolTable = sbtl }
+    Nothing   -> addParsingError ScopesError st
 
 
 getScopeState :: ParserState -> Int
 getScopeState st = getScope $ symbolTable st
 
 
-lookUpVarState :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
-lookUpVarState id sb = checkSymbol id sb
+lookUpVarState :: Text -> SymbolTable -> Maybe (Contents SymbolTable)
+lookUpVarState = checkSymbol
 
 
-drawState :: ParserState -> String
-drawState st = case (DS.null $ synErrorList st) of
-               { False  -> drawError $ DS.sortBy checkErrorPosP (synErrorList st)
-               ; True   -> case (DS.null $ sTableErrorList st) of
-                          { True  ->  "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
-                                      --TABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
-                          ; False -> drawError $ DS.sortBy checkErrorPosT (sTableErrorList st)
-                          }
-               }
+drawState :: Maybe Int -> ParserState -> String
+drawState n st = if Seq.null $ synErrorList st
+    then if Seq.null $ sTableErrorList st
+        then "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
+        else drawError . take' n . Seq.sortBy (compare `on` T.loc) . sTableErrorList $ st
+    else drawError . take' n . Seq.sortBy (compare `on` P.loc) . synErrorList $ st
 
 
-drawError list = case (DS.null list) of
-                 { True  -> "LISTA DE ERRORES VACIA"
-                 ; False -> foldl (\acc i -> acc `mappend` show i `mappend` "\n") "\n" (toList list)
-                 }
-
-
-
-drawState2 :: ParserState -> String
-drawState2 st = case (DS.null $ synErrorList st) of
-               { False  -> drawError $ DS.take 1 $ DS.sortBy checkErrorPosP (synErrorList st)
-               ; True   -> case (DS.null $ sTableErrorList st) of
-                          { True  ->  "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
-                                      --TABLA DE SIMBOLOS \n" ++ (show $ symbolTable st) 
-                          ; False -> drawError $ DS.take 1 $ DS.sortBy checkErrorPosT (sTableErrorList st)
-                          }
-               }
+drawError list = if Seq.null list
+    then "LISTA DE ERRORES VACIA"
+    else unlines . map show . toList $ list

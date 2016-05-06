@@ -48,8 +48,8 @@ pasos:
 Para compilar un archivo `.gcl`, se deben seguir estos pasos:
 
 * Se usa el ejecutable generado en la sección anterior, seguido del nombre del
-  archivo a compilar, y el número `0`, así:
-  `# ./<directorios...>/gacela "<mi_programa>.gcl" 0`
+  archivo a compilar, así:
+  `# ./<directorios...>/gacela "<mi_programa>.gcl"`
 
 * Luego, se compila el código LLVM generado en el paso anterior a código objeto,
   con el comando `$ llc-3.5 -filetype=obj "<mi_programa>.bc"`

@@ -1,179 +1,175 @@
 module Main where
+--------------------------------------------------------------------------------
+import           AST
+import           ASTtype
+import           Codegen
+import           Contents
+import           Lexer
+import           MyTypeError
+import           Parser
+import           State
+import           Token
+import           Type
+--------------------------------------------------------------------------------
+import           Control.Monad          (unless, when, (>=>))
+import           Control.Monad.Except   (ExceptT, runExceptT)
+import           Control.Monad.Identity (Identity, runIdentity)
+import           Control.Monad.State    (runStateT)
 
-import qualified LLVM.General.CodeGenOpt  as CodeGenOpt
-import qualified LLVM.General.Relocation  as Reloc
-import qualified LLVM.General.CodeModel   as CodeModel
-import qualified Control.Applicative      as AP
-import qualified Data.Foldable            as DF
-import qualified Data.Text.IO             as TIO
-import qualified Data.Text                as T
-import qualified Data.Set                 as SET
-import Control.Monad.State                as ST
-import Control.Monad.Identity
-import Control.Monad.Except
-import LLVM.General.Context
-import LLVM.General.Target
-import LLVM.General.Module
-import System.Environment
-import Text.Parsec.Error
-import Data.String.Utils
-import System.Directory
-import MyTypeError
-import Text.Parsec
-import Data.Set (empty)
-import Data.List
-import ASTtype
-import Codegen
-import Parser
-import State
-import Lexer
-import Token
-import Type
-import AST
+import           Data.Foldable          (toList)
+import           Data.List              (nub)
+import qualified Data.Sequence          as Seq (null)
+import           Data.Set               (empty)
+import           Data.Text              (Text)
+import           Data.Text.IO           (readFile)
+
+import           LLVM.General.Context   (withContext)
+import           LLVM.General.Module    (File (..), Module, withModuleFromAST,
+                                         writeLLVMAssemblyToFile,
+                                         writeObjectToFile)
+import           LLVM.General.Target    (withHostTargetMachine)
+
+import           Prelude                hiding (readFile)
+
+import           System.Console.GetOpt  (ArgDescr (..), ArgOrder (..),
+                                         OptDescr (..), getOpt, usageInfo)
+import           System.Directory       (doesFileExist)
+import           System.Environment     (getArgs)
+import           System.Exit            (die, exitSuccess)
+import           System.FilePath.Posix  (replaceExtension, takeExtension)
+
+import           Text.Parsec            (ParsecT, runPT, runParser,
+                                         sourceColumn, sourceLine)
+import           Text.Parsec.Error      (ParseError, errorMessages, errorPos,
+                                         messageString)
+--------------------------------------------------------------------------------
+-- Options -----------------------------
+version :: String
+version = "graciela 0.1.0.0"
+
+help :: String
+help = usageInfo message options
+
+message :: String
+message = "uso: graciela [OPCIÓN]... [ARCHIVO]"
+
+data Options = Options
+    { optHelp    :: Bool
+    , optVersion :: Bool
+    , optErrors  :: Maybe Int
+    }
+
+defaultOptions   = Options
+    { optHelp    = False
+    , optVersion = False
+    , optErrors  = Nothing
+    }
+
+options :: [OptDescr (Options -> Options)]
+options =
+    [ Option ['?'] ["ayuda"]
+        (NoArg (\opts -> opts { optHelp = True }))
+        "muestra este mensaje de ayuda"
+    , Option ['v'] ["version"]
+        (NoArg (\opts -> opts { optVersion = True }))
+        "muestra la versión del compilador"
+    , Option ['e'] ["errores"]
+        (ReqArg (\ns opts -> case reads ns of
+            [(n,"")] -> opts { optErrors = Just n }
+            _        -> error "Valor inválido en el argumento de `errores`"
+        ) "ENTERO")
+        "Limita el número de errores mostrados"
+    ]
+
+opts :: IO (Options, [String])
+opts = do
+    args <- getArgs
+    case getOpt Permute options args of
+        (flags, rest, []) ->
+            return (foldl (flip Prelude.id) defaultOptions flags, rest)
+        (_, _, errs) ->
+            ioError (userError (concat errs ++ help))
+
+-- Processing --------------------------
+concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
+concatLexPar = playParser <$> lexer
 
 
-concatLexPar :: ParsecT T.Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
-concatLexPar = playParser AP.<$> lexer
-
-
-playLexer :: T.Text -> IO ()
-playLexer inp = putStrLn $ show $ runParser lexer () "" inp
+playLexer :: Text -> IO ()
+playLexer inp = print $ runParser lexer () "" inp
 
 
 playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
-playParser inp = runStateParse (program) "" inp initialState
+playParser inp = runStateParse program "" inp initialState
 
 
-runStateParse :: MyParser (Maybe (AST Type)) -> String -> [TokenPos] -> ParserState ->
-                                 (Either ParseError (Maybe (AST Type)), ParserState)
-runStateParse p sn inp init = runIdentity $ ST.runStateT (runPT p () sn inp) init
+runStateParse :: MyParser (Maybe (AST Type)) -> String
+              -> [TokenPos]-> ParserState
+              -> (Either ParseError (Maybe (AST Type)), ParserState)
+runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
 
+
 generateCode :: Module -> ExceptT String IO ()
 generateCode m =
-  do withHostTargetMachine $ \tm ->
-      liftError $ writeObjectToFile tm (File "prueba") m
+    withHostTargetMachine $ \tm ->
+        liftError $ writeObjectToFile tm (File "prueba") m
 
 
-play inp fileName =
+play n inp fileName = case runParser concatLexPar () "" inp of
+    Left err -> do
+        let msg  = head $ messageString $ head $ errorMessages err
+            col  = sourceColumn $ errorPos err
+            line = sourceLine   $ errorPos err
+        die $
+            "Error en la línea " ++ show line ++ ", columna " ++ show col ++
+            ": Caracter Lexicográfico " ++ show msg ++ " inválido.\n"
 
-    case (runParser (concatLexPar) () "" (inp)) of
-    { Left err ->
+    Right (Left  err', _) ->
+        putStrLn $ "\nOcurrió un error en el proceso de parseo " ++ show err'
 
-          do let msg  = head $ messageString $ head $ errorMessages err
-             let col  = sourceColumn $ errorPos err
-             let line = sourceLine   $ errorPos err
-             putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
-                        ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
+    Right (Right (Just ast), st) ->
+        if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
+            then do
+                let (t, l) = runTVerifier (symbolTable st) ast
 
-    ; Right par ->
-          case par of
-          { (Left  err', _ ) ->
-                 putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
+                if Seq.null l then do
+                    let newast = astToLLVM (toList $ filesToRead st) t
+                    withContext $ \context ->
+                        liftError $ withModuleFromAST context newast $ \m ->
+                            liftError $ writeLLVMAssemblyToFile
+                                (File $ replaceExtension fileName ".bc") m
+                else
+                    putStrLn $ drawTypeError n l
+            else
+                putStrLn $ drawState n st
 
-                 --do let msg  = head $ messageString $ head $ errorMessages err'
-                 --   let col  = sourceColumn $ errorPos err'
-                 --   let line = sourceLine   $ errorPos err'
-                 --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
+    Right (Right _, st) ->
+        putStrLn $ drawState n st
 
-          ; (Right (Just ast) , st) ->
-                 let lErrType = DF.toList $ sTableErrorList st
-                     lErrSyn  = DF.toList $ synErrorList    st
-                 in if (null lErrType) && (null lErrSyn) then
-                        do let (t, l) = runTVerifier (symbolTable st) ast
-                               l'     = DF.toList l
-
-                           if not $ null l' then
-                               putStrLn $ drawTypeError l'
-                           else
-                               do let newast =
-                                        astToLLVM (SET.toList $ filesToRead st) $ t
-                                  withContext $ \context ->
-                                      liftError $ withModuleFromAST context newast $ \m -> do
-                                      --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile
-                                          (File $ (init . init . init . init $ fileName) ++ ".bc") m
-                    else
-                        putStrLn $ drawState st
-
-          ; (Right  _         , st) -> putStrLn $ drawState st
-          }
-    }
-
-
-
-play2 inp fileName =
-
-    case (runParser (concatLexPar) () "" (inp)) of
-    { Left err ->
-
-          do let msg  = head $ messageString $ head $ errorMessages err
-             let col  = sourceColumn $ errorPos err
-             let line = sourceLine   $ errorPos err
-             putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++
-                        ": Caracter Lexicografico " ++ show msg ++ " inválido.\n"
-
-    ; Right par ->
-          case par of
-          { (Left  err', _ ) ->
-                 putStrLn $ "\nOcurrio un error en el proceso de parseo " ++ (show err')
-
-                 --do let msg  = head $ messageString $ head $ errorMessages err'
-                 --   let col  = sourceColumn $ errorPos err'
-                 --   let line = sourceLine   $ errorPos err'
-                 --   putStrLn $ "\nError en la línea " ++ show line ++ ", columna " ++ show col ++ show msg ++ ".\n"
-
-          ; (Right (Just ast) , st) ->
-                 let lErrType = DF.toList $ sTableErrorList st
-                     lErrSyn  = DF.toList $ synErrorList    st
-                 in if (null lErrType) && (null lErrSyn) then
-                        do let (t, l) = runTVerifier (symbolTable st) ast
-                               l'     = DF.toList l
-
-                           if not $ null l' then
-                               putStrLn $ drawTypeError2 l'
-                           else
-                               do let newast =
-                                        astToLLVM (SET.toList $ filesToRead st) $ t
-                                  withContext $ \context ->
-                                      liftError $ withModuleFromAST context newast $ \m -> do
-                                      --liftError $ generateCode m
-                                      liftError $ writeLLVMAssemblyToFile
-                                          (File $ (init . init . init . init $ fileName) ++ ".bc") m
-                    else
-                        putStrLn $ drawState2 st
-
-          ; (Right  _         , st) -> putStrLn $ drawState2 st
-          }
-    }
-
-
+-- Main --------------------------------
 main :: IO ()
 main = do
-    args <- getArgs
+    (options, args) <- opts
+
+    when (optVersion options) $ do
+        putStrLn version
+        exitSuccess
+    when (optHelp options) $ do
+        putStr help
+        exitSuccess
+    when (null args) $
+        die "ERROR: No se indicó un archivo."
+
     let fileName = head args
 
-    check <- doesFileExist fileName
+    doesFileExist fileName >>= \x -> unless x
+        (die $ "ERROR: El archivo `" ++ fileName ++ "` no existe.")
 
-    case isSuffixOf ".gcl" fileName of
-    { True  -> case check of
-               { True  -> case last args of
-                          { "0" -> do s <- TIO.readFile fileName
-                                      play s fileName
+    unless (takeExtension fileName == ".gcl")
+        (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-                          ; "1" -> do s <- TIO.readFile fileName
-                                      play2 s fileName
-                          }
-
-               ; False -> putStrLn $ "\nERROR: El archivo no existe en el directorio.\n"
-               }
-
-    ; False -> putStrLn $ "\nERROR: El archivo no posee la extensión. \".gcl\" \n"
-    }
-
-
-
-
+    readFile fileName >>= \x -> play (optErrors options) x fileName
