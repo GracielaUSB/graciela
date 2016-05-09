@@ -30,26 +30,26 @@ program = do pos <- getPosition
                       try ( do id  <- parseID
                                try ( do parseBegin
                                         ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock
-                                        lacc <- block parseLexEnd parseLexEnd
-                                        try ( do parseLexEnd
-                                                 parseEnd
-                                                 return (M.liftM3 (AST.Program id (toLocation pos)) ast lacc (return (MyEmpty)))
+                                        lacc <- block parseEnd parseEnd
+                                        try ( do parseEnd
+                                                 parseEOF
+                                                 return (M.liftM3 (AST.Program id (toLocation pos)) ast lacc (return (GEmpty)))
                                             )
-                                            <|> do genNewError parseEnd PE.LexEnd
+                                            <|> do genNewError parseEOF PE.LexEnd
                                                    return Nothing
                                    )
-                                   <|> do genNewError parseEnd PE.Begin
+                                   <|> do genNewError parseEOF PE.Begin
                                           return Nothing
                           )
-                          <|> do genNewError parseEnd PE.IDError
+                          <|> do genNewError parseEOF PE.IDError
                                  return Nothing
                  )
-                 <|> do genNewError parseEnd PE.Program
+                 <|> do genNewError parseEOF PE.Program
                         return Nothing
 
 listDefProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
 listDefProc follow recSet =
-    do lookAhead parseEnd
+    do lookAhead parseEOF
        return Nothing
        <|> do lookAhead follow
               return $ return []
@@ -94,7 +94,7 @@ function follow recSet =
                                                             b  <- functionBody follow follow
                                                             exitScopeParser
                                                             addFunTypeParser id lt t (toLocation pos) sb
-                                                            return(M.liftM5 (DefFun id sb (toLocation pos)) b (return t) (Just (EmptyAST MyEmpty)) lt (return (MyEmpty)))
+                                                            return(M.liftM5 (DefFun id sb (toLocation pos)) b (return t) (Just (EmptyAST GEmpty)) lt (return (GEmpty)))
                                                        )
                                                        <|> do genNewError follow PE.Arrow
                                                               return Nothing
@@ -117,7 +117,7 @@ function follow recSet =
 
 listArgFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
 listArgFunc idf follow recSet =
-    do lookAhead parseEnd
+    do lookAhead parseEOF
        return Nothing
        <|> do lookAhead follow
               return $ return []
@@ -144,7 +144,7 @@ argFunc idf follow recSet =
 
 listArgFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
 listArgFuncAux idf follow recSet =
-    do lookAhead parseEnd
+    do lookAhead parseEOF
        return Nothing
        <|> do lookAhead follow
               return $ return []
@@ -176,14 +176,14 @@ proc follow recSet =
                                       dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
                                       pre  <- precondition parseTokOpenBlock (recSet <|> parseTokOpenBlock)
                                       la   <- block parseTokLeftPost parseTokLeftPost
-                                      post <- postcondition parseLexEnd (recSet <|> parseLexEnd)
+                                      post <- postcondition parseEnd (recSet <|> parseEnd)
                                       try (
-                                        do parseLexEnd
+                                        do parseEnd
                                            sb   <- getActualScope
                                            addProcTypeParser id targs (toLocation pos) sb
                                            exitScopeParser
                                            addProcTypeParser id targs (toLocation pos) sb
-                                           return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST MyEmpty)) dl) AP.<*> targs AP.<*> (return MyEmpty)
+                                           return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST GEmpty)) dl) AP.<*> targs AP.<*> (return GEmpty)
                                           )
                                           <|> do genNewError follow PE.LexEnd
                                                  return Nothing
@@ -213,7 +213,7 @@ assertions initial final ty follow =
          try (
            do final
               pos <- getPosition
-              return $ AP.liftA2 (States ty (toLocation pos)) e (return (MyEmpty))
+              return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
              )
              <|> do genNewError follow PE.TokenCA
                     return Nothing
@@ -241,7 +241,7 @@ listArgProc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T
 listArgProc id follow recSet =
     do lookAhead follow
        return $ return []
-       <|> do lookAhead parseEnd
+       <|> do lookAhead parseEOF
               return Nothing
        <|> do ar <- arg id (follow <|> parseComma) (recSet <|> parseComma)
               rl <- listArgProcAux id follow recSet
@@ -252,7 +252,7 @@ listArgProcAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe 
 listArgProcAux id follow recSet =
     do lookAhead follow
        return $ return []
-       <|> do lookAhead parseEnd
+       <|> do lookAhead parseEOF
               return Nothing
        <|> try (
              do parseComma
@@ -301,8 +301,8 @@ functionBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) 
 functionBody follow recSet =
     do pos <- getPosition
        do parseBegin
-          cif <- (conditional CExpression parseLexEnd parseLexEnd) <|> (expr parseLexEnd parseLexEnd)
-          do parseLexEnd
+          cif <- (conditional CExpression parseEnd parseEnd) <|> (expr parseEnd parseEnd)
+          do parseEnd
              return cif
              <|> do genNewError follow PE.LexEnd
                     return Nothing
@@ -336,7 +336,7 @@ action follow recSet =
                   as  <- assertion followAction (followAction <|> recSet)
                   do lookAhead followAction
                      res <- actionAux follow recSet
-                     return $ AP.liftA3 (GuardAction (toLocation pos)) as res (return MyEmpty)
+                     return $ AP.liftA3 (GuardAction (toLocation pos)) as res (return GEmpty)
                      <|> do genNewError follow Action
                             return Nothing
                   <|> do genNewError follow Action
@@ -372,7 +372,7 @@ block follow recSet =
        st  <- getActualScope
        exitScopeParser
        do parseTokCloseBlock
-          return $ (AP.liftA2 (Block (toLocation pos) st) dl la) AP.<*> (return MyEmpty)
+          return $ (AP.liftA2 (Block (toLocation pos) st) dl la) AP.<*> (return GEmpty)
           <|> do genNewError follow TokenCB
                  return Nothing
 
@@ -386,7 +386,7 @@ random follow recSet =
              do parseRightParent
                 cont <- lookUpSymbol id
                 let t = symbolType $ fromJust $ cont
-                return $ return $ Ran id t (toLocation pos) MyEmpty
+                return $ return $ Ran id t (toLocation pos) GEmpty
                 <|> do genNewError follow TokenRP
                        return Nothing
              <|> do genNewError follow IDError
@@ -417,7 +417,7 @@ guard CAction follow recSet     =
        e <- expr (parseArrow) (recSet <|> parseArrow)
        parseArrow
        a <- action follow recSet
-       return (AP.liftA2  (\f -> f (toLocation pos)) (AP.liftA2 Guard e a) (return (MyEmpty)))
+       return (AP.liftA2  (\f -> f (toLocation pos)) (AP.liftA2 Guard e a) (return (GEmpty)))
 
 guard CExpression follow recSet =
     do pos <- getPosition
@@ -425,9 +425,9 @@ guard CExpression follow recSet =
        parseArrow
        do lookAhead parseIf
           a <-(conditional CExpression follow recSet)
-          return (AP.liftA2 (\f -> f (toLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
+          return (AP.liftA2 (\f -> f (toLocation pos)) (AP.liftA2 GuardExp e a) (return (GEmpty)))
           <|> do a <- expr follow recSet
-                 return (AP.liftA2 (\f -> f (toLocation pos)) (AP.liftA2 GuardExp e a) (return (MyEmpty)))
+                 return (AP.liftA2 (\f -> f (toLocation pos)) (AP.liftA2 GuardExp e a) (return (GEmpty)))
 
 
 functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
@@ -438,7 +438,7 @@ functionCallOrAssign follow recSet =
           lexp  <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
           do parseRightParent
              sb <- getActualScope
-             return $ (fmap (ProcCall id sb (toLocation pos)) lexp) AP.<*> (return MyEmpty)
+             return $ (fmap (ProcCall id sb (toLocation pos)) lexp) AP.<*> (return GEmpty)
              <|> do genNewError follow TokenRP
                     return Nothing
           <|> do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
@@ -452,10 +452,10 @@ functionCallOrAssign follow recSet =
                         case bl' of
                           [] ->
                             do let idast = fmap (ID (toLocation pos) id) t
-                               return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (toLocation pos)) (return MyEmpty)
+                               return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (toLocation pos)) (return GEmpty)
                           otherwise ->
                             do let idast = (fmap (ArrCall (toLocation pos) id) bl) AP.<*>  t
-                               return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (toLocation pos)) (return MyEmpty)
+                               return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (toLocation pos)) (return GEmpty)
                  <|> do genNewError follow TokenAs
                         return Nothing
 
@@ -489,7 +489,7 @@ write follow recSet =
        do parseLeftParent
           e   <- expr parseRightParent (recSet <|> parseRightParent)
           do parseRightParent
-             return $ ((fmap (Write False) e) AP.<*> (return (toLocation pos)) AP.<*> (return MyEmpty))
+             return $ ((fmap (Write False) e) AP.<*> (return (toLocation pos)) AP.<*> (return GEmpty))
              <|> do genNewError follow TokenRP
                     return Nothing
           <|> do genNewError follow TokenLP
@@ -503,7 +503,7 @@ writeln follow recSet =
        do parseLeftParent
           e <- expr parseRightParent (recSet <|> parseRightParent)
           do parseRightParent
-             return $ (fmap (Write True) e) AP.<*> (return (toLocation pos)) AP.<*> (return MyEmpty)
+             return $ (fmap (Write True) e) AP.<*> (return (toLocation pos)) AP.<*> (return GEmpty)
              <|> do genNewError follow TokenRP
                     return Nothing
           <|> do genNewError follow TokenLP
@@ -514,7 +514,7 @@ abort ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 abort folow recSet =
     do pos <- getPosition
        parseAbort
-       return $ return $ Abort (toLocation pos) MyEmpty
+       return $ return $ Abort (toLocation pos) GEmpty
 
 
 conditional :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
@@ -523,7 +523,7 @@ conditional casec follow recSet =
        parseIf
        gl <- guardsList casec parseFi (recSet <|> parseFi)
        do parseFi
-          return $ (fmap (Cond) gl) AP.<*> (return (toLocation pos)) AP.<*> (return MyEmpty)
+          return $ (fmap (Cond) gl) AP.<*> (return (toLocation pos)) AP.<*> (return GEmpty)
           <|> do genNewError follow TokenFI
                  return Nothing
 
@@ -535,14 +535,14 @@ repetition follow recSet =
        do parseDo
           gl <- guardsList CAction parseOd (recSet <|> parseOd)
           do parseOd
-             return((fmap (Rept) gl) AP.<*> inv AP.<*> bou AP.<*> (return (toLocation pos)) AP.<*> (return MyEmpty))
+             return((fmap (Rept) gl) AP.<*> inv AP.<*> bou AP.<*> (return (toLocation pos)) AP.<*> (return GEmpty))
              <|> do genNewError follow TokenOD
                     return Nothing
-          <|> do genNewError follow TokenDO
+          <|> do genNewError follow TokEOFO
                  return Nothing
 
 skip :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 skip follow recSet =
     do  pos <- getPosition
         parseSkip
-        return $ return $ Skip (toLocation pos) MyEmpty
+        return $ return $ Skip (toLocation pos) GEmpty

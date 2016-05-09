@@ -26,7 +26,7 @@ addFileToReadParser file = modify $ addFileToRead file
 addFunTypeParser :: Text -> Maybe [(Text, Type)] -> Type -> Location
                  -> SymbolTable -> MyParser()
 addFunTypeParser id (Just lt) t loc sb =
-    addSymbolParser id (FunctionCon loc (MyFunction snds t) fsts sb)
+    addSymbolParser id (FunctionCon loc (GFunction snds t) fsts sb)
     where (fsts, snds) = unzip lt
 addFunTypeParser _ _ _ _ _ = return ()
 
@@ -34,7 +34,7 @@ addFunTypeParser _ _ _ _ _ = return ()
 addProcTypeParser :: Text -> Maybe [(Text, Type)] -> Location
                   -> SymbolTable -> MyParser()
 addProcTypeParser id (Just xs) loc sb =
-    addSymbolParser id $ ProcCon loc (MyProcedure snds) fsts sb
+    addSymbolParser id $ ProcCon loc (GProcedure snds) fsts sb
     where (fsts, snds) = unzip xs
 addProcTypeParser _ _ _ _             = return ()
 
@@ -122,7 +122,7 @@ addSymbolParser id c = do modify $ addNewSymbol id c
 
 addCuantVar :: OpQuant -> Text -> Type -> Location -> MyParser()
 addCuantVar op id t loc =
-    if isCuantificable t then
+    if isQuantifiable t then
        addSymbolParser id $ Contents Constant loc t Nothing True
     else
        addUncountableError op loc
@@ -179,8 +179,8 @@ lookUpConstIntParser id loc = do
         Just a  ->
             if isInitialized a then
                 if isRValue a then
-                    if symbolType a == MyInt then
-                        return $ return MyInt
+                    if symbolType a == GInt then
+                        return $ return GInt
                     else do
                         addNotIntError id (toLocation loc)
                         return Nothing

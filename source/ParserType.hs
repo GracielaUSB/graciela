@@ -26,8 +26,8 @@ myType follow recSet =
               t <- myType follow recSet
 
               case n of
-                  Nothing -> return MyEmpty
-                  Just n' -> return $ MyArray n' t
+                  Nothing -> return GEmpty
+                  Just n' -> return $ GArray n' t
 
 
 parseConstNumber :: MyParser Token -> MyParser Token

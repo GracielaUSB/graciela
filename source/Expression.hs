@@ -40,15 +40,15 @@ listExpAux follow recSet =
 
 
 followExprLevelRel :: MyParser (Token)
-followExprLevelRel = parseTokLess <|> parseTokGreater <|> parseTokLEqual <|> parseTokGEqual
+followExprLevelRel = parseTokLT <|> parseTokGT <|> parseTokLE <|> parseTokGE
 
 
 relaNonEquivOp :: MyParser (Token)
-relaNonEquivOp = parseTokLess <|> parseTokLEqual <|> parseTokGreater <|> parseTokGEqual
+relaNonEquivOp = parseTokLT <|> parseTokLE <|> parseTokGT <|> parseTokGE
 
 
 relaEquivOp:: MyParser (Token)
-relaEquivOp    = parseEqual   <|> parseNotEqual
+relaEquivOp    = parseTokEQ   <|> parseTokNE
 
 expr :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
 expr follow recSet =
@@ -72,7 +72,7 @@ exprLevel2' follow e =
   do pos <- getPosition
      do op <- parseOperatorLevel2
         e' <- exprLevel3 (follow <|> parseTokImplies <|> parseTokConse)
-        return $ AP.liftA3 (Boolean op (toLocation pos)) e e' (return MyEmpty)
+        return $ AP.liftA3 (Boolean op (toLocation pos)) e e' (return GEmpty)
         <|> return e
 
 exprLevel3 :: MyParser Token -> MyParser (Maybe (AST Type))
@@ -84,7 +84,7 @@ exprLevel3' follow e =
   do pos <- getPosition
      do parseOr
         e' <- exprLevel4 (follow <|> parseOr)
-        return $ AP.liftA3 (Boolean Dis (toLocation pos)) e e' (return MyEmpty)
+        return $ AP.liftA3 (Boolean Dis (toLocation pos)) e e' (return GEmpty)
         <|> return e
 
 exprLevel4 :: MyParser Token -> MyParser (Maybe (AST Type))
@@ -96,26 +96,26 @@ exprLevel4' follow e =
   do pos <- getPosition
      do parseAnd
         e' <- exprLevel5 follow
-        return $ AP.liftA3 (Boolean Con (toLocation pos)) e e' (return (MyEmpty))
+        return $ AP.liftA3 (Boolean Con (toLocation pos)) e e' (return (GEmpty))
         <|> return e
 
 
 exprLevel5 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel5 follow =
-  do e <- exprLevel6 (follow <|> parseEqual <|> parseNotEqual) (follow <|> parseEqual <|> parseNotEqual)
+  do e <- exprLevel6 (follow <|> parseTokEQ <|> parseTokNE) (follow <|> parseTokEQ <|> parseTokNE)
      exprLevel5' follow e
 
 parseOperatorLevel5 =
-  do parseEqual
+  do parseTokEQ
      return Equ
-     <|> do parseNotEqual
+     <|> do parseTokNE
             return Ine
 
 exprLevel5' follow e =
   do pos <- getPosition
      do op <- parseOperatorLevel5
-        e' <- exprLevel6 (follow <|> parseEqual <|> parseNotEqual) (follow <|> parseEqual <|> parseNotEqual)
-        return $ AP.liftA3 (Relational op (toLocation pos)) e e' (return MyEmpty)
+        e' <- exprLevel6 (follow <|> parseTokEQ <|> parseTokNE) (follow <|> parseTokEQ <|> parseTokNE)
+        return $ AP.liftA3 (Relational op (toLocation pos)) e e' (return GEmpty)
         <|> do return e
 
 
@@ -125,20 +125,20 @@ exprLevel6 follow recSet =
       exprLevel6' follow e
 
 parseOperatorLevel6 =
-  do parseTokLess
+  do parseTokLT
      return Less
-     <|> do parseTokLEqual
+     <|> do parseTokLE
             return LEqual
-     <|> do parseTokGreater
+     <|> do parseTokGT
             return Greater
-     <|> do parseTokGEqual
+     <|> do parseTokGE
             return GEqual
 
 exprLevel6' follow e =
       do pos <- getPosition
          do op <- parseOperatorLevel6
             e' <- exprLevel7 (follow <|> followExprLevelRel)
-            return $ AP.liftA3 (Relational op (toLocation pos)) e e' (return MyEmpty)
+            return $ AP.liftA3 (Relational op (toLocation pos)) e e' (return GEmpty)
             <|> return e
 
 
@@ -158,7 +158,7 @@ exprLevel7' follow e =
      do op <- parseOperatorLevel7
         e' <- exprLevel8 (follow <|> parsePlus <|> parseMinus) follow
         r <- exprLevel7' follow e'
-        return $ AP.liftA3 (Arithmetic op (toLocation pos)) e r (return MyEmpty)
+        return $ AP.liftA3 (Arithmetic op (toLocation pos)) e r (return GEmpty)
         <|> return e
 
 opLevel8 = parseSlash <|> parseStar <|> parseTokMod <|> parseTokMax <|> parseTokMin
@@ -185,21 +185,21 @@ exprLevel8' follow e =
      do op <- parseOperatorLevel8
         e' <- exprLevel9 (follow <|> opLevel8)
         r <- exprLevel8' follow e'
-        return $ AP.liftA3 (Arithmetic op (toLocation pos)) e r (return (MyEmpty))
+        return $ AP.liftA3 (Arithmetic op (toLocation pos)) e r (return (GEmpty))
         <|> return e
 
 
 exprLevel9 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel9 follow =
-   do p <- exprLevel10 (follow <|> parseTokAccent)
+   do p <- exprLevel10 (follow <|> parseTokPower)
       exprLevel9' follow p
 
 exprLevel9' follow e =
   do pos <- getPosition
-     do parseTokAccent
-        e' <- exprLevel10 (follow <|> parseTokAccent)
+     do parseTokPower
+        e' <- exprLevel10 (follow <|> parseTokPower)
         r <- exprLevel9' follow e'
-        return $ AP.liftA3 (Arithmetic Exp (toLocation pos)) e r (return (MyEmpty))
+        return $ AP.liftA3 (Arithmetic Exp (toLocation pos)) e r (return (GEmpty))
         <|> return e
 
 lookaheadExpr =
@@ -227,15 +227,15 @@ constant :: MyParser (Maybe (AST Type))
 constant =
   do pos <- getPosition
      do n <- parseDouble
-        return $ return $ Float (toLocation pos) n MyFloat
+        return $ return $ Float (toLocation pos) n GFloat
         <|> do n <- number
-               return $ return $ Int (toLocation pos) n MyInt
+               return $ return $ Int (toLocation pos) n GInt
         <|> do e <- parseBool
-               return $ return $ Bool (toLocation pos) e MyBool
+               return $ return $ Bool (toLocation pos) e GBool
         <|> do e <- parseChar
-               return $ return $ Char (toLocation pos) e MyChar
+               return $ return $ Char (toLocation pos) e GChar
         <|> do e <- parseString
-               return $ return $ String (toLocation pos) e MyEmpty
+               return $ return $ String (toLocation pos) e GEmpty
 
 exprLevel10 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
 exprLevel10 follow =
@@ -248,10 +248,10 @@ exprLevel10 follow =
          <|> do idp <- parseID
                 t <- lookUpVarParser idp (toLocation pos)
                 do parseLeftParent
-                   lexp <- listExp (parseEnd <|> parseRightParent) (follow <|> parseRightParent)
+                   lexp <- listExp (parseEOF <|> parseRightParent) (follow <|> parseRightParent)
                    do parseRightParent
                       sb <- getActualScope
-                      return $ AP.liftA2 (FCallExp idp sb (toLocation pos)) lexp (return (MyEmpty))
+                      return $ AP.liftA2 (FCallExp idp sb (toLocation pos)) lexp (return (GEmpty))
                       <|> do genNewError (follow) (TokenRP)
                              return $ Nothing
                    <|> do lookAhead parseLeftBracket
@@ -259,40 +259,40 @@ exprLevel10 follow =
                           return $ (AP.liftA2 (ArrCall (toLocation pos) idp) blist t)
                    <|> do return $ fmap (ID (toLocation pos) idp) t
          <|> do parseMaxInt
-                return $ return $ Int (toLocation pos) maxInteger MyInt
+                return $ return $ Int (toLocation pos) maxInteger GInt
          <|> do parseMinInt
-                return $ return $ Int (toLocation pos) minInteger MyInt
+                return $ return $ Int (toLocation pos) minInteger GInt
          <|> do parseMaxDouble
-                return $ return $ Float (toLocation pos) maxDouble MyFloat
+                return $ return $ Float (toLocation pos) maxDouble GFloat
          <|> do parseMinDouble
-                return $ return $ Float (toLocation pos) minDouble MyFloat
+                return $ return $ Float (toLocation pos) minDouble GFloat
          <|> do parseToInt
                 parseLeftParent
                 e <- expr parseRightParent parseRightParent
                 parseRightParent
-                return(AP.liftA2 (Convertion ToInt (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2 (Conversion ToInt (toLocation pos)) e (return (GEmpty)))
          <|> do parseToDouble
                 parseLeftParent
                 e <- expr parseRightParent parseRightParent
                 parseRightParent
-                return(AP.liftA2  (Convertion ToDouble (toLocation pos)) e  (return (MyEmpty)))
+                return(AP.liftA2  (Conversion ToDouble (toLocation pos)) e  (return (GEmpty)))
          <|> do parseToChar
                 parseLeftParent
                 e <- expr parseRightParent parseRightParent
                 parseRightParent
-                return(AP.liftA2  (Convertion ToChar (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2  (Conversion ToChar (toLocation pos)) e (return (GEmpty)))
          <|> do parseMinus
                 e <- expr follow follow
-                return(AP.liftA2  (Unary Minus (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2  (Unary Minus (toLocation pos)) e (return (GEmpty)))
          <|> do parseTokAbs
                 e <- expr follow follow
-                return(AP.liftA2  (Unary Abs (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2  (Unary Abs (toLocation pos)) e (return (GEmpty)))
          <|> do parseTokSqrt
                 e <- expr follow follow
-                return(AP.liftA2  (Unary Sqrt (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2  (Unary Sqrt (toLocation pos)) e (return (GEmpty)))
          <|> do parseTokNot
                 e <- expr follow follow
-                return(AP.liftA2  (Unary Not (toLocation pos)) e (return (MyEmpty)))
+                return(AP.liftA2  (Unary Not (toLocation pos)) e (return (GEmpty)))
          <|> quantification follow follow
          <|> constant
          <|> do genNewError follow Number
@@ -303,7 +303,7 @@ rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(
 rangeQuantification follow recSet =
   do pos <- getPosition
      do lookAhead follow
-        return $ return $ EmptyRange (toLocation pos) MyBool
+        return $ return $ EmptyRange (toLocation pos) GBool
         <|> exprLevel3 follow
 
 
@@ -323,7 +323,7 @@ quantification follow recSet =
                     t <- expr parseTokRightPer (recSet <|> parseTokRightPer)
                     exitScopeParser
                     do parseTokRightPer
-                       return(AP.liftA3 (Quant op id (toLocation pos)) r t (return (MyEmpty)))
+                       return(AP.liftA3 (Quant op id (toLocation pos)) r t (return (GEmpty)))
                        <|> do genNewError follow RightPer
                               return Nothing
                     <|> do genNewError follow Pipe

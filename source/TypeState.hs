@@ -23,24 +23,24 @@ import AST
 type MyVerType a = RWSS.RWS (SymbolTable) (DS.Seq (MyTypeError)) ([String]) a
 
 
-addTypeError :: MyTypeError -> MyVerType Type 
+addTypeError :: MyTypeError -> MyVerType Type
 addTypeError error = do RWSS.tell $ DS.singleton error
-                        return $ MyError
+                        return $ GError
 
 
 addFunArgError :: T.Text -> Bool -> Type -> Type -> Location -> MyVerType Type
-addFunArgError name isFunc t t' loc = addTypeError $ FunArgError name isFunc t t' loc 
+addFunArgError name isFunc t t' loc = addTypeError $ FunArgError name isFunc t t' loc
 
 
-addNumberArgsError :: T.Text -> Bool -> Int -> Int -> Location -> MyVerType Type 
+addNumberArgsError :: T.Text -> Bool -> Int -> Int -> Location -> MyVerType Type
 addNumberArgsError name isFunc wtL prL loc = addTypeError $ NumberArgsError name isFunc wtL prL loc
 
 
-addUndecFuncError :: T.Text -> Bool -> Location -> MyVerType Type 
+addUndecFuncError :: T.Text -> Bool -> Location -> MyVerType Type
 addUndecFuncError name isFunc loc = addTypeError $ UndecFunError name isFunc loc
 
 
-addRetFuncError :: T.Text -> Type -> Type ->  Location -> MyVerType Type 
+addRetFuncError :: T.Text -> Type -> Type ->  Location -> MyVerType Type
 addRetFuncError name tf body loc = addTypeError $ RetFuncError name tf body loc
 
 
@@ -48,7 +48,7 @@ addDifSizeDecError :: Location -> MyVerType Type
 addDifSizeDecError loc = addTypeError $ DiffSizeError loc
 
 
-addTypeDecError :: T.Text -> Location -> Type -> Type -> MyVerType Type 
+addTypeDecError :: T.Text -> Location -> Type -> Type -> MyVerType Type
 addTypeDecError id loc t t' = addTypeError $ TypeDecError id loc t t'
 
 
@@ -60,17 +60,17 @@ addInvalidPar :: T.Text -> AST Type -> Location -> MyVerType Type
 addInvalidPar name id loc = addTypeError $ InvalidPar name id loc
 
 
-addQuantRangeError  :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantRangeError  :: OpQuant -> Type -> Location -> MyVerType Type
 addQuantRangeError op range loc = addTypeError $ QuantRangeError op range loc
 
 
-addQuantBoolError :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantBoolError :: OpQuant -> Type -> Location -> MyVerType Type
 addQuantBoolError op tt loc = addTypeError $ QuantBoolError op tt loc
 
 
-addQuantIntError :: OpQuant -> Type -> Location -> MyVerType Type 
+addQuantIntError :: OpQuant -> Type -> Location -> MyVerType Type
 addQuantIntError op tt loc = addTypeError $ QuantIntError op tt loc
 
 
-addAssignError :: T.Text -> Type -> Type -> Location -> MyVerType Type  
+addAssignError :: T.Text -> Type -> Type -> Location -> MyVerType Type
 addAssignError name op1 op2 loc = addTypeError $ AssignError name op1 op2 loc

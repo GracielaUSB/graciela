@@ -3,7 +3,7 @@ module MyParseError where
 import Location
 import Token
 --------------------------------------------------------------------------------
-import  Text.Parsec.Pos (SourcePos, sourceLine, sourceColumn, sourceName)
+import Text.Parsec.Pos (SourcePos, sourceLine, sourceColumn, sourceName)
 --------------------------------------------------------------------------------
 
 data MyParseError
@@ -27,7 +27,7 @@ data MyParseError
 
 
 data ExpectedToken
-    =  Operator
+    = Operator
     | Number
     | TokenRP
     | TokenRB
@@ -53,7 +53,7 @@ data ExpectedToken
     | TokenIF
     | TokenFI
     | TokenAs
-    | TokenDO
+    | TokEOFO
     | TokenOD
     | Cuant
     | Pipe
@@ -79,7 +79,7 @@ instance Show ExpectedToken where
     show TokenFunc     = "Token func"
     show Arrow         = "Token ->"
     show TokenCA       = "Token representante de final de aserción"
-    show TokenOA       = "Token representande de inicio de aserción"
+    show TokenOA       = "Token representante de inicio de aserción"
     show TokenArg      = "Token representante de clase de argumento"
     show SColon        = "punto y coma (;)"
     show Action        = "acción"
@@ -87,7 +87,7 @@ instance Show ExpectedToken where
     show TokenIF       = "if"
     show TokenFI       = "fi"
     show TokenAs       = ":="
-    show TokenDO       = "do"
+    show TokEOFO       = "do"
     show TokenOD       = "od"
     show Cuant         = "cuantificador"
     show Pipe          = "barra vertical"

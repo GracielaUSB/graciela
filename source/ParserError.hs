@@ -4,11 +4,11 @@ Description : Recuperacion de errores
 Copyright   : GraCieLa
 
 Modulo donde se encuentra todo lo referente al almacenamiento de las variables
-en la tabla de simbolos, mientras se esta realizando el parser. 
+en la tabla de simbolos, mientras se esta realizando el parser.
 -}
 module ParserError where
 
-import Control.Monad.Trans.State.Lazy 
+import Control.Monad.Trans.State.Lazy
 import Data.Functor.Identity
 import Text.Parsec
 import TokenParser
@@ -20,14 +20,14 @@ import State
 cleanEntry :: ParsecT [Token.TokenPos] ()
               (StateT ParserState Identity) Token -> ParsecT [TokenPos] ()
               (StateT ParserState Identity) (Token, SourcePos)
-cleanEntry laset = 
+cleanEntry laset =
   do pos <- getPosition
-     e   <- (lookAhead(laset) <|> lookAhead(parseEnd) <|> parseAnyToken)
+     e   <- (lookAhead(laset) <|> lookAhead(parseEOF) <|> parseAnyToken)
      panicMode laset
      return ((e, pos))
 
 
 -- | Se encarga de ignorar tokens hasta encontrar 'until'
-panicMode :: ParsecT [TokenPos] () (StateT ParserState Identity) 
+panicMode :: ParsecT [TokenPos] () (StateT ParserState Identity)
              Token -> ParsecT [TokenPos] () (StateT ParserState Identity) [Token]
-panicMode until = manyTill parseAnyToken (lookAhead (until <|> parseEnd))
+panicMode until = manyTill parseAnyToken (lookAhead (until <|> parseEOF))

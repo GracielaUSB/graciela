@@ -3,415 +3,212 @@ Module      : Lexer
 Description : Analizador lexicografico
 Copyright   : GraCieLa
 
-Modulo del analizador lexicografico, 
+Modulo del analizador lexicografico,
 retorna una lista con los tokens de las palabras reservada.s.
 -}
 module Lexer where
-
-import qualified Control.Applicative as AP
-import qualified Data.Text           as T
-import Data.Functor.Identity         
-import Text.Parsec
-import Token
-import Type
-
+--------------------------------------------------------------------------------
+import           Token
+import           Type
+--------------------------------------------------------------------------------
+import           Data.Functor.Identity (Identity)
+import           Data.Text             (Text, cons, pack)
+import           Text.Parsec
+--------------------------------------------------------------------------------
 
 -- | Intenta leer una palabra reservada o un identificador.
-tryString :: String -> ParsecT T.Text () Identity String
-tryString s = 
-  try $ do n <- string s
-           notFollowedBy $ alphaNum <|> char '_' <|> char '?'
-           return n
-
-
--- | Intenta leer un operador.
-tryStringOp :: String -> ParsecT T.Text () Identity String
-tryStringOp = try . string
-
-
--- | La función 'pPlus' revisa la palabra reservada.
-pPlus         = oneOf "+\43"
-
--- | La función 'pMinus' revisa la palabra reservada.
-pMinus        = oneOf "-\45"
-
--- | La función 'pStar' revisa la palabra reservada.
-pStar         = oneOf "*\215"
-
--- | La función 'pSlash' revisa la palabra reservada.
-pSlash        = oneOf "/\247"
-
--- | La función 'pComma' revisa la palabra reservada.
-pComma        = oneOf ","
-
--- | La función 'pLeftParent' revisa la palabra reservada.
-pLeftParent   = oneOf "("
-
--- | La función 'pRightParent' revisa la palabra reservada.
-pRightParent  = oneOf ")"
-
--- | La función 'pLeftBracket' revisa la palabra reservada.
-pLeftBracket  = oneOf "["
-
--- | La función 'pRightBracket' revisa la palabra reservada.
-pRightBracket = oneOf "]"
-
--- | La función 'pSemicolon' revisa la palabra reservada.
-pSemicolon    = oneOf ";"
-
--- | La función 'pColon' revisa la palabra reservada.
-pColon        = oneOf ":" 
-
--- | La función 'pLeftBrace' revisa la palabra reservada.
-pLeftBrace    = oneOf "{"
-
--- | La función 'pRightBrace' revisa la palabra reservada.
-pRightBrace   = oneOf "}"
-
--- | La función 'pLess' revisa la palabra reservada.
-pLess         = oneOf "<\60"
-
--- | La función 'pGreater' revisa la palabra reservada.
-pGreater      = oneOf ">\62"
-
--- | La función 'pNot' revisa la palabra reservada.
-pNot          = oneOf "!\33"
-
--- | La función 'pAccent' revisa la palabra reservada.
-pAccent       = oneOf "^\94"
-
--- | La función 'pPipe' revisa la palabra reservada.
-pPipe         = tryStringOp "|"
-
--- | La función 'pOpenBlock' revisa la palabra reservada.
-pOpenBlock    = tryStringOp "|["
-
--- | La función 'pCloseBlock' revisa la palabra reservada.
-pCloseBlock   = tryStringOp "]|"
-
--- | La función 'pSepGuards' revisa la palabra reservada.
-pSepGuards    = tryStringOp "[]"
-
--- | La función 'pLogicalAnd' revisa la palabra reservada.
-pLogicalAnd   = tryStringOp "/\\" <|> tryString "\8743" 
-
--- | La función 'pLogicalOr' revisa la palabra reservada.
-pLogicalOr    = tryStringOp "\\/" <|> tryString "\8744"
-
--- | La función 'pNotEqual' revisa la palabra reservada.
-pNotEqual     = tryStringOp "!="  <|> tryString "\8800"
-
--- | La función 'pLessEqual' revisa la palabra reservada.
-pLessEqual    = tryStringOp "<="  <|> tryString "\8804"
-
--- | La función 'pGreaterEqual' revisa la palabra reservada.
-pGreaterEqual = tryStringOp ">="  <|> tryString "\8805"
-
--- | La función 'pImplies' revisa la palabra reservada.
-pImplies      = tryStringOp "==>" <|> tryString "\8658"
-
--- | La función 'pConsequent' revisa la palabra reservada.
-pConsequent   = tryStringOp "<==" <|> tryString "\8656"
-
--- | La función 'pEquiv' revisa la palabra reservada.
-pEquiv        = tryStringOp "=="  <|> tryString "\8801"
-
--- | La función 'pAsig' revisa la palabra reservada.
-pAsig         = tryStringOp ":="  <|> tryString "\58\61" 
-
--- | La función 'pArrow' revisa la palabra reservada.
-pArrow        = tryStringOp "->"  <|> tryString "\8594"
-
--- | La función 'pLeftPercent' revisa la palabra reservada.
-pLeftPercent  = tryStringOp "(%"  
-
--- | La función 'pRightPercent' revisa la palabra reservada.
-pRightPercent = tryStringOp "%)"  
-
--- | La función 'pLeftPre' revisa la palabra reservada.
-pLeftPre      = tryStringOp "{pre"
-
--- | La función 'pRightPre' revisa la palabra reservada.
-pRightPre     = tryStringOp "pre}"
-
--- | La función 'pLeftPost' revisa la palabra reservada.
-pLeftPost     = tryStringOp "{post"
-
--- | La función 'pRightPost' revisa la palabra reservada.
-pRightPost    = tryStringOp "post}"
-
--- | La función 'pLeftBound' revisa la palabra reservada.
-pLeftBound    = tryStringOp "{bound"
-
--- | La función 'pRightBound' revisa la palabra reservada.
-pRightBound   = tryStringOp "bound}"
-
--- | La función 'pLeftA' revisa la palabra reservada.
-pLeftA        = tryStringOp "{a"
-
--- | La función 'pRightA' revisa la palabra reservada.
-pRightA       = tryStringOp "a}"
-
--- | La función 'pLeftInv' revisa la palabra reservada.
-pLeftInv      = tryStringOp "{inv"
-
--- | La función 'pRightInv' revisa la palabra reservada.
-pRightInv     = tryStringOp "inv}"
-
--- | La función 'pFunc' revisa la palabra reservada.
-pFunc         = tryString "func"
-
--- | La función 'pProc' revisa la palabra reservada.
-pProc         = tryString "proc"
-
--- | La función 'pIn' revisa la palabra reservada.
-pIn           = tryString "in"
-
--- | La función 'pOut' revisa la palabra reservada.
-pOut          = tryString "out"
-
--- | La función 'pInOut' revisa la palabra reservada.
-pInOut        = tryString "inout"
-
--- | La función 'pRef' revisa la palabra reservada.
-pRef          = tryString "ref"
-
--- | La función 'pWith' revisa la palabra reservada.
-pWith         = tryString "with"
-
--- | La función 'pMod' revisa la palabra reservada.
-pMod          = tryString "mod"
-
--- | La función 'pMax' revisa la palabra reservada.
-pMax          = tryString "max"
-
--- | La función 'pMin' revisa la palabra reservada.
-pMin          = tryString "min"
-
--- | La función 'pForall' revisa la palabra reservada.
-pForall       = tryString "forall"   <|> tryString "\8704"
-
--- | La función 'pExist' revisa la palabra reservada." 
-pExist        = tryString "exist"    <|> tryString "\8707"
-
--- | La función 'pSigma' revisa la palabra reservada." 
-pSigma        = tryString "sigma"    <|> tryString "\8721"
-
--- | La función 'pPi' revisa la palabra reservada." 
-pPi           = tryString "pi"       <|> tryString "\960"
-
--- | La función 'pIf' revisa la palabra reservada.
-pIf           = tryString "if"
-
--- | La función 'pFi' revisa la palabra reservada.
-pFi           = tryString "fi"
-
--- | La función 'pDo' revisa la palabra reservada.
-pDo           = tryString "do"
-
--- | La función 'pOd' revisa la palabra reservada.
-pOd           = tryString "od"
-
--- | La función 'pAbs' revisa la palabra reservada.
-pAbs          = tryString "abs"
-
--- | La función 'pSqrt' revisa la palabra reservada.
-pSqrt         = tryString "sqrt"     <|> tryString "\8730"
-
--- | La función 'pVar' revisa la palabra reservada. 
-pVar          = tryString "var"
-
--- | La función 'pConst' revisa la palabra reservada.
-pConst        = tryString "const"
-
--- | La función 'pAbort' revisa la palabra reservada.
-pAbort        = tryString "abort"
-
--- | La función 'pRandom' revisa la palabra reservada.
-pRandom       = tryString "random"
-
--- | La función 'pSkip' revisa la palabra reservada.
-pSkip         = tryString "skip"
-
--- | La función 'pWrite' revisa la palabra reservada.
-pWrite        = tryString "write"
-
--- | La función 'pWriteln' revisa la palabra reservada.
-pWriteln      = tryString "writeln"
-
--- | La función 'pRead' revisa la palabra reservada.
-pRead         = tryString "read"
-
--- | La función 'pProgram' revisa la palabra reservada.
-pProgram      = tryString "program"  
-
--- | La función 'pToInt' revisa la palabra reservada.
-pToInt        = tryString "toInt"
-
--- | La función 'pToDouble' revisa la palabra reservada.
-pToDouble     = tryString "toDouble"
-
--- | La función 'pToChar' revisa la palabra reservada.
-pToChar       = tryString "toChar"
-
--- | La función 'pType' revisa la palabra reservada.
-pType         = (tryString "boolean" >> return MyBool)
-            <|> (tryString "int"     >> return MyInt)
-            <|> (tryString "double"  >> return MyFloat)
-            <|> (tryString "char"    >> return MyChar)
-
--- | La función 'pArray' revisa la palabra reservada.
-pArray        = tryString "array"
-
--- | La función 'pBool' revisa la palabra reservada.
-pBool         = tryString "true"     <|> tryString "false"
-
--- | La función 'pMIN_INT' revisa la palabra reservada.
-pMIN_INT      = tryString "MIN_INT"
-
--- | La función 'pMIN_DOUBLE' revisa la palabra reservada.
-pMIN_DOUBLE   = tryString "MIN_DOUBLE"
-
--- | La función 'pMAX_INT' revisa la palabra reservada.
-pMAX_INT      = tryString "MAX_INT"
-
--- | La función 'pMAX_DOUBLE' revisa la palabra reservada.
-pMAX_DOUBLE   = tryString "MAX_DOUBLE"
-
--- | La función 'pOf' revisa la palabra reservada.
-pOf           = tryString "of"
-
--- | La función 'pBegin' revisa la palabra reservada.
-pBegin        = tryString "begin"
-
--- | La función 'pEnd' revisa la palabra reservada.
-pEnd          = tryString "end"
-
+tryR :: String -> ParsecT Text () Identity String
+tryR s = try $ do
+    n <- string s
+    notFollowedBy $ alphaNum <|> char '_' <|> char '?'
+    return n
+
+-- | Intenta leer un símbolo.
+tryS :: String -> ParsecT Text () Identity String
+tryS = try . string
 
 -- | Es usada para los comentarios del lenguaje, por lo que toda la linea se ignora.
-pComment :: ParsecT T.Text () Identity ()
-pComment = optional(do many (tryStringOp "//" >> manyTill anyChar (lookAhead (newline)) >> spaces))
+pComment :: ParsecT Text () Identity ()
+pComment = optional . many $
+    try (string "//") >> manyTill anyChar (lookAhead newline) >> spaces
+
+lex1 :: ParsecT Text () Identity Token
+lex1 =  (tryR "program"    >> spaces >> return TokProgram)
+    <|> (tryR "begin"      >> spaces >> return TokBegin)
+    <|> (tryR "end"        >> spaces >> return TokEnd)
+    <|> (eof               >> spaces >> return TokEOF)
+
+    <|> (tryR "func"       >> spaces >> return TokFunc)
+    <|> (tryR "proc"       >> spaces >> return TokProc)
+    <|> (tryR "in"         >> spaces >> return TokIn)
+    <|> (tryR "out"        >> spaces >> return TokOut)
+    <|> (tryR "inout"      >> spaces >> return TokInOut)
+    <|> (tryR "ref"        >> spaces >> return TokRef)
+
+    <|> (tryS ":="         >> spaces >> return TokAsig)
+    <|> (tryS "\8788"      >> spaces >> return TokAsig)
+
+    <|> (char ','          >> spaces >> return TokComma)
+    <|> (char ':'          >> spaces >> return TokColon)
+    <|> (char ';'          >> spaces >> return TokSemicolon)
+    <|> (tryS "->"         >> spaces >> return TokArrow)
+    <|> (tryS "\8594"      >> spaces >> return TokArrow)
+
+    <|> (tryR "with"       >> spaces >> return TokWith)
+
+    <|> (tryR "var"        >> spaces >> return TokVar)
+    <|> (tryR "const"      >> spaces >> return TokConst)
+    <|> (tryR "of"         >> spaces >> return TokOf)
+    <|> (tryR "array"      >> spaces >> return TokArray)
+    <|> (tryR "boolean"    >> spaces >> return (TokType GBool))
+    <|> (tryR "int"        >> spaces >> return (TokType GInt))
+    <|> (tryR "double"     >> spaces >> return (TokType GFloat))
+    <|> (tryR "char"       >> spaces >> return (TokType GChar))
+
+    <|> (tryS "/\\"        >> spaces >> return TokAnd)
+    <|> (tryS "\8743"      >> spaces >> return TokAnd)
+    <|> (tryS "\\/"        >> spaces >> return TokOr)
+    <|> (tryS "\8744"      >> spaces >> return TokOr)
+
+    <|> (char '+'          >> spaces >> return TokPlus)
+    <|> (char '-'          >> spaces >> return TokMinus)
+    <|> (char '*'          >> spaces >> return TokTimes)
+    <|> (char '\215'       >> spaces >> return TokTimes)
+    <|> (char '/'          >> spaces >> return TokDiv)
+    <|> (char '\247'       >> spaces >> return TokDiv)
+    <|> (tryR "mod"        >> spaces >> return TokMod)
+    <|> (char '^'          >> spaces >> return TokPower)
+
+    <|> (tryR "abs"        >> spaces >> return TokAbs)
+    <|> (tryR "sqrt"       >> spaces >> return TokSqrt)
+    <|> (tryS "\8730"      >> spaces >> return TokSqrt)
+
+    <|> (tryS "=="         >> spaces >> return TokEQ)
+    <|> (tryS "\8801"      >> spaces >> return TokEQ)
+    <|> (tryS "!="         >> spaces >> return TokNE)
+    <|> (tryS "\8800"      >> spaces >> return TokNE)
+    <|> (tryS "\8802"      >> spaces >> return TokNE)
+    <|> (tryS "<="         >> spaces >> return TokLE)
+    <|> (tryS "\8804"      >> spaces >> return TokLE)
+    <|> (tryS ">="         >> spaces >> return TokGE)
+    <|> (tryS "\8805"      >> spaces >> return TokGE)
+    <|> (char '<'          >> spaces >> return TokLT)
+    <|> (char '>'          >> spaces >> return TokGT)
+
+    <|> (char '!'          >> spaces >> return TokNot)
+
+    <|> (tryS "==>"        >> spaces >> return TokImplies)
+    <|> (tryS "\8658"      >> spaces >> return TokImplies)
+    <|> (tryS "<=="        >> spaces >> return TokConsequent)
+    <|> (tryS "\8656"      >> spaces >> return TokConsequent)
+
+    <|> (tryS "(%"         >> spaces >> return TokLeftPercent)
+    <|> (tryS "%)"         >> spaces >> return TokRightPercent)
+
+    <|> (char '('          >> spaces >> return TokLeftPar)
+    <|> (char ')'          >> spaces >> return TokRightPar)
+
+    <|> (tryS "[]"         >> spaces >> return TokSepGuards)
+
+    <|> (tryS "|["         >> spaces >> return TokOpenBlock)
+    <|> (tryS "]|"         >> spaces >> return TokCloseBlock)
+
+    <|> (char '['          >> spaces >> return TokLeftBracket)
+    <|> (char ']'          >> spaces >> return TokRightBracket)
+
+    <|> (tryS "{pre"       >> spaces >> return TokLeftPre)
+    <|> (tryS "pre}"       >> spaces >> return TokRightPre)
+
+    <|> (tryS "{post"      >> spaces >> return TokLeftPost)
+    <|> (tryS "post}"      >> spaces >> return TokRightPost)
+
+    <|> (tryS "{bound"     >> spaces >> return TokLeftBound)
+    <|> (tryS "bound}"     >> spaces >> return TokRightBound)
+
+    <|> (tryS "{a"         >> spaces >> return TokLeftA)
+    <|> (tryS "a}"         >> spaces >> return TokRightA)
+
+    <|> (tryS "{inv"       >> spaces >> return TokLeftInv)
+    <|> (tryS "inv}"       >> spaces >> return TokRightInv)
+
+    <|> (char '{'          >> spaces >> return TokLeftBrace)
+    <|> (char '}'          >> spaces >> return TokRightBrace)
+
+    <|> (tryS "|"          >> spaces >> return TokPipe)
+
+    <|> (tryR "max"        >> spaces >> return TokMax)
+    <|> (tryR "min"        >> spaces >> return TokMin)
+    <|> (tryR "forall"     >> spaces >> return TokForall)
+    <|> (tryS "\8704"      >> spaces >> return TokForall)
+    <|> (tryR "exist"      >> spaces >> return TokExist)
+    <|> (tryS "\8707"      >> spaces >> return TokExist)
+    <|> (tryR "not-exist"  >> spaces >> return TokNotExist)
+    <|> (tryS "\8708"      >> spaces >> return TokNotExist)
+    <|> (tryR "sigma"      >> spaces >> return TokSigma)
+    <|> (tryS "\8721"      >> spaces >> return TokSigma)
+    <|> (tryR "pi"         >> spaces >> return TokPi)
+    <|> (tryS "\8719"      >> spaces >> return TokPi)
+
+    <|> (tryR "if"         >> spaces >> return TokIf)
+    <|> (tryR "fi"         >> spaces >> return TokFi)
+
+    <|> (tryR "do"         >> spaces >> return TokDo)
+    <|> (tryR "od"         >> spaces >> return TokOd)
+
+    <|> (tryR "abort"      >> spaces >> return TokAbort)
+    <|> (tryR "skip"       >> spaces >> return TokSkip)
+
+    <|> (tryR "random"     >> spaces >> return TokRandom)
+    <|> (tryR "write"      >> spaces >> return TokWrite)
+    <|> (tryR "writeln"    >> spaces >> return TokWriteln)
+    <|> (tryR "read"       >> spaces >> return TokRead)
+
+    <|> (tryR "toChar"     >> spaces >> return TokToChar)
+    <|> (tryR "toInt"      >> spaces >> return TokToInt)
+    <|> (tryR "toDouble"   >> spaces >> return TokToDouble)
+
+    <|> (tryR "MIN_INT"    >> spaces >> return TokMinInt)
+    <|> (tryR "MIN_DOUBLE" >> spaces >> return TokMinDouble)
+    <|> (tryR "MAX_INT"    >> spaces >> return TokMaxInt)
+    <|> (tryR "MAX_DOUBLE" >> spaces >> return TokMaxDouble)
+
+    <|> (tryR "true"       >> spaces >> return (TokBool True))
+    <|> (tryR "false"      >> spaces >> return (TokBool False))
+
+    <|> (do _ <- char '\''
+            c <- anyChar
+            _ <- char '\''
+            spaces
+            return (TokChar c)
+        )
+
+    <|> ((TokInteger . read) <$> (many1 digit <* spaces))
+
+    <|> try (do n1 <- many1 digit
+                _  <- char '.'
+                n2 <- many1 digit
+                return (TokFloat (read (n1 ++ "." ++ n2)))
+        )
+
+    <|> (TokString <$> (char '"' *> manyTill anyChar (char '"') <* spaces))
+
+    <|> try (do l <- letter
+                r <- many (alphaNum <|> char '_' <|> char '?')
+                spaces
+                return (TokId (cons l (pack r)))
+        )
+
+    <|> (do c <- anyToken
+            unexpected [c])
 
 
--- | Se encarga de generar la lista con todos los tokens. 
-lexer :: Parsec T.Text () [TokenPos]
-lexer = 
-    do spaces
-       pComment
-       pos <- getPosition
-       do  (eof >> spaces >> return ([(TokEnd, pos)]))
-           <|> (do tok <- (   (pPlus         >> spaces >> return (TokPlus))
-                          <|> (pBegin        >> spaces >> return (TokBegin))
-                          <|> (pEnd          >> spaces >> return (TokLexEnd))
-                          <|> (pArrow        >> spaces >> return (TokArrow))
-                          <|> (pLogicalAnd   >> spaces >> return (TokLogicalAnd))
-                          <|> (pLeftPre      >> spaces >> return (TokLeftPre))
-                          <|> (pRightPre     >> spaces >> return (TokRightPre))
-                          <|> (pLeftPost     >> spaces >> return (TokLeftPost))
-                          <|> (pRightPost    >> spaces >> return (TokRightPost))
-                          <|> (pLeftBound    >> spaces >> return (TokLeftBound))
-                          <|> (pRightBound   >> spaces >> return (TokRightBound))
-                          <|> (pType         AP.<* spaces >>= return . TokType)
-                          <|> (pLeftA        >> spaces >> return (TokLeftA))
-                          <|> (pRightA       >> spaces >> return (TokRightA))
-                          <|> (pLeftInv      >> spaces >> return (TokLeftInv))
-                          <|> (pRightInv     >> spaces >> return (TokRightInv))
-                          <|> (pMinus        >> spaces >> return (TokMinus))
-                          <|> (pStar         >> spaces >> return (TokStar))
-                          <|> (pSlash        >> spaces >> return (TokSlash))
-                          <|> (pComma        >> spaces >> return (TokComma))
-                          <|> (pLeftPercent  >> spaces >> return (TokLeftPercent))
-                          <|> (pRightPercent >> spaces >> return (TokRightPercent))
-                          <|> (pLeftParent   >> spaces >> return (TokLeftParent))
-                          <|> (pRightParent  >> spaces >> return (TokRightParent))
-                          <|> (pAccent       >> spaces >> return (TokAccent))
-                          <|> (pLogicalOr    >> spaces >> return (TokLogicalOr))
-                          <|> (pNotEqual     >> spaces >> return (TokNotEqual))
-                          <|> (pImplies      >> spaces >> return (TokImplies))
-                          <|> (pConsequent   >> spaces >> return (TokConsequent))
-                          <|> (pLessEqual    >> spaces >> return (TokLessEqual))
-                          <|> (pGreaterEqual >> spaces >> return (TokGreaterEqual))
-                          <|> (pEquiv        >> spaces >> return (TokEquiv))
-                          <|> (pArray        >> spaces >> return (TokArray))
-                          <|> (pAsig         >> spaces >> return (TokAsig))
-                          <|> (pLess         >> spaces >> return (TokLess))
-                          <|> (pGreater      >> spaces >> return (TokGreater))
-                          <|> (pNot          >> spaces >> return (TokNot))
-                          <|> (pProgram      >> spaces >> return (TokProgram))
-                          <|> (pOpenBlock    >> spaces >> return (TokOpenBlock))
-                          <|> (pCloseBlock   >> spaces >> return (TokCloseBlock))
-                          <|> (pPipe         >> spaces >> return (TokPipe))
-                          <|> (pSepGuards    >> spaces >> return (TokSepGuards))
-                          <|> (pLeftBracket  >> spaces >> return (TokLeftBracket))
-                          <|> (pRightBracket >> spaces >> return (TokRightBracket))
-                          <|> (pSemicolon    >> spaces >> return (TokSemicolon))
-                          <|> (pColon        >> spaces >> return (TokColon))
-                          <|> (pLeftBrace    >> spaces >> return (TokLeftBrace))
-                          <|> (pRightBrace   >> spaces >> return (TokRightBrace))
-                          <|> (pFunc         >> spaces >> return (TokFunc))
-                          <|> (pProc         >> spaces >> return (TokProc))
-                          <|> (pInOut        >> spaces >> return (TokInOut))    
-                          <|> (pOut          >> spaces >> return (TokOut))
-                          <|> (pRef          >> spaces >> return (TokRef))
-                          <|> (pWith         >> spaces >> return (TokWith))
-                          <|> (pMod          >> spaces >> return (TokMod))
-                          <|> (pMax          >> spaces >> return (TokMax))
-                          <|> (pMin          >> spaces >> return (TokMin))
-                          <|> (pForall       >> spaces >> return (TokForall))
-                          <|> (pExist        >> spaces >> return (TokExist))
-                          <|> (pSigma        >> spaces >> return (TokSigma))
-                          <|> (pPi           >> spaces >> return (TokPi))
-                          <|> (pIf           >> spaces >> return (TokIf))
-                          <|> (pFi           >> spaces >> return (TokFi))
-                          <|> (pDo           >> spaces >> return (TokDo))  
-                          <|> (pOd           >> spaces >> return (TokOd))
-                          <|> (pAbs          >> spaces >> return (TokAbs))
-                          <|> (pSqrt         >> spaces >> return (TokSqrt))
-                          <|> (pVar          >> spaces >> return (TokVar))
-                          <|> (pConst        >> spaces >> return (TokConst))
-                          <|> (pAbort        >> spaces >> return (TokAbort))
-                          <|> (pRandom       >> spaces >> return (TokRandom))
-                          <|> (pSkip         >> spaces >> return (TokSkip))
-                          <|> (pWriteln      >> spaces >> return (TokWriteln))
-                          <|> (pWrite        >> spaces >> return (TokWrite))
-                          <|> (pRead         >> spaces >> return (TokRead))
-                          <|> (pToInt        >> spaces >> return (TokToInt))
-                          <|> (pToDouble     >> spaces >> return (TokToDouble))    
-                          <|> (pToChar       >> spaces >> return (TokToChar))
-                          <|> (pIn           >> spaces >> return (TokIn))
-                          <|> (pMIN_INT      >> spaces >> return (TokMIN_INT))
-                          <|> (pMIN_DOUBLE   >> spaces >> return (TokMIN_DOUBLE))
-                          <|> (pMAX_INT      >> spaces >> return (TokMAX_INT))
-                          <|> (pMAX_DOUBLE   >> spaces >> return (TokMAX_DOUBLE))
-                          <|> (pOf           >> spaces >> return (TokOf))
-                          <|> (try (do s <- pBool
-                                       spaces
-                                       case s of
-                                        { "true"  -> return $ TokBool True
-                                        ; "false" -> return $ TokBool False
-                                        }
-                                    )
-                              ) 
-                          <|> ((char '"')    AP.*> manyTill anyChar (char '"') AP.<* spaces >>= return . TokString)
-                          <|> (do char '\''
-                                  c <- anyChar
-                                  char '\''
-                                  spaces
-                                  return (TokChar c)
-                              )
-                          <|> (try( do n1 <- many1 digit
-                                       char '.'
-                                       n2 <- many1 digit
-                                       return (TokFlotante (read (n1 ++ "." ++ n2))))
-                              )                             
-                          <|> ((many1 digit)  AP.<* spaces >>= return . (TokInteger . read))
-                          <|> (try (do l <- letter
-                                       r <- many (alphaNum <|> char '_' <|> char '?')
-                                       spaces
-                                       return $ TokId (T.cons l (T.pack r)) 
-                                   )
-                              )
-                          )
-                          <|> (do c <- anyToken
-                                  unexpected [c])
-                   fmap ((tok, pos) :) lexer)
+-- | Se encarga de generar la lista con todos los tokens.
+lexer :: Parsec Text () [TokenPos]
+lexer = do
+    spaces
+    pComment
+    pos <- getPosition
+    tok <- lex1
+    if tok == TokEOF
+        then return [(tok, pos)]
+        else ((tok, pos) :) <$> lexer

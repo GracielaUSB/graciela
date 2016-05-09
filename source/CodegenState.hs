@@ -238,19 +238,19 @@ definedFunction ty = ConstantOperand . (global ty)
 
 
 initialize :: String -> T.Type -> LLVM (Operand)
-initialize id T.MyInt = do
+initialize id T.GInt = do
    op <- getVarOperand id
    store intType op $ constantInt 0
 
-initialize id T.MyFloat = do
+initialize id T.GFloat = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
 
-initialize id T.MyBool = do
+initialize id T.GBool = do
    op <- getVarOperand id
    store charType op $ constantBool 0
 
-initialize id T.MyChar = do
+initialize id T.GChar = do
    op <- getVarOperand id
    store charType op $ defaultChar
 
@@ -341,17 +341,12 @@ convertParams ((id,c):xs) =
     ; otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
     }
 
+convertFuncParams :: [(TE.Text, T.Type)] -> [(String, Type)]
 convertFuncParams [] = []
-convertFuncParams ((id', t'):xs) =
-  let
-    id = TE.unpack id'
-    t = toType t'
-  in
-    if (T.isArray t') then
-      (id, PointerType t (AddrSpace 0)) : convertFuncParams xs
-    else
-      (id, t) : convertFuncParams xs
-
+convertFuncParams ((id, (T.GArray s t)):xs) =
+    (TE.unpack id, PointerType (toType t) (AddrSpace 0)) : convertFuncParams xs
+convertFuncParams ((id, t):xs) =
+    (TE.unpack id, toType t) : convertFuncParams xs
 
 floatType :: Type
 floatType = double
@@ -379,9 +374,9 @@ stringType = PointerType i16 (AddrSpace 0)
 
 
 toType :: T.Type -> Type
-toType T.MyInt   = intType
-toType T.MyFloat = floatType
-toType T.MyBool  = boolType
-toType T.MyChar  = charType
-toType (T.MyArray _ t) = toType t
+toType T.GInt   = intType
+toType T.GFloat = floatType
+toType T.GBool  = boolType
+toType T.GChar  = charType
+toType (T.GArray _ t) = toType t
 

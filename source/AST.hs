@@ -113,7 +113,7 @@ data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: (
          | Char         { location :: Location, mchar    :: Char, tag :: a                                             } -- ^ Tipo caracter con el token.
          | String       { location :: Location, mstring  :: String, tag :: a                                           } -- ^ Tipo string con el token.
          | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    tag :: a                      } -- ^ Constantes.
-         | Convertion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), tag :: a                      } -- ^ Conversión a entero.
+         | Conversion   { toType   :: Conv    , location :: Location, tiexp  :: (AST a), tag :: a                      } -- ^ Conversión a entero.
          | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: (AST a), tag :: a                      } -- ^ Función raíz cuadrada.
          | Skip         { location :: Location, tag :: a                                                               } -- ^ Instruccion Skip.
          | Abort        { location :: Location, tag :: a                                                               } -- ^ Instruccion Abort.
@@ -348,7 +348,7 @@ drawAST level ((Quant op var loc range term ast)) =
 
 
 
-drawAST level ((Convertion t loc exp ast)) =
+drawAST level ((Conversion t loc exp ast)) =
    putSpacesLn level `mappend` "Conversión: " `mappend` show t `mappend` putLocation loc
                      `mappend` " //Tag: "     `mappend` show ast
                      `mappend` drawAST (level + 4) exp

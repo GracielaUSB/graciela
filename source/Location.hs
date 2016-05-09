@@ -20,8 +20,8 @@ data Location = Location
 
 
 instance Show Location where
-    show (Location line column name) =
-        "en la línea " ++ show line ++ ", columna " ++ show column
+    show (Location l c _) =
+        "en la línea " ++ show l ++ ", columna " ++ show c
 
 
 -- | Se encarga de imprimir la localizacion del error.

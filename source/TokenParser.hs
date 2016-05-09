@@ -1,14 +1,16 @@
 module TokenParser where
-
-import qualified Data.Text as T
-import Text.Parsec
-import Token
-import State
-import Type
+--------------------------------------------------------------------------------
+import           State
+import           Token
+import           Type
+--------------------------------------------------------------------------------
+import           Data.Text   (Text)
+import           Text.Parsec
+--------------------------------------------------------------------------------
 
 
 makeTokenParser :: Token -> MyParser Token
-makeTokenParser x = 
+makeTokenParser x =
     tokenPrim showTok updatePos testTok
     where
         showTok (t, pos) = let line   = sourceLine pos
@@ -24,24 +26,24 @@ updatePos _ _ ((_, pos):xs) = pos
 updatePos _ (_, pos) []     = pos
 
 
-verify :: Token ->  MyParser (Token)
+verify :: Token -> MyParser Token
 verify token = makeTokenParser token
 
 
 parseBegin        = verify TokBegin
-parseLexEnd       = verify TokLexEnd
+parseEnd          = verify TokEnd
 parsePlus         = verify TokPlus
 parseMinus        = verify TokMinus
-parseSlash        = verify TokSlash
-parseStar         = verify TokStar
+parseSlash        = verify TokDiv
+parseStar         = verify TokTimes
 parseComma        = verify TokComma
-parseLeftParent   = verify TokLeftParent
-parseRightParent  = verify TokRightParent
-parseEnd          = verify TokEnd
-parseMaxInt       = verify TokMAX_INT
-parseMinInt       = verify TokMIN_INT
-parseMaxDouble    = verify TokMAX_DOUBLE
-parseMinDouble    = verify TokMIN_DOUBLE
+parseLeftParent   = verify TokLeftPar
+parseRightParent  = verify TokRightPar
+parseEOF          = verify TokEOF
+parseMinInt       = verify TokMinInt
+parseMinDouble    = verify TokMinDouble
+parseMaxInt       = verify TokMaxInt
+parseMaxDouble    = verify TokMaxDouble
 parseProgram      = verify TokProgram
 parseLBracket     = verify TokLeftBracket
 parseRBracket     = verify TokRightBracket
@@ -52,13 +54,11 @@ parseLeftBracket  = verify TokLeftBracket
 parseRightBracket = verify TokRightBracket
 parseTokAbs       = verify TokAbs
 parseTokSqrt      = verify TokSqrt
-parseTokAccent    = verify TokAccent
-parseAnd          = verify TokLogicalAnd
-parseOr           = verify TokLogicalOr
-parseNotEqual     = verify TokNotEqual
+parseTokPower     = verify TokPower
+parseAnd          = verify TokAnd
+parseOr           = verify TokOr
 parsePipe         = verify TokPipe
-parseEqual        = verify TokEquiv
-parseSkip         = verify TokSkip        
+parseSkip         = verify TokSkip
 parseIf           = verify TokIf
 parseFi           = verify TokFi
 parseAbort        = verify TokAbort
@@ -84,7 +84,7 @@ parseRef          = verify TokRef
 parseRead         = verify TokRead
 parseWith         = verify TokWith
 parseWriteln      = verify TokWriteln
-parseOf           = verify TokOf 
+parseOf           = verify TokOf
 parseTokArray     = verify TokArray
 parseTokLeftPre   = verify TokLeftPre
 parseTokRightPre  = verify TokRightPre
@@ -100,10 +100,12 @@ parseTokRightA    = verify TokRightA
 parseTokLeftInv   = verify TokLeftInv
 parseTokRightInv  = verify TokRightInv
 parseTokNot       = verify TokNot
-parseTokLEqual    = verify TokLessEqual
-parseTokGEqual    = verify TokGreaterEqual
-parseTokLess      = verify TokLess
-parseTokGreater   = verify TokGreater
+parseTokEQ        = verify TokEQ
+parseTokNE        = verify TokNE
+parseTokLE        = verify TokLE
+parseTokGE        = verify TokGE
+parseTokLT        = verify TokLT
+parseTokGT        = verify TokGT
 parseTokImplies   = verify TokImplies
 parseTokConse     = verify TokConsequent
 parseTokMod       = verify TokMod
@@ -115,14 +117,14 @@ parseTokSigma     = verify TokSigma
 parseTokPi        = verify TokPi
 
 
-parseAnyToken :: MyParser (Token)
+parseAnyToken :: MyParser Token
 parseAnyToken = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
                   testTok (t, pos) = Just (t)
 
 
-parseTokID :: MyParser (Token)
+parseTokID :: MyParser Token
 parseTokID = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
@@ -131,7 +133,7 @@ parseTokID = tokenPrim showTok updatePos testTok
                                  ; otherwise -> Nothing
                                  }
 
-parseID :: MyParser (T.Text)
+parseID :: MyParser Text
 parseID = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
@@ -141,7 +143,7 @@ parseID = tokenPrim showTok updatePos testTok
                                  }
 
 
-parseBool :: MyParser (Bool)
+parseBool :: MyParser Bool
 parseBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
@@ -160,7 +162,7 @@ parseTokBool = tokenPrim showTok updatePos testTok
                                   }
 
 
-parseType :: MyParser (Type)
+parseType :: MyParser Type
 parseType = tokenPrim showTok updatePos testTok
               where
                 showTok (t, pos) = show t
@@ -189,7 +191,7 @@ parseTokChar = tokenPrim showTok updatePos testTok
                                   }
 
 
-parseString :: MyParser (String)
+parseString :: MyParser String
 parseString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
@@ -208,7 +210,7 @@ parseTokString = tokenPrim showTok updatePos testTok
                                       }
 
 
-number :: MyParser (Integer)
+number :: MyParser Integer
 number = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
@@ -225,13 +227,13 @@ parseTokNumber = tokenPrim showTok updatePos testTok
                               { TokInteger n -> Just $ TokInteger n
                               ; otherwise    -> Nothing
                               }
-                                                              
-parseDouble :: MyParser (Double)
+
+parseDouble :: MyParser Double
 parseDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokFlotante n -> Just n
+                                  { TokFloat n -> Just n
                                   ; otherwise     -> Nothing
                                   }
 
@@ -240,6 +242,6 @@ parseTokDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokFlotante n -> Just $ TokFlotante n
+                                  { TokFloat n -> Just $ TokFloat n
                                   ; otherwise     -> Nothing
                                   }

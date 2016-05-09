@@ -290,7 +290,7 @@ createState name (MyAST.States cond loc exp _) = do
 
 
 addFuncParam :: (TE.Text, T.Type) -> LLVM ()
-addFuncParam (id'', t@(T.MyArray _ _)) = do
+addFuncParam (id'', t@(T.GArray _ _)) = do
   do let id = TE.unpack id''
      let e'   = local (toType t) (Name id)
      addVarOperand id e'
@@ -333,7 +333,7 @@ accToAlloca acc@(MyAST.ID _ id' t) = do
     alloca dim t' id
 
     case t of
-    { T.MyArray d ty -> createInstruction acc
+    { T.GArray d ty -> createInstruction acc
     ; otherwise      -> do initialize id t
                            createInstruction acc
     }
@@ -356,30 +356,30 @@ accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
 
 
 callReadFile :: String -> T.Type -> LLVM Operand
-callReadFile arch T.MyInt = do
+callReadFile arch T.GInt = do
     let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller intType (Right $ definedFunction intType (Name readFileInt)) [(op, [])]
 
-callReadFile arch T.MyFloat = do
+callReadFile arch T.GFloat = do
     let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller doubleType (Right $ definedFunction doubleType (Name readFileDouble)) [(op, [])]
 
-callReadFile arch T.MyChar = do
+callReadFile arch T.GChar = do
     let i = AST.ConstantOperand $ global (ptr pointerType) (Name (convertFile arch))
     op <- addUnNamedInstruction (ptr pointerType) $ Load False i Nothing 0 []
     caller charType (Right $ definedFunction charType (Name readFileChar)) [(op, [])]
 
 
 callRead :: T.Type -> LLVM (Operand)
-callRead T.MyInt   = do
+callRead T.GInt   = do
     caller intType   (Right $ definedFunction intType   (Name readIntStd))    []
 
-callRead T.MyChar  = do
+callRead T.GChar  = do
     caller charType  (Right $ definedFunction charType  (Name readCharStd))   []
 
-callRead T.MyFloat = do
+callRead T.GFloat = do
     caller floatType (Right $ definedFunction floatType (Name readDoubleStd)) []
 
 
@@ -392,7 +392,7 @@ idToAlloca (MyAST.ID _ id t) = do
 
 
 typeToOperand :: String -> T.Type -> LLVM (Maybe Operand)
-typeToOperand name (T.MyArray dim ty) = do
+typeToOperand name (T.GArray dim ty) = do
     r <- typeToOperand name ty
     d <- dimToOperand dim
     addDimToArray name d
@@ -476,11 +476,11 @@ createInstruction (MyAST.Write True exp _ t) = do
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt    -> procedureCall ty' writeLnInt    [e']
-    ; T.MyFloat  -> procedureCall ty' writeLnDouble [e']
-    ; T.MyBool   -> procedureCall ty' writeLnBool   [e']
-    ; T.MyChar   -> procedureCall ty' writeLnChar   [e']
-    ; T.MyEmpty  -> procedureCall ty' writeLnString [e']
+    { T.GInt    -> procedureCall ty' writeLnInt    [e']
+    ; T.GFloat  -> procedureCall ty' writeLnDouble [e']
+    ; T.GBool   -> procedureCall ty' writeLnBool   [e']
+    ; T.GChar   -> procedureCall ty' writeLnChar   [e']
+    ; T.GEmpty  -> procedureCall ty' writeLnString [e']
     }
 
     return ()
@@ -492,11 +492,11 @@ createInstruction (MyAST.Write False exp _ t) = do
     e' <- createExpression exp
 
     case ty of
-    { T.MyInt    -> procedureCall ty' writeInt    [e']
-    ; T.MyFloat  -> procedureCall ty' writeDouble [e']
-    ; T.MyBool   -> procedureCall ty' writeBool   [e']
-    ; T.MyChar   -> procedureCall ty' writeChar   [e']
-    ; T.MyEmpty  -> procedureCall ty' writeString [e']
+    { T.GInt    -> procedureCall ty' writeInt    [e']
+    ; T.GFloat  -> procedureCall ty' writeDouble [e']
+    ; T.GBool   -> procedureCall ty' writeBool   [e']
+    ; T.GChar   -> procedureCall ty' writeChar   [e']
+    ; T.GEmpty  -> procedureCall ty' writeString [e']
     }
 
     return ()
@@ -597,14 +597,13 @@ createExpression (MyAST.ID _ id t) = do
     let check   = DM.lookup n var
 
     case check of
-    { Just add  ->
-      if (T.isArray t) then
-        return add
-      else
-        do val <- load n ty
-           return val
-    ; Nothing -> do return $ local ty (Name n)
-    }
+        Just add -> case t of
+            T.GArray _ _ -> return add
+            _           -> do
+                val <- load n ty
+                return val
+        Nothing -> do
+            return $ local ty (Name n)
 
 
 createExpression (MyAST.Cond lguards loc rtype) = do
@@ -651,15 +650,15 @@ createExpression (MyAST.String _ msg _) = do
     addStringOpe msg
 
 
-createExpression (MyAST.Convertion tType _ exp t) = do
+createExpression (MyAST.Conversion tType _ exp t) = do
     let t' = MyAST.tag exp
     exp' <- createExpression exp
 
-    if t' == T.MyChar && tType == MyAST.ToInt then do
+    if t' == T.GChar && tType == MyAST.ToInt then do
         op <- intToDouble exp'
         doubleToInt op
     else
-        addUnNamedInstruction (toType t) $ irConvertion tType t' exp'
+        addUnNamedInstruction (toType t) $ irConversion tType t' exp'
 
 
 createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
@@ -671,15 +670,15 @@ createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
     {
     ; MyAST.Exp -> do a   <- intToDouble lexp'
                       b   <- intToDouble rexp'
-                      val <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.MyFloat a b
+                      val <- addUnNamedInstruction floatType $ irArithmetic MyAST.Exp T.GFloat a b
                       doubleToInt val
     ; MyAST.Max -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
     ; MyAST.Min -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
     ; MyAST.Div -> checkDivZero  op loc lexp' rexp' ty
     ; MyAST.Mod -> checkDivZero  op loc lexp' rexp' ty
     ; otherwise -> case ty of
-                   { T.MyInt   -> checkOverflow op loc lexp' rexp' ty
-                   ; T.MyFloat -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
+                   { T.GInt   -> checkOverflow op loc lexp' rexp' ty
+                   ; T.GFloat -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
                    }
     }
 
@@ -707,10 +706,10 @@ createExpression (MyAST.Relational op _ lexp rexp t) = do
     addUnNamedInstruction boolType $ irRelational op t' lexp' rexp'
 
 
-createExpression (MyAST.Unary MyAST.Abs _ exp T.MyInt) = do
+createExpression (MyAST.Unary MyAST.Abs _ exp T.GInt) = do
     exp'  <- createExpression exp
     x     <- intToDouble exp'
-    val   <- addUnNamedInstruction intType $ irUnary MyAST.Abs T.MyFloat x
+    val   <- addUnNamedInstruction intType $ irUnary MyAST.Abs T.GFloat x
     doubleToInt val
 
 
@@ -720,10 +719,11 @@ createExpression (MyAST.Unary MyAST.Sqrt _ exp t) = do
     exp'  <- createExpression exp
 
     case ty of
-    { T.MyFloat -> addUnNamedInstruction floatType $ irUnary MyAST.Sqrt ty exp'
-    ; T.MyInt   -> do x <- intToDouble exp'
-                      addUnNamedInstruction floatType $ irUnary MyAST.Sqrt T.MyFloat x
-    }
+        T.GFloat ->
+            addUnNamedInstruction floatType $ irUnary MyAST.Sqrt ty exp'
+        T.GInt   -> do
+            x <- intToDouble exp'
+            addUnNamedInstruction floatType $ irUnary MyAST.Sqrt T.GFloat x
 
 
 createExpression (MyAST.Unary op _ exp t) = do
@@ -785,35 +785,35 @@ createExpression (MyAST.QuantRanUn opQ varQ loc rangeExp termExp t) = do
 
 
 joinRange :: MyAST.OpQuant -> [Operand] -> Location -> T.Type -> LLVM (Operand)
-joinRange MyAST.Summation res loc T.MyInt   =
-    foldM (\acc i -> do ret <- checkOverflow MyAST.Sum loc acc i T.MyInt
+joinRange MyAST.Summation res loc T.GInt   =
+    foldM (\acc i -> do ret <- checkOverflow MyAST.Sum loc acc i T.GInt
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Summation res loc T.MyFloat =
+joinRange MyAST.Summation res loc T.GFloat =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _addF acc i
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Product   res loc T.MyInt   =
-    foldM (\acc i -> do ret <- checkOverflow MyAST.Mul loc acc i T.MyInt
+joinRange MyAST.Product   res loc T.GInt   =
+    foldM (\acc i -> do ret <- checkOverflow MyAST.Mul loc acc i T.GInt
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Product   res loc T.MyFloat =
+joinRange MyAST.Product   res loc T.GFloat =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _mulF acc i
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Maximum   res loc T.MyInt   =
+joinRange MyAST.Maximum   res loc T.GInt   =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _max acc i
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Maximum   res loc T.MyFloat =
+joinRange MyAST.Maximum   res loc T.GFloat =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _maxF acc i
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Minimum   res loc T.MyInt   =
+joinRange MyAST.Minimum   res loc T.GInt   =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _min acc i
                         return ret) (head res) (tail res)
 
-joinRange MyAST.Minimum   res loc T.MyFloat =
+joinRange MyAST.Minimum   res loc T.GFloat =
     foldM (\acc i -> do ret <- addUnNamedInstruction intType $ _minF acc i
                         return ret) (head res) (tail res)
 
@@ -897,79 +897,80 @@ createQuant False opQ var loc exp (SpanRange a b) = do
     let tyExp = MyAST.tag exp
 
     case tyExp of
-    { T.MyInt   -> do op' <- alloca Nothing intType varQuant
+        T.GInt -> do
+            op' <- alloca Nothing intType varQuant
+            case opQ of
+                MyAST.Summation -> store intType op' $ constantInt 0
+                MyAST.Product   -> store intType op' $ constantInt 1
+                MyAST.Maximum   -> store intType op' $ constantInt minInteger
+                MyAST.Minimum   -> store intType op' $ constantInt maxInteger
 
-                      case opQ of
-                      { MyAST.Summation -> store intType op' $ constantInt 0
-                      ; MyAST.Product   -> store intType op' $ constantInt 1
-                      ; MyAST.Maximum   -> store intType op' $ constantInt minInteger
-                      ; MyAST.Minimum   -> store intType op' $ constantInt maxInteger
-                      }
+            addVarOperand varQuant op'
 
-                      addVarOperand varQuant op'
+            setLabel initial $ branch initial
+            varQ <- load var intType
+            tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
+            res  <- load varQuant intType
 
-                      setLabel initial $ branch initial
-                      varQ <- load var intType
-                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
-                      res  <- load varQuant intType
+            setLabel code $ condBranch tag code final
 
-                      setLabel code $ condBranch tag code final
+            e'   <- createExpression exp
 
-                      e'   <- createExpression exp
+            sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
+            store intType op  sum
 
-                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
-                      store intType op  sum
+            case opQ of
+                MyAST.Summation -> do
+                    check <- checkOverflow MyAST.Sum loc res e' T.GInt
+                    store intType op' check
+                MyAST.Product   -> do
+                    check <- checkOverflow MyAST.Mul loc res e' T.GInt
+                    store intType op' check
+                MyAST.Maximum   -> do
+                    check <- addUnNamedInstruction intType $ _max res e'
+                    store intType op' check
+                MyAST.Minimum   -> do
+                    check <- addUnNamedInstruction intType $ _min res e'
+                    store intType op' check
 
-                      case opQ of
-                      { MyAST.Summation -> do check <- checkOverflow MyAST.Sum loc res e' T.MyInt
-                                              store intType op' check
-                      ; MyAST.Product   -> do check <- checkOverflow MyAST.Mul loc res e' T.MyInt
-                                              store intType op' check
-                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction intType $ _max res e'
-                                              store intType op' check
-                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction intType $ _min res e'
-                                              store intType op' check
-                      }
-                      setLabel final $ branch initial
-                      return $ res
+            setLabel final $ branch initial
+            return $ res
 
-    ; T.MyFloat -> do op' <- alloca Nothing floatType varQuant
+        T.GFloat -> do
+            op' <- alloca Nothing floatType varQuant
 
-                      case opQ of
-                      { MyAST.Summation -> store floatType op' $ constantFloat 0.0
-                      ; MyAST.Product   -> store floatType op' $ constantFloat 1.0
-                      ; MyAST.Maximum   -> store floatType op' $ constantFloat minDouble
-                      ; MyAST.Minimum   -> store floatType op' $ constantFloat maxDouble
-                      }
+            case opQ of
+                MyAST.Summation -> store floatType op' $ constantFloat 0.0
+                MyAST.Product   -> store floatType op' $ constantFloat 1.0
+                MyAST.Maximum   -> store floatType op' $ constantFloat minDouble
+                MyAST.Minimum   -> store floatType op' $ constantFloat maxDouble
 
-                      addVarOperand varQuant op'
+            addVarOperand varQuant op'
 
-                      setLabel initial $ branch initial
-                      varQ <- load var floatType
-                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
-                      res  <- load varQuant floatType
+            setLabel initial $ branch initial
+            varQ <- load var floatType
+            tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
+            res  <- load varQuant floatType
 
-                      setLabel code $ condBranch tag code final
+            setLabel code $ condBranch tag code final
 
-                      e'   <- createExpression exp
+            e'   <- createExpression exp
 
-                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
-                      store floatType op  sum
+            sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
+            store floatType op  sum
 
-                      case opQ of
-                      { MyAST.Summation -> do check <- addUnNamedInstruction floatType $ _addF res e'
-                                              store floatType op' check
-                      ; MyAST.Product   -> do check <- addUnNamedInstruction floatType $ _mulF res e'
-                                              store floatType op' check
-                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction floatType $ _maxF res e'
-                                              store floatType op' check
-                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction floatType $ _minF res e'
-                                              store floatType op' check
-                      }
+            case opQ of
+                MyAST.Summation -> do check <- addUnNamedInstruction floatType $ _addF res e'
+                                      store floatType op' check
+                MyAST.Product   -> do check <- addUnNamedInstruction floatType $ _mulF res e'
+                                      store floatType op' check
+                MyAST.Maximum   -> do check <- addUnNamedInstruction floatType $ _maxF res e'
+                                      store floatType op' check
+                MyAST.Minimum   -> do check <- addUnNamedInstruction floatType $ _minF res e'
+                                      store floatType op' check
 
-                      setLabel final $ branch initial
-                      return $ res
-    }
+            setLabel final $ branch initial
+            return $ res
 
 
 data RangeCodegen = SetOp   { getOp :: MyAST.OpSet, getLexp :: RangeCodegen, getRexp :: RangeCodegen }
@@ -1098,93 +1099,100 @@ createQuant' False opQ var loc exp (RangeOp a b) = do
     let tyExp = MyAST.tag exp
 
     case tyExp of
-    { T.MyInt   -> do op' <- alloca Nothing intType varQuant
+        T.GInt   -> do
+            op' <- alloca Nothing intType varQuant
 
-                      case opQ of
-                      { MyAST.Summation -> store intType op' $ constantInt 0
-                      ; MyAST.Product   -> store intType op' $ constantInt 1
-                      ; MyAST.Maximum   -> store intType op' $ constantInt minInteger
-                      ; MyAST.Minimum   -> store intType op' $ constantInt maxInteger
-                      }
+            case opQ of
+                MyAST.Summation -> store intType op' $ constantInt 0
+                MyAST.Product   -> store intType op' $ constantInt 1
+                MyAST.Maximum   -> store intType op' $ constantInt minInteger
+                MyAST.Minimum   -> store intType op' $ constantInt maxInteger
 
-                      addVarOperand varQuant op'
+            addVarOperand varQuant op'
 
-                      -- Revisar Rango Vacio
-                      checkRange <- addUnNamedInstruction boolType $ _lequal ini fin
-                      setLabel empty $ condBranch checkRange initial empty
-
-
-                      setLabel initial $ branch final
-                      varQ <- load var intType
-                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
-                      res  <- load varQuant intType
-
-                      setLabel code $ condBranch tag code final
-
-                      e'   <- createExpression exp
-
-                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
-                      store intType op sum
-
-                      case opQ of
-                      { MyAST.Summation -> do check <- checkOverflow MyAST.Sum loc res e' T.MyInt
-                                              store intType op' check
-                      ; MyAST.Product   -> do check <- checkOverflow MyAST.Mul loc res e' T.MyInt
-                                              store intType op' check
-                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction intType $ _max res e'
-                                              store intType op' check
-                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction intType $ _min res e'
-                                              store intType op' check
-                      }
-                      setLabel final $ branch initial
-
-                      res  <- load varQuant intType
-                      return $ res
-
-    ; T.MyFloat -> do op' <- alloca Nothing floatType varQuant
-
-                      case opQ of
-                      { MyAST.Summation -> store floatType op' $ constantFloat 0.0
-                      ; MyAST.Product   -> store floatType op' $ constantFloat 1.0
-                      ; MyAST.Maximum   -> store floatType op' $ constantFloat minDouble
-                      ; MyAST.Minimum   -> store floatType op' $ constantFloat maxDouble
-                      }
-
-                      addVarOperand varQuant op'
-
-                      -- Revisar Rango Vacio
-                      checkRange <- addUnNamedInstruction boolType $ _lequal ini fin
-                      setLabel empty $ condBranch checkRange initial empty
+            -- Revisar Rango Vacio
+            checkRange <- addUnNamedInstruction boolType $ _lequal ini fin
+            setLabel empty $ condBranch checkRange initial empty
 
 
-                      setLabel initial $ branch final
-                      varQ <- load var floatType
-                      tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
-                      res  <- load varQuant floatType
+            setLabel initial $ branch final
+            varQ <- load var intType
+            tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
+            res  <- load varQuant intType
 
-                      setLabel code $ condBranch tag code final
+            setLabel code $ condBranch tag code final
 
-                      e'   <- createExpression exp
+            e'   <- createExpression exp
 
-                      sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
-                      store floatType op  sum
+            sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
+            store intType op sum
 
-                      case opQ of
-                      { MyAST.Summation -> do check <- addUnNamedInstruction floatType $ _addF res e'
-                                              store floatType op' check
-                      ; MyAST.Product   -> do check <- addUnNamedInstruction floatType $ _mulF res e'
-                                              store floatType op' check
-                      ; MyAST.Maximum   -> do check <- addUnNamedInstruction floatType $ _maxF res e'
-                                              store floatType op' check
-                      ; MyAST.Minimum   -> do check <- addUnNamedInstruction floatType $ _minF res e'
-                                              store floatType op' check
-                      }
+            case opQ of
+                MyAST.Summation -> do
+                    check <- checkOverflow MyAST.Sum loc res e' T.GInt
+                    store intType op' check
+                MyAST.Product   -> do
+                    check <- checkOverflow MyAST.Mul loc res e' T.GInt
+                    store intType op' check
+                MyAST.Maximum   -> do
+                    check <- addUnNamedInstruction intType $ _max res e'
+                    store intType op' check
+                MyAST.Minimum   -> do
+                    check <- addUnNamedInstruction intType $ _min res e'
+                    store intType op' check
 
-                      setLabel final $ branch initial
+            setLabel final $ branch initial
 
-                      res  <- load varQuant floatType
-                      return $ res
-    }
+            res  <- load varQuant intType
+            return $ res
+
+        T.GFloat -> do
+            op' <- alloca Nothing floatType varQuant
+
+            case opQ of
+                MyAST.Summation -> store floatType op' $ constantFloat 0.0
+                MyAST.Product   -> store floatType op' $ constantFloat 1.0
+                MyAST.Maximum   -> store floatType op' $ constantFloat minDouble
+                MyAST.Minimum   -> store floatType op' $ constantFloat maxDouble
+
+
+            addVarOperand varQuant op'
+
+            -- Revisar Rango Vacio
+            checkRange <- addUnNamedInstruction boolType $ _lequal ini fin
+            setLabel empty $ condBranch checkRange initial empty
+
+
+            setLabel initial $ branch final
+            varQ <- load var floatType
+            tag  <- addUnNamedInstruction boolType $ _lequal varQ fin
+            res  <- load varQuant floatType
+
+            setLabel code $ condBranch tag code final
+
+            e'   <- createExpression exp
+
+            sum  <- addUnNamedInstruction boolType $ _add varQ $ constantInt 1
+            store floatType op  sum
+
+            case opQ of
+                MyAST.Summation -> do
+                    check <- addUnNamedInstruction floatType $ _addF res e'
+                    store floatType op' check
+                MyAST.Product   -> do
+                    check <- addUnNamedInstruction floatType $ _mulF res e'
+                    store floatType op' check
+                MyAST.Maximum   -> do
+                    check <- addUnNamedInstruction floatType $ _maxF res e'
+                    store floatType op' check
+                MyAST.Minimum   -> do
+                    check <- addUnNamedInstruction floatType $ _minF res e'
+                    store floatType op' check
+
+            setLabel final $ branch initial
+
+            res  <- load varQuant floatType
+            return $ res
 
 
 checkDivZero :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM Operand
@@ -1195,20 +1203,21 @@ checkDivZero op loc lexp' rexp' ty = do
     modify $ \s -> s { condName = next }
 
     case ty of
-    { T.MyInt   -> do let zero = constantInt 0
-                      check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
-                      setLabel abort $ condBranch check abort next
-                      createTagZero next loc
+        T.GInt   -> do
+            let zero = constantInt 0
+            check <- addUnNamedInstruction intType $ ICmp IL.EQ rexp' zero []
+            setLabel abort $ condBranch check abort next
+            createTagZero next loc
 
 
-                      addUnNamedInstruction intType $ irArithmetic op ty lexp' rexp'
+            addUnNamedInstruction intType $ irArithmetic op ty lexp' rexp'
 
-    ; T.MyFloat -> do let zero = constantFloat 0.0
-                      check <- addUnNamedInstruction floatType $ FCmp FL.OEQ rexp' zero []
-                      setLabel abort $ condBranch check abort next
-                      createTagZero next loc
-                      addUnNamedInstruction floatType $ irArithmetic op ty lexp' rexp'
-    }
+        T.GFloat -> do
+            let zero = constantFloat 0.0
+            check <- addUnNamedInstruction floatType $ FCmp FL.OEQ rexp' zero []
+            setLabel abort $ condBranch check abort next
+            createTagZero next loc
+            addUnNamedInstruction floatType $ irArithmetic op ty lexp' rexp'
 
 
 checkOverflow :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM Operand
@@ -1284,28 +1293,28 @@ doubleToInt x = addUnNamedInstruction intType $ _toInt x
 
 
 irArithmetic :: MyAST.OpNum -> T.Type -> Operand -> Operand -> Instruction
---irArithmetic MyAST.Sum T.MyInt   a b = _add  a b
---irArithmetic MyAST.Sub T.MyInt   a b = Sub False False a b []
---irArithmetic MyAST.Mul T.MyInt   a b = _mul a b
-irArithmetic MyAST.Sum T.MyInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
+--irArithmetic MyAST.Sum T.GInt   a b = _add  a b
+--irArithmetic MyAST.Sub T.GInt   a b = Sub False False a b []
+--irArithmetic MyAST.Mul T.GInt   a b = _mul a b
+irArithmetic MyAST.Sum T.GInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
                                          (Name intAdd))) [(a, []),(b, [])] [] []
-irArithmetic MyAST.Sub T.MyInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
+irArithmetic MyAST.Sub T.GInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
                                          (Name intSub))) [(a, []),(b, [])] [] []
-irArithmetic MyAST.Mul T.MyInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
+irArithmetic MyAST.Mul T.GInt   a b = Call Nothing CC.C [] (Right ( definedFunction intType
                                          (Name intMul))) [(a, []),(b, [])] [] []
-irArithmetic MyAST.Sum T.MyFloat a b = _addF   a b
-irArithmetic MyAST.Mul T.MyFloat a b = _mulF   a b
-irArithmetic MyAST.Sub T.MyFloat a b = FSub NoFastMathFlags a b []
-irArithmetic MyAST.Div T.MyInt   a b = SDiv True a b []
-irArithmetic MyAST.Div T.MyFloat a b = FDiv NoFastMathFlags a b []
-irArithmetic MyAST.Mod T.MyInt   a b = URem a b []
-irArithmetic MyAST.Mod T.MyFloat a b = FRem NoFastMathFlags a b []
-irArithmetic MyAST.Exp T.MyFloat a b = Call Nothing CC.C [] (Right ( definedFunction floatType
+irArithmetic MyAST.Sum T.GFloat a b = _addF   a b
+irArithmetic MyAST.Mul T.GFloat a b = _mulF   a b
+irArithmetic MyAST.Sub T.GFloat a b = FSub NoFastMathFlags a b []
+irArithmetic MyAST.Div T.GInt   a b = SDiv True a b []
+irArithmetic MyAST.Div T.GFloat a b = FDiv NoFastMathFlags a b []
+irArithmetic MyAST.Mod T.GInt   a b = URem a b []
+irArithmetic MyAST.Mod T.GFloat a b = FRem NoFastMathFlags a b []
+irArithmetic MyAST.Exp T.GFloat a b = Call Nothing CC.C [] (Right ( definedFunction floatType
                                          (Name powString)))    [(a, []),(b, [])] [] []
-irArithmetic MyAST.Min T.MyFloat a b = _minF a b
-irArithmetic MyAST.Max T.MyFloat a b = _maxF a b
-irArithmetic MyAST.Max T.MyInt   a b = _max  a b
-irArithmetic MyAST.Min T.MyInt   a b = _min  a b
+irArithmetic MyAST.Min T.GFloat a b = _minF a b
+irArithmetic MyAST.Max T.GFloat a b = _maxF a b
+irArithmetic MyAST.Max T.GInt   a b = _max  a b
+irArithmetic MyAST.Min T.GInt   a b = _min  a b
 
 
 irBoolean :: MyAST.OpBool -> Operand -> Operand -> Instruction
@@ -1314,42 +1323,42 @@ irBoolean MyAST.Dis a b = _or  a b
 
 
 irRelational :: MyAST.OpRel -> T.Type -> Operand -> Operand -> Instruction
-irRelational MyAST.Equ     T.MyFloat a b = FCmp FL.OEQ a b []
-irRelational MyAST.Less    T.MyFloat a b = FCmp FL.OLT a b []
-irRelational MyAST.Greater T.MyFloat a b = FCmp FL.OGT a b []
-irRelational MyAST.LEqual  T.MyFloat a b = FCmp FL.OLE a b []
-irRelational MyAST.GEqual  T.MyFloat a b = FCmp FL.OGE a b []
-irRelational MyAST.Ine     T.MyFloat a b = FCmp FL.ONE a b []
+irRelational MyAST.Equ     T.GFloat a b = FCmp FL.OEQ a b []
+irRelational MyAST.Less    T.GFloat a b = FCmp FL.OLT a b []
+irRelational MyAST.Greater T.GFloat a b = FCmp FL.OGT a b []
+irRelational MyAST.LEqual  T.GFloat a b = FCmp FL.OLE a b []
+irRelational MyAST.GEqual  T.GFloat a b = FCmp FL.OGE a b []
+irRelational MyAST.Ine     T.GFloat a b = FCmp FL.ONE a b []
 
 
-irRelational MyAST.Equ     T.MyInt   a b = ICmp IL.EQ  a b []
-irRelational MyAST.Less    T.MyInt   a b = _less   a b
-irRelational MyAST.Greater T.MyInt   a b = ICmp IL.SGT a b []
-irRelational MyAST.LEqual  T.MyInt   a b = _lequal a b
-irRelational MyAST.GEqual  T.MyInt   a b = ICmp IL.SGE a b []
-irRelational MyAST.Ine     T.MyInt   a b = ICmp IL.NE  a b []
+irRelational MyAST.Equ     T.GInt   a b = ICmp IL.EQ  a b []
+irRelational MyAST.Less    T.GInt   a b = _less   a b
+irRelational MyAST.Greater T.GInt   a b = ICmp IL.SGT a b []
+irRelational MyAST.LEqual  T.GInt   a b = _lequal a b
+irRelational MyAST.GEqual  T.GInt   a b = ICmp IL.SGE a b []
+irRelational MyAST.Ine     T.GInt   a b = ICmp IL.NE  a b []
 
 
-irConvertion :: MyAST.Conv -> T.Type -> Operand -> Instruction
-irConvertion MyAST.ToInt    T.MyFloat a = _toInt   a
-irConvertion MyAST.ToInt    T.MyBool
+irConversion :: MyAST.Conv -> T.Type -> Operand -> Instruction
+irConversion MyAST.ToInt    T.GFloat a = _toInt   a
+irConversion MyAST.ToInt    T.GBool
           (ConstantOperand (C.Int 1 0)) = _toInt $ constantInt 0
-irConvertion MyAST.ToInt    T.MyBool
+irConversion MyAST.ToInt    T.GBool
           (ConstantOperand (C.Int 1 1)) = _toInt $ constantInt 1
-irConvertion MyAST.ToDouble T.MyInt   a = _toFloat a
-irConvertion MyAST.ToDouble T.MyChar  a = _toFloat a
-irConvertion MyAST.ToChar   T.MyInt   a = Trunc  a charType  []
-irConvertion MyAST.ToChar   T.MyFloat a = FPToSI a charType  []
+irConversion MyAST.ToDouble T.GInt   a = _toFloat a
+irConversion MyAST.ToDouble T.GChar  a = _toFloat a
+irConversion MyAST.ToChar   T.GInt   a = Trunc  a charType  []
+irConversion MyAST.ToChar   T.GFloat a = FPToSI a charType  []
 
 
 irUnary :: MyAST.OpUn -> T.Type -> Operand -> Instruction
-irUnary MyAST.Minus T.MyInt   a = Sub False False      (constantInt 0) a []
-irUnary MyAST.Minus T.MyFloat a = FSub NoFastMathFlags (constantFloat 0) a []
-irUnary MyAST.Abs   T.MyFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
+irUnary MyAST.Minus T.GInt   a = Sub False False      (constantInt 0) a []
+irUnary MyAST.Minus T.GFloat a = FSub NoFastMathFlags (constantFloat 0) a []
+irUnary MyAST.Abs   T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
                                          (Name fabsString))) [(a, [])] [] []
-irUnary MyAST.Sqrt  T.MyFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
+irUnary MyAST.Sqrt  T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
                                          (Name sqrtString))) [(a, [])] [] []
-irUnary MyAST.Not   T.MyBool  a = _not a
+irUnary MyAST.Not   T.GBool  a = _not a
 
 
 _and    a b = And a b []
