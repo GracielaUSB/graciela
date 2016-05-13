@@ -8,6 +8,7 @@ Proyecto: Implementación de un Compilador Nativo para GCL
 ##Desarrollo
 
 ###Investigación Previa
+
 Comenzamos llevando a cabo una investigación previa sobre el lenguaje GCL y en una implantación anterior de un compilador del lenguaje. Ésta fue hecha por un grupo dentro de la Universidad Simón Bolívar.
 
 Con respecto al lenguaje GCL, es un lenguaje desarrollado por Edsger Dijkstra que permitía demostrar la validez de los programas mediante la forma en que afectaban el **estado de las variables** en el programa. El estado de las variables es el conjunto de todos los posibles valores que pueden tomar las variables definidas dentro del programa. Por ejemplo, en un programa con dos variables del tipo entero, tenemos el estado (5, 10) como un estado válido. En total tenemos ℤxℤ posibles estados.
@@ -15,7 +16,7 @@ Con respecto al lenguaje GCL, es un lenguaje desarrollado por Edsger Dijkstra qu
 Sobre el estado se definen **aserciones**. Estas aserciones son expresiones lógicas que permiten limitar el conjunto de estados. Usando el ejemplo anterior, sean *X* y *Y* el nombre de dos variables del tipo entero, la asercion *{ X > 0 ∧ Y < 0}* es válida sobre el conjunto de estados.
 
 Cada programa escrito en GCL cuenta con una **precondición** y una **postcondicion**. La precondicion es una aserción sobre el estado del programa **antes** del comienzo de la ejecución. La postcondición es una aserción sobre el estado del programa después de la ejecución. En caso de demostrar la validez del programa, está garantizado que para cualquier estado definidido por la precondición, la ejecución del programa terminará en un estado que satisface la postcondicion.
- 
+
 La semántica del lenguaje se expresa en terminos de la **precondición más débil** del programa. La precondición mas débil representa a **todos** los estados para el cual la ejecución de algúna instrucción *S* termina en un estado que satisface una postcondición Q.
 
 Para modificar el estado de las variables se usan **acciones**. Entre las distintas acciones tenemos:
@@ -23,14 +24,14 @@ Para modificar el estado de las variables se usan **acciones**. Entre las distin
 * **Asignación**: La asignación es la única acción que modifica directamente el estado del programa. Permite sustituir el valor de una variable en el estado actual del programa. Se escribe de la siguiente forma:
 
         {P} x := E {Q} es equivalente a [P => Q(x := E)]
-	
+
 	En el estado *P* se sustituye el valor de la variable *X* por el valor de la expresión *E*.
 
 Con respecto a la precondición más débil:
 
         wp('x := E', Q) == Q(x:=E)
 
-Podemos verlo de la siguiente forma: La ejecución de la asignación terminará en un estado que satisface *Q* si *x* con el valor de *E* es un estado válido. 
+Podemos verlo de la siguiente forma: La ejecución de la asignación terminará en un estado que satisface *Q* si *x* con el valor de *E* es un estado válido.
 
 * **Concatenación**: La concatenación de acciones permite construir una acción más grande a partir de otras más pequeñas. Sean, *S* y *T* acciones, podemos escribir la concatenación de la siguiente forma:
 
@@ -42,7 +43,7 @@ Podemos verlo de la siguiente forma: La ejecución de la asignación terminará 
   Precondición más débil:
 
         wp('S;T', Q) = wp('S', wp('T', Q))
-        
+
 La precondición más débil de T con la precondición Q sirve de postcondición para la precondición más débil de S.
 
 * **Abort**:Se utliza para terminar con el programa. Si la ejecución termina alcanza un punto en el cual **abort** debe ser ejecutado, entonces el programa está erroneo.
@@ -60,14 +61,14 @@ La precondición más débil de T con la precondición Q sirve de postcondición
 
     *  Si más de una guardia es cierta entonces el programador deja a juicio del lenguaje cual guardia ejecutar y dependiendo del criterio usado se ejecuta cualquiera. En el caso que se implante un compilador para el lenguaje, se puede escoger la optimice la ejecución del programa. Para esos estados no importa cual acción se ejecute, cualquiera debe terminar en un estado válido para la continuación del programa.
 
-    * Las principales ventajas de ejecutar el abort cuando ninguna guardia es cierta son las siguientes: 
+    * Las principales ventajas de ejecutar el abort cuando ninguna guardia es cierta son las siguientes:
         * Legilibilidad del código: Al obligar al programador a escribir todos los escenarios ayuda a cualquiera que lea el programa a entender bajo que casos se deben ejecutar las insrucciones definidas en el comando guardado. Incluso, pueden haber condiciones para las cuales no debe ejecutarse ninguna acción, para esto existe la acción **skip**, que será definida posteriormente.
 
         * Facilita el aprendizaje: Para los programadores novatos es bueno pensar en todos los estados para los cuales algún comando guardado debe ser ejecutado. El programador está forzado a entender el problema que desea solucionar y a desarollar todas las alternativas de ejecución del programa.
 
 
     Con respecto a la precondición más débil:
-        
+
         wp(IF, Q) = (Ei: 1 <= i <= n: Bi) /\
                     (Ai: 1 <= i <= n: Bi => wp(Si, Q))
 
@@ -81,7 +82,7 @@ La cual podemos intepretar de la siguiente forma: Al momento de la ejecución al
 
 Se comporta de la siguiente manera: Al momento de la ejecución se selecciona alguna guardia B~i~ que sea cierta para la ejecución de su conjunto de acciones S~i~. Después de la ejecución de S~i~, vuelve al principio y escoge otra guardia cierta y así sucesivamente hasta que ninguna guardia sea cierta. Si al momento de escoger la guardia hay más de una cierta se ejecuta cualquiera al azar. En cambio, si ninguna lo es, la instrucción skip es ejecutada.
 
-Además, para asegurarnos de la validez debe proveerse un **invariante** y una **función de cota**. El invariante es una aserción que debe mantenerse antes y después de la ejecución de cada iteración, es decir, la ejecución de cualquier comando con guardia no destruye la validez del invariante. Y la función de cota es una función no negativa y decreciente en cada iteración, que nos garantiza la terminación del ciclo. 
+Además, para asegurarnos de la validez debe proveerse un **invariante** y una **función de cota**. El invariante es una aserción que debe mantenerse antes y después de la ejecución de cada iteración, es decir, la ejecución de cualquier comando con guardia no destruye la validez del invariante. Y la función de cota es una función no negativa y decreciente en cada iteración, que nos garantiza la terminación del ciclo.
 
 Con respecto a la precondición más débil tenemos:
 
@@ -101,8 +102,8 @@ Para *k > 0*, tenemos dos casos. Aquel en que no existe ninguna guardia cierta p
 
 
 **Skip**: Es útil para cuando en ciertas condiciones explícitamente no se debe hacer nada. Por ejemplo, si tenemos un programa en el que queremos sumar un valor solo en el caso que una variable sea negativa, podemos escribir el siguiente programa:
-    
-	
+
+
 		if (x < 0)  -> x = x + 10;
 		[] (x >= 0) -> skip;
 		fi
@@ -189,12 +190,12 @@ Para *k > 0*, tenemos dos casos. Aquel en que no existe ninguna guardia cierta p
 
 * **Parser:** Comenzar a escribir un parser para el lenguaje que nos permita hacer el análisis sintáctico y traducir los programas correctos a una representación de árbol intermedia. En caso contrario, éste parser debe reportar todos lo errores que encuentre.
 
-* **Tabla de símbolos**: Durante esta etapa del proyecto desarrollamos una tabla de símbolos. El manejo de alcances de nuestro lenguaje  nos permite tener una representación sencilla mediante un árbol de diccionarios. Por cada alcance nuevo, agregamos una rama nueva al alcance actual y a ésta se comienzan a agregar los símbolos del nuevo alcance. 
+* **Tabla de símbolos**: Durante esta etapa del proyecto desarrollamos una tabla de símbolos. El manejo de alcances de nuestro lenguaje  nos permite tener una representación sencilla mediante un árbol de diccionarios. Por cada alcance nuevo, agregamos una rama nueva al alcance actual y a ésta se comienzan a agregar los símbolos del nuevo alcance.
 
 * **Verificación de tipos:** Después de terminar con el análisis sintáctico, desarrollaremos un verificador de tipos estricto para nuestro lenguaje. Al igual que en la etapa anterior, éste deberá reportar todos los errores que encuentre.
 
 * **Código de máquina**: Para ayudarnos a traducir nuestra representación intermedia a código de máquina, usaremos una herramienta llamada *LLVM*. Ésta define un lenguaje de representación intermedia en cual podemos traducir los programas escritos en el lenguaje y la herramienta genera el código necesario para ser ejecutado en varios modelos de CPU.
 
-* **Debugger y Profiler**: Después de terminar con todas las etapas mencionadas anteriormente, esperamos agregar un *debugger* y un *profiler* a nuestro lenguaje. 
+* **Debugger y Profiler**: Después de terminar con todas las etapas mencionadas anteriormente, esperamos agregar un *debugger* y un *profiler* a nuestro lenguaje.
 
 ##Conclusión

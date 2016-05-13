@@ -18,3 +18,32 @@ and
 
 > (% exist x : <type> | <range> | P(x) %) ===
 >       (% count x : <type> | <range> | !P(x) %) >= 1
+
+# Checked source files:
+
+- [ ] Aborts.hs
+- [ ] AST.hs
+- [ ] ASTtype.hs
+- [ ] Codegen.hs
+- [ ] CodegenState.hs
+- [ ] Contents.hs
+- [ ] Declarations.hs
+- [ ] Expression.hs
+- [ ] Lexer.hs
+- [x] Limits.hs
+- [ ] Location.hs
+- [x] Main.hs
+- [ ] MyParseError.hs
+- [ ] MyTypeError.hs
+- [ ] ParserError.hs
+- [ ] Parser.hs
+- [ ] ParserState.hs
+- [ ] ParserType.hs
+- [ ] ReduceAST.hs
+- [ ] State.hs
+- [ ] SymbolTable.hs
+- [x] Token.hs
+- [ ] TokenParser.hs
+- [x] Type.hs
+- [ ] TypeState.hs
+- [ ] VerTypes.hs

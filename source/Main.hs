@@ -118,7 +118,6 @@ generateCode m =
     withHostTargetMachine $ \tm ->
         liftError $ writeObjectToFile tm (File "prueba") m
 
-
 play n inp fileName = case runParser concatLexPar () "" inp of
     Left err -> do
         let msg  = head $ messageString $ head $ errorMessages err
@@ -172,4 +171,5 @@ main = do
     unless (takeExtension fileName == ".gcl")
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-    readFile fileName >>= \x -> play (optErrors options) x fileName
+    source <- readFile fileName
+    play (optErrors options) source fileName
