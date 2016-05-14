@@ -183,14 +183,14 @@ main = do
 
 
 compile :: String -> String
-compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++aux 
+compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++auxMac
                             , "then echo Everything OK!;rm "++bc
                             , "else echo failed at step 'gcc'."
                             , "fi"
                             ]
     where 
-        name = replace ".gcl" ""    fileName
-        bc   = replace ".gcl" ".bc" fileName
+        name     = replace ".gcl" ""    fileName
+        bc       = replace ".gcl" ".bc" fileName
         auxMac   = "/usr/local/lib/auxiliarFunctions.so"
         --auxLinux = "/lib/x86_64-linux-gnu/auxiliarFunctions.so"
 
