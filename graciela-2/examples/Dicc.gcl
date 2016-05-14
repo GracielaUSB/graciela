@@ -1,4 +1,6 @@
 
+
+
 type Dicc implements Diccionario (int, char) begin
     const MAX : int
     ref clave : array [MAX] of int
@@ -18,19 +20,18 @@ type Dicc implements Diccionario (int, char) begin
     acinv}
 
     proc buscar: ( in d : Diccionario , in c : T0 , out v : T1 ) 
+        var x : int;
+        {pre (%exists i | 0<=i<=d.tam | d.clave[i] == c) pre}
+        |[
+            x := 0;
+            {inv 0 <= x <= d.tam inv}
+            {bound tam - x bound}
 
-    int x : int;
-    {pre (%exists i | 0<=i<=d.tam | d.clave[i] == c) pre}
-    |[
-        x := 0;
-        {inv 0 <= x /\ (%forall j: int | 0 <= j <= x | %) inv}
-        {bound tam - x bound}
+            do (clave[x] != c) -> x := x+1 od
 
-        do (clave[x] != c) -> x := x+1 od
-
-        v := valor[x]
-    ]|
-    {post (%exists i | 0<=i<= d.tam | d.table(i) == v %) post}
+            v := valor[x]
+        ]|
+        {post (%exists i | 0<=i<= d.tam | d.table(i) == v %) post}
 end
 
 

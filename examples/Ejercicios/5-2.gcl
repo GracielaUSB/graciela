@@ -1,6 +1,16 @@
 //Numero de Fibonacci
 //Queda de parte del estudiante completar los invariantes
 
+
+ var g : char 
+ read g
+
+ {}
+
+ |[
+  c:= g;
+ ]|
+
 program main begin
 
     proc fib: (out x: int) 
@@ -19,15 +29,15 @@ program main begin
             do (n != 0) ->
     	
                 if (n mod 2 == 0) -> 
-                |[
-                    a, b := a*a + b*b, a*b + b*a + b*b;
-                    n, i := n/2, i-1
-                ]|
+                    |[
+                        a, b := a*a + b*b, a*b + b*a + b*b;
+                        n, i := n/2, i-1
+                    ]|
                 [] (n mod 2 == 1) -> 
-                |[ 
-                    x, y := a*x + b*y, b*x + a*y + b*y;
-                    n, i := n-1, i-1
-                ]|
+                    |[ 
+                        x, y := a*x + b*y, b*x + a*y + b*y;
+                        n, i := n-1, i-1
+                    ]|
                 fi
             
             od

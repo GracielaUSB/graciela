@@ -1,0 +1,9 @@
+if gacela $1
+	then 
+		if clang  ${1/%.gcl/.bc} /usr/local/lib/auxiliarFunctions.so  
+			then echo "Done."
+				 rm ${1/%.gcl/.bc}
+			else echo "Bad clang."
+		fi
+	else echo "Bad gacela."
+fi

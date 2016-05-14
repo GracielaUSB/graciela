@@ -42,6 +42,7 @@ import           Text.Parsec            (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
 import           Text.Parsec.Error      (ParseError, errorMessages, errorPos,
                                          messageString)
+import           System.Process         (callCommand)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -173,3 +174,6 @@ main = do
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
     readFile fileName >>= \x -> play (optErrors options) x fileName
+
+
+
