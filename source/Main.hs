@@ -20,6 +20,7 @@ import           Data.Foldable          (toList)
 import           Data.List              (nub)
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
+import           Data.String.Utils      (replace)
 import           Data.Text              (Text)
 import           Data.Text.IO           (readFile)
 
@@ -37,12 +38,14 @@ import           System.Directory       (doesFileExist)
 import           System.Environment     (getArgs)
 import           System.Exit            (die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
+import           System.Process         (callCommand)
 
 import           Text.Parsec            (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
 import           Text.Parsec.Error      (ParseError, errorMessages, errorPos,
                                          messageString)
-import           System.Process         (callCommand)
+
+
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -119,7 +122,6 @@ generateCode m =
     withHostTargetMachine $ \tm ->
         liftError $ writeObjectToFile tm (File "prueba") m
 
-
 play n inp fileName = case runParser concatLexPar () "" inp of
     Left err -> do
         let msg  = head $ messageString $ head $ errorMessages err
@@ -173,7 +175,27 @@ main = do
     unless (takeExtension fileName == ".gcl")
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-    readFile fileName >>= \x -> play (optErrors options) x fileName
+    source <- readFile fileName
+    play (optErrors options) source fileName
+
+    callCommand (compile fileName)
+
+
+
+compile :: String -> String
+compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++aux 
+                            , "then echo Everything OK!;rm "++bc
+                            , "else echo failed at step 'gcc'."
+                            , "fi"
+                            ]
+    where 
+        name = replace ".gcl" ""    fileName
+        bc   = replace ".gcl" ".bc" fileName
+        auxMac   = "/usr/local/lib/auxiliarFunctions.so"
+        --auxLinux = "/lib/x86_64-linux-gnu/auxiliarFunctions.so"
+
+
+
 
 
 
