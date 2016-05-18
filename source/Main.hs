@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP, NoImplicitPrelude, CApiFFI #-}
+
 module Main where
 --------------------------------------------------------------------------------
 import           AST
@@ -38,6 +40,7 @@ import           System.Directory       (doesFileExist)
 import           System.Environment     (getArgs)
 import           System.Exit            (die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
+import           System.Info            (os)
 import           System.Process         (callCommand)
 
 import           Text.Parsec            (ParsecT, runPT, runParser,
@@ -185,16 +188,15 @@ main = do
 compile :: String -> String
 compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++auxMac
                             , "then echo Everything OK!;rm "++bc
-                            , "else echo failed at step 'gcc'."
+                            , "else echo failed at step 'clang'."
                             , "fi"
                             ]
     where 
-        name     = replace ".gcl" ""    fileName
-        bc       = replace ".gcl" ".bc" fileName
-        auxMac   = "/usr/local/lib/auxiliarFunctions.so"
-        --auxLinux = "/lib/x86_64-linux-gnu/auxiliarFunctions.so"
-
-
+        name = replace ".gcl" ""    fileName
+        bc   = replace ".gcl" ".bc" fileName
+        aux  = case os of 
+                  "darwin" -> "/usr/local/lib/auxiliarFunctions.so"
+                  "linux"  -> "/lib/x86_64-linux-gnu/auxiliarFunctions.so"
 
 
 
