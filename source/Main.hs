@@ -137,6 +137,7 @@ play n inp fileName = case runParser concatLexPar () "" inp of
     Right (Left  err', _) ->
         putStrLn $ "\nOcurrió un error en el proceso de parseo " ++ show err'
 
+
     Right (Right (Just ast), st) ->
         if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
             then do
@@ -148,13 +149,13 @@ play n inp fileName = case runParser concatLexPar () "" inp of
                         liftError $ withModuleFromAST context newast $ \m ->
                             liftError $ writeLLVMAssemblyToFile
                                 (File $ replaceExtension fileName ".bc") m
-                else
+                else do
                     putStrLn $ drawTypeError n l
-            else
+            else do
                 putStrLn $ drawState n st
 
-    Right (Right _, st) ->
-        putStrLn $ drawState n st
+    Right (Right Nothing, st) -> do
+        die $ drawState n st
 
 -- Main --------------------------------
 main :: IO ()
@@ -186,8 +187,9 @@ main = do
 
 compileBC :: String -> IO ()
 compileBC fileName = do
-    callCommand $ clang ++ " -o " ++ name ++ " " ++ bc ++ " " ++ aux
-    callCommand $ "rm "++bc
+    putStrLn name
+    callCommand $ clang ++ " -o \'" ++ name ++ "\' \'" ++ bc ++ "\' " ++ aux
+    callCommand $ "rm " ++ bc
     where
         name = replace ".gcl" ""    fileName
         bc   = replace ".gcl" ".bc" fileName
