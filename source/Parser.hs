@@ -89,7 +89,7 @@ function follow recSet =
                                           try ( do parseRightParent
                                                    try ( do parseArrow
                                                             t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
-                                                            sb <- getActualScope
+                                                            sb <- getCurrentScope
                                                             addFunTypeParser id lt t (toLocation pos) sb
                                                             b  <- functionBody follow follow
                                                             exitScopeParser
@@ -179,7 +179,7 @@ proc follow recSet =
                                       post <- postcondition parseEnd (recSet <|> parseEnd)
                                       try (
                                         do parseEnd
-                                           sb   <- getActualScope
+                                           sb   <- getCurrentScope
                                            addProcTypeParser id targs (toLocation pos) sb
                                            exitScopeParser
                                            addProcTypeParser id targs (toLocation pos) sb
@@ -369,7 +369,7 @@ block follow recSet =
        newScopeParser
        dl  <- decList followAction (recSet <|> followAction)
        la  <- actionsList (parseTokCloseBlock) (parseTokCloseBlock <|> recSet)
-       st  <- getActualScope
+       st  <- getCurrentScope
        exitScopeParser
        do parseTokCloseBlock
           return $ (AP.liftA2 (Block (toLocation pos) st) dl la) AP.<*> (return GEmpty)
@@ -437,7 +437,7 @@ functionCallOrAssign follow recSet =
        do parseLeftParent
           lexp  <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
           do parseRightParent
-             sb <- getActualScope
+             sb <- getCurrentScope
              return $ (fmap (ProcCall id sb (toLocation pos)) lexp) AP.<*> (return GEmpty)
              <|> do genNewError follow TokenRP
                     return Nothing

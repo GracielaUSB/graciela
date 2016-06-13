@@ -86,10 +86,12 @@ MyTypeError.hs [x]
 
 :   Tipo de datos para los errores ocurridos en las verificaciones de tipos.
 
-Parser.hs [ ]
+Parser.hs [x]
 
 :   Analizador sintáctico de la mayor parte del lenguaje, instrucciones,
     funciones procedimientos, aserciones, entre otras.
+    *Planeamos refactorizar los parsers en una carpeta Parser con varios
+    módulos dedicados. Este módulo sería algo como `program`.*
 
 ParserError.hs [ ]
 
@@ -101,43 +103,45 @@ ParserState.hs [ ]
 :   Utilizado para guardar los errores, los datos en la tabla, cambiar de scope
     en la tabla, entre otras cosas.
 
-ParserType.hs [ ]
+ParserType.hs [x]
 
-:   Analizador sintáctico de los tipos del lenguaje
+:   Analizador sintáctico de los tipos del lenguaje. *Iría en la carpeta Parser*
 
-ReduceAST.hs [ ]
+ReduceAST.hs [!]
 
 :   Recorta partes del AST cuando las operaciones son obvias, una suma de
     constantes, etc.
 
-State.hs [ ]
+State.hs [x]
 
 :   Monad utilizado para guardar: Los errores de parseo, la tabla de símbolos,
     los errores de tipo y los nombres de los archivos para las lecturas.
 
-SymbolTable.hs [ ]
+SymbolTable.hs [x]
 
 :   Tabla de símbolos del compilador.
 
-Token.hs [ ]
+Token.hs [x]
 
 :   Los tokens generados por el lexer.
 
-TokenParser.hs [ ]
+TokenParser.hs [?]
 
-:   Analizador sintáctico para las palabras reservadas del lenguaje.
+:   Analizador sintáctico para las palabras reservadas del lenguaje. *Why?*
 
-Type.hs [ ]
+Type.hs [x]
 
 :   Tipos utilizados dentro del compilador.
 
-TypeState.hs [ ]
+TypeState.hs [?]
 
 :   Funciones para crear las instancias de errores que seran guardados en el
     estado.
+    *básicamente `err`?*
 
-VerTypes.hs [ ]
+VerTypes.hs [?]
 
 :   Realiza todas las verificaciones de tipos necesarias, entre ellos tambien
     estan los errores que tienen que ver con los identificadores, procedimiento
     no declarado,  numero de argumentos incorrecto, entre otros.
+    *relación con ASTType?*

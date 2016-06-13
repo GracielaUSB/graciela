@@ -10,7 +10,7 @@ data MyParseError
     = MyParseError
         { loc         :: Location
         , expectedTok :: ExpectedToken
-        , actualTok   :: Token
+        , currentTok  :: Token
         }
     | EmptyError
         { loc       :: Location
@@ -117,4 +117,4 @@ newEmptyError pos =
 
 newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
 newParseError msg (e, pos) =
-    MyParseError { loc = toLocation pos, expectedTok = msg, actualTok = e }
+    MyParseError { loc = toLocation pos, expectedTok = msg, currentTok = e }

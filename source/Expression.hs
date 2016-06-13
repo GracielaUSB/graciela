@@ -250,7 +250,7 @@ exprLevel10 follow =
                 do parseLeftParent
                    lexp <- listExp (parseEOF <|> parseRightParent) (follow <|> parseRightParent)
                    do parseRightParent
-                      sb <- getActualScope
+                      sb <- getCurrentScope
                       return $ AP.liftA2 (FCallExp idp sb (toLocation pos)) lexp (return (GEmpty))
                       <|> do genNewError (follow) (TokenRP)
                              return $ Nothing

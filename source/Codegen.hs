@@ -212,7 +212,7 @@ addArgOperand ((id',c):xs) = do
 
         T.Ref   -> do addVarOperand id' e'
                       return ()
-        
+
     addArgOperand xs
 
 
@@ -236,7 +236,7 @@ retVarOperand ((id', c):xs) = do
 
         T.In     -> return ()
         T.Ref    -> return ()
-        
+
     retVarOperand xs
 
 
@@ -282,7 +282,7 @@ createState name (MyAST.States cond loc exp _) = do
 
                               createTagBound warAbort' loc 1
                               createTagBound next      loc 2
-        
+
     return ()
 
 
@@ -333,7 +333,7 @@ accToAlloca acc@(MyAST.ID _ id' t) = do
         T.GArray d ty -> createInstruction acc
         otherwise      -> do initialize id t
                              createInstruction acc
-        
+
 accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
     mapM_ idToAlloca lids
     createInstruction acc
@@ -396,7 +396,7 @@ typeToOperand name (T.GArray dim ty) = do
     case r of
         Nothing -> return $ return d
         Just op -> fmap Just $ addUnNamedInstruction intType $ _mul op d
-        
+
 typeToOperand _  _             = return $ Nothing
 
 
@@ -475,7 +475,7 @@ createInstruction (MyAST.Write True exp _ t) = do
         T.GFloat  -> procedureCall ty' writeLnDouble [e']
         T.GBool   -> procedureCall ty' writeLnBool   [e']
         T.GChar   -> procedureCall ty' writeLnChar   [e']
-        T.GEmpty  -> procedureCall ty' writeLnString [e']      
+        T.GEmpty  -> procedureCall ty' writeLnString [e']
     return ()
 
 
@@ -489,7 +489,7 @@ createInstruction (MyAST.Write False exp _ t) = do
         T.GFloat  -> procedureCall ty' writeDouble [e']
         T.GBool   -> procedureCall ty' writeBool   [e']
         T.GChar   -> procedureCall ty' writeChar   [e']
-        T.GEmpty  -> procedureCall ty' writeString [e']  
+        T.GEmpty  -> procedureCall ty' writeString [e']
     return ()
 
 
@@ -528,7 +528,7 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
 
 
 createInstruction (MyAST.ProcCallCont pname st _ args c _) = do
-    let dic   = getMap $ getActual $ sTable $ c
+    let dic   = getMap $ getCurrent $ sTable $ c
     let nargp = nameArgs c
     exp <- createArguments dic nargp args
     procedureCall voidType (TE.unpack pname) exp
@@ -557,7 +557,7 @@ createArguments dicnp (nargp:nargps) (arg:args) = do
         otherwise -> do dicn <- gets varsLoc
                         return $ (fromJust $ DM.lookup (TE.unpack $
                                   fromJust $ MyAST.astToId arg) dicn) : lr
- 
+
 
 genGuards :: [MyAST.AST T.Type] -> Name -> Name -> LLVM ()
 genGuards (guard:[]) none one  = do
@@ -668,8 +668,8 @@ createExpression (MyAST.Arithmetic op loc lexp rexp ty) = do
         otherwise -> case ty of
                         T.GInt   -> checkOverflow op loc lexp' rexp' ty
                         T.GFloat -> addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp' rexp'
-                     
-        
+
+
 
 createExpression (MyAST.Boolean op _ lexp rexp t) = do
 
@@ -744,7 +744,7 @@ createExpression (MyAST.QuantRan opQ varQ loc rangeExp termExp t) = do
                            res   <- joinRange opQ check loc tyExp
                            return $ res
 
-        
+
 
 createExpression (MyAST.QuantRanUn opQ varQ loc rangeExp termExp t) = do
 
@@ -766,7 +766,7 @@ createExpression (MyAST.QuantRanUn opQ varQ loc rangeExp termExp t) = do
         otherwise    -> do check <- mapM (createQuant' False opQ name loc termExp) rangesF
                            res   <- joinRange opQ check loc tyExp
                            return $ res
-   
+
 
 joinRange :: MyAST.OpQuant -> [Operand] -> Location -> T.Type -> LLVM (Operand)
 joinRange MyAST.Summation res loc T.GInt   =
@@ -852,7 +852,7 @@ createQuant True opQ var loc exp (SpanRange a b) = do
         MyAST.ForAll -> store boolType op' e'
         MyAST.Exists -> do bool <- addUnNamedInstruction boolType $ _not e'
                            store boolType op' bool
-        
+
     setLabel final $ branch initial
 
     case opQ of
@@ -861,7 +861,7 @@ createQuant True opQ var loc exp (SpanRange a b) = do
         MyAST.Exists -> do checkBool' <- load varBool boolType
                            res <- addUnNamedInstruction boolType $ _not checkBool'
                            return res
-        
+
 
 createQuant False opQ var loc exp (SpanRange a b) = do
 
@@ -969,7 +969,7 @@ doRange opQ (MyAST.SetRange op lexp rexp) loc = do
         MyAST.Intersec -> do res <- intersecRange opQ l r loc
                              return res
         MyAST.Union    -> return $ SetOp MyAST.Union l r
-        
+
 
 doRange _ (MyAST.TupleRange lexp rexp) _ = do
     l <- createExpression lexp
@@ -993,7 +993,7 @@ intersecRange opQ (RangeOp l1 r1) (RangeOp l2 r2) loc = do
         MyAST.Maximum -> createTagRangeAbort final loc
         MyAST.Minimum -> createTagRangeAbort final loc
         otherwise     -> createTagRange      final loc
-        
+
     return $ RangeOp l r
 
 

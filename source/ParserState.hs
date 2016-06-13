@@ -39,9 +39,10 @@ addProcTypeParser id (Just xs) loc sb =
 addProcTypeParser _ _ _ _             = return ()
 
 
-getActualScope :: MyParser SymbolTable
-getActualScope = do s <- get
-                    return $ symbolTable s
+getCurrentScope :: MyParser SymbolTable
+getCurrentScope = do
+    s <- get
+    return $ symbolTable s
 
 
 newScopeParser :: MyParser ()

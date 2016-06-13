@@ -102,10 +102,6 @@ concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), 
 concatLexPar = playParser <$> lexer
 
 
-playLexer :: Text -> IO ()
-playLexer inp = print $ runParser lexer () "" inp
-
-
 playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
 playParser inp = runStateParse program "" inp initialState
 
