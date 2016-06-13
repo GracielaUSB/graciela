@@ -1,4 +1,4 @@
-name:                gacela
+name:                graciela
 
 -- The package version.  See the Haskell package versioning policy (PVP)
 -- for standards guiding when and how versions should be incremented.
@@ -15,7 +15,7 @@ version:             0.1.0.0
 -- description:
 
 -- URL for the project homepage or repository.
-homepage:            https://github.com/GracielaUSB/gacela
+homepage:            https://github.com/GracielaUSB/graciela
 
 -- The license under which the package is released.
 -- license:
@@ -45,7 +45,7 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 
-executable gacela
+executable graciela
     -- .hs or .lhs file containing the Main module.
     main-is:             Main.hs
 

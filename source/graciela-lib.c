@@ -1,6 +1,6 @@
-/* gacela-lib
-$ gcc -fPIC -shared gacela-lib.c -o gacela-lib.so
-$ clang -fPIC -shared gacela-lib.c -o gacela-lib.so
+/* graciela-lib
+$ gcc -fPIC -shared graciela-lib.c -o graciela-lib.so
+$ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 */
 
 #include "stdio.h"

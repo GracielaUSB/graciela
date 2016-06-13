@@ -13,73 +13,76 @@ Se revisaron los archivos de código fuente escritos por Araujo y Jiménez. A
 continuación, se presentan los archivos junto con su función dentro del
 compilador.
 
-graciela-lib.c [ ]
+graciela-lib.c [x]
 
 :   Librería utilizada para las llamadas al sistema, para imprimir los errores a
     momento de ejecución y realizar las lecturas de variables, ya sea de
-    archivos o de la entrada estandar.
+    archivos o de la entrada estandar. Este archivo es necesario, ya que llvm
+    no provee funciones de entrada/salida de manera nativa.
 
-Aborts.hs [ ]
+Aborts.hs [x]
 
 :   Utilizado para el código intermedio del LLVM, se encarga de generar las
-    etiquetas para realizar los saltos en caso de un error a momento de
+    etiquetas que se usan para los saltos en caso de un error a momento de
     ejecución.
 
-AST.hs [ ]
+AST.hs [x]
 
 :   Tipo de datos para la representación del arbol sintáctico.
 
-ASTtype.hs [ ]
+ASTtype.hs [x]
 
 :   Recorrido del arbol para la verificación de tipos de todos los nodos,
-    tambien posee la creación de los rangos para los cuantificadores.
+    tambien incluye la creación de los rangos para los cuantificadores.
 
-Codegen.hs [ ]
+Codegen.hs [x]
 
-:   Genera el código intermedio para el LLVM de cada uno de los nodos del arbol.
+:   Genera el código intermedio para LLVM de cada uno de los nodos del arbol.
 
-CodegenState.hs [ ]
+CodegenState.hs [x]
 
-:   Monad de estado utilizado para ir generando el código intermedio del LLVM,
-    definir funciones para el LLVM, etiquetas para los saltos, etc.
+:   Monad de estado utilizado para ir generando el código intermedio de LLVM,
+    definir funciones para LLVM, etiquetas para los saltos, etc.
 
-Contents.hs [ ]
+Contents.hs [x]
 
 :   Tipo de datos usado como contenido de la tabla de símbolos, si es una
-    variable, una función o un procedimiento  (Depende de lo que sea, se guardan
-    diferente información).
+    variable, una función, un procedimiento, o un argumento a una función o
+    procedimiento (Depende de lo que sea, se guarda diferente información).
 
-Declarations.hs [ ]
+Declarations.hs [x]
 
 :   Parseo de las declaraciones y almacenamiento de variables  y constantes en
     la tabla de símbolos.
 
-Expressión.hs [ ]
+Expression.hs [x]
 
 :   Analizador sintáctico de todas las expresiones posibles.
 
-Lexer.hs [ ]
+Lexer.hs [x]
 
 :   Analizador lexicográfico.
 
-Limits.hs [ ]
+Limits.hs [x]
 
 :   Límites establecidos para los enteros y los flotantes del lenguaje.
+    *puede ser mejorado con Numeric.Limits y Data.Int+m{ax,in}Bound*
 
-Location.hs [ ]
+Location.hs [x]
 
 :   Todo lo referente a la localización de variables, errores, etc.
 
-Main.hs [ ]
+Main.hs [x]
 
 :   Programa principal, se realiza la lectura de parámetros de entrada, los
-    ajustes por arquitectura y se imprimen las listas de errores.
+    ajustes por arquitectura. Si hubo errores en la entrada, se imprimen, y
+    si no, se compila el archiv LLVM generado usando Clang.
 
-MyParseError.hs [ ]
+MyParseError.hs [x]
 
 :   Tipo de datos para los errores ocurridos en el analizador sintáctico.
 
-MyTypeError.hs [ ]
+MyTypeError.hs [x]
 
 :   Tipo de datos para los errores ocurridos en las verificaciones de tipos.
 

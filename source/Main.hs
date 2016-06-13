@@ -186,11 +186,16 @@ main = do
 
 compileBC :: String -> IO ()
 compileBC fileName = do
-    callCommand $"clang -o "++name++" "++bc++" "++aux
+    callCommand $ clang ++ " -o " ++ name ++ " " ++ bc ++ " " ++ aux
     callCommand $ "rm "++bc
     where
         name = replace ".gcl" ""    fileName
         bc   = replace ".gcl" ".bc" fileName
         aux  = case os of
-                  "darwin" -> "/usr/local/lib/gacela-lib.so"
-                  "linux"  -> "/lib/x86_64-linux-gnu/gacela-lib.so"
+            "darwin"  -> "/usr/local/lib/graciela-lib.so"
+            "linux"   -> "/usr/local/lib/graciela-lib.so"
+            "windows" -> undefined
+        clang = case os of
+            "darwin" -> "clang"
+            "linux"  -> "clang-3.5"
+            "windows" -> undefined

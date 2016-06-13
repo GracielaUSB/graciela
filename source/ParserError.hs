@@ -17,16 +17,16 @@ import State
 
 
 -- | Se encarga de descarta tokens hasta llegar a algun follow de la regla.
-cleanEntry :: ParsecT [Token.TokenPos] () (StateT ParserState Identity) Token 
+cleanEntry :: ParsecT [Token.TokenPos] () (StateT ParserState Identity) Token
            -> ParsecT [TokenPos] () (StateT ParserState Identity) (Token, SourcePos)
 cleanEntry laset =
   do pos <- getPosition
-     e   <- (lookAhead(laset) <|> lookAhead(parseEOF) <|> parseAnyToken)
+     e   <- lookAhead laset <|> lookAhead parseEOF <|> parseAnyToken
      panicMode laset
-     return ((e, pos))
+     return (e, pos)
 
 
 -- | Se encarga de ignorar tokens hasta encontrar 'until'
-panicMode :: ParsecT [TokenPos] () (StateT ParserState Identity) Token 
+panicMode :: ParsecT [TokenPos] () (StateT ParserState Identity) Token
           -> ParsecT [TokenPos] () (StateT ParserState Identity) [Token]
 panicMode until = manyTill parseAnyToken (lookAhead (until <|> parseEOF))

@@ -47,3 +47,4 @@ and
 - [x] Type.hs
 - [ ] TypeState.hs
 - [ ] VerTypes.hs
+- [x] graciela-lib.c

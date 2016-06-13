@@ -7,7 +7,7 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 * ***TO DO*** Hablar filosoficamente del lenguaje
 
-El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
+El diseño del lenguaje está disponible [aquí](doc/graciela/diseno.md).
 
 ## Instalación
 
@@ -23,7 +23,7 @@ pasos:
   paquetes relevante.
 
 * Clonar este repositorio con
-  `$ git clone git@github.com:GracielaUSB/gacela.git`.
+  `$ git clone git@github.com:GracielaUSB/graciela.git`.
 
 * Para correr los ejecutables generados por el compilador es necesario compilar
   el archivo `source/graciela-lib.c` y luego moverlo a
@@ -40,7 +40,7 @@ pasos:
 
 * Finalmente, se ejecuta `cabal install`. Una vez finalizado este paso (puede
   tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
-  estará en `<repositorio gacela>/cabal-sandbox/bin/gacela`.
+  estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
 
 ## Uso del compilador
@@ -49,7 +49,7 @@ Para compilar un archivo `.gcl`, se deben seguir estos pasos:
 
 * Se usa el ejecutable generado en la sección anterior, seguido del nombre del
   archivo a compilar, así:
-  `# ./<directorios...>/gacela "<mi_programa>.gcl"`
+  `# ./<directorios...>/graciela "<mi_programa>.gcl"`
 
 * Luego, se compila el código LLVM generado en el paso anterior a código objeto,
   con el comando `$ llc-3.5 -filetype=obj "<mi_programa>.bc"`
