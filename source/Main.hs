@@ -181,16 +181,13 @@ main = do
     source <- readFile fileName
     play (optErrors options) source fileName
 
-    callCommand (compile fileName)
+    compileBC fileName
 
 
-
-compile :: String -> String
-compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++auxMac
-                            , "then echo Everything OK!;rm "++bc
-                            , "else echo failed at step 'clang'."
-                            , "fi"
-                            ]
+compileBC :: String -> IO ()
+compileBC fileName = do
+    callCommand $"clang -o "++name++" "++bc++" "++aux
+    callCommand $ "rm "++bc
     where
         name = replace ".gcl" ""    fileName
         bc   = replace ".gcl" ".bc" fileName

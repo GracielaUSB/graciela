@@ -136,11 +136,11 @@ updateScope sb = sb { actual = Tr.Node ((getActual sb, (getScope sb) + 1), fmap 
 addSymbol :: T.Text -> (Contents SymbolTable) -> SymbolTable -> (Either (Contents SymbolTable) SymbolTable)
 addSymbol valor content tabla =
     case checkSymbol valor tabla of
-    { Just c   -> Left c
-    ; Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
+      Just c   -> Left c
+      Nothing  -> let newActual = M.insert (valor) (content) (getMap (getActual tabla))
                       sc = getScope tabla 
                   in Right $ insertTabla (Dictionary newActual) sc tabla
-    }
+     
 
 
 space :: Char

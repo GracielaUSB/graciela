@@ -25,27 +25,25 @@ reduceAST id (Arithmetic op _ l r _)  =
                          nr = getNum rr
 
                      in case op of
-                        { Sum -> Reducible (nl + nr)
-                        ; Sub -> Reducible (nl - nr)
-                        ; Mul -> Reducible (nl * nr)
-                        ; Div -> Reducible (quot nl nr)
-                        ; Exp -> Reducible (nl ^ nr)
-                        ; Max -> Reducible (P.max nl nr)
-                        ; Min -> Reducible (min nl nr)
-                        ; Mod -> Reducible (mod nl nr)
-                        }
-
+                        Sum -> Reducible (nl + nr)
+                        Sub -> Reducible (nl - nr)
+                        Mul -> Reducible (nl * nr)
+                        Div -> Reducible (quot nl nr)
+                        Exp -> Reducible (nl ^ nr)
+                        Max -> Reducible (P.max nl nr)
+                        Min -> Reducible (min nl nr)
+                        Mod -> Reducible (mod nl nr)
+                        
 
 reduceAST id (Unary op _ e _) = 
     let re = reduceAST id e
     in if re == NonReducible || re == QuanVariable id 
-         then NonReducible
-         else let ne = getNum re
-              in case op of
-                 { Minus -> Reducible $ -ne
-                 ; Abs   -> Reducible $ abs ne
-                 }
-
+        then NonReducible
+        else let ne = getNum re
+            in case op of
+                Minus -> Reducible $ -ne
+                Abs   -> Reducible $ abs ne
+                
 -- Siguen faltando operadores
 reduceAST id (Int  _ m _)  = Reducible m
 reduceAST id (Char _ m _)  = Reducible $ (toInteger . ord) m

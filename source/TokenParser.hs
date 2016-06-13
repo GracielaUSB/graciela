@@ -8,7 +8,6 @@ import           Data.Text   (Text)
 import           Text.Parsec
 --------------------------------------------------------------------------------
 
-
 makeTokenParser :: Token -> MyParser Token
 makeTokenParser x =
     tokenPrim showTok updatePos testTok
@@ -20,15 +19,12 @@ makeTokenParser x =
 
         testTok (t, pos)                       = if x == t then Just (t) else Nothing
 
-
 updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
 updatePos _ _ ((_, pos):xs) = pos
 updatePos _ (_, pos) []     = pos
 
-
 verify :: Token -> MyParser Token
 verify token = makeTokenParser token
-
 
 parseBegin        = verify TokBegin
 parseEnd          = verify TokEnd
@@ -123,125 +119,106 @@ parseAnyToken = tokenPrim showTok updatePos testTok
                   showTok (t, pos) = show t
                   testTok (t, pos) = Just (t)
 
-
 parseTokID :: MyParser Token
 parseTokID = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
             testTok (t, pos) = case t of
-                                 { TokId id  -> Just $ TokId id
-                                 ; otherwise -> Nothing
-                                 }
-
+                                   TokId id  -> Just $ TokId id
+                                   otherwise -> Nothing
+                                  
 parseID :: MyParser Text
 parseID = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
             testTok (t, pos) = case t of
-                                 { TokId id  -> Just id
-                                 ; otherwise -> Nothing
-                                 }
-
-
+                                   TokId id  -> Just id
+                                   otherwise -> Nothing
+                                  
 parseBool :: MyParser Bool
 parseBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
               testTok (t, pos) = case t of
-                                  { TokBool b -> Just b
-                                  ; otherwise -> Nothing
-                                  }
-
+                                    TokBool b -> Just b
+                                    otherwise -> Nothing
+                                   
 parseTokBool :: MyParser Token
 parseTokBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
               testTok (t, pos) = case t of
-                                  { TokBool b -> Just $ TokBool b
-                                  ; otherwise -> Nothing
-                                  }
-
-
+                                    TokBool b -> Just $ TokBool b
+                                    otherwise -> Nothing
+                                   
 parseType :: MyParser Type
 parseType = tokenPrim showTok updatePos testTok
               where
                 showTok (t, pos) = show t
                 testTok (t, pos) = case t of
-                                    { TokType b -> Just b
-                                    ; otherwise -> Nothing
-                                    }
-
-
+                                      TokType b -> Just b
+                                      otherwise -> Nothing
+                                     
 parseChar :: MyParser Char
 parseChar = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
               testTok (t, pos) = case t of
-                                  { TokChar b -> Just b
-                                  ; otherwise -> Nothing
-                                  }
-
+                                    TokChar b -> Just b
+                                    otherwise -> Nothing
+                                   
 parseTokChar :: MyParser Token
 parseTokChar = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
               testTok (t, pos) = case t of
-                                  { TokChar b -> Just $ TokChar b
-                                  ; otherwise -> Nothing
-                                  }
-
-
+                                    TokChar b -> Just $ TokChar b
+                                    otherwise -> Nothing
+                                   
 parseString :: MyParser String
 parseString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
                   testTok (t, pos) = case t of
-                                      { TokString b -> Just b
-                                      ; otherwise   -> Nothing
-                                      }
-
+                                      TokString b -> Just b
+                                      otherwise   -> Nothing
+                                      
 parseTokString :: MyParser Token
 parseTokString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
                   testTok (t, pos) = case t of
-                                      { TokString b -> Just $ TokString b
-                                      ; otherwise   -> Nothing
-                                      }
-
-
+                                       TokString b -> Just $ TokString b
+                                       otherwise   -> Nothing
+                                      
 number :: MyParser Integer
 number = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokInteger n -> Just n
-                                  ; otherwise    -> Nothing
-                                  }
-
+                                    TokInteger n -> Just n
+                                    otherwise    -> Nothing
+                                   
 parseTokNumber :: MyParser Token
 parseTokNumber = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos) = show t
            testTok (t, pos) = case t of
-                              { TokInteger n -> Just $ TokInteger n
-                              ; otherwise    -> Nothing
-                              }
-
+                                TokInteger n -> Just $ TokInteger n
+                                otherwise    -> Nothing
+                               
 parseDouble :: MyParser Double
 parseDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokFloat n -> Just n
-                                  ; otherwise     -> Nothing
-                                  }
-
+                                    TokFloat n -> Just n
+                                    otherwise     -> Nothing
+                                   
 parseTokDouble :: MyParser Token
 parseTokDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
            testTok (t, pos)     = case t of
-                                  { TokFloat n -> Just $ TokFloat n
-                                  ; otherwise     -> Nothing
-                                  }
+                                    TokFloat n -> Just $ TokFloat n
+                                    otherwise     -> Nothing              
