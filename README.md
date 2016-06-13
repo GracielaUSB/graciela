@@ -26,12 +26,12 @@ pasos:
   `$ git clone git@github.com:GracielaUSB/gacela.git`.
 
 * Para correr los ejecutables generados por el compilador es necesario compilar
-  el archivo `source/auxiliarFunctions.c` y luego moverlo a
+  el archivo `source/graciela-lib.c` y luego moverlo a
   `/lib/x86_64-linux-gnu`. Esto puede hacerse de la siguiente manera:
 
 ```
-    # gcc -fPIC -shared source/auxiliarFunctions.c -o auxiliarFunctions.so
-    # mv auxiliarFunctions.so /lib/x86_64-linux-gnu/
+    # gcc -fPIC -shared source/graciela-lib.c -o graciela-lib.so
+    # mv graciela-lib.so /lib/x86_64-linux-gnu/
 ```
 
 * Para evitar romper las bibliotecas de Cabal, es buena idea crear una
@@ -56,7 +56,7 @@ Para compilar un archivo `.gcl`, se deben seguir estos pasos:
 
 * Ahora se debe enlazar el archivo objeto con la bibloteca en C incluida en este
   repositorio, con el comando
-  `$ gcc "<mi_programa>.o" /lib/x86_64-linux-gnu/auxiliarFunctions.so -o <ejecutable_deseado>`
+  `$ gcc "<mi_programa>.o" /lib/x86_64-linux-gnu/graciela-lib.so -o <ejecutable_deseado>`
 
 * Finalmente, se corre el ejecutable de la manera convencional, a saber,
   `$ ./<ejecutable>`.

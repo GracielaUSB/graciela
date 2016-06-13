@@ -191,13 +191,9 @@ compile fileName = unlines  [ "if clang -o "++name++" "++bc++" "++auxMac
                             , "else echo failed at step 'clang'."
                             , "fi"
                             ]
-    where 
+    where
         name = replace ".gcl" ""    fileName
         bc   = replace ".gcl" ".bc" fileName
-        aux  = case os of 
-                  "darwin" -> "/usr/local/lib/auxiliarFunctions.so"
-                  "linux"  -> "/lib/x86_64-linux-gnu/auxiliarFunctions.so"
-
-
-
-
+        aux  = case os of
+                  "darwin" -> "/usr/local/lib/gacela-lib.so"
+                  "linux"  -> "/lib/x86_64-linux-gnu/gacela-lib.so"

@@ -3,21 +3,22 @@
 program main
 begin
 
-    proc buscar : (ref b: array [50] of boolean, out x: int) 
-    begin 
+    proc buscar : (ref b: array [50] of boolean, out x: int)
+    begin
         var : i : int;
 
-        {pre (%exist i: int | 0 <= i | b[i] %) pre}  
-        |[  
+        {pre (%exist i: int | 0 <= i | b[i] %) pre}
+        |[
             x := 0;
 
-            {inv 0 <= x /\ (%forall i: int | 0 <= i /\ i < x | b[i] %) inv} 
+            {inv 0 <= x /\ (%forall i: int | 0 <= i /\ i < x | b[i] %) inv}
     	    {bound i -1  bound}
 
             do (!b[x]) -> x := x+1 od
         ]|
-    
+
         {post x == (%min i: int | 0 <= i /\ b[i] | i %) post}
+        {post x == (%min i: int | 0 <= i <= 50 /\ b[i] | i %) post}
     end
 
 
