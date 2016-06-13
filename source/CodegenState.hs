@@ -25,16 +25,16 @@ import Contents
 
 
 data CodegenSt
-  = CodeGenSt {
-    insCount    :: Word                        -- Cantidad de instrucciones sin nombre
-  , condName    :: Name
-  , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
-  , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
-  , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
-  , moduleDefs  :: DS.Seq Definition
-  , varsLoc     :: DM.Map String Operand
-  , arrsDim     :: DM.Map String [Operand]
-  } deriving (Show)
+  = CodeGenSt 
+    { insCount    :: Word                        -- Cantidad de instrucciones sin nombre
+    , condName    :: Name
+    , blockName   :: Name                        -- Cantidad de bloques básicos en el programa
+    , instrs      :: DS.Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
+    , bblocs      :: DS.Seq BasicBlock           -- Lista de bloques básicos en la definición actual
+    , moduleDefs  :: DS.Seq Definition
+    , varsLoc     :: DM.Map String Operand
+    , arrsDim     :: DM.Map String [Operand]
+    } deriving (Show)
 
 
 newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
@@ -65,27 +65,27 @@ addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
 addDefinition name params retTy = do
     bbl  <- gets bblocs
     defs <- gets moduleDefs
-    let def = GlobalDefinition $ functionDefaults {
-                name        = Name name
-              , parameters  = params
-              , returnType  = retTy
-              , basicBlocks = (toList bbl)
-              }
+    let def = GlobalDefinition $ functionDefaults 
+                { name        = Name name
+                , parameters  = params
+                , returnType  = retTy
+                , basicBlocks = (toList bbl)
+                }
     modify $ \s -> s { bblocs  = DS.empty }
     modify $ \s -> s { varsLoc = DM.empty }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
 globalVariable :: Name -> Type -> C.Constant -> LLVM ()
-globalVariable name ty init = do
+globalVariable name t init = do
     defs <- gets moduleDefs
-    let def = GlobalDefinition $ globalVariableDefaults {
-          name  = name
-        , linkage = Private
-        , GLOB.type' = ty
-        , initializer = Just init
-        , isConstant  = False
-    }
+    let def = GlobalDefinition $ globalVariableDefaults 
+                { name  = name
+                , linkage = Private
+                , GLOB.type' = t
+                , initializer = Just init
+                , isConstant  = False
+                }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
@@ -95,9 +95,9 @@ addBasicBlock t800 = do
     bbl   <- gets bblocs
     name  <- gets blockName
     name' <- newLabel
-    modify $ \s -> s { blockName  = name'    }
-    modify $ \s -> s { instrs     = DS.empty }
-    modify $ \s -> s { bblocs     = bbl DS.|> BasicBlock name (toList lins) t800 }
+    modify $ \s -> s { blockName = name'    }
+    modify $ \s -> s { instrs    = DS.empty }
+    modify $ \s -> s { bblocs    = bbl DS.|> BasicBlock name (toList lins) t800 }
 
 
 addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
@@ -111,26 +111,26 @@ addNamedInstruction t name ins = do
 
 
 addString :: String -> Name -> Type -> LLVM ()
-addString msg name ty = do
+addString msg name t = do
     defs <- gets moduleDefs
-    let def = GlobalDefinition $ globalVariableDefaults {
-                name        = name
-              , isConstant  = True
-              , GLOB.type'  = ty
-              , initializer = Just $ constantString msg
-              }
+    let def = GlobalDefinition $ globalVariableDefaults 
+                { name        = name
+                , isConstant  = True
+                , GLOB.type'  = t
+                , initializer = Just $ constantString msg
+                }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
 addFileName :: String -> Name -> Type -> LLVM ()
-addFileName msg name ty = do
+addFileName msg name t = do
     defs <- gets moduleDefs
-    let def = GlobalDefinition $ globalVariableDefaults {
-                name        = name
-              , isConstant  = True
-              , GLOB.type'  = ty
-              , initializer = Just $ constantFileName msg
-              }
+    let def = GlobalDefinition $ globalVariableDefaults 
+                { name        = name
+                , isConstant  = True
+                , GLOB.type'  = t
+                , initializer = Just $ constantFileName msg
+                }
     modify $ \s -> s { moduleDefs = defs DS.|> def}
 
 
@@ -138,18 +138,18 @@ addFileName msg name ty = do
 addStringOpe :: String -> LLVM (Operand)
 addStringOpe msg = do
     let n  = fromIntegral $ Prelude.length msg+1
-    let ty = ArrayType n i16
+    let t = ArrayType n i16
     name <- newLabel
-    addString msg name ty
+    addString msg name t
     return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
 
 
 addFileNameOpe :: String -> LLVM (Operand)
 addFileNameOpe msg = do
-    let n  = fromIntegral $ Prelude.length msg+1
-    let ty = ArrayType n i8
-    name <- newLabel
-    addFileName msg name ty
+    let n =  fromIntegral $ Prelude.length msg+1
+    let t =  ArrayType n i8
+    name  <- newLabel
+    addFileName msg name t
     return $ ConstantOperand $ C.GetElementPtr True (global i8 name) [C.Int 64 0, C.Int 64 0]
 
 
@@ -160,14 +160,13 @@ setLabel name t800 = do
 
 
 checkVar :: String -> Type -> LLVM Operand
-checkVar id ty = do
+checkVar id t = do
     vars <- gets varsLoc
     case DM.lookup id vars of
-    { Just op -> return op
-    ; Nothing -> do op <- alloca Nothing ty id
+      Just op -> return op
+      Nothing -> do op <- alloca Nothing t id
                     return op
-    }
-
+      
 
 addVarOperand :: String -> Operand -> LLVM()
 addVarOperand name op = do
@@ -234,7 +233,7 @@ constantFileName msg =
 
 
 definedFunction :: Type -> Name -> Operand
-definedFunction ty = ConstantOperand . (global ty)
+definedFunction t = ConstantOperand . (global t)
 
 
 initialize :: String -> T.Type -> LLVM (Operand)
@@ -256,8 +255,8 @@ initialize id T.GChar = do
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand
-alloca cant ty r = do
-    addNamedInstruction ty r $ Alloca ty cant 0 []
+alloca cant t r = do
+    addNamedInstruction t r $ Alloca t cant 0 []
 
 
 store :: Type -> Operand -> Operand -> LLVM Operand
@@ -266,14 +265,14 @@ store t ptr val =
 
 
 load :: String -> Type -> LLVM (Operand)
-load name ty = do
+load name t = do
     map <- gets varsLoc
     let i = fromJust $ DM.lookup name map
-    addUnNamedInstruction ty $ Load False i Nothing 0 []
+    addUnNamedInstruction t $ Load False i Nothing 0 []
 
 
 caller :: Type -> CallableOperand -> [(Operand, [ParameterAttribute])] -> LLVM Operand
-caller ty df args = addUnNamedInstruction ty $ Call Nothing CC.C [] df args [] []
+caller t df args = addUnNamedInstruction t $ Call Nothing CC.C [] df args [] []
 
 
 branch :: Name -> Named Terminator
@@ -337,10 +336,9 @@ convertParams ((id,c):xs) =
     let t  = toType $ symbolType c in
 
     case procArgType $ c of
-    { T.In      -> (id, t) : convertParams xs
-    ; otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
-    }
-
+      T.In      -> (id, t) : convertParams xs
+      otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+      
 convertFuncParams :: [(TE.Text, T.Type)] -> [(String, Type)]
 convertFuncParams [] = []
 convertFuncParams ((id, (T.GArray s t)):xs) =
@@ -374,9 +372,9 @@ stringType = PointerType i16 (AddrSpace 0)
 
 
 toType :: T.Type -> Type
-toType T.GInt   = intType
-toType T.GFloat = floatType
-toType T.GBool  = boolType
-toType T.GChar  = charType
+toType T.GInt         = intType
+toType T.GFloat       = floatType
+toType T.GBool        = boolType
+toType T.GChar        = charType
 toType (T.GArray _ t) = toType t
 

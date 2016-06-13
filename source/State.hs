@@ -69,7 +69,7 @@ initVar sym ps = ps { symbolTable = initSymbol sym (symbolTable ps) }
 
 
 newScopeState :: ParserState -> ParserState
-newScopeState st = st { symbolTable     = enterScope (symbolTable st) }
+newScopeState st = st { symbolTable = enterScope (symbolTable st) }
 
 
 exitScopeState :: ParserState -> ParserState
