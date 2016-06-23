@@ -48,9 +48,6 @@ mainProgram = do
 -- Program -> Abstract Program
 -- Program -> Program
 program :: MyParser (Maybe (AST Type))
-program =   do abstract
-               program          -- Por ahora el programa principial  
-        <|> do mainProgram      -- debe estar en el fondo del archivo
-               
-        <|> return Nothing
+program = do  many abstract       -- Hasta ahora siempre debe haber un programa 
+              mainProgram         -- principal al final del archivo
 
