@@ -1,4 +1,4 @@
-module TokenParser where
+module Parser.TokenParser where
 --------------------------------------------------------------------------------
 import           State
 import           Token

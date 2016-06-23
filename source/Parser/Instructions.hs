@@ -26,7 +26,7 @@ import Parser.Expression
 import Parser.Assertions
 import MyParseError                  as PE
 import ParserState
-import TokenParser
+import Parser.TokenParser
 import ParserType
 import Contents
 import Location

@@ -2,6 +2,13 @@
 abstract Diccionario () begin
 end
 
+abstract Persona (t1) begin
+end
+
+abstract Casa (t1,t2) begin
+end
+
+
 program main begin
 
 // comentario

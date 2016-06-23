@@ -4,15 +4,12 @@ module Parser.Program
 
 
 -------------------------------------------------------------------------------
-import Parser.Procedures
-import Parser.Assertions
-import Parser.Expression
-import Parser.Declarations
-import Parser.Instructions
+import Parser.Instructions          (block)
+import Parser.Procedures            (listDefProc)
+import Parser.TokenParser           
 import Parser.TAD
 import MyParseError                  as PE
 import ParserState
-import TokenParser
 import Location
 import State
 import Type
@@ -52,8 +49,8 @@ mainProgram = do
 -- Program -> Program
 program :: MyParser (Maybe (AST Type))
 program =   do abstract
-               program
-        <|> do mainProgram
+               program          -- Por ahora el programa principial  
+        <|> do mainProgram      -- debe estar en el fondo del archivo
                
         <|> return Nothing
 

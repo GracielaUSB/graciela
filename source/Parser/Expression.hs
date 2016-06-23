@@ -25,7 +25,7 @@ import qualified Control.Applicative as AP
 import MyParseError                  as PE
 import ParserState                   as PS
 import Text.Parsec
-import TokenParser
+import Parser.TokenParser
 import ParserType
 import Location
 import Limits

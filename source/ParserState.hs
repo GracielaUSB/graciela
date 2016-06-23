@@ -1,5 +1,6 @@
 module ParserState where
 --------------------------------------------------------------------------------
+import           Parser.TokenParser
 import           AST                 hiding (Constant)
 import           Contents
 import           Data.Maybe
@@ -9,11 +10,10 @@ import           MyTypeError
 import           ParserError
 import           State
 import           SymbolTable
-import           Text.Parsec
 import           Token
-import           TokenParser
 import           Type
 --------------------------------------------------------------------------------
+import           Text.Parsec
 import           Control.Monad.State (get, modify)
 import           Data.Text           (Text)
 --------------------------------------------------------------------------------

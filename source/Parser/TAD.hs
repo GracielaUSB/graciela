@@ -9,7 +9,7 @@ import Parser.Declarations
 import Parser.Procedures
 import MyParseError                  as PE
 import ParserState
-import TokenParser
+import Parser.TokenParser
 import ParserType
 import Contents
 import Location
@@ -25,7 +25,7 @@ import           Text.Parsec
 -------------------------------------------------------------------------------
 
 
--- Abstract -> 'abstract' ID AbstractType 'begin' 'end'
+-- Abstract -> 'abstract' ID AbstractTypes 'begin' AbstractBody 'end'
 abstract :: MyParser (Maybe (AST Type))
 abstract = do 
     verify TokAbstract
@@ -35,27 +35,35 @@ abstract = do
                     try (do parseEnd 
                             return Nothing
                         )
-                        <|> do
-                                genNewError parseEOF PE.LexEnd
+                        <|> do  genNewError parseEOF PE.LexEnd
                                 return Nothing
                 )
-                <|> do 
-                        genNewError parseEOF PE.Begin
+                <|> do  genNewError parseEOF PE.Begin
                         return Nothing
         )
-        <|> do 
-                genNewError parseEOF PE.IDError 
+        <|> do  genNewError parseEOF PE.IDError 
                 return Nothing
 
--- AbstractType -> '('  ')'
+-- AbstractType -> '(' ListTypes ')'
+-- ListTypes: lista de ids contruidas con parsec
+--
+-- Podria hacerce con between, pero no se como dar errores "bonitos" 
 abstractTypes :: MyParser (Maybe (AST Type))
 abstractTypes = do 
     try (do parseLeftParent
-            try (do parseRightParent
-                    return Nothing    
+            try (do sepBy (parseID) (parseComma)
+                    try (do parseRightParent
+                            return Nothing    
+                        )
+                        <|> do  genNewError parseEOF PE.TokenLP 
+                                return Nothing
                 )
-                <|> do  genNewError parseEOF PE.TokenLP 
-                        return Nothing
+                <|> do  genNewError parseEOF PE.TokenLP  -- MEJORAR ERROR 
+                        return Nothing 
         )
         <|> do  genNewError parseEOF PE.TokenRP
                 return Nothing
+
+
+abstractBody ::  MyParser (Maybe (AST Type))
+abstractBody = undefined

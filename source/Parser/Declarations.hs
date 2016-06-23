@@ -13,7 +13,7 @@ import Parser.Expression
 import Contents                       as CO
 import MyParseError
 import ParserState
-import TokenParser
+import Parser.TokenParser
 import ParserType
 import Location
 import Token
@@ -32,7 +32,7 @@ import Text.Parsec
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet =
-    do loc <- parseLocation
+    do loc <- parseLocation 
        do parseVar
           idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
           do parseColon

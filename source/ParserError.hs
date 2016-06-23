@@ -11,7 +11,7 @@ module ParserError where
 import Control.Monad.Trans.State.Lazy
 import Data.Functor.Identity
 import Text.Parsec
-import TokenParser
+import Parser.TokenParser
 import Token
 import State
 

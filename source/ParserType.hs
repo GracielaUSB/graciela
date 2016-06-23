@@ -4,7 +4,7 @@ import           Location
 import           ParserState
 import           State
 import           Token
-import           TokenParser
+import           Parser.TokenParser
 import           Type
 --------------------------------------------------------------------------------
 import           Data.Text   (Text)
