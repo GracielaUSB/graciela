@@ -6,27 +6,29 @@ Copyright   : GraCieLa
 Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
 -}
-module Declarations where
+module Parser.Declarations where
 
-import qualified Control.Applicative  as AP
-import qualified Control.Monad        as M
-import qualified Data.Text            as T
+-------------------------------------------------------------------------------
+import Parser.Expression
 import Contents                       as CO
-import Control.Monad.Trans.State.Lazy
-import Data.Functor.Identity
 import MyParseError
 import ParserState
-import Text.Parsec
 import TokenParser
-import Expression
 import ParserType
 import Location
 import Token
 import State
 import Type
 import AST
+-------------------------------------------------------------------------------
+import qualified Control.Applicative  as AP
+import qualified Control.Monad        as M
+import qualified Data.Text            as T
 
-
+import Control.Monad.Trans.State.Lazy
+import Data.Functor.Identity
+import Text.Parsec
+-------------------------------------------------------------------------------
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet =

@@ -16,9 +16,10 @@ verify x =
                                column = sourceColumn pos
                            in ":" ++ show t ++ ", en la línea " ++ show line
                                             ++ ", columna "     ++ show column ++ "."
-
         testTok (t, pos) = if x == t
-            then Just t else Nothing
+                            then Just t 
+                            else Nothing
+
 
 updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
 updatePos _ _ ((_, pos):xs) = pos
@@ -212,6 +213,7 @@ parseDouble = tokenPrim showTok updatePos testTok
            testTok (t, pos)     = case t of
                                     TokFloat n -> Just n
                                     _ -> Nothing
+
 
 parseTokDouble :: MyParser Token
 parseTokDouble = tokenPrim showTok updatePos testTok

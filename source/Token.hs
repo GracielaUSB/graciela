@@ -153,11 +153,22 @@ data Token
     | TokComment
     | EmptyToken
     | TokUnexpected { unTokUnexpected :: Char}
+
+    -- V2.0
+    | TokTypeImplements      -- Ya hay un toktype :(, no soy creativo
+    | TokImplements
+    | TokAbstract
+    | TokLeftRep    
+    | TokRightRep   
+    | TokLeftAcopl    
+    | TokRightAcopl   
+
+
     deriving (Eq)
 
 
 -- | Instancia 'Show' para los tokens
-instance Show Token where
+instance Show Token where 
     show = \case
         TokProgram        -> "\"program\" - Inicio del Programa"
         TokBegin          -> "\"begin\" - Inicio de Procedimiento o Función"
@@ -184,7 +195,8 @@ instance Show Token where
         TokTimes          -> "\"*\" - Multiplicación"
         TokDiv            -> "\"/\" - División"
         TokMod            -> "\"mod\" - Modulo"
-        TokPower          -> "\"^\" - Potencia"
+        TokPower          -> "\"^\" - Potencia"                       --"
+
 
         TokAbs            -> "\"abs\" - Valor Absoluto"
         TokSqrt           -> "\"sqrt\" - Raíz Cuadrada"
@@ -282,6 +294,15 @@ instance Show Token where
         TokComment        -> "\"//\" - Comentatios"
         EmptyToken        -> "Token Vacío"
         (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
+
+        -- V2.0
+        TokTypeImplements -> "type"     
+        TokImplements     -> "implements"       
+        TokAbstract       -> "abstract"     
+        TokLeftRep        -> "{repinv"          -- UGLY
+        TokRightRep       -> "repinv}"        -- UGLY
+        TokLeftAcopl      -> "{acinv"            -- UGLY
+        TokRightAcopl     -> "acinv}"        -- UGLY
 
         where
             showType :: Type -> String

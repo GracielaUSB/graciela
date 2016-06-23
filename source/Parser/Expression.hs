@@ -1,4 +1,25 @@
-module Expression where
+module Parser.Expression
+  ( listExp
+  , listExpAux
+  , followExprLevelRel
+  , relaNonEquivOp
+  , relaEquivOp
+  , expr
+  , exprLevel2
+  , exprLevel3
+  , exprLevel4
+  , exprLevel5
+  , exprLevel6
+  , exprLevel7
+  , exprLevel8
+  , exprLevel9
+  , constant
+  , exprLevel10
+  , rangeQuantification
+  , quantification
+  , parseOpCuant
+  , bracketsList
+  ) where
 
 import qualified Control.Applicative as AP
 import MyParseError                  as PE
@@ -14,7 +35,7 @@ import Type
 import AST
 
 
-listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
+listExp :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 listExp follow recSet =
   do lookAhead lookaheadExpr
      e     <- expr (follow <|> parseComma) (recSet <|> parseComma)
@@ -22,7 +43,7 @@ listExp follow recSet =
      return $ AP.liftA2 (:) e lexp
      <|> do return $ return []
 
-listExpAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST(Type)])
+listExpAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 listExpAux follow recSet =
   do parseComma
      e  <- expr (follow <|> parseComma) (recSet <|> parseComma)
@@ -47,10 +68,10 @@ relaNonEquivOp :: MyParser (Token)
 relaNonEquivOp = parseTokLT <|> parseTokLE <|> parseTokGT <|> parseTokGE
 
 
-relaEquivOp:: MyParser (Token)
+relaEquivOp :: MyParser (Token)
 relaEquivOp    = parseTokEQ   <|> parseTokNE
 
-expr :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+expr :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 expr follow recSet =
   do lookAhead follow
      genNewEmptyError
@@ -63,7 +84,7 @@ parseOperatorLevel2 =
      <|> do parseTokConse
             return Conse
 
-exprLevel2 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel2 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel2 follow recSet =
   do e  <- exprLevel3 (follow <|> parseTokImplies <|> parseTokConse)
      exprLevel2' follow e
@@ -100,7 +121,7 @@ exprLevel4' follow e =
         <|> return e
 
 
-exprLevel5 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel5 :: MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel5 follow =
   do e <- exprLevel6 (follow <|> parseTokEQ <|> parseTokNE) (follow <|> parseTokEQ <|> parseTokNE)
      exprLevel5' follow e
@@ -119,7 +140,7 @@ exprLevel5' follow e =
         <|> do return e
 
 
-exprLevel6 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel6 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel6 follow recSet =
    do e <- exprLevel7 (follow <|> followExprLevelRel)
       exprLevel6' follow e
@@ -163,7 +184,7 @@ exprLevel7' follow e =
 
 opLevel8 = parseSlash <|> parseStar <|> parseTokMod <|> parseTokMax <|> parseTokMin
 
-exprLevel8 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel8 :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel8 follow recSet =
    do p <- exprLevel9 (follow <|> opLevel8)
       exprLevel8' follow p
@@ -189,7 +210,7 @@ exprLevel8' follow e =
         <|> return e
 
 
-exprLevel9 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel9 :: MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel9 follow =
    do p <- exprLevel10 (follow <|> parseTokPower)
       exprLevel9' follow p
@@ -237,7 +258,7 @@ constant =
         <|> do e <- parseString
                return $ return $ String (toLocation pos) e GEmpty
 
-exprLevel10 :: MyParser Token -> MyParser (Maybe (AST(Type)) )
+exprLevel10 :: MyParser Token -> MyParser (Maybe (AST Type) )
 exprLevel10 follow =
    do pos <- getPosition
       do parseLeftParent
@@ -299,7 +320,7 @@ exprLevel10 follow =
                 return $ Nothing
 
 
-rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+rangeQuantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 rangeQuantification follow recSet =
   do pos <- getPosition
      do lookAhead follow
@@ -307,7 +328,7 @@ rangeQuantification follow recSet =
         <|> exprLevel3 follow
 
 
-quantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST(Type)) )
+quantification :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 quantification follow recSet =
   do pos <- getPosition
      parseTokLeftPer
@@ -348,7 +369,7 @@ parseOpCuant =
    <|> (parseTokPi     >> return Product)
 
 
-bracketsList :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST(Type)]))
+bracketsList :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST Type]))
 bracketsList follow recSet =
   do parseLeftBracket
      e <- expr parseRightBracket parseRightBracket

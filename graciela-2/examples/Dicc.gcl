@@ -1,5 +1,5 @@
 
-
+import Diccionario
 
 type Dicc implements Diccionario (int, char) begin
     const MAX : int

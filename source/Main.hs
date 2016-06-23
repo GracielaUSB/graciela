@@ -2,13 +2,13 @@
 
 module Main where
 --------------------------------------------------------------------------------
+import           Parser.Program
 import           AST
 import           ASTtype
 import           Codegen
 import           Contents
 import           Lexer
 import           MyTypeError
-import           Parser
 import           State
 import           Token
 import           Type

@@ -199,6 +199,15 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (do c <- anyToken
             unexpected [c])
 
+    -- V2.0
+    <|> (tryR "type"       >> return TokTypeImplements)
+    <|> (tryR "implements" >> return TokImplements)
+    <|> (tryR "abstract"   >> return TokAbstract)
+    <|> (tryR "{repinv"    >> return TokLeftRep)    
+    <|> (tryR "repinv}"    >> return TokRightRep)   
+    <|> (tryR "{acinv"     >> return TokLeftAcopl)    
+    <|> (tryR "acinv}"     >> return TokRightAcopl) 
+
 
 -- | Se encarga de generar la lista con todos los tokens.
 lexer :: Parsec Text () [TokenPos]
