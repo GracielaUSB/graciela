@@ -27,7 +27,9 @@ import qualified Control.Applicative as AP
 import           Text.Parsec
 -------------------------------------------------------------------------------
 
-
+assertions :: MyParser Token -> MyParser Token 
+           -> StateCond      -> MyParser Token 
+           -> MyParser (Maybe (AST Type) )
 assertions initial final ty follow =
     try (
       do initial

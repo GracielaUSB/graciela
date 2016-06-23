@@ -27,72 +27,72 @@ data MyParseError
 
 
 data ExpectedToken
-    = Operator
-    | Number
-    | TokenRP
-    | TokenRB
-    | Comma
-    | Final
-    | Program
-    | TokenOB
-    | TokenCB
-    | ProcOrFunc
-    | Colon
-    | IDError
-    | Begin
-    | LexEnd
-    | TokenFunc
+    = Action
     | Arrow
+    | AssignOrColon
+    | Begin
+    | Colon
+    | Comma
+    | Cuant
+    | Final
+    | GuardSep
+    | IDError
+    | LexEnd
+    | Number
+    | Operator
+    | Pipe
+    | ProcOrFunc
+    | Program
+    | RightPer
+    | SColon
+    | TokenArg
+    | TokenAs
+    | TokenCA
+    | TokenCB
+    | TokenFI
+    | TokenFunc
+    | TokenIF
     | TokenLP
     | TokenOA
-    | TokenCA
-    | TokenArg
-    | SColon
-    | Action
-    | GuardSep
-    | TokenIF
-    | TokenFI
-    | TokenAs
-    | TokEOFO
+    | TokenOB
     | TokenOD
-    | Cuant
-    | Pipe
-    | RightPer
-    | AssignOrColon
+    | TokenRB
+    | TokenRP
+    | TokEOFO
 
 instance Show ExpectedToken where
-    show Operator      = "Operador"
-    show Number        = "Número"
-    show TokenRP       = "Paréntesis Derecho"
-    show TokenLP       = "Paréntesis Iquierdo"
-    show Comma         = "Coma"
-    show Final         = "Final de Archivo"
-    show TokenRB       = "Corchete Derecho"
-    show TokenOB       = "Apertura de Bloque"
-    show TokenCB       = "Final de Bloque"
-    show Program       = "Program"
-    show ProcOrFunc    = "Procedimiento o Función"
-    show Colon         = "Dos puntos"
-    show IDError       = "Identificador"
-    show Begin         = "begin"
-    show LexEnd        = "Token end"
-    show TokenFunc     = "Token func"
-    show Arrow         = "Token ->"
-    show TokenCA       = "Token representante de final de aserción"
-    show TokenOA       = "Token representante de inicio de aserción"
-    show TokenArg      = "Token representante de clase de argumento"
-    show SColon        = "punto y coma (;)"
     show Action        = "acción"
-    show GuardSep      = "separador de guardias"
-    show TokenIF       = "if"
-    show TokenFI       = "fi"
-    show TokenAs       = ":="
-    show TokEOFO       = "do"
-    show TokenOD       = "od"
-    show Cuant         = "cuantificador"
-    show Pipe          = "barra vertical"
-    show RightPer      = "cierre de cuantificador"
+    show Arrow         = "Token ->"
     show AssignOrColon = "asignación o dos puntos"
+    show Begin         = "begin"
+    show Colon         = "Dos puntos"
+    show Comma         = "Coma"
+    show Cuant         = "cuantificador"
+    show Final         = "Final de Archivo"
+    show GuardSep      = "separador de guardias"
+    show IDError       = "Identificador"
+    show LexEnd        = "Token end"
+    show Number        = "Número"
+    show Operator      = "Operador"
+    show Pipe          = "barra vertical"
+    show ProcOrFunc    = "Procedimiento o Función"
+    show Program       = "Program"
+    show RightPer      = "cierre de cuantificador"
+    show SColon        = "punto y coma (;)"
+    show TokenArg      = "Token representante de clase de argumento"
+    show TokenAs       = ":="
+    show TokenCA       = "Token representante de final de aserción"
+    show TokenCB       = "Final de Bloque"
+    show TokenFI       = "fi"
+    show TokenFunc     = "Token func"
+    show TokenIF       = "if"
+    show TokenLP       = "Paréntesis Iquierdo"
+    show TokenOA       = "Token representante de inicio de aserción"
+    show TokenOB       = "Apertura de Bloque"
+    show TokenOD       = "od"
+    show TokenRB       = "Corchete Derecho"
+    show TokenRP       = "Paréntesis Derecho"
+    show TokEOFO       = "do"
 
 
 instance Show MyParseError where
