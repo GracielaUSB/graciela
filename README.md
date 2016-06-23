@@ -43,20 +43,8 @@ pasos:
   estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
 
-## Uso del compilador
+## Cómo compilar un archivo 
 
-Para compilar un archivo `.gcl`, se deben seguir estos pasos:
+Basta con ejecutar el comando `graciela` de la siguiente forma:
 
-* Se usa el ejecutable generado en la sección anterior, seguido del nombre del
-  archivo a compilar, así:
-  `# ./<directorios...>/graciela "<mi_programa>.gcl"`
-
-* Luego, se compila el código LLVM generado en el paso anterior a código objeto,
-  con el comando `$ llc-3.5 -filetype=obj "<mi_programa>.bc"`
-
-* Ahora se debe enlazar el archivo objeto con la bibloteca en C incluida en este
-  repositorio, con el comando
-  `$ gcc "<mi_programa>.o" /lib/x86_64-linux-gnu/graciela-lib.so -o <ejecutable_deseado>`
-
-* Finalmente, se corre el ejecutable de la manera convencional, a saber,
-  `$ ./<ejecutable>`.
+    graciela <mi_programa>.gcl 
