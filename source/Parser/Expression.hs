@@ -223,26 +223,27 @@ exprLevel9' follow e =
         return $ AP.liftA3 (Arithmetic Exp (toLocation pos)) e r (return (GEmpty))
         <|> return e
 
-lookaheadExpr =
-  do parseLeftParent
-     <|> parseMaxInt
-     <|> parseMinInt
-     <|> parseMaxDouble
-     <|> parseMinDouble
-     <|> parseToInt
-     <|> parseToDouble
-     <|> parseToChar
-     <|> parseMinus
-     <|> parseTokSqrt
-     <|> parseTokAbs
-     <|> parseTokNot
-     <|> parseTokLeftPer
-     <|> parseTokDouble
-     <|> parseTokNumber
-     <|> parseTokBool
-     <|> parseTokChar
-     <|> parseTokString
-     <|> parseTokID
+lookaheadExpr = 
+  do  parseLeftParent
+  <|> parseMaxDouble
+  <|> parseMaxInt
+  <|> parseMinDouble
+  <|> parseMinInt
+  <|> parseMinus
+  <|> parseToChar
+  <|> parseToDouble
+  <|> parseToInt
+  <|> parseTokAbs
+  <|> parseTokBool
+  <|> parseTokChar
+  <|> parseTokDouble
+  <|> parseTokID
+  <|> parseTokLeftPer
+  <|> parseTokNot
+  <|> parseTokNumber
+  <|> parseTokSqrt
+  <|> parseTokString
+  
 
 constant :: MyParser (Maybe (AST Type))
 constant =

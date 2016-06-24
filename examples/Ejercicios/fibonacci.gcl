@@ -1,8 +1,8 @@
 
 abstract Diccionario (t0) begin
 	var MAX : int;
-	var conoc : int;
-	var tabla : int;
+	var conoc : int; // set of t0
+	var tabla : int; // set of t0
 
 	{inv MAX > 0 /\ conoc <= MAX inv}
 
@@ -51,7 +51,7 @@ begin
             //v := valor[x] // Por alguna razon no compila con esta linea (?)
             
         ]|
-        {post (%exist i: int | 0 <= i /\ i < 50 | v == valor[x] %) post}  //(%exists i: int | 0<=i /\ i <= tam | i == v %) post}
+        {post (%exist i: int | 0 <= i /\ i < 50 | v == valor[x] %) post} 
     end
 end
 

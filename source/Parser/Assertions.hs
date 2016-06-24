@@ -5,6 +5,8 @@ module Parser.Assertions
   , bound
   , assertion
   , invariant
+  , repInvariant
+  , acInvariant
   )
   where
 
@@ -60,11 +62,11 @@ assertion follow recSet = assertions parseTokLeftA parseTokRightA Assertion foll
 invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 invariant follow recSet = assertions parseTokLeftInv parseTokRightInv Invariant follow
 
---repInvariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
-repInvariant = undefined
+repInvariant :: MyParser (Maybe (AST Type))
+repInvariant = do return Nothing
 
---acInvariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-acInvariant = undefined
+acInvariant :: MyParser (Maybe (AST Type) )
+acInvariant = do return Nothing
 
 
 

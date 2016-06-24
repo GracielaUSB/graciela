@@ -4,11 +4,11 @@ module Parser.ADT
     ) where
 
 -------------------------------------------------------------------------------
-import Parser.Assertions
+import Parser.Assertions             
 import Parser.Expression
 import Parser.Declarations
-import Parser.Procedures
-import Parser.Instructions
+import Parser.Procedures             (listDefProc, listArgProc)
+import Parser.Instructions           
 import Parser.TokenParser
 import MyParseError                  as PE
 import ParserState
@@ -134,7 +134,7 @@ listProcDecl follow recSet =
 
 
 
--- dataType -> 'type' ID 'implements' ID '(' Types ')' 'begin' DataTypeBody 'end'
+-- dataType -> 'type' ID 'implements' ID Types 'begin' DataTypeBody 'end'
 dataType :: MyParser (Maybe (AST Type))
 dataType = do 
     verify TokDataType
@@ -163,7 +163,8 @@ dataType = do
         <|> do  genNewError parseEOF PE.IDError 
                 return Nothing
 
-
+-- Types -> '(' ListTypes ')'
+-- ListTypes: lista de tipos contruidas con parsec
 types :: MyParser (Maybe (AST Type))
 types = do 
     try (do parseLeftParent
@@ -180,13 +181,13 @@ types = do
         <|> do  genNewError parseEOF PE.TokenRP
                 return Nothing
 
-
+-- DataTypeBody -> DeclList RepInvariant AcInvariant ListDefProc
 dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 dataTypeBody follow recSet = do 
     newScopeParser
     dl  <- decList followAction (recSet)
-    -- repInvariant
-    -- acInvariant
+    repInvariant -- No hace nada
+    acInvariant  -- No hace nada
     ast <- listDefProc follow recSet
     exitScopeParser
     return Nothing

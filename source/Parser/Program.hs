@@ -47,7 +47,7 @@ mainProgram = do
 
 -- Program -> Abstract Program
 -- Program -> MainProgram
-{- The program consist in a set of Abstract Data Types, Data Types and a main program -}
+{- The program consists in a set of Abstract Data Types, Data Types and a main program -}
 program :: MyParser (Maybe (AST Type))
 program = do  many (abstractDataType <|> dataType) -- Por ahora debe haber un programa 
               mainProgram                          -- principal al final del archivo

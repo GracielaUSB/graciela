@@ -7,7 +7,7 @@ type Dicc implements Diccionario (int, char) begin
     ref valor : array [MAX] of char
     tam : int
 
-    {repinv MAX > 0 /\ 0<=tam<=MAX  /\ 
+    {repinv MAX > 0 /\ 0<=tam /\ tam <= MAX  /\ 
         (%forall i : int | 0 <= i <= tam 
           | (%forall j : int | 0 <= j <= tam /\ i != j
               | clave[i] != clave[j]
