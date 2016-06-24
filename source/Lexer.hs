@@ -57,7 +57,7 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "with"       >> return TokWith)
 
     -- V2.0
-    <|> (tryR "type"       >> return TokTypeImplements)
+    <|> (tryR "type"       >> return TokDataType)
     <|> (tryR "implements" >> return TokImplements)
     <|> (tryR "abstract"   >> return TokAbstract)
     <|> (tryR "{repinv"    >> return TokLeftRep)    

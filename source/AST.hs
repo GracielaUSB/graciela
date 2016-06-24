@@ -104,57 +104,74 @@ data UnknownRange = SetRange   { getOp :: OpSet, getLexp :: UnknownRange, getRex
       deriving (Eq)
 
 
-data AST a = Arithmetic { opBinA   :: OpNum   , location :: Location, lexpr :: AST a, rexp :: AST a, tag :: a      } -- ^ Operadores Matematicos de dos expresiones.
-         | Boolean      { opBinB   :: OpBool  , location :: Location, lexpr :: AST a, rexp :: AST a, tag :: a      } -- ^ Operadores Booleanos de dos expresiones.
-         | Relational   { opBinR   :: OpRel   , location :: Location, lexpr :: AST a, rexp :: AST a, tag :: a      } -- ^ Operadores Relacionales de dos expresiones.
-         | ArrCall      { location :: Location, name     :: Text, list :: [AST a],        tag :: a                   } -- ^ Búsqueda en arreglo.
-         | ID           { location :: Location, id       :: Text, tag :: a                                           } -- ^ Identificador.
-         | Int          { location :: Location, expInt   :: Integer, tag :: a                                          } -- ^ Numero entero.
-         | Float        { location :: Location, expFloat :: Double, tag :: a                                           } -- ^ Numero entero.
-         | Bool         { location :: Location, cbool    :: Bool, tag :: a                                             } -- ^ Tipo booleano con el token.
-         | Char         { location :: Location, mchar    :: Char, tag :: a                                             } -- ^ Tipo caracter con el token.
-         | String       { location :: Location, mstring  :: String, tag :: a                                           } -- ^ Tipo string con el token.
-         | Constant     { location :: Location, int      :: Bool    , max    :: Bool,    tag :: a                      } -- ^ Constantes.
-         | Conversion   { toType   :: Conv    , location :: Location, tiexp  :: AST a, tag :: a                      } -- ^ Conversión a entero.
-         | Unary        { opUn     :: OpUn    , location :: Location, lenExp :: AST a, tag :: a                      } -- ^ Función raíz cuadrada.
-         | Skip         { location :: Location, tag :: a                                                               } -- ^ Instruccion Skip.
-         | Abort        { location :: Location, tag :: a                                                               } -- ^ Instruccion Abort.
-         | Cond         { cguard   :: [AST a], location :: Location, tag :: a                                          } -- ^ Instruccion If.
-         | Block        { location :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
+data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Operadores Matematicos de dos expresiones.
+                        , lexpr     :: AST a   , rexp        :: AST a
+                        , tag :: a      
+                        } 
+         | Boolean      { opBinB    :: OpBool  , location    :: Location
+                        , lexpr     :: AST a   , rexp        :: AST a
+                        , tag :: a      
+                        } -- ^ Operadores Booleanos de dos expresiones.
+         | Relational   { opBinR    :: OpRel   , location    :: Location
+                        , lexpr     :: AST a   , rexp        :: AST a
+                        , tag :: a      
+                        } -- ^ Operadores Relacionales de dos expresiones.
+         | ArrCall      { location  :: Location, name        :: Text
+                        , list      :: [AST a] , tag         :: a
+                        } -- ^ Búsqueda en arreglo.
+         | ID           { location  :: Location, id          :: Text    , tag :: a } -- ^ Identificador.
+         | Int          { location  :: Location, expInt      :: Integer , tag :: a } -- ^ Numero entero.
+         | Float        { location  :: Location, expFloat    :: Double  , tag :: a } -- ^ Numero entero.
+         | Bool         { location  :: Location, cbool       :: Bool    , tag :: a } -- ^ Tipo booleano con el token.
+         | Char         { location  :: Location, mchar       :: Char    , tag :: a } -- ^ Tipo caracter con el token.
+         | String       { location  :: Location, mstring     :: String  , tag :: a } -- ^ Tipo string con el token.
+         | Constant     { location  :: Location, int         :: Bool                 -- ^ Constantes.
+                        , max       :: Bool,    tag :: a
+                        } 
+         | Conversion   { toType    :: Conv    , location    :: Location             -- ^ Conversión a entero.
+                        , tiexp     :: AST a, tag :: a
+                        } 
+         | Unary        { opUn      :: OpUn    , location    :: Location             -- ^ Función raíz cuadrada.
+                        , lenExp    :: AST a, tag :: a
+                        } 
+         | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
+         | Abort        { location  :: Location, tag         :: a } -- ^ Instruccion Abort.
+         | Cond         { cguard    :: [AST a] , location    :: Location, tag :: a                                          } -- ^ Instruccion If.
+         | Block        { location  :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
                         , tag :: a                                                                                     }
-         | Rept         { rguard   :: [AST a], rinv   :: AST a, rbound   :: AST a, location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | ConsAssign   { location  :: Location, caID :: [(Text, Location)], caExpr :: [AST a], tag :: a             }
+         | Rept         { rguard    :: [AST a] , rinv        :: AST a, rbound   :: AST a, location ::Location, tag :: a   } -- ^ Instruccion Do.
+         | ConsAssign   { location  :: Location, caID        :: [(Text, Location)], caExpr :: [AST a], tag :: a             }
 
-         | LAssign      { idlist   :: [AST a], explista :: [AST a], location :: Location, tag :: a                     } -- ^
+         | LAssign      { idlist    :: [AST a] , explista    :: [AST a], location :: Location, tag :: a                     } -- ^
 
-         | Write        { ln       :: Bool , wexp     :: AST a, location :: Location, tag :: a                       } -- ^ Escribir.
-         | FCallExp     { fname    :: Text, astSTable :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
-         | ProcCall     { pname    :: Text, astSTable :: SymbolTable, location  :: Location
-                        , args     :: [AST a], tag :: a                                                                }
-         | ProcCallCont { pname    :: Text, astSTable :: SymbolTable, location  :: Location
-                        , args     :: [AST a], con :: Contents SymbolTable, tag :: a                                           }
-         | DecArray     { dimension :: [AST a], tag :: a                                                               }
-         | Guard        { gexp     :: AST a, gact   ::  AST a, location :: Location, tag :: a                      } -- ^ Guardia.
-         | GuardExp     { gexp     :: AST a, gact   ::  AST a, location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
-         | DefFun       { dfname   :: Text, astSTable :: SymbolTable, location :: Location, fbody    ::  AST a
-                        , retType  :: Type, nodeBound :: AST a, params :: [(Text, Type)], tag :: a }
-         | DefProc      { pname     :: Text, astSTable :: SymbolTable, prbody    :: AST a, nodePre   :: AST a
-                        , nodePost  :: AST a, nodeBound :: AST a, constDec  :: [AST a], params :: [(Text, Type)]
+         | Write        { ln        :: Bool    , wexp        :: AST a, location :: Location, tag :: a                       } -- ^ Escribir.
+         | FCallExp     { fname     :: Text    , astSTable   :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
+         | ProcCall     { pname     :: Text    , astSTable   :: SymbolTable, location  :: Location
+                        , args      :: [AST a] , tag         :: a                                                                }
+         | ProcCallCont { pname     :: Text    , astSTable   :: SymbolTable, location  :: Location
+                        , args      :: [AST a] , con         :: Contents SymbolTable, tag :: a                                           }
+         | DecArray     { dimension :: [AST a] , tag         :: a                                                               }
+         | Guard        { gexp      :: AST a   , gact        :: AST a, location :: Location, tag :: a                      } -- ^ Guardia.
+         | GuardExp     { gexp      :: AST a   , gact        :: AST a, location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
+         | DefFun       { dfname    :: Text    , astSTable   :: SymbolTable, location :: Location, fbody    ::  AST a
+                        , retType   :: Type    , nodeBound   :: AST a, params :: [(Text, Type)], tag :: a }
+         | DefProc      { pname     :: Text    , astSTable   :: SymbolTable, prbody    :: AST a, nodePre   :: AST a
+                        , nodePost  :: AST a   , nodeBound   :: AST a, constDec  :: [AST a], params :: [(Text, Type)]
                         , tag       :: a
                         }
-         | Ran          { var      :: Text, retType :: Type, location :: Location, tag :: a                                           }
-         | Program      { pname    :: Text, location  :: Location, listdef :: [AST a],  listacc :: AST a, tag :: a }
-         | GuardAction  { location :: Location , assertionGa :: AST a, actionGa :: AST a, tag :: a                 }
-         | States       { tstate   :: StateCond, location :: Location,   exps     :: AST a, tag :: a                 }
-         | Quant        { opQ      :: OpQuant, varQ :: Text, location :: Location, rangeExp :: AST a
-                         ,termExpr :: AST a, tag :: a                                                                }
-         | QuantRan     { opQ      :: OpQuant, varQ :: Text, location :: Location, rangeVExp :: [Range Integer]
-                         ,termExpr :: AST a, tag :: a                                                                }
-         | QuantRanUn   { opQ      :: OpQuant, varQ :: Text, location :: Location, rangeUExp :: UnknownRange
-                         ,termExpr :: AST a, tag :: a                                                                }
-         | EmptyRange   { location :: Location, tag :: a                                                               }
-         | EmptyAST     { tag :: a                                                                                     }
-         | Read         { location :: Location, file :: Maybe String, varTypes :: [Type], vars :: [(Text, Location)], tag :: a                       }
+         | Ran          { var       :: Text    , retType     :: Type, location :: Location, tag :: a                                           }
+         | Program      { pname     :: Text    , location    :: Location, listdef :: [AST a],  listacc :: AST a, tag :: a }
+         | GuardAction  { location  :: Location, assertionGa :: AST a, actionGa :: AST a, tag :: a                 }
+         | States       { tstate    :: StateCond,location    :: Location,   exps     :: AST a, tag :: a                 }
+         | Quant        { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeExp :: AST a
+                         ,termExpr  :: AST a   , tag         :: a                                                                }
+         | QuantRan     { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeVExp :: [Range Integer]
+                         ,termExpr  :: AST a   , tag         :: a                                                                }
+         | QuantRanUn   { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeUExp :: UnknownRange
+                         ,termExpr  :: AST a   , tag         :: a                                                                }
+         | EmptyRange   { location  :: Location, tag         :: a                                                               }
+         | EmptyAST     { tag :: a }
+         | Read         { location  :: Location, file        :: Maybe String, varTypes :: [Type], vars :: [(Text, Location)], tag :: a                       }
     deriving (Eq)
 
 

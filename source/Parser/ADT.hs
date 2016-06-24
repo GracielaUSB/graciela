@@ -1,5 +1,6 @@
 module Parser.ADT
     ( abstractDataType
+    , dataType 
     ) where
 
 -------------------------------------------------------------------------------
@@ -66,23 +67,21 @@ abstractTypes = do
         <|> do  genNewError parseEOF PE.TokenRP
                 return Nothing
 
-
+-- AbstractBody -> DecList Invariant ListProcDecl
 abstractBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 abstractBody follow recSet = do 
     newScopeParser
     dl  <- decList followAction (recSet)
-    try (do invariant follow recSet
-            ast  <- listDeclProc follow recSet
-            exitScopeParser
-            return Nothing
+    invariant follow recSet
+    ast  <- listProcDecl follow recSet
+    exitScopeParser
+    return Nothing
 
-        )
-        <|> return Nothing
     
     
--- AbstractProc -> 'proc' ID ':' '(' ListArgProc ')' Precondition Postcondition
-abstractProc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-abstractProc follow recSet = do
+-- ProcDecl -> 'proc' ID ':' '(' ListArgProc ')' Precondition Postcondition
+procDecl :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+procDecl follow recSet = do
     pos <- getPosition
     try (
      do parseProc
@@ -120,22 +119,77 @@ abstractProc follow recSet = do
         <|> do genNewError follow PE.ProcOrFunc
                return Nothing
 
--- ListDeclProc ->  AbstractProc ListDeclProc
--- ListDeclProc ->  AbstractProc
-listDeclProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
-listDeclProc follow recSet =
+-- ListProcDecl ->  ProcDecl ListProcDecl
+-- ListProcDecl ->  ProcDecl
+listProcDecl :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+listProcDecl follow recSet =
     do lookAhead parseEOF
        return Nothing
        <|> do lookAhead follow
               return $ return []
-       <|> do pf <- abstractProc  follow recSet
-              rl <- listDeclProc follow recSet
+       <|> do pf <- procDecl  follow recSet
+              rl <- listProcDecl follow recSet
               return (AP.liftA2 (:) pf rl)
        <|> do return $ Nothing
 
 
 
+-- dataType -> 'type' ID 'implements' ID '(' Types ')' 'begin' DataTypeBody 'end'
+dataType :: MyParser (Maybe (AST Type))
+dataType = do 
+    verify TokDataType
+    try (
+     do id <- parseID
+        try (
+         do verify TokImplements
+            idAbstract <- parseID
+            types
+            try (
+             do parseBegin
+                dataTypeBody parseEnd parseEnd
+                try (
+                 do parseEnd 
+                    return Nothing
+                    )
+                    <|> do  genNewError parseEOF PE.LexEnd
+                            return Nothing
+                )
+                <|> do  genNewError parseEOF PE.Begin
+                        return Nothing
+            )
+            <|> do  genNewError parseEOF PE.Implements                                                     
+                    return Nothing
+        )
+        <|> do  genNewError parseEOF PE.IDError 
+                return Nothing
 
+
+types :: MyParser (Maybe (AST Type))
+types = do 
+    try (do parseLeftParent
+            try (do sepBy (myType parseSemicolon parseSemicolon) (parseComma)
+                    try (do parseRightParent
+                            return Nothing    
+                        )
+                        <|> do  genNewError parseEOF PE.TokenLP 
+                                return Nothing
+                )
+                <|> do  genNewError parseEOF PE.TokenLP  -- MEJORAR ERROR 
+                        return Nothing 
+        )
+        <|> do  genNewError parseEOF PE.TokenRP
+                return Nothing
+
+
+dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+dataTypeBody follow recSet = do 
+    newScopeParser
+    dl  <- decList followAction (recSet)
+    -- repInvariant
+    -- acInvariant
+    ast <- listDefProc follow recSet
+    exitScopeParser
+    return Nothing
 
 
 

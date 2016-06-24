@@ -155,7 +155,7 @@ data Token
     | TokUnexpected { unTokUnexpected :: Char}
 
     -- V2.0
-    | TokTypeImplements      -- Ya hay un toktype :(, no soy creativo
+    | TokDataType      -- Ya hay un toktype :(, no soy creativo
     | TokImplements
     | TokAbstract
     | TokLeftRep    
@@ -296,7 +296,7 @@ instance Show Token where
         (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
 
         -- V2.0
-        TokTypeImplements -> "type"     
+        TokDataType -> "type"     
         TokImplements     -> "implements"       
         TokAbstract       -> "abstract"     
         TokLeftRep        -> "{repinv"          -- UGLY

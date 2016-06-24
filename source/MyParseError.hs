@@ -37,6 +37,7 @@ data ExpectedToken
     | Final
     | GuardSep
     | IDError
+    | Implements
     | LexEnd
     | Number
     | Operator
@@ -71,6 +72,7 @@ instance Show ExpectedToken where
     show Final         = "Final de Archivo"
     show GuardSep      = "separador de guardias"
     show IDError       = "Identificador"
+    show Implements    = "Implements"
     show LexEnd        = "Token end"
     show Number        = "Número"
     show Operator      = "Operador"
