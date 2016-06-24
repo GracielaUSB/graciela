@@ -71,9 +71,9 @@ abstractTypes = do
 abstractBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 abstractBody follow recSet = do 
     newScopeParser
-    dl  <- decList followAction (recSet)
+    dl    <- decList followAction (recSet)
     invariant follow recSet
-    ast  <- listProcDecl follow recSet
+    procs <- listProcDecl follow recSet
     exitScopeParser
     return Nothing
 
@@ -185,10 +185,10 @@ types = do
 dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 dataTypeBody follow recSet = do 
     newScopeParser
-    dl  <- decList followAction (recSet)
+    dl    <- decList followAction recSet
     repInvariant -- No hace nada
     acInvariant  -- No hace nada
-    ast <- listDefProc follow recSet
+    procs <- listDefProc follow recSet
     exitScopeParser
     return Nothing
 

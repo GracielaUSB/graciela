@@ -41,7 +41,7 @@ import           System.Environment     (getArgs)
 import           System.Exit            (die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
-import           System.Process         (callCommand)
+import           System.Process         (callCommand, readProcess)
 
 import           Text.Parsec            (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
@@ -133,14 +133,15 @@ play n inp fileName = case runParser concatLexPar () "" inp of
     Right (Left  err', _) ->
         die $ "\nOcurrió un error en el proceso de parseo " ++ show err'
 
-
     Right (Right (Just ast), st) ->
         if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
             then do
                 let (t, l) = runTVerifier (symbolTable st) ast
 
                 if Seq.null l then do
-                    let newast = astToLLVM (toList $ filesToRead st) t
+                    version <- getOSVersion
+                    let newast = astToLLVM (toList $ filesToRead st) t version
+
                     withContext $ \context ->
                         liftError $ withModuleFromAST context newast $ \m ->
                             liftError $ writeLLVMAssemblyToFile
@@ -150,7 +151,12 @@ play n inp fileName = case runParser concatLexPar () "" inp of
 
             else do
                 die $ drawState n st
-
+                where 
+                    {- Gets OSX version -}
+                    getOSVersion :: IO String
+                    getOSVersion = case os of 
+                        "darwin" -> readProcess "/usr/bin/sw_vers" ["-productVersion"] []
+                        _        -> return ""
     Right (Right Nothing, st) -> do
         die $ drawState n st
 

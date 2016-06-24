@@ -1,88 +1,84 @@
 
 abstract Diccionario (t0) begin
-	var MAX : int;
-	var conoc : int; // set of t0
-	var tabla : int; // set of t0
+    var MAX : int;
+    var conoc : int; // set of t0
+    var tabla : int; // set of t0
 
-	{inv MAX > 0 /\ conoc <= MAX inv}
+    {inv MAX > 0 ∧ conoc ≤  MAX inv}
 
     proc crear : (in m : int)
-        {pre m > 0 pre}
-        {post MAX == m /\ conoc == m post}
+        {pre  m   > 0              pre}
+        {post MAX ≡ m ∧ conoc ≡ m post}
 
     proc agregar : (inout d : int, in c : int, in v : int)
-        {pre !(c == conoc) /\ conoc < MAX pre}
-        {post conoc == conoc + 1 /\  tabla == tabla + c post}
+        {pre  ¬(c ≡ conoc)      ∧ conoc < MAX        pre}
+        {post conoc ≡ conoc + 1 ∧ tabla ≡ tabla + c post}
 
     proc eliminar : (inout d : int, in c : int)
-        {pre c == conoc pre}
-        {post conoc == conoc - c /\ tabla == tabla - c post}
+        {pre  c     ≡ conoc pre}
+        {post conoc ≡ conoc - c ∧ tabla ≡ tabla - c post}
 
     proc buscar : (in d : int, in c: int, out v : int)
-        {pre c == conoc pre}
-        {post v == c post}
+        {pre  c ≡ conoc  pre}
+        {post v ≡ c     post}
 
     proc existe : (in d : int, in c : int, out e : boolean)
-        {pre true pre}
-        {post e == c > 2 post}
+        {pre  true       pre}
+        {post e ≡ c > 2 post}
 end
 
 
 type Dicc implements Diccionario (int) 
 begin 
-	var MAX   : int;
-	var tam   : int;
-	var clave : array [50] of int;
-	var valor : array [50] of int;
+    var MAX   : int;
+    var tam   : int;
+    var clave : array [50] of int;
+    var valor : array [50] of int;
 
-    proc buscar: ( in d : int , in c : int , out v : int )
+    proc buscar: ( in d : int, in c : int , out v : int )
     begin 
         var x : int;
-        {pre (%exist i : int | 0<=i /\ i <= tam | clave[i] == c %) pre}
-        |[
+        {pre (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %) pre}
+       〖
             x := 0;
-            {inv 0 <= x /\ x <= tam inv}
+            {inv 0 ≤ x ∧ x ≤ tam inv}
             
             {bound tam - x bound}
-            do (clave != c[x]) -> 
-            	x, v := x+1, valor[x] 
+            do (clave != c[x]) → 
+                x, v := x+1, valor[x] 
             od
             
-            //v := valor[x] // Por alguna razon no compila con esta linea (?)
+            //v := valor[x] // Por alguna razon no compila con esta linea (?), la puse en el do
             
-        ]|
-        {post (%exist i: int | 0 <= i /\ i < 50 | v == valor[x] %) post} 
+        〗
+        {post (%∃ i: int | 0 ≤ i ∧ i < tam | v ≡ valor[x] %) post} 
     end
 end
 
 program main begin
+    func fibonacci : (n: int) → int
+    begin
+        if n ≡ 0 → 0
+        [] n ≡ 1 → 1
+        [] ¬(n ≡ 0 /\ n ≡ 1) → fibonacci(n-1) + fibonacci(n-2)
+        fi
+    end
 
-// comentario
-          // comentario
-	func fibonacci : (n: int) -> int
-	begin
-		if (n == 0) -> 0
-		[] (n == 1) -> 1
-		[] ((n != 0) \/ (n != 1)) -> fibonacci(n-1) + fibonacci(n-2)
-		fi
-	end
+    proc readNum : ()
+    begin
+        var num : int;
+        read(num);
 
-	proc readNum : ()
-	begin
-		var num : int;
-		read(num);
+        {pre num ≥ 0 pre}
+        〖
+            write("\nEl resultado es: ");
+            writeln(fibonacci(num))
+         〗
+        {post true post}
+    end
 
-		{pre num >= 0 pre}
-		|[
-		    write("\nEl resultado es: ");
-	        writeln(fibonacci(num))
-		]|
-		{post true post}
-	end
-
-	|[
-	    write("Numero de Fibonacci, ingrese un numero: ");
-		readNum()
-	]|
-
+   〖
+        write("Numero de Fibonacci, ingrese un numero: ");
+        readNum()
+    〗
 end

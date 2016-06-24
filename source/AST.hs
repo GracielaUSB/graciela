@@ -126,13 +126,13 @@ data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Op
          | Char         { location  :: Location, mchar       :: Char    , tag :: a } -- ^ Tipo caracter con el token.
          | String       { location  :: Location, mstring     :: String  , tag :: a } -- ^ Tipo string con el token.
          | Constant     { location  :: Location, int         :: Bool                 -- ^ Constantes.
-                        , max       :: Bool,    tag :: a
+                        , max       :: Bool    , tag         :: a
                         } 
          | Conversion   { toType    :: Conv    , location    :: Location             -- ^ Conversión a entero.
-                        , tiexp     :: AST a, tag :: a
+                        , tiexp     :: AST a   , tag         :: a
                         } 
          | Unary        { opUn      :: OpUn    , location    :: Location             -- ^ Función raíz cuadrada.
-                        , lenExp    :: AST a, tag :: a
+                        , lenExp    :: AST a   , tag         :: a
                         } 
          | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
          | Abort        { location  :: Location, tag         :: a } -- ^ Instruccion Abort.

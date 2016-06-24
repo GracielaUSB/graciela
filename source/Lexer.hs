@@ -106,6 +106,7 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (char '>'          >> return TokGT)
 
     <|> (char '!'          >> return TokNot)
+    <|> (char '\172'       >> return TokNot)
 
     <|> (tryS "==>"        >> return TokImplies)
     <|> (tryS "\8658"      >> return TokImplies)
@@ -122,6 +123,9 @@ lex1 =  (tryR "program"    >> return TokProgram)
 
     <|> (tryS "|["         >> return TokOpenBlock)
     <|> (tryS "]|"         >> return TokCloseBlock)
+
+    <|> (tryS "\12310"         >> return TokOpenBlock)
+    <|> (tryS "\12311"         >> return TokCloseBlock)
 
     <|> (char '['          >> return TokLeftBracket)
     <|> (char ']'          >> return TokRightBracket)

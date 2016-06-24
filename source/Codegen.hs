@@ -25,6 +25,9 @@ import Location
 import Aborts
 import Limits
 
+import           System.Info            (os,arch)
+import           System.Process         (callCommand)
+
 
 writeLnInt    = "_writeLnInt"
 writeLnBool   = "_writeLnBool"
@@ -134,11 +137,20 @@ addFile :: String -> LLVM ()
 addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
 
 
-astToLLVM :: [String] -> MyAST.AST T.Type -> AST.Module
-astToLLVM files (MyAST.Program name _ defs accs _) =
-    defaultModule { moduleName        = TE.unpack name
-                  , moduleDefinitions = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
-    }
+astToLLVM :: [String] -> MyAST.AST T.Type -> String -> AST.Module
+astToLLVM files (MyAST.Program name _ defs accs _) version =
+    defaultModule { moduleName         = TE.unpack name
+                  , moduleDefinitions  = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
+                  , moduleTargetTriple = Just whichTarget
+                  }
+    where 
+        whichTarget = case os of 
+            "darwin"  -> arch++"-apple-macosx"++ crop version     -- With Mac, version needs to end with "0", 
+            "linux"   -> arch++"-unknown-linux-gnu"               -- example: 11.10.3 -> 11.10.0
+            "windows" -> undefined
+        crop str = if last str == '.'  
+            then str++"0" 
+            else crop $ init str
 
 
 openFile :: String -> LLVM (Operand)
