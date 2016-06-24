@@ -7,7 +7,7 @@ module Parser.Program
 import Parser.Instructions          (block)
 import Parser.Procedures            (listDefProc)
 import Parser.TokenParser           
-import Parser.TAD
+import Parser.ADT
 import MyParseError                  as PE
 import ParserState
 import Location
@@ -46,8 +46,10 @@ mainProgram = do
              return Nothing
 
 -- Program -> Abstract Program
--- Program -> Program
+-- Program -> MainProgram
 program :: MyParser (Maybe (AST Type))
-program = do  many abstract       -- Hasta ahora siempre debe haber un programa 
-              mainProgram         -- principal al final del archivo
+program = do  many abstractDataType  -- Por ahora debe haber un programa 
+              mainProgram            -- principal al final del archivo
+
+
 

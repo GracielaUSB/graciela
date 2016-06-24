@@ -131,7 +131,7 @@ play n inp fileName = case runParser concatLexPar () "" inp of
             ": Caracter Lexicográfico " ++ show msg ++ " inválido.\n"
 
     Right (Left  err', _) ->
-        putStrLn $ "\nOcurrió un error en el proceso de parseo " ++ show err'
+        die $ "\nOcurrió un error en el proceso de parseo " ++ show err'
 
 
     Right (Right (Just ast), st) ->
@@ -146,9 +146,10 @@ play n inp fileName = case runParser concatLexPar () "" inp of
                             liftError $ writeLLVMAssemblyToFile
                                 (File $ replaceExtension fileName ".bc") m
                 else do
-                    putStrLn $ drawTypeError n l
+                    die $ drawTypeError n l
+
             else do
-                putStrLn $ drawState n st
+                die $ drawState n st
 
     Right (Right Nothing, st) -> do
         die $ drawState n st
