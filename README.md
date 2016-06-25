@@ -45,6 +45,11 @@ pasos:
 
 ## Instalación con Homebrew (OS X )
 
+### Requisitos
+* Command Line Tools o Xcode. Se puede descargar Xcode desde  <https://developer.apple.com/downloads> o solo los comandos necesarios desde la terminal usando:
+
+      xcode-select --install
+
 En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
 
     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
