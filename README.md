@@ -9,7 +9,7 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
-## Instalación
+## Instalación Manual
 
 Para instalar el compilador de GraCieLa en Linux, es necesario seguir estos
 pasos:
@@ -42,6 +42,17 @@ pasos:
   tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
   estará en `<repositorio gacela>/cabal-sandbox/bin/gacela`.
 
+
+## Instalacion con Homebrew (OS X )
+
+En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
+
+    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    
+Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
+
+    brew tap adgalad/graciela
+    brew install graciela
 
 ## Uso del compilador
 
