@@ -1,4 +1,4 @@
-# GraCieLa
+# Graciela
 
 Proyecto creado por Joel Araujo y José Luis Jiménez.
 Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
@@ -11,7 +11,7 @@ El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
 ## Instalación Manual
 
-Para instalar el compilador de GraCieLa en Linux, es necesario seguir estos
+Para instalar el compilador de Graciela en Linux o OS X, es necesario seguir estos
 pasos:
 
 * Obtener la plataforma Haskell 7.10.*, disponible en
@@ -43,7 +43,7 @@ pasos:
   estará en `<repositorio gacela>/cabal-sandbox/bin/gacela`.
 
 
-## Instalacion con Homebrew (OS X )
+## Instalación con Homebrew (OS X )
 
 En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
 
