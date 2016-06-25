@@ -58,33 +58,35 @@ begin
 
     |[
         var arr : array [10] of int;
-        var d := 1111 : int;
+        var tam := 11 : int;
         var i : int;
 
-
-        arr[0]:= 3;
-        arr[1]:= 7;
-        arr[2]:= 2;
-        arr[3]:= 5;
-        arr[4]:= -8;
-        arr[5]:= 11;
-        arr[6]:= 2;
-        arr[7]:= 1;
-        arr[8]:= 8;
-        arr[9]:= -2;
+        {inv true inv}
+        {bound tam-i bound}
+        do (i < 10) ->
+        |[
+            // writeln(tam-i);
+            arr[i] := 10 - i;
+            write(arr[i]);
+            write(", ");
+            i := i + 1
+        ]|
+        od;
+        writeln(" ");
 
         ord(10, arr);
-    
-        {inv true inv}
-        {bound d-1 bound}
 
+        i := 0;
+        {inv true inv}
+        {bound tam-i bound}
         do (i < 10) ->
         |[
             write(arr[i]);
             write(", ");
-            i,d := i+1, d-1
+            i := i+1
         ]|
-        od
+        od;
+        writeln(" ")
     ]|
 
 end

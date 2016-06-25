@@ -41,7 +41,7 @@ import           System.Environment     (getArgs)
 import           System.Exit            (die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
-import           System.Process         (callCommand, readProcess)
+import           System.Process         (readProcess)
 
 import           Text.Parsec            (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
@@ -61,15 +61,17 @@ message :: String
 message = "uso: graciela [OPCIÓN]... [ARCHIVO]"
 
 data Options = Options
-    { optHelp    :: Bool
-    , optVersion :: Bool
-    , optErrors  :: Maybe Int
+    { optHelp     :: Bool
+    , optVersion  :: Bool
+    , optErrors   :: Maybe Int
+    , optExecName :: Maybe String
     }
 
 defaultOptions   = Options
-    { optHelp    = False
-    , optVersion = False
-    , optErrors  = Nothing
+    { optHelp     = False
+    , optVersion  = False
+    , optErrors   = Nothing
+    , optExecName = Nothing
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -86,6 +88,12 @@ options =
             _        -> error "Valor inválido en el argumento de `errores`"
         ) "ENTERO")
         "Limita el número de errores mostrados"
+    , Option ['o'] ["nombre"]
+        (ReqArg (\fileName opts -> case fileName of
+                    "" -> error "Valor inválido en el argumento de `-o`"
+                    _  -> opts { optExecName = Just fileName }
+                ) "NOMBRE")
+        "Nombre del ejecutable"
     ]
 
 opts :: IO (Options, [String])
@@ -182,19 +190,22 @@ main = do
     unless (takeExtension fileName == ".gcl")
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
+    let execName = (optExecName options)
     source <- readFile fileName
     play (optErrors options) source fileName
 
-    compileBC fileName
+    compileBC fileName execName
 
 
-compileBC :: String -> IO ()
-compileBC fileName = do
-    putStrLn name
-    callCommand $ clang ++ " -o \'" ++ name ++ "\' \'" ++ bc ++ "\' " ++ aux
-    callCommand $ "rm " ++ bc
+compileBC :: String -> Maybe String -> IO ()
+compileBC fileName execName = do
+    readProcess "clang" ["-o", name, bc, aux] ""
+    readProcess "rm" [bc] ""
+    return ()
     where
-        name = replace ".gcl" ""    fileName
+        name = case execName of 
+            Nothing  -> "a.out"
+            Just x   -> x 
         bc   = replace ".gcl" ".bc" fileName
         aux  = case os of
             "darwin"  -> "/usr/local/lib/graciela-lib.so"
