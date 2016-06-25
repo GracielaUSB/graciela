@@ -1,17 +1,17 @@
 
 abstract Diccionario (t0) begin
-    var MAX : int;
+    var MAX   : int;
     var conoc : int; // set of t0
     var tabla : int; // set of t0
 
     {inv MAX > 0 ∧ conoc ≤  MAX inv}
 
     proc crear : (in m : int)
-        {pre  m   > 0              pre}
+        {pre    0 < m              pre}
         {post MAX ≡ m ∧ conoc ≡ m post}
 
     proc agregar : (inout d : int, in c : int, in v : int)
-        {pre  ¬(c ≡ conoc)      ∧ conoc < MAX        pre}
+        {pre  ¬(c   ≡ conoc)    ∧ conoc < MAX        pre}
         {post conoc ≡ conoc + 1 ∧ tabla ≡ tabla + c post}
 
     proc eliminar : (inout d : int, in c : int)
@@ -32,8 +32,20 @@ type Dicc implements Diccionario (int)
 begin 
     var MAX   : int;
     var tam   : int;
-    var clave : array [50] of int;
-    var valor : array [50] of int;
+    var clave : array[50] of int;
+    var valor : array[50] of int;
+
+    proc crear : (in m : int)
+        {pre    0 < m              pre}
+        {post MAX ≡ m ∧ conoc ≡ m post}
+
+    proc agregar : (inout d : int, in c : int, in v : int)
+        {pre  ¬(c   ≡ conoc)    ∧ conoc < MAX        pre}
+        {post conoc ≡ conoc + 1 ∧ tabla ≡ tabla + c post}
+
+    proc eliminar : (inout d : int, in c : int)
+        {pre  c     ≡ conoc pre}
+        {post conoc ≡ conoc - c ∧ tabla ≡ tabla - c post}
 
     proc buscar: ( in d : int, in c : int , out v : int )
     begin 
@@ -44,22 +56,36 @@ begin
             {inv 0 ≤ x ∧ x ≤ tam inv}
             
             {bound tam - x bound}
-            do (clave != c[x]) → 
-                x, v := x+1, valor[x] 
+            do (clave[x] != c) → 
+                x, v := x + 1, valor[x] 
             od
             
             //v := valor[x] // Por alguna razon no compila con esta linea (?), la puse en el do
             
         〗
         {post (%∃ i: int | 0 ≤ i ∧ i < tam | v ≡ valor[x] %) post} 
+
+    proc existe : (in d : int, in c : int, out e : boolean)
+        var x : int;
+        {pre true pre}
+            x := 0;
+            e := false;
+            {inv 0 <= x /\ x < tam inv}
+            {bound tam - x bound}
+            do (x < tam /\ e == false) ->
+                if clave[x] == c -> e := true
+                [] clave[x] != c -> x := x + 1
+                fi
+            od
+        {post e == (%∃ i : int | 0 <= i /\ i < tam | clave[i] == c) post}
     end
 end
 
 program main begin
     func fibonacci : (n: int) → int
     begin
-        if n ≡ 0 → 0
-        [] n ≡ 1 → 1
+        if   n ≡ 0           → 0
+        []   n ≡ 1           → 1
         [] ¬(n ≡ 0 /\ n ≡ 1) → fibonacci(n-1) + fibonacci(n-2)
         fi
     end

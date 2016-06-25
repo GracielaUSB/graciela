@@ -15,7 +15,7 @@ patterns:
   name: constant.numeric
 
 - comment: Operator
-  match: ([-*=+!<>≥≡≤∧]|/\\|\\/|->|→)
+  match: ([-*=+!<>≥≡≤∧]|/\\|\\/|->|→|:=|\(%|%\))
   name: keyword.operator
 
 - comment: String literal
@@ -41,14 +41,14 @@ patterns:
 - comment: C++ style one-line comment
   begin: //
   end: $\n?
-  name: comment.block
+  name: comment.line
 
 - comment: Builtin waves
   name: storage.type
-  match: \b(int|array|char|boolean|string|write|read)\b
+  match: \b(int|array|char|boolean|string|write|writeln|true|false|of|read|set|sequence|function|relation|tuple)\b
 
 - comment: Builtin waves
-  match: (var|[\{]+(pre|post|inv|repinv|acinv)|(pre|post|inv|repinv|acinv)[\}]+)
+  match: (var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)
   name: entity.name.function
 
 

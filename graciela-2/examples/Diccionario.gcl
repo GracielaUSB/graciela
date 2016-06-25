@@ -19,7 +19,7 @@ abstract Diccionario (t0, t1) begin
         {post d.conoc = d'.conoc \ {c} /\ d.tabla = d'.tabla \ {(c, d'.tabla(c))} post}
 
     proc buscar : (in d : Diccionario, in c: t0, out v : t1)
-        {pre c in d.conoc pre}
+        {pre  c in d.conoc pre}
         {post v == d.tabla(c) post}
 
     proc existe : (in d : Diccionario, in c : t0, out e : boolean)

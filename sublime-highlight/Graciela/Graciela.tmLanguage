@@ -28,7 +28,7 @@
 			<key>comment</key>
 			<string>Operator</string>
 			<key>match</key>
-			<string>([-*=+!&lt;&gt;≥≡≤∧]|/\\|\\/|-&gt;|→)</string>
+			<string>([-*=+!&lt;&gt;≥≡≤∧]|/\\|\\/|-&gt;|→|:=|\(%|%\))</string>
 			<key>name</key>
 			<string>keyword.operator</string>
 		</dict>
@@ -85,13 +85,13 @@
 			<key>end</key>
 			<string>$\n?</string>
 			<key>name</key>
-			<string>comment.block</string>
+			<string>comment.line</string>
 		</dict>
 		<dict>
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>\b(int|array|char|boolean|string|write|read)\b</string>
+			<string>\b(int|array|char|boolean|string|write|writeln|true|false|of|read|set|sequence|function|relation|tuple)\b</string>
 			<key>name</key>
 			<string>storage.type</string>
 		</dict>
@@ -99,7 +99,7 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>(var|[\{]+(pre|post|inv|repinv|acinv)|(pre|post|inv|repinv|acinv)[\}]+)</string>
+			<string>(var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)</string>
 			<key>name</key>
 			<string>entity.name.function</string>
 		</dict>
