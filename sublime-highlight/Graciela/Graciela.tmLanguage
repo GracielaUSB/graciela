@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>fileTypes</key>
-	<array/>
+	<array>
+		<string>gcl</string>
+	</array>
 	<key>name</key>
 	<string>Graciela</string>
 	<key>patterns</key>
@@ -12,7 +14,7 @@
 			<key>comment</key>
 			<string>Keywords and instructions</string>
 			<key>match</key>
-			<string>\b(|abstract|program|begin|do|end|exist|forall|if|fi|implements|in|inout|od|out|proc|return|type|∃)\b</string>
+			<string>\b(|abstract|program|begin|do|end|exist|forall|if|fi|implements|in|inout|od|out|proc|func|return|type|∃)\b</string>
 			<key>name</key>
 			<string>keyword.control</string>
 		</dict>
@@ -91,7 +93,7 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>\b(int|array|char|boolean|string|write|writeln|true|false|of|read|set|sequence|function|relation|tuple)\b</string>
+			<string>\b(int|array|char|boolean|string|write|writeln|true|false|of|read|skip|set|sequence|function|relation|tuple)\b</string>
 			<key>name</key>
 			<string>storage.type</string>
 		</dict>

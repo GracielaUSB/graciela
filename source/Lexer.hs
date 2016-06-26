@@ -46,13 +46,13 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "ref"        >> return TokRef)
 
     <|> (tryS ":="         >> return TokAsig)
-    <|> (tryS "\8788"      >> return TokAsig)
+    <|> (tryS "\8788"      >> return TokAsig) -- ≔
 
     <|> (char ','          >> return TokComma)
     <|> (char ':'          >> return TokColon)
     <|> (char ';'          >> return TokSemicolon)
     <|> (tryS "->"         >> return TokArrow)
-    <|> (tryS "\8594"      >> return TokArrow)
+    <|> (tryS "\8594"      >> return TokArrow) -- →
 
     <|> (tryR "with"       >> return TokWith)
 
@@ -60,10 +60,10 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "type"       >> return TokDataType)
     <|> (tryR "implements" >> return TokImplements)
     <|> (tryR "abstract"   >> return TokAbstract)
-    <|> (tryR "{repinv"    >> return TokLeftRep)    
-    <|> (tryR "repinv}"    >> return TokRightRep)   
-    <|> (tryR "{acinv"     >> return TokLeftAcopl)    
-    <|> (tryR "acinv}"     >> return TokRightAcopl) 
+    <|> (tryR "{repinv"    >> return TokLeftRep)
+    <|> (tryR "repinv}"    >> return TokRightRep)
+    <|> (tryR "{acinv"     >> return TokLeftAcopl)
+    <|> (tryR "acinv}"     >> return TokRightAcopl)
     -- V2.0
 
     <|> (tryR "var"        >> return TokVar)
@@ -76,42 +76,42 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "char"       >> return (TokType GChar))
 
     <|> (tryS "/\\"        >> return TokAnd)
-    <|> (tryS "\8743"      >> return TokAnd)
+    <|> (tryS "\8743"      >> return TokAnd) -- ∧
     <|> (tryS "\\/"        >> return TokOr)
-    <|> (tryS "\8744"      >> return TokOr)
+    <|> (tryS "\8744"      >> return TokOr)  -- ∨
 
     <|> (char '+'          >> return TokPlus)
     <|> (char '-'          >> return TokMinus)
     <|> (char '*'          >> return TokTimes)
-    <|> (char '\215'       >> return TokTimes)
+    <|> (char '\215'       >> return TokTimes) -- ×
     <|> (char '/'          >> return TokDiv)
-    <|> (char '\247'       >> return TokDiv)
+    <|> (char '\247'       >> return TokDiv)   -- ÷
     <|> (tryR "mod"        >> return TokMod)
     <|> (char '^'          >> return TokPower)
 
     <|> (tryR "abs"        >> return TokAbs)
     <|> (tryR "sqrt"       >> return TokSqrt)
-    <|> (tryS "\8730"      >> return TokSqrt)
+    <|> (tryS "\8730"      >> return TokSqrt) -- √
 
     <|> (tryS "=="         >> return TokEQ)
-    <|> (tryS "\8801"      >> return TokEQ)
+    <|> (tryS "\8801"      >> return TokEQ)   -- ≡
     <|> (tryS "!="         >> return TokNE)
-    <|> (tryS "\8800"      >> return TokNE)
-    <|> (tryS "\8802"      >> return TokNE)
+    <|> (tryS "\8800"      >> return TokNE)   -- ≠
+    <|> (tryS "\8802"      >> return TokNE)   -- ≢
     <|> (tryS "<="         >> return TokLE)
-    <|> (tryS "\8804"      >> return TokLE)
+    <|> (tryS "\8804"      >> return TokLE)   -- ≤
     <|> (tryS ">="         >> return TokGE)
-    <|> (tryS "\8805"      >> return TokGE)
+    <|> (tryS "\8805"      >> return TokGE)   -- ≥
     <|> (char '<'          >> return TokLT)
     <|> (char '>'          >> return TokGT)
 
     <|> (char '!'          >> return TokNot)
-    <|> (char '\172'       >> return TokNot)
+    <|> (char '\172'       >> return TokNot)        -- ¬
 
     <|> (tryS "==>"        >> return TokImplies)
-    <|> (tryS "\8658"      >> return TokImplies)
+    <|> (tryS "\8658"      >> return TokImplies)    -- ⇒
     <|> (tryS "<=="        >> return TokConsequent)
-    <|> (tryS "\8656"      >> return TokConsequent)
+    <|> (tryS "\8656"      >> return TokConsequent) -- ⇐
 
     <|> (tryS "(%"         >> return TokLeftPercent)
     <|> (tryS "%)"         >> return TokRightPercent)
@@ -124,8 +124,8 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryS "|["         >> return TokOpenBlock)
     <|> (tryS "]|"         >> return TokCloseBlock)
 
-    <|> (tryS "\12310"         >> return TokOpenBlock)
-    <|> (tryS "\12311"         >> return TokCloseBlock)
+    <|> (tryS "\10214"     >> return TokOpenBlock)  -- ⟦
+    <|> (tryS "\10215"     >> return TokCloseBlock) -- ⟧
 
     <|> (char '['          >> return TokLeftBracket)
     <|> (char ']'          >> return TokRightBracket)
@@ -153,15 +153,15 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "max"        >> return TokMax)
     <|> (tryR "min"        >> return TokMin)
     <|> (tryR "forall"     >> return TokForall)
-    <|> (tryS "\8704"      >> return TokForall)
+    <|> (tryS "\8704"      >> return TokForall)   -- ∀
     <|> (tryR "exist"      >> return TokExist)
-    <|> (tryS "\8707"      >> return TokExist)
+    <|> (tryS "\8707"      >> return TokExist)    -- ∃
     <|> (tryR "not-exist"  >> return TokNotExist)
-    <|> (tryS "\8708"      >> return TokNotExist)
+    <|> (tryS "\8708"      >> return TokNotExist) -- ∄
     <|> (tryR "sigma"      >> return TokSigma)
-    <|> (tryS "\8721"      >> return TokSigma)
+    <|> (tryS "\8721"      >> return TokSigma)    -- ∑
     <|> (tryR "pi"         >> return TokPi)
-    <|> (tryS "\8719"      >> return TokPi)
+    <|> (tryS "\8719"      >> return TokPi)       -- ∏
 
     <|> (tryR "if"         >> return TokIf)
     <|> (tryR "fi"         >> return TokFi)
@@ -212,7 +212,6 @@ lex1 =  (tryR "program"    >> return TokProgram)
 
     <|> (do c <- anyToken
             unexpected [c])
-
 
 
 -- | Se encarga de generar la lista con todos los tokens.

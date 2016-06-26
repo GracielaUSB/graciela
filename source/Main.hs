@@ -13,7 +13,7 @@ import           State
 import           Token
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Monad          (unless, when, (>=>))
+import           Control.Monad          (unless, when, (>=>), void)
 import           Control.Monad.Except   (ExceptT, runExceptT)
 import           Control.Monad.Identity (Identity, runIdentity)
 import           Control.Monad.State    (runStateT)
@@ -38,17 +38,15 @@ import           System.Console.GetOpt  (ArgDescr (..), ArgOrder (..),
                                          OptDescr (..), getOpt, usageInfo)
 import           System.Directory       (doesFileExist)
 import           System.Environment     (getArgs)
-import           System.Exit            (die, exitSuccess)
+import           System.Exit            (ExitCode (..), die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
-import           System.Process         (readProcess)
+import           System.Process         (readProcess, readProcessWithExitCode)
 
 import           Text.Parsec            (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
 import           Text.Parsec.Error      (ParseError, errorMessages, errorPos,
                                          messageString)
-
-
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -159,12 +157,13 @@ play n inp fileName = case runParser concatLexPar () "" inp of
 
             else do
                 die $ drawState n st
-                where 
-                    {- Gets OSX version -}
-                    getOSVersion :: IO String
-                    getOSVersion = case os of 
-                        "darwin" -> readProcess "/usr/bin/sw_vers" ["-productVersion"] []
-                        _        -> return ""
+            where
+                {- Gets OSX version -}
+                getOSVersion :: IO String
+                getOSVersion = case os of
+                    "darwin" ->
+                        readProcess "/usr/bin/sw_vers" ["-productVersion"] []
+                    _        -> return ""
     Right (Right Nothing, st) -> do
         die $ drawState n st
 
@@ -198,14 +197,20 @@ main = do
 
 
 compileBC :: String -> Maybe String -> IO ()
-compileBC fileName execName = do
-    readProcess "clang" ["-o", name, bc, aux] ""
-    readProcess "rm" [bc] ""
-    return ()
+compileBC fileName execName = void $ do
+    (exitCode, _out, _errs) <-
+        readProcessWithExitCode "clang" ["-o", name, bc, aux] ""
+
+    case exitCode of
+        ExitSuccess ->
+            void $ readProcess "rm" [bc] ""
+        ExitFailure _ ->
+            die "clang error"
+
     where
-        name = case execName of 
+        name = case execName of
             Nothing  -> "a.out"
-            Just x   -> x 
+            Just x   -> x
         bc   = replace ".gcl" ".bc" fileName
         aux  = case os of
             "darwin"  -> "/usr/local/lib/graciela-lib.so"

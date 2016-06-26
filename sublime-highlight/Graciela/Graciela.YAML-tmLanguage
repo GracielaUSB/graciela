@@ -2,13 +2,13 @@
 ---
 name: Graciela
 scopeName: source.graciela
-fileTypes: []
+fileTypes: [gcl]
 uuid: cdbd21bc-9b80-4094-9e9e-f98dcebbd4ad
 
 patterns:
 - comment: Keywords and instructions
   name: keyword.control
-  match: \b(|abstract|program|begin|do|end|exist|forall|if|fi|implements|in|inout|od|out|proc|return|type|∃)\b
+  match: \b(|abstract|program|begin|do|end|exist|forall|if|fi|implements|in|inout|od|out|proc|func|return|type|∃)\b
 
 - comment: Numeric literal
   match: \b((([0-9]+\.?[0-9]*)|(\.[0-9]+))(n|f)?|([0-9]+(n|f)[0-9]*))?\b
@@ -45,7 +45,7 @@ patterns:
 
 - comment: Builtin waves
   name: storage.type
-  match: \b(int|array|char|boolean|string|write|writeln|true|false|of|read|set|sequence|function|relation|tuple)\b
+  match: \b(int|array|char|boolean|string|write|writeln|true|false|of|read|skip|set|sequence|function|relation|tuple)\b
 
 - comment: Builtin waves
   match: (var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)
