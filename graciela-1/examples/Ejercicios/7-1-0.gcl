@@ -1,0 +1,56 @@
+//Longest Segments, All zeros
+
+program main 
+begin
+
+    proc TodosCeros: (in N: int, ref X: array [10] of int, out res: int) 
+    begin
+
+        var n, s, cota: int;
+    
+        {pre N > 0 pre}  
+        |[  
+    	    n, res, s, cota := 0, 0, 0, 5000;
+
+		    {inv true inv} 
+		    {bound cota-1 bound}
+
+    	    do (n != N) ->
+            |[
+     	
+       	        if (X[n] == 0) -> skip
+                [] (X[n] != 0) -> s := n+1
+                fi;
+
+		        res := n+1-s;
+		        n, cota := n+1, cota-1
+            ]|
+    	    od
+        ]|
+        {post true post}
+    end
+
+    |[
+
+        var arr  : array [10] of int;
+        var resultado: int;
+
+        arr[0]:= 0;
+        arr[1]:= 0;
+        arr[2]:= 6;
+        arr[3]:= 5;
+        arr[4]:= -8;
+        arr[5]:= 5;
+        arr[6]:= 5;
+        arr[7]:= 1;
+        arr[8]:= 8;
+        arr[9]:= -2;
+        
+        TodosCeros(10, arr, resultado);
+        
+        write("El resultado es: ");
+        writeln(resultado)
+
+    ]|
+
+end

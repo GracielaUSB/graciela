@@ -1,0 +1,37 @@
+//Linear Search
+
+
+// PROBLEMA CON EL PARSER en el cuantificador
+program main
+begin
+
+    proc buscar : (in b: array [50] of boolean, out x: int)
+    begin
+
+        {pre (%exist i: int | 0 <= i /\ i < 50 | b[i] %) pre}
+        |[
+            x := 0;
+
+            {inv 0<=x /\ (%forall i: int | 0<=i /\ i<x | b[i]%) inv}
+    	    {bound 50 - x bound}
+
+            do (!b[x]) -> x := x+1 od
+        ]|
+
+        {post true post}
+    end
+
+
+    |[
+        var arreglo  : array [50] of boolean;
+        var resultado: int;
+
+        //Crear arreglo
+
+        buscar(arreglo, resultado);
+
+        write("El resultado es: ");
+        writeln(resultado)
+    ]|
+
+end

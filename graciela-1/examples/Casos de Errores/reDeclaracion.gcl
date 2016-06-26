@@ -1,0 +1,17 @@
+program main |[
+  |[
+      var foo, bar : int;
+
+
+      if (foo <= bar) ->
+	  |[
+	      var baz : int;
+	      var foo : char;
+
+	      foo := baz
+	  ]|
+	  fi
+
+
+  ]|
+]|

@@ -1,0 +1,30 @@
+program main
+begin
+|[
+  var lo := 0 : int;
+  var mid := 2 : int;
+  var hi := 4 : int;
+  var i,j, k : int;
+  var arr, arrf : array [5] of int;
+
+  arr[0] := 1;
+  arr[1] := 2;
+  arr[2] := 3;
+  arr[3] := 4;
+  arr[4] := 1;
+  arr[0] := 1;
+
+  i := lo;
+  k := lo;
+  j := mid + 1;
+
+  {inv (%forall l : int | lo <= l /\ l <= k | arrf[l] == arr[l] %) inv}
+  {bound (1 - k) + 1000 bound}
+  do(k <= hi) ->
+    |[
+      arrf[k] := arr[k];
+      k := k + 1
+    ]|
+  od
+]|
+end

@@ -1,0 +1,26 @@
+program main |[
+
+  proc sumar : (inout m : int, in n : int) 
+  [
+      {pre m >= 0 /\ n >= 0 pre}  
+      |[
+          m := m + n
+      ]|  
+      {post m <= m + n post}
+  ]
+
+  func restar : (m : int, n : int) -> int
+  |[
+      m + n
+  ]|
+
+  |[
+      var   foo, bar := 2, 797 : int;
+      var   qux := true : boolean;
+      const baz := 2.14 : double; 
+
+      sumar(baz, bar);
+
+      bar := restar(qux, foo)
+  ]|
+]|
