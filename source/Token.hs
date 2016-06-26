@@ -296,13 +296,13 @@ instance Show Token where
         (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
 
         -- V2.0
-        TokDataType -> "type"     
-        TokImplements     -> "implements"       
-        TokAbstract       -> "abstract"     
-        TokLeftRep        -> "{repinv"          -- UGLY
-        TokRightRep       -> "repinv}"        -- UGLY
-        TokLeftAcopl      -> "{acinv"            -- UGLY
-        TokRightAcopl     -> "acinv}"        -- UGLY
+        TokDataType       -> "\"type\""     
+        TokImplements     -> "\"implements\""       
+        TokAbstract       -> "\"abstract\""     
+        TokLeftRep        -> "\"{repinv\""          -- UGLY
+        TokRightRep       -> "\"repinv\"}"        -- UGLY
+        TokLeftAcopl      -> "\"{acinv\""            -- UGLY
+        TokRightAcopl     -> "\"acinv\"}"        -- UGLY
 
         where
             showType :: Type -> String

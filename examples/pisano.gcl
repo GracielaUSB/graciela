@@ -1,5 +1,5 @@
 
-abstract Diccionario (t0) begin
+abstract Diccionario (t0,t1) begin
     var MAX   : int;
     var conoc : int; // set of t0
     var tabla : int; // set of t0
@@ -25,11 +25,13 @@ abstract Diccionario (t0) begin
     proc existe : (in d : int, in c : int, out e : boolean)
         {pre  true       pre}
         {post e ≡ c > 2 post}
+
 end
 
 
 type Dicc implements Diccionario (int)
 begin
+
     var MAX   : int;
     var tam   : int;
     var clave : array[50] of int;
@@ -40,9 +42,9 @@ begin
     proc crear : (in m : int, out d : int)
     begin
         {pre    0 < m              pre}
-        |[
+        ⟦
             MAX, tam := m, 0
-        ]|
+        ⟧
         {post MAX ≡ m ∧ tam ≡0 post}
     end
 
@@ -51,10 +53,10 @@ begin
         var x      : int;
         var oldTam : int;
         {pre tam < MAX ∧ !(%exist i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %) pre}
-        |[
+        ⟦
             oldTam := tam;
             clave[tam], valor[tam], tam := c, v, tam + 1
-        ]|
+        ⟧
         {post tam ≡ oldTam + 1 ∧ (%exist i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c ∧ valor[x] ≡ v %) post}
     end
 
@@ -64,18 +66,19 @@ begin
         var oldTam : int ;
 
         {pre (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %)  pre}
-        |[
+        ⟦
             x := 4;
             oldTam := tam;
             {inv 0 ≤ x ∧ x ≤ tam inv}
 
             {bound tam - x bound}
-            do (x < tam) →
+
+            do x < tam → 
                 if clave[x] ≡ x → x, d, tam := x+1, d, tam-1
                 [] clave[x] != x → x := x+1
                 fi
             od
-        ]|
+        ⟧
         {post tam ≡ oldTam - 1  post}
     end
 
@@ -84,36 +87,36 @@ begin
     begin
         var x : int;
         {pre (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %) pre}
-       〖
+        ⟦
             x := 0;
             {inv 0 ≤ x ∧ x ≤ tam inv}
 
             {bound tam - x bound}
-            do (clave[x] != c) →
-                x := x + 1
+            do clave[x] != c → 
+                x := x + 1 
             od;
+            
+            v := valor[x]     
+        ⟧
+        {post (%∃ i : int | 0 ≤ i ∧ i < tam | c ≡ clave[x] ∧ v ≡ valor[x] %) post} 
 
-            v := valor[x]
-
-        〗
-        {post (%∃ i : int | 0 ≤ i ∧ i < tam | c ≡ clave[x] ∧ v ≡ valor[x] %) post}
     end
 
     proc existe : (in d : int, in c : int, out e : boolean)
     begin
         var x : int;
         {pre true pre}
-        |[
+        ⟦
             x := 0;
             e := false;
             {inv 0 ≤ x ∧ x < tam inv}
             {bound tam - x bound}
-            do (x < tam ∧ e ≡ false) →
+            do x < tam ∧ e ≡ false →
                 if clave[x]  ≡ c → e := true
                 [] clave[x] != c → x := x + 1
                 fi
             od
-        ]|
+        ⟧
         {post e ≡ (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c%) post}
     end
 
@@ -134,15 +137,15 @@ program main begin
         read(num);
 
         {pre num ≥ 0 pre}
-        〖
+         ⟦
             write("El resultado es: ");
-            writeln(fibonacci(num))
-         〗
+            writeln(fibonacci(-num))
+         ⟧
         {post true post}
     end
 
-   〖
+    ⟦
         write("Numero de Fibonacci, ingrese un numero: ");
         readNum()
-    〗
+    ⟧
 end

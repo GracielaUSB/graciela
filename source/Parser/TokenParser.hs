@@ -20,6 +20,17 @@ verify x =
                             then Just t 
                             else Nothing
 
+pass :: MyParser Token
+pass =
+    tokenPrim showTok updatePos testTok
+    where
+        showTok (t, pos) = let line   = sourceLine pos
+                               column = sourceColumn pos
+                           in ":" ++ show t ++ ", en la línea " ++ show line
+                                            ++ ", columna "     ++ show column ++ "."
+        testTok (t, pos) = if TokEOF == t
+                            then Just t 
+                            else Just t
 
 updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
 updatePos _ _ ((_, pos):xs) = pos
@@ -43,7 +54,7 @@ parseIn            = verify TokIn
 parseInOut         = verify TokInOut
 parseLBracket      = verify TokLeftBracket
 parseLeftBracket   = verify TokLeftBracket
-parseLeftParent    = verify TokLeftPar
+parseLeftParent    = verify TokLeftPar 
 parseMaxDouble     = verify TokMaxDouble
 parseMaxInt        = verify TokMaxInt
 parseMinDouble     = verify TokMinDouble
