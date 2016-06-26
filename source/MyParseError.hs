@@ -61,7 +61,7 @@ data ExpectedToken
     | TokenRB
     | TokenRP
     | TokEOFO
-    |TokenType
+    | TokenType
 
 instance Show ExpectedToken where
     show Action        = "acción"

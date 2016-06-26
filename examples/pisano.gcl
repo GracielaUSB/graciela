@@ -7,7 +7,7 @@ abstract Diccionario (t0,t1) begin
 
     {inv MAX > 0 /\ conoc <=  MAX inv}
 
-    proc crear : (in m : int)
+    proc crear : (out m : int)
         {pre    0 < m              pre}
         {post MAX == m /\ conoc == m post}
 
