@@ -1,6 +1,6 @@
 // Pisano (Fibonacci and other stuff)
 
-abstract Diccionario (t0) begin
+abstract Diccionario (t0,t1) begin
     var MAX   : int;
     var conoc : int; // set of t0
     var tabla : int; // set of t0
@@ -31,6 +31,7 @@ end
 
 type Dicc implements Diccionario (int)
 begin
+
     var MAX   : int;
     var tam   : int;
     var clave : array[50] of int;
@@ -71,7 +72,7 @@ begin
             {inv 0 <= x /\ x <= tam inv}
 
             {bound tam - x bound}
-            do (x < tam) ->
+            do x < tam ->
                 if clave[x] == x -> x, d, tam := x+1, d, tam-1
                 [] clave[x] != x -> x := x+1
                 fi
@@ -86,10 +87,10 @@ begin
         {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
        |[
             x := 0;
-            {inv 0 <= x /\ x <= tam inv}
 
+            {inv 0 <= x /\ x <= tam inv}
             {bound tam - x bound}
-            do (clave[x] != c) ->
+            do clave[x] != c ->
                 x := x + 1
             od;
 
@@ -106,9 +107,10 @@ begin
         |[
             x := 0;
             e := false;
+
             {inv 0 <= x /\ x < tam inv}
             {bound tam - x bound}
-            do (x < tam /\ e == false) ->
+            do x < tam /\ e == false ->
                 if clave[x]  == c -> e := true
                 [] clave[x] != c -> x := x + 1
                 fi
@@ -116,7 +118,6 @@ begin
         ]|
         {post e == (%exist i : int | 0 <= i /\ i < tam | clave[i] == c%) post}
     end
-
 end
 
 program main begin

@@ -26,49 +26,45 @@ program main begin
 
             {inv true inv} 
             {bound cota-1  bound}
-
             do (m < N) -> 
           	    n, m, cota := n+1, m*2, cota-1 
             od;
 
+            var x, y : array [10] of int;
+            var k, p, q, cota2 : int;
+            
+            k, p, q, cota := 0, 0, N, 5000;
+
+      	    {inv true inv} 
+      	    {bound cota-1 bound}
+      	    do ((k != 0) \/ (q-p >= 2)) ->
             |[
-                var x, y : array [10] of int;
-                var k, p, q, cota2 : int;
-                
-                k, p, q, cota := 0, 0, N, 5000;
 
-          	    {inv true inv} 
-          	    {bound cota-1 bound}
-
-          	    do ((k != 0) \/ (q-p >= 2)) ->
-                |[
-
-              	    if (q-p <= 1) ->
+          	    if (q-p <= 1) ->
                     |[ 
               		    k := k-1;
               		    p, q := x[k], y[k]
               	    ]|
-                    [] (q-p >= 2) -> 
+                [] (q-p >= 2) -> 
               	    |[
               		    z := h[(p+q)/2];
               		    r, w, b, cota2 := p, p, q, 5000;
 
 		                {inv true inv} 
  	    	            {bound cota2-1 bound}
-
               		    do (w != b) ->
                         |[
                             if (h[w] < z) -> 
-                            |[
-                                swap(h, r, w);
-                                r, w := r+1, w+1
-                            ]|
+                                |[
+                                    swap(h, r, w);
+                                    r, w := r+1, w+1
+                                ]|
                             [] (h[w] == z) -> w := w+1     
                             [] (h[w] > z) ->
-                            |[ 
-                                b := b-1;
-                                swap(h, b, w)
-                            ]|
+                                |[ 
+                                    b := b-1;
+                                    swap(h, b, w)
+                                ]|
                             fi;
                             
                             cota2 := cota2 -1
@@ -82,12 +78,11 @@ program main begin
                         k := k+1
 
                     ]|
-                    fi;
+                fi;
 
-                    cota:= cota -1
-                ]|
-          	    od 
-            ]|     
+                cota:= cota -1
+            ]|
+      	    od 
         ]|
         {post (%forall i : int | 0 <= i /\ i < 55 | true %) post}
     end

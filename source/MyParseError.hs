@@ -54,47 +54,51 @@ data ExpectedToken
     | TokenFunc
     | TokenIF
     | TokenLP
+    | TokenLB
     | TokenOA
     | TokenOB
     | TokenOD
     | TokenRB
     | TokenRP
     | TokEOFO
+    |TokenType
 
 instance Show ExpectedToken where
     show Action        = "acción"
-    show Arrow         = "Token ->"
-    show AssignOrColon = "asignación o dos puntos"
-    show Begin         = "begin"
-    show Colon         = "Dos puntos"
-    show Comma         = "Coma"
+    show Arrow         = "token '->'"
+    show AssignOrColon = "token ':=' o ':'"
+    show Begin         = "'begin'"
+    show Colon         = "token ':' "
+    show Comma         = "token ','"
     show Cuant         = "cuantificador"
     show Final         = "Final de Archivo"
     show GuardSep      = "separador de guardias"
-    show IDError       = "Identificador"
-    show Implements    = "Implements"
-    show LexEnd        = "Token end"
-    show Number        = "Número"
-    show Operator      = "Operador"
+    show IDError       = "identificador"
+    show Implements    = "implements"
+    show LexEnd        = "token 'end'"
+    show Number        = "número"
+    show Operator      = "operador"
     show Pipe          = "barra vertical"
     show ProcOrFunc    = "Procedimiento o Función"
     show Program       = "Program"
     show RightPer      = "cierre de cuantificador"
-    show SColon        = "punto y coma (;)"
-    show TokenArg      = "Token representante de clase de argumento"
+    show SColon        = "token ';'"
+    show TokenArg      = "token representante de clase de argumento"
     show TokenAs       = ":="
-    show TokenCA       = "Token representante de final de aserción"
+    show TokenCA       = "token representante de final de aserción"
     show TokenCB       = "Final de Bloque"
     show TokenFI       = "fi"
-    show TokenFunc     = "Token func"
+    show TokenFunc     = "token func"
     show TokenIF       = "if"
-    show TokenLP       = "Paréntesis Iquierdo"
-    show TokenOA       = "Token representante de inicio de aserción"
-    show TokenOB       = "Apertura de Bloque"
+    show TokenLP       = "token '('"
+    show TokenLB       = "token ']'"
+    show TokenOA       = "token representante de inicio de aserción"
+    show TokenOB       = "token '|['"
     show TokenOD       = "od"
-    show TokenRB       = "Corchete Derecho"
-    show TokenRP       = "Paréntesis Derecho"
+    show TokenRB       = "token ']'"
+    show TokenRP       = "token ')'"
     show TokEOFO       = "do"
+    show TokenType     = "un tipo"
 
 
 instance Show MyParseError where

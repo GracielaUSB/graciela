@@ -70,7 +70,7 @@ begin
             {inv 0 ≤ x ∧ x ≤ tam inv}
 
             {bound tam - x bound}
-            do (x < tam) →
+            do x < tam →
                 if clave[x] ≡ x → x, d, tam ≔ x+1, d, tam-1
                 [] clave[x] ≢ x → x ≔ x+1
                 fi
@@ -89,7 +89,7 @@ begin
             {inv 0 ≤ x ∧ x ≤ tam inv}
 
             {bound tam - x bound}
-            do (clave[x] ≢ c) →
+            do clave[x] ≢ c →
                 x ≔ x + 1
             od;
 
@@ -107,7 +107,7 @@ begin
             e ≔ false;
             {inv 0 ≤ x ∧ x < tam inv}
             {bound tam - x bound}
-            do (x < tam ∧ e ≡ false) →
+            do x < tam ∧ e ≡ false →
                 if clave[x] ≡ c → e ≔ true
                 [] clave[x] ≢ c → x ≔ x + 1
                 fi
