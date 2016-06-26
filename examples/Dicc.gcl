@@ -7,8 +7,8 @@ type Dicc implements Diccionario (int, char) begin
     ref valor : array [MAX] of char
     tam : int
 
-    {repinv MAX > 0 /\ 0<=tam /\ tam <= MAX  /\ 
-        (%forall i : int | 0 <= i <= tam 
+    {repinv MAX > 0 /\ 0<=tam /\ tam <= MAX  /\
+        (%forall i : int | 0 <= i <= tam
           | (%forall j : int | 0 <= j <= tam /\ i != j
               | clave[i] != clave[j]
             %)
@@ -19,9 +19,9 @@ type Dicc implements Diccionario (int, char) begin
             table == {i : 0<=i<=tam : (clave,valor[i])}
     acinv}
 
-    proc buscar: ( in d : Diccionario , in c : T0 , out v : T1 ) 
+    proc buscar: ( in d : Diccionario , in c : T0 , out v : T1 )
         var x : int;
-        {pre (%exists i | 0<=i<=d.tam | d.clave[i] == c) pre}
+        {pre (%exist i | 0<=i<=d.tam | d.clave[i] == c) pre}
         |[
             x := 0;
             {inv 0 <= x <= d.tam inv}
@@ -31,7 +31,7 @@ type Dicc implements Diccionario (int, char) begin
 
             v := valor[x]
         ]|
-        {post (%exists i | 0<=i<= d.tam | d.table(i) == v %) post}
+        {post (%exist i | 0<=i<= d.tam | d.table(i) == v %) post}
 end
 
 

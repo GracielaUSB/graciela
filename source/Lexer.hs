@@ -64,6 +64,11 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "repinv}"    >> return TokRightRep)
     <|> (tryR "{acinv"     >> return TokLeftAcopl)
     <|> (tryR "acinv}"     >> return TokRightAcopl)
+
+    <|> (tryR "elem"       >> return TokElem)
+    <|> (tryS "\8712"      >> return TokElem)    -- ∈
+    <|> (tryR "notelem"    >> return TokNotElem)
+    <|> (tryS "\8713"      >> return TokNotElem) -- ∉
     -- V2.0
 
     <|> (tryR "var"        >> return TokVar)
@@ -79,6 +84,14 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryS "\8743"      >> return TokAnd) -- ∧
     <|> (tryS "\\/"        >> return TokOr)
     <|> (tryS "\8744"      >> return TokOr)  -- ∨
+
+    -- V2.0
+    <|> (tryS "\\"         >> return TokSetMinus)
+    <|> (tryR "union"      >> return TokSetUnion)
+    <|> (tryS "\8746"      >> return TokSetUnion) -- ∪
+    <|> (tryR "intersect"  >> return TokSetIntersect)
+    <|> (tryS "\8745"      >> return TokSetUnion) -- ∩
+    -- V2.0
 
     <|> (char '+'          >> return TokPlus)
     <|> (char '-'          >> return TokMinus)
@@ -156,7 +169,7 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryS "\8704"      >> return TokForall)   -- ∀
     <|> (tryR "exist"      >> return TokExist)
     <|> (tryS "\8707"      >> return TokExist)    -- ∃
-    <|> (tryR "not-exist"  >> return TokNotExist)
+    <|> (tryR "notexist"   >> return TokNotExist)
     <|> (tryS "\8708"      >> return TokNotExist) -- ∄
     <|> (tryR "sigma"      >> return TokSigma)
     <|> (tryS "\8721"      >> return TokSigma)    -- ∑
@@ -195,7 +208,7 @@ lex1 =  (tryR "program"    >> return TokProgram)
             return (TokChar c)
         )
 
-    <|> ((TokInteger . read) <$> (many1 digit))
+    <|> (TokInteger . read <$> many1 digit)
 
     <|> try (do n1 <- many1 digit
                 _  <- char '.'

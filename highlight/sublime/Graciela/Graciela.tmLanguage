@@ -14,7 +14,15 @@
 			<key>comment</key>
 			<string>Keywords and instructions</string>
 			<key>match</key>
-			<string>\b(|abstract|program|begin|do|end|exist|forall|if|fi|implements|in|inout|od|out|proc|func|return|type|∃)\b</string>
+			<string>\b(abstract|program|begin|do|end|exist|∃|notexist|∄|forall|∀|sigma|∑|pi|∏|if|fi|implements|in|inout|od|out|proc|func|return|type)\b</string>
+			<key>name</key>
+			<string>keyword.control</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Symbolic Keywords</string>
+			<key>match</key>
+			<string>([∃∄∀∑∏]|\[\])</string>
 			<key>name</key>
 			<string>keyword.control</string>
 		</dict>
@@ -30,7 +38,15 @@
 			<key>comment</key>
 			<string>Operator</string>
 			<key>match</key>
-			<string>([-*=+!&lt;&gt;≥≡≤∧]|/\\|\\/|-&gt;|→|:=|\(%|%\))</string>
+			<string>([-*=+!&lt;&gt;≥≡≢≠≤∧¬≔\\∪∩]|:=|/\\|\\/|-&gt;|→|\(%|%\)|\||∈|∉)</string>
+			<key>name</key>
+			<string>keyword.operator</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Text Operator</string>
+			<key>match</key>
+			<string>(sqrt|elem|union|intersect)</string>
 			<key>name</key>
 			<string>keyword.operator</string>
 		</dict>
@@ -71,14 +87,7 @@
 			<key>string_escaped_char</key>
 			<false/>
 		</dict>
-		<dict>
-			<key>comment</key>
-			<string>Braces, brackets, parentheses...</string>
-			<key>match</key>
-			<string>([\(\)]|)</string>
-			<key>name</key>
-			<string>punctuation.separator.parameters.c</string>
-		</dict>
+
 		<dict>
 			<key>begin</key>
 			<string>//</string>
@@ -101,9 +110,17 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>(var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)</string>
+			<string>(:|var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)</string>
 			<key>name</key>
 			<string>entity.name.function</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Braces, brackets, parentheses...</string>
+			<key>match</key>
+			<string>(\|\[|\]\||[\(\)\{\}⟦⟧\[\]])</string>
+			<key>name</key>
+			<string>punctuation.separator.parameters.c</string>
 		</dict>
 	</array>
 	<key>scopeName</key>

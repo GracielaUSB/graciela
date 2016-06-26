@@ -158,17 +158,22 @@ data Token
     | TokDataType      -- Ya hay un toktype :(, no soy creativo
     | TokImplements
     | TokAbstract
-    | TokLeftRep    
-    | TokRightRep   
-    | TokLeftAcopl    
-    | TokRightAcopl   
+    | TokLeftRep
+    | TokRightRep
+    | TokLeftAcopl
+    | TokRightAcopl
 
+    | TokElem
+    | TokNotElem
+    | TokSetMinus
+    | TokSetUnion
+    | TokSetIntersect
 
     deriving (Eq)
 
 
 -- | Instancia 'Show' para los tokens
-instance Show Token where 
+instance Show Token where
     show = \case
         TokProgram        -> "\"program\" - Inicio del Programa"
         TokBegin          -> "\"begin\" - Inicio de Procedimiento o Función"
@@ -196,7 +201,6 @@ instance Show Token where
         TokDiv            -> "\"/\" - División"
         TokMod            -> "\"mod\" - Modulo"
         TokPower          -> "\"^\" - Potencia"                       --"
-
 
         TokAbs            -> "\"abs\" - Valor Absoluto"
         TokSqrt           -> "\"sqrt\" - Raíz Cuadrada"
@@ -296,13 +300,18 @@ instance Show Token where
         (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
 
         -- V2.0
-        TokDataType -> "type"     
-        TokImplements     -> "implements"       
-        TokAbstract       -> "abstract"     
-        TokLeftRep        -> "{repinv"          -- UGLY
+        TokDataType -> "type"
+        TokImplements     -> "implements"
+        TokAbstract       -> "abstract"
+        TokLeftRep        -> "{repinv"        -- UGLY
         TokRightRep       -> "repinv}"        -- UGLY
-        TokLeftAcopl      -> "{acinv"            -- UGLY
-        TokRightAcopl     -> "acinv}"        -- UGLY
+        TokLeftAcopl      -> "{acinv"         -- UGLY
+        TokRightAcopl     -> "acinv}"         -- UGLY
+        TokElem           -> "\"elem\" - Elemento de conjunto"
+        TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
+        TokSetMinus       -> "\"\\\" - Resta de conjuntos"
+        TokSetUnion       -> "\"++\" - Unión de conjuntos"
+        TokSetIntersect   -> "\"++\" - Intersección de conjuntos"
 
         where
             showType :: Type -> String

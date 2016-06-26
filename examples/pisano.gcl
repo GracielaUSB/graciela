@@ -1,30 +1,31 @@
+// Pisano (Fibonacci and other stuff)
 
 abstract Diccionario (t0) begin
     var MAX   : int;
     var conoc : int; // set of t0
     var tabla : int; // set of t0
 
-    {inv MAX > 0 ∧ conoc ≤  MAX inv}
+    {inv MAX > 0 /\ conoc <=  MAX inv}
 
     proc crear : (in m : int)
         {pre    0 < m              pre}
-        {post MAX ≡ m ∧ conoc ≡ m post}
+        {post MAX == m /\ conoc == m post}
 
     proc agregar : (inout d : int, in c : int, in v : int)
-        {pre  ¬(c   ≡ conoc)    ∧ conoc < MAX        pre}
-        {post conoc ≡ conoc + 1 ∧ tabla ≡ tabla + c post}
+        {pre  !(c   == conoc)    /\ conoc < MAX        pre}
+        {post conoc == conoc + 1 /\ tabla == tabla + c post}
 
     proc eliminar : (inout d : int, in c : int)
-        {pre  c     ≡ conoc pre}
-        {post conoc ≡ conoc - c ∧ tabla ≡ tabla - c post}
+        {pre  c     == conoc pre}
+        {post conoc == conoc - c /\ tabla == tabla - c post}
 
     proc buscar : (in d : int, in c: int, out v : int)
-        {pre  c ≡ conoc  pre}
-        {post v ≡ c     post}
+        {pre  c == conoc  pre}
+        {post v == c     post}
 
     proc existe : (in d : int, in c : int, out e : boolean)
         {pre  true       pre}
-        {post e ≡ c > 2 post}
+        {post e == c > 2 post}
 end
 
 
@@ -43,19 +44,19 @@ begin
         |[
             MAX, tam := m, 0
         ]|
-        {post MAX ≡ m ∧ tam ≡0 post}
+        {post MAX == m /\ tam ==0 post}
     end
 
     proc agregar : (inout d : int, in c : int, in v : int)
     begin
         var x      : int;
         var oldTam : int;
-        {pre tam < MAX ∧ !(%exist i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %) pre}
+        {pre tam < MAX /\ !(%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
         |[
             oldTam := tam;
             clave[tam], valor[tam], tam := c, v, tam + 1
         ]|
-        {post tam ≡ oldTam + 1 ∧ (%exist i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c ∧ valor[x] ≡ v %) post}
+        {post tam == oldTam + 1 /\ (%exist i : int | 0 <= i /\ i < tam | clave[i] == c /\ valor[x] == v %) post}
     end
 
     proc eliminar : (inout d : int, in c : int)
@@ -63,40 +64,39 @@ begin
         var x      : int;
         var oldTam : int ;
 
-        {pre (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %)  pre}
+        {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %)  pre}
         |[
             x := 4;
             oldTam := tam;
-            {inv 0 ≤ x ∧ x ≤ tam inv}
+            {inv 0 <= x /\ x <= tam inv}
 
             {bound tam - x bound}
-            do (x < tam) →
-                if clave[x] ≡ x → x, d, tam := x+1, d, tam-1
-                [] clave[x] != x → x := x+1
+            do (x < tam) ->
+                if clave[x] == x -> x, d, tam := x+1, d, tam-1
+                [] clave[x] != x -> x := x+1
                 fi
             od
         ]|
-        {post tam ≡ oldTam - 1  post}
+        {post tam == oldTam - 1  post}
     end
-
 
     proc buscar: ( in d : int, in c : int , out v : int )
     begin
         var x : int;
-        {pre (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c %) pre}
-       〖
+        {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
+       |[
             x := 0;
-            {inv 0 ≤ x ∧ x ≤ tam inv}
+            {inv 0 <= x /\ x <= tam inv}
 
             {bound tam - x bound}
-            do (clave[x] != c) →
+            do (clave[x] != c) ->
                 x := x + 1
             od;
 
             v := valor[x]
 
-        〗
-        {post (%∃ i : int | 0 ≤ i ∧ i < tam | c ≡ clave[x] ∧ v ≡ valor[x] %) post}
+        ]|
+        {post (%exist i : int | 0 <= i /\ i < tam | c == clave[x] /\ v == valor[x] %) post}
     end
 
     proc existe : (in d : int, in c : int, out e : boolean)
@@ -106,25 +106,25 @@ begin
         |[
             x := 0;
             e := false;
-            {inv 0 ≤ x ∧ x < tam inv}
+            {inv 0 <= x /\ x < tam inv}
             {bound tam - x bound}
-            do (x < tam ∧ e ≡ false) →
-                if clave[x]  ≡ c → e := true
-                [] clave[x] != c → x := x + 1
+            do (x < tam /\ e == false) ->
+                if clave[x]  == c -> e := true
+                [] clave[x] != c -> x := x + 1
                 fi
             od
         ]|
-        {post e ≡ (%∃ i : int | 0 ≤ i ∧ i < tam | clave[i] ≡ c%) post}
+        {post e == (%exist i : int | 0 <= i /\ i < tam | clave[i] == c%) post}
     end
 
 end
 
 program main begin
-    func fibonacci : (n: int) → int
+    func fibonacci : (n: int) -> int
     begin
-        if n ≡ 0  → 0
-        [] n ≡ 1  → 1
-        [] n > 1  → fibonacci(n-1) + fibonacci(n-2)
+        if n == 0  -> 0
+        [] n == 1  -> 1
+        [] n >  1  -> fibonacci(n-1) + fibonacci(n-2)
         fi
     end
 
@@ -134,15 +134,15 @@ program main begin
         read(num);
 
         {pre num ≥ 0 pre}
-        〖
+        |[
             write("El resultado es: ");
             writeln(fibonacci(num))
-         〗
+        ]|
         {post true post}
     end
 
-   〖
+    |[
         write("Numero de Fibonacci, ingrese un numero: ");
         readNum()
-    〗
+    ]|
 end
