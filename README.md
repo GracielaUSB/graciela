@@ -11,7 +11,7 @@ El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
 ## Instalación Manual
 
-Para instalar el compilador de Graciela en Linux o OS X, es necesario seguir estos
+Para instalar el compilador de Graciela en Linux, es necesario seguir estos
 pasos:
 
 * Obtener la plataforma Haskell 7.10.*, disponible en
