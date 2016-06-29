@@ -12,7 +12,7 @@ abstract Diccionario (t0,t1) begin
         {post MAX == m /\ conoc == m post}
 
     proc agregar : (inout d : int, in c : int, in v : int)
-        {pre  !(c   == conoc)    /\ conoc < MAX        pre}
+        {pre  !(c   == conoc)    /\ conoc <  MAX        pre}
         {post conoc == conoc + 1 /\ tabla == tabla + c post}
 
     proc eliminar : (inout d : int, in c : int)
@@ -45,10 +45,10 @@ begin
         |[
             MAX, tam := m, 0
         ]|
-        {post MAX == m /\ tam ==0 post}
+        {post MAX == m /\ tam ==0  post}
     end
 
-    proc agregar : (inout d : int, in c : int, in v : int)
+    proc agregar : (inout d : int , in c : int, in v : int)
     begin
         var x      : int;
         var oldTam : int;
@@ -90,8 +90,9 @@ begin
 
             {inv 0 <= x /\ x <= tam inv}
             {bound tam - x bound}
-            do clave[x] != c ->
+            do clave[x] != c -> |[
                 x := x + 1
+            ]|
             od;
 
             v := valor[x]
@@ -122,7 +123,7 @@ end
 
 program main begin
     func fibonacci : (n: int) -> int
-    begin
+    begin 
         if n == 0  -> 0
         [] n == 1  -> 1
         [] n >  1  -> fibonacci(n-1) + fibonacci(n-2)
@@ -130,6 +131,19 @@ program main begin
     end
 
     proc readNum : ()
+    begin
+        var num : int;
+        read(num);
+
+        {pre num ≥ 0 pre}
+        |[
+            write("El resultado es: ");
+            writeln(fibonacci(num))
+        ]|
+        {post true post}
+    end
+
+    proc readNum2 : ()
     begin
         var num : int;
         read(num);

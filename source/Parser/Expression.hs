@@ -1,6 +1,7 @@
 module Parser.Expression
   ( listExp
   , listExpAux
+  , lookaheadExpr
   , followExprLevelRel
   , relaNonEquivOp
   , relaEquivOp

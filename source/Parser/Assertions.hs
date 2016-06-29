@@ -25,6 +25,7 @@ import State
 import Type
 import AST
 -------------------------------------------------------------------------------
+import           Control.Monad       (void, unless)
 import qualified Control.Applicative as AP
 import           Text.Parsec
 -------------------------------------------------------------------------------
@@ -32,35 +33,40 @@ import           Text.Parsec
 assertions :: MyParser Token -> MyParser Token 
            -> StateCond      -> MyParser Token 
            -> MyParser (Maybe (AST Type) )
-assertions initial final ty follow =
-    try (
-      do initial
-         e <- expr final (follow <|> final)
-         try (
-           do final
-              pos <- getPosition
-              return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
-             )
-             <|> do genNewError follow PE.TokenCA
+assertions initial final ty follow = do
+    try $do initial
+            e <- expr final (follow <|> final)
+            try $do final
+                    pos <- getPosition
+                    return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
+             <|> do t <- lookAhead follow
+                    genNewError (return t) PE.TokenCA
                     return Nothing
-         )
-         <|> do genNewError follow PE.TokenOA
-                return Nothing
+             <|> do (t:_) <- manyTill anyToken $lookAhead follow
+                    genNewError (return $fst t) PE.TokenCA
+                    return Nothing
+     <|> do (t:_) <- manyTill anyToken final
+            genNewError (return $fst t) PE.TokenOA
+            return $Nothing
+     <|> do (t:_) <- manyTill anyToken $lookAhead follow
+            genNewError (return $fst t) PE.TokenOA
+            return $Nothing
+      
 
-precondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-precondition follow recSet = assertions parseTokLeftPre parseTokRightPre Pre follow
+precondition :: MyParser Token -> MyParser (Maybe (AST Type) )
+precondition follow = assertions parseTokLeftPre parseTokRightPre Pre follow
 
-postcondition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-postcondition follow recSet = assertions parseTokLeftPost parseTokRightPost Post follow
+postcondition :: MyParser Token -> MyParser (Maybe (AST Type) )
+postcondition follow = assertions parseTokLeftPost parseTokRightPost Post follow
 
-bound :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-bound follow recSet = assertions parseTokLeftBound parseTokRightBound Bound follow
+bound :: MyParser Token -> MyParser (Maybe (AST Type) )
+bound follow = assertions parseTokLeftBound parseTokRightBound Bound follow
 
-assertion :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-assertion follow recSet = assertions parseTokLeftA parseTokRightA Assertion follow
+assertion :: MyParser Token -> MyParser (Maybe (AST Type) )
+assertion follow = assertions parseTokLeftA parseTokRightA Assertion follow
 
-invariant :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
-invariant follow recSet = assertions parseTokLeftInv parseTokRightInv Invariant follow
+invariant :: MyParser Token -> MyParser (Maybe (AST Type) )
+invariant follow = assertions parseTokLeftInv parseTokRightInv Invariant follow
 
 repInvariant :: MyParser (Maybe (AST Type))
 repInvariant = do return Nothing

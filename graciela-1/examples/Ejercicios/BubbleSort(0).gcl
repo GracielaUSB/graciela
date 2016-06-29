@@ -18,7 +18,7 @@ begin
     end
 
     
-  proc ord : (in N: int, ref h: array [10] of int) 
+  proc ord : (in N: int, ref h: array [10] of int)
   begin
       var n, cota: int;
     

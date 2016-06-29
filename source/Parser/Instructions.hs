@@ -69,7 +69,7 @@ action follow recSet =
        do  lookAhead followAction
            actionAux follow recSet
            <|> do lookAhead parseTokLeftA
-                  as  <- assertion followAction (followAction <|> recSet)
+                  as  <- assertion followAction
                   do lookAhead followAction
                      res <- actionAux follow recSet
                      return $ AP.liftA3 (GuardAction (toLocation pos)) as res (return GEmpty)
@@ -265,8 +265,8 @@ conditional casec follow recSet =
 repetition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 repetition follow recSet =
     do pos <- getPosition
-       inv <- invariant (parseTokLeftBound) (recSet <|> parseTokLeftBound)
-       bou <- bound (parseDo) (parseDo <|> recSet)
+       inv <- invariant parseTokLeftBound
+       bou <- bound parseDo
        do parseDo
           gl <- guardsList CAction parseOd (recSet <|> parseOd)
           do parseOd

@@ -32,7 +32,8 @@ instance Show TypeArg where
 
 -- | Son los tipos utilizados en el compilador.
 data Type
-    = GInt   -- ^ Tipo entero
+    = GUndef -- ^ Tipo indefinido ( graciela 2.0 )
+    | GInt   -- ^ Tipo entero
     | GFloat -- ^ Tipo flotante
     | GBool  -- ^ Tipo boleano
     | GChar  -- ^ Tipo caracter

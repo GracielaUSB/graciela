@@ -32,11 +32,11 @@ abstractDataType :: MyParser (Maybe (AST Type))
 abstractDataType = do
     verify TokAbstract
     try $do M.void parseID
-     <|> do token <- lookAhead $ parseLeftParent              -- abstract   (t1,t2) begin
-            genNewError (return token) PE.IDError             --          ^
-     <|> do (token,_) <- anyToken
-            manyTill anyToken (lookAhead $ parseLeftParent)   --  abstract +-) (t1,t2) begin
-            genNewError (return token) PE.IDError             --           ^^^  
+     <|> do token <- lookAhead $ parseLeftParent             -- abstract   (t1,t2) begin
+            genNewError (return token) PE.IDError            --          ^
+     <|> do (t:_) <- manyTill anyToken 
+                        (lookAhead $ parseLeftParent)        --  abstract +-) (t1,t2) begin
+            genNewError (return $fst t) PE.IDError           --           ^^^  
     
     abstractTypes
 
@@ -47,7 +47,7 @@ abstractDataType = do
                                parseVar <|> parseTokLeftInv)  -- abstract Dicc (t1,t2) [][]
             genNewError (return $fst t) PE.Begin              --                       ^^^^
 
-    abstractBody parseEnd parseEnd
+    abstractBody parseEnd
 
     try $do parseEnd 
             return Nothing
@@ -94,12 +94,12 @@ abstractTypes = do
      
 
 -- AbstractBody -> DecList Invariant ListProcDecl
-abstractBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
-abstractBody follow recSet = do 
+abstractBody :: MyParser Token -> MyParser (Maybe (AST Type))
+abstractBody follow = do 
     newScopeParser
-    dl    <- decList followAction (recSet)
-    invariant follow recSet
-    procs <- manyTill (procDecl follow parseEnd) $lookAhead (follow)
+    dl    <- decList followAction follow
+    invariant follow
+    procs <- manyTill (procDecl follow) $lookAhead (follow)
     exitScopeParser
     return Nothing
     where 
@@ -108,8 +108,8 @@ abstractBody follow recSet = do
     
     
 -- ProcDecl -> 'proc' ID ':' '(' ListArgProc ')' Precondition Postcondition
-procDecl :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
-procDecl follow recSet = do
+procDecl :: MyParser Token -> MyParser (Maybe (AST Type))
+procDecl follow = do
     pos <- getPosition                                   
     try $do M.void parseProc
      <|> do (t,_) <- lookAhead anyToken
@@ -145,8 +145,8 @@ procDecl follow recSet = do
             genNewError (return $fst t) PE.TokenRP 
             return Nothing
 
-    pre  <- precondition parseTokOpenBlock (recSet <|> parseTokOpenBlock)
-    post <- postcondition follow (recSet <|> follow)
+    pre  <- precondition parseTokLeftPost 
+    post <- postcondition follow
     exitScopeParser
     return Nothing
     where 
@@ -170,7 +170,7 @@ dataType = do
     
     try $do M.void $ verify TokImplements 
      <|> do id <- lookAhead parseID
-            genNewError (verify $ TokId id) PE.Implements
+            genNewError (return $ TokId id) PE.Implements
      <|> do (t:_) <- manyTill anyToken (lookAhead $ parseID)
             genNewError (return $fst t) PE.Implements
     
