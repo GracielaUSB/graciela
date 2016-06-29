@@ -168,6 +168,7 @@ data Token
     | TokSetMinus
     | TokSetUnion
     | TokSetIntersect
+    | TokEmptySet
 
     deriving (Eq)
 
@@ -307,11 +308,13 @@ instance Show Token where
         TokRightRep       -> "\"repinv\"}"       -- UGLY
         TokLeftAcopl      -> "\"{acinv\""        -- UGLY
         TokRightAcopl     -> "\"acinv\"}"        -- UGLY
+
         TokElem           -> "\"elem\" - Elemento de conjunto"
         TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
         TokSetMinus       -> "\"\\\" - Resta de conjuntos"
         TokSetUnion       -> "\"++\" - Unión de conjuntos"
         TokSetIntersect   -> "\"++\" - Intersección de conjuntos"
+
 
         where
             showType :: Type -> String

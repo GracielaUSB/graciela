@@ -5,7 +5,7 @@ module Parser.Program
 
 -------------------------------------------------------------------------------
 import Parser.Instructions          (block)
-import Parser.Procedures            (listDefProc)
+import Parser.Procedures            (listDefProc,panicMode,panicModeID)
 import Parser.TokenParser           
 import Parser.ADT
 import MyParseError                  as PE
@@ -27,26 +27,9 @@ mainProgram :: MyParser (Maybe (AST Type))
 mainProgram = do 
     pos <- getPosition
     newScopeParser
-    try $do M.void parseProgram
-     <|> do t <- lookAhead parseID
-            genNewError (return $TokId t) PE.Program
-     <|> do (t,_) <- anyToken
-            manyTill  anyToken (lookAhead $ parseID)
-            genNewError (return t) PE.Program
-
-    id <- try $do parseID
-     <|> do (t,_) <- lookAhead anyToken
-            genNewError (return t) PE.IDError
-            return $ T.pack "No ID"      
-     <|> do (t:_) <- manyTill anyToken (lookAhead parseBegin)
-            genNewError (return $fst t) PE.IDError                           
-            return $ T.pack "No ID"    
-
-    try $do M.void $ parseBegin
-     <|> do (t,_) <- lookAhead anyToken                               
-            genNewError (return t) PE.Begin                           
-     <|> do (t:_) <- manyTill anyToken (lookAhead (parseTokOpenBlock))  
-            genNewError (return $fst t) PE.Begin                      
+    panicMode parseProgram parseTokID PE.Program
+    id <- panicModeID parseBegin
+    panicMode parseBegin parseTokOpenBlock PE.Begin                   
 
     try ( do
             ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock

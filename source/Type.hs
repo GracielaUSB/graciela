@@ -38,10 +38,24 @@ data Type
     | GBool  -- ^ Tipo boleano
     | GChar  -- ^ Tipo caracter
 
+    -- Tipo para los Data types
+    | GDataType 
+        { name   ::  Text
+        , oftype :: [Type]
+        , fields :: [Type]
+        , procs  :: [Type]
+        }
+    | GAbstractType 
+        { name   ::  Text
+        , oftype :: [Type]
+        , fields :: [Type]
+        , procs  :: [Type]
+        }
+    | GPointer Type
     -- | Tipo para las funciones
     | GFunction
        { paramType  :: [Type] -- ^ Los tipos de los parametros
-       , returnType :: Type   -- ^ El tipo de retorno
+       , returnType ::  Type   -- ^ El tipo de retorno
        }
     | GProcedure [Type] -- ^ Tipo para los procedimientos
     | GError            -- ^ Tipo usado para propagar los errores
@@ -49,23 +63,26 @@ data Type
 
     -- | Tipo para los arreglos
     | GArray
-        { getSize  :: Either Text Integer -- ^ Tamano del arreglo
+        { getSize :: Either Text Integer -- ^ Tamano del arreglo
         , getType :: Type                 -- ^ Tipo del arreglo
         }
 
 
 -- | Instancia 'Eq' para los tipos.
 instance Eq Type where
-    GInt            == GInt              = True
-    GFloat          == GFloat            = True
-    GBool           == GBool             = True
-    GChar           == GChar             = True
-    GError          == GError            = True
-    GEmpty          == GEmpty            = True
-    (GProcedure  _) == (GProcedure   _)  = True
-    (GFunction _ t) == (GFunction _ t')  = t == t'
-    (GArray    _ t) == (GArray    _ t')  = t == t'
-    _               ==  _                = False
+    GInt                 == GInt                 = True
+    GFloat               == GFloat               = True
+    GBool                == GBool                = True
+    GChar                == GChar                = True
+    GError               == GError               = True
+    GEmpty               == GEmpty               = True
+    (GDataType n1 _ _ _) == (GDataType n2 _ _ _) = True
+    (GAbstractType n1 _ _ _) == (GAbstractType n2 _ _ _) = True
+    (GDataType n1 _ _ _) == (GAbstractType n2 _ _ _) = True
+    (GProcedure  _)      == (GProcedure   _)     = True
+    (GFunction _ t)      == (GFunction _ t')     = t == t'
+    (GArray    _ t)      == (GArray    _ t')     = t == t'
+    _                    ==  _                   = False
 
 
 -- | Instancia 'Show' para los tipos.

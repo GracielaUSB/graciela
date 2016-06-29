@@ -2,7 +2,7 @@
 abstract Diccionario (t0) begin
     var MAX   : int;
     var conoc : int; // set of t0
-    var tabla : int; // set of t0
+    var tabla : int // set of t0
 
     {inv MAX > 0 ∧ conoc ≤  MAX inv}
 

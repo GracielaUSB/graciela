@@ -3,12 +3,12 @@
 abstract Diccionario (t0,t1) begin
     var MAX   : int;
     var conoc : int; // set of t0
-    var tabla : int; // set of t0
+    var tabla : set of int; // set of t0
 
     {inv MAX > 0 /\ conoc <=  MAX inv}
 
     proc crear : (out m : int)
-        {pre    0 < m              pre}
+        {pre    0 <  m                pre}
         {post MAX == m /\ conoc == m post}
 
     proc agregar : (inout d : int, in c : int, in v : int)
@@ -29,7 +29,7 @@ abstract Diccionario (t0,t1) begin
 end
 
 
-type Dicc implements Diccionario (int)
+type Dicc implements Diccionario (int,char)
 begin
 
     var MAX   : int;

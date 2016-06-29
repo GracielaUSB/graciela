@@ -24,10 +24,14 @@ myType follow recSet =
               parseRightBracket
               parseOf
               t <- myType follow recSet
-
               case n of
                   Nothing -> return GEmpty
                   Just n' -> return $ GArray n' t
+       <|> do id <- parseID
+              parseOf
+              t <- myType follow recSet
+              -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
+              return (GDataType id [t] [] [])
 
 
 parseConstNumber :: MyParser Token -> MyParser Token

@@ -80,12 +80,18 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "double"     >> return (TokType GFloat))
     <|> (tryR "char"       >> return (TokType GChar))
 
+    -- V2.0
+    -- <|> (tryS "set of"      >> return (TokType (GDataType (pack "set") [] [])))
+    -- <|> (tryS "multiset of" >> return (TokType (GDataType (pack "multiset") [] [])))
+
     <|> (tryS "/\\"        >> return TokAnd)
     <|> (tryS "\8743"      >> return TokAnd) -- ∧
     <|> (tryS "\\/"        >> return TokOr)
     <|> (tryS "\8744"      >> return TokOr)  -- ∨
 
     -- V2.0
+    <|> (tryR "emptyset"   >> return TokEmptySet)
+    <|> (tryS "\8709"      >> return TokEmptySet) -- ∅
     <|> (tryS "\\"         >> return TokSetMinus)
     <|> (tryR "union"      >> return TokSetUnion)
     <|> (tryS "\8746"      >> return TokSetUnion) -- ∪

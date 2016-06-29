@@ -7,7 +7,7 @@ module Parser.ADT
 import Parser.Assertions             
 import Parser.Expression
 import Parser.Declarations
-import Parser.Procedures             (listDefProc, listArgProc)
+import Parser.Procedures             (listDefProc, listArgProc, panicMode, panicModeID)
 import Parser.Instructions           
 import Parser.TokenParser
 import MyParseError                  as PE
@@ -31,34 +31,20 @@ import           Text.Parsec
 abstractDataType :: MyParser (Maybe (AST Type))
 abstractDataType = do
     verify TokAbstract
-    try $do M.void parseID
-     <|> do token <- lookAhead $ parseLeftParent             -- abstract   (t1,t2) begin
-            genNewError (return token) PE.IDError            --          ^
-     <|> do (t:_) <- manyTill anyToken 
-                        (lookAhead $ parseLeftParent)        --  abstract +-) (t1,t2) begin
-            genNewError (return $fst t) PE.IDError           --           ^^^  
-    
+    abstractID <- panicModeID parseLeftParent
     abstractTypes
+    panicMode parseBegin (parseVar <|> parseTokLeftInv) PE.Begin
+    abstractBody (topDecl <|> parseEnd)
 
-    try $do M.void $ parseBegin
-     <|> do t <- (lookAhead $ parseVar <|> parseTokLeftInv)   -- abstract Dicc (t1,t2) 
-            genNewError (return t) PE.Begin                   --                       ^
-     <|> do (t:_) <- manyTill anyToken (lookAhead $
-                               parseVar <|> parseTokLeftInv)  -- abstract Dicc (t1,t2) [][]
-            genNewError (return $fst t) PE.Begin              --                       ^^^^
-
-    abstractBody parseEnd
-
-    try $do parseEnd 
-            return Nothing
+    try $do M.void parseEnd 
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
             try $do token <- lookAhead topDecl
                     genNewError (return token) PE.LexEnd                     
              <|> do parseEnd
                     genNewError (return $ fst $ head t) PE.LexEnd
-            return Nothing
-     <|> do parseEOF
-            return Nothing
+     <|> do M.void  parseEOF
+
+    return Nothing
 
 topDecl :: MyParser Token   
 topDecl = choice  [ verify TokAbstract 
@@ -81,16 +67,14 @@ abstractTypes = do
 
     sepBy (parseID) (parseComma)
 
-    try $do parseRightParent
-            return Nothing
+    try $do M.void parseRightParent
      <|> do lookAhead $ parseBegin                    -- abstract Dicc (t1,t2
             genNewError (return TokBegin) PE.TokenRP  --                     ^
-            return Nothing
      <|> do (token,_) <- anyToken                     -- abstract Dicc (t1,t2]
             manyTill  anyToken (lookAhead parseBegin) --                     ^
             genNewError (return token) PE.TokenRP 
-            return Nothing
-         
+    
+    return Nothing
      
 
 -- AbstractBody -> DecList Invariant ListProcDecl
@@ -102,8 +86,6 @@ abstractBody follow = do
     procs <- manyTill (procDecl follow) $lookAhead (follow)
     exitScopeParser
     return Nothing
-    where 
-        follow = (topDecl <|> parseEnd)
 
     
     
@@ -112,41 +94,23 @@ procDecl :: MyParser Token -> MyParser (Maybe (AST Type))
 procDecl follow = do
     pos <- getPosition                                   
     try $do M.void parseProc
-     <|> do (t,_) <- lookAhead anyToken
-            genNewError (return $t) PE.ProcOrFunc
+     <|> do try $do t <- parseID
+                    lookAhead parseID  
+                    genNewError (return $TokId t) PE.ProcOrFunc
+     <|> do t <- lookAhead parseID
+            genNewError (return $TokId t) PE.ProcOrFunc
+     <|> do (t:_) <- manyTill anyToken (lookAhead $ parseID)
+            genNewError (return $fst t) PE.Begin
 
-    id <- try $do parseID
-     <|> do (t,_) <- lookAhead anyToken
-            genNewError (return t) PE.IDError
-            return $ T.pack "No ID"
 
-    try $do M.void $ parseColon
-     <|> do t <- lookAhead parseLeftParent                                  -- proc id   (in a :int)
-            genNewError (return t) PE.Colon                                 --         ^
-     <|> do (t,_) <- anyToken                                               -- proc id [ (in a : int)
-            genNewError (return t) PE.Colon                                 --         ^
-
-    try $do M.void parseLeftParent
-     <|> do t <- lookAhead argTypes                                         
-            genNewError (return t) PE.TokenLP                               -- proc id : in a :int)
-     <|> do (t,_) <- anyToken                                               --          ^  
-            manyTill  anyToken (lookAhead $ argTypes <|> parseRightParent)    
-            genNewError (return t) PE.TokenLP                               -- proc id : [[$ in a :int)
-                                                                            --           ^^^
-    newScopeParser
-    targs <- listArgProc id parseRightParent parseRightParent
-
-    try $do parseRightParent
-            return Nothing
-     <|> do t <- lookAhead $ parseTokLeftPre 
-            genNewError (return t) PE.TokenRP 
-            return Nothing
-     <|> do (t:_) <- manyTill  anyToken (lookAhead parseTokLeftPre)
-            genNewError (return $fst t) PE.TokenRP 
-            return Nothing
-
-    pre  <- precondition parseTokLeftPost 
-    post <- postcondition follow
+    id <- panicModeID parseColon                                            -- ID
+    panicMode parseColon parseLeftParent PE.Colon                           -- :
+    panicMode parseLeftParent (argTypes <|> parseRightParent) PE.TokenLP    -- (
+    newScopeParser 
+    targs <- listArgProc id parseRightParent parseRightParent               -- arguments
+    panicMode parseRightParent parseTokLeftPre PE.TokenRP                   -- )
+    pre  <- precondition parseTokLeftPost                                   -- pre
+    post <- postcondition follow                                            -- post
     exitScopeParser
     return Nothing
     where 
@@ -161,51 +125,29 @@ procDecl follow = do
 dataType :: MyParser (Maybe (AST Type))
 dataType = do 
     verify TokDataType
-
-    try $do M.void parseID
-     <|> do token <- lookAhead $ verify TokImplements          
-            genNewError (return token) PE.IDError             
-     <|> do (t:_) <- manyTill anyToken (lookAhead $ verify TokImplements)   
-            genNewError (return $fst t) PE.IDError                  
-    
-    try $do M.void $ verify TokImplements 
-     <|> do id <- lookAhead parseID
-            genNewError (return $ TokId id) PE.Implements
-     <|> do (t:_) <- manyTill anyToken (lookAhead $ parseID)
-            genNewError (return $fst t) PE.Implements
-    
-    try $do M.void parseID
-     <|> do token <- lookAhead $ parseLeftParent
-            genNewError (return token) PE.IDError
-     <|> do (t:_) <- manyTill anyToken (lookAhead $ parseLeftParent)
-            genNewError (return $fst t) PE.IDError
-
+    panicModeID (verify TokImplements)
+    panicMode   (verify TokImplements) parseTokID PE.Implements
+    abstratcID <- panicModeID parseLeftParent
     types
-
-    try $do M.void $ parseBegin
-     <|> do t <- lookAhead $ parseVar <|> verify TokLeftRep
-            genNewError (return t) PE.Begin
-     <|> do (t:_) <- manyTill anyToken (lookAhead $
-                             parseVar <|> verify TokLeftRep)
-            genNewError (return $fst t) PE.Begin
-
+    panicMode parseBegin (parseVar <|> verify TokLeftRep) PE.Begin
     dataTypeBody parseEnd parseEnd
 
-    try $do parseEnd 
-            return Nothing
+    try $do M.void parseEnd 
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
             try $do token <- lookAhead topDecl
                     genNewError (return token) PE.LexEnd                     
              <|> do parseEnd
                     genNewError (return $ fst $ head t) PE.LexEnd
-            return Nothing
-     <|> do parseEOF
-            return Nothing
+     <|> do M.void parseEOF
+
+    return Nothing
 
 -- Types -> '(' ListTypes ')'
 -- ListTypes: lista de tipos contruidas con parsec
 types :: MyParser (Maybe (AST Type))
 types = do 
+
+    -- panicMode parseLeftParent parseType PE.TokenLP
     try $do M.void parseLeftParent
      <|> do t <- lookAhead $ parseType                  -- type Dicc implements D   t1,t2)
             genNewError (return $TokType t) PE.TokenLP  --                        ^
@@ -215,15 +157,9 @@ types = do
 
     sepBy (myType parseSemicolon parseSemicolon) (parseComma)
 
-    try $do parseRightParent
-            return Nothing
-     <|> do lookAhead $ parseBegin                      -- type Dicc implements D (t1,t2 
-            genNewError (return TokBegin) PE.TokenRP    --                              ^
-            return Nothing
-     <|> do (token,_) <- anyToken                       -- type Dicc implements D (t1,t2]]
-            manyTill  anyToken (lookAhead parseBegin)   --                              ^^
-            genNewError (return token) PE.TokenRP 
-            return Nothing
+    panicMode parseRightParent parseBegin PE.TokenRP
+
+    return Nothing
      where parseType = myType parseSemicolon parseSemicolon  
 
 -- DataTypeBody -> DeclList RepInvariant AcInvariant ListDefProc
@@ -236,6 +172,8 @@ dataTypeBody follow recSet = do
     procs <- listDefProc follow recSet
     exitScopeParser
     return Nothing
+
+
 
 
 
