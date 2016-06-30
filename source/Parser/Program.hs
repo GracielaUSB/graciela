@@ -29,19 +29,19 @@ mainProgram = do
     newScopeParser
     panicMode parseProgram parseTokID PE.Program
     id <- panicModeID parseBegin
-    panicMode parseBegin parseTokOpenBlock PE.Begin                   
+    panicMode parseBegin (parseProc <|> parseFunc <|> parseTokOpenBlock) PE.Begin                   
 
-    try ( do
-            ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock
-            lacc <- block parseEnd parseEnd
-            try ( do parseEnd
-                     parseEOF
-                     return (M.liftM3 (AST.Program id (toLocation pos)) ast lacc (return (GEmpty)))
-                )
-                <|> do genNewError parseEOF PE.LexEnd
-                       return Nothing
-                 
-        ) <|> do return Nothing
+
+    ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock
+    lacc <- block parseEnd parseEnd
+    try ( do parseEnd
+             parseEOF
+             return (M.liftM3 (AST.Program id (toLocation pos)) ast lacc (return (GEmpty)))
+        )
+        <|> do genNewError parseEOF PE.LexEnd
+               return Nothing
+         
+
       
 
 -- Program -> Abstract Program

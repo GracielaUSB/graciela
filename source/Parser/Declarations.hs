@@ -14,7 +14,7 @@ import Contents                       as CO
 import MyParseError
 import ParserState
 import Parser.TokenParser
-import ParserType
+import Parser.ParserType
 import Location
 import Token
 import State

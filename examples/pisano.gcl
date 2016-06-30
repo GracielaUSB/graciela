@@ -29,15 +29,23 @@ abstract Diccionario (t0,t1) begin
 end
 
 
-type Dicc implements Diccionario (int,char)
+type Dicc implements Diccionario (int***,char)
 begin
 
-    var MAX   : int;
-    var tam   : int;
-    var clave : array[50] of int;
-    var valor : array[50] of int;
+    var MAX := 0  : int;
+    var tam := 0  : int;
+    var clave : array[MAX] of int;
+    var valor : array[MAX] of int;
 
-    // Falta repinv y acinv
+    {repinv MAX > 0 ∧ //{-0≤tam ∧ tam ≤ MAX  ∧
+        (%forall i : int | 0 ≤ i /\ i ≤ tam
+          | (%forall j : int | 0 ≤ j /\ j ≤ tam // ∧ i ≢ j
+              | clave[i] ≢ clave[j]
+            %)
+        %)
+    repinv}
+
+    {acinv tam < MAX acinv}
 
     proc crear : (in m : int, out d : int)
     begin
@@ -122,6 +130,7 @@ begin
 end
 
 program main begin
+    
     func fibonacci : (n: int) -> int
     begin 
         if n == 0  -> 0
@@ -156,7 +165,22 @@ program main begin
         {post true post}
     end
 
+
     |[
+        const m := 10 : int;
+        var   x := 0  : int;
+        var   a       : array[m] of int;
+
+        {inv true inv}
+        {bound (m-x)+1 bound}
+        do x < 10 ->
+        |[
+            a[x] := x;
+            writeln(a[x]);
+            x := x+1
+        ]|
+        od;
+        writeln(2.0/3.0+1.0);
         write("Numero de Fibonacci, ingrese un numero: ");
         readNum()
     ]|

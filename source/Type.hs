@@ -94,6 +94,7 @@ instance Show Type where
         GChar            -> "char"
         GEmpty           -> "void"
         GError           -> "error"
+        GPointer      t  -> "pointer of "++show t
         (GProcedure   _) -> "proc"
         (GFunction  _ t) -> "func -> (" ++ show t ++ ")"
         (GArray     s t) -> "array " ++ show s ++ " of `" ++ show t ++ "`"

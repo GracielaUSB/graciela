@@ -72,7 +72,7 @@ instance Show OpUn where
    show Sqrt   = "Raíz Cuadrada"
 
 
-data StateCond = Pre | Post | Assertion | Bound | Invariant
+data StateCond = Pre | Post | Assertion | Bound | Invariant | Representation | Couple
       deriving (Eq)
 
 instance Show StateCond where

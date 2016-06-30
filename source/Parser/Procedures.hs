@@ -26,7 +26,7 @@ import Parser.Expression
 import Parser.Instructions
 import Parser.TokenParser
 import ParserState
-import ParserType
+import Parser.ParserType
 import State
 import Token
 import Type
@@ -126,7 +126,7 @@ function follow recSet = do
     where 
         conditionalOrExpr = (conditional CExpression parseEnd parseEnd) <|> (expr parseEnd parseEnd)
         parseType' :: MyParser Type   
-        parseType' = myType (followTypeFunction) (recSet <|> followTypeFunction)
+        parseType' = myType (followTypeFunction) (followTypeFunction)
 
    -- do pos <- getPosition
    --    try ( do parseFunc
@@ -230,9 +230,6 @@ proc {-follow recSet-} = do
      <|> do (t:_) <- manyTill anyToken (lookAhead $
                                parseVar <|> parseTokLeftPre)                
             genNewError (return $fst t) PE.Begin                            
-
-    
-
     dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre)               -- declarations
     pre  <- precondition parseTokOpenBlock                                  -- pre 
     la   <- block parseTokLeftPost parseTokLeftPost                         -- body
@@ -246,13 +243,12 @@ proc {-follow recSet-} = do
     addProcTypeParser id targs (toLocation pos) sb
     return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST GEmpty)) dl) 
                 AP.<*> targs AP.<*> (return GEmpty)
-
     where 
         argTypes :: MyParser Token   
-        argTypes = choice  [ parseIn
+        argTypes = choice   [ parseIn
                             , parseOut
                             , parseInOut
-                            , parseInOut
+                            , parseRef
                             ] 
 
 

@@ -27,7 +27,7 @@ import MyParseError                  as PE
 import ParserState                   as PS
 import Text.Parsec
 import Parser.TokenParser
-import ParserType
+import Parser.ParserType
 import Location
 import Limits
 import Token

@@ -17,7 +17,7 @@ import Parser.Expression
 import MyParseError                  as PE
 import ParserState
 import Parser.TokenParser
-import ParserType
+import Parser.ParserType
 import Contents
 import Location
 import Token
@@ -45,10 +45,14 @@ assertions initial final ty follow = do
              <|> do (t:_) <- manyTill anyToken $lookAhead follow
                     genNewError (return $fst t) PE.TokenCA
                     return Nothing
-     <|> do (t:_) <- manyTill anyToken final
-            genNewError (return $fst t) PE.TokenOA
+     
+     <|> do t <- lookAhead follow
+            genNewError (return t) PE.TokenOA
             return $Nothing
      <|> do (t:_) <- manyTill anyToken $lookAhead follow
+            genNewError (return $fst t) PE.TokenOA
+            return $Nothing
+     <|> do (t:_) <- manyTill anyToken final
             genNewError (return $fst t) PE.TokenOA
             return $Nothing
       
@@ -69,10 +73,12 @@ invariant :: MyParser Token -> MyParser (Maybe (AST Type) )
 invariant follow = assertions parseTokLeftInv parseTokRightInv Invariant follow
 
 repInvariant :: MyParser (Maybe (AST Type))
-repInvariant = do return Nothing
+repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representation 
+                          (parseEnd <|> parseProc <|> (verify TokLeftAcopl))
 
 acInvariant :: MyParser (Maybe (AST Type) )
-acInvariant = do return Nothing
+acInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple 
+                          (parseEnd <|> parseProc)
 
 
 

@@ -1,4 +1,9 @@
-module ParserType where
+module Parser.ParserType 
+    ( myBasicType
+    , parsePointer
+    , myType
+    , parseConstNumber
+    ) where
 --------------------------------------------------------------------------------
 import           Location
 import           ParserState
@@ -14,10 +19,19 @@ import           Text.Parsec
 myBasicType :: MyParser Token -> MyParser Token -> MyParser Type
 myBasicType follow recSet = parseType
 
+parsePointer :: Type -> MyParser Type
+parsePointer t = 
+  do
+    parseStar
+    parsePointer $GPointer t
+  <|> return t
 
 myType :: MyParser Token -> MyParser Token -> MyParser Type
-myType follow recSet =
-    myBasicType follow recSet
+myType follow recSet = 
+      do t <- myBasicType follow recSet
+         try $do parsePointer t
+          <|> return t
+
        <|> do parseTokArray
               parseLeftBracket
               n <- parseConstNumber parseOf (recSet <|> parseOf)
@@ -27,6 +41,7 @@ myType follow recSet =
               case n of
                   Nothing -> return GEmpty
                   Just n' -> return $ GArray n' t
+
        <|> do id <- parseID
               parseOf
               t <- myType follow recSet

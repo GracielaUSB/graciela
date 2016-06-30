@@ -97,6 +97,8 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryS "\8746"      >> return TokSetUnion) -- ∪
     <|> (tryR "intersect"  >> return TokSetIntersect)
     <|> (tryS "\8745"      >> return TokSetUnion) -- ∩
+
+    <|> (tryR "&"          >> return TokPointerAcc)
     -- V2.0
 
     <|> (char '+'          >> return TokPlus)
@@ -214,13 +216,14 @@ lex1 =  (tryR "program"    >> return TokProgram)
             return (TokChar c)
         )
 
-    <|> (TokInteger . read <$> many1 digit)
 
     <|> try (do n1 <- many1 digit
                 _  <- char '.'
                 n2 <- many1 digit
                 return (TokFloat (read (n1 ++ "." ++ n2)))
         )
+
+    <|> (TokInteger . read <$> many1 digit)
 
     <|> (TokString <$> (char '"' *> manyTill anyChar (char '"') ))
 

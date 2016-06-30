@@ -10,9 +10,9 @@ import Parser.Declarations
 import Parser.Procedures             (listDefProc, listArgProc, panicMode, panicModeID)
 import Parser.Instructions           
 import Parser.TokenParser
+import Parser.ParserType
 import MyParseError                  as PE
 import ParserState
-import ParserType
 import Contents
 import Location
 import Token

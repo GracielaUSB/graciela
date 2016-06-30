@@ -169,6 +169,7 @@ data Token
     | TokSetUnion
     | TokSetIntersect
     | TokEmptySet
+    | TokPointerAcc
 
     deriving (Eq)
 
@@ -314,6 +315,7 @@ instance Show Token where
         TokSetMinus       -> "\"\\\" - Resta de conjuntos"
         TokSetUnion       -> "\"++\" - Unión de conjuntos"
         TokSetIntersect   -> "\"++\" - Intersección de conjuntos"
+        TokPointerAcc     -> "\"&\" - Direccion de"
 
 
         where
