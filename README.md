@@ -56,7 +56,7 @@ En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguient
     
 Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
 
-    brew tap adgalad/graciela
+    brew tap GracielaUSB/graciela
     brew install graciela
 
 ## Uso del compilador
