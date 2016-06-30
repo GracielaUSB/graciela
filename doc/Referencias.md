@@ -8,3 +8,5 @@ proyecto.
 * On the Refinement Calculus - Carroll Morgan, Ken Robinson and Paul Gardiner (Recomendado por Monascal)
 
 * Programming from Specifications - Carroll Morgan (También Monascal)
+
+* [Separation Logic primer](http://www0.cs.ucl.ac.uk/staff/p.ohearn/papers/Marktoberdorf11LectureNotes.pdf)
