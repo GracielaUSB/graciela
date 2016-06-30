@@ -7,23 +7,23 @@ abstract Diccionario (t0,t1) begin
 
     {inv MAX > 0 /\ conoc <=  MAX inv}
 
-    proc crear : (out m : int)
+    proc crear (out m : int)
         {pre    0 <  m                pre}
         {post MAX == m /\ conoc == m post}
 
-    proc agregar : (inout d : int, in c : int, in v : int)
+    proc agregar (inout d : int, in c : int, in v : int)
         {pre  !(c   == conoc)    /\ conoc <  MAX        pre}
         {post conoc == conoc + 1 /\ tabla == tabla + c post}
 
-    proc eliminar : (inout d : int, in c : int)
+    proc eliminar (inout d : int, in c : int)
         {pre  c     == conoc pre}
         {post conoc == conoc - c /\ tabla == tabla - c post}
 
-    proc buscar : (in d : int, in c: int, out v : int)
+    proc buscar (in d : int, in c: int, out v : int)
         {pre  c == conoc  pre}
         {post v == c     post}
 
-    proc existe : (in d : int, in c : int, out e : boolean)
+    proc existe (in d : int, in c : int, out e : boolean)
         {pre  true       pre}
         {post e == c > 2 post}
 end
@@ -32,10 +32,10 @@ end
 type Dicc implements Diccionario (int***,char)
 begin
 
-    var MAX := 0  : int;
-    var tam := 0  : int;
-    var clave : array[MAX] of int;
-    var valor : array[MAX] of int;
+    var MAX := 10 : int;
+    var   tam       : int;
+    var   clave     : array[MAX] of int;
+    var   valor     : array[MAX] of int;
 
     {repinv MAX > 0 ∧ //{-0≤tam ∧ tam ≤ MAX  ∧
         (%forall i : int | 0 ≤ i /\ i ≤ tam
@@ -47,7 +47,7 @@ begin
 
     {acinv tam < MAX acinv}
 
-    proc crear : (in m : int, out d : int)
+    proc crear (in m : int, out d : int)
     begin
         {pre    0 < m              pre}
         |[
@@ -56,7 +56,7 @@ begin
         {post MAX == m /\ tam ==0  post}
     end
 
-    proc agregar : (inout d : int , in c : int, in v : int)
+    proc agregar (inout d : int , in c : int, in v : int)
     begin
         var x      : int;
         var oldTam : int;
@@ -68,7 +68,7 @@ begin
         {post tam == oldTam + 1 /\ (%exist i : int | 0 <= i /\ i < tam | clave[i] == c /\ valor[x] == v %) post}
     end
 
-    proc eliminar : (inout d : int, in c : int)
+    proc eliminar (inout d : int, in c : int)
     begin
         var x      : int;
         var oldTam : int ;
@@ -89,7 +89,7 @@ begin
         {post tam == oldTam - 1  post}
     end
 
-    proc buscar: ( in d : int, in c : int , out v : int )
+    proc buscar( in d : int, in c : int , out v : int )
     begin
         var x : int;
         {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
@@ -109,7 +109,7 @@ begin
         {post (%exist i : int | 0 <= i /\ i < tam | c == clave[x] /\ v == valor[x] %) post}
     end
 
-    proc existe : (in d : int, in c : int, out e : boolean)
+    proc existe (in d : int, in c : int, out e : boolean)
     begin
         var x : int;
         {pre true pre}
@@ -130,16 +130,16 @@ begin
 end
 
 program main begin
-    
-    func fibonacci : (n: int) -> int
-    begin 
+
+    func fibonacci (n: int) -> int
+    begin
         if n == 0  -> 0
         [] n == 1  -> 1
         [] n >  1  -> fibonacci(n-1) + fibonacci(n-2)
         fi
     end
 
-    proc readNum : ()
+    proc readNum ()
     begin
         var num : int;
         read(num);
@@ -152,7 +152,7 @@ program main begin
         {post true post}
     end
 
-    proc readNum2 : ()
+    proc readNum2 ()
     begin
         var num : int;
         read(num);
@@ -171,13 +171,12 @@ program main begin
         var   x := 0  : int;
         var   a       : array[m] of int;
 
-        {inv true inv}
-        {bound (m-x)+1 bound}
+        {inv (%forall i : int | i > 0 | true %) inv}
+        {bound (m-x) bound}
         do x < 10 ->
-        |[
-            a[x] := x;
-            writeln(a[x]);
-            x := x+1
+        |[  a[x] := x
+        ;   writeln(a[x])
+        ;   x := x+1
         ]|
         od;
         writeln(2.0/3.0+1.0);

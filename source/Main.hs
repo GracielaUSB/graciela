@@ -1,25 +1,28 @@
-{-# LANGUAGE CPP, NoImplicitPrelude, CApiFFI #-}
+{-# LANGUAGE CApiFFI           #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 --------------------------------------------------------------------------------
-import           Parser.Program
 import           AST
 import           ASTtype
 import           Codegen
 import           Contents
 import           Lexer
 import           MyTypeError
+import           Parser.Program
 import           State
 import           Token
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Monad          (unless, when, (>=>), void)
+import           Control.Monad          (unless, void, when, (>=>))
 import           Control.Monad.Except   (ExceptT, runExceptT)
 import           Control.Monad.Identity (Identity, runIdentity)
 import           Control.Monad.State    (runStateT)
 
 import           Data.Foldable          (toList)
 import           Data.List              (nub)
+import           Data.Maybe             (fromMaybe)
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
 import           Data.String.Utils      (replace)
@@ -62,14 +65,14 @@ data Options = Options
     { optHelp     :: Bool
     , optVersion  :: Bool
     , optErrors   :: Maybe Int
-    , optExecName :: Maybe String
+    , optExecName :: String
     }
 
 defaultOptions   = Options
     { optHelp     = False
     , optVersion  = False
     , optErrors   = Nothing
-    , optExecName = Nothing
+    , optExecName = "a.out"
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -89,7 +92,7 @@ options =
     , Option ['o'] ["nombre"]
         (ReqArg (\fileName opts -> case fileName of
                     "" -> error "Valor inválido en el argumento de `-o`"
-                    _  -> opts { optExecName = Just fileName }
+                    _  -> opts { optExecName = fileName }
                 ) "NOMBRE")
         "Nombre del ejecutable"
     ]
@@ -127,7 +130,7 @@ generateCode m =
     withHostTargetMachine $ \tm ->
         liftError $ writeObjectToFile tm (File "prueba") m
 
-play n inp fileName = case runParser concatLexPar () "" inp of
+play n inp llName = case runParser concatLexPar () "" inp of
     Left err -> do
         let msg  = head $ messageString $ head $ errorMessages err
             col  = sourceColumn $ errorPos err
@@ -151,12 +154,10 @@ play n inp fileName = case runParser concatLexPar () "" inp of
                     withContext $ \context ->
                         liftError $ withModuleFromAST context newast $ \m ->
                             liftError $ writeLLVMAssemblyToFile
-                                (File $ replaceExtension fileName ".bc") m
-                else do
-                    die $ drawTypeError n l
+                                (File llName ) m
+                else die $ drawTypeError n l
 
-            else do
-                die $ drawState n st
+            else die $ drawState n st
             where
                 {- Gets OSX version -}
                 getOSVersion :: IO String
@@ -164,8 +165,7 @@ play n inp fileName = case runParser concatLexPar () "" inp of
                     "darwin" ->
                         readProcess "/usr/bin/sw_vers" ["-productVersion"] []
                     _        -> return ""
-    Right (Right Nothing, st) -> do
-        die $ drawState n st
+    Right (Right Nothing, st) -> die $ drawState n st
 
 -- Main --------------------------------
 main :: IO ()
@@ -189,30 +189,31 @@ main = do
     unless (takeExtension fileName == ".gcl")
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-    let execName = (optExecName options)
+    let execName = optExecName options
+    let llName = if execName == "a.out"
+        then "a.ll"
+        else execName ++ ".ll"
+
     source <- readFile fileName
-    play (optErrors options) source fileName
 
-    compileBC fileName execName
+    play (optErrors options) source llName
+
+    compileLL llName execName
 
 
-compileBC :: String -> Maybe String -> IO ()
-compileBC fileName execName = void $ do
+compileLL :: String -> String -> IO ()
+compileLL llName execName = void $ do
     (exitCode, _out, _errs) <-
-        readProcessWithExitCode "clang" ["-o", name, bc, aux] ""
+        readProcessWithExitCode clang ["-o", execName, llName, lib] ""
 
     case exitCode of
         ExitSuccess ->
-            void $ readProcess "rm" [bc] ""
+            void $ readProcess "rm" [llName] ""
         ExitFailure _ ->
             die "clang error"
 
     where
-        name = case execName of
-            Nothing  -> "a.out"
-            Just x   -> x
-        bc   = replace ".gcl" ".bc" fileName
-        aux  = case os of
+        lib  = case os of
             "darwin"  -> "/usr/local/lib/graciela-lib.so"
             "linux"   -> "/usr/local/lib/graciela-lib.so"
             "windows" -> undefined

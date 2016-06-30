@@ -1,14 +1,14 @@
 module Parser.ADT
     ( abstractDataType
-    , dataType 
+    , dataType
     ) where
 
 -------------------------------------------------------------------------------
-import Parser.Assertions             
+import Parser.Assertions
 import Parser.Expression
 import Parser.Declarations
 import Parser.Procedures             (listDefProc, listArgProc, panicMode, panicModeID)
-import Parser.Instructions           
+import Parser.Instructions
 import Parser.TokenParser
 import Parser.ParserType
 import MyParseError                  as PE
@@ -23,7 +23,7 @@ import AST
 import qualified Control.Applicative as AP
 import qualified Control.Monad       as M
 import qualified Data.Text           as T
-import           Text.Parsec         
+import           Text.Parsec
 -------------------------------------------------------------------------------
 
 
@@ -36,34 +36,34 @@ abstractDataType = do
     panicMode parseBegin (parseVar <|> parseTokLeftInv) PE.Begin
     abstractBody (topDecl <|> parseEnd)
 
-    try $do M.void parseEnd 
+    try $do M.void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
             try $do token <- lookAhead topDecl
-                    genNewError (return token) PE.LexEnd                     
+                    genNewError (return token) PE.LexEnd
              <|> do parseEnd
                     genNewError (return $ fst $ head t) PE.LexEnd
      <|> do M.void  parseEOF
 
     return Nothing
 
-topDecl :: MyParser Token   
-topDecl = choice  [ verify TokAbstract 
+topDecl :: MyParser Token
+topDecl = choice  [ verify TokAbstract
                   , verify TokDataType
                   , parseProgram
-                  ]      
+                  ]
 
 -- AbstractType -> '(' ListTypes ')'
 -- ListTypes: lista de ids contruidas con parsec
 
--- Podria hacerce con between, pero no se como dar errores "bonitos" 
+-- Podria hacerce con between, pero no se como dar errores "bonitos"
 abstractTypes :: MyParser (Maybe (AST Type))
-abstractTypes = do 
+abstractTypes = do
     try $do M.void parseLeftParent
      <|> do id <- lookAhead parseID                    -- abstract Dicc  t1,t2)
             genNewError (verify $ TokId id) PE.TokenLP --               ^
-     <|> do (token,_) <- anyToken                             
+     <|> do (token,_) <- anyToken
             manyTill  anyToken (lookAhead $ parseID)   -- abstract Dicc [t1,t2)
-            genNewError (return token) PE.TokenLP      --               ^ 
+            genNewError (return token) PE.TokenLP      --               ^
 
     sepBy (parseID) (parseComma)
 
@@ -72,14 +72,14 @@ abstractTypes = do
             genNewError (return TokBegin) PE.TokenRP  --                     ^
      <|> do (token,_) <- anyToken                     -- abstract Dicc (t1,t2]
             manyTill  anyToken (lookAhead parseBegin) --                     ^
-            genNewError (return token) PE.TokenRP 
-    
+            genNewError (return token) PE.TokenRP
+
     return Nothing
-     
+
 
 -- AbstractBody -> DecList Invariant ListProcDecl
 abstractBody :: MyParser Token -> MyParser (Maybe (AST Type))
-abstractBody follow = do 
+abstractBody follow = do
     newScopeParser
     dl    <- decList followAction follow
     invariant follow
@@ -87,15 +87,15 @@ abstractBody follow = do
     exitScopeParser
     return Nothing
 
-    
-    
+
+
 -- ProcDecl -> 'proc' ID ':' '(' ListArgProc ')' Precondition Postcondition
 procDecl :: MyParser Token -> MyParser (Maybe (AST Type))
 procDecl follow = do
-    pos <- getPosition                                   
+    pos <- getPosition
     try $do M.void parseProc
      <|> do try $do t <- parseID
-                    lookAhead parseID  
+                    lookAhead parseID
                     genNewError (return $TokId t) PE.ProcOrFunc
      <|> do t <- lookAhead parseID
             genNewError (return $TokId t) PE.ProcOrFunc
@@ -104,26 +104,26 @@ procDecl follow = do
 
 
     id <- panicModeID parseColon                                            -- ID
-    panicMode parseColon parseLeftParent PE.Colon                           -- :
+    -- panicMode parseColon parseLeftParent PE.Colon                           -- :
     panicMode parseLeftParent (argTypes <|> parseRightParent) PE.TokenLP    -- (
-    newScopeParser 
+    newScopeParser
     targs <- listArgProc id parseRightParent parseRightParent               -- arguments
     panicMode parseRightParent parseTokLeftPre PE.TokenRP                   -- )
     pre  <- precondition parseTokLeftPost                                   -- pre
     post <- postcondition follow                                            -- post
     exitScopeParser
     return Nothing
-    where 
-        argTypes :: MyParser Token   
+    where
+        argTypes :: MyParser Token
         argTypes = choice  [ parseIn
                           , parseOut
                           , parseInOut
                           , parseInOut
-                          ] 
+                          ]
 
 -- dataType -> 'type' ID 'implements' ID Types 'begin' DataTypeBody 'end'
 dataType :: MyParser (Maybe (AST Type))
-dataType = do 
+dataType = do
     verify TokDataType
     panicModeID (verify TokImplements)
     panicMode   (verify TokImplements) parseTokID PE.Implements
@@ -132,10 +132,10 @@ dataType = do
     panicMode parseBegin (parseVar <|> verify TokLeftRep) PE.Begin
     dataTypeBody parseEnd parseEnd
 
-    try $do M.void parseEnd 
+    try $do M.void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
             try $do token <- lookAhead topDecl
-                    genNewError (return token) PE.LexEnd                     
+                    genNewError (return token) PE.LexEnd
              <|> do parseEnd
                     genNewError (return $ fst $ head t) PE.LexEnd
      <|> do M.void parseEOF
@@ -145,26 +145,26 @@ dataType = do
 -- Types -> '(' ListTypes ')'
 -- ListTypes: lista de tipos contruidas con parsec
 types :: MyParser (Maybe (AST Type))
-types = do 
+types = do
 
     -- panicMode parseLeftParent parseType PE.TokenLP
     try $do M.void parseLeftParent
      <|> do t <- lookAhead $ parseType                  -- type Dicc implements D   t1,t2)
             genNewError (return $TokType t) PE.TokenLP  --                        ^
-     <|> do (token,_) <- anyToken                             
+     <|> do (token,_) <- anyToken
             manyTill  anyToken (lookAhead $ parseType)  -- type Dicc implements D [[t1,t2)
-            genNewError (return token) PE.TokenLP       --                        ^^ 
+            genNewError (return token) PE.TokenLP       --                        ^^
 
     sepBy (myType parseSemicolon parseSemicolon) (parseComma)
 
     panicMode parseRightParent parseBegin PE.TokenRP
 
     return Nothing
-     where parseType = myType parseSemicolon parseSemicolon  
+     where parseType = myType parseSemicolon parseSemicolon
 
 -- DataTypeBody -> DeclList RepInvariant AcInvariant ListDefProc
 dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
-dataTypeBody follow recSet = do 
+dataTypeBody follow recSet = do
     newScopeParser
     dl    <- decList followAction recSet
     repInvariant -- No hace nada

@@ -3,7 +3,7 @@ program main
 using (Dicc)
 begin
 
-    proc pedir : (out c: char)
+    proc pedir (out c: char)
     begin
         read(c);
 

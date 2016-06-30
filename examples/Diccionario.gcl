@@ -6,23 +6,23 @@ abstract Diccionario (t0, t1) begin
 
     {inv MAX > 0 /\ sizeof(conoc) <= MAX /\ conoc = dom(tabla) inv}
 
-    proc crear : (in m : int, out d : Diccionario)
+    proc crear (in m : int, out d : Diccionario)
         {pre m > 0 pre}
         {post d.MAX == m /\ d.conoc = emptyset /\ d.tabla = emptyset post}
 
-    proc agregar : (in-out d : Diccionario, in c : t0, in v : t1)
+    proc agregar (in-out d : Diccionario, in c : t0, in v : t1)
         {pre !(c elem d.conoc) /\ sizeof(d.conoc) < d.MAX pre}
         {post d.conoc == d'.conoc union {c} /\ d.tabla = d'.tabla union {(c, v)} post}
 
-    proc eliminar : (in-out d : Diccionario, in c : t0)
+    proc eliminar (in-out d : Diccionario, in c : t0)
         {pre c elem d.conoc pre}
         {post d.conoc = d'.conoc \ {c} /\ d.tabla = d'.tabla \ {(c, d'.tabla(c))} post}
 
-    proc buscar : (in d : Diccionario, in c: t0, out v : t1)
+    proc buscar (in d : Diccionario, in c: t0, out v : t1)
         {pre  c elem d.conoc pre}
         {post v == d.tabla(c) post}
 
-    proc existe : (in d : Diccionario, in c : t0, out e : boolean)
+    proc existe (in d : Diccionario, in c : t0, out e : boolean)
         {pre true pre}
         {post e == c elem d.conoc post}
 end

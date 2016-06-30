@@ -143,13 +143,13 @@ astToLLVM files (MyAST.Program name _ defs accs _) version =
                   , moduleDefinitions  = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
                   , moduleTargetTriple = Just whichTarget
                   }
-    where 
-        whichTarget = case os of 
-            "darwin"  -> arch++"-apple-macosx"++ crop version     -- With Mac, version needs to end with "0", 
+    where
+        whichTarget = case os of
+            "darwin"  -> arch++"-apple-macosx"++ crop version     -- With Mac, version needs to end with "0",
             "linux"   -> arch++"-unknown-linux-gnu"               -- example: 11.10.3 -> 11.10.0
             "windows" -> undefined
-        crop str = if last str == '.'  
-            then str++"0" 
+        crop str = if last str == '.'
+            then str++"0"
             else crop $ init str
 
 
@@ -287,7 +287,7 @@ createState name (MyAST.States cond loc exp _) = do
                               check <- addUnNamedInstruction intType $ _less e' op
                               setLabel checkZero $ condBranch check checkZero warAbort
 
-                              check' <- addUnNamedInstruction intType $ _lequal e' $ constantInt 0
+                              check' <- addUnNamedInstruction intType $ _less e' $ constantInt 0
                               var    <- getVarOperand name
                               store intType var e'
                               setLabel warAbort $ condBranch check' warAbort' next
