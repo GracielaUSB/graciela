@@ -138,11 +138,11 @@
 
 <AbstVarDec> ::= (`var'|`const') <Id> <MoreIds> `:' <AbstType>
 
-<AbstType> ::= set of <Basic'>
-\alt multiset of <Basic'>
-\alt seq of <Basic'>
-\alt Func <Basic'> `->' <Basic'>
-\alt Rel <Basic'> `->' <Basic'>
+<AbstType> ::= `set' `of' <Basic'>
+\alt `multiset' `of' <Basic'>
+\alt `seq' `of' <Basic'>
+\alt `func' <Basic'> `->' <Basic'>
+\alt `rel' <Basic'> `->' <Basic'>
 \alt `(' <Basic'> `,' <Basic'> <MoreBasics'> `)'
 \alt <Basic'>
 
