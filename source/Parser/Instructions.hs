@@ -1,4 +1,4 @@
-module Parser.Instructions 
+module Parser.Instructions
     ( CasesConditional(..)
     , actionsList
     , actionsListAux
@@ -94,7 +94,7 @@ actionAux follow recSet =
 
 
 followAction ::  MyParser Token
-followAction = (parseTokID <|> parseIf <|> parseAbort <|> parseSkip <|>
+followAction = (parseTokId <|> parseIf <|> parseAbort <|> parseSkip <|>
                   parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv <|> parseRandom)
 
 block :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
@@ -117,14 +117,14 @@ random follow recSet =
     do pos <- getPosition
        parseRandom
        do parseLeftParent
-          do id  <- parseID
+          do id  <- parseId
              do parseRightParent
                 cont <- lookUpSymbol id
                 let t = symbolType $ fromJust $ cont
                 return $ return $ Ran id t (toLocation pos) GEmpty
                 <|> do genNewError follow TokenRP
                        return Nothing
-             <|> do genNewError follow IDError
+             <|> do genNewError follow IdError
                     return Nothing
           <|> do genNewError follow TokenLP
                  return Nothing
@@ -168,7 +168,7 @@ guard CExpression follow recSet =
 functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 functionCallOrAssign follow recSet =
     do pos <- getPosition
-       id <- parseID
+       id <- parseId
        do parseLeftParent
           lexp  <- listExp (follow <|> parseRightParent) (recSet <|> parseRightParent)
           do parseRightParent
@@ -186,7 +186,7 @@ functionCallOrAssign follow recSet =
                       Just bl' ->
                         case bl' of
                           [] ->
-                            do let idast = fmap (ID (toLocation pos) id) t
+                            do let idast = fmap (Id (toLocation pos) id) t
                                return $ M.liftM4 LAssign (AP.liftA2 (:) idast rl) le (return (toLocation pos)) (return GEmpty)
                           otherwise ->
                             do let idast = (fmap (ArrCall (toLocation pos) id) bl) AP.<*>  t
@@ -198,7 +198,7 @@ idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST Typ
 idAssignListAux follow recSet =
   do parseComma
      pos <- getPosition
-     do ac <- parseID
+     do ac <- parseId
         t  <- lookUpConsParser ac
         bl <- bracketsList (parseComma <|> parseAssign)
                 (parseComma <|> parseAssign <|> recSet)
@@ -208,12 +208,12 @@ idAssignListAux follow recSet =
           Just bl' ->
             case bl' of
               [] ->
-                do let ast = fmap (ID (toLocation pos) ac) t
+                do let ast = fmap (Id (toLocation pos) ac) t
                    return $ AP.liftA2 (:) ast rl
               otherwise ->
                 do let ast = (fmap (ArrCall (toLocation pos) ac) bl) AP.<*>  t
                    return $ AP.liftA2 (:) ast rl
-        <|> do genNewError follow IDError
+        <|> do genNewError follow IdError
                return Nothing
      <|> do return $ return []
 

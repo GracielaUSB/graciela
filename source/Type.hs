@@ -9,6 +9,7 @@ como tambien los utilizados de forma interna en el compilador.
 -}
 module Type where
 --------------------------------------------------------------------------------
+import           Data.List (intercalate)
 import           Data.Text (Text)
 --------------------------------------------------------------------------------
 
@@ -32,20 +33,28 @@ instance Show TypeArg where
 
 -- | Son los tipos utilizados en el compilador.
 data Type
-    = GUndef -- ^ Tipo indefinido ( graciela 2.0 )
-    | GInt   -- ^ Tipo entero
-    | GFloat -- ^ Tipo flotante
-    | GBool  -- ^ Tipo boleano
-    | GChar  -- ^ Tipo caracter
+    = GUndef              -- ^ Tipo indefinido ( graciela 2.0 )
+    | GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
+    | GMultiset Type      -- ^ Tipo multiconjunto ( graciela 2.0 )
+    | GSeq      Type      -- ^ Tipo secuencia ( graciela 2.0 )
+    | GFunc     Type Type -- ^ Tipo func para TDAs ( graciela 2.0 )
+    | GRel      Type Type -- ^ Tipo relación ( graciela 2.0 )
+    | GTuple   [Type]     -- ^ Tipo n-upla ( graciela 2.0 )
+    | GTypeVar  Text      -- ^ Variable de tipo ( graciela 2.0 )
+
+    | GInt           -- ^ Tipo entero
+    | GFloat         -- ^ Tipo flotante
+    | GBool          -- ^ Tipo boleano
+    | GChar          -- ^ Tipo caracter
 
     -- Tipo para los Data types
-    | GDataType 
+    | GDataType
         { name   ::  Text
         , oftype :: [Type]
         , fields :: [Type]
         , procs  :: [Type]
         }
-    | GAbstractType 
+    | GAbstractType
         { name   ::  Text
         , oftype :: [Type]
         , fields :: [Type]
@@ -70,19 +79,30 @@ data Type
 
 -- | Instancia 'Eq' para los tipos.
 instance Eq Type where
-    GInt                 == GInt                 = True
-    GFloat               == GFloat               = True
-    GBool                == GBool                = True
-    GChar                == GChar                = True
-    GError               == GError               = True
-    GEmpty               == GEmpty               = True
-    (GDataType n1 _ _ _) == (GDataType n2 _ _ _) = True
+    GInt                     == GInt                     = True
+    GFloat                   == GFloat                   = True
+    GBool                    == GBool                    = True
+    GChar                    == GChar                    = True
+    GError                   == GError                   = True
+    GEmpty                   == GEmpty                   = True
+    (GDataType n1 _ _ _)     == (GDataType n2 _ _ _)     = True
     (GAbstractType n1 _ _ _) == (GAbstractType n2 _ _ _) = True
-    (GDataType n1 _ _ _) == (GAbstractType n2 _ _ _) = True
-    (GProcedure  _)      == (GProcedure   _)     = True
-    (GFunction _ t)      == (GFunction _ t')     = t == t'
-    (GArray    _ t)      == (GArray    _ t')     = t == t'
-    _                    ==  _                   = False
+    (GDataType n1 _ _ _)     == (GAbstractType n2 _ _ _) = True
+    (GProcedure  _)          == (GProcedure   _)         = True
+    (GFunction _ t)          == (GFunction _ t')         = t == t'
+    (GArray    _ t)          == (GArray    _ t')         = t == t'
+
+    (GSet t)                 == (GSet t')       = t == t'
+    (GMultiset t)            == (GMultiset t')  = t == t'
+    (GSeq t)                 == (GSeq t')       = t == t'
+
+    (GFunc d r)              == (GFunc d' r')   = (d == d') && (r == r')
+    (GRel d r)               == (GRel d' r')    = (d == d') && (r == r')
+
+    (GTuple    ts)           == (GTuple    ts')  = ts == ts'
+    (GTypeVar  t)            == (GTypeVar  t')   = t == t'
+
+    _                        == _                        = False
 
 
 -- | Instancia 'Show' para los tipos.
@@ -98,6 +118,15 @@ instance Show Type where
         (GProcedure   _) -> "proc"
         (GFunction  _ t) -> "func -> (" ++ show t ++ ")"
         (GArray     s t) -> "array " ++ show s ++ " of `" ++ show t ++ "`"
+
+        GSet      t      -> "conjunto de `" ++ show t ++ "`"
+        GMultiset t      -> "multiconjunto de `" ++ show t ++ "`"
+        GSeq      t      -> "secuencia de `" ++ show t ++ "`"
+        GFunc     ta tb  -> "función `" ++ show ta ++ "->" ++ show tb ++ "`"
+        GRel      ta tb  -> "relación `" ++ show ta ++ "->" ++ show tb ++ "`"
+        GTuple    ts     ->
+            "tupla (" ++ (intercalate " " . map show $ ts) ++ ")"
+        GTypeVar  name   -> "variable de tipo `" ++ show name ++ "`"
 
 
 -- | Retorna la dimensión del arreglo.

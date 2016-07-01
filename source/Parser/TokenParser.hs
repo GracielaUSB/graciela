@@ -17,7 +17,7 @@ verify x =
                            in ":" ++ show t ++ ", en la línea " ++ show line
                                             ++ ", columna "     ++ show column ++ "."
         testTok (t, pos) = if x == t
-                            then Just t 
+                            then Just t
                             else Nothing
 
 updatePos :: SourcePos -> (Token, SourcePos) -> [TokenPos] -> SourcePos
@@ -42,12 +42,13 @@ parseIn            = verify TokIn
 parseInOut         = verify TokInOut
 parseLBracket      = verify TokLeftBracket
 parseLeftBracket   = verify TokLeftBracket
-parseLeftParent    = verify TokLeftPar 
+parseLeftParent    = verify TokLeftPar
 parseMaxDouble     = verify TokMaxDouble
 parseMaxInt        = verify TokMaxInt
 parseMinDouble     = verify TokMinDouble
 parseMinInt        = verify TokMinInt
 parseMinus         = verify TokMinus
+parseMultiset      = verify TokMultiset
 parseOd            = verify TokOd
 parseOf            = verify TokOf
 parseOr            = verify TokOr
@@ -60,10 +61,13 @@ parseRandom        = verify TokRandom
 parseRBracket      = verify TokRightBracket
 parseRead          = verify TokRead
 parseRef           = verify TokRef
+parseRel           = verify TokRel
 parseRightBracket  = verify TokRightBracket
 parseRightParent   = verify TokRightPar
 parseSemicolon     = verify TokSemicolon
 parseSepGuards     = verify TokSepGuards
+parseSeq           = verify TokSeq
+parseSet           = verify TokSet
 parseSkip          = verify TokSkip
 parseSlash         = verify TokDiv
 parseStar          = verify TokTimes
@@ -117,16 +121,16 @@ parseAnyToken = tokenPrim showTok updatePos testTok
                   showTok (t, pos) = show t
                   testTok (t, pos) = Just t
 
-parseTokID :: MyParser Token
-parseTokID = tokenPrim showTok updatePos testTok
+parseTokId :: MyParser Token
+parseTokId = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
             testTok (t, pos) = case t of
                                    TokId id  -> Just $ TokId id
                                    _ -> Nothing
 
-parseID :: MyParser Text
-parseID = tokenPrim showTok updatePos testTok
+parseId :: MyParser Text
+parseId = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
             testTok (t, pos) = case t of

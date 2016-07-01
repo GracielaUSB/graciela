@@ -10,7 +10,7 @@ module Parser.Procedures
     , listArgProcAux
     , listDefProc
     , panicMode
-    , panicModeID
+    , panicModeId
     , proc
     , procOrFunc
     ) where
@@ -53,10 +53,10 @@ listDefProc follow recSet =
 procOrFunc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 procOrFunc follow recSet =
     try $ do
-        lookAhead (parseProc <|> parseTokID)
+        lookAhead (parseProc <|> parseTokId)
         proc
 
-    <|> try (do lookAhead (parseFunc <|> parseTokID)
+    <|> try (do lookAhead (parseFunc <|> parseTokId)
                 function (follow <|> parseFunc <|> parseProc) recSet)
     <|> do genNewError (follow <|> parseFunc <|> parseProc) PE.ProcOrFunc
            do lookAhead follow
@@ -80,17 +80,17 @@ function follow recSet = do
     pos <- getPosition
 
     do M.void parseFunc
-        <|> do try $ do t <- parseID
-                        lookAhead parseID
+        <|> do try $ do t <- parseId
+                        lookAhead parseId
                         genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do t <- lookAhead parseID
+        <|> do t <- lookAhead parseId
                genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do (t:_) <- manyTill anyToken (lookAhead $ parseID)
+        <|> do (t:_) <- manyTill anyToken (lookAhead $ parseId)
                genNewError (return $fst t) PE.ProcOrFunc
 
-    id <- panicModeID parseColon                                            -- ID
+    id <- panicModeId parseColon                                            -- Id
     -- panicMode parseColon parseLeftParent PE.Colon                           -- :
-    panicMode parseLeftParent (parseTokID <|> parseRightParent) PE.TokenLP  -- (
+    panicMode parseLeftParent (parseTokId <|> parseRightParent) PE.TokenLP  -- (
     newScopeParser
     lt <- listArgFunc id parseRightParent (parseRightParent)                -- arguments
     panicMode parseRightParent parseTokLeftPre PE.TokenRP                   -- )
@@ -132,7 +132,7 @@ function follow recSet = do
 
    -- do pos <- getPosition
    --    try ( do parseFunc
-   --             try ( do id <- parseID
+   --             try ( do id <- parseId
    --                      try ( do parseColon
    --                               try ( do parseLeftParent
    --                                        newScopeParser
@@ -159,7 +159,7 @@ function follow recSet = do
    --                          <|> do genNewError follow PE.Colon
    --                                 return Nothing
    --                 )
-   --                 <|> do genNewError follow PE.IDError
+   --                 <|> do genNewError follow PE.IdError
    --                        return Nothing
    --        )
    --        <|> do genNewError follow PE.TokenFunc
@@ -179,7 +179,7 @@ listArgFunc idf follow recSet =
 
 argFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
 argFunc idf follow recSet =
-    try ( do id <- parseID
+    try ( do id <- parseId
              try ( do parseColon
                       t  <- myType follow follow
                       pos <- getPosition
@@ -189,7 +189,7 @@ argFunc idf follow recSet =
                  <|> do genNewError follow PE.Colon
                         return Nothing
         )
-        <|> do genNewError follow PE.IDError
+        <|> do genNewError follow PE.IdError
                return Nothing
 
 
@@ -212,15 +212,15 @@ proc {-follow recSet-} = do
     pos <- getPosition
 
     M.void parseProc
-        <|> do try $ do t <- parseID
-                        lookAhead parseID
+        <|> do try $ do t <- parseId
+                        lookAhead parseId
                         genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do t <- lookAhead parseID
+        <|> do t <- lookAhead parseId
                genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do (t:_) <- manyTill anyToken (lookAhead $ parseID)
+        <|> do (t:_) <- manyTill anyToken (lookAhead $ parseId)
                genNewError (return $fst t) PE.Begin                            -- proc
 
-    id <- panicModeID parseColon                                            -- ID
+    id <- panicModeId parseColon                                            -- Id
     -- panicMode parseColon parseLeftParent PE.Colon                           -- :
     panicMode parseLeftParent (argTypes <|> parseRightParent) PE.TokenLP    -- (
     newScopeParser
@@ -259,7 +259,7 @@ proc {-follow recSet-} = do
     --    try (
     --       do parseProc
     --          try (
-    --            do id <- parseID
+    --            do id <- parseId
     --               try (
     --                 do parseColon
     --                    try (
@@ -297,7 +297,7 @@ proc {-follow recSet-} = do
     --                    <|> do genNewError follow PE.Colon
     --                           return Nothing
     --               )
-    --               <|> do genNewError follow PE.IDError
+    --               <|> do genNewError follow PE.IdError
     --                      return Nothing
     --        )
     --        <|> do genNewError follow PE.ProcOrFunc
@@ -349,29 +349,29 @@ argType follow recSet =
 
 arg :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
 arg pid follow recSet =
-    do at <- argType parseTokID (recSet <|> parseTokID)
+    do at <- argType parseTokId (recSet <|> parseTokId)
        try (
-         do id  <- parseID
+         do id  <- parseId
             parseColon
             t   <- myType follow recSet
             pos <- getPosition
             addArgProcParser id pid t (toLocation pos) at
             return $ return (id, t)
            )
-           <|> do genNewError follow PE.IDError
+           <|> do genNewError follow PE.IdError
                   return Nothing
 
 -- Deberian estar en el lugar adecuando, hasta ahora aqui porq no le he usado en archivos q no dependen de Procedure
 
-panicModeID :: MyParser Token -> MyParser T.Text
-panicModeID follow =
-        try parseID
+panicModeId :: MyParser Token -> MyParser T.Text
+panicModeId follow =
+        try parseId
     <|> do t <- lookAhead $ follow
-           genNewError (return t) PE.IDError
-           return $ T.pack "No ID"
+           genNewError (return t) PE.IdError
+           return $ T.pack "No Id"
     <|> do (t:_) <- manyTill anyToken (lookAhead follow)
-           genNewError (return $fst t) PE.IDError
-           return $ T.pack "No ID"
+           genNewError (return $fst t) PE.IdError
+           return $ T.pack "No Id"
 
 
 panicMode :: MyParser Token -> MyParser Token -> ExpectedToken -> MyParser ()

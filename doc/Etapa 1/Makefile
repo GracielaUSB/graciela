@@ -10,3 +10,4 @@ clean:
 	rm beamer.out
 	rm beamer.snm
 	rm beamer.toc
+	rm beamer.vrb

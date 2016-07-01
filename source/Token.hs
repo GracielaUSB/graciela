@@ -171,6 +171,11 @@ data Token
     | TokEmptySet
     | TokPointerAcc
 
+    | TokSet
+    | TokMultiset
+    | TokSeq
+    | TokRel
+
     deriving (Eq)
 
 
@@ -313,10 +318,14 @@ instance Show Token where
         TokElem           -> "\"elem\" - Elemento de conjunto"
         TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
         TokSetMinus       -> "\"\\\" - Resta de conjuntos"
-        TokSetUnion       -> "\"++\" - Unión de conjuntos"
-        TokSetIntersect   -> "\"++\" - Intersección de conjuntos"
+        TokSetUnion       -> "\"union\" - Unión de conjuntos"
+        TokSetIntersect   -> "\"intersect\" - Intersección de conjuntos"
         TokPointerAcc     -> "\"&\" - Direccion de"
 
+        TokSet            -> "\"set\" - Conjunto"
+        TokMultiset       -> "\"multiset\" - Multiconjunto"
+        TokSeq            -> "\"seq\" - Secuencia"
+        TokRel            -> "\"rel\" - Relación"
 
         where
             showType :: Type -> String

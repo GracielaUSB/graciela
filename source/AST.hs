@@ -106,20 +106,20 @@ data UnknownRange = SetRange   { getOp :: OpSet, getLexp :: UnknownRange, getRex
 
 data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Operadores Matematicos de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
-                        , tag :: a      
-                        } 
+                        , tag :: a
+                        }
          | Boolean      { opBinB    :: OpBool  , location    :: Location
                         , lexpr     :: AST a   , rexp        :: AST a
-                        , tag :: a      
+                        , tag :: a
                         } -- ^ Operadores Booleanos de dos expresiones.
          | Relational   { opBinR    :: OpRel   , location    :: Location
                         , lexpr     :: AST a   , rexp        :: AST a
-                        , tag :: a      
+                        , tag :: a
                         } -- ^ Operadores Relacionales de dos expresiones.
          | ArrCall      { location  :: Location, name        :: Text
                         , list      :: [AST a] , tag         :: a
                         } -- ^ Búsqueda en arreglo.
-         | ID           { location  :: Location, id          :: Text    , tag :: a } -- ^ Identificador.
+         | Id           { location  :: Location, id          :: Text    , tag :: a } -- ^ Identificador.
          | Int          { location  :: Location, expInt      :: Integer , tag :: a } -- ^ Numero entero.
          | Float        { location  :: Location, expFloat    :: Double  , tag :: a } -- ^ Numero entero.
          | Bool         { location  :: Location, cbool       :: Bool    , tag :: a } -- ^ Tipo booleano con el token.
@@ -127,20 +127,20 @@ data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Op
          | String       { location  :: Location, mstring     :: String  , tag :: a } -- ^ Tipo string con el token.
          | Constant     { location  :: Location, int         :: Bool                 -- ^ Constantes.
                         , max       :: Bool    , tag         :: a
-                        } 
+                        }
          | Conversion   { toType    :: Conv    , location    :: Location             -- ^ Conversión a entero.
                         , tiexp     :: AST a   , tag         :: a
-                        } 
+                        }
          | Unary        { opUn      :: OpUn    , location    :: Location             -- ^ Función raíz cuadrada.
                         , lenExp    :: AST a   , tag         :: a
-                        } 
+                        }
          | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
          | Abort        { location  :: Location, tag         :: a } -- ^ Instruccion Abort.
          | Cond         { cguard    :: [AST a] , location    :: Location, tag :: a                                          } -- ^ Instruccion If.
          | Block        { location  :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
                         , tag :: a                                                                                     }
          | Rept         { rguard    :: [AST a] , rinv        :: AST a, rbound   :: AST a, location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | ConsAssign   { location  :: Location, caID        :: [(Text, Location)], caExpr :: [AST a], tag :: a             }
+         | ConsAssign   { location  :: Location, caId        :: [(Text, Location)], caExpr :: [AST a], tag :: a             }
 
          | LAssign      { idlist    :: [AST a] , explista    :: [AST a], location :: Location, tag :: a                     } -- ^
 
@@ -176,7 +176,7 @@ data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Op
 
 
 astToId :: AST a -> Maybe Text
-astToId (ID _ id _) = Just id
+astToId (Id _ id _) = Just id
 astToId (ArrCall _ id _ _) = Just id
 astToId _           = Nothing
 
@@ -252,8 +252,8 @@ drawAST level (Boolean t loc lexpr rexp ast) =
                                                        <> drawAST (level + 8) rexp
 
 
-drawAST level (ID loc cont ast) =
-   putSpacesLn level <> "ID: "        <> show cont <> putLocation loc
+drawAST level (Id loc cont ast) =
+   putSpacesLn level <> "Id: "        <> show cont <> putLocation loc
                      <> " //Tag: "    <> show ast
 
 

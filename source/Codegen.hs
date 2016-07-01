@@ -184,16 +184,16 @@ createLLVM files defs accs = do
     return ()
 
 
-convertID :: String -> String
-convertID name = '_':name
+convertId :: String -> String
+convertId name = '_':name
 
-convertID' :: MyAST.AST T.Type -> String
-convertID' (MyAST.ArrCall _ id _ _) = "__" ++ (TE.unpack id)
-convertID' (MyAST.ID        _ id _) = "__" ++ (TE.unpack id)
+convertId' :: MyAST.AST T.Type -> String
+convertId' (MyAST.ArrCall _ id _ _) = "__" ++ (TE.unpack id)
+convertId' (MyAST.Id        _ id _) = "__" ++ (TE.unpack id)
 
-convertID'' :: MyAST.AST T.Type -> String
-convertID'' (MyAST.ArrCall _ id _ _) = "___" ++ (TE.unpack id)
-convertID'' (MyAST.ID        _ id _) = "___" ++ (TE.unpack id)
+convertId'' :: MyAST.AST T.Type -> String
+convertId'' (MyAST.ArrCall _ id _ _) = "___" ++ (TE.unpack id)
+convertId'' (MyAST.Id        _ id _) = "___" ++ (TE.unpack id)
 
 
 addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
@@ -203,7 +203,7 @@ addArgOperand ((id',c):xs) = do
 
     let t    = toType $ symbolType c
     let tp   = procArgType c
-    let id   = convertID id'
+    let id   = convertId id'
     let e'   = local t (Name id')
     case tp of
         T.InOut -> do exp <- addUnNamedInstruction t $ Load False e' Nothing 0 []
@@ -229,7 +229,7 @@ addArgOperand ((id',c):xs) = do
 
 
 retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
-retVarOperand [] = return()
+retVarOperand [] = return ()
 
 retVarOperand ((id', c):xs) = do
 
@@ -334,7 +334,7 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
 
 
 accToAlloca :: MyAST.AST T.Type -> LLVM()
-accToAlloca acc@(MyAST.ID _ id' t) = do
+accToAlloca acc@(MyAST.Id _ id' t) = do
 
     let id = TE.unpack id'
     dim <- typeToOperand id t
@@ -392,7 +392,7 @@ callRead T.GFloat = do
 
 
 idToAlloca :: MyAST.AST T.Type -> LLVM()
-idToAlloca (MyAST.ID _ id t) = do
+idToAlloca (MyAST.Id _ id t) = do
     let id' = TE.unpack id
     dim <- typeToOperand id' t
     alloca dim (toType t) id'
@@ -420,7 +420,7 @@ procedureCall t pname es = do
 
 
 getStoreDir :: MyAST.AST T.Type -> LLVM Operand
-getStoreDir (MyAST.ID _ name _) = getVarOperand (TE.unpack name)
+getStoreDir (MyAST.Id _ name _) = getVarOperand (TE.unpack name)
 getStoreDir (MyAST.ArrCall _ name exps _) = do
     ac' <- mapM createExpression exps
     map <- gets varsLoc
@@ -431,7 +431,7 @@ getStoreDir (MyAST.ArrCall _ name exps _) = do
 
 createAssign :: MyAST.AST T.Type -> MyAST.AST T.Type -> LLVM String
 createAssign id' exp = do
-    let id = convertID' id'
+    let id = convertId' id'
     let ty = toType $ MyAST.tag exp
     e'  <- createExpression exp
     op  <- checkVar id ty
@@ -450,7 +450,7 @@ createMultyAssign id aux = do
 
 createInstruction :: MyAST.AST T.Type -> LLVM ()
 createInstruction (MyAST.EmptyAST _ ) = return ()
-createInstruction (MyAST.ID _ _ _)    = return ()
+createInstruction (MyAST.Id _ _ _)    = return ()
 createInstruction (MyAST.Skip _ _)    = return ()
 
 
@@ -593,7 +593,7 @@ myFromJust (Just x) = x
 
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
-createExpression (MyAST.ID _ id t) = do
+createExpression (MyAST.Id _ id t) = do
     var <- gets varsLoc
     let (n, ty) = (TE.unpack id, toType t)
     let check   = DM.lookup n var

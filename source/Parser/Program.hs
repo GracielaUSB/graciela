@@ -1,12 +1,12 @@
-module Parser.Program 
-  (program 
+module Parser.Program
+  (program
   )where
 
 
 -------------------------------------------------------------------------------
 import Parser.Instructions          (block)
-import Parser.Procedures            (listDefProc,panicMode,panicModeID)
-import Parser.TokenParser           
+import Parser.Procedures            (listDefProc,panicMode,panicModeId)
+import Parser.TokenParser
 import Parser.ADT
 import MyParseError                  as PE
 import ParserState
@@ -22,14 +22,14 @@ import qualified Data.Text as T
 import           Text.Parsec
 -------------------------------------------------------------------------------
 
--- MainProgram -> 'program' ID 'begin' ListDefProc Block 'end'
+-- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
 mainProgram :: MyParser (Maybe (AST Type))
-mainProgram = do 
+mainProgram = do
     pos <- getPosition
     newScopeParser
-    panicMode parseProgram parseTokID PE.Program
-    id <- panicModeID parseBegin
-    panicMode parseBegin (parseProc <|> parseFunc <|> parseTokOpenBlock) PE.Begin                   
+    panicMode parseProgram parseTokId PE.Program
+    id <- panicModeId parseBegin
+    panicMode parseBegin (parseProc <|> parseFunc <|> parseTokOpenBlock) PE.Begin
 
 
     ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock
@@ -40,15 +40,15 @@ mainProgram = do
         )
         <|> do genNewError parseEOF PE.LexEnd
                return Nothing
-         
 
-      
+
+
 
 -- Program -> Abstract Program
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
 program :: MyParser (Maybe (AST Type))
-program = do  many (abstractDataType <|> dataType) -- Por ahora debe haber un programa 
+program = do  many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
               mainProgram                          -- principal al final del archivo
 
 

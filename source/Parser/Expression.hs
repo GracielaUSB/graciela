@@ -224,7 +224,7 @@ exprLevel9' follow e =
         return $ AP.liftA3 (Arithmetic Exp (toLocation pos)) e r (return (GEmpty))
         <|> return e
 
-lookaheadExpr = 
+lookaheadExpr =
   do  parseLeftParent
   <|> parseMaxDouble
   <|> parseMaxInt
@@ -238,13 +238,13 @@ lookaheadExpr =
   <|> parseTokBool
   <|> parseTokChar
   <|> parseTokDouble
-  <|> parseTokID
+  <|> parseTokId
   <|> parseTokLeftPer
   <|> parseTokNot
   <|> parseTokNumber
   <|> parseTokSqrt
   <|> parseTokString
-  
+
 
 constant :: MyParser (Maybe (AST Type))
 constant =
@@ -268,7 +268,7 @@ exprLevel10 follow =
          do  try(parseRightParent >>= return . return e)
              <|> do genNewError (follow) (TokenRP)
                     return $ Nothing
-         <|> do idp <- parseID
+         <|> do idp <- parseId
                 t <- lookUpVarParser idp (toLocation pos)
                 do parseLeftParent
                    lexp <- listExp (parseEOF <|> parseRightParent) (follow <|> parseRightParent)
@@ -280,7 +280,7 @@ exprLevel10 follow =
                    <|> do lookAhead parseLeftBracket
                           blist  <- bracketsList follow follow
                           return $ (AP.liftA2 (ArrCall (toLocation pos) idp) blist t)
-                   <|> do return $ fmap (ID (toLocation pos) idp) t
+                   <|> do return $ fmap (Id (toLocation pos) idp) t
          <|> do parseMaxInt
                 return $ return $ Int (toLocation pos) maxInteger GInt
          <|> do parseMinInt
@@ -335,7 +335,7 @@ quantification follow recSet =
   do pos <- getPosition
      parseTokLeftPer
      do op <- parseOpCuant
-        do id <- parseID
+        do id <- parseId
            do parseColon
               t <- myType parsePipe (recSet <|> parsePipe)
               newScopeParser
@@ -355,7 +355,7 @@ quantification follow recSet =
                         return Nothing
               <|> do genNewError follow Colon
                      return Nothing
-           <|> do genNewError follow IDError
+           <|> do genNewError follow IdError
                   return Nothing
         <|> do genNewError follow Cuant
                return Nothing

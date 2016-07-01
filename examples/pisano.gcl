@@ -2,8 +2,8 @@
 
 abstract Diccionario (t0,t1) begin
     var MAX   : int;
-    var conoc : int; // set of t0
-    var tabla : set of int; // set of t0
+    var conoc : set of t0;
+    var tabla : func t0 -> t1;
 
     {inv MAX > 0 /\ conoc <=  MAX inv}
 
@@ -171,7 +171,7 @@ program main begin
         var   x := 0  : int;
         var   a       : array[m] of int;
 
-        {inv (%forall i : int | i > 0 | true %) inv}
+        {inv (%forall i : int | i > 0 /\ i < 10 | true %) inv}
         {bound (m-x) bound}
         do x < 10 ->
         |[  a[x] := x

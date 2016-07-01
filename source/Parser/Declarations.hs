@@ -32,7 +32,7 @@ import Text.Parsec
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
 decList follow recSet =
-    do loc <- parseLocation 
+    do loc <- parseLocation
        do parseVar
           idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
           do parseColon
@@ -40,7 +40,7 @@ decList follow recSet =
              addManyUniSymParser idl t
              do parseSemicolon
                 rl <- decList follow recSet
-                return $ AP.liftA2 (++) (fmap (map (\(name,loc') -> AST.ID loc' name t)) idl) rl
+                return $ AP.liftA2 (++) (fmap (map (\(name,loc') -> AST.Id loc' name t)) idl) rl
                 <|> do genNewError follow SColon
                        return Nothing
              <|> do parseAssign
@@ -50,7 +50,7 @@ decList follow recSet =
                        addManySymParser CO.Variable idl t lexp
                        do parseSemicolon
                           rl <- decList follow recSet
-                          let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
+                          let idlist = fmap (map (\(id, loc) -> Id loc id t)) idl
                           return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return GEmpty)) rl
                           <|> do genNewError follow SColon
                                  return Nothing
@@ -67,7 +67,7 @@ decList follow recSet =
                     addManySymParser CO.Constant idl t lexp
                     parseSemicolon
                     rl <- decList follow recSet
-                    let idlist = fmap (map (\(id, loc) -> ID loc id t)) idl
+                    let idlist = fmap (map (\(id, loc) -> Id loc id t)) idl
                     return $ AP.liftA2 (:) (M.liftM4 LAssign idlist lexp (return loc) (return GEmpty)) rl
                     <|> do genNewError follow Colon
                            return Nothing
@@ -85,34 +85,34 @@ consListParser follow recSet =
           <|> do return $ fmap (:[]) c
 
 
--- | Se encarga del parseo del ID de una variable
+-- | Se encarga del parseo del Id de una variable
 idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
 idList follow recSet =
     do lookAhead follow
        genNewEmptyError
        return $ Nothing
-       <|> do ac <- parseID
+       <|> do ac <- parseId
               loc <- parseLocation
               rl <- idListAux follow recSet
               return (fmap ((ac, loc) :) rl)
 
 
--- | Se encarga del parseo de la lista de ID's de las variables
+-- | Se encarga del parseo de la lista de Id's de las variables
 idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
-idListAux follow recSet =
-  do parseComma
-     ac <- parseID
-     loc <- parseLocation
-     rl <- idListAux (follow) (recSet)
-     return (fmap ((ac, loc) :) rl)
-     <|> do return $ return []
+idListAux follow recSet = do
+    parseComma
+    ac <- parseId
+    loc <- parseLocation
+    rl <- idListAux follow recSet
+    return (fmap ((ac, loc) :) rl)
+    <|> do return $ return []
 
 
--- | Se encarga de generar la posicion de los ID's
+-- | Se encarga de generar la posicion de los Id's
 parseLocation :: MyParser (Location)
-parseLocation =
-    do pos <- getPosition
-       return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
+parseLocation = do
+    pos <- getPosition
+    return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
 
 
 -- | Se encarga del parseo de la lectura de variables

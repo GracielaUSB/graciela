@@ -289,7 +289,7 @@ createRange var (Relational op _ lexp rexp _) =
 
 
 checkNode :: Text -> OpRel -> AST Type -> AST Type -> (AST Type, AST Type)
-checkNode id op lexp@(ID loc id' t) rexp =
+checkNode id op lexp@(Id loc id' t) rexp =
     if id == id'
       then case op of
           Less -> (Int loc minInteger t, sub1 rexp)
@@ -305,7 +305,7 @@ checkNode id op lexp@(ID loc id' t) rexp =
               Greater -> (sub1 lexp, Int loc minInteger ty)
               GEqual -> (lexp, Int loc minInteger ty)
 
-checkNode id op lexp (ID loc id' t) =
+checkNode id op lexp (Id loc id' t) =
     case op of
         Less    -> (sum1 lexp, Int loc maxInteger t)
         LEqual  -> (lexp, Int loc maxInteger t)

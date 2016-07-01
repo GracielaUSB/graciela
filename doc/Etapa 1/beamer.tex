@@ -1,22 +1,10 @@
 \documentclass{beamer}
-%
-% Choose how your presentation looks.
-%
-% For more themes, color themes and font themes, see:
-% http://deic.uab.es/~iblanes/beamer_gallery/index_by_theme.html
-%
-
-% \vskip 1cm
-
-% \begin{block}{Examples}
-% Some examples of commonly used commands and features are included, to help you get started.
-% \end{block}
 
 \mode<presentation>
 {
-  \usetheme{Warsaw}      % or try Darmstadt, Madrid, Warsaw, ...
-  \usecolortheme{default} % or try albatross, beaver, crane, ...
-  \usefonttheme{default}  % or try serif, structurebold, ...
+  \usetheme{Warsaw}
+  \usecolortheme{default}
+  \usefonttheme{default}
   \setbeamertemplate{navigation symbols}{}
   \setbeamertemplate{caption}[numbered]
 }
@@ -27,14 +15,13 @@
 \usepackage{lmodern}
 \usepackage{syntax}
 
-\setlength{\grammarparsep}{5pt plus 1pt minus 1pt} % increase separation between rules
-\setlength{\grammarindent}{6em} % increase separation between LHS/RHS
+\setlength{\grammarparsep}{5pt plus 1pt minus 1pt}
+\setlength{\grammarindent}{7em}
 
 \title[Graciela]{[Gg]raciela - Primera entrega}
 \author[Ackerman - Spaggiari]{Moisés Ackerman \and Carlos Spaggiari}
 \institute[USB]{Universidad Simón Bolívar}
 \date{\today{}}
-\titlegraphic{}
 
 \begin{document}
 
@@ -42,7 +29,9 @@
   \titlepage
 \end{frame}
 
+
 \section{Lo superficial}
+
 \subsection{Nombres}
 \begin{frame}{Nombres}
 \begin{itemize}
@@ -51,6 +40,7 @@
   \item El compilador es \texttt{graciela}.
 \end{itemize}
 \end{frame}
+
 
 \subsection{El comando}
 \begin{frame}{El comando}
@@ -69,6 +59,7 @@
 \end{itemize}
 \end{frame}
 
+
 \subsection{Instalación}
 \begin{frame}{Instalación}
 \framesubtitle{UX stands for stUdent eXperience}
@@ -84,6 +75,7 @@
 \end{itemize}
 \end{frame}
 
+
 \subsection{Add-ons}
 \begin{frame}{Colores!}
 \framesubtitle{UX stands for stUdent eXperience}
@@ -97,6 +89,7 @@
 \end{itemize}
 \end{frame}
 
+
 \subsection{Fixes}
 \begin{frame}{Fixes}
 \framesubtitle{Look ma, no floats!}
@@ -107,6 +100,7 @@
 \end{itemize}
 \end{frame}
 
+
 \subsection{Pendientes}
 \begin{frame}{Pendientes}
 \framesubtitle{\texttt{Non-exhaustive patterns in function <insert function here>}}
@@ -114,6 +108,7 @@
   \item Sigue habiendo errores en la generación de código para cuantificadores (rangos),
 \end{itemize}
 \end{frame}
+
 
 \section{Lo profundo}
 \subsection{Objetivos}
@@ -124,39 +119,40 @@
 \end{itemize}
 \end{frame}
 
+
 \subsection{Tipos de datos estructurados abstractos}
-\begin{frame}{La gramática}
+\begin{frame}[fragile]{La gramática}
 \scriptsize
 \begin{grammar}
 
-<ADT> ::= `abstract' <ID> <TypeVars> `begin' <AbstBody> `end'
+<ADT> ::= `abstract' <Id> <TypeVars> `begin' <AbstBody> `end'
 
-<TypeVars> ::= `(' <ID> <MoreIDs> `)' | $\lambda$
+<TypeVars> ::= `(' <Id> <MoreIds> `)' | $\lambda$
 
-<MoreIDs> ::= `,' <ID> <MoreIDs> | $\lambda$
+<MoreIds> ::= `,' <Id> <MoreIds> | $\lambda$
 
-<AbstBody> ::= <VarDecs> <Invariant> <ProcDecs>
+<AbstBody> ::= <AbstVarDecs> <Invariant> <ProcDecs>
 
-<VarDecs> ::= <VarDec> `;' <VarDecs> | $\lambda$
+<AbstVarDecs> ::= <AbstVarDec> `;' <AbstVarDecs> | $\lambda$
 
-<VarDec> ::= (`var'|`const') <ID> <DecAssgn> `:' <Type>
+<AbstVarDec> ::= (`var'|`const') <Id> <MoreIds> `:' <AbstType>
 
-<DecAssgn> ::= | `:=' <Val> $\lambda$
+<AbstType> ::= set of <Basic'>
+\alt multiset of <Basic'>
+\alt seq of <Basic'>
+\alt Func <Basic'> `->' <Basic'>
+\alt Rel <Basic'> `->' <Basic'>
+\alt `(' <Basic'> `,' <Basic'> <MoreBasics'> `)'
+\alt <Basic'>
 
-<Type> ::= set of <Basic>
-\alt multiset of <Basic>
-\alt seq of <Basic>
-\alt Func <Basic> `->' <Basic>
-\alt Rel <Basic> `<->' <Basic>
-\alt `(' <ID> `,' <ID> <MoreIDs> `)'
-\alt <Basic>
+<Basic'> ::= <Id> | <Basic>
 
-<Basic> ::= <ID> | `int' | `char' | `float' | `bool'
+<Basic> ::= `int' | `char' | `double' | `bool'
 
 \end{grammar}
 \end{frame}
 
-\begin{frame}{La gramática, cont.}
+\begin{frame}[fragile]{La gramática, cont.}
 \scriptsize
 \begin{grammar}
 
@@ -164,14 +160,14 @@
 
 <ProcDecs> ::= <ProcDec> <ProcDecs>
 
-<ProcDec> ::= `proc' <ID> `(' <ProcArgs> `)' <Precond> <Postcond>
+<ProcDec> ::= `proc' <Id> `(' <ProcArgs> `)' <Precond> <Postcond>
 
 <ProcArgs> ::= <ProcArg> `,' <ProcArgs> | $\lambda$
 
-<ProcArg> ::= (`in'|`out'|`inout'|`ref') <ID> `:' <Type'>
+<ProcArg> ::= (`in'|`out'|`inout'|`ref') <Id> `:' <AbstType'>
 
-<Type'> ::= <Type>
-\alt <ID> <TypeVars>
+<AbstType'> ::= <AbstType>
+\alt <Id> <TypeVars>
 
 <Precond> ::= `\{pre' <BoolExp> `pre\}'
 
@@ -180,14 +176,20 @@
 \end{grammar}
 \end{frame}
 
+
 \subsection{Tipos de datos estructurados}
-\begin{frame}{La gramática}
+\begin{frame}[fragile]{La gramática}
 \scriptsize
 \begin{grammar}
 
-<DT> ::= `type' <ID> <Types> `begin' <DTBody> `end'
+<DT> ::= `type' <Id> <Types> `begin' <DTBody> `end'
+
 
 <Types> ::= `(' <Type> <MoreTypes> `)' | $\lambda$
+
+<Type> ::= array of <Type>
+\alt `*' <Type>
+\alt <Basic>
 
 <MoreTypes> ::= `,' <Type> <MoreTypes> | $\lambda$
 
@@ -199,7 +201,7 @@
 
 <ProcDefs> ::= <ProcDef> <ProcDefs>
 
-<ProcDef> \textit{Definido por Araujo y Jiménez}
+<ProcDef> ::= \textit{(Definido por Araujo y Jiménez)}
 
 \end{grammar}
 \end{frame}
@@ -222,6 +224,7 @@
       se ejecuta el cuerpo del método.
 \end{enumerate}
 \end{frame}
+
 
 \begin{frame}{Verificación de poscondiciones}
 \begin{enumerate}
@@ -247,6 +250,7 @@
 \end{enumerate}
 \end{frame}
 
+
 \subsection{Apuntadores}
 \begin{frame}{Apuntadores}
 \begin{itemize}
@@ -256,6 +260,7 @@
   \item Interacción delicada con tipos de datos estructurados al momento de verificar aserciones.
 \end{itemize}
 \end{frame}
+
 
 \section{Resultados}
 

@@ -1,4 +1,4 @@
-module Parser.ParserType 
+module Parser.ParserType
     ( myBasicType
     , parsePointer
     , myType
@@ -20,14 +20,14 @@ myBasicType :: MyParser Token -> MyParser Token -> MyParser Type
 myBasicType follow recSet = parseType
 
 parsePointer :: Type -> MyParser Type
-parsePointer t = 
+parsePointer t =
   do
     parseStar
     parsePointer $GPointer t
   <|> return t
 
 myType :: MyParser Token -> MyParser Token -> MyParser Type
-myType follow recSet = 
+myType follow recSet =
       do t <- myBasicType follow recSet
          try $do parsePointer t
           <|> return t
@@ -42,7 +42,7 @@ myType follow recSet =
                   Nothing -> return GEmpty
                   Just n' -> return $ GArray n' t
 
-       <|> do id <- parseID
+       <|> do id <- parseId
               parseOf
               t <- myType follow recSet
               -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
@@ -58,7 +58,7 @@ parseConstNumber follow recSet =
            return Nothing
            <|> do e <- number
                   return $ return $ return e
-           <|> do id <- parseID
+           <|> do id <- parseId
                   res <- lookUpConstIntParser id (toLocation pos)
                   case res of
                     Nothing -> return Nothing
