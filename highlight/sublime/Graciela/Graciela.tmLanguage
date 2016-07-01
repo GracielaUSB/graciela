@@ -14,7 +14,7 @@
 			<key>comment</key>
 			<string>Keywords and instructions</string>
 			<key>match</key>
-			<string>\b(abstract|program|begin|do|end|exist|∃|notexist|∄|forall|∀|sigma|∑|pi|∏|if|fi|implements|in|inout|od|out|proc|func|return|type)\b</string>
+			<string>\b(abstract|program|begin|do|end|exist|notexist|forall|sigma|pi|if|fi|implements|in|inout|od|out|proc|func|return|type)\b</string>
 			<key>name</key>
 			<string>keyword.control</string>
 		</dict>
@@ -102,7 +102,15 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>\b(int|array|char|boolean|string|write|writeln|true|false|of|read|skip|set|sequence|function|relation|tuple)\b</string>
+			<string>\b(int|array|char|boolean|string|write|writeln|true|false|emptyset|of|read|skip|set|sequence|function|relation|tuple)\b</string>
+			<key>name</key>
+			<string>storage.type</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Builtin sym waves</string>
+			<key>match</key>
+			<string>∅</string>
 			<key>name</key>
 			<string>storage.type</string>
 		</dict>
@@ -110,7 +118,7 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>(:|var|[\{]+(pre|post|inv|bound|repinv|coupinv)|(pre|post|inv|bound|repinv|coupinv)[\}]+)</string>
+			<string>(:|var|const|[\{]+(pre|post|inv|bound|repinv|coupinv)|(pre|post|inv|bound|repinv|coupinv)[\}]+)</string>
 			<key>name</key>
 			<string>entity.name.function</string>
 		</dict>

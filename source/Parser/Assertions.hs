@@ -79,11 +79,3 @@ repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representatio
 coupInvariant :: MyParser (Maybe (AST Type) )
 coupInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple
                           (parseEnd <|> parseProc)
-
-
-
-
-
-
-
-
