@@ -169,12 +169,14 @@ data Token
     | TokSetUnion
     | TokSetIntersect
     | TokEmptySet
-    | TokPointerAcc
 
     | TokSet
     | TokMultiset
     | TokSeq
     | TokRel
+
+    | TokNew
+    | TokFree
 
     deriving (Eq)
 
@@ -312,20 +314,22 @@ instance Show Token where
         TokAbstract       -> "\"abstract\""
         TokLeftRep        -> "\"{repinv\""       -- UGLY
         TokRightRep       -> "\"repinv\"}"       -- UGLY
-        TokLeftAcopl      -> "\"{acinv\""        -- UGLY
-        TokRightAcopl     -> "\"acinv\"}"        -- UGLY
+        TokLeftAcopl      -> "\"{coupinv\""        -- UGLY
+        TokRightAcopl     -> "\"coupinv\"}"        -- UGLY
 
         TokElem           -> "\"elem\" - Elemento de conjunto"
         TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
         TokSetMinus       -> "\"\\\" - Resta de conjuntos"
         TokSetUnion       -> "\"union\" - Unión de conjuntos"
         TokSetIntersect   -> "\"intersect\" - Intersección de conjuntos"
-        TokPointerAcc     -> "\"&\" - Direccion de"
 
         TokSet            -> "\"set\" - Conjunto"
         TokMultiset       -> "\"multiset\" - Multiconjunto"
         TokSeq            -> "\"seq\" - Secuencia"
         TokRel            -> "\"rel\" - Relación"
+
+        TokNew            -> "\"new\" - asignar una ubicación en el heap"
+        TokFree           -> "\"free\" - liberar ubicación en el heap"
 
         where
             showType :: Type -> String

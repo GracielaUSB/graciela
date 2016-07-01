@@ -62,8 +62,8 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "abstract"   >> return TokAbstract)
     <|> (tryR "{repinv"    >> return TokLeftRep)
     <|> (tryR "repinv}"    >> return TokRightRep)
-    <|> (tryR "{acinv"     >> return TokLeftAcopl)
-    <|> (tryR "acinv}"     >> return TokRightAcopl)
+    <|> (tryR "{coupinv"   >> return TokLeftAcopl)
+    <|> (tryR "coupinv}"   >> return TokRightAcopl)
 
     <|> (tryR "elem"       >> return TokElem)
     <|> (tryS "\8712"      >> return TokElem)    -- ∈
@@ -99,7 +99,8 @@ lex1 =  (tryR "program"    >> return TokProgram)
     <|> (tryR "intersect"  >> return TokSetIntersect)
     <|> (tryS "\8745"      >> return TokSetUnion) -- ∩
 
-    <|> (tryR "&"          >> return TokPointerAcc)
+    <|> (tryR "new"        >> return TokNew)
+    <|> (tryR "free"       >> return TokFree)
     -- V2.0
 
     <|> (char '+'          >> return TokPlus)

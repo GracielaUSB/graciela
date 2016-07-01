@@ -14,6 +14,8 @@ module Parser.Instructions
     , idAssignListAux
     , write
     , writeln
+    , new
+    , free
     , abort
     , conditional
     , repetition
@@ -87,6 +89,8 @@ actionAux follow recSet =
     <|> abort follow recSet
     <|> write follow recSet
     <|> writeln follow recSet
+    <|> new follow recSet
+    <|> free follow recSet
     <|> functionCallOrAssign follow recSet
     <|> random follow recSet
     <|> block follow recSet
@@ -244,6 +248,23 @@ writeln follow recSet =
           <|> do genNewError follow TokenLP
                  return Nothing
 
+new :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+new follow recSet = do
+    parseNew
+    parseLeftParent
+    _ <- parseId
+    parseRightParent
+
+    return . Just . EmptyAST $ GEmpty
+
+free :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+free follow recSet = do
+    parseFree
+    parseLeftParent
+    _ <- parseId
+    parseRightParent
+
+    return . Just . EmptyAST $ GEmpty
 
 abort ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
 abort folow recSet =

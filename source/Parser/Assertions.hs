@@ -1,4 +1,4 @@
-module Parser.Assertions 
+module Parser.Assertions
   ( assertions
   , precondition
   , postcondition
@@ -6,7 +6,7 @@ module Parser.Assertions
   , assertion
   , invariant
   , repInvariant
-  , acInvariant
+  , coupInvariant
   )
   where
 
@@ -30,8 +30,8 @@ import qualified Control.Applicative as AP
 import           Text.Parsec
 -------------------------------------------------------------------------------
 
-assertions :: MyParser Token -> MyParser Token 
-           -> StateCond      -> MyParser Token 
+assertions :: MyParser Token -> MyParser Token
+           -> StateCond      -> MyParser Token
            -> MyParser (Maybe (AST Type) )
 assertions initial final ty follow = do
     try $do initial
@@ -45,7 +45,7 @@ assertions initial final ty follow = do
              <|> do (t:_) <- manyTill anyToken $lookAhead follow
                     genNewError (return $fst t) PE.TokenCA
                     return Nothing
-     
+
      <|> do t <- lookAhead follow
             genNewError (return t) PE.TokenOA
             return $Nothing
@@ -55,7 +55,7 @@ assertions initial final ty follow = do
      <|> do (t:_) <- manyTill anyToken $lookAhead follow
             genNewError (return $fst t) PE.TokenOA
             return $Nothing
-      
+
 
 precondition :: MyParser Token -> MyParser (Maybe (AST Type) )
 precondition follow = assertions parseTokLeftPre parseTokRightPre Pre follow
@@ -73,11 +73,11 @@ invariant :: MyParser Token -> MyParser (Maybe (AST Type) )
 invariant follow = assertions parseTokLeftInv parseTokRightInv Invariant follow
 
 repInvariant :: MyParser (Maybe (AST Type))
-repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representation 
+repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representation
                           (parseEnd <|> parseProc <|> (verify TokLeftAcopl))
 
-acInvariant :: MyParser (Maybe (AST Type) )
-acInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple 
+coupInvariant :: MyParser (Maybe (AST Type) )
+coupInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple
                           (parseEnd <|> parseProc)
 
 

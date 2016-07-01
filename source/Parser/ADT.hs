@@ -200,13 +200,13 @@ types = do
      where parseType = myType parseSemicolon parseSemicolon
 
 
--- DataTypeBody -> DecList RepInvariant AcInvariant ListDefProc
+-- DataTypeBody -> DecList RepInvariant CoupInvariant ListDefProc
 dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
 dataTypeBody follow recSet = do
     newScopeParser
     dl    <- decList followAction recSet
     repInvariant -- No hace nada
-    acInvariant  -- No hace nada
+    coupInvariant  -- No hace nada
     procs <- listDefProc follow recSet
     exitScopeParser
     return Nothing

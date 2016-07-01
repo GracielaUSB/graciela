@@ -140,7 +140,7 @@ play n inp llName = case runParser concatLexPar () "" inp of
             ": Caracter Lexicográfico " ++ show msg ++ " inválido.\n"
 
     Right (Left  err', _) ->
-        die $ "\nOcurrió un error en el proceso de parseo " ++ show err'
+        die $ "\nOcurrió un error en el proceso de análisis sintáctico " ++ show err'
 
     Right (Right (Just ast), st) ->
         if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)

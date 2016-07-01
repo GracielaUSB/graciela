@@ -45,7 +45,7 @@ begin
         %)
     repinv}
 
-    {acinv tam < MAX acinv}
+    {coupinv tam < MAX coupinv}
 
     proc crear (in m : int, out d : int)
     begin

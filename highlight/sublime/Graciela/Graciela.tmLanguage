@@ -110,7 +110,7 @@
 			<key>comment</key>
 			<string>Builtin waves</string>
 			<key>match</key>
-			<string>(:|var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)</string>
+			<string>(:|var|[\{]+(pre|post|inv|bound|repinv|coupinv)|(pre|post|inv|bound|repinv|coupinv)[\}]+)</string>
 			<key>name</key>
 			<string>entity.name.function</string>
 		</dict>

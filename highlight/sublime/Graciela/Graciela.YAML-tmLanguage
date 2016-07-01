@@ -48,7 +48,7 @@ patterns:
   match: \b(int|array|char|boolean|string|write|writeln|true|false|of|read|skip|set|sequence|function|relation|tuple)\b
 
 - comment: Builtin waves
-  match: (var|[\{]+(pre|post|inv|bound|repinv|acinv)|(pre|post|inv|bound|repinv|acinv)[\}]+)
+  match: (var|[\{]+(pre|post|inv|bound|repinv|coupinv)|(pre|post|inv|bound|repinv|coupinv)[\}]+)
   name: entity.name.function
 
 

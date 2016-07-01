@@ -35,7 +35,7 @@ begin
     var clave : array[50] of int;
     var valor : array[50] of int;
 
-    // Falta repinv y acinv
+    // Falta repinv y coupinv
 
     proc crear (in m : int, out d : int)
     begin
