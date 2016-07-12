@@ -160,13 +160,6 @@ putSpaces level = replicate level space
 putSpacesLn :: Int -> String
 putSpacesLn level = "\n" <> replicate level space
 
-
-
-
-      
-
-
-
 drawST :: Show b
        => Int -> Tr.Tree ((Dictionary, b), b1) -> String
 -- drawST level st = show (fst $ Tr.rootLabel st)

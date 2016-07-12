@@ -25,10 +25,10 @@ data TypeArg
 -- | Instancia 'Show' para los tipos de argumentos
 instance Show TypeArg where
     show = \case
-        In    -> " Var Int"
-        Out   -> " Var Out"
-        InOut -> " Var Int/Out"
-        Ref   -> " Var Ref"
+        In    -> "In"
+        Out   -> "Out"
+        InOut -> "In/Out"
+        Ref   -> "Ref"
 
 
 -- | Son los tipos utilizados en el compilador.

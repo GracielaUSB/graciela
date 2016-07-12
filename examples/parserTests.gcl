@@ -1,14 +1,17 @@
 program main begin
-	func fibonacci (n : int) -> int
-	begin
-		if n > 1 -> fibonacci(n-1) + fibonacci(n-2)  
-		[] n == 1 \/ n == 0  -> 1
-		[] n < 0 -> 0
-		fi
+	proc hola (in n : int) begin
+		var m : int;
+		{pre true pre}
+		|[
+			var b := 10 : int;
+			write(b)
+		]|
+		{post true post}
 	end
-
+	
+	
 	|[
 		var x := 4 : int;
-		write(fibonacci(5))
+		hola(4)
 	]|
 end

@@ -12,8 +12,8 @@ data VarBehavior = Constant | Variable
 
 
 instance Show VarBehavior where
-    show Constant = " es una Constante"
-    show Variable = " es una Variable"
+    show Constant = "const"
+    show Variable = "var"
 
 
 data Value = I Integer | C Char | D Double | S String | B Bool
@@ -63,30 +63,25 @@ data Contents s
 
 instance Treelike s => Treelike (Contents s) where
     toTree (Contents name behavior loc sType value initialize) =
-        Node (unpack name ++ " " ++ showL loc) $
+        Node ("Variable `" ++ unpack name ++ "` " ++ showL loc) $
             [ leaf $ "Behavior: "    ++ show behavior
             , leaf $ "Type: "        ++ show sType
-            , leaf $ "Value: "       ++ show value
-            , leaf $ "Initialized: " ++ show initialize
-            ]
+            ] ++ case value of 
+                    Just x -> [leaf $ "Value: " ++ show x]
+                    _      -> []
             
     toTree (ArgProcCont name targ loc sType) =
-        Node (unpack name ++ " " ++ showL loc) $
+        Node ("Argument `" ++ unpack name ++ "` " ++ showL loc) $
             [ leaf $ "Arg Type: "    ++ show targ
             , leaf $ "Type: "        ++ show sType
             ]
 
     toTree (FunctionCon name loc sType args st) =
-        Node ("Function " ++ unpack name ++ " -> " ++ show sType ++ " " ++ showL loc)
-            (if null args 
-                then [] 
-                else [Node "Argments: " (fmap (leaf . unpack) args)])
+        Node ("Function " ++ unpack name ++ 
+              " -> " ++ show sType ++ " " ++ showL loc) []
 
     toTree (ProcCon name loc sType args st) =
-        Node ("Procedure " ++ unpack name ++ " " ++ showL loc)
-            (if null args 
-                then [] 
-                else [Node "Argments: " (fmap (leaf . unpack) args)])
+        Node ("Procedure " ++ unpack name ++ " " ++ showL loc) []
 
 
 
@@ -99,10 +94,13 @@ instance Show a => Show (Contents a) where
         ", Inicializada: " ++ show i
 
     show (ArgProcCont _ argT loc t) =
-        show argT ++ ", Tipo: " ++ show t  ++ ", Declarada en: " ++ showL loc
+        show argT ++ 
+        ", Tipo: "         ++ show t ++ 
+        ", Declarada en: " ++ showL loc
     show (FunctionCon _ loc t args _) =
-        ", Tipo: " ++ show t  ++ ", Declarada en: " ++ showL loc ++
-        ", Argumentos: " ++ show (map unpack args)
+        ", Tipo: "         ++ show t    ++ 
+        ", Declarada en: " ++ showL loc ++
+        ", Argumentos: "   ++ show (map unpack args)
     show (ProcCon _ _ _ ln sb) =
         show ln ++ show sb
 

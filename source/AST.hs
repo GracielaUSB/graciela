@@ -313,7 +313,7 @@ instance Show a => Treelike (AST a) where
          ]
 
    toTree (LAssign ids exprs loc _) = 
-      Node "Assign" 
+      Node "Assigns" 
          (fmap (\(ident,expr) -> Node "(:=)" [toTree ident, toTree expr])
                (zip ids exprs))
 
@@ -389,7 +389,7 @@ instance Show a => Treelike (AST a) where
       Node tWrite [toTree expr]
       where tWrite = (if ln then "WriteLn " else "Write ") ++ showL loc
 
-   toTree e = Node "You're my Creator but you never drew me as a Tree :''(" 
+   toTree e = Node "You're my Creator but you never teach me how to draw myself as a Tree :''(" 
                [ leaf (show e)]
 
 

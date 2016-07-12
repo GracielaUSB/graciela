@@ -1,6 +1,4 @@
 
-import Diccionario
-
 type Dicc implements Diccionario (int, char) begin
     const MAX : int
     ref clave : array [MAX] of int
