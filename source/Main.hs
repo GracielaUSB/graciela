@@ -14,6 +14,8 @@ import           Parser.Program
 import           State
 import           Token
 import           Type
+import           Treelike
+import           SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Monad          (unless, void, when, (>=>))
 import           Control.Monad.Except   (ExceptT, runExceptT)
@@ -66,6 +68,8 @@ data Options = Options
     , optVersion  :: Bool
     , optErrors   :: Maybe Int
     , optExecName :: String
+    , optAST      :: Bool
+    , optSTable   :: Bool
     }
 
 defaultOptions   = Options
@@ -73,16 +77,18 @@ defaultOptions   = Options
     , optVersion  = False
     , optErrors   = Nothing
     , optExecName = "a.out"
+    , optAST      = False
+    , optSTable   = False
     }
 
 options :: [OptDescr (Options -> Options)]
 options =
     [ Option ['?'] ["ayuda"]
         (NoArg (\opts -> opts { optHelp = True }))
-        "muestra este mensaje de ayuda"
+        "Muestra este mensaje de ayuda"
     , Option ['v'] ["version"]
         (NoArg (\opts -> opts { optVersion = True }))
-        "muestra la versión del compilador"
+        "Muestra la versión del compilador"
     , Option ['e'] ["errores"]
         (ReqArg (\ns opts -> case reads ns of
             [(n,"")] -> opts { optErrors = Just n }
@@ -95,6 +101,12 @@ options =
                     _  -> opts { optExecName = fileName }
                 ) "NOMBRE")
         "Nombre del ejecutable"
+    , Option ['s'] ["stable"]
+        (NoArg (\opts -> opts { optSTable = True }))
+        "Imprime la tabla de simbolos por stdin"
+    , Option ['a'] ["ast"]
+        (NoArg (\opts -> opts { optAST = True }))
+        "Imprime el AST por stdin"
     ]
 
 opts :: IO (Options, [String])
@@ -130,7 +142,7 @@ generateCode m =
     withHostTargetMachine $ \tm ->
         liftError $ writeObjectToFile tm (File "prueba") m
 
-play n inp llName = case runParser concatLexPar () "" inp of
+play opts inp llName = case runParser concatLexPar () "" inp of
     Left err -> do
         let msg  = head $ messageString $ head $ errorMessages err
             col  = sourceColumn $ errorPos err
@@ -145,6 +157,12 @@ play n inp llName = case runParser concatLexPar () "" inp of
     Right (Right (Just ast), st) ->
         if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
             then do
+                -- putStrLn $drawST 0 $current $symbolTable st
+                when (optSTable opts) $ do
+                    putStrLn $ drawTree $toTree $symbolTable st
+                when (optAST opts) $ do
+                    putStrLn $ drawTree $toTree ast
+                
                 let (t, l) = runTVerifier (symbolTable st) ast
 
                 if Seq.null l then do
@@ -155,9 +173,9 @@ play n inp llName = case runParser concatLexPar () "" inp of
                         liftError $ withModuleFromAST context newast $ \m ->
                             liftError $ writeLLVMAssemblyToFile
                                 (File llName ) m
-                else die $ drawTypeError n l
+                else die $ drawTypeError (optErrors opts) l
 
-            else die $ drawState n st
+            else die $ drawState (optErrors opts) st
             where
                 {- Gets OSX version -}
                 getOSVersion :: IO String
@@ -165,7 +183,7 @@ play n inp llName = case runParser concatLexPar () "" inp of
                     "darwin" ->
                         readProcess "/usr/bin/sw_vers" ["-productVersion"] []
                     _        -> return ""
-    Right (Right Nothing, st) -> die $ drawState n st
+    Right (Right Nothing, st) -> die $ drawState (optErrors opts) st
 
 -- Main --------------------------------
 main :: IO ()
@@ -196,7 +214,7 @@ main = do
 
     source <- readFile fileName
 
-    play (optErrors options) source llName
+    play options source llName
 
     compileLL llName execName
 
@@ -218,6 +236,6 @@ compileLL llName execName = void $ do
             "linux"   -> "/usr/local/lib/graciela-lib.so"
             "windows" -> undefined
         clang = case os of
-            "darwin" -> "clang"
+            "darwin" -> "clang-3.5"
             "linux"  -> "clang-3.5"
             "windows" -> undefined

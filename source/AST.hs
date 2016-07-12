@@ -4,11 +4,12 @@ module AST where
 import           Location
 import           SymbolTable
 import           Type
+import           Treelike
 --------------------------------------------------------------------------------
 import           Contents         (Contents)
 import           Data.Monoid      ((<>))
 import           Data.Range.Range (Range)
-import           Data.Text        (Text)
+import           Data.Text        (Text, unpack)
 --------------------------------------------------------------------------------
 
 {- |
@@ -21,55 +22,55 @@ data OpNum = Sum | Sub | Mul | Div | Exp | Max | Min | Mod
       deriving (Eq)
 
 instance Show OpNum where
-   show Sum = "Suma"
-   show Sub = "Resta"
-   show Mul = "Multiplicación"
-   show Div = "División"
-   show Exp = "Potencia"
-   show Max = "Máximo"
-   show Min = "Mínimo"
-   show Mod = "Módulo"
+   show Sum = "(+)"
+   show Sub = "(-)"
+   show Mul = "(*)"
+   show Div = "(/)"
+   show Exp = "(^)"
+   show Max = "max"
+   show Min = "min"
+   show Mod = "mod"
 
 
 data OpBool = Dis | Con | Implies | Conse
       deriving (Eq)
 
 instance Show OpBool where
-   show Dis     = "Disjunción"
-   show Con     = "Conjunción"
-   show Implies = "Implicación"
-   show Conse   = "Consecuencia"
+   show Dis     = "(\\/)"
+   show Con     = "(/\\)"
+   show Implies = "(==>)"
+   show Conse   = "(<==)"
 
 
 data OpRel = Equ | Less | Greater | LEqual | GEqual | Ine
       deriving (Eq)
 
 instance Show OpRel where
-   show Equ     = "Equivalencia"
-   show Less    = "Menor que"
-   show Greater = "Mayor que"
-   show LEqual  = "Menor o igual que"
-   show GEqual  = "Mayor o igual que"
-   show Ine     = "Negación"
+   show Equ     = "(==)"
+   show Less    = "(<)"
+   show Greater = "(>)"
+   show LEqual  = "(<=)"
+   show GEqual  = "(>=)"
+   show Ine     = "(!=)"
 
 
 data Conv = ToInt | ToDouble | ToChar
       deriving (Eq)
 
 instance Show Conv where
-   show ToInt    = "a int"
-   show ToDouble = "a double"
-   show ToChar   = "a char"
+   show ToInt    = "to int"
+   show ToDouble = "to double"
+   show ToChar   = "to char"
 
 
 data OpUn = Minus | Not | Abs | Sqrt
       deriving (Eq)
 
 instance Show OpUn where
-   show Minus  = "Negativo"
-   show Not    = "Negación"
-   show Abs    = "Valor Absoluto"
-   show Sqrt   = "Raíz Cuadrada"
+   show Minus  = "(-)"
+   show Not    = "not"
+   show Abs    = "abs"
+   show Sqrt   = "sqrt"
 
 
 data StateCond = Pre | Post | Assertion | Bound | Invariant | Representation | Couple
@@ -81,18 +82,20 @@ instance Show StateCond where
    show Assertion = "Aserción"
    show Bound     = "Función de Cota"
    show Invariant = "Invariante"
+   show Representation = "Invariante de Representation"
+   show Couple    = "Invariante de Acoplamiento"
 
 
 data OpQuant = ForAll | Exists | Summation | Product | Minimum | Maximum
     deriving(Eq)
 
 instance Show OpQuant where
-   show ForAll    = "Universal (forall)"
-   show Exists    = "Existencial (exist)"
-   show Summation = "Sumatoria (sigma)"
-   show Product   = "Productoria (pi)"
-   show Minimum   = "Minimo (min)"
-   show Maximum   = "Maximo (max)"
+   show ForAll    = "Forall (∀)"
+   show Exists    = "Exists (∃)"
+   show Summation = "Summatory (∑)"
+   show Product   = "Productory (∏)"
+   show Minimum   = "Minimum (min)"
+   show Maximum   = "Maximum (max)"
 
 
 --Rangos
@@ -104,75 +107,291 @@ data UnknownRange = SetRange   { getOp :: OpSet, getLexp :: UnknownRange, getRex
       deriving (Eq)
 
 
-data AST a = Arithmetic { opBinA    :: OpNum   , location    :: Location -- ^ Operadores Matematicos de dos expresiones.
+data AST a = Abort      { location  :: Location, tag         :: a } -- ^ Instruccion Abort.
+         | Arithmetic   { opBinA    :: OpNum   , location    :: Location -- ^ Operadores Matematicos de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
                         , tag :: a
                         }
-         | Boolean      { opBinB    :: OpBool  , location    :: Location
-                        , lexpr     :: AST a   , rexp        :: AST a
-                        , tag :: a
-                        } -- ^ Operadores Booleanos de dos expresiones.
-         | Relational   { opBinR    :: OpRel   , location    :: Location
-                        , lexpr     :: AST a   , rexp        :: AST a
-                        , tag :: a
-                        } -- ^ Operadores Relacionales de dos expresiones.
-         | ArrCall      { location  :: Location, name        :: Text
+         | ArrCall      { location  :: Location, name        :: Text      -- ^ Búsqueda en arreglo.
                         , list      :: [AST a] , tag         :: a
-                        } -- ^ Búsqueda en arreglo.
-         | Id           { location  :: Location, id          :: Text    , tag :: a } -- ^ Identificador.
-         | Int          { location  :: Location, expInt      :: Integer , tag :: a } -- ^ Numero entero.
-         | Float        { location  :: Location, expFloat    :: Double  , tag :: a } -- ^ Numero entero.
-         | Bool         { location  :: Location, cbool       :: Bool    , tag :: a } -- ^ Tipo booleano con el token.
-         | Char         { location  :: Location, mchar       :: Char    , tag :: a } -- ^ Tipo caracter con el token.
-         | String       { location  :: Location, mstring     :: String  , tag :: a } -- ^ Tipo string con el token.
-         | Constant     { location  :: Location, int         :: Bool                 -- ^ Constantes.
-                        , max       :: Bool    , tag         :: a
+                        } 
+         | Block        { location  :: Location, blockStable :: SymbolTable
+                        , listDec   :: [AST a] , lisAct      :: [AST a]
+                        , tag       :: a
                         }
-         | Conversion   { toType    :: Conv    , location    :: Location             -- ^ Conversión a entero.
+         | Bool         { location  :: Location, cbool       :: Bool   , tag :: a } -- ^ Tipo booleano con el token.
+         | Boolean      { opBinB    :: OpBool  , location    :: Location -- ^ Operadores Booleanos de dos expresiones.
+                        , lexpr     :: AST a   , rexp        :: AST a
+                        , tag :: a
+                        }
+         | Char         { location  :: Location, mchar       :: Char    , tag :: a }  -- ^ Tipo caracter con el token.
+         | Cond         { cguard    :: [AST a] , location    :: Location, tag :: a }  -- ^ Instruccion If.
+         | ConsAssign   { location  :: Location, caId        :: [(Text, Location)]
+                        , caExpr    :: [AST a] , tag         :: a             
+                        }
+         | Constant     { location  :: Location, int         :: Bool                  -- ^ Constantes.
+                        , max       ::  Bool   , tag         :: a
+                        }  
+         | Conversion   { toType    :: Conv    , location    :: Location              -- ^ Conversión a entero.
                         , tiexp     :: AST a   , tag         :: a
                         }
+         | DecArray     { dimension :: [AST a] , tag         :: a }
+         | DefFun       { dfname    ::  Text   , astSTable   :: SymbolTable
+                        , location  :: Location, fbody       :: AST a
+                        , retType   ::  Type   , nodeBound   :: AST a
+                        , params    ::[(Text, Type)], tag    :: a 
+                        }
+         | DefProc      { pname     ::  Text   , astSTable   :: SymbolTable, prbody    :: AST a
+                        , nodePre   ::  AST a  , nodePost    ::  AST a     , nodeBound :: AST a
+                        , constDec  :: [AST a] , params      :: [(Text, Type)]    
+                        , tag       ::  a
+                        }
+         | EmptyAST     { tag       ::  a                                         }
+         | EmptyRange   { location  :: Location, tag         :: a                 }
+         | Float        { location  :: Location, expFloat    :: Double , tag :: a } -- ^ Numero entero.
+         | FCallExp     { fname     ::  Text   , astSTable   :: SymbolTable       -- ^ Llamada a funcion.
+                        , location  :: Location, args        :: [AST a], tag :: a
+                        } 
+         | Id           { location  :: Location, id          :: Text   , tag :: a } -- ^ Identificador.
+         | Int          { location  :: Location, expInt      :: Integer, tag :: a } -- ^ Numero entero.     
+         | Guard        { gexp      ::  AST a  , gact        :: AST a      -- ^ Guardia.
+                        , location  :: Location, tag         :: a 
+                        }
+         | GuardExp     { gexp      ::  AST a  , gact        :: AST a      -- ^ Guardia de Expresion.
+                        , location  :: Location, tag         :: a 
+                        }
+         | GuardAction  { location  :: Location, assertionGa :: AST a
+                        , actionGa  :: AST a   , tag         :: a
+                        }
+         | LAssign      { idlist    :: [AST a] , explista    :: [AST a] 
+                        , location  :: Location, tag         :: a
+                        } 
+         | ProcCall     { pname     ::  Text   , astSTable   :: SymbolTable
+                        , location  :: Location, args        :: [AST a] 
+                        , tag       :: a
+                        }
+         | ProcCallCont { pname     ::  Text   , astSTable   :: SymbolTable
+                        , location  :: Location, args        :: [AST a]
+                        , con       :: Contents SymbolTable, tag :: a 
+                        }
+
+         | Program      { pname     :: Text    , location    :: Location
+                        , listdef   :: [AST a] , listacc     :: AST a, tag :: a 
+                        }
+         | Quant        { opQ       :: OpQuant , varQ        :: Text
+                        , location  :: Location, rangeExp    :: AST a
+                        , termExpr  :: AST a   , tag         :: a
+                        }
+         | QuantRan     { opQ       :: OpQuant , varQ        :: Text
+                        , location  :: Location, rangeVExp   :: [Range Integer]
+                        , termExpr  :: AST a   , tag         :: a
+                        }
+         | QuantRanUn   { opQ       :: OpQuant , varQ        :: Text
+                        , location  :: Location, rangeUExp   :: UnknownRange
+                        , termExpr  :: AST a   , tag         :: a
+                        }
+         | Ran          { var       :: Text    , retType     :: Type
+                        , location  :: Location, tag         :: a
+                        }
+         | Read         { location  :: Location, file        :: Maybe String
+                        , varTypes  :: [Type]  , vars        :: [(Text, Location)], tag :: a
+                        }
+         | Relational   { opBinR    :: OpRel   , location    :: Location -- ^ Operadores Relacionales de dos expresiones.
+                        , lexpr     :: AST a   , rexp        :: AST a
+                        , tag       :: a
+                        } 
+         | Rept         { rguard    :: [AST a] , rinv        :: AST a                -- ^ Instruccion Do.
+                        , rbound    ::  AST a  , location    :: Location , tag :: a  
+                        } 
+         | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
+         | States       { tstate    :: StateCond, location   :: Location
+                        , exps      :: AST a    , tag        :: a
+                        }         
+         | String       { location  :: Location, mstring     :: String , tag :: a } -- ^ Tipo string con el token.
          | Unary        { opUn      :: OpUn    , location    :: Location             -- ^ Función raíz cuadrada.
                         , lenExp    :: AST a   , tag         :: a
                         }
-         | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
-         | Abort        { location  :: Location, tag         :: a } -- ^ Instruccion Abort.
-         | Cond         { cguard    :: [AST a] , location    :: Location, tag :: a                                          } -- ^ Instruccion If.
-         | Block        { location  :: Location, blockStable :: SymbolTable, listDec :: [AST a], lisAct   :: [AST a]
-                        , tag :: a                                                                                     }
-         | Rept         { rguard    :: [AST a] , rinv        :: AST a, rbound   :: AST a, location ::Location, tag :: a   } -- ^ Instruccion Do.
-         | ConsAssign   { location  :: Location, caId        :: [(Text, Location)], caExpr :: [AST a], tag :: a             }
+         | Write        { ln        ::  Bool   , wexp        :: AST a             -- ^ Escribir.
+                        , location  :: Location, tag         :: a
+                        } 
 
-         | LAssign      { idlist    :: [AST a] , explista    :: [AST a], location :: Location, tag :: a                     } -- ^
-
-         | Write        { ln        :: Bool    , wexp        :: AST a, location :: Location, tag :: a                       } -- ^ Escribir.
-         | FCallExp     { fname     :: Text    , astSTable   :: SymbolTable, location :: Location, args :: [AST a], tag :: a} -- ^ Llamada a funcion.
-         | ProcCall     { pname     :: Text    , astSTable   :: SymbolTable, location  :: Location
-                        , args      :: [AST a] , tag         :: a                                                                }
-         | ProcCallCont { pname     :: Text    , astSTable   :: SymbolTable, location  :: Location
-                        , args      :: [AST a] , con         :: Contents SymbolTable, tag :: a                                           }
-         | DecArray     { dimension :: [AST a] , tag         :: a                                                               }
-         | Guard        { gexp      :: AST a   , gact        :: AST a, location :: Location, tag :: a                      } -- ^ Guardia.
-         | GuardExp     { gexp      :: AST a   , gact        :: AST a, location :: Location, tag :: a                      } -- ^ Guardia de Expresion.
-         | DefFun       { dfname    :: Text    , astSTable   :: SymbolTable, location :: Location, fbody    ::  AST a
-                        , retType   :: Type    , nodeBound   :: AST a, params :: [(Text, Type)], tag :: a }
-         | DefProc      { pname     :: Text    , astSTable   :: SymbolTable, prbody    :: AST a, nodePre   :: AST a
-                        , nodePost  :: AST a   , nodeBound   :: AST a, constDec  :: [AST a], params :: [(Text, Type)]
-                        , tag       :: a
-                        }
-         | Ran          { var       :: Text    , retType     :: Type, location :: Location, tag :: a                                           }
-         | Program      { pname     :: Text    , location    :: Location, listdef :: [AST a],  listacc :: AST a, tag :: a }
-         | GuardAction  { location  :: Location, assertionGa :: AST a, actionGa :: AST a, tag :: a                 }
-         | States       { tstate    :: StateCond,location    :: Location,   exps     :: AST a, tag :: a                 }
-         | Quant        { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeExp :: AST a
-                         ,termExpr  :: AST a   , tag         :: a                                                                }
-         | QuantRan     { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeVExp :: [Range Integer]
-                         ,termExpr  :: AST a   , tag         :: a                                                                }
-         | QuantRanUn   { opQ       :: OpQuant , varQ        :: Text, location :: Location, rangeUExp :: UnknownRange
-                         ,termExpr  :: AST a   , tag         :: a                                                                }
-         | EmptyRange   { location  :: Location, tag         :: a                                                               }
-         | EmptyAST     { tag :: a }
-         | Read         { location  :: Location, file        :: Maybe String, varTypes :: [Type], vars :: [(Text, Location)], tag :: a                       }
     deriving (Eq)
+
+instance Show a => Treelike (AST a) where
+   toTree (Abort l _) = 
+      leaf $ "Abort " ++ showL l
+
+   toTree (Arithmetic op loc l r _)  =
+      Node (show op ++ "  " ++showL loc) [toTree l, toTree r]
+
+   toTree (ArrCall loc n list _) = 
+      Node ("Array Access: `" ++ unpack n ++ "` " ++ showL loc) (toForest list)
+
+   toTree (Block loc st decls actions _ ) = 
+      Node ("Scope " ++ showL loc) 
+         [Node "Declarations" (toForest decls),
+          Node "Actions"     (toForest actions)]
+
+   toTree (Bool loc value _) = 
+      leaf (show value ++ " " ++ showL loc)
+
+   toTree (Boolean op loc l r _) = 
+      Node (show op ++ "  " ++showL loc) [toTree l, toTree r]
+
+   toTree (Char loc value _) = 
+      leaf ("`" ++ show value ++ "` " ++ showL loc)
+
+   toTree (Cond guard loc _) = 
+      Node ("If " ++ showL loc) (toForest guard)
+
+   toTree (ConsAssign loc ids exprs _) = 
+         Node ("ConsAssign " ++ showL loc) 
+            [ Node "IDs" ( fmap (\(t,l) -> leaf (unpack t ++ " " ++ showL l)) ids)
+            , Node "Expresions" (toForest exprs) ]
+ 
+   toTree (Constant loc int isMax _) = 
+      leaf (checkMaxMin int isMax ++ " " ++ showL loc)
+
+   toTree (Conversion to loc expr _) = 
+      Node (show to ++ " " ++ showL loc) [toTree expr]
+
+   toTree (DecArray dim _) = 
+      Node ("Array Declaration") (toForest dim)
+
+   toTree (DefFun name st loc body retrn bound params _) = 
+      Node ("Function " ++ unpack name ++ " -> " ++ show retrn ++ " " ++ showL loc) 
+         [ Node "Parameters" (fmap (\(pname,t) -> 
+               leaf (unpack pname ++ " : " ++ show t)) params)
+         , toTree bound
+         , toTree body 
+         ]
+
+   toTree (DefProc name ast body pre post bound decl params _ ) =
+      Node ("Procedure " ++ unpack name ) 
+         [ Node "Parameters" (fmap (\(pname,t) -> 
+               leaf (unpack pname ++ " : " ++ show t)) params)
+         , Node "Declarations" (toForest decl)
+         , toTree pre 
+         , toTree bound
+         , toTree body
+         , toTree post 
+         ]
+
+   toTree (EmptyAST _ ) = leaf "EmptyAST :("
+
+   toTree (EmptyRange loc _ ) = leaf ("EmptyRange :'( " ++ showL loc)   
+
+   toTree (Float loc value _) = 
+      leaf ("`" ++ show value ++ "` " ++ showL loc)
+
+   toTree (FCallExp name ast loc args _) =
+      Node ("Call Func "++unpack name ++ " " ++ showL loc) 
+         [Node "Arguments" (toForest args)]
+
+   toTree (Id loc name _) = 
+      leaf ("`" ++ unpack name ++ "` " ++ showL loc)
+ 
+   toTree (Int loc value _) = 
+      leaf ("`" ++ show value ++ "` " ++ showL loc)
+
+   toTree (Guard expr action loc _) = 
+      Node "Guard" 
+         [ Node "Expression" [toTree expr]
+         , Node "Action" [toTree action]
+         ]
+
+   toTree (GuardExp expr action loc _) = 
+      Node "GuardExp" 
+         [ Node "Expression" [toTree expr]
+         , Node "Action" [toTree action]
+         ]
+
+   toTree (GuardAction loc assert action _) = 
+      Node "Guard Action" 
+         [ Node "Assertion" [toTree assert]
+         , Node "Action"    [toTree action]
+         ]
+
+   toTree (LAssign ids exprs loc _) = 
+      Node "Assign" 
+         (fmap (\(ident,expr) -> Node "(:=)" [toTree ident, toTree expr])
+               (zip ids exprs))
+
+   toTree (ProcCall name ast loc args _) =
+      Node ("Call Proc "++unpack name ++ " " ++ showL loc) 
+         [Node "Arguments" (toForest args)]
+
+   toTree (ProcCallCont name ast loc args content _) =
+      Node ("Call Proc Cont (?)"++unpack name ++ " " ++ showL loc) 
+         [Node "Arguments" (toForest args)]
+
+   toTree (Program name loc defs block _) = 
+      Node ("Program " ++ unpack name ++ " " ++ showL loc)
+         [ Node "Definitions" (toForest defs)
+         , toTree block
+         ]
+
+   toTree (Quant op var loc range body _) = 
+      Node ("Quantifier " ++ show op ++ " " ++ showL loc)
+         [ leaf ("Variable: " ++ unpack var)
+         , Node "Range" [toTree range]
+         , Node "Body"  [toTree body]
+         ]
+
+   toTree (QuantRan op var loc range body _) = 
+      Node ("Quantifier " ++ show op ++ " " ++ showL loc)
+         [ leaf ("Variable: " ++ unpack var)
+         , Node "Range" (fmap (leaf . show) range)
+         , Node "Body"  [toTree body]
+         ]
+
+   toTree (QuantRanUn op var loc range body _) = 
+      Node ("Quantifier " ++ show op ++ " " ++ showL loc)
+         [ leaf ("Variable: " ++ unpack var)
+         , leaf "Unknown Range"
+         , Node "Body"  [toTree body]
+         ]
+
+   toTree (Ran var retrn loc _) = 
+      Node ("Random " ++ showL loc)
+         [ leaf ("Variable: "++ unpack var)
+         , leaf ("Return: " ++ show retrn)
+         ]
+
+   toTree (Read loc file varTypes vars _) = 
+      Node ("Read" ++ hasFile ++ showL loc)
+         (fmap (\(t,(name, l)) -> 
+                  leaf (unpack name ++ " " ++ show t ++ " " ++ showL loc))
+               (zip varTypes vars))
+      where 
+         hasFile = case file of 
+            Nothing -> ""
+            Just fileName -> " in file `"++fileName++"` "
+
+   toTree (Relational op loc l r _)  =
+      Node (show op ++ "  " ++showL loc) [toTree l, toTree r]
+
+   toTree (Rept guard inv bound loc _) = 
+      Node ("Do " ++ showL loc) (toTree inv : toTree bound : toForest guard)
+
+   toTree (Skip loc _) = leaf $ "Skip "++ showL loc
+       
+   toTree (States sc loc exps _) = 
+      Node (show sc ++ " " ++ showL loc) [toTree exps]
+
+   toTree (String loc value _) = 
+      leaf ("String: `" ++ value ++ "` " ++ showL loc)
+      
+   toTree (Unary op loc expr _) = 
+      Node (show op ++ " " ++ showL loc) [toTree expr]
+
+   toTree (Write ln expr loc _) =
+      Node tWrite [toTree expr]
+      where tWrite = (if ln then "WriteLn " else "Write ") ++ showL loc
+
+   toTree e = Node "You're my Creator but you never drew me as a Tree :''(" 
+               [ leaf (show e)]
+
 
 
 astToId :: AST a -> Maybe Text
@@ -414,6 +633,7 @@ drawAST level ((DefFun name st _ body _ bound _ ast)) =
 drawAST _ (EmptyRange _ _) = "rango vacio"
 drawAST _ (EmptyAST _) = "vacio"
 
+drawAST _ _ = "undefined"
 
 drawASTList level xs = foldl (\acc d -> (acc <> drawAST level (d))) [] xs
 

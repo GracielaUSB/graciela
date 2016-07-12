@@ -5,7 +5,12 @@ Copyright   : GraCieLa
 
 Posee todo lo referente a la localizacion de variables, errores, palabras reservadas.
 -}
-module Location where
+module Location 
+    ( Location(..)
+    , showL
+    , errorL
+    , toLocation
+    )where
 --------------------------------------------------------------------------------
 import Text.Parsec (SourcePos, sourceLine, sourceColumn, sourceName)
 --------------------------------------------------------------------------------
@@ -23,6 +28,8 @@ instance Show Location where
     show (Location l c _) =
         "en la línea " ++ show l ++ ", columna " ++ show c
 
+showL :: Location -> String
+showL (Location l c _) = "("++show l++","++show c++")"
 
 -- | Se encarga de imprimir la localizacion del error.
 errorL :: Location -> String

@@ -233,7 +233,7 @@ verCallExp name sbc args loc locarg = do
     sb <- ask
     case lookUpRoot name sb of
         Nothing -> addUndecFuncError name True loc
-        Just (FunctionCon _ t ln sb) ->
+        Just (FunctionCon _ _ t ln sb) ->
             case t of
                 GFunction args' ts ->
                     let wtL = length args
@@ -273,7 +273,7 @@ verProcCall name sbc args'' loc locarg = do
     case lookUpRoot name sb of
         Nothing ->
             addUndecFuncError name False loc -- Error por procedimiento no declarado
-        Just (ProcCon _ t ln sb) ->
+        Just (ProcCon _ _ t ln sb) ->
             case t of
                 GProcedure args' ->
                     let wtL = length args''

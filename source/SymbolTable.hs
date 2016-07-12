@@ -8,9 +8,12 @@ del compilador
 -}
 module SymbolTable where
 
+import Treelike
+
 import qualified Data.Tree       as Tr
-import qualified Data.Text       as T
-import qualified Data.Map.Strict as M
+import           Data.Text       (Text, unpack)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Monoid ((<>))
 import Contents
 import Prelude hiding (id)
@@ -20,18 +23,21 @@ type Scope = Int
 
 
 -- | Coleccion de variables, por cada una de ellas se guarda un 'Contents' con su informacion necesaria
-newtype Dictionary = Dictionary { getMap :: M.Map T.Text (Contents SymbolTable) }
+newtype Dictionary = Dictionary { getMap :: Map Text (Contents SymbolTable) }
         deriving (Eq)
+
 
 
 -- | Instancia 'Show' para el tipo 'Dictionary'
 instance Show Dictionary where
-   show (Dictionary dic)  =  if M.null dic then "No hay ningun elemento" else drawDic 0 (M.toList dic)
+   show (Dictionary dic)  =  if Map.null dic then "No hay ningun elemento" else drawDic 0 (Map.toList dic)
 
 
 -- | Arbol de 'Dictionary', cada puede poseer otro 'SymbolTable' con todos sus alcances anidados
 newtype SymbolTable = Table { current :: Tr.Tree ((Dictionary, Scope), Maybe SymbolTable) }
         deriving (Eq, Show)
+
+
 
 
 -- | Retorna la coleccion de variables del alcance actual
@@ -40,7 +46,7 @@ getCurrent tabla = (fst . fst) $ Tr.rootLabel (current tabla)
 
 
 -- | Modifica la coleccion de variables del alcance actual
-modifyCurrent :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
+modifyCurrent :: Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
 modifyCurrent id f tabla = Table $ fmap (modifyRoot id f) (current tabla)
 
 
@@ -56,9 +62,9 @@ modifyRootPadre padre ((dic, sc), _) = ((dic, sc), padre)
 
 
 
-modifyRoot :: T.Text -> (Contents SymbolTable -> Contents SymbolTable)
+modifyRoot :: Text -> (Contents SymbolTable -> Contents SymbolTable)
               -> ((Dictionary, Scope), Maybe SymbolTable) -> ((Dictionary, Scope), Maybe SymbolTable)
-modifyRoot id f ((dic, sc), p) = ((Dictionary (M.adjust f id (getMap dic)), sc), p)
+modifyRoot id f ((dic, sc), p) = ((Dictionary (Map.adjust f id (getMap dic)), sc), p)
 
 
 getScope :: SymbolTable -> Scope
@@ -86,32 +92,32 @@ insertHijo hijo padre = Table (Tr.Node (getTabla padre) (getHijos padre ++ [curr
 
 
 emptyTable :: SymbolTable
-emptyTable =  Table (Tr.Node ((Dictionary M.empty, 0), Nothing) [])
+emptyTable =  Table (Tr.Node ((Dictionary Map.empty, 0), Nothing) [])
 
 
 enterScope :: SymbolTable -> SymbolTable
-enterScope tabla = Table (Tr.Node ((Dictionary M.empty, getScope tabla), Just (updateScope tabla)) [])
+enterScope tabla = Table (Tr.Node ((Dictionary Map.empty, getScope tabla), Just (updateScope tabla)) [])
 
 
 exitScope :: SymbolTable -> Maybe SymbolTable
 exitScope tabla = fmap (insertHijo tabla) (getPadre tabla)
 
 
-lookUpRoot :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
+lookUpRoot :: Text -> SymbolTable -> Maybe (Contents SymbolTable)
 lookUpRoot = checkSymbol
 
 
-checkSymbol :: T.Text -> SymbolTable -> Maybe (Contents SymbolTable)
+checkSymbol :: Text -> SymbolTable -> Maybe (Contents SymbolTable)
 checkSymbol valor tabla =
     let dic = getCurrent tabla
-    in case M.lookup valor (getMap dic) of
+    in case Map.lookup valor (getMap dic) of
         Just c  -> Just c
         Nothing -> case getPadre tabla of
             Nothing   -> Nothing
             Just sup  -> checkSymbol valor sup
 
 
-lookUpMap :: T.Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
+lookUpMap :: Text -> (Contents SymbolTable -> Contents SymbolTable) -> SymbolTable -> SymbolTable
 lookUpMap valor f tabla =
     let dic  = modifyCurrent valor f tabla
         r    = fmap (lookUpMap valor f) (getPadre dic)
@@ -121,7 +127,7 @@ lookUpMap valor f tabla =
         Just _  -> modifyPadre dic r
 
 
-initSymbol :: T.Text -> SymbolTable -> SymbolTable
+initSymbol :: Text -> SymbolTable -> SymbolTable
 initSymbol id = lookUpMap id initSymbolContent
 
 
@@ -129,11 +135,11 @@ updateScope :: SymbolTable -> SymbolTable
 updateScope sb = sb { current = Tr.Node ((getCurrent sb, getScope sb + 1), fmap updateScope (getPadre sb)) (Tr.subForest (current sb)) }
 
 
-addSymbol :: T.Text -> Contents SymbolTable -> SymbolTable -> Either (Contents SymbolTable) SymbolTable
+addSymbol :: Text -> Contents SymbolTable -> SymbolTable -> Either (Contents SymbolTable) SymbolTable
 addSymbol valor content tabla =
     case checkSymbol valor tabla of
       Just c   -> Left c
-      Nothing  -> let newCurrent = M.insert valor content (getMap (getCurrent tabla))
+      Nothing  -> let newCurrent = Map.insert valor content (getMap (getCurrent tabla))
                       sc = getScope tabla
                   in Right $ insertTabla (Dictionary newCurrent) sc tabla
 
@@ -148,11 +154,23 @@ putSpacesLn :: Int -> String
 putSpacesLn level = "\n" <> replicate level space
 
 
+
+instance Treelike Dictionary where
+  toTree (Dictionary m) = 
+    Node "Symbols" (fmap  toTree (Map.elems m))
+
+instance Treelike SymbolTable where
+  toTree (Table (Node ((dic, _), _) subTrees)) =
+    Node "Scope" $ [toTree dic] ++ toForest (fmap Table subTrees)
+      
+
+
+
 drawST :: Show b
        => Int -> Tr.Tree ((Dictionary, b), b1) -> String
 -- drawST level st = show (fst $ Tr.rootLabel st)
 drawST level st =  putSpacesLn level <> "Alcance: " <> show ((snd . fst) $ Tr.rootLabel st)
-                                     <> drawDic level (M.toList (getMap (fst . fst $ Tr.rootLabel st)))
+                                     <> drawDic level (Map.toList (getMap (fst . fst $ Tr.rootLabel st)))
                                      <> drawSTforest (level + 4) (Tr.subForest st)
 
 drawSTforest :: Show b

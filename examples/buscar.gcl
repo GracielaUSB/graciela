@@ -1,4 +1,5 @@
 //Linear Search
+
 program main
 using (Dicc)
 begin

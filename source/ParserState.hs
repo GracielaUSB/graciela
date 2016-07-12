@@ -26,7 +26,7 @@ addFileToReadParser file = modify $ addFileToRead file
 addFunTypeParser :: Text -> Maybe [(Text, Type)] -> Type -> Location
                  -> SymbolTable -> MyParser ()
 addFunTypeParser id (Just lt) t loc sb =
-    addSymbolParser id (FunctionCon loc (GFunction snds t) fsts sb)
+    addSymbolParser id (FunctionCon id loc (GFunction snds t) fsts sb)
     where (fsts, snds) = unzip lt
 addFunTypeParser _ _ _ _ _ = return ()
 
@@ -34,7 +34,7 @@ addFunTypeParser _ _ _ _ _ = return ()
 addProcTypeParser :: Text -> Maybe [(Text, Type)] -> Location
                   -> SymbolTable -> MyParser ()
 addProcTypeParser id (Just xs) loc sb =
-    addSymbolParser id $ ProcCon loc (GProcedure snds) fsts sb
+    addSymbolParser id $ ProcCon id loc (GProcedure snds) fsts sb
     where (fsts, snds) = unzip xs
 addProcTypeParser _ _ _ _             = return ()
 
@@ -62,7 +62,7 @@ addManyUniSymParser :: Maybe [(Text, Location)] -> Type -> MyParser ()
 addManyUniSymParser (Just xs) t = f xs t
     where
         f ((id, loc):xs) t = do
-            addSymbolParser id $ Contents Variable loc t Nothing False
+            addSymbolParser id $ Contents id Variable loc t Nothing False
             f xs t
         f [] _ = return ()
 
@@ -78,7 +78,7 @@ addManySymParser vb (Just xs) t (Just ys) =
     else f vb xs t ys
       where
         f vb ((id, loc):xs) t (ast:ys) =
-            do addSymbolParser id $ Contents vb loc t (astToValue ast) True
+            do addSymbolParser id $ Contents id vb loc t (astToValue ast) True
                f vb xs t ys
         f _ [] _ []                    = return ()
 
@@ -101,7 +101,7 @@ verifyReadVars _          = return []
 addFunctionArgParser :: Text -> Text -> Type -> Location -> MyParser ()
 addFunctionArgParser idf id t loc =
     if id /= idf then
-        addSymbolParser id $ Contents Constant loc t Nothing True
+        addSymbolParser id $ Contents id Constant loc t Nothing True
     else
         addFunctionNameError id loc
 
@@ -110,7 +110,7 @@ addArgProcParser :: Text -> Text -> Type -> Location
                  -> Maybe TypeArg -> MyParser ()
 addArgProcParser id pid t loc (Just targ) =
     if id /= pid then
-      addSymbolParser id $ ArgProcCont targ loc t
+      addSymbolParser id $ ArgProcCont id targ loc t
     else
       addFunctionNameError id loc
 addArgProcParser _ _ _ _ _ = return ()
@@ -124,7 +124,7 @@ addSymbolParser id c = do modify $ addNewSymbol id c
 addCuantVar :: OpQuant -> Text -> Type -> Location -> MyParser ()
 addCuantVar op id t loc =
     if isQuantifiable t then
-       addSymbolParser id $ Contents Constant loc t Nothing True
+       addSymbolParser id $ Contents id Constant loc t Nothing True
     else
        addUncountableError op loc
 
