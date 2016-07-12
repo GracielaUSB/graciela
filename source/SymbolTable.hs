@@ -38,6 +38,13 @@ newtype SymbolTable = Table { current :: Tr.Tree ((Dictionary, Scope), Maybe Sym
         deriving (Eq, Show)
 
 
+instance Treelike Dictionary where
+  toTree (Dictionary m) = 
+    Node "Symbols" (fmap  toTree (Map.elems m))
+
+instance Treelike SymbolTable where
+  toTree (Table (Node ((dic, _), _) subTrees)) =
+    Node "Scope" $ [toTree dic] ++ toForest (fmap Table subTrees)
 
 
 -- | Retorna la coleccion de variables del alcance actual
@@ -155,13 +162,7 @@ putSpacesLn level = "\n" <> replicate level space
 
 
 
-instance Treelike Dictionary where
-  toTree (Dictionary m) = 
-    Node "Symbols" (fmap  toTree (Map.elems m))
 
-instance Treelike SymbolTable where
-  toTree (Table (Node ((dic, _), _) subTrees)) =
-    Node "Scope" $ [toTree dic] ++ toForest (fmap Table subTrees)
       
 
 
