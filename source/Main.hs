@@ -160,9 +160,9 @@ play opts inp llName = case runParser concatLexPar () "" inp of
                 -- putStrLn $drawST 0 $current $symbolTable st
                 let symTable = _symbolTable st
                 when (optSTable opts) $ do
-                    putStrLn $ drawTree $toTree $ symTable
+                    putStrLn $ drawTree $ toTree symTable
                 when (optAST opts) $ do
-                    putStrLn $ drawTree $toTree ast
+                    putStrLn $ drawTree $ toTree ast
                 
                 let (t, l) = runTVerifier (symTable) ast
 

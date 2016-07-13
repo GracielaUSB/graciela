@@ -25,7 +25,7 @@ begin
 	{coupinv true coupinv}
 
 	// Dicc procedures
-	proc buscar ( ) begin
+	proc buscar (in a : int, out b : int, inout c : int, ref d : int) begin
 	
 		{pre true pre}
 		|[
@@ -39,24 +39,34 @@ end
 
 
 program main begin
-	func f (n : int) -> int
-	begin
-		if n >  1 -> 1
-		[] n <= 1 -> 0
-		fi
-	end
-	proc prox ( ) begin
-		var n : int;
+	
+
+	proc prox (inout b : int) begin
 		{pre true pre}
 		|[
 			// var n : int;
-			write(n)
+			writeln(b);
+			b := 10
+		]|
+		{post true post}
+	end
+
+	proc proxi (ref b : int) begin
+		{pre true pre}
+		|[
+			// var n : int;
+			writeln(b);
+			b := 10
 		]|
 		{post true post}
 	end
 	
 	|[
-		var x := 4 : int;
-		write(4)
+		var b := 1 : int;
+		prox(b);
+		writeln(b);
+		b := 1;
+		proxi(b);
+		writeln(b)
 	]|
 end

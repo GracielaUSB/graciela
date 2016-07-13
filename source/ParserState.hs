@@ -174,7 +174,7 @@ lookUpVarParser id loc = do
     st <- use symbolTable
     c  <- lookUpSymbol id
     case c of
-        Just (Contents {}) -> return $ fmap symbolType c
+        Just content -> return $ fmap getContentType c
         _ -> return Nothing
 
 
@@ -183,10 +183,10 @@ lookUpConsParser :: Text -> Graciela (Maybe Type)
 lookUpConsParser id = do
     symbol <- lookUpSymbol id
     case symbol of
-        Just content@(Contents {})    ->
+        Just content ->
             if isLValue content then do
                 newInitVar id
-                return $ Just $ symbolType content
+                return $ Just $ getContentType content
             else do
                 addConsIdError id
                 return Nothing
@@ -205,10 +205,10 @@ lookUpConstIntParser id loc = do
     loc <- getPosition
     case symbol of
         Nothing -> return Nothing
-        Just content@(Contents {})  ->
+        Just content  ->
             if isInitialized content then
                 if isRValue content then
-                    if symbolType content == GInt then
+                    if getContentType content == GInt then
                         return $ return GInt
                     else do
                         addNotIntError id (toLocation loc)

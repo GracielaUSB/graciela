@@ -31,8 +31,8 @@ data CodegenSt
     { insCount   :: Word                        -- Cantidad de instrucciones sin nombre
     , condName   :: Name
     , blockName  :: Name                        -- Cantidad de bloques básicos en el programa
-    , instrs     :: Seq (Named Instruction)  -- Lista de instrucciones en el bloque básico actual
-    , bblocs     :: Seq BasicBlock           -- Lista de bloques básicos en la definición actual
+    , instrs     :: Seq (Named Instruction)     -- Lista de instrucciones en el bloque básico actual
+    , bblocs     :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
     , moduleDefs :: Seq Definition
     , varsLoc    :: Map String Operand
     , arrsDim    :: Map String [Operand]
@@ -335,7 +335,7 @@ retVoid = do
 convertParams :: [(String, Contents SymbolTable)] -> [(String, Type)]
 convertParams [] = []
 convertParams ((id,c):xs) =
-    let t  = toType $ symbolType c in
+    let t  = toType $ argType c in
 
     case argTypeArg c of
       T.In      -> (id, t) : convertParams xs

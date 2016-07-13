@@ -164,6 +164,13 @@ getLoc (ProcCon _ l _ _ _)     = l
 getLoc (AbstractContent _ l)   = l
 getLoc (TypeContent _ l)   = l
 
+getContentType :: Contents a -> Type
+getContentType (Contents _ _ _ t _ _)  = t
+getContentType (ArgProcCont _ _ _ t )  = t
+getContentType (FunctionCon _ _ t _ _) = t
+getContentType _                       = GEmpty
+
+
 
 getVarBeh :: Contents a -> Maybe VarBehavior
 getVarBeh (Contents _ vb _ _ _ _) = Just vb
