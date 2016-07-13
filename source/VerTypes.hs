@@ -9,6 +9,9 @@ import Contents
 import Type
 import AST
 --------------------------------------------------------------------------------
+import Data.Tree 
+import Treelike
+import Debug.Trace
 import Data.List                (zip4)
 import Control.Monad.RWS.Strict (ask)
 import Data.Text                (Text)
@@ -399,10 +402,12 @@ verDefFun name body bound loc = do
     sb <- ask
     case lookUpRoot name sb of
         Nothing -> addUndecFuncError name True loc
-        Just c  ->
-            case symbolType c of
+        Just c@(FunctionCon _ _ t _ _)  ->
+            case t of
                 GFunction _ tf ->
                     if tf == body
                         then return GEmpty
                         else addRetFuncError name tf body loc
                 _       -> addUndecFuncError name True loc
+        _      -> addUndecFuncError name True loc
+

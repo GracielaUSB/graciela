@@ -20,24 +20,29 @@ import           Graciela
 import           Token
 import           Type
 import           Location
+import           SymbolTable
 -------------------------------------------------------------------------------
 import           Control.Monad       (void)
+import           Control.Lens        (use, (.=), (%=))
 import           Text.Parsec
 import           Data.Text (Text)
 -------------------------------------------------------------------------------
 
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
-abstractDataType :: MyParser (Maybe (AST Type))
+abstractDataType :: Graciela (Maybe (AST Type))
 abstractDataType = do
+    pos <- getPosition
     verify TokAbstract
     abstractId <- panicModeId parseLeftParent
     abstractTypes
     panicMode parseBegin (parseVar <|> parseTokLeftInv) PE.Begin
+
     newScopeParser
-    addManySymParser Variable (Just [(abstractId, Location 1 1 "sol")]) GInt Nothing
-    exitScopeParser
+    addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
     abstractBody (topDecl <|> parseEnd)
+    exitScopeParser
+    addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
 
     try $do void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
@@ -49,7 +54,7 @@ abstractDataType = do
 
     return Nothing
 
-topDecl :: MyParser Token
+topDecl :: Graciela Token
 topDecl = choice  [ verify TokAbstract
                   , verify TokDataType
                   , parseProgram
@@ -59,7 +64,7 @@ topDecl = choice  [ verify TokAbstract
 -- ListTypes: lista de ids contruidas con parsec
 
 -- Podria hacerce con between, pero no se como dar errores "bonitos"
-abstractTypes :: MyParser (Maybe (AST Type))
+abstractTypes :: Graciela (Maybe (AST Type))
 abstractTypes = do
     try $do void parseLeftParent
      <|> do id <- lookAhead parseId                    -- abstract Dicc  t1,t2)
@@ -81,21 +86,19 @@ abstractTypes = do
 
 
 -- AbstractBody -> DecList Invariant ListProcDecl
-abstractBody :: MyParser Token -> MyParser (Maybe (AST Type))
+abstractBody :: Graciela Token -> Graciela (Maybe (AST Type))
 abstractBody follow = do
-    newScopeParser
     abstractDecList
     invariant follow
     procs <- manyTill (procDecl follow) $ lookAhead follow
-    exitScopeParser
     return Nothing
 
 
-abstractDecList :: MyParser ()
+abstractDecList :: Graciela ()
 abstractDecList = void $ abstractDec `endBy` parseSemicolon
 
 
-abstractDec :: MyParser ()
+abstractDec :: Graciela ()
 abstractDec = do
     parseVar <|> parseConst
     ids <- locId `sepBy` parseComma
@@ -104,14 +107,14 @@ abstractDec = do
     addManyUniSymParser (Just ids) t
 
 
-locId :: MyParser (Text, Location)
+locId :: Graciela (Text, Location)
 locId = do
     loc <- parseLocation
     id <- parseId
     return (id, loc)
 
 
-abstType :: MyParser Type
+abstType :: Graciela Type
 abstType =  do {parseSet; parseOf; basic >>= return . GSet }
         <|> do {parseMultiset; parseOf; basic >>= return . GMultiset }
         <|> do {parseSeq; parseOf; basic >>= return . GSeq }
@@ -125,12 +128,12 @@ abstType =  do {parseSet; parseOf; basic >>= return . GSet }
         <|> basic
 
 
-basic :: MyParser Type
+basic :: Graciela Type
 basic = (parseId >>= return . GTypeVar) <|> parseType
 
 
 -- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
-procDecl :: MyParser Token -> MyParser (Maybe (AST Type))
+procDecl :: Graciela Token -> Graciela (Maybe (AST Type))
 procDecl follow = do
     pos <- getPosition
     try $do void parseProc
@@ -151,10 +154,14 @@ procDecl follow = do
     panicMode parseRightParent parseTokLeftPre PE.TokenRP                   -- )
     pre  <- precondition parseTokLeftPost                                   -- pre
     post <- postcondition follow                                            -- post
+    sb <- getCurrentScope
+    addProcTypeParser id targs (toLocation pos) sb
     exitScopeParser
+    addProcTypeParser id targs (toLocation pos) sb
+
     return Nothing
     where
-        argTypes :: MyParser Token
+        argTypes :: Graciela Token
         argTypes = choice  [ parseIn
                           , parseOut
                           , parseInOut
@@ -163,15 +170,24 @@ procDecl follow = do
 
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' DataTypeBody 'end'
-dataType :: MyParser (Maybe (AST Type))
+dataType :: Graciela (Maybe (AST Type))
 dataType = do
+    pos <- getPosition
     verify TokDataType
-    panicModeId (verify TokImplements)
+    typeId <- panicModeId (verify TokImplements)
     panicMode   (verify TokImplements) parseTokId PE.Implements
-    abstratcId <- panicModeId parseLeftParent
+    abstractId <- panicModeId parseLeftParent
     types
+
+    
+
     panicMode parseBegin (parseVar <|> verify TokLeftRep) PE.Begin
+    
+    newScopeParser
+    addSymbolParser typeId (TypeContent typeId (toLocation pos))
     dataTypeBody parseEnd parseEnd
+    exitScopeParser
+    addSymbolParser typeId (TypeContent typeId (toLocation pos))
 
     try $do void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
@@ -186,7 +202,7 @@ dataType = do
 
 -- Types -> '(' ListTypes ')'
 -- ListTypes: lista de tipos contruidas con parsec
-types :: MyParser (Maybe (AST Type))
+types :: Graciela (Maybe (AST Type))
 types = do
 
     -- panicMode parseLeftParent parseType PE.TokenLP
@@ -206,12 +222,10 @@ types = do
 
 
 -- DataTypeBody -> DecList RepInvariant CoupInvariant ListDefProc
-dataTypeBody :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+dataTypeBody :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 dataTypeBody follow recSet = do
-    newScopeParser
     dl    <- decList followAction recSet
     repInvariant -- No hace nada
     coupInvariant  -- No hace nada
     procs <- listDefProc follow recSet
-    exitScopeParser
     return Nothing

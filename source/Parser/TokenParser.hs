@@ -8,7 +8,7 @@ import           Data.Text   (Text)
 import           Text.Parsec
 --------------------------------------------------------------------------------
 
-verify :: Token -> MyParser Token
+verify :: Token -> Graciela Token
 verify x =
     tokenPrim showTok updatePos testTok
     where
@@ -117,13 +117,13 @@ parseWrite         = verify TokWrite
 parseWriteln       = verify TokWriteln
 
 
-parseAnyToken :: MyParser Token
+parseAnyToken :: Graciela Token
 parseAnyToken = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
                   testTok (t, pos) = Just t
 
-parseTokId :: MyParser Token
+parseTokId :: Graciela Token
 parseTokId = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
@@ -131,7 +131,7 @@ parseTokId = tokenPrim showTok updatePos testTok
                                    TokId id  -> Just $ TokId id
                                    _ -> Nothing
 
-parseId :: MyParser Text
+parseId :: Graciela Text
 parseId = tokenPrim showTok updatePos testTok
           where
             showTok (t, pos) = show t
@@ -139,7 +139,7 @@ parseId = tokenPrim showTok updatePos testTok
                                    TokId id  -> Just id
                                    _ -> Nothing
 
-parseBool :: MyParser Bool
+parseBool :: Graciela Bool
 parseBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
@@ -147,7 +147,7 @@ parseBool = tokenPrim showTok updatePos testTok
                                     TokBool b -> Just b
                                     _ -> Nothing
 
-parseTokBool :: MyParser Token
+parseTokBool :: Graciela Token
 parseTokBool = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
@@ -155,7 +155,7 @@ parseTokBool = tokenPrim showTok updatePos testTok
                                     TokBool b -> Just $ TokBool b
                                     _ -> Nothing
 
-parseType :: MyParser Type
+parseType :: Graciela Type
 parseType = tokenPrim showTok updatePos testTok
               where
                 showTok (t, pos) = show t
@@ -163,7 +163,7 @@ parseType = tokenPrim showTok updatePos testTok
                                       TokType b -> Just b
                                       _ -> Nothing
 
-parseChar :: MyParser Char
+parseChar :: Graciela Char
 parseChar = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
@@ -171,7 +171,7 @@ parseChar = tokenPrim showTok updatePos testTok
                                     TokChar b -> Just b
                                     _ -> Nothing
 
-parseTokChar :: MyParser Token
+parseTokChar :: Graciela Token
 parseTokChar = tokenPrim showTok updatePos testTok
             where
               showTok (t, pos) = show t
@@ -179,7 +179,7 @@ parseTokChar = tokenPrim showTok updatePos testTok
                                     TokChar b -> Just $ TokChar b
                                     _ -> Nothing
 
-parseString :: MyParser String
+parseString :: Graciela String
 parseString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
@@ -187,7 +187,7 @@ parseString = tokenPrim showTok updatePos testTok
                                       TokString b -> Just b
                                       _ -> Nothing
 
-parseTokString :: MyParser Token
+parseTokString :: Graciela Token
 parseTokString = tokenPrim showTok updatePos testTok
                 where
                   showTok (t, pos) = show t
@@ -195,7 +195,7 @@ parseTokString = tokenPrim showTok updatePos testTok
                                        TokString b -> Just $ TokString b
                                        _ -> Nothing
 
-number :: MyParser Integer
+number :: Graciela Integer
 number = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
@@ -203,7 +203,7 @@ number = tokenPrim showTok updatePos testTok
                                     TokInteger n -> Just n
                                     _ -> Nothing
 
-parseTokNumber :: MyParser Token
+parseTokNumber :: Graciela Token
 parseTokNumber = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos) = show t
@@ -211,7 +211,7 @@ parseTokNumber = tokenPrim showTok updatePos testTok
                                 TokInteger n -> Just $ TokInteger n
                                 _ -> Nothing
 
-parseDouble :: MyParser Double
+parseDouble :: Graciela Double
 parseDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t
@@ -220,7 +220,7 @@ parseDouble = tokenPrim showTok updatePos testTok
                                     _ -> Nothing
 
 
-parseTokDouble :: MyParser Token
+parseTokDouble :: Graciela Token
 parseTokDouble = tokenPrim showTok updatePos testTok
          where
            showTok (t, pos)     = show t

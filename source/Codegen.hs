@@ -201,8 +201,8 @@ addArgOperand [] = return ()
 
 addArgOperand ((id',c):xs) = do
 
-    let t    = toType $ symbolType c
-    let tp   = procArgType c
+    let t    = toType $ argType c
+    let tp   = argTypeArg c
     let id   = convertId id'
     let e'   = local t (Name id')
     case tp of
@@ -219,7 +219,7 @@ addArgOperand ((id',c):xs) = do
 
         T.Out   -> do op <- alloca Nothing t id
                       addVarOperand id' op
-                      initialize id $ symbolType c
+                      initialize id $ argType c
                       return ()
 
         T.Ref   -> do addVarOperand id' e'
@@ -235,7 +235,7 @@ retVarOperand ((id', c):xs) = do
 
     let t   = toType $ symbolType c
     let exp = local t (Name id')
-    let tp  = procArgType c
+    let tp  = argTypeArg c
 
     case tp of
         T.InOut -> do add <- load id' t
@@ -540,8 +540,8 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
 
 
 createInstruction (MyAST.ProcCallCont pname st _ args c _) = do
-    let dic   = getMap $ getCurrent $ sTable $ c
-    let nargp = nameArgs c
+    let dic   = getMap $ getCurrent $ procTable $ c
+    let nargp = procArgs c
     exp <- createArguments dic nargp args
     procedureCall voidType (TE.unpack pname) exp
     return ()
@@ -561,7 +561,7 @@ createArguments :: DM.Map TE.Text (Contents SymbolTable)
 createArguments _ [] [] = return []
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
-    let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
+    let argt = argTypeArg $ fromJust $ DM.lookup nargp dicnp
 
     case argt of
         T.In      -> do arg' <- createExpression arg

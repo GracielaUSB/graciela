@@ -30,9 +30,9 @@ import qualified Control.Applicative as AP
 import           Text.Parsec
 -------------------------------------------------------------------------------
 
-assertions :: MyParser Token -> MyParser Token
-           -> StateCond      -> MyParser Token
-           -> MyParser (Maybe (AST Type) )
+assertions :: Graciela Token -> Graciela Token
+           -> StateCond      -> Graciela Token
+           -> Graciela (Maybe (AST Type) )
 assertions initial final ty follow = do
     try $do initial
             e <- expr final (follow <|> final)
@@ -57,25 +57,25 @@ assertions initial final ty follow = do
             return $Nothing
 
 
-precondition :: MyParser Token -> MyParser (Maybe (AST Type) )
+precondition :: Graciela Token -> Graciela (Maybe (AST Type) )
 precondition follow = assertions parseTokLeftPre parseTokRightPre Pre follow
 
-postcondition :: MyParser Token -> MyParser (Maybe (AST Type) )
+postcondition :: Graciela Token -> Graciela (Maybe (AST Type) )
 postcondition follow = assertions parseTokLeftPost parseTokRightPost Post follow
 
-bound :: MyParser Token -> MyParser (Maybe (AST Type) )
+bound :: Graciela Token -> Graciela (Maybe (AST Type) )
 bound follow = assertions parseTokLeftBound parseTokRightBound Bound follow
 
-assertion :: MyParser Token -> MyParser (Maybe (AST Type) )
+assertion :: Graciela Token -> Graciela (Maybe (AST Type) )
 assertion follow = assertions parseTokLeftA parseTokRightA Assertion follow
 
-invariant :: MyParser Token -> MyParser (Maybe (AST Type) )
+invariant :: Graciela Token -> Graciela (Maybe (AST Type) )
 invariant follow = assertions parseTokLeftInv parseTokRightInv Invariant follow
 
-repInvariant :: MyParser (Maybe (AST Type))
+repInvariant :: Graciela (Maybe (AST Type))
 repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representation
                           (parseEnd <|> parseProc <|> (verify TokLeftAcopl))
 
-coupInvariant :: MyParser (Maybe (AST Type) )
+coupInvariant :: Graciela (Maybe (AST Type) )
 coupInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple
                           (parseEnd <|> parseProc)

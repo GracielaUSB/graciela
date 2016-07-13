@@ -181,8 +181,9 @@ program main begin
         ;   x := x+1
         ]|
         od;
-
-        
+        random(x);
+        write("El random es: ");
+        writeln(x);
         writeln(1-1-1);
         write("Numero de Fibonacci, ingrese un numero: ");
         x,m := 1,20;

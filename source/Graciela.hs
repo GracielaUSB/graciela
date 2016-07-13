@@ -24,9 +24,9 @@ import           Data.Text              (Text)
 --------------------------------------------------------------------------------
 
 
-type MyParser a = ParsecT [TokenPos] () (StateT ParserState Identity) a
+type Graciela a = ParsecT [TokenPos] () (StateT GracielaState Identity) a
 
-data ParserState = ParserState
+data GracielaState = GracielaState
     { _synErrorList    :: Seq MyParseError
     , _symbolTable     :: SymbolTable
     , _sTableErrorList :: Seq MyTypeError
@@ -34,10 +34,10 @@ data ParserState = ParserState
     }
     deriving(Show)
 
-makeLenses ''ParserState
+makeLenses ''GracielaState
 
-initialState :: ParserState
-initialState = ParserState
+initialState :: GracielaState
+initialState = GracielaState
     { _synErrorList    = Seq.empty
     , _symbolTable     = emptyTable
     , _sTableErrorList = Seq.empty
@@ -45,22 +45,22 @@ initialState = ParserState
     }
 
 
--- addFileToRead :: String -> ParserState -> ParserState
+-- addFileToRead :: String -> GracielaState -> GracielaState
 -- addFileToRead file ps =
 --     ps { filesToRead = Set.insert file $ filesToRead ps }
 
 
--- addTypeError :: MyTypeError -> ParserState -> ParserState
+-- addTypeError :: MyTypeError -> GracielaState -> GracielaState
 -- addTypeError err ps =
 --     ps { sTableErrorList = sTableErrorList ps |> err }
 
 
--- addParsingError :: MyParseError -> ParserState -> ParserState
+-- addParsingError :: MyParseError -> GracielaState -> GracielaState
 -- addParsingError e ps =
 --     ps { synErrorList = synErrorList ps |> e }
 
 
--- addNewSymbol :: Text -> Contents SymbolTable -> ParserState -> ParserState
+-- addNewSymbol :: Text -> Contents SymbolTable -> GracielaState -> GracielaState
 -- addNewSymbol sym c ps = case addSymbol sym c (symbolTable ps) of
 --     Left con ->
 --         ps { sTableErrorList =
@@ -69,21 +69,21 @@ initialState = ParserState
 --         ps { symbolTable = sb }
 
 
--- initVar :: Text -> ParserState -> ParserState
+-- initVar :: Text -> GracielaState -> GracielaState
 -- initVar sym ps = ps { symbolTable = initSymbol sym (symbolTable ps) }
 
 
--- newScopeState :: ParserState -> ParserState
+-- newScopeState :: GracielaState -> GracielaState
 -- newScopeState st = st { symbolTable = enterScope (symbolTable st) }
 
 
--- exitScopeState :: ParserState -> ParserState
+-- exitScopeState :: GracielaState -> GracielaState
 -- exitScopeState st = case exitScope (symbolTable st) of
 --     Just sbtl -> st { symbolTable = sbtl }
 --     Nothing   -> addParsingError ScopesError st
 
 
--- getScopeState :: ParserState -> Int
+-- getScopeState :: GracielaState -> Int
 -- getScopeState st = getScope $ symbolTable st
 
 
@@ -91,7 +91,7 @@ initialState = ParserState
 -- lookUpVarState = checkSymbol
 
 
--- drawState :: Maybe Int -> ParserState -> String
+-- drawState :: Maybe Int -> GracielaState -> String
 -- drawState n st = do  
 --     errorList <- use synErrorList
 --     tableErrorList <- use sTableErrorList
@@ -102,7 +102,7 @@ initialState = ParserState
 --     else drawError . take' n . Seq.sortBy (compare `on` P.loc) . errorList
 
 
-drawState :: Maybe Int -> ParserState -> String
+drawState :: Maybe Int -> GracielaState -> String
 drawState n st = if Seq.null $ _synErrorList st
     then if Seq.null $ _sTableErrorList st
         then "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"

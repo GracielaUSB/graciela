@@ -337,7 +337,7 @@ convertParams [] = []
 convertParams ((id,c):xs) =
     let t  = toType $ symbolType c in
 
-    case procArgType $ c of
+    case argTypeArg c of
       T.In      -> (id, t) : convertParams xs
       otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 

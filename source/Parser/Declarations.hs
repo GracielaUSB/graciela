@@ -17,7 +17,7 @@ import Parser.TokenParser
 import Parser.ParserType
 import Location
 import Token
-import           Graciela
+import Graciela
 import Type
 import AST
 -------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ import Data.Functor.Identity
 import Text.Parsec
 -------------------------------------------------------------------------------
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
-decList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+decList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 decList follow recSet =
     do loc <- parseLocation
        do parseVar
@@ -76,7 +76,7 @@ decList follow recSet =
 
 
 -- | Se encarga del parseo de una lista de constantes o variables con inicializacion
-consListParser :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+consListParser :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 consListParser follow recSet =
     do c <- expr (parseComma <|> follow) (parseComma <|> recSet)
        do parseComma
@@ -86,7 +86,7 @@ consListParser follow recSet =
 
 
 -- | Se encarga del parseo del Id de una variable
-idList :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
+idList :: Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Location)])
 idList follow recSet =
     do lookAhead follow
        genNewEmptyError
@@ -98,7 +98,7 @@ idList follow recSet =
 
 
 -- | Se encarga del parseo de la lista de Id's de las variables
-idListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Location)])
+idListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Location)])
 idListAux follow recSet = do
     parseComma
     ac <- parseId
@@ -109,15 +109,15 @@ idListAux follow recSet = do
 
 
 -- | Se encarga de generar la posicion de los Id's
-parseLocation :: MyParser (Location)
+parseLocation :: Graciela (Location)
 parseLocation = do
     pos <- getPosition
     return $ Location (sourceLine pos) (sourceColumn pos) (sourceName pos)
 
 
 -- | Se encarga del parseo de la lectura de variables
-reading :: MyParser Token -> Maybe [AST Type] -> ParsecT [TokenPos] ()
-           (StateT ParserState Identity) (Maybe [AST Type])
+reading :: Graciela Token -> Maybe [AST Type] -> ParsecT [TokenPos] ()
+           (StateT GracielaState Identity) (Maybe [AST Type])
 reading follow ld =
   do loc <- parseLocation
      do parseRead
@@ -143,7 +143,7 @@ reading follow ld =
 
 
 -- | Verifica las variables utilizadas en la lectura
-decListWithRead :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+decListWithRead :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 decListWithRead follow recSet =
   do lookAhead (parseConst <|> parseVar)
      ld <- decList (follow <|> parseRead) (recSet <|> parseRead)

@@ -48,7 +48,7 @@ import           Data.Maybe
 data CasesConditional = CExpression | CAction
 
 
-actionsList :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+actionsList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 actionsList follow recSet =
   do lookAhead follow
      genNewEmptyError
@@ -57,7 +57,7 @@ actionsList follow recSet =
             rl <- actionsListAux follow recSet
             return $ AP.liftA2 (:) ac rl
 
-actionsListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+actionsListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 actionsListAux follow recSet =
   do parseSemicolon
      ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
@@ -65,7 +65,7 @@ actionsListAux follow recSet =
      return (AP.liftA2 (:) ac rl)
      <|> do return $ return []
 
-action :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+action :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 action follow recSet =
     do pos <- getPosition
        do  lookAhead followAction
@@ -82,7 +82,7 @@ action follow recSet =
            <|> do genNewError follow Action
                   return Nothing
 
-actionAux :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+actionAux :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 actionAux follow recSet =
         skip follow recSet
     <|> conditional CAction follow recSet
@@ -97,11 +97,11 @@ actionAux follow recSet =
     <|> repetition follow recSet
 
 
-followAction ::  MyParser Token
+followAction ::  Graciela Token
 followAction = (parseTokId <|> parseIf <|> parseAbort <|> parseSkip <|>
                   parseTokOpenBlock <|> parseWrite <|> parseWriteln <|> parseTokLeftInv <|> parseRandom)
 
-block :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+block :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 block follow recSet =
     do pos <- getPosition
        parseTokOpenBlock
@@ -116,7 +116,7 @@ block follow recSet =
                  return Nothing
 
 
-random :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+random :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 random follow recSet =
     do pos <- getPosition
        parseRandom
@@ -124,8 +124,15 @@ random follow recSet =
           do id  <- parseId
              do parseRightParent
                 cont <- lookUpSymbol id
-                let t = symbolType $ fromJust $ cont
-                return $ return $ Ran id t (toLocation pos) GEmpty
+                case cont of 
+                  Just (Contents _ _ _ t _ _) -> 
+                    return $ return $ Ran id t (toLocation pos) GEmpty
+                  Just (ArgProcCont _ _ _ t) ->
+                    return $ return $ Ran id t (toLocation pos) GEmpty
+                  Just (FunctionCon _ _ t _ _) ->
+                    return $ return $ Ran id t (toLocation pos) GEmpty
+                  _ -> 
+                    return $ return $ Ran id GEmpty (toLocation pos) GError
                 <|> do genNewError follow TokenRP
                        return Nothing
              <|> do genNewError follow IdError
@@ -134,14 +141,14 @@ random follow recSet =
                  return Nothing
 
 
-guardsList :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+guardsList :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 guardsList casec follow recSet =
     do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
        gl <- guardsListAux casec follow recSet
        return $ AP.liftA2 (:) g gl
 
 
-guardsListAux :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+guardsListAux :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 guardsListAux casec follow recSet =
   do parseSepGuards
      g  <- guard casec (parseSepGuards <|> follow) (recSet <|> parseSepGuards)
@@ -150,7 +157,7 @@ guardsListAux casec follow recSet =
      <|> do return $ return []
 
 
-guard :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+guard :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 guard CAction follow recSet     =
     do pos <- getPosition
        e <- expr (parseArrow) (recSet <|> parseArrow)
@@ -169,7 +176,7 @@ guard CExpression follow recSet =
                  return (AP.liftA2 (\f -> f (toLocation pos)) (AP.liftA2 GuardExp e a) (return (GEmpty)))
 
 
-functionCallOrAssign ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+functionCallOrAssign ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 functionCallOrAssign follow recSet =
     do pos <- getPosition
        id <- parseId
@@ -198,7 +205,7 @@ functionCallOrAssign follow recSet =
                  <|> do genNewError follow TokenAs
                         return Nothing
 
-idAssignListAux :: MyParser Token -> MyParser Token -> MyParser (Maybe ([AST Type]))
+idAssignListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe ([AST Type]))
 idAssignListAux follow recSet =
   do parseComma
      pos <- getPosition
@@ -221,7 +228,7 @@ idAssignListAux follow recSet =
                return Nothing
      <|> do return $ return []
 
-write :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+write :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 write follow recSet =
     do pos <- getPosition
        parseWrite
@@ -235,7 +242,7 @@ write follow recSet =
                  return Nothing
 
 
-writeln ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+writeln ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 writeln follow recSet =
     do pos <- getPosition
        parseWriteln
@@ -248,7 +255,7 @@ writeln follow recSet =
           <|> do genNewError follow TokenLP
                  return Nothing
 
-new :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+new :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 new follow recSet = do
     parseNew
     parseLeftParent
@@ -257,7 +264,7 @@ new follow recSet = do
 
     return . Just . EmptyAST $ GEmpty
 
-free :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+free :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 free follow recSet = do
     parseFree
     parseLeftParent
@@ -266,14 +273,14 @@ free follow recSet = do
 
     return . Just . EmptyAST $ GEmpty
 
-abort ::  MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+abort ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 abort folow recSet =
     do pos <- getPosition
        parseAbort
        return $ return $ Abort (toLocation pos) GEmpty
 
 
-conditional :: CasesConditional -> MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+conditional :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 conditional casec follow recSet =
     do pos <- getPosition
        parseIf
@@ -283,7 +290,7 @@ conditional casec follow recSet =
           <|> do genNewError follow TokenFI
                  return Nothing
 
-repetition :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+repetition :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 repetition follow recSet =
     do pos <- getPosition
        inv <- invariant parseTokLeftBound
@@ -297,7 +304,7 @@ repetition follow recSet =
           <|> do genNewError follow TokEOFO
                  return Nothing
 
-skip :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type))
+skip :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
 skip follow recSet =
     do  pos <- getPosition
         parseSkip

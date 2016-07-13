@@ -16,17 +16,17 @@ import           Data.Text   (Text)
 import           Text.Parsec
 --------------------------------------------------------------------------------
 
-myBasicType :: MyParser Token -> MyParser Token -> MyParser Type
+myBasicType :: Graciela Token -> Graciela Token -> Graciela Type
 myBasicType follow recSet = parseType
 
-parsePointer :: Type -> MyParser Type
+parsePointer :: Type -> Graciela Type
 parsePointer t =
   do
     parseStar
     parsePointer $GPointer t
   <|> return t
 
-myType :: MyParser Token -> MyParser Token -> MyParser Type
+myType :: Graciela Token -> Graciela Token -> Graciela Type
 myType follow recSet =
       do t <- myBasicType follow recSet
          try $do parsePointer t
@@ -49,8 +49,8 @@ myType follow recSet =
               return (GDataType id [t] [] [])
 
 
-parseConstNumber :: MyParser Token -> MyParser Token
-                  -> MyParser (Maybe (Either Text Integer))
+parseConstNumber :: Graciela Token -> Graciela Token
+                  -> Graciela (Maybe (Either Text Integer))
 parseConstNumber follow recSet =
     do pos <- getPosition
        do  lookAhead follow

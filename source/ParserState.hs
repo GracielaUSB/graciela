@@ -27,7 +27,7 @@ import qualified Data.Set               as Set (Set, empty, insert)
 --------------------------------------------------------------------------------
 
 
-addFileToReadParser :: String -> MyParser ()
+addFileToReadParser :: String -> Graciela ()
 addFileToReadParser file = do
         filesToRead %= Set.insert file
         return ()
@@ -36,7 +36,8 @@ addFunTypeParser :: Text
                  -> Maybe [(Text, Type)] 
                  -> Type 
                  -> Location
-                 -> SymbolTable -> MyParser ()
+                 -> SymbolTable 
+                 -> Graciela ()
 addFunTypeParser id (Just lt) t loc sb =
     addSymbolParser id (FunctionCon id loc (GFunction snds t) fsts sb)
     where 
@@ -48,29 +49,29 @@ addFunTypeParser _ _ _ _ _ = return ()
 addProcTypeParser :: Text 
                   -> Maybe [(Text, Type)] 
                   -> Location
-                  -> SymbolTable -> MyParser ()
+                  -> SymbolTable -> Graciela ()
 addProcTypeParser id (Just xs) loc sb =
     addSymbolParser id $ ProcCon id loc (GProcedure snds) fsts sb
     where (fsts, snds) = unzip xs
 addProcTypeParser _ _ _ _             = return ()
 
 
-getCurrentScope :: MyParser SymbolTable
+getCurrentScope :: Graciela SymbolTable
 getCurrentScope = do
     st <- use symbolTable
     return $ st
 
 
-newScopeParser :: MyParser ()
+newScopeParser :: Graciela ()
 newScopeParser = symbolTable %= enterScope
 
 
-getScopeParser :: MyParser Int
+getScopeParser :: Graciela Int
 getScopeParser = do st <- use symbolTable
                     return $ getScope st
 
 
-exitScopeParser :: MyParser ()
+exitScopeParser :: Graciela ()
 exitScopeParser = do
     st <- use symbolTable
     case exitScope st of
@@ -79,7 +80,7 @@ exitScopeParser = do
         
 
 
-addManyUniSymParser :: Maybe [(Text, Location)] -> Type -> MyParser ()
+addManyUniSymParser :: Maybe [(Text, Location)] -> Type -> Graciela ()
 addManyUniSymParser (Just xs) t = f xs t
     where
         f ((id, loc):xs) t = do
@@ -91,7 +92,7 @@ addManyUniSymParser _ _ = return ()
 
 
 addManySymParser :: VarBehavior -> Maybe [(Text , Location)] -> Type
-                 -> Maybe [AST Type] -> MyParser ()
+                 -> Maybe [AST Type] -> Graciela ()
 addManySymParser vb (Just xs) t (Just ys) =
     if length xs /= length ys then
         do pos <- getPosition
@@ -114,12 +115,12 @@ astToValue (String _ s _) = Just $ S s
 astToValue _              = Nothing
 
 
-verifyReadVars :: Maybe [(Text, Location)] -> MyParser [Type]
+verifyReadVars :: Maybe [(Text, Location)] -> Graciela [Type]
 verifyReadVars (Just lid) = catMaybes <$> mapM (lookUpConsParser . fst) lid
 verifyReadVars _          = return []
 
 
-addFunctionArgParser :: Text -> Text -> Type -> Location -> MyParser ()
+addFunctionArgParser :: Text -> Text -> Type -> Location -> Graciela ()
 addFunctionArgParser idf id t loc =
     if id /= idf then
         addSymbolParser id $ Contents id Constant loc t Nothing True
@@ -128,7 +129,7 @@ addFunctionArgParser idf id t loc =
 
 
 addArgProcParser :: Text -> Text -> Type -> Location
-                 -> Maybe TypeArg -> MyParser ()
+                 -> Maybe TypeArg -> Graciela ()
 addArgProcParser id pid t loc (Just targ) =
     if id /= pid then
       addSymbolParser id $ ArgProcCont id targ loc t
@@ -137,19 +138,19 @@ addArgProcParser id pid t loc (Just targ) =
 addArgProcParser _ _ _ _ _ = return ()
 
 
-addSymbolParser :: Text -> Contents SymbolTable -> MyParser ()
+addSymbolParser :: Text -> Contents SymbolTable -> Graciela ()
 addSymbolParser symbol content = do 
     st <- use symbolTable
     case addSymbol symbol content st of
         Left con ->
             sTableErrorList %=
-                (|> (RepSymbolError symbol `on` symbolLoc) con content) 
+                (|> (RepSymbolError symbol `on` getLoc) con content) 
         Right sb ->
             symbolTable .= sb
         
 
 
-addCuantVar :: OpQuant -> Text -> Type -> Location -> MyParser ()
+addCuantVar :: OpQuant -> Text -> Type -> Location -> Graciela ()
 addCuantVar op id t loc =
     if isQuantifiable t then
        addSymbolParser id $ Contents id Constant loc t Nothing True
@@ -157,7 +158,7 @@ addCuantVar op id t loc =
        addUncountableError op loc
 
 
-lookUpSymbol :: Text -> MyParser (Maybe (Contents SymbolTable))
+lookUpSymbol :: Text -> Graciela (Maybe (Contents SymbolTable))
 lookUpSymbol id = do
     st <- use symbolTable
     case checkSymbol id st of
@@ -168,47 +169,46 @@ lookUpSymbol id = do
 
 
 
-lookUpVarParser :: Text -> Location -> MyParser (Maybe Type)
+lookUpVarParser :: Text -> Location -> Graciela (Maybe Type)
 lookUpVarParser id loc = do
     st <- use symbolTable
     c  <- lookUpSymbol id
     case c of
-        Just c' -> return $ fmap symbolType c
-        Nothing -> return Nothing
+        Just (Contents {}) -> return $ fmap symbolType c
+        _ -> return Nothing
 
 
 
-lookUpConsParser :: Text -> MyParser (Maybe Type)
+lookUpConsParser :: Text -> Graciela (Maybe Type)
 lookUpConsParser id = do
-    c <- lookUpSymbol id
-    case c of
-        Nothing   -> return Nothing
-        Just a    ->
-            if isLValue a then do
+    symbol <- lookUpSymbol id
+    case symbol of
+        Just content@(Contents {})    ->
+            if isLValue content then do
                 newInitVar id
-                return $ Just $ symbolType a
+                return $ Just $ symbolType content
             else do
                 addConsIdError id
                 return Nothing
+        _   -> return Nothing
 
 
-
-newInitVar :: Text -> MyParser ()
+newInitVar :: Text -> Graciela ()
 newInitVar id = do
     symbolTable %= initSymbol id
     return ()
 
 
-lookUpConstIntParser :: Text -> Location -> MyParser (Maybe Type)
+lookUpConstIntParser :: Text -> Location -> Graciela (Maybe Type)
 lookUpConstIntParser id loc = do
-    c <- lookUpSymbol id
+    symbol <- lookUpSymbol id
     loc <- getPosition
-    case c of
+    case symbol of
         Nothing -> return Nothing
-        Just a  ->
-            if isInitialized a then
-                if isRValue a then
-                    if symbolType a == GInt then
+        Just content@(Contents {})  ->
+            if isInitialized content then
+                if isRValue content then
+                    if symbolType content == GInt then
                         return $ return GInt
                     else do
                         addNotIntError id (toLocation loc)
@@ -221,85 +221,85 @@ lookUpConstIntParser id loc = do
                 return Nothing
 
 
-addConsIdError :: Text -> MyParser ()
+addConsIdError :: Text -> Graciela ()
 addConsIdError id = do
     pos <- getPosition
     sTableErrorList %= (|> ConstIdError id (toLocation pos))
     return ()
 
 
-addNonDeclVarError :: Text -> MyParser ()
+addNonDeclVarError :: Text -> Graciela ()
 addNonDeclVarError id = do
     pos <- getPosition
     sTableErrorList %= (|> ConstIdError id (toLocation pos))
     return ()
 
 
-addNonAsocError :: MyParser ()
+addNonAsocError :: Graciela ()
 addNonAsocError = do
     pos <- getPosition
     synErrorList %= (|> NonAsocError (toLocation pos))
     return ()
 
 
-addArrayCallError :: Int -> Int -> MyParser ()
+addArrayCallError :: Int -> Int -> Graciela ()
 addArrayCallError waDim prDim = do
     pos <- getPosition
     synErrorList %= (|> ArrayError waDim prDim (toLocation pos))
     return ()
 
 
-genNewError :: MyParser Token -> ExpectedToken -> MyParser ()
+genNewError :: Graciela Token -> ExpectedToken -> Graciela ()
 genNewError laset msg = do
     pos <- cleanEntry laset
     synErrorList %= (|> newParseError msg pos)
     return ()
 
 
-genNewEmptyError :: MyParser ()
+genNewEmptyError :: Graciela ()
 genNewEmptyError = do
     pos <- getPosition
     synErrorList %= (|> newEmptyError pos)
     return ()
 
-addOutOfBoundsError :: Text -> Location -> MyParser ()
+addOutOfBoundsError :: Text -> Location -> Graciela ()
 addOutOfBoundsError t l = do
     sTableErrorList %= (|> IntOutOfBounds t l)
     return ()
 
 
-addUncountableError :: OpQuant -> Location -> MyParser ()
+addUncountableError :: OpQuant -> Location -> Graciela ()
 addUncountableError op loc = do
     sTableErrorList %= (|> UncountError op loc)
     return ()
 
 
-addFunctionNameError :: Text -> Location -> MyParser ()
+addFunctionNameError :: Text -> Location -> Graciela ()
 addFunctionNameError id loc = do
     sTableErrorList %= (|> FunNameError id loc)
     return ()
 
 
-addNotIntError :: Text -> Location -> MyParser ()
+addNotIntError :: Text -> Location -> Graciela ()
 addNotIntError id loc = do
     sTableErrorList %= (|> NotIntError id loc)
     return ()
 
 
-addNotConsIdError :: Text -> Location -> MyParser ()
+addNotConsIdError :: Text -> Location -> Graciela ()
 addNotConsIdError id loc = do
     sTableErrorList %= (|> NotConstError id loc)
     return ()
 
 
-addNotInitError :: Text -> Location -> MyParser ()
+addNotInitError :: Text -> Location -> Graciela ()
 addNotInitError id loc = do
 
     sTableErrorList %= (|> NotInitError id loc)
     return ()
 
 
-addNotRValueError :: Text -> Location -> MyParser ()
+addNotRValueError :: Text -> Location -> Graciela ()
 addNotRValueError id loc = do
     sTableErrorList %= (|> NotRValueError id loc)
     return ()

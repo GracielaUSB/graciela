@@ -1,18 +1,60 @@
 abstract Diccionario (a)
 begin
 	// Diccionario variables
-	 
+	var i : int;
+	var m : int; 
 	
 	{inv true inv}
+	// Diccionario procedures
+
 	proc buscar (in n : int)
 		{pre true pre}
 		{post true post}
 	
-	// Diccionario procedures
+	
 	 
 end
 
+type Dicc implements Diccionario (int)
+begin	
+	// Dicc variables
+	var M : int;
+	
+	{repinv true repinv}
+
+	{coupinv true coupinv}
+
+	// Dicc procedures
+	proc buscar ( ) begin
+	
+		{pre true pre}
+		|[
+			write(M)
+		]|
+		{post true post}
+	end
+	
+	 
+end
+
+
 program main begin
+	func f (n : int) -> int
+	begin
+		if n >  1 -> 1
+		[] n <= 1 -> 0
+		fi
+	end
+	proc prox ( ) begin
+		var n : int;
+		{pre true pre}
+		|[
+			// var n : int;
+			write(n)
+		]|
+		{post true post}
+	end
+	
 	|[
 		var x := 4 : int;
 		write(4)

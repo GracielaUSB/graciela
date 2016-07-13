@@ -119,17 +119,17 @@ opts = do
             ioError (userError (concat errs ++ help))
 
 -- Processing --------------------------
-concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
+concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), GracielaState)
 concatLexPar = playParser <$> lexer
 
 
-playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
+playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), GracielaState)
 playParser inp = runStateParse program "" inp initialState
 
 
-runStateParse :: MyParser (Maybe (AST Type)) -> String
-              -> [TokenPos]-> ParserState
-              -> (Either ParseError (Maybe (AST Type)), ParserState)
+runStateParse :: Graciela (Maybe (AST Type)) -> String
+              -> [TokenPos]-> GracielaState
+              -> (Either ParseError (Maybe (AST Type)), GracielaState)
 runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 

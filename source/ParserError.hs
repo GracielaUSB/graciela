@@ -17,8 +17,8 @@ import           Graciela
 
 
 -- | Se encarga de descarta tokens hasta llegar a algun follow de la regla.
-cleanEntry :: ParsecT [Token.TokenPos] () (StateT ParserState Identity) Token
-           -> ParsecT [TokenPos] () (StateT ParserState Identity) (Token, SourcePos)
+cleanEntry :: ParsecT [Token.TokenPos] () (StateT GracielaState Identity) Token
+           -> ParsecT [TokenPos] () (StateT GracielaState Identity) (Token, SourcePos)
 cleanEntry laset =
   do pos <- getPosition
      e   <- lookAhead laset <|> lookAhead parseEOF <|> parseAnyToken
@@ -27,6 +27,6 @@ cleanEntry laset =
 
 
 -- | Se encarga de ignorar tokens hasta encontrar 'until'
-panicMode :: ParsecT [TokenPos] () (StateT ParserState Identity) Token
-          -> ParsecT [TokenPos] () (StateT ParserState Identity) [Token]
+panicMode :: ParsecT [TokenPos] () (StateT GracielaState Identity) Token
+          -> ParsecT [TokenPos] () (StateT GracielaState Identity) [Token]
 panicMode until = manyTill parseAnyToken (lookAhead (until <|> parseEOF))
