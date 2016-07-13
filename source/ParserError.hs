@@ -13,7 +13,7 @@ import Data.Functor.Identity
 import Text.Parsec
 import Parser.TokenParser
 import Token
-import State
+import           Graciela
 
 
 -- | Se encarga de descarta tokens hasta llegar a algun follow de la regla.

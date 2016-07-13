@@ -1,17 +1,20 @@
-program main begin
-	proc hola (in n : int) begin
-		var m : int;
+abstract Diccionario (a)
+begin
+	// Diccionario variables
+	 
+	
+	{inv true inv}
+	proc buscar (in n : int)
 		{pre true pre}
-		|[
-			var b := 10 : int;
-			write(b)
-		]|
 		{post true post}
-	end
 	
-	
+	// Diccionario procedures
+	 
+end
+
+program main begin
 	|[
 		var x := 4 : int;
-		hola(4)
+		write(4)
 	]|
 end

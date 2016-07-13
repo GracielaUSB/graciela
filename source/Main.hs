@@ -11,7 +11,7 @@ import           Contents
 import           Lexer
 import           MyTypeError
 import           Parser.Program
-import           State
+import           Graciela
 import           Token
 import           Type
 import           Treelike
@@ -155,19 +155,20 @@ play opts inp llName = case runParser concatLexPar () "" inp of
         die $ "\nOcurrió un error en el proceso de análisis sintáctico " ++ show err'
 
     Right (Right (Just ast), st) ->
-        if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
+        if Seq.null (_sTableErrorList st) && Seq.null (_synErrorList st)
             then do
                 -- putStrLn $drawST 0 $current $symbolTable st
+                let symTable = _symbolTable st
                 when (optSTable opts) $ do
-                    putStrLn $ drawTree $toTree $symbolTable st
+                    putStrLn $ drawTree $toTree $ symTable
                 when (optAST opts) $ do
                     putStrLn $ drawTree $toTree ast
                 
-                let (t, l) = runTVerifier (symbolTable st) ast
+                let (t, l) = runTVerifier (symTable) ast
 
                 if Seq.null l then do
                     version <- getOSVersion
-                    let newast = astToLLVM (toList $ filesToRead st) t version
+                    let newast = astToLLVM (toList $ _filesToRead st) t version
 
                     withContext $ \context ->
                         liftError $ withModuleFromAST context newast $ \m ->

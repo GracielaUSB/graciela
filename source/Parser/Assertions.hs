@@ -21,7 +21,7 @@ import Parser.ParserType
 import Contents
 import Location
 import Token
-import State
+import Graciela
 import Type
 import AST
 -------------------------------------------------------------------------------

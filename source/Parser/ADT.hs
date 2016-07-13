@@ -7,6 +7,7 @@ module Parser.ADT
 import           AST
 import           Location            (Location)
 import           MyParseError        as PE
+import           Contents                      
 import           Parser.Assertions
 import           Parser.Declarations
 import           Parser.Instructions
@@ -15,9 +16,10 @@ import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
                                       panicModeId)
 import           Parser.TokenParser
 import           ParserState
-import           State
+import           Graciela
 import           Token
 import           Type
+import           Location
 -------------------------------------------------------------------------------
 import           Control.Monad       (void)
 import           Text.Parsec
@@ -32,6 +34,9 @@ abstractDataType = do
     abstractId <- panicModeId parseLeftParent
     abstractTypes
     panicMode parseBegin (parseVar <|> parseTokLeftInv) PE.Begin
+    newScopeParser
+    addManySymParser Variable (Just [(abstractId, Location 1 1 "sol")]) GInt Nothing
+    exitScopeParser
     abstractBody (topDecl <|> parseEnd)
 
     try $do void parseEnd

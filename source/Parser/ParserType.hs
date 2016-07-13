@@ -7,7 +7,7 @@ module Parser.ParserType
 --------------------------------------------------------------------------------
 import           Location
 import           ParserState
-import           State
+import           Graciela
 import           Token
 import           Parser.TokenParser
 import           Type
