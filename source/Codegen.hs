@@ -2,31 +2,32 @@
 
 module Codegen where
 
-import qualified LLVM.General.AST.FloatingPointPredicate as FL
-import qualified LLVM.General.AST.IntegerPredicate       as IL
-import qualified LLVM.General.AST.CallingConvention      as CC
-import qualified LLVM.General.AST.Constant               as C
-import qualified Data.Text                               as TE
-import qualified Data.Map                                as DM
-import qualified Type                                    as T
-import qualified AST                                     as MyAST
-import Data.Range.Range                                  as RA
-import LLVM.General.AST                                  as AST
-import LLVM.General.AST.Attribute
-import LLVM.General.AST.Type
-import Control.Monad.State
-import Data.Foldable (toList)
-import CodegenState
-import SymbolTable
-import Data.Maybe
-import Data.Word
-import Contents
-import Location
-import Aborts
-import Limits
-
-import           System.Info            (os,arch)
-import           System.Process         (callCommand)
+--------------------------------------------------------------------------------
+import            Aborts
+import qualified  AST                                     as MyAST
+import            CodegenState
+import            Contents
+import            Limits
+import            Location
+import            SymbolTable
+import qualified  Type                                    as T
+--------------------------------------------------------------------------------
+import            Control.Monad.State
+import            Data.Foldable                           (toList)
+import            Data.Map                                as DM
+import            Data.Maybe
+import            Data.Range.Range                        as RA
+import            Data.Text                               as TE
+import            Data.Word
+import qualified  LLVM.General.AST                        as AST
+import qualified  LLVM.General.AST.Attribute
+import qualified  LLVM.General.AST.CallingConvention      as CC
+import qualified  LLVM.General.AST.Constant               as C
+import qualified  LLVM.General.AST.FloatingPointPredicate as FL
+import qualified  LLVM.General.AST.IntegerPredicate       as IL
+import            LLVM.General.AST.Type
+import            System.Info                             (os,arch)
+import            System.Process                          (callCommand)
 
 
 writeLnInt    = "_writeLnInt"
@@ -233,7 +234,7 @@ retVarOperand [] = return ()
 
 retVarOperand ((id', c):xs) = do
 
-    let t   = toType $ symbolType c
+    let t   = toType $ getContentType c
     let exp = local t (Name id')
     let tp  = argTypeArg c
 
