@@ -239,19 +239,19 @@ definedFunction t = ConstantOperand . (global t)
 
 
 initialize :: String -> T.Type -> LLVM (Operand)
-initialize id T.GInt = do
+initialize id (T.GInt) = do
    op <- getVarOperand id
    store intType op $ constantInt 0
 
-initialize id T.GFloat = do
+initialize id (T.GFloat) = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
 
-initialize id T.GBool = do
+initialize id (T.GBoolean) = do
    op <- getVarOperand id
    store charType op $ constantBool 0
 
-initialize id T.GChar = do
+initialize id (T.GChar) = do
    op <- getVarOperand id
    store charType op $ defaultChar
 
@@ -374,9 +374,9 @@ stringType = PointerType i16 (AddrSpace 0)
 
 
 toType :: T.Type -> Type
-toType T.GInt         = intType
-toType T.GFloat       = floatType
-toType T.GBool        = boolType
-toType T.GChar        = charType
+toType (T.GInt)         = intType
+toType (T.GFloat)       = floatType
+toType (T.GBoolean)        = boolType
+toType (T.GChar)        = charType
 toType (T.GArray _ t) = toType t
 

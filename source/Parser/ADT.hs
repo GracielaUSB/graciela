@@ -36,13 +36,13 @@ abstractDataType = do
     verify TokAbstract
     abstractId <- panicModeId parseLeftParent
     abstractTypes
+    insertType abstractId (GAbstractType abstractId [] [] []) (toLocation pos)
     panicMode parseBegin (parseVar <|> parseTokLeftInv) PE.Begin
 
     newScopeParser
     addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
     abstractBody (topDecl <|> parseEnd)
     exitScopeParser
-    addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
 
     try $do void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
@@ -178,16 +178,13 @@ dataType = do
     panicMode   (verify TokImplements) parseTokId PE.Implements
     abstractId <- panicModeId parseLeftParent
     types
-
-    
-
+    insertType typeId (GDataType typeId [] [] []) (toLocation pos)
     panicMode parseBegin (parseVar <|> verify TokLeftRep) PE.Begin
     
     newScopeParser
     addSymbolParser typeId (TypeContent typeId (toLocation pos))
     dataTypeBody parseEnd parseEnd
     exitScopeParser
-    addSymbolParser typeId (TypeContent typeId (toLocation pos))
 
     try $do void parseEnd
      <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)

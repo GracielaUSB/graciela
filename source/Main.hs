@@ -25,6 +25,7 @@ import           Control.Monad.State    (runStateT)
 import           Data.Foldable          (toList)
 import           Data.List              (nub)
 import           Data.Maybe             (fromMaybe)
+import           Data.Map.Strict        (showTree)
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
 import           Data.String.Utils      (replace)
@@ -160,7 +161,9 @@ play opts inp llName = case runParser concatLexPar () "" inp of
                 -- putStrLn $drawST 0 $current $symbolTable st
                 let symTable = _symbolTable st
                 when (optSTable opts) $ do
+                    let types    = _typesTable st
                     putStrLn $ drawTree $ toTree symTable
+                    putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
                 when (optAST opts) $ do
                     putStrLn $ drawTree $ toTree ast
                 
@@ -237,6 +240,6 @@ compileLL llName execName = void $ do
             "linux"   -> "/usr/local/lib/graciela-lib.so"
             "windows" -> undefined
         clang = case os of
-            "darwin" -> "clang-3.5"
+            "darwin" -> "/usr/local/bin/clang-3.5"
             "linux"  -> "clang-3.5"
             "windows" -> undefined

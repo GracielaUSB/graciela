@@ -24,6 +24,10 @@ data MyParseError
         { loc       :: Location
         }
     | ScopesError
+    | CustomError 
+        { msg :: String
+        , loc :: Location
+        }
 
 
 data ExpectedToken
@@ -62,6 +66,7 @@ data ExpectedToken
     | TokenRP
     | TokEOFO
     | TokenType
+
 
 instance Show ExpectedToken where
     show Action        = "acción"
@@ -114,6 +119,9 @@ instance Show MyParseError where
         ", encontrado Arreglo de dimensión " ++ show pr ++ "."
     show ScopesError              =
         "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
+    show (CustomError msg loc) =
+        errorL loc ++ ": " ++ msg 
+
 
 
 newEmptyError :: SourcePos -> MyParseError

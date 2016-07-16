@@ -10,7 +10,7 @@ como tambien los utilizados de forma interna en el compilador.
 module Type where
 --------------------------------------------------------------------------------
 import           Data.List (intercalate)
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 --------------------------------------------------------------------------------
 
 -- | Es el tipos para los argumentos.
@@ -21,7 +21,6 @@ data TypeArg
     | Ref   -- ^ Argumento pasado por referencia
     deriving (Eq)
 
-
 -- | Instancia 'Show' para los tipos de argumentos
 instance Show TypeArg where
     show = \case
@@ -29,6 +28,9 @@ instance Show TypeArg where
         Out   -> "Out"
         InOut -> "In/Out"
         Ref   -> "Ref"
+
+
+
 
 
 -- | Son los tipos utilizados en el compilador.
@@ -44,7 +46,7 @@ data Type
 
     | GInt           -- ^ Tipo entero
     | GFloat         -- ^ Tipo flotante
-    | GBool          -- ^ Tipo boleano
+    | GBoolean       -- ^ Tipo boleano
     | GChar          -- ^ Tipo caracter
 
     -- Tipo para los Data types
@@ -73,7 +75,7 @@ data Type
     -- | Tipo para los arreglos
     | GArray
         { getSize :: Either Text Integer -- ^ Tamano del arreglo
-        , getType :: Type                 -- ^ Tipo del arreglo
+        , arrayType :: Type                 -- ^ Tipo del arreglo
         }
 
 
@@ -81,7 +83,7 @@ data Type
 instance Eq Type where
     GInt                     == GInt                     = True
     GFloat                   == GFloat                   = True
-    GBool                    == GBool                    = True
+    GBoolean                 == GBoolean                    = True
     GChar                    == GChar                    = True
     GError                   == GError                   = True
     GEmpty                   == GEmpty                   = True
@@ -110,7 +112,7 @@ instance Show Type where
     show = \case
         GInt             -> "int"
         GFloat           -> "double"
-        GBool            -> "boolean"
+        GBoolean            -> "boolean"
         GChar            -> "char"
         GEmpty           -> "void"
         GError           -> "error"
@@ -127,6 +129,8 @@ instance Show Type where
         GTuple    ts     ->
             "tupla (" ++ (intercalate " " . map show $ ts) ++ ")"
         GTypeVar  name   -> "variable de tipo `" ++ show name ++ "`"
+        GDataType name oftype _ _ -> "type `" ++ unpack name ++ "`"
+        GAbstractType name oftype _ _ -> "abstract `" ++ unpack name ++ "`"
 
 
 -- | Retorna la dimensión del arreglo.
@@ -139,5 +143,8 @@ getDimension _            = 0
 isQuantifiable :: Type -> Bool
 isQuantifiable GInt  = True
 isQuantifiable GChar = True
-isQuantifiable GBool = True
+isQuantifiable GBoolean = True
+isQuantifiable GInt = True
+isQuantifiable GFloat = True
+isQuantifiable GFloat = True
 isQuantifiable _      = False

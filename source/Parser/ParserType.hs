@@ -12,7 +12,8 @@ import           Token
 import           Parser.TokenParser
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Text   (Text)
+import           Control.Monad  (when, void)
+import           Data.Text      (Text, unpack)
 import           Text.Parsec
 --------------------------------------------------------------------------------
 
@@ -28,10 +29,12 @@ parsePointer t =
 
 myType :: Graciela Token -> Graciela Token -> Graciela Type
 myType follow recSet =
-      do t <- myBasicType follow recSet
-         try $do parsePointer t
+      do 
+        tname <- parseId
+        t <- getType tname 
+        when (t == GError) $ void $genCustomError ("Tipo `"++unpack tname++"` desconocido.") 
+        try $do parsePointer t
           <|> return t
-
        <|> do parseTokArray
               parseLeftBracket
               n <- parseConstNumber parseOf (recSet <|> parseOf)

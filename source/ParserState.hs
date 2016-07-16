@@ -255,6 +255,10 @@ genNewError laset msg = do
     synErrorList %= (|> newParseError msg pos)
     return ()
 
+genCustomError :: String -> Graciela ()
+genCustomError msg = do 
+    pos <- getPosition
+    synErrorList %= (|> CustomError msg (toLocation pos))    
 
 genNewEmptyError :: Graciela ()
 genNewEmptyError = do

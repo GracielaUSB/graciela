@@ -40,7 +40,7 @@ verArithmetic :: Type -> Type -> Location -> OpNum -> MyVerType Type
 verArithmetic ltype rtype loc op =
     case verType ltype rtype of
         GInt     -> return GInt
-        GFloat   -> return GFloat
+        GFloat  -> return GFloat
         GError   -> return GError
         _ -> addTypeError $ ArithmeticError ltype rtype op loc
 
@@ -48,7 +48,7 @@ verArithmetic ltype rtype loc op =
 verBoolean :: Type -> Type -> Location -> OpBool -> MyVerType Type
 verBoolean ltype rtype loc op =
     case verType ltype rtype of
-        GBool    -> return GBool
+        GBoolean    -> return GBoolean
         GError   -> return GError
         _ -> addTypeError $ BooleanError ltype rtype op loc
 
@@ -58,7 +58,7 @@ verRelational ltype rtype loc op =
     case verType ltype rtype of
         GError   -> return GError
         GEmpty   -> addTypeError $ RelationalError ltype rtype op loc
-        _ -> return GBool
+        _ -> return GBoolean
 
 
 verConversion :: Conv -> MyVerType Type
@@ -79,7 +79,7 @@ verUnary Minus GInt   loc = return GInt
 verUnary Minus GFloat loc = return GFloat
 verUnary Minus errType loc = addTypeError $ UnaryError errType Minus loc
 
-verUnary Not   GBool  loc = return GBool
+verUnary Not   GBoolean  loc = return GBoolean
 verUnary Not   errType loc = addTypeError $ UnaryError errType Not   loc
 
 verUnary Abs   GInt   loc = return GInt
@@ -93,7 +93,7 @@ verUnary Sqrt  errType loc = addTypeError $ UnaryError errType Sqrt  loc
 
 verGuardAction :: Type -> Type -> MyVerType Type
 verGuardAction assert action =
-    if assert == GBool && action == GEmpty
+    if assert == GBoolean && action == GEmpty
         then return GEmpty
         else return GError
 
@@ -105,7 +105,7 @@ verGuard exp action loc =
         GEmpty ->
             case exp of
                 GError   -> return GError
-                GBool    -> return GEmpty
+                GBoolean    -> return GEmpty
                 _ -> addTypeError $ GuardError exp loc
 
 
@@ -116,13 +116,13 @@ verGuardExp exp action loc =
         _ ->
             case exp of
                 GError   -> return GError
-                GBool    -> return action
+                GBoolean    -> return action
                 _ -> addTypeError $ GuardError exp loc
 
 
 verDefProc :: Type -> Type -> Type -> Type -> [Type] -> MyVerType Type
 verDefProc accs pre post bound decs =
-    if pre == GBool && post == GBool && accs == GEmpty && all (== GEmpty) decs
+    if pre == GBoolean && post == GBoolean && accs == GEmpty && all (== GEmpty) decs
         then return GEmpty
         else return GError
 
@@ -160,7 +160,7 @@ verState expr loc stateCond =
         _ ->
             let checkT = case stateCond of
                                     Bound     -> GInt
-                                    _ -> GBool
+                                    _ -> GBoolean
             in if expr == checkT
                 then return expr
                 else addTypeError $ StateError expr stateCond loc
@@ -169,7 +169,7 @@ verState expr loc stateCond =
 verRept :: [Type] -> Type -> Type -> MyVerType Type
 verRept guard inv bound =
     let func = checkListType GEmpty
-    in if foldl func True guard && inv == GBool && bound == GInt
+    in if foldl func True guard && inv == GBoolean && bound == GInt
         then return GEmpty
         else return GError
 
@@ -185,14 +185,14 @@ verRandom name t loc =
 verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType Type
 verQuant op range term loc =
     case range of
-        GBool ->
+        GBoolean ->
             case op of
-                ForAll    -> if term == GBool
-                    then return GBool
+                ForAll    -> if term == GBoolean
+                    then return GBoolean
                     else addQuantBoolError op term loc
 
-                Exists    -> if term == GBool
-                    then return GBool
+                Exists    -> if term == GBoolean
+                    then return GBoolean
                     else addQuantBoolError op term loc
 
                 Product   -> if term == GInt || term == GFloat
@@ -374,7 +374,7 @@ verLAssign ids idlist explist locs =
 
 getArrayType :: Int -> Type -> Type
 getArrayType 0 t = t
-getArrayType n t = getArrayType (n-1) (getType t)
+getArrayType n t = getArrayType (n-1) (arrayType t)
 
 verArrayCall :: Text -> [Type] -> Type -> Location -> MyVerType Type
 verArrayCall name args t loc =

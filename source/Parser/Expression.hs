@@ -254,7 +254,7 @@ constant =
         <|> do n <- number
                return $ return $ Int (toLocation pos) n GInt
         <|> do e <- parseBool
-               return $ return $ Bool (toLocation pos) e GBool
+               return $ return $ Bool (toLocation pos) e GBoolean
         <|> do e <- parseChar
                return $ return $ Char (toLocation pos) e GChar
         <|> do e <- parseString
@@ -326,7 +326,7 @@ rangeQuantification :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST 
 rangeQuantification follow recSet =
   do pos <- getPosition
      do lookAhead follow
-        return $ return $ EmptyRange (toLocation pos) GBool
+        return $ return $ EmptyRange (toLocation pos) GBoolean
         <|> exprLevel3 follow
 
 

@@ -336,7 +336,7 @@ instance Show Token where
             showType GInt   = "Entero "
             showType GFloat = "Flotante "
             showType GChar  = "Caracter "
-            showType GBool  = "Booleano "
+            showType GBoolean  = "Booleano "
             showType _      = ""
 
             showBool :: Bool -> String
