@@ -32,7 +32,7 @@ myType follow recSet =
       do 
         tname <- parseId
         t <- getType tname 
-        when (t == GError) $ void $genCustomError ("Tipo `"++unpack tname++"` desconocido.") 
+        when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.") 
         try $do parsePointer t
           <|> return t
        <|> do parseTokArray

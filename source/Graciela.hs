@@ -42,10 +42,10 @@ makeLenses ''GracielaState
 
 initialTypes :: Map Text (Type, Location)
 initialTypes = Map.fromList $ 
-    [ (pack "int",    (GInt,   Location 0 0 "hola"))
-    , (pack "float",  (GFloat,     Location 0 0 "hola"))
-    , (pack "boolean",(GBoolean,   Location 0 0 "hola"))
-    , (pack "char",   (GChar, Location 0 0 "hola"))
+    [ (pack "int",    (GInt,     Location 0 0 "hola"))
+    , (pack "float",  (GFloat,   Location 0 0 "hola"))
+    , (pack "boolean",(GBoolean, Location 0 0 "hola"))
+    , (pack "char",   (GChar,    Location 0 0 "hola"))
     ]
 
 
