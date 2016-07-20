@@ -170,15 +170,17 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 * Precedencia de los operadores de mayor precedencia a la menor:
 
-    1. `!` `-` (unitario lógico y aritmético)
-    1. `*` `/` `^` `mod` `max` `min` (multiplicación, división, potencia, mod,
-        máximo, mínimo)
-    1. `+` `-` (suma, resta)
-    1. `<` `<=` `>` `>=` (relacionales)
-    1. `==` `!=` (comparación)
-    1. `/\` `\/` (disjunción, conjunción)
-    1. `==>` `<==` (implicación , consecuente)
-
+    1. `!` `-` (negación unitaria, lógica y aritmética; no asociativos)
+    1. `^` (exponencial; asociativo a derecha)
+    1. `*` `/` `mod` (multiplicación, división, módulo; asociativos a izquierda)
+    1. `+` `-` (suma, resta; asociativos a izquierda)
+    1. `max` `min` (máximo y mínimo binarios; asociativos a izquierda)
+    1. `<` `<=` `>` `>=` (relacionales; no asociativos)
+    1. `==` `!=` (comparación; no asociativos)
+    1. `/\` (conjunción; asociativo a derecha)
+    1. `\/` (disjunción; asociativo a derecha )
+    1. `==>` `<==` (implicación, asociativo a derecha y consecuente, asociativo a izquierda)
+    
 
 ## Variables
 
