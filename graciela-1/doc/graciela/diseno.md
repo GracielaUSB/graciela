@@ -176,10 +176,11 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
     1. `+` `-` (suma, resta; asociativos a izquierda)
     1. `max` `min` (máximo y mínimo binarios; asociativos a izquierda)
     1. `<` `<=` `>` `>=` (relacionales; no asociativos)
-    1. `==` `!=` (comparación; no asociativos)
+    1. `=` `!=` (comparación aritmética; no asociativos)
     1. `/\` (conjunción; asociativo a derecha)
     1. `\/` (disjunción; asociativo a derecha )
     1. `==>` `<==` (implicación, asociativo a derecha y consecuente, asociativo a izquierda)
+    1. `==` `=!=` (comparación lógica; no asociativos)
     
 
 ## Variables
