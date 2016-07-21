@@ -48,13 +48,13 @@ assertions initial final ty follow = do
 
      <|> do t <- lookAhead follow
             genNewError (return t) PE.TokenOA
-            return $Nothing
+            return $ Nothing
      <|> do (t:_) <- manyTill anyToken final
             genNewError (return $fst t) PE.TokenOA
-            return $Nothing
+            return $ Nothing
      <|> do (t:_) <- manyTill anyToken $lookAhead follow
             genNewError (return $fst t) PE.TokenOA
-            return $Nothing
+            return $ Nothing
 
 
 precondition :: Graciela Token -> Graciela (Maybe (AST Type) )

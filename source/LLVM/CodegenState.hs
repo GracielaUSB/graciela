@@ -1,8 +1,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module CodegenState where
+{-# LANGUAGE TemplateHaskell #-}
 
+module LLVM.CodegenState where
+
+--------------------------------------------------------------------------------
 import           Contents
+import           SymbolTable
+import qualified Type                               as T
+--------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Lens                       (makeLenses, use, (%=), (.=))
 import           Control.Monad.State
 import           Data.Char
 import           Data.Foldable                      (toList)
@@ -16,28 +23,28 @@ import           Data.Word
 import           LLVM.General.AST                   as AST
 import           LLVM.General.AST.AddrSpace
 import           LLVM.General.AST.Attribute
-import qualified LLVM.General.AST.CallingConvention as CC
-import qualified LLVM.General.AST.Constant          as C
 import           LLVM.General.AST.Float
 import           LLVM.General.AST.Global            as Global
 import           LLVM.General.AST.Linkage
 import           LLVM.General.AST.Type
-import           SymbolTable
-import qualified Type                               as T
+import qualified LLVM.General.AST.CallingConvention as CC
+import qualified LLVM.General.AST.Constant          as C
+--------------------------------------------------------------------------------
 
 
 data CodegenSt
   = CodeGenSt
-    { insCount   :: Word                        -- Cantidad de instrucciones sin nombre
-    , condName   :: Name
-    , blockName  :: Name                        -- Cantidad de bloques básicos en el programa
-    , instrs     :: Seq (Named Instruction)     -- Lista de instrucciones en el bloque básico actual
-    , bblocs     :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
-    , moduleDefs :: Seq Definition
-    , varsLoc    :: Map String Operand
-    , arrsDim    :: Map String [Operand]
+    { _insCount   :: Word                        -- Cantidad de instrucciones sin nombre
+    , _condName   :: Name
+    , _blockName  :: Name                        -- Cantidad de bloques básicos en el programa
+    , _instrs     :: Seq (Named Instruction)     -- Lista de instrucciones en el bloque básico actual
+    , _bblocs     :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
+    , _moduleDefs :: Seq Definition
+    , _varsLoc    :: Map String Operand
+    , _arrsDim    :: Map String [Operand]
     } deriving (Show)
 
+makeLenses ''CodegenSt
 
 newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
   deriving (Functor, Applicative, Monad, MonadState CodegenSt)
@@ -59,28 +66,28 @@ newLabel = do
 
 addDimToArray :: String -> Operand -> LLVM()
 addDimToArray name op = do
-    dims <- gets arrsDim
-    modify $ \s -> s { arrsDim = Map.insertWith (++) name [op] dims }
+    dims <- use arrsDim
+    arrsDim .= Map.insertWith (++) name [op] dims
 
 
 addDefinition :: String -> ([Parameter], Bool) -> Type -> LLVM ()
 addDefinition name params retTy = do
-    bbl  <- gets bblocs
-    defs <- gets moduleDefs
+    bbl  <- use bblocs
+    defs <- use moduleDefs
     let def = GlobalDefinition $ functionDefaults
                 { name        = Name name
                 , parameters  = params
                 , returnType  = retTy
                 , basicBlocks = (toList bbl)
                 }
-    modify $ \s -> s { bblocs  = Seq.empty }
-    modify $ \s -> s { varsLoc = Map.empty }
-    modify $ \s -> s { moduleDefs = defs Seq.|> def}
+    bblocs     .= Seq.empty 
+    varsLoc    .= Map.empty 
+    moduleDefs .= defs Seq.|> def
 
 
 globalVariable :: Name -> Type -> C.Constant -> LLVM ()
 globalVariable name t init = do
-    defs <- gets moduleDefs
+    defs <- use moduleDefs
     let def = GlobalDefinition $ globalVariableDefaults
                 { name  = name
                 , linkage = Private
@@ -88,25 +95,25 @@ globalVariable name t init = do
                 , initializer = Just init
                 , isConstant  = False
                 }
-    modify $ \s -> s { moduleDefs = defs Seq.|> def}
+    moduleDefs .= defs Seq.|> def
 
 
 addBasicBlock :: Named Terminator -> LLVM ()
 addBasicBlock t800 = do
-    lins  <- gets instrs
-    bbl   <- gets bblocs
-    name  <- gets blockName
+    lins  <- use instrs
+    bbl   <- use bblocs
+    name  <- use blockName
     name' <- newLabel
-    modify $ \s -> s { blockName = name'    }
-    modify $ \s -> s { instrs    = Seq.empty }
-    modify $ \s -> s { bblocs    = bbl Seq.|> BasicBlock name (toList lins) t800 }
+    blockName .= name'
+    instrs    .= Seq.empty
+    bblocs    .= bbl Seq.|> BasicBlock name (toList lins) t800
 
 
 addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
 addNamedInstruction t name ins = do
-    lins <- gets instrs
+    lins <- use instrs
     let r = Name name
-    modify $ \s -> s { instrs = lins Seq.|> (r := ins) }
+    instrs .= lins Seq.|> (r := ins)
     let op = local t r
     addVarOperand name op
     return op
@@ -114,26 +121,26 @@ addNamedInstruction t name ins = do
 
 addString :: String -> Name -> Type -> LLVM ()
 addString msg name t = do
-    defs <- gets moduleDefs
+    defs <- use moduleDefs
     let def = GlobalDefinition $ globalVariableDefaults
                 { name        = name
                 , isConstant  = True
                 , Global.type'  = t
                 , initializer = Just $ constantString msg
                 }
-    modify $ \s -> s { moduleDefs = defs Seq.|> def}
+    moduleDefs .= defs Seq.|> def
 
 
 addFileName :: String -> Name -> Type -> LLVM ()
 addFileName msg name t = do
-    defs <- gets moduleDefs
+    defs <- use moduleDefs
     let def = GlobalDefinition $ globalVariableDefaults
-                { name        = name
-                , isConstant  = True
-                , Global.type'  = t
-                , initializer = Just $ constantFileName msg
+                { name         = name
+                , isConstant   = True
+                , Global.type' = t
+                , initializer  = Just (constantFileName msg)
                 }
-    modify $ \s -> s { moduleDefs = defs Seq.|> def}
+    moduleDefs .= defs Seq.|> def
 
 
 
@@ -158,12 +165,12 @@ addFileNameOpe msg = do
 setLabel :: Name -> Named Terminator -> LLVM()
 setLabel name t800 = do
     addBasicBlock t800
-    modify $ \s -> s { blockName = name }
+    blockName .= name
 
 
 checkVar :: String -> Type -> LLVM Operand
 checkVar id t = do
-    vars <- gets varsLoc
+    vars <- use varsLoc
     case Map.lookup id vars of
       Just op -> return op
       Nothing -> do op <- alloca Nothing t id
@@ -172,28 +179,28 @@ checkVar id t = do
 
 addVarOperand :: String -> Operand -> LLVM()
 addVarOperand name op = do
-    map <- gets varsLoc
-    modify $ \s -> s { varsLoc = Map.insert name op map }
+    map <- use varsLoc
+    varsLoc .= Map.insert name op map
 
 
 getVarOperand :: String -> LLVM Operand
 getVarOperand name = do
-    map <- gets varsLoc
+    map <- use varsLoc
     return $ fromJust $ Map.lookup name map
 
 
 addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
 addUnNamedInstruction t ins = do
     r    <- newLabel
-    lins <- gets instrs
-    modify $ \s -> s { instrs = lins Seq.|> (r := ins) }
+    lins <- use instrs
+    instrs .= lins Seq.|> (r := ins)
     return $ local t r
 
 
 getCount :: LLVM Word
 getCount = do
-    n <- gets insCount
-    modify $ \s -> s { insCount = n + 1 }
+    n <- use insCount
+    insCount .= n + 1
     return $ n
 
 
@@ -268,7 +275,7 @@ store t ptr val =
 
 load :: String -> Type -> LLVM (Operand)
 load name t = do
-    map <- gets varsLoc
+    map <- use varsLoc
     let i = fromJust $ Map.lookup name map
     addUnNamedInstruction t $ Load False i Nothing 0 []
 
@@ -304,7 +311,7 @@ dimToOperand (Left id) = load (unpack id) intType
 
 opsToArrayIndex :: String -> [Operand] -> LLVM (Operand)
 opsToArrayIndex name ops = do
-    arrD <- gets arrsDim
+    arrD <- use arrsDim
     let arrDims' = fromJust $ Map.lookup name arrD
     mulDims (tail arrDims') ops
 

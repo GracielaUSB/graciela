@@ -7,7 +7,6 @@ import           MyTypeError
 import           ReduceAST
 import           SymbolTable
 import           Type
-import           TypeState
 import           VerTypes
 --------------------------------------------------------------------------------
 import           Control.Applicative      (liftA2)
@@ -207,7 +206,7 @@ verTypeAST (Quant op var loc range term _) = do
                             Just r  -> return $ QuantRan op var loc r term' checkT
 
                         else do
-                            addNotOccursVarError op id loc
+                            addTypeError $ NotOccursVar op id loc
                             return $ Quant op var loc range' term' GError
 verTypeAST ast = return ast
 

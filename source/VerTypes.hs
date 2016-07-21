@@ -1,22 +1,33 @@
 module VerTypes where
 --------------------------------------------------------------------------------
-import MyTypeError
-import SymbolTable
-import Data.Maybe
-import TypeState
-import Location
-import Contents
-import Type
-import AST
+import           MyTypeError
+import           SymbolTable
+import           Data.Maybe
+import           Location
+import           Contents
+import           Type
+import           AST
 --------------------------------------------------------------------------------
-import Data.Tree 
-import Treelike
-import Debug.Trace
-import Data.List                (zip4)
-import Control.Monad.RWS.Strict (ask)
-import Data.Text                (Text)
-import Debug.Trace (traceShowId)
+
+import           Data.Tree 
+import           Treelike
+import           Debug.Trace
+import           Data.Sequence            (Seq, singleton)
+import           Data.List                (zip4)
+import           Control.Monad.RWS.Strict (RWS, ask, tell)
+import           Data.Text                (Text)
 --------------------------------------------------------------------------------
+
+
+-- | Tipo del Monad el cual contiene, la tabla de simbolos, una secuencia de errores y una lista de strings,
+-- | usados para el manejo de los errores a momento de ejecucion
+type MyVerType a = RWS (SymbolTable) (Seq (MyTypeError)) ([String]) a
+
+
+addTypeError :: MyTypeError -> MyVerType Type
+addTypeError error = do tell $ singleton error
+                        return $ GError
+
 
 checkListType :: Type -> Bool -> Type -> Bool
 checkListType _ False _ = False
@@ -37,20 +48,20 @@ verType x y       = if x == y then x else GEmpty
 
 
 verArithmetic :: Type -> Type -> Location -> OpNum -> MyVerType Type
-verArithmetic ltype rtype loc op =
+verArithmetic ltype rtype loc op = 
     case verType ltype rtype of
-        GInt     -> return GInt
-        GFloat  -> return GFloat
-        GError   -> return GError
-        _ -> addTypeError $ ArithmeticError ltype rtype op loc
+        GInt   -> return GInt
+        GFloat -> return GFloat
+        GError -> return GError
+        _      -> addTypeError $ ArithmeticError ltype rtype op loc
 
 
 verBoolean :: Type -> Type -> Location -> OpBool -> MyVerType Type
 verBoolean ltype rtype loc op =
     case verType ltype rtype of
-        GBoolean    -> return GBoolean
+        GBoolean -> return GBoolean
         GError   -> return GError
-        _ -> addTypeError $ BooleanError ltype rtype op loc
+        _        -> addTypeError $ BooleanError ltype rtype op loc
 
 
 verRelational :: Type -> Type -> Location -> OpRel -> MyVerType Type
@@ -58,7 +69,7 @@ verRelational ltype rtype loc op =
     case verType ltype rtype of
         GError   -> return GError
         GEmpty   -> addTypeError $ RelationalError ltype rtype op loc
-        _ -> return GBoolean
+        _        -> return GBoolean
 
 
 verConversion :: Conv -> MyVerType Type
@@ -69,26 +80,26 @@ verConversion ToChar   = return GChar
 
 verWrite :: Type -> MyVerType Type
 verWrite  GError = return GError
-verWrite  _       = return GEmpty
+verWrite  _      = return GEmpty
 
 
 verUnary :: OpUn -> Type -> Location -> MyVerType Type
 verUnary _     GError _   = return GError
 
-verUnary Minus GInt   loc = return GInt
-verUnary Minus GFloat loc = return GFloat
-verUnary Minus errType loc = addTypeError $ UnaryError errType Minus loc
+verUnary Minus GInt     loc = return GInt
+verUnary Minus GFloat   loc = return GFloat
+verUnary Minus errType  loc = addTypeError $ UnaryError errType Minus loc
 
-verUnary Not   GBoolean  loc = return GBoolean
-verUnary Not   errType loc = addTypeError $ UnaryError errType Not   loc
+verUnary Not   GBoolean loc = return GBoolean
+verUnary Not   errType  loc = addTypeError $ UnaryError errType Not loc
 
-verUnary Abs   GInt   loc = return GInt
-verUnary Abs   GFloat loc = return GFloat
-verUnary Abs   errType loc = addTypeError $ UnaryError errType Abs   loc
+verUnary Abs   GInt     loc = return GInt
+verUnary Abs   GFloat   loc = return GFloat
+verUnary Abs   errType  loc = addTypeError $ UnaryError errType Abs loc
 
-verUnary Sqrt  GInt   loc = return GFloat
-verUnary Sqrt  GFloat loc = return GFloat
-verUnary Sqrt  errType loc = addTypeError $ UnaryError errType Sqrt  loc
+verUnary Sqrt  GInt     loc = return GFloat
+verUnary Sqrt  GFloat   loc = return GFloat
+verUnary Sqrt  errType  loc = addTypeError $ UnaryError errType Sqrt loc
 
 
 verGuardAction :: Type -> Type -> MyVerType Type
@@ -105,19 +116,18 @@ verGuard exp action loc =
         GEmpty ->
             case exp of
                 GError   -> return GError
-                GBoolean    -> return GEmpty
-                _ -> addTypeError $ GuardError exp loc
+                GBoolean -> return GEmpty
+                _        -> addTypeError $ GuardError exp loc
 
 
 verGuardExp :: Type -> Type -> Location -> MyVerType Type
 verGuardExp exp action loc =
     case action of
         GError   -> return GError
-        _ ->
-            case exp of
-                GError   -> return GError
-                GBoolean    -> return action
-                _ -> addTypeError $ GuardError exp loc
+        _        -> case exp of
+            GError   -> return GError
+            GBoolean -> return action
+            _        -> addTypeError $ GuardError exp loc
 
 
 verDefProc :: Type -> Type -> Type -> Type -> [Type] -> MyVerType Type
@@ -147,24 +157,22 @@ verCond guards loc =
         checkT     = foldl1 checkSame guards
     in case foldl checkError GEmpty guards of
         GError   -> return GError
-        _ ->
-            case checkT of
-                GError   -> addTypeError $ CondError loc
-                _ -> return checkT
+        _        -> case checkT of
+            GError -> addTypeError $ CondError loc
+            _      -> return checkT
 
 
 verState :: Type -> Location -> StateCond -> MyVerType Type
 verState expr loc stateCond =
     case expr of
         GError   -> return GError
-        _ ->
-            let checkT = case stateCond of
-                                    Bound     -> GInt
-                                    _ -> GBoolean
-            in if expr == checkT
-                then return expr
-                else addTypeError $ StateError expr stateCond loc
-
+        _        -> if expr == checkT
+                        then return expr
+                        else addTypeError $ StateError expr stateCond loc
+        where 
+            checkT = case stateCond of
+                        Bound -> GInt
+                        _     -> GBoolean
 
 verRept :: [Type] -> Type -> Type -> MyVerType Type
 verRept guard inv bound =
@@ -183,35 +191,33 @@ verRandom name t loc =
 
 
 verQuant :: OpQuant -> Type -> Type -> Location -> MyVerType Type
-verQuant op range term loc =
-    case range of
-        GBoolean ->
-            case op of
-                ForAll    -> if term == GBoolean
-                    then return GBoolean
-                    else addQuantBoolError op term loc
+verQuant op range term loc = case range of
+    GBoolean -> case op of
+        ForAll    -> if term == GBoolean
+            then return GBoolean
+            else addTypeError $ QuantBoolError  op term loc
 
-                Exists    -> if term == GBoolean
-                    then return GBoolean
-                    else addQuantBoolError op term loc
+        Exists    -> if term == GBoolean
+            then return GBoolean
+            else addTypeError $ QuantBoolError  op term loc
 
-                Product   -> if term == GInt || term == GFloat
-                    then return term
-                    else addQuantIntError op term loc
+        Product   -> if term == GInt || term == GFloat
+            then return term
+            else addTypeError $ QuantIntError op term loc
 
-                Summation -> if term == GInt || term == GFloat
-                    then return term
-                    else addQuantIntError op term loc
+        Summation -> if term == GInt || term == GFloat
+            then return term
+            else addTypeError $ QuantIntError op term loc
 
-                Maximum   -> if term == GInt || term == GFloat
-                    then return term
-                    else addQuantIntError op term loc
+        Maximum   -> if term == GInt || term == GFloat
+            then return term
+            else addTypeError $ QuantIntError op term loc
 
-                Minimum   -> if term == GInt || term == GFloat
-                    then return term
-                    else addQuantIntError op term loc
+        Minimum   -> if term == GInt || term == GFloat
+            then return term
+            else addTypeError $ QuantIntError op term loc
 
-        _ -> addQuantRangeError op range loc
+    _ -> addTypeError $ QuantRangeError op range loc
 
 
 verConsAssign :: [(Text, Location)] -> Location -> [Type] -> Type -> MyVerType Type
@@ -220,10 +226,10 @@ verConsAssign xs loc ts t =
             if t' /= t
                 then if t' == GError
                     then return GError
-                    else addTypeDecError id loc' t' t
+                    else addTypeError $ TypeDecError id loc' t' t
                 else return GEmpty
     in if length xs /= length ts
-        then addDifSizeDecError loc
+        then addTypeError $ DiffSizeError loc
         else do
             r <- fmap (all (== GEmpty)) (mapM f (zip xs ts))
             if r
@@ -235,17 +241,16 @@ verCallExp :: Text -> SymbolTable -> [Type] -> Location -> [Location] -> MyVerTy
 verCallExp name sbc args loc locarg = do
     sb <- ask
     case lookUpRoot name sb of
-        Nothing -> addUndecFuncError name True loc
-        Just (FunctionCon _ _ t ln sb) ->
-            case t of
-                GFunction args' ts ->
+        Nothing -> addTypeError $ UndecFunError name True loc
+        Just (FunctionCon _ _ t ln sb) -> case t of
+                GFunction args' ts -> do 
                     let wtL = length args
-                        prL = length args'
-                    in if wtL /= prL
-                        then addNumberArgsError name True wtL prL loc
-                        else
+                    let prL = length args'
+                    if wtL /= prL
+                        then addTypeError $ NumberArgsError name True wtL prL loc
+                        else do 
                             let t = zip args args'
-                            in if all (uncurry (==)) t
+                            if all (uncurry (==)) t
                                 then do
                                     r <- validFuncArgs ln args locarg sb sbc
                                     if r
@@ -255,13 +260,13 @@ verCallExp name sbc args loc locarg = do
                                 else do
                                     mapM_ (\ ((arg, arg'), larg) ->
                                         if arg /= arg'
-                                            then addFunArgError name True arg' arg larg
+                                            then addTypeError $ FunArgError name True arg' arg larg
                                             else return GEmpty)
                                         (zip t locarg)
                                     return GError
-                _ -> addUndecFuncError name True loc
+                _ -> addTypeError $ UndecFunError name True loc
 
-        _ -> addUndecFuncError name True loc
+        _ -> addTypeError $ UndecFunError name True loc
 
 
 ----------------------------------------------------
@@ -274,35 +279,33 @@ verProcCall :: Text -> SymbolTable -> [AST Type] -> Location -> [Location] -> My
 verProcCall name sbc args'' loc locarg = do
     sb <- ask
     case lookUpRoot name sb of
-        Nothing ->
-            addUndecFuncError name False loc -- Error por procedimiento no declarado
-        Just (ProcCon _ _ t ln sb) ->
-            case t of
-                GProcedure args' ->
-                    let wtL = length args''
-                        prL = length args'
-                    in if wtL /= prL
-                        then addNumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada
-                                                                            -- es distinto al de la declaracion
-                        else
-                            let args = map tag args''
-                                t    = zip args args'
-                            in if all (uncurry (==)) t
-                                then do
-                                    r <- validProcArgs name ln args'' locarg sb sbc
-                                    if r
-                                        then return GEmpty
-                                        else return GError
-                                else do
-                                    mapM_ (\ ((arg, arg'), larg) ->
-                                        if arg /= arg'
-                                            then addFunArgError name False arg' arg larg -- Error porque los tipos uno o mas parametros
-                                                                                                        -- en la llamada y declaracion no coincidieron
-                                            else return GEmpty
-                                        ) (zip t locarg)
-                                    return GError
+        Nothing -> addTypeError $ UndecFunError name False loc -- Error por procedimiento no declarado
+        Just (ProcCon _ _ t ln sb) -> case t of
+            GProcedure args' -> do
+                let wtL = length args''
+                let prL = length args'
+                if wtL /= prL
+                    then addTypeError $ NumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada
+                                                                               -- es distinto al de la declaracion
+                    else do
+                        let args = map tag args''
+                        let t    = zip args args'
+                        if all (uncurry (==)) t
+                            then do
+                                r <- validProcArgs name ln args'' locarg sb sbc
+                                if r
+                                    then return GEmpty
+                                    else return GError
+                            else do
+                                mapM_ (\ ((arg, arg'), larg) ->
+                                    if arg /= arg'
+                                        then addTypeError $ FunArgError name False arg' arg larg -- Error porque los tipos uno o mas parametros
+                                                                                                    -- en la llamada y declaracion no coincidieron
+                                        else return GEmpty
+                                    ) (zip t locarg)
+                                return GError
 
-                _ -> addUndecFuncError name False loc -- Error por procedimiento no declarado
+            _ -> addTypeError $ UndecFunError name False loc -- Error por procedimiento no declarado
 
 
 
@@ -314,13 +317,13 @@ validProcArgs name lnp lnc locarg sbp sbc =
     in and <$> mapM compare (zip xs (zip lnc locarg))
     where
         compare ((Just Out, False), (id, loc))   =
-            do addInvalidPar name id loc
+            do addTypeError $ InvalidPar name id loc
                return False
         compare ((Just InOut, False), (id, loc)) =
-            do addInvalidPar name id loc
+            do addTypeError $ InvalidPar name id loc
                return False
         compare ((Just Ref, False), (id, loc))   =
-            do addInvalidPar name id loc
+            do addTypeError $ InvalidPar name id loc
                return False
         compare _                                =
                return True
@@ -343,7 +346,7 @@ addLAssignError (res:rs) ((name, op1, op2, loc):xs)
     | res = addLAssignError rs xs
     | op1 == GError || op2 == GError = addLAssignError rs xs
     | otherwise = do
-        addAssignError name op1 op2 loc
+        addTypeError $ AssignError  name op1 op2 loc
         addLAssignError rs xs
 
 addLAssignError [] [] = return GError
@@ -352,7 +355,7 @@ addLAssignError [] [] = return GError
 verLAssign :: [Text] -> [Type] -> [Type] -> [Location] -> MyVerType Type
 verLAssign ids idlist explist locs =
     if length idlist /= length explist then
-        addDifSizeDecError $ head locs
+        addTypeError $ DiffSizeError $ head locs
     else
         let res = zipWith (==) idlist explist
         in if and res
@@ -377,37 +380,34 @@ getArrayType 0 t = t
 getArrayType n t = getArrayType (n-1) (arrayType t)
 
 verArrayCall :: Text -> [Type] -> Type -> Location -> MyVerType Type
-verArrayCall name args t loc =
+verArrayCall name args t loc = do 
     let waDim = getDimension t
-        prDim = length args
-    in if waDim >= prDim
+    let prDim = length args
+    if waDim >= prDim
         then case foldl checkError GInt args of
             GError   -> return GError
             GInt     -> return $ getArrayType prDim t
-            _ ->
-                let
-                    addError acc expT =
-                        if checkListType GInt True expT
-                            then acc
-                            else acc ++ [ArrayCallError name expT loc]
-                    check    = foldl addError [] args
-                in do mapM_ addTypeError check
-                      return GError
-
+            _ -> do mapM_ addTypeError check
+                    return GError
         else addTypeError $ ArrayDimError name waDim prDim loc
-
+        where 
+            addError acc expT = 
+                if checkListType GInt True expT
+                    then acc
+                    else acc ++ [ArrayCallError name expT loc]
+            check = foldl addError [] args
 
 verDefFun :: Text -> Type -> Type -> Location -> MyVerType Type
 verDefFun name body bound loc = do
     sb <- ask
     case lookUpRoot name sb of
-        Nothing -> addUndecFuncError name True loc
+        Nothing -> addTypeError $ UndecFunError name True loc
         Just c@(FunctionCon _ _ t _ _)  ->
             case t of
                 GFunction _ tf ->
                     if tf == body
                         then return GEmpty
-                        else addRetFuncError name tf body loc
-                _       -> addUndecFuncError name True loc
-        _      -> addUndecFuncError name True loc
+                        else addTypeError $ RetFuncError name tf body loc
+                _       -> addTypeError $ UndecFunError name True loc
+        _      -> addTypeError $ UndecFunError name True loc
 

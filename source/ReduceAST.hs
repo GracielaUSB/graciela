@@ -4,7 +4,7 @@ import qualified Control.Applicative as AP
 import qualified Data.Text           as T
 import Prelude                       as P
 import Data.Char
-import TypeState
+import VerTypes
 import Type
 import AST
 
@@ -23,7 +23,6 @@ reduceAST id (Arithmetic op _ l r _)  =
                 then NonReducible
                 else let nl = getNum lr
                          nr = getNum rr
-
                      in case op of
                         Sum -> Reducible (nl + nr)
                         Sub -> Reducible (nl - nr)

@@ -6,7 +6,7 @@ module Main where
 --------------------------------------------------------------------------------
 import           AST
 import           ASTtype
-import           Codegen
+import           LLVM.Codegen
 import           Contents
 import           Lexer
 import           MyTypeError
