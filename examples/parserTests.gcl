@@ -1,17 +1,72 @@
-program main begin
-	proc hola (in n : int) begin
-		var m : int;
+abstract Diccionario (a)
+begin
+	// Diccionario variables
+	var i : int;
+	var m : int; 
+	
+	{inv true inv}
+	// Diccionario procedures
+
+	proc buscar (in n : int)
+		{pre true pre}
+		{post true post}
+	
+	
+	 
+end
+
+type Dicc implements Diccionario (int)
+begin	
+	// Dicc variables
+	var M : int;
+	
+	{repinv true repinv}
+
+	{coupinv true coupinv}
+
+	// Dicc procedures
+	proc buscar (in a : int, out b : int, inout c : int, ref d : int) begin
+	
 		{pre true pre}
 		|[
-			var b := 10 : int;
-			write(b)
+			write(M)
 		]|
 		{post true post}
 	end
 	
+	 
+end
+
+
+program main begin
+	
+
+	proc prox (inout b : int) begin
+		{pre true pre}
+		|[
+			// var n : int;
+			writeln(b);
+			b := 10
+		]|
+		{post true post}
+	end
+
+	proc buscar (ref b : int) begin
+		{pre true pre}
+		|[
+			// var n : int;
+			writeln(b);
+			b := 10
+		]|
+		{post true post}
+	end
 	
 	|[
-		var x := 4 : int;
-		hola(4)
+		var b := 1 : int;
+		prox(b);
+		writeln(b);
+		b := 1;
+		buscar(b);
+		writeln(b)
 	]|
 end

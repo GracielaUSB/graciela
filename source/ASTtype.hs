@@ -3,11 +3,10 @@ module ASTtype where
 import           AST
 import           Limits
 import           Location
-import           MyTypeError
+import           TypeError
 import           ReduceAST
 import           SymbolTable
 import           Type
-import           TypeState
 import           VerTypes
 --------------------------------------------------------------------------------
 import           Control.Applicative      (liftA2)
@@ -19,11 +18,11 @@ import           Data.Sequence            (Seq)
 import           Data.Text                (Text)
 --------------------------------------------------------------------------------
 
-runTVerifier :: SymbolTable -> AST Type -> (AST Type, Seq MyTypeError)
+runTVerifier :: SymbolTable -> AST Type -> (AST Type, Seq TypeError)
 runTVerifier sTable sTree = evalRWS (verTypeAST sTree) sTable []
 
 
-verTypeAST :: AST Type -> RWS SymbolTable (Seq MyTypeError) [String] (AST Type)
+verTypeAST :: AST Type -> RWS SymbolTable (Seq TypeError) [String] (AST Type)
 verTypeAST (AST.Program name loc defs accs _) = do
     defs' <- mapM verTypeAST defs
     accs' <- verTypeAST accs
@@ -207,7 +206,7 @@ verTypeAST (Quant op var loc range term _) = do
                             Just r  -> return $ QuantRan op var loc r term' checkT
 
                         else do
-                            addNotOccursVarError op id loc
+                            addTypeError $ NotOccursVar op id loc
                             return $ Quant op var loc range' term' GError
 verTypeAST ast = return ast
 
@@ -257,7 +256,7 @@ getLocArgs :: [AST Type] -> MyVerType [Location]
 getLocArgs args = return $ fmap AST.location args
 
 
---drawASTtype :: (AST Type, DS.Seq MyTypeError) -> String
+--drawASTtype :: (AST Type, DS.Seq TypeError) -> String
 --drawASTtype (ast, err) = case (DS.null err) of
 --                         { True  ->  show ast
 --                         ; False -> (show ast) ++ (drawTypeError err)

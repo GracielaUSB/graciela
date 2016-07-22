@@ -1,7 +1,7 @@
 module Parser.Procedures
     ( arg
     , argFunc
-    , argType
+    , argumentType
     , followTypeFunction
     , function
     , listArgFunc
@@ -27,7 +27,7 @@ import Parser.Instructions
 import Parser.TokenParser
 import ParserState
 import Parser.ParserType
-import State
+import           Graciela
 import Token
 import Type
 -------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ import           Text.Parsec
 -------------------------------------------------------------------------------
 
 
-listDefProc :: MyParser Token -> MyParser Token -> MyParser (Maybe [AST Type])
+listDefProc :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 listDefProc follow recSet =
     do lookAhead parseEOF
        return Nothing
@@ -50,7 +50,7 @@ listDefProc follow recSet =
        <|> return Nothing
 
 
-procOrFunc :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+procOrFunc :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 procOrFunc follow recSet =
     try $ do
         lookAhead (parseProc <|> parseTokId)
@@ -71,11 +71,11 @@ procOrFunc follow recSet =
                   --                return Nothing
 
 
-followTypeFunction :: MyParser Token
+followTypeFunction :: Graciela Token
 followTypeFunction = parseTokOpenBlock <|> parseTokLeftBound
 
 
-function :: MyParser Token -> MyParser Token -> MyParser (Maybe (AST Type) )
+function :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
 function follow recSet = do
     pos <- getPosition
 
@@ -127,7 +127,7 @@ function follow recSet = do
             return Nothing
     where
         conditionalOrExpr = (conditional CExpression parseEnd parseEnd) <|> (expr parseEnd parseEnd)
-        parseType' :: MyParser Type
+        parseType' :: Graciela Type
         parseType' = myType (followTypeFunction) (followTypeFunction)
 
    -- do pos <- getPosition
@@ -166,7 +166,7 @@ function follow recSet = do
    --               return Nothing
 
 
-listArgFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
+listArgFunc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgFunc idf follow recSet =
     do lookAhead parseEOF
        return Nothing
@@ -177,7 +177,7 @@ listArgFunc idf follow recSet =
               return(AP.liftA2 (:) ar rl)
 
 
-argFunc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
+argFunc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe (T.Text, Type))
 argFunc idf follow recSet =
     try ( do id <- parseId
              try ( do parseColon
@@ -193,7 +193,7 @@ argFunc idf follow recSet =
                return Nothing
 
 
-listArgFuncAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
+listArgFuncAux :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgFuncAux idf follow recSet =
     do lookAhead parseEOF
        return Nothing
@@ -207,7 +207,7 @@ listArgFuncAux idf follow recSet =
                <|> do genNewError follow PE.Comma
                       return Nothing
 
-proc :: {-MyParser Token -> MyParser Token ->-} MyParser (Maybe (AST Type) )
+proc :: {-Graciela Token -> Graciela Token ->-} Graciela (Maybe (AST Type) )
 proc {-follow recSet-} = do
     pos <- getPosition
 
@@ -247,7 +247,7 @@ proc {-follow recSet-} = do
     return $ (M.liftM5 (DefProc id sb) la pre post (Just (EmptyAST GEmpty)) dl)
                 AP.<*> targs AP.<*> (return GEmpty)
     where
-        argTypes :: MyParser Token
+        argTypes :: Graciela Token
         argTypes = choice   [ parseIn
                             , parseOut
                             , parseInOut
@@ -303,7 +303,7 @@ proc {-follow recSet-} = do
     --        <|> do genNewError follow PE.ProcOrFunc
     --               return Nothing
 
-listArgProc :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
+listArgProc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgProc id follow recSet =do
     try $do lookAhead follow
             return $ return []
@@ -316,7 +316,7 @@ listArgProc id follow recSet =do
           aux (Just x) l = x:l
 
 
-listArgProcAux :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe [(T.Text, Type)])
+listArgProcAux :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgProcAux id follow recSet =
     do lookAhead follow
        return $ return []
@@ -332,8 +332,8 @@ listArgProcAux id follow recSet =
                       return Nothing
 
 
-argType :: MyParser Token -> MyParser Token -> MyParser (Maybe TypeArg)
-argType follow recSet =
+argumentType :: Graciela Token -> Graciela Token -> Graciela (Maybe TypeArg)
+argumentType follow recSet =
     do lookAhead (parseIn <|> parseOut <|> parseInOut <|> parseRef)
        do parseIn
           return (return (In))
@@ -347,9 +347,9 @@ argType follow recSet =
            return Nothing
 
 
-arg :: T.Text -> MyParser Token -> MyParser Token -> MyParser (Maybe (T.Text, Type))
+arg :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe (T.Text, Type))
 arg pid follow recSet =
-    do at <- argType parseTokId (recSet <|> parseTokId)
+    do at <- argumentType parseTokId (recSet <|> parseTokId)
        try (
          do id  <- parseId
             parseColon
@@ -363,18 +363,18 @@ arg pid follow recSet =
 
 -- Deberian estar en el lugar adecuando, hasta ahora aqui porq no le he usado en archivos q no dependen de Procedure
 
-panicModeId :: MyParser Token -> MyParser T.Text
+panicModeId :: Graciela Token -> Graciela T.Text
 panicModeId follow =
         try parseId
     <|> do t <- lookAhead $ follow
            genNewError (return t) PE.IdError
            return $ T.pack "No Id"
-    <|> do (t:_) <- manyTill anyToken (lookAhead follow)
+    <|> do (t:_) <- anyToken `manyTill` lookAhead follow
            genNewError (return $fst t) PE.IdError
            return $ T.pack "No Id"
 
 
-panicMode :: MyParser Token -> MyParser Token -> ExpectedToken -> MyParser ()
+panicMode :: Graciela Token -> Graciela Token -> ExpectedToken -> Graciela ()
 panicMode token follow err =
         try (M.void token)
     <|> do t <- lookAhead follow

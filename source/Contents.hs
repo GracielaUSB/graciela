@@ -31,32 +31,42 @@ instance Show Value where
 
 data Contents s
     = Contents
-        { symbolName :: Text
-        , varBeh     :: VarBehavior
-        , symbolLoc  :: Location
-        , symbolType :: Type
-        , value      :: Maybe Value
-        , ini        :: Bool
+        { symbolName     :: Text
+        , symbolBehavior :: VarBehavior
+        , symbolLoc      :: Location
+        , symbolType     :: Type
+        , symbolValue    :: Maybe Value
+        , symbolInit     :: Bool
         }
     | ArgProcCont
-        { symbolName  :: Text
-        , procArgType :: TypeArg
-        , symbolLoc   :: Location
-        , symbolType  :: Type
+        { argName    :: Text
+        , argTypeArg :: TypeArg
+        , argLoc     :: Location
+        , argType    :: Type
         }
     | FunctionCon
-        { symbolName :: Text
-        , symbolLoc  :: Location
-        , symbolType :: Type
-        , nameArgs   :: [Text]
-        , sTable     :: s
+        { funcName  :: Text
+        , funcLoc   :: Location
+        , funcType  :: Type
+        , funcArgs  :: [Text]
+        , funcTable :: s
         }
     | ProcCon
-        { symbolName :: Text
-        , symbolLoc  :: Location
-        , symbolType :: Type
-        , nameArgs   :: [Text]
-        , sTable     :: s
+        { procName  :: Text
+        , procLoc   :: Location
+        , procType  :: Type
+        , procArgs  :: [Text]
+        , procTable :: s
+        }
+    | AbstractContent
+        { abstractName :: Text
+        , abstractLoc  :: Location
+        -- , abstractTable :: s
+        }
+    | TypeContent 
+        { typeName :: Text
+        , typeLoc  :: Location
+        -- , typeTable :: s
         }
     deriving (Eq)
 
@@ -77,11 +87,17 @@ instance Treelike s => Treelike (Contents s) where
             ]
 
     toTree (FunctionCon name loc sType args st) =
-        Node ("Function " ++ unpack name ++ 
-              " -> " ++ show sType ++ " " ++ showL loc) []
+        Node ("Function `" ++ unpack name ++ 
+              "` : " ++ show sType ++ " " ++ showL loc) []
 
     toTree (ProcCon name loc sType args st) =
-        Node ("Procedure " ++ unpack name ++ " " ++ showL loc) []
+        Node ("Procedure `" ++ unpack name ++ "` " ++ showL loc) []
+
+    toTree (AbstractContent name loc) = 
+        Node ("Abstract Type `" ++ unpack name ++ "` " ++ showL loc) []
+
+    toTree (TypeContent name loc) = 
+        Node ("Type `" ++ unpack name ++ "` " ++ showL loc) []
 
 
 
@@ -139,6 +155,21 @@ isArg _             = True
 initSymbolContent :: Contents a -> Contents a
 initSymbolContent (Contents n vb loc t v _) = Contents n vb loc t v True
 initSymbolContent c                       = c
+
+getLoc :: Contents a -> Location
+getLoc (Contents _ _ l _ _ _)  = l
+getLoc (ArgProcCont _ _ l _ )  = l
+getLoc (FunctionCon _ l _ _ _) = l
+getLoc (ProcCon _ l _ _ _)     = l
+getLoc (AbstractContent _ l)   = l
+getLoc (TypeContent _ l)   = l
+
+getContentType :: Contents a -> Type
+getContentType (Contents _ _ _ t _ _)  = t
+getContentType (ArgProcCont _ _ _ t )  = t
+getContentType (FunctionCon _ _ t _ _) = t
+getContentType _                       = GEmpty
+
 
 
 getVarBeh :: Contents a -> Maybe VarBehavior

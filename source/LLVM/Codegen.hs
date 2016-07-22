@@ -1,32 +1,36 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Codegen where
+module LLVM.Codegen where
 
-import qualified LLVM.General.AST.FloatingPointPredicate as FL
-import qualified LLVM.General.AST.IntegerPredicate       as IL
+--------------------------------------------------------------------------------
+import Aborts
+import LLVM.CodegenState
+import Contents
+import Limits
+import Location
+import qualified AST                                     as MyAST
+import qualified Type                                    as T
+import SymbolTable
+--------------------------------------------------------------------------------
+import           Control.Lens                           (use, (.=), (%=))
+import           Control.Monad.State
+import           Data.Foldable                          (toList)
+import           Data.Maybe
+import           Data.Range.Range                        as RA
+import           Data.Word
+import qualified Data.Map                                as DM
+import qualified Data.Text                               as TE
+import           LLVM.General.AST                        as AST
+import           LLVM.General.AST.Attribute
+import           LLVM.General.AST.Type
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
-import qualified Data.Text                               as TE
-import qualified Data.Map                                as DM
-import qualified Type                                    as T
-import qualified AST                                     as MyAST
-import Data.Range.Range                                  as RA
-import LLVM.General.AST                                  as AST
-import LLVM.General.AST.Attribute
-import LLVM.General.AST.Type
-import Control.Monad.State
-import Data.Foldable (toList)
-import CodegenState
-import SymbolTable
-import Data.Maybe
-import Data.Word
-import Contents
-import Location
-import Aborts
-import Limits
+import qualified LLVM.General.AST.FloatingPointPredicate as FL
+import qualified LLVM.General.AST.IntegerPredicate       as IL
+import           System.Info                            (os,arch)
+import           System.Process                         (callCommand)
 
-import           System.Info            (os,arch)
-import           System.Process         (callCommand)
+--------------------------------------------------------------------------------
 
 
 writeLnInt    = "_writeLnInt"
@@ -140,7 +144,7 @@ addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Nul
 astToLLVM :: [String] -> MyAST.AST T.Type -> String -> AST.Module
 astToLLVM files (MyAST.Program name _ defs accs _) version =
     defaultModule { moduleName         = TE.unpack name
-                  , moduleDefinitions  = toList $ moduleDefs $ execCodegen $ createLLVM files defs accs
+                  , moduleDefinitions  = toList $ _moduleDefs $ execCodegen $ createLLVM files defs accs
                   , moduleTargetTriple = Just whichTarget
                   }
     where
@@ -201,8 +205,8 @@ addArgOperand [] = return ()
 
 addArgOperand ((id',c):xs) = do
 
-    let t    = toType $ symbolType c
-    let tp   = procArgType c
+    let t    = toType $ argType c
+    let tp   = argTypeArg c
     let id   = convertId id'
     let e'   = local t (Name id')
     case tp of
@@ -219,7 +223,7 @@ addArgOperand ((id',c):xs) = do
 
         T.Out   -> do op <- alloca Nothing t id
                       addVarOperand id' op
-                      initialize id $ symbolType c
+                      initialize id $ argType c
                       return ()
 
         T.Ref   -> do addVarOperand id' e'
@@ -233,9 +237,9 @@ retVarOperand [] = return ()
 
 retVarOperand ((id', c):xs) = do
 
-    let t   = toType $ symbolType c
+    let t   = toType $ getContentType c
     let exp = local t (Name id')
-    let tp  = procArgType c
+    let tp  = argTypeArg c
 
     case tp of
         T.InOut -> do add <- load id' t
@@ -423,7 +427,7 @@ getStoreDir :: MyAST.AST T.Type -> LLVM Operand
 getStoreDir (MyAST.Id _ name _) = getVarOperand (TE.unpack name)
 getStoreDir (MyAST.ArrCall _ name exps _) = do
     ac' <- mapM createExpression exps
-    map <- gets varsLoc
+    map <- use varsLoc
     let (i, id) = (fromJust $ DM.lookup id map, TE.unpack name)
     ac'' <- opsToArrayIndex id ac'
     addUnNamedInstruction intType $ GetElementPtr True i [ac''] []
@@ -485,7 +489,7 @@ createInstruction (MyAST.Write True exp _ t) = do
     case ty of
         T.GInt    -> procedureCall ty' writeLnInt    [e']
         T.GFloat  -> procedureCall ty' writeLnDouble [e']
-        T.GBool   -> procedureCall ty' writeLnBool   [e']
+        T.GBoolean   -> procedureCall ty' writeLnBool   [e']
         T.GChar   -> procedureCall ty' writeLnChar   [e']
         T.GEmpty  -> procedureCall ty' writeLnString [e']
     return ()
@@ -499,7 +503,7 @@ createInstruction (MyAST.Write False exp _ t) = do
     case ty of
         T.GInt    -> procedureCall ty' writeInt    [e']
         T.GFloat  -> procedureCall ty' writeDouble [e']
-        T.GBool   -> procedureCall ty' writeBool   [e']
+        T.GBoolean   -> procedureCall ty' writeBool   [e']
         T.GChar   -> procedureCall ty' writeChar   [e']
         T.GEmpty  -> procedureCall ty' writeString [e']
     return ()
@@ -540,15 +544,15 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
 
 
 createInstruction (MyAST.ProcCallCont pname st _ args c _) = do
-    let dic   = getMap $ getCurrent $ sTable $ c
-    let nargp = nameArgs c
+    let dic   = getMap $ getCurrent $ procTable $ c
+    let nargp = procArgs c
     exp <- createArguments dic nargp args
     procedureCall voidType (TE.unpack pname) exp
     return ()
 
 
 createInstruction (MyAST.Ran id _ _ t) = do
-    vars <- gets varsLoc
+    vars <- use varsLoc
     let (ty, i) = (toType t, fromJust $ DM.lookup (TE.unpack id) vars)
     let df      = Right $ definedFunction floatType (Name randomInt)
     val <- caller ty df []
@@ -561,12 +565,12 @@ createArguments :: DM.Map TE.Text (Contents SymbolTable)
 createArguments _ [] [] = return []
 createArguments dicnp (nargp:nargps) (arg:args) = do
     lr <- createArguments dicnp nargps args
-    let argt = procArgType $ fromJust $ DM.lookup nargp dicnp
+    let argt = argTypeArg $ fromJust $ DM.lookup nargp dicnp
 
     case argt of
         T.In      -> do arg' <- createExpression arg
                         return $ arg':lr
-        otherwise -> do dicn <- gets varsLoc
+        otherwise -> do dicn <- use varsLoc
                         return $ (fromJust $ DM.lookup (TE.unpack $
                                   fromJust $ MyAST.astToId arg) dicn) : lr
 
@@ -594,7 +598,7 @@ myFromJust (Just x) = x
 
 createExpression :: MyAST.AST T.Type -> LLVM (Operand)
 createExpression (MyAST.Id _ id t) = do
-    var <- gets varsLoc
+    var <- use varsLoc
     let (n, ty) = (TE.unpack id, toType t)
     let check   = DM.lookup n var
 
@@ -615,13 +619,13 @@ createExpression (MyAST.Cond lguards loc rtype) = do
     let rtype' = toType rtype
     setLabel abort $ branch final
     createTagIf final loc
-    modify $ \s -> s { condName = final }
+    condName .= final
     addUnNamedInstruction rtype' $ Phi rtype' lnames []
 
 
 createExpression (MyAST.ArrCall _ id' accs t) = do
     accs' <- mapM createExpression accs
-    map   <- gets varsLoc
+    map   <- use varsLoc
     let (t', i, id) = (toType t, myFromJust $ DM.lookup id map, TE.unpack id')
     accs'' <- opsToArrayIndex id accs'
     add    <- addUnNamedInstruction t' $ GetElementPtr True i [accs''] []
@@ -1192,7 +1196,7 @@ checkDivZero op loc lexp' rexp' ty = do
 
     next  <- newLabel
     abort <- newLabel
-    modify $ \s -> s { condName = next }
+    condName .= next
 
     case ty of
         T.GInt   -> do
@@ -1216,13 +1220,13 @@ checkOverflow :: MyAST.OpNum -> Location -> Operand -> Operand -> T.Type -> LLVM
 checkOverflow op loc lexp rexp ty = do
     overAbort <- newLabel
     next      <- newLabel
-    res   <- addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp rexp
-    check <- extracValue res 1
+    res       <- addUnNamedInstruction (toType ty) $ irArithmetic op ty lexp rexp
+    check     <- extracValue res 1
 
     setLabel overAbort $ condBranch check overAbort next
     createTagOverflow next loc
 
-    modify $ \s -> s { condName = next }
+    condName .= next
     extracValue res 0
 
 
@@ -1252,7 +1256,7 @@ createGuardExp :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
 
 createGuardExp acc code = do
     exp   <- createExpression acc
-    label <- gets condName
+    label <- use condName
     return (exp, label)
 
 
@@ -1260,7 +1264,7 @@ genExpGuard :: MyAST.AST T.Type -> Name -> LLVM (Operand, Name)
 genExpGuard (MyAST.GuardExp guard acc _ _) next = do
     tag  <- createExpression guard
     code <- newLabel
-    modify $ \s -> s { condName = code }
+    condName .= code
     setLabel code $ condBranch tag code next
     createGuardExp acc code
 
@@ -1333,9 +1337,9 @@ irRelational MyAST.Ine     T.GInt   a b = ICmp IL.NE  a b []
 
 irConversion :: MyAST.Conv -> T.Type -> Operand -> Instruction
 irConversion MyAST.ToInt    T.GFloat a = _toInt   a
-irConversion MyAST.ToInt    T.GBool
+irConversion MyAST.ToInt    T.GBoolean
           (ConstantOperand (C.Int 1 0)) = _toInt $ constantInt 0
-irConversion MyAST.ToInt    T.GBool
+irConversion MyAST.ToInt    T.GBoolean
           (ConstantOperand (C.Int 1 1)) = _toInt $ constantInt 1
 irConversion MyAST.ToDouble T.GInt   a = _toFloat a
 irConversion MyAST.ToDouble T.GChar  a = _toFloat a
@@ -1350,7 +1354,7 @@ irUnary MyAST.Abs   T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction f
                                          (Name fabsString))) [(a, [])] [] []
 irUnary MyAST.Sqrt  T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
                                          (Name sqrtString))) [(a, [])] [] []
-irUnary MyAST.Not   T.GBool  a = _not a
+irUnary MyAST.Not   T.GBoolean  a = _not a
 
 
 _and    a b = And a b []

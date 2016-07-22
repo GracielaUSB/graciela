@@ -7,31 +7,34 @@ module Parser.ParserType
 --------------------------------------------------------------------------------
 import           Location
 import           ParserState
-import           State
+import           Graciela
 import           Token
 import           Parser.TokenParser
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Text   (Text)
+import           Control.Monad  (when, void)
+import           Data.Text      (Text, unpack)
 import           Text.Parsec
 --------------------------------------------------------------------------------
 
-myBasicType :: MyParser Token -> MyParser Token -> MyParser Type
+myBasicType :: Graciela Token -> Graciela Token -> Graciela Type
 myBasicType follow recSet = parseType
 
-parsePointer :: Type -> MyParser Type
+parsePointer :: Type -> Graciela Type
 parsePointer t =
   do
     parseStar
     parsePointer $GPointer t
   <|> return t
 
-myType :: MyParser Token -> MyParser Token -> MyParser Type
+myType :: Graciela Token -> Graciela Token -> Graciela Type
 myType follow recSet =
-      do t <- myBasicType follow recSet
-         try $do parsePointer t
+      do 
+        tname <- parseId
+        t <- getType tname 
+        when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.") 
+        try $do parsePointer t
           <|> return t
-
        <|> do parseTokArray
               parseLeftBracket
               n <- parseConstNumber parseOf (recSet <|> parseOf)
@@ -49,8 +52,8 @@ myType follow recSet =
               return (GDataType id [t] [] [])
 
 
-parseConstNumber :: MyParser Token -> MyParser Token
-                  -> MyParser (Maybe (Either Text Integer))
+parseConstNumber :: Graciela Token -> Graciela Token
+                  -> Graciela (Maybe (Either Text Integer))
 parseConstNumber follow recSet =
     do pos <- getPosition
        do  lookAhead follow

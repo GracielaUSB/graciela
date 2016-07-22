@@ -120,12 +120,15 @@ data AST a = Abort      { location  :: Location, tag         :: a } -- ^ Instruc
                         , tag       :: a
                         }
          | Bool         { location  :: Location, cbool       :: Bool   , tag :: a } -- ^ Tipo booleano con el token.
+
          | Boolean      { opBinB    :: OpBool  , location    :: Location -- ^ Operadores Booleanos de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
                         , tag :: a
                         }
          | Char         { location  :: Location, mchar       :: Char    , tag :: a }  -- ^ Tipo caracter con el token.
+
          | Cond         { cguard    :: [AST a] , location    :: Location, tag :: a }  -- ^ Instruccion If.
+
          | ConsAssign   { location  :: Location, caId        :: [(Text, Location)]
                         , caExpr    :: [AST a] , tag         :: a             
                         }
@@ -136,6 +139,7 @@ data AST a = Abort      { location  :: Location, tag         :: a } -- ^ Instruc
                         , tiexp     :: AST a   , tag         :: a
                         }
          | DecArray     { dimension :: [AST a] , tag         :: a }
+
          | DefFun       { dfname    ::  Text   , astSTable   :: SymbolTable
                         , location  :: Location, fbody       :: AST a
                         , retType   ::  Type   , nodeBound   :: AST a
@@ -146,18 +150,23 @@ data AST a = Abort      { location  :: Location, tag         :: a } -- ^ Instruc
                         , constDec  :: [AST a] , params      :: [(Text, Type)]    
                         , tag       ::  a
                         }
-         | EmptyAST     { tag       ::  a                                         }
-         | EmptyRange   { location  :: Location, tag         :: a                 }
-         | Float        { location  :: Location, expFloat    :: Double , tag :: a } -- ^ Numero entero.
-         | FCallExp     { fname     ::  Text   , astSTable   :: SymbolTable       -- ^ Llamada a funcion.
+         | EmptyAST     { tag       ::  a }
+
+         | EmptyRange   { location  :: Location, tag         :: a }
+
+         | Float        { location  :: Location, expFloat    :: Double , tag :: a } -- ^ Numero Flotante.
+
+         | FCallExp     { fname     ::  Text   , astSTable   :: SymbolTable         -- ^ Llamada a funcion.
                         , location  :: Location, args        :: [AST a], tag :: a
                         } 
          | Id           { location  :: Location, id          :: Text   , tag :: a } -- ^ Identificador.
-         | Int          { location  :: Location, expInt      :: Integer, tag :: a } -- ^ Numero entero.     
-         | Guard        { gexp      ::  AST a  , gact        :: AST a      -- ^ Guardia.
+
+         | Int          { location  :: Location, expInt      :: Integer, tag :: a } -- ^ Numero entero.   
+
+         | Guard        { gexp      ::  AST a  , gact        :: AST a               -- ^ Guardia.
                         , location  :: Location, tag         :: a 
                         }
-         | GuardExp     { gexp      ::  AST a  , gact        :: AST a      -- ^ Guardia de Expresion.
+         | GuardExp     { gexp      ::  AST a  , gact        :: AST a                -- ^ Guardia de Expresion.
                         , location  :: Location, tag         :: a 
                         }
          | GuardAction  { location  :: Location, assertionGa :: AST a
@@ -204,10 +213,12 @@ data AST a = Abort      { location  :: Location, tag         :: a } -- ^ Instruc
                         , rbound    ::  AST a  , location    :: Location , tag :: a  
                         } 
          | Skip         { location  :: Location, tag         :: a } -- ^ Instruccion Skip.
+
          | States       { tstate    :: StateCond, location   :: Location
                         , exps      :: AST a    , tag        :: a
                         }         
          | String       { location  :: Location, mstring     :: String , tag :: a } -- ^ Tipo string con el token.
+
          | Unary        { opUn      :: OpUn    , location    :: Location             -- ^ Función raíz cuadrada.
                         , lenExp    :: AST a   , tag         :: a
                         }
@@ -262,7 +273,7 @@ instance Show a => Treelike (AST a) where
       Node ("Function " ++ unpack name ++ " -> " ++ show retrn ++ " " ++ showL loc) 
          [ Node "Parameters" (fmap (\(pname,t) -> 
                leaf (unpack pname ++ " : " ++ show t)) params)
-         , toTree bound
+         , toTree bound -- WTF?
          , toTree body 
          ]
 
@@ -272,7 +283,7 @@ instance Show a => Treelike (AST a) where
                leaf (unpack pname ++ " : " ++ show t)) params)
          , Node "Declarations" (toForest decl)
          , toTree pre 
-         , toTree bound
+         , toTree bound -- WTF?
          , toTree body
          , toTree post 
          ]

@@ -1,4 +1,4 @@
-module MyTypeError where
+module TypeError where
 --------------------------------------------------------------------------------
 import           AST
 import           Contents      as C
@@ -15,7 +15,7 @@ import           Data.Text     (Text)
 import           Prelude       hiding (foldl)
 --------------------------------------------------------------------------------
 
-data MyTypeError
+data TypeError
     = RepSymbolError
         { symbol :: Text
         , preLoc :: Location
@@ -120,7 +120,7 @@ data MyTypeError
         , prType :: Type
         , loc    :: Location
         }
-    | UncountError
+    | UncountableError
         { op  :: OpQuant
         , loc :: Location
         }
@@ -129,7 +129,7 @@ data MyTypeError
         , symbol :: Text
         , loc    :: Location
         }
-    | FunNameError
+    | FunctionNameError
         { symbol :: Text
         , loc    :: Location
         }
@@ -185,7 +185,7 @@ data MyTypeError
     deriving (Eq)
 
 
-instance Show MyTypeError where
+instance Show TypeError where
     show e = errorL (loc e) ++ case e of
         (RepSymbolError     sym pLoc _) ->
             ": La variable "  ++ show sym ++
@@ -272,13 +272,13 @@ instance Show MyTypeError where
         (RanError          sym    pt _) ->
             ": La variable" ++ show sym ++ " es de tipo " ++
             show pt ++ ", se esperaba varible de tipo int o double."
-        (UncountError  op            _) ->
+        (UncountableError  op            _) ->
             ": Tipo no contable en la definición del Cuantificador " ++
             show op ++ "."
         (NotOccursVar  op  sym       _) ->
             ": La varible " ++ show sym ++
             " no ocurre dentro del rango del Cuantificador " ++ show op ++ "."
-        (FunNameError  id            _) ->
+        (FunctionNameError  id            _) ->
             ": El parámetro " ++ show id ++
             " es del mismo nombre de la función que está siendo definida."
         (InvalidPar  name _         _) ->

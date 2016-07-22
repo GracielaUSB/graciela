@@ -6,12 +6,12 @@ module Main where
 --------------------------------------------------------------------------------
 import           AST
 import           ASTtype
-import           Codegen
+import           LLVM.Codegen
 import           Contents
 import           Lexer
-import           MyTypeError
+import           TypeError
 import           Parser.Program
-import           State
+import           Graciela
 import           Token
 import           Type
 import           Treelike
@@ -25,6 +25,7 @@ import           Control.Monad.State    (runStateT)
 import           Data.Foldable          (toList)
 import           Data.List              (nub)
 import           Data.Maybe             (fromMaybe)
+import           Data.Map.Strict        (showTree)
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
 import           Data.String.Utils      (replace)
@@ -101,7 +102,7 @@ options =
                     _  -> opts { optExecName = fileName }
                 ) "NOMBRE")
         "Nombre del ejecutable"
-    , Option ['s'] ["stable"]
+    , Option ['s'] ["symtable"]
         (NoArg (\opts -> opts { optSTable = True }))
         "Imprime la tabla de simbolos por stdin"
     , Option ['a'] ["ast"]
@@ -119,17 +120,17 @@ opts = do
             ioError (userError (concat errs ++ help))
 
 -- Processing --------------------------
-concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), ParserState)
+concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe (AST Type)), GracielaState)
 concatLexPar = playParser <$> lexer
 
 
-playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), ParserState)
+playParser :: [TokenPos] -> (Either ParseError (Maybe (AST Type)), GracielaState)
 playParser inp = runStateParse program "" inp initialState
 
 
-runStateParse :: MyParser (Maybe (AST Type)) -> String
-              -> [TokenPos]-> ParserState
-              -> (Either ParseError (Maybe (AST Type)), ParserState)
+runStateParse :: Graciela (Maybe (AST Type)) -> String
+              -> [TokenPos]-> GracielaState
+              -> (Either ParseError (Maybe (AST Type)), GracielaState)
 runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 
@@ -155,19 +156,22 @@ play opts inp llName = case runParser concatLexPar () "" inp of
         die $ "\nOcurrió un error en el proceso de análisis sintáctico " ++ show err'
 
     Right (Right (Just ast), st) ->
-        if Seq.null (sTableErrorList st) && Seq.null (synErrorList st)
+        if Seq.null (_sTableErrorList st) && Seq.null (_synErrorList st)
             then do
                 -- putStrLn $drawST 0 $current $symbolTable st
+                let symTable = _symbolTable st
                 when (optSTable opts) $ do
-                    putStrLn $ drawTree $toTree $symbolTable st
+                    let types    = _typesTable st
+                    putStrLn $ drawTree $ toTree symTable
+                    putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
                 when (optAST opts) $ do
-                    putStrLn $ drawTree $toTree ast
+                    putStrLn $ drawTree $ toTree ast
                 
-                let (t, l) = runTVerifier (symbolTable st) ast
+                let (t, l) = runTVerifier (symTable) ast
 
                 if Seq.null l then do
                     version <- getOSVersion
-                    let newast = astToLLVM (toList $ filesToRead st) t version
+                    let newast = astToLLVM (toList $ _filesToRead st) t version
 
                     withContext $ \context ->
                         liftError $ withModuleFromAST context newast $ \m ->
@@ -236,6 +240,6 @@ compileLL llName execName = void $ do
             "linux"   -> "/usr/local/lib/graciela-lib.so"
             "windows" -> undefined
         clang = case os of
-            "darwin" -> "clang-3.5"
+            "darwin" -> "/usr/local/bin/clang-3.5"
             "linux"  -> "clang-3.5"
             "windows" -> undefined

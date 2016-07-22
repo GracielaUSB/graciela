@@ -4,7 +4,7 @@ program main
 begin
 
 
-    proc swap : (ref h1: array [10] of int, in x: int, in y: int) 
+    proc swap  (ref h1: array [10] of int, in x: int, in y: int) 
     begin
         var aux : int;
 
@@ -18,7 +18,7 @@ begin
     end
 
     
-  proc ord : (in N: int, ref h: array [10] of int)
+  proc ord  (in N: int, ref h: array [10] of int)
   begin
       var n, cota: int;
     
