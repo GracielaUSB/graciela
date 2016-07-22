@@ -9,7 +9,6 @@ como tambien los utilizados de forma interna en el compilador.
 -}
 module Type where
 --------------------------------------------------------------------------------
-import           Data.List (intercalate)
 import           Data.Text (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -28,10 +27,6 @@ instance Show TypeArg where
         Out   -> "Out"
         InOut -> "In/Out"
         Ref   -> "Ref"
-
-
-
-
 
 -- | Son los tipos utilizados en el compilador.
 data Type
@@ -81,30 +76,32 @@ data Type
 
 -- | Instancia 'Eq' para los tipos.
 instance Eq Type where
-    GInt                     == GInt                     = True
-    GFloat                   == GFloat                   = True
-    GBoolean                 == GBoolean                    = True
-    GChar                    == GChar                    = True
-    GError                   == GError                   = True
-    GEmpty                   == GEmpty                   = True
-    (GDataType n1 _ _ _)     == (GDataType n2 _ _ _)     = True
-    (GAbstractType n1 _ _ _) == (GAbstractType n2 _ _ _) = True
-    (GDataType n1 _ _ _)     == (GAbstractType n2 _ _ _) = True
-    (GProcedure  _)          == (GProcedure   _)         = True
-    (GFunction _ t)          == (GFunction _ t')         = t == t'
-    (GArray    _ t)          == (GArray    _ t')         = t == t'
+    GInt                      == GInt                      = True
+    GFloat                    == GFloat                    = True
+    GBoolean                  == GBoolean                  = True
+    GChar                     == GChar                     = True
+    GError                    == GError                    = True
+    GEmpty                    == GEmpty                    = True
+    (GDataType _n1 _ _ _)     == (GDataType _n2 _ _ _)     = True
+    (GAbstractType _n1 _ _ _) == (GAbstractType _n2 _ _ _) = True
+    (GDataType _n1 _ _ _)     == (GAbstractType _n2 _ _ _) = True
+    (GProcedure  _)           == (GProcedure   _)          = True
+    (GFunction _ t)           == (GFunction _ t')          = t == t'
+    (GArray    _ t)           == (GArray    _ t')          = t == t'
 
-    (GSet t)                 == (GSet t')       = t == t'
-    (GMultiset t)            == (GMultiset t')  = t == t'
-    (GSeq t)                 == (GSeq t')       = t == t'
+    (GSet t)                  == (GSet t')                 = t == t'
+    (GMultiset t)             == (GMultiset t')            = t == t'
+    (GSeq t)                  == (GSeq t')                 = t == t'
 
-    (GFunc d r)              == (GFunc d' r')   = (d == d') && (r == r')
-    (GRel d r)               == (GRel d' r')    = (d == d') && (r == r')
+    (GFunc d r)               == (GFunc d' r')             =
+        (d == d') && (r == r')
+    (GRel d r)                == (GRel d' r')              =
+        (d == d') && (r == r')
 
-    (GTuple    ts)           == (GTuple    ts')  = ts == ts'
-    (GTypeVar  t)            == (GTypeVar  t')   = t == t'
+    (GTuple    ts)            == (GTuple    ts')           = ts == ts'
+    (GTypeVar  t)             == (GTypeVar  t')            = t == t'
 
-    _                        == _                        = False
+    _                         == _                         = False
 
 
 -- | Instancia 'Show' para los tipos.
@@ -127,10 +124,11 @@ instance Show Type where
         GFunc     ta tb  -> "función `" ++ show ta ++ "->" ++ show tb ++ "`"
         GRel      ta tb  -> "relación `" ++ show ta ++ "->" ++ show tb ++ "`"
         GTuple    ts     ->
-            "tupla (" ++ (intercalate " " . map show $ ts) ++ ")"
-        GTypeVar  name   -> "variable de tipo `" ++ show name ++ "`"
-        GDataType name oftype _ _ -> "type `" ++ unpack name ++ "`"
-        GAbstractType name oftype _ _ -> "abstract `" ++ unpack name ++ "`"
+            "tupla (" ++ (unwords . map show $ ts) ++ ")"
+        GTypeVar  n      -> "variable de tipo `" ++ show n ++ "`"
+        GDataType n _ _ _ -> "type `" ++ unpack n ++ "`"
+        GAbstractType n _ _ _ -> "abstract `" ++ unpack n ++ "`"
+        GUndef -> undefined
 
 
 -- | Retorna la dimensión del arreglo.
@@ -141,10 +139,8 @@ getDimension _            = 0
 
 -- | Verifica si el tipo es cuantificable (Tipo Enumerado).
 isQuantifiable :: Type -> Bool
-isQuantifiable GInt  = True
-isQuantifiable GChar = True
+isQuantifiable GInt     = True
+isQuantifiable GChar    = True
 isQuantifiable GBoolean = True
-isQuantifiable GInt = True
-isQuantifiable GFloat = True
-isQuantifiable GFloat = True
-isQuantifiable _      = False
+isQuantifiable GFloat   = False
+isQuantifiable _        = False

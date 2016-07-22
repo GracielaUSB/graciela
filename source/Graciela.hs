@@ -8,7 +8,7 @@ import           Location
 import           MyParseError           as P
 import           MyTypeError            as T
 import           SymbolTable
-import           Text.Parsec
+import           Text.Megaparsec        (ParsecT)
 import           Token
 import           Type                   (Type(..))
 
@@ -27,7 +27,7 @@ import           Data.Text              (Text, pack)
 --------------------------------------------------------------------------------
 
 
-type Graciela a = ParsecT [TokenPos] () (StateT GracielaState Identity) a
+type Graciela a = ParsecT Dec [TokenPos] (StateT GracielaState Identity) a
 
 data GracielaState = GracielaState
     { _synErrorList    :: Seq MyParseError
@@ -41,7 +41,7 @@ data GracielaState = GracielaState
 makeLenses ''GracielaState
 
 initialTypes :: Map Text (Type, Location)
-initialTypes = Map.fromList $ 
+initialTypes = Map.fromList $
     [ (pack "int",    (GInt,     Location 0 0 "hola"))
     , (pack "float",  (GFloat,   Location 0 0 "hola"))
     , (pack "boolean",(GBoolean, Location 0 0 "hola"))
@@ -64,10 +64,10 @@ insertType name t loc = do
     typesTable %= Map.insert name (t, loc)
 
 getType :: Text -> Graciela Type
-getType name = do 
+getType name = do
     types <- use typesTable
-    case Map.lookup name types of 
-        Just (t, loc) -> return t 
+    case Map.lookup name types of
+        Just (t, loc) -> return t
         Nothing -> return GError
 {- Graciela 2.0-}
 

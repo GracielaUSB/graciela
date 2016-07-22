@@ -12,7 +12,7 @@ module Token where
 import           Type
 --------------------------------------------------------------------------------
 import           Data.Text   (Text)
-import           Text.Parsec (SourcePos)
+import           Text.Megaparsec (SourcePos)
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
 
@@ -33,7 +33,7 @@ data Token
     = TokProgram
     | TokBegin
     | TokEnd
-    | TokEOF
+    -- | TokEOF
 
     | TokFunc
     | TokProc
@@ -143,7 +143,7 @@ data Token
     | TokChar       { unTokChar :: Char }
     | TokInteger    { unTokInteger :: Integer }
     | TokFloat      { unTokFloatante :: Double}
-    | TokString     { unTokString :: String }
+    | TokString     { unTokString :: Text }
 
     | TokArray
     | TokType       { unTokType :: Type}
@@ -187,7 +187,7 @@ instance Show Token where
         TokProgram        -> "\"program\" - Inicio del Programa"
         TokBegin          -> "\"begin\" - Inicio de Procedimiento o Función"
         TokEnd            -> "\"end\" - Fin de Procedimiento o Función"
-        TokEOF            -> "\"EOF\" - Fin de Archivo"
+        -- TokEOF            -> "\"EOF\" - Fin de Archivo"
 
         TokFunc           -> "\"func\" - Función"
         TokProc           -> "\"proc\" - Procedimiento"
