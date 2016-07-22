@@ -1,6 +1,6 @@
 module VerTypes where
 --------------------------------------------------------------------------------
-import           MyTypeError
+import           TypeError
 import           SymbolTable
 import           Data.Maybe
 import           Location
@@ -11,7 +11,6 @@ import           AST
 
 import           Data.Tree 
 import           Treelike
-import           Debug.Trace
 import           Data.Sequence            (Seq, singleton)
 import           Data.List                (zip4)
 import           Control.Monad.RWS.Strict (RWS, ask, tell)
@@ -21,13 +20,11 @@ import           Data.Text                (Text)
 
 -- | Tipo del Monad el cual contiene, la tabla de simbolos, una secuencia de errores y una lista de strings,
 -- | usados para el manejo de los errores a momento de ejecucion
-type MyVerType a = RWS (SymbolTable) (Seq (MyTypeError)) ([String]) a
+type MyVerType a = RWS (SymbolTable) (Seq (TypeError)) ([String]) a
 
-
-addTypeError :: MyTypeError -> MyVerType Type
+addTypeError :: TypeError -> MyVerType Type
 addTypeError error = do tell $ singleton error
                         return $ GError
-
 
 checkListType :: Type -> Bool -> Type -> Bool
 checkListType _ False _ = False
@@ -286,8 +283,7 @@ verProcCall name sbc args'' loc locarg = do
                 let prL = length args'
                 if wtL /= prL
                     then addTypeError $ NumberArgsError name False wtL prL loc -- Error porque el numero de parametros en la llamada
-                                                                               -- es distinto al de la declaracion
-                    else do
+                    else do                                                    -- es distinto al de la declaracion
                         let args = map tag args''
                         let t    = zip args args'
                         if all (uncurry (==)) t

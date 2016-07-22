@@ -6,7 +6,7 @@ import           Contents
 import           Data.Monoid
 import           Location
 import           MyParseError           as P
-import           MyTypeError            as T
+import           TypeError            as T
 import           SymbolTable
 import           Text.Parsec
 import           Token
@@ -32,7 +32,7 @@ type Graciela a = ParsecT [TokenPos] () (StateT GracielaState Identity) a
 data GracielaState = GracielaState
     { _synErrorList    :: Seq MyParseError
     , _symbolTable     :: SymbolTable
-    , _sTableErrorList :: Seq MyTypeError
+    , _sTableErrorList :: Seq TypeError
     , _filesToRead     :: Set.Set String
     , _typesTable      :: Map Text (Type, Location)
     }
@@ -59,6 +59,9 @@ initialState = GracielaState
     }
 
 {- Graciela 2.0-}
+typeError :: TypeError -> Graciela ()
+typeError err = sTableErrorList %= (|> err)
+
 insertType :: Text -> Type -> Location -> Graciela ()
 insertType name t loc = do
     typesTable %= Map.insert name (t, loc)

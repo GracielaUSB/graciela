@@ -24,7 +24,8 @@ data MyParseError
         { loc       :: Location
         }
     | ScopesError
-    | CustomError 
+
+    | CustomError -- Mientras no mejoremos los errores jajaja
         { msg :: String
         , loc :: Location
         }
