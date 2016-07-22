@@ -6,10 +6,10 @@ module Main where
 --------------------------------------------------------------------------------
 import           AST
 import           ASTtype
-import           Codegen
+import           LLVM.Codegen
 import           Contents
 import           Lexer
-import           MyTypeError
+import           TypeError
 import           Parser.Program
 import           Graciela
 import           Token
@@ -102,7 +102,7 @@ options =
                     _  -> opts { optExecName = fileName }
                 ) "NOMBRE")
         "Nombre del ejecutable"
-    , Option ['s'] ["stable"]
+    , Option ['s'] ["symtable"]
         (NoArg (\opts -> opts { optSTable = True }))
         "Imprime la tabla de simbolos por stdin"
     , Option ['a'] ["ast"]

@@ -9,12 +9,14 @@ con su respectivo codigo, para los casos en que puede ocurrir un error a tiempo 
 -}
 module Aborts where
 
-import qualified LLVM.General.AST.Constant as C
-import LLVM.General.AST.Attribute
-import LLVM.General.AST                
-import CodegenState
-import Location
-
+--------------------------------------------------------------------------------
+import           LLVM.CodegenState
+import           Location
+--------------------------------------------------------------------------------
+import qualified LLVM.General.AST.Constant   as C
+import           LLVM.General.AST.Attribute
+import           LLVM.General.AST                
+--------------------------------------------------------------------------------
 
 -- | String usado para terminar la ejecucion del programa
 abortString :: String

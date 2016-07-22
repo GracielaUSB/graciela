@@ -10,7 +10,7 @@ module Location
     , showL
     , errorL
     , toLocation
-    )where
+    ) where
 --------------------------------------------------------------------------------
 import Text.Parsec (SourcePos, sourceLine, sourceColumn, sourceName)
 --------------------------------------------------------------------------------

@@ -10,6 +10,6 @@ cabal-dev
 cabal.sandbox.config
 cabal.config
 *.so
-*.out
 *.ll
 *.bc
+*.out

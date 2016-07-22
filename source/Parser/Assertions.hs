@@ -9,8 +9,6 @@ module Parser.Assertions
   , coupInvariant
   )
   where
-
-
 -------------------------------------------------------------------------------
 import Parser.Declarations
 import Parser.Expression

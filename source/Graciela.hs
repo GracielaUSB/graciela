@@ -6,7 +6,7 @@ import           Contents
 import           Data.Monoid
 import           Location
 import           MyParseError           as P
-import           MyTypeError            as T
+import           TypeError            as T
 import           SymbolTable
 import           Text.Megaparsec        (ParsecT)
 import           Token
@@ -32,7 +32,7 @@ type Graciela a = ParsecT Dec [TokenPos] (StateT GracielaState Identity) a
 data GracielaState = GracielaState
     { _synErrorList    :: Seq MyParseError
     , _symbolTable     :: SymbolTable
-    , _sTableErrorList :: Seq MyTypeError
+    , _sTableErrorList :: Seq TypeError
     , _filesToRead     :: Set.Set String
     , _typesTable      :: Map Text (Type, Location)
     }
@@ -41,7 +41,7 @@ data GracielaState = GracielaState
 makeLenses ''GracielaState
 
 initialTypes :: Map Text (Type, Location)
-initialTypes = Map.fromList $
+initialTypes = Map.fromList  
     [ (pack "int",    (GInt,     Location 0 0 "hola"))
     , (pack "float",  (GFloat,   Location 0 0 "hola"))
     , (pack "boolean",(GBoolean, Location 0 0 "hola"))
@@ -59,6 +59,9 @@ initialState = GracielaState
     }
 
 {- Graciela 2.0-}
+typeError :: TypeError -> Graciela ()
+typeError err = sTableErrorList %= (|> err)
+
 insertType :: Text -> Type -> Location -> Graciela ()
 insertType name t loc = do
     typesTable %= Map.insert name (t, loc)
