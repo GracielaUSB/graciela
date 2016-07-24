@@ -1,33 +1,32 @@
 module MyParseError where
 --------------------------------------------------------------------------------
-import Location
 import Token
 --------------------------------------------------------------------------------
-import Text.Parsec.Pos (SourcePos, sourceLine, sourceColumn, sourceName)
+import Text.Megaparsec.Pos (SourcePos (..))
 --------------------------------------------------------------------------------
 
 data MyParseError
     = MyParseError
-        { loc         :: Location
+        { loc         :: SourcePos
         , expectedTok :: ExpectedToken
         , currentTok  :: Token
         }
     | EmptyError
-        { loc       :: Location
+        { loc       :: SourcePos
         }
     | ArrayError
         { waDim     :: Int
         , prDim     :: Int
-        , loc       :: Location
+        , loc       :: SourcePos
         }
     | NonAsocError
-        { loc       :: Location
+        { loc       :: SourcePos
         }
     | ScopesError
 
     | CustomError -- Mientras no mejoremos los errores jajaja
         { msg :: String
-        , loc :: Location
+        , loc :: SourcePos
         }
 
 
@@ -109,27 +108,27 @@ instance Show ExpectedToken where
 
 instance Show MyParseError where
     show (MyParseError loc wt at) =
-        errorL loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++
+        "Error " ++ show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++
         show at ++ "."
     show (EmptyError   loc)       =
-        errorL loc ++ ": No se permiten Expresiones vacías."
+        "Error " ++ show loc ++ ": No se permiten Expresiones vacías."
     show (NonAsocError loc)       =
-        errorL loc ++ ": Operador no asociativo."
+        "Error " ++ show loc ++ ": Operador no asociativo."
     show (ArrayError   wt pr loc) =
-        errorL loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++
+        "Error " ++ show loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++
         ", encontrado Arreglo de dimensión " ++ show pr ++ "."
     show ScopesError              =
         "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
     show (CustomError msg loc) =
-        errorL loc ++ ": " ++ msg 
+        "Error " ++ show loc ++ ": " ++ msg
 
 
 
-newEmptyError :: SourcePos -> MyParseError
-newEmptyError pos =
-    EmptyError { loc = toLocation pos }
+-- newEmptyError :: SourcePos -> MyParseError
+-- newEmptyError pos =
+--     EmptyError { loc = toSourcePos pos }
 
 
-newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
-newParseError msg (e, pos) =
-    MyParseError { loc = toLocation pos, expectedTok = msg, currentTok = e }
+-- newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
+-- newParseError msg (e, pos) =
+--     MyParseError { loc = toSourcePos pos, expectedTok = msg, currentTok = e }

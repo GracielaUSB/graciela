@@ -2,7 +2,7 @@
 {-|
 Module      : Aborts
 Description : Etiquetas para las llamadas al sistema
-Copyright   : GraCieLa
+Copyright   : Graciela
 
 En este modulo se encuentran las funciones que son utilizadas para crear las etiquetas 
 con su respectivo codigo, para los casos en que puede ocurrir un error a tiempo de ejecucion

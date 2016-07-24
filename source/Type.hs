@@ -2,7 +2,7 @@
 {-|
 Module      : Type
 Description : Tipos del lenguaje
-Copyright   : GraCieLa
+Copyright   : Graciela
 
 Modulo donde se encuentra todo lo referente a los tipos provisto en el lenguaje,
 como tambien los utilizados de forma interna en el compilador.
@@ -69,7 +69,7 @@ data Type
 
     -- | Tipo para los arreglos
     | GArray
-        { getSize :: Either Text Integer -- ^ Tamano del arreglo
+        { getSize   :: Either Text Integer -- ^ Tamano del arreglo
         , arrayType :: Type                 -- ^ Tipo del arreglo
         }
 
@@ -107,25 +107,25 @@ instance Eq Type where
 -- | Instancia 'Show' para los tipos.
 instance Show Type where
     show = \case
-        GInt             -> "int"
-        GFloat           -> "double"
-        GBoolean            -> "boolean"
-        GChar            -> "char"
-        GEmpty           -> "void"
-        GError           -> "error"
-        GPointer      t  -> "pointer of "++show t
-        (GProcedure   _) -> "proc"
-        (GFunction  _ t) -> "func -> (" ++ show t ++ ")"
-        (GArray     s t) -> "array " ++ show s ++ " of `" ++ show t ++ "`"
+        GInt              -> "int"
+        GFloat            -> "double"
+        GBoolean          -> "boolean"
+        GChar             -> "char"
+        GEmpty            -> "void"
+        GError            -> "error"
+        GPointer      t   -> "pointer of "++show t
+        (GProcedure   _)  -> "proc"
+        (GFunction  _ t)  -> "func -> (" ++ show t ++ ")"
+        (GArray     s t)  -> "array " ++ show s ++ " of `" ++ show t ++ "`"
 
-        GSet      t      -> "conjunto de `" ++ show t ++ "`"
-        GMultiset t      -> "multiconjunto de `" ++ show t ++ "`"
-        GSeq      t      -> "secuencia de `" ++ show t ++ "`"
-        GFunc     ta tb  -> "función `" ++ show ta ++ "->" ++ show tb ++ "`"
-        GRel      ta tb  -> "relación `" ++ show ta ++ "->" ++ show tb ++ "`"
-        GTuple    ts     ->
+        GSet      t       -> "conjunto de `" ++ show t ++ "`"
+        GMultiset t       -> "multiconjunto de `" ++ show t ++ "`"
+        GSeq      t       -> "secuencia de `" ++ show t ++ "`"
+        GFunc     ta tb   -> "función `" ++ show ta ++ "->" ++ show tb ++ "`"
+        GRel      ta tb   -> "relación `" ++ show ta ++ "->" ++ show tb ++ "`"
+        GTuple    ts      ->
             "tupla (" ++ (unwords . map show $ ts) ++ ")"
-        GTypeVar  n      -> "variable de tipo `" ++ show n ++ "`"
+        GTypeVar  n       -> "variable de tipo `" ++ show n ++ "`"
         GDataType n _ _ _ -> "type `" ++ unpack n ++ "`"
         GAbstractType n _ _ _ -> "abstract `" ++ unpack n ++ "`"
         GUndef -> undefined

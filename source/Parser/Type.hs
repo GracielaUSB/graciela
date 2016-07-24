@@ -1,52 +1,52 @@
-module Parser.ParserType
+module Parser.Type
     ( myBasicType
     , parsePointer
     , myType
     , parseConstNumber
     ) where
 --------------------------------------------------------------------------------
-import           Location
-import           ParserState
 import           Graciela
+import           Location
+import           Parser.Token    (match, identifier, integerLit)
+import           ParserState
 import           Token
-import           Parser.TokenParser
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Monad  (when, void)
-import           Data.Text      (Text, unpack)
-import           Text.Parsec
+import           Control.Monad   (void, when)
+import           Data.Text       (Text, unpack)
+import           Text.Megaparsec ((<|>), lookAhead, try, getPosition)
 --------------------------------------------------------------------------------
 
-myBasicType :: Graciela Token -> Graciela Token -> Graciela Type
-myBasicType follow recSet = parseType
+myBasicType :: Graciela Token -> Graciela Token -> Graciela Text
+myBasicType follow recSet = identifier
 
 parsePointer :: Type -> Graciela Type
 parsePointer t =
   do
-    parseStar
+    match TokTimes
     parsePointer $GPointer t
   <|> return t
 
 myType :: Graciela Token -> Graciela Token -> Graciela Type
 myType follow recSet =
-      do 
-        tname <- parseId
-        t <- getType tname 
-        when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.") 
+      do
+        tname <- identifier
+        t <- getType tname
+        when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.")
         try $do parsePointer t
           <|> return t
-       <|> do parseTokArray
-              parseLeftBracket
-              n <- parseConstNumber parseOf (recSet <|> parseOf)
-              parseRightBracket
-              parseOf
+       <|> do match TokArray
+              match TokLeftBracket
+              n <- parseConstNumber (match TokOf) (recSet <|> match TokOf)
+              match TokRightBracket
+              match TokOf
               t <- myType follow recSet
               case n of
                   Nothing -> return GEmpty
                   Just n' -> return $ GArray n' t
 
-       <|> do id <- parseId
-              parseOf
+       <|> do id <- identifier
+              match TokOf
               t <- myType follow recSet
               -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
               return (GDataType id [t] [] [])
@@ -59,10 +59,10 @@ parseConstNumber follow recSet =
        do  lookAhead follow
            genNewEmptyError
            return Nothing
-           <|> do e <- number
+           <|> do e <- integerLit
                   return $ return $ return e
-           <|> do id <- parseId
-                  res <- lookUpConstIntParser id (toLocation pos)
+           <|> do id <- identifier
+                  res <- lookUpConstIntParser id pos
                   case res of
                     Nothing -> return Nothing
                     Just _  -> return $ return $ Left id

@@ -1,192 +1,192 @@
 module TypeError where
 --------------------------------------------------------------------------------
 import           AST
-import           Contents      as C
+import           Contents            as C
 import           Data.Monoid
-import           Location
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Foldable (foldl, toList)
-import           Data.Function (on)
-import           Data.List     hiding (sortBy)
-import           Data.Sequence (Seq)
-import           Data.Sequence as Seq (sortBy, take)
-import           Data.Text     (Text)
-import           Prelude       hiding (foldl)
+import           Data.Foldable       (foldl, toList)
+import           Data.Function       (on)
+import           Data.List           hiding (sortBy)
+import           Data.Sequence       (Seq)
+import           Data.Sequence       as Seq (sortBy, take)
+import           Data.Text           (Text)
+import           Prelude             hiding (foldl)
+import           Text.Megaparsec.Pos (SourcePos)
 --------------------------------------------------------------------------------
 
 data TypeError
     = RepSymbolError
         { symbol :: Text
-        , preLoc :: Location
-        , loc    :: Location
+        , preLoc :: SourcePos
+        , pos    :: SourcePos
         }
     | ConstIdError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | NonDeclError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | ArithmeticError
         { ltype :: Type
         , rtype :: Type
         , arOp  :: OpNum
-        , loc   :: Location
+        , pos   :: SourcePos
         }
     | BooleanError
         { ltype :: Type
         , rtype :: Type
         , boOp  :: OpBool
-        , loc   :: Location
+        , pos   :: SourcePos
         }
     | RelationalError
         { ltype :: Type
         , rtype :: Type
         , reOp  :: OpRel
-        , loc   :: Location
+        , pos   :: SourcePos
         }
     | UnaryError
         { prType :: Type
         , unOp   :: OpUn
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | StateError
         { prType :: Type
         , state  :: StateCond
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | GuardError
         { prType :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | CondError
-        { loc :: Location
+        { pos :: SourcePos
         }
     | IncomDefError
         { cont :: VarBehavior
-        , loc  :: Location
+        , pos  :: SourcePos
         }
     | UndecFunError
         { symbol :: Text
         , isFunc :: Bool
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | NumberArgsError
         { symbol :: Text
         , isFunc :: Bool
         , wtLeng :: Int
         , prLeng :: Int
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | RetFuncError
         { symbol :: Text
         , waType :: Type
         , prType :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | FunArgError
         { symbol :: Text
         , isFunc :: Bool
         , waType :: Type
         , prType :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | AssignError
         { aeName :: Text
         , waType :: Type
         , prType :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | ArrayCallError
         { arrName:: Text
         , prType  :: Type
-        , loc     :: Location
+        , pos     :: SourcePos
         }
     | ArrayDimError
         { arrName:: Text
         , waDim   :: Int
         , prDim   :: Int
-        , loc     :: Location
+        , pos     :: SourcePos
         }
     | IntOutOfBounds
         { val :: Text
-        , loc :: Location
+        , pos :: SourcePos
         }
 
     | RanError
         { symbol :: Text
         , prType :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | UncountableError
         { op  :: OpQuant
-        , loc :: Location
+        , pos :: SourcePos
         }
     | NotOccursVar
         { op     :: OpQuant
         , symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | FunctionNameError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | InvalidPar
         { name :: Text
         , tree :: AST Type
-        , loc  :: Location
+        , pos  :: SourcePos
         }
     | DiffSizeError
-        { loc :: Location
+        { pos :: SourcePos
         }
     | TypeDecError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         , tyExp  :: Type
         , tyVar  :: Type
         }
     | QuantRangeError
         { op     :: OpQuant
         , trange :: Type
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | QuantIntError
         { op    :: OpQuant
         , tterm :: Type
-        , loc   :: Location
+        , pos   :: SourcePos
         }
     | QuantBoolError
         { op    :: OpQuant
         , tterm :: Type
-        , loc   :: Location
+        , pos   :: SourcePos
         }
     | NotIntError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | NotConstError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | NotInitError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | NotRValueError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     | IntError
         { symbol :: Text
-        , loc    :: Location
+        , pos    :: SourcePos
         }
     deriving (Eq)
 
 
 instance Show TypeError where
-    show e = errorL (loc e) ++ case e of
+    show e = "Error " ++ show (pos e) ++ case e of
         (RepSymbolError     sym pLoc _) ->
             ": La variable "  ++ show sym ++
             " ya fue previamente declarada " ++ show pLoc ++ "."
@@ -286,7 +286,7 @@ instance Show TypeError where
             " se suministrado una constante como parámetro de salida."
         (DiffSizeError                _) ->
             ": El número de variables declaradas es distinto al de expresiones de inicialización encontradas."
-        (TypeDecError  id loc te tv) ->
+        (TypeDecError  id pos te tv) ->
             ": La variable " ++ show id ++ " es del tipo " ++ show tv ++
             " pero su expresión correspondiente es del tipo " ++ show te ++ "."
         (QuantRangeError op tr _) ->
@@ -313,7 +313,7 @@ instance Show TypeError where
             ": La variable " ++ show id ++ " no es del tipo int."
 
 drawTypeError n =
-    unlines . map show . toList . take' n . Seq.sortBy (compare `on` loc)
+    unlines . map show . toList . take' n . Seq.sortBy (compare `on` pos)
 
 take' :: Maybe Int -> Seq a -> Seq a
 take' Nothing  = Prelude.id

@@ -6,21 +6,20 @@ Copyright   : Graciela
 Módulo del analizador lexicográfico,
 produce una lista con los lexemas encontrados en el archivo.
 -}
-module Lexer (lexer) where
+module Lexer
+  ( lexer
+  ) where
 --------------------------------------------------------------------------------
 import           Token
-import           Type
 --------------------------------------------------------------------------------
 import           Control.Monad         (void)
-import           Control.Applicative   (empty)
 import           Data.Functor          (($>))
-import           Data.Functor.Identity (Identity)
-import           Data.Text             (Text, cons, pack)
-import           Text.Megaparsec       ((<|>), Dec, Parsec, ParsecT
-                                       ,alphaNumChar, between, char, eof
-                                       ,getPosition, letterChar, many
-                                       ,notFollowedBy, parseTest, spaceChar
-                                       ,string, unexpected, hidden, manyTill, try)
+import           Data.Text             (Text, pack)
+import           Text.Megaparsec       (Dec, Parsec, alphaNumChar, between,
+                                        char, eof, getPosition, hidden,
+                                        letterChar, many, manyTill,
+                                        notFollowedBy, spaceChar, string, try,
+                                        (<|>), runParser, ParseError)
 import qualified Text.Megaparsec.Lexer as L
 --------------------------------------------------------------------------------
 
@@ -39,7 +38,7 @@ symbol = L.symbol sc
 
 
 reserved :: String -> Lexer ()
-reserved w =
+reserved w = try $
   string w *> notFollowedBy (alphaNumChar <|> char '_' <|> char '?') *> sc
 
 
@@ -74,177 +73,176 @@ identifier = TokId . pack <$> lexeme p
 
 
 token :: Lexer Token
-token  =  (reserved "program"     *> return TokProgram)
-      <|> (reserved "begin"       *> return TokBegin)
-      <|> (reserved "end"         *> return TokEnd)
-      <|> (reserved "func"        *> return TokFunc)
-      <|> (reserved "proc"        *> return TokProc)
-      <|> (reserved "inout"       *> return TokIn)
-      <|> (reserved "in"          *> return TokOut)
-      <|> (reserved "out"         *> return TokInOut)
-      <|> (reserved "ref"         *> return TokRef)
-      <|> (symbol   ":="          *> return TokAsig)
-      <|> (symbol   "\8788"       *> return TokAsig) -- ≔
+token  =  (reserved "program"     $> TokProgram)
+      <|> (reserved "begin"       $> TokBegin)
+      <|> (reserved "end"         $> TokEnd)
+      <|> (reserved "func"        $> TokFunc)
+      <|> (reserved "proc"        $> TokProc)
+      <|> (reserved "in"          $> TokIn)
+      <|> (reserved "out"         $> TokOut)
+      <|> (reserved "inout"       $> TokInOut)
+      <|> (reserved "ref"         $> TokRef)
+      <|> (symbol   ":="          $> TokAsig)
+      <|> (symbol   "\8788"       $> TokAsig) -- ≔
 
-      <|> (symbol   ","           *> return TokComma)
-      <|> (symbol   ":"           *> return TokColon)
-      <|> (symbol   ";"           *> return TokSemicolon)
-      <|> (symbol   "->"          *> return TokArrow)
-      <|> (symbol   "\8594"       *> return TokArrow) -- →
+      <|> (symbol   ","           $> TokComma)
+      <|> (symbol   ":"           $> TokColon)
+      <|> (symbol   ";"           $> TokSemicolon)
+      <|> (symbol   "->"          $> TokArrow)
+      <|> (symbol   "\8594"       $> TokArrow) -- →
 
-      <|> (reserved "with"        *> return TokWith)
-
-      -- V2.0
-      <|> (reserved "type"        *> return TokDataType)
-      <|> (reserved "implements"  *> return TokImplements)
-      <|> (reserved "abstract"    *> return TokAbstract)
-      <|> (reserved "{repinv"     *> return TokLeftRep)
-      <|> (reserved "repinv}"     *> return TokRightRep)
-      <|> (reserved "{coupinv"    *> return TokLeftAcopl)
-      <|> (symbol   "coupinv}"    *> return TokRightAcopl)
-
-      <|> (reserved "elem"        *> return TokElem)
-      <|> (symbol   "\8712"       *> return TokElem)    -- ∈
-      <|> (reserved "notelem"     *> return TokNotElem)
-      <|> (symbol   "\8713"       *> return TokNotElem) -- ∉
-      -- V2.0
-
-      <|> (reserved "var"         *> return TokVar)
-      <|> (reserved "const"       *> return TokConst)
-      <|> (reserved "of"          *> return TokOf)
-      <|> (reserved "array"       *> return TokArray)
-
-      <|> (symbol   "/\\"         *> return TokAnd)
-      <|> (symbol   "\8743"       *> return TokAnd) -- ∧
-      <|> (symbol   "\\/"         *> return TokOr)
-      <|> (symbol   "\8744"       *> return TokOr)  -- ∨
+      <|> (reserved "with"        $> TokWith)
 
       -- V2.0
-      <|> (reserved "set"         *> return TokSet)
-      <|> (reserved "multiset"    *> return TokMultiset)
-      <|> (reserved "seq"         *> return TokSeq)
-      <|> (reserved "rel"         *> return TokRel)
+      <|> (reserved "type"        $> TokType)
+      <|> (reserved "implements"  $> TokImplements)
+      <|> (reserved "abstract"    $> TokAbstract)
+      <|> (reserved "{repinv"     $> TokLeftRep)
+      <|> (reserved "repinv}"     $> TokRightRep)
+      <|> (reserved "{coupinv"    $> TokLeftAcopl)
+      <|> (symbol   "coupinv}"    $> TokRightAcopl)
 
-      <|> (reserved "emptyset"    *> return TokEmptySet)
-      <|> (symbol   "\8709"       *> return TokEmptySet) -- ∅
-      <|> (symbol   "\\"          *> return TokSetMinus)
-      <|> (reserved "union"       *> return TokSetUnion)
-      <|> (symbol   "\8746"       *> return TokSetUnion) -- ∪
-      <|> (reserved "intersect"   *> return TokSetIntersect)
-      <|> (symbol   "\8745"       *> return TokSetUnion) -- ∩
-
-      <|> (reserved "new"         *> return TokNew)
-      <|> (reserved "free"        *> return TokFree)
+      <|> (reserved "elem"        $> TokElem)
+      <|> (symbol   "\8712"       $> TokElem)    -- ∈
+      <|> (reserved "notelem"     $> TokNotElem)
+      <|> (symbol   "\8713"       $> TokNotElem) -- ∉
       -- V2.0
 
-      <|> (symbol   "+"           *> return TokPlus)
-      <|> (symbol   "-"           *> return TokMinus)
-      <|> (symbol   "*"           *> return TokTimes)
-      <|> (symbol   "\215"        *> return TokTimes) -- ×
-      <|> (symbol   "/"           *> return TokDiv)
-      <|> (symbol   "\247"        *> return TokDiv)   -- ÷
-      <|> (reserved "mod"         *> return TokMod)
-      <|> (symbol   "^"           *> return TokPower)
+      <|> (reserved "var"         $> TokVar)
+      <|> (reserved "const"       $> TokConst)
+      <|> (reserved "of"          $> TokOf)
+      <|> (reserved "array"       $> TokArray)
 
-      <|> (reserved "abs"         *> return TokAbs)
-      <|> (reserved "sqrt"        *> return TokSqrt)
-      <|> (symbol   "\8730"       *> return TokSqrt) -- √
+      <|> (symbol   "/\\"         $> TokAnd)
+      <|> (symbol   "\8743"       $> TokAnd) -- ∧
+      <|> (symbol   "\\/"         $> TokOr)
+      <|> (symbol   "\8744"       $> TokOr)  -- ∨
 
-      <|> (symbol   "=="          *> return TokEQ)
-      <|> (symbol   "\8801"       *> return TokEQ)   -- ≡
-      <|> (symbol   "!="          *> return TokNE)
-      <|> (symbol   "\8800"       *> return TokNE)   -- ≠
-      <|> (symbol   "\8802"       *> return TokNE)   -- ≢
-      <|> (symbol   "<="          *> return TokLE)
-      <|> (symbol   "\8804"       *> return TokLE)   -- ≤
-      <|> (symbol   ">="          *> return TokGE)
-      <|> (symbol   "\8805"       *> return TokGE)   -- ≥
-      <|> (symbol   "<"           *> return TokLT)
-      <|> (symbol   ">"           *> return TokGT)
+      -- V2.0
+      <|> (reserved "set"         $> TokSet)
+      <|> (reserved "multiset"    $> TokMultiset)
+      <|> (reserved "seq"         $> TokSeq)
+      <|> (reserved "rel"         $> TokRel)
 
-      <|> (symbol   "!"           *> return TokNot)
-      <|> (symbol   "\172"        *> return TokNot)  -- ¬
+      <|> (reserved "emptyset"    $> TokEmptySet)
+      <|> (symbol   "\8709"       $> TokEmptySet) -- ∅
+      <|> (symbol   "\\"          $> TokSetMinus)
+      <|> (reserved "union"       $> TokSetUnion)
+      <|> (symbol   "\8746"       $> TokSetUnion) -- ∪
+      <|> (reserved "intersect"   $> TokSetIntersect)
+      <|> (symbol   "\8745"       $> TokSetUnion) -- ∩
 
-      <|> (symbol   "==>"         *> return TokImplies)
-      <|> (symbol   "\8658"       *> return TokImplies)    -- ⇒
-      <|> (symbol   "<=="         *> return TokConsequent)
-      <|> (symbol   "\8656"       *> return TokConsequent) -- ⇐
+      <|> (reserved "new"         $> TokNew)
+      <|> (reserved "free"        $> TokFree)
+      -- V2.0
 
-      <|> (symbol   "(%"          *> return TokLeftPercent)
-      <|> (symbol   "%)"          *> return TokRightPercent)
+      <|> (symbol   "+"           $> TokPlus)
+      <|> (symbol   "-"           $> TokMinus)
+      <|> (symbol   "*"           $> TokTimes)
+      <|> (symbol   "\215"        $> TokTimes) -- ×
+      <|> (symbol   "/"           $> TokDiv)
+      <|> (symbol   "\247"        $> TokDiv)   -- ÷
+      <|> (reserved "mod"         $> TokMod)
+      <|> (symbol   "^"           $> TokPower)
 
-      <|> (symbol   "("           *> return TokLeftPar)
-      <|> (symbol   ")"           *> return TokRightPar)
+      <|> (reserved "abs"         $> TokAbs)
+      <|> (reserved "sqrt"        $> TokSqrt)
+      <|> (symbol   "\8730"       $> TokSqrt) -- √
 
-      <|> (symbol   "[]"          *> return TokSepGuards)
+      <|> (symbol   "==="         $> TokBEQ)
+      <|> (symbol   "\8801"       $> TokBEQ)   -- ≡
+      <|> (symbol   "!=="         $> TokBNE)
+      <|> (symbol   "\8802"       $> TokBNE)   -- ≢
 
-      <|> (symbol   "|["          *> return TokOpenBlock)
-      <|> (symbol   "]|"          *> return TokCloseBlock)
+      <|> (symbol   "=="          $> TokAEQ)
+      <|> (symbol   "!="          $> TokANE)
+      <|> (symbol   "\8800"       $> TokANE)   -- ≠
 
-      <|> (symbol   "\10214"      *> return TokOpenBlock)  -- ⟦
-      <|> (symbol   "\10215"      *> return TokCloseBlock) -- ⟧
+      <|> (symbol   "<="          $> TokLE)
+      <|> (symbol   "\8804"       $> TokLE)   -- ≤
+      <|> (symbol   ">="          $> TokGE)
+      <|> (symbol   "\8805"       $> TokGE)   -- ≥
+      <|> (symbol   "<"           $> TokLT)
+      <|> (symbol   ">"           $> TokGT)
 
-      <|> (symbol   "["           *> return TokLeftBracket)
-      <|> (symbol   "]"           *> return TokRightBracket)
+      <|> (symbol   "!"           $> TokNot)
+      <|> (symbol   "\172"        $> TokNot)  -- ¬
 
-      <|> (reserved "{pre"        *> return TokLeftPre)
-      <|> (symbol   "pre}"        *> return TokRightPre)
+      <|> (symbol   "==>"         $> TokImplies)
+      <|> (symbol   "\8658"       $> TokImplies)    -- ⇒
+      <|> (symbol   "<=="         $> TokConsequent)
+      <|> (symbol   "\8656"       $> TokConsequent) -- ⇐
 
-      <|> (reserved "{post"       *> return TokLeftPost)
-      <|> (symbol   "post}"       *> return TokRightPost)
+      <|> (symbol   "(%"          $> TokLeftPercent)
+      <|> (symbol   "%)"          $> TokRightPercent)
 
-      <|> (reserved "{bound"      *> return TokLeftBound)
-      <|> (symbol   "bound}"      *> return TokRightBound)
+      <|> (symbol   "("           $> TokLeftPar)
+      <|> (symbol   ")"           $> TokRightPar)
 
-      <|> (reserved "{a"          *> return TokLeftA)
-      <|> (symbol   "a}"          *> return TokRightA)
+      <|> (symbol   "[]"          $> TokSepGuards)
 
-      <|> (reserved "{inv"        *> return TokLeftInv)
-      <|> (symbol   "inv}"        *> return TokRightInv)
+      <|> (symbol   "|["          $> TokOpenBlock)
+      <|> (symbol   "]|"          $> TokCloseBlock)
 
-      <|> (symbol   "{"           *> return TokLeftBrace)
-      <|> (symbol   "}"           *> return TokRightBrace)
+      <|> (symbol   "\10214"      $> TokOpenBlock)  -- ⟦
+      <|> (symbol   "\10215"      $> TokCloseBlock) -- ⟧
 
-      <|> (symbol   "|"           *> return TokPipe)
+      <|> (symbol   "["           $> TokLeftBracket)
+      <|> (symbol   "]"           $> TokRightBracket)
 
-      <|> (reserved "max"         *> return TokMax)
-      <|> (reserved "min"         *> return TokMin)
-      <|> (reserved "forall"      *> return TokForall)
-      <|> (symbol   "\8704"       *> return TokForall)   -- ∀
-      <|> (reserved "exist"       *> return TokExist)
-      <|> (symbol   "\8707"       *> return TokExist)    -- ∃
-      <|> (reserved "notexist"    *> return TokNotExist)
-      <|> (symbol   "\8708"       *> return TokNotExist) -- ∄
-      <|> (reserved "sigma"       *> return TokSigma)
-      <|> (symbol   "\8721"       *> return TokSigma)    -- ∑
-      <|> (reserved "pi"          *> return TokPi)
-      <|> (symbol   "\8719"       *> return TokPi)       -- ∏
+      <|> (reserved "{pre"        $> TokLeftPre)
+      <|> (symbol   "pre}"        $> TokRightPre)
 
-      <|> (reserved "if"          *> return TokIf)
-      <|> (reserved "fi"          *> return TokFi)
+      <|> (reserved "{post"       $> TokLeftPost)
+      <|> (symbol   "post}"       $> TokRightPost)
 
-      <|> (reserved "do"          *> return TokDo)
-      <|> (reserved "od"          *> return TokOd)
+      <|> (reserved "{bound"      $> TokLeftBound)
+      <|> (symbol   "bound}"      $> TokRightBound)
 
-      <|> (reserved "abort"       *> return TokAbort)
-      <|> (reserved "skip"        *> return TokSkip)
+      <|> (reserved "{a"          $> TokLeftA)
+      <|> (symbol   "a}"          $> TokRightA)
 
-      <|> (reserved "random"      *> return TokRandom)
-      <|> (reserved "write"       *> return TokWrite)
-      <|> (reserved "writeln"     *> return TokWriteln)
-      <|> (reserved "read"        *> return TokRead)
+      <|> (reserved "{inv"        $> TokLeftInv)
+      <|> (symbol   "inv}"        $> TokRightInv)
 
-      <|> (reserved "toChar"      *> return TokToChar)
-      <|> (reserved "toInt"       *> return TokToInt)
-      <|> (reserved "toDouble"    *> return TokToDouble)
+      <|> (symbol   "{"           $> TokLeftBrace)
+      <|> (symbol   "}"           $> TokRightBrace)
 
-      <|> (reserved "MIN_INT"     *> return TokMinInt)
-      <|> (reserved "MIN_DOUBLE"  *> return TokMinDouble)
-      <|> (reserved "MAX_INT"     *> return TokMaxInt)
-      <|> (reserved "MAX_DOUBLE"  *> return TokMaxDouble)
+      <|> (symbol   "|"           $> TokPipe)
 
-      <|> (reserved "true"        *> return (TokBool True))
-      <|> (reserved "false"       *> return (TokBool False))
+      <|> (reserved "max"         $> TokMax)
+      <|> (reserved "min"         $> TokMin)
+      <|> (reserved "forall"      $> TokForall)
+      <|> (symbol   "\8704"       $> TokForall)   -- ∀
+      <|> (reserved "exist"       $> TokExist)
+      <|> (symbol   "\8707"       $> TokExist)    -- ∃
+      <|> (reserved "notexist"    $> TokNotExist)
+      <|> (symbol   "\8708"       $> TokNotExist) -- ∄
+      <|> (reserved "sigma"       $> TokSigma)
+      <|> (symbol   "\8721"       $> TokSigma)    -- ∑
+      <|> (reserved "pi"          $> TokPi)
+      <|> (symbol   "\8719"       $> TokPi)       -- ∏
+
+      <|> (reserved "if"          $> TokIf)
+      <|> (reserved "fi"          $> TokFi)
+
+      <|> (reserved "do"          $> TokDo)
+      <|> (reserved "od"          $> TokOd)
+
+      <|> (reserved "abort"       $> TokAbort)
+      <|> (reserved "skip"        $> TokSkip)
+
+      <|> (reserved "random"      $> TokRandom)
+      <|> (reserved "write"       $> TokWrite)
+      <|> (reserved "writeln"     $> TokWriteln)
+      <|> (reserved "read"        $> TokRead)
+
+      <|> (reserved "toChar"      $> TokToChar)
+      <|> (reserved "toInt"       $> TokToInt)
+      <|> (reserved "toDouble"    $> TokToDouble)
+
+      <|> (reserved "true"        $> TokBool True)
+      <|> (reserved "false"       $> TokBool False)
 
       <|> charLit
       <|> try floatLit
@@ -254,7 +252,7 @@ token  =  (reserved "program"     *> return TokProgram)
 
 
 tokenPos :: Lexer TokenPos
-tokenPos = flip (,) <$> getPosition <*> hidden token
+tokenPos = (flip . TokenPos) <$> getPosition <*> hidden token <*> getPosition
 
 
 lexer :: Lexer [TokenPos]

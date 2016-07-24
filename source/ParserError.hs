@@ -1,32 +1,32 @@
 {-|
 Module      : ParserError
 Description : Recuperacion de errores
-Copyright   : GraCieLa
+Copyright   : Graciela
 
-Modulo donde se encuentra todo lo referente al almacenamiento de las variables
-en la tabla de simbolos, mientras se esta realizando el parser.
+Incluye lo referente al almacenamiento de las variables
+en la tabla de símbolos, mientras se esta realizando el análisis sintáctico.
 -}
 module ParserError where
 
-import Control.Monad.Trans.State.Lazy
-import Data.Functor.Identity
-import Text.Parsec
-import Parser.TokenParser
-import Token
-import           Graciela
+import           Graciela (Graciela)
+import           Parser.Token (anyToken)
+import           Token (Token)
+
+import           Control.Monad (void)
+import           Prelude hiding (until)
+import           Text.Megaparsec (manyTill, lookAhead, (<|>), eof)
 
 
--- | Se encarga de descarta tokens hasta llegar a algun follow de la regla.
-cleanEntry :: ParsecT [Token.TokenPos] () (StateT GracielaState Identity) Token
-           -> ParsecT [TokenPos] () (StateT GracielaState Identity) (Token, SourcePos)
-cleanEntry laset =
-  do pos <- getPosition
-     e   <- lookAhead laset <|> lookAhead parseEOF <|> parseAnyToken
-     panicMode laset
-     return (e, pos)
+-- -- | Se encarga de descartar tokens hasta llegar a algun follow de la regla.
+-- cleanEntry :: Graciela Token
+--            -> Graciela (Token, SourcePos)
+-- cleanEntry laset =
+--   do pos <- getPosition
+--      e   <- lookAhead laset <|> eof <|> anyToken
+--      panicMode laset
+--      return (e, pos)
 
 
 -- | Se encarga de ignorar tokens hasta encontrar 'until'
-panicMode :: ParsecT [TokenPos] () (StateT GracielaState Identity) Token
-          -> ParsecT [TokenPos] () (StateT GracielaState Identity) [Token]
-panicMode until = manyTill parseAnyToken (lookAhead (until <|> parseEOF))
+panicMode :: Graciela Token -> Graciela [Token]
+panicMode until = manyTill anyToken (void (lookAhead until) <|> eof)

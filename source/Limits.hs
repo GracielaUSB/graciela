@@ -1,7 +1,7 @@
 {-|
 Module      : Limits
 Description : Limites representables
-Copyright   : GraCieLa
+Copyright   : Graciela
 
 Limites de los numeros enteros y flotantes del lenguaje
 -}

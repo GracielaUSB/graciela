@@ -1,7 +1,7 @@
 {-|
 Module      : Declarations
 Description : Parseo y almacenamiento de las declaraciones
-Copyright   : GraCieLa
+Copyright   : Graciela
 
 Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
@@ -14,7 +14,7 @@ import Contents                       as CO
 import MyParseError
 import ParserState
 import Parser.TokenParser
-import Parser.ParserType
+import Parser.Type
 import Location
 import Token
 import Graciela

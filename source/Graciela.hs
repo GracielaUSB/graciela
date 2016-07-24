@@ -1,52 +1,57 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Graciela where
 --------------------------------------------------------------------------------
 import           Contents
 import           Data.Monoid
-import           Location
 import           MyParseError           as P
-import           TypeError            as T
 import           SymbolTable
-import           Text.Megaparsec        (ParsecT)
 import           Token
-import           Type                   (Type(..))
-
+import           Type                   (Type (..))
+import           TypeError              as T
 --------------------------------------------------------------------------------
 import           Control.Lens           (makeLenses, use, (%=))
 import           Control.Monad.Identity (Identity)
-import           Control.Monad.State    (StateT)
+import           Control.Monad.State    (State)
 import           Data.Foldable          (toList)
 import           Data.Function          (on)
-import qualified Data.Map               as Map (empty, fromList, lookup, member, insert)
 import           Data.Map               (Map)
+import qualified Data.Map               as Map (empty, fromList, insert, lookup,
+                                                member)
 import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert)
 import           Data.Text              (Text, pack)
+import           Text.Megaparsec        (Dec, ParsecT)
+import qualified Text.Megaparsec.Prim   as Prim
+import           Text.Megaparsec.Pos    (SourcePos (..), unsafePos)
 --------------------------------------------------------------------------------
 
-
-type Graciela a = ParsecT Dec [TokenPos] (StateT GracielaState Identity) a
+type Graciela = ParsecT Dec [TokenPos] (State GracielaState)
 
 data GracielaState = GracielaState
     { _synErrorList    :: Seq MyParseError
     , _symbolTable     :: SymbolTable
     , _sTableErrorList :: Seq TypeError
     , _filesToRead     :: Set.Set String
-    , _typesTable      :: Map Text (Type, Location)
+    , _typesTable      :: Map Text (Type, SourcePos)
     }
     deriving(Show)
 
 makeLenses ''GracielaState
 
-initialTypes :: Map Text (Type, Location)
-initialTypes = Map.fromList  
-    [ (pack "int",    (GInt,     Location 0 0 "hola"))
-    , (pack "float",  (GFloat,   Location 0 0 "hola"))
-    , (pack "boolean",(GBoolean, Location 0 0 "hola"))
-    , (pack "char",   (GChar,    Location 0 0 "hola"))
-    ]
+initialTypes :: Map Text (Type, SourcePos)
+initialTypes = Map.fromList
+  [ (pack "int",    (GInt,     gracielaDef))
+  , (pack "float",  (GFloat,   gracielaDef))
+  , (pack "boolean",(GBoolean, gracielaDef))
+  , (pack "char",   (GChar,    gracielaDef))
+  ]
+    where
+      gracielaDef = SourcePos "graciela.def" (unsafePos 1) (unsafePos 1)
 
 
 initialState :: GracielaState
@@ -62,8 +67,8 @@ initialState = GracielaState
 typeError :: TypeError -> Graciela ()
 typeError err = sTableErrorList %= (|> err)
 
-insertType :: Text -> Type -> Location -> Graciela ()
-insertType name t loc = do
+insertType :: Text -> Type -> SourcePos -> Graciela ()
+insertType name t loc =
     typesTable %= Map.insert name (t, loc)
 
 getType :: Text -> Graciela Type
@@ -78,10 +83,20 @@ drawState :: Maybe Int -> GracielaState -> String
 drawState n st = if Seq.null $ _synErrorList st
     then if Seq.null $ _sTableErrorList st
         then "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
-        else drawError . take' n . Seq.sortBy (compare `on` T.loc) . _sTableErrorList $ st
+        else drawError . take' n . Seq.sortBy (compare `on` T.pos) . _sTableErrorList $ st
     else drawError . take' n . Seq.sortBy (compare `on` P.loc) . _synErrorList $ st
 
 
 drawError list = if Seq.null list
     then "LISTA DE ERRORES VACIA"
     else unlines . map show . toList $ list
+
+
+
+instance Prim.Stream [TokenPos] where
+  type Token [TokenPos] = TokenPos
+  uncons [] = Nothing
+  uncons (t:ts) = Just (t, ts)
+  {-# INLINE uncons #-}
+  updatePos _ width _ TokenPos {start, end} = (start, end)
+  {-# INLINE updatePos #-}

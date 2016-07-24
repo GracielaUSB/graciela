@@ -24,9 +24,9 @@ import Parser.Assertions
 import Parser.Declarations
 import Parser.Expression
 import Parser.Instructions
-import Parser.TokenParser
+import Parser.Token
 import ParserState
-import Parser.ParserType
+import Parser.Type
 import           Graciela
 import Token
 import Type

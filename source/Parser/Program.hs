@@ -6,7 +6,7 @@ module Parser.Program
 -------------------------------------------------------------------------------
 import           Parser.Instructions          (block)
 import           Parser.Procedures            (listDefProc,panicMode,panicModeId)
-import           Parser.TokenParser
+import           Parser.Token
 import           Parser.ADT
 import           MyParseError                  as PE
 import           ParserState
@@ -47,13 +47,8 @@ mainProgram = do
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
 program :: Graciela (Maybe (AST Type))
-program = do  
+program = do
               newScopeParser
               many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
               ast <- mainProgram                   -- principal al final del archivo
               return ast
-
-
-
-
-

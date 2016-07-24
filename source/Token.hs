@@ -1,344 +1,357 @@
-{-# LANGUAGE LambdaCase #-}
 {-|
 Module      : Token
-Description : Todos los tokens del lenguaje
-Copyright   : GraCieLa
+Description : Todos los lexemas del lenguaje
+Copyright   : Graciela
 
-Posee todo lo referente a tokens generados por el lexer, que seran
-luego utilizados por el parser
+Contiene lo referente a los lexemas (tokens) generados por el analizador
+lexicográfico (lexer) para ser utilizados por el analizador semántico (parser)
 -}
-module Token where
+
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+
+module Token
+  ( Token (..)
+  , TokenPos (..)
+  , showPos
+  , showPos'
+  )where
 --------------------------------------------------------------------------------
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Text   (Text)
-import           Text.Megaparsec (SourcePos)
+import           Data.Function      (on)
+import           Data.List.NonEmpty (toList)
+import           Data.Text          (Text)
+import           Text.Megaparsec    (ShowToken (..), SourcePos (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
 
--- | Representa una tupla con un token y su posicion
-type TokenPos = (Token, SourcePos)
+-- | Representa un lexema junto con su posición de inicio y fin
+data TokenPos = TokenPos
+  { start :: SourcePos
+  , end   :: SourcePos
+  , tok   :: Token
+  } deriving (Eq, Show)
 
--- | Retorna el token de una tupla 'TokenPos'
-getToken :: TokenPos -> Token
-getToken = fst
+instance Ord TokenPos where
+  compare = compare `on` start
 
--- | Retorna la posicion de una tupla 'TokenPos'
-getPos :: TokenPos -> SourcePos
-getPos = snd
+instance ShowToken TokenPos where
+  showTokens = unwords . map show . toList
+
+
+showPos :: SourcePos -> String
+showPos SourcePos { sourceLine, sourceColumn } =
+  "en la línea " ++ show sourceLine ++ ", columna " ++ show sourceColumn
+
+showPos' :: SourcePos -> String
+showPos' SourcePos { sourceLine, sourceColumn } =
+  show (sourceLine, sourceColumn)
 
 -- Tokens ------------------------------
 -- | Representa a todos las palabras reservadas en el lenguaje
 data Token
-    = TokProgram
-    | TokBegin
-    | TokEnd
-    -- | TokEOF
+  = TokProgram
+  | TokBegin
+  | TokEnd
 
-    | TokFunc
-    | TokProc
-    | TokIn
-    | TokOut
-    | TokInOut
-    | TokRef
+  | TokFunc
+  | TokProc
+  | TokIn
+  | TokOut
+  | TokInOut
+  | TokRef
 
-    | TokWith
+  | TokWith
 
-    | TokVar
-    | TokConst
-    | TokOf
+  | TokVar
+  | TokConst
+  | TokOf
 
-    | TokAsig
+  | TokAsig
 
-    | TokPlus
-    | TokMinus
-    | TokTimes
-    | TokDiv
-    | TokMod
-    | TokPower
+  | TokPlus
+  | TokMinus
+  | TokTimes
+  | TokDiv
+  | TokMod
+  | TokPower
 
-    | TokAbs
-    | TokSqrt
+  | TokAbs
+  | TokSqrt
 
-    | TokComma
-    | TokColon
-    | TokSemicolon
-    | TokArrow
+  | TokComma
+  | TokColon
+  | TokSemicolon
+  | TokArrow
 
-    | TokEQ
-    | TokNE
-    | TokLE
-    | TokGE
-    | TokLT
-    | TokGT
+  | TokBEQ
+  | TokBNE
 
-    | TokAnd
-    | TokOr
-    | TokNot
+  | TokAEQ
+  | TokANE
 
-    | TokImplies
-    | TokConsequent
+  | TokLE
+  | TokGE
+  | TokLT
+  | TokGT
 
-    | TokLeftPar
-    | TokRightPar
+  | TokAnd
+  | TokOr
+  | TokNot
 
-    | TokLeftPercent
-    | TokRightPercent
+  | TokImplies
+  | TokConsequent
 
-    | TokLeftBracket
-    | TokRightBracket
+  | TokLeftPar
+  | TokRightPar
 
-    | TokLeftBrace
-    | TokRightBrace
+  | TokLeftPercent
+  | TokRightPercent
 
-    | TokOpenBlock
-    | TokCloseBlock
+  | TokLeftBracket
+  | TokRightBracket
 
-    | TokLeftPre
-    | TokRightPre
-    | TokLeftPost
-    | TokRightPost
-    | TokLeftBound
-    | TokRightBound
-    | TokLeftA
-    | TokRightA
-    | TokLeftInv
-    | TokRightInv
-    | TokPipe
+  | TokLeftBrace
+  | TokRightBrace
 
-    | TokMax
-    | TokMin
-    | TokForall
-    | TokExist
-    | TokNotExist
-    | TokSigma
-    | TokPi
+  | TokOpenBlock
+  | TokCloseBlock
 
-    | TokIf
-    | TokFi
+  | TokLeftPre
+  | TokRightPre
+  | TokLeftPost
+  | TokRightPost
+  | TokLeftBound
+  | TokRightBound
+  | TokLeftA
+  | TokRightA
+  | TokLeftInv
+  | TokRightInv
+  | TokPipe
 
-    | TokDo
-    | TokOd
+  | TokMax
+  | TokMin
+  | TokForall
+  | TokExist
+  | TokNotExist
+  | TokSigma
+  | TokPi
 
-    | TokSepGuards
+  | TokIf
+  | TokFi
 
-    | TokAbort
-    | TokSkip
+  | TokDo
+  | TokOd
 
-    | TokRandom
-    | TokWrite
-    | TokWriteln
-    | TokRead
+  | TokSepGuards
 
-    | TokToInt
-    | TokToDouble
-    | TokToChar
+  | TokAbort
+  | TokSkip
 
-    | TokMinInt
-    | TokMinDouble
-    | TokMaxInt
-    | TokMaxDouble
+  | TokRandom
+  | TokWrite
+  | TokWriteln
+  | TokRead
 
-    | TokBool       { unTokBool :: Bool }
-    | TokChar       { unTokChar :: Char }
-    | TokInteger    { unTokInteger :: Integer }
-    | TokFloat      { unTokFloatante :: Double}
-    | TokString     { unTokString :: Text }
+  | TokToInt
+  | TokToDouble
+  | TokToChar
 
-    | TokArray
-    | TokType       { unTokType :: Type}
+  -- | TokMinInt
+  -- | TokMinDouble
+  -- | TokMaxInt
+  -- | TokMaxDouble
 
-    | TokId         { unTokId :: Text}
+  | TokBool       { unTokBool :: Bool }
+  | TokChar       { unTokChar :: Char }
+  | TokInteger    { unTokInteger :: Integer }
+  | TokFloat      { unTokFloatante :: Double}
+  | TokString     { unTokString :: Text }
 
-    | TokComment
-    | EmptyToken
-    | TokUnexpected { unTokUnexpected :: Char}
+  | TokArray
+  | TokId         { unTokId :: Text}
 
-    -- V2.0
-    | TokDataType      -- Ya hay un toktype :(, no soy creativo
-    | TokImplements
-    | TokAbstract
-    | TokLeftRep
-    | TokRightRep
-    | TokLeftAcopl
-    | TokRightAcopl
+  -- | TokComment
+  -- | EmptyToken
+  -- | TokUnexpected { unTokUnexpected :: Char}
 
-    | TokElem
-    | TokNotElem
-    | TokSetMinus
-    | TokSetUnion
-    | TokSetIntersect
-    | TokEmptySet
+  -- V2.0
+  | TokType
+  | TokImplements
+  | TokAbstract
+  | TokLeftRep
+  | TokRightRep
+  | TokLeftAcopl
+  | TokRightAcopl
 
-    | TokSet
-    | TokMultiset
-    | TokSeq
-    | TokRel
+  | TokElem
+  | TokNotElem
+  | TokSetMinus
+  | TokSetUnion
+  | TokSetIntersect
+  | TokEmptySet
 
-    | TokNew
-    | TokFree
+  | TokSet
+  | TokMultiset
+  | TokSeq
+  | TokRel
 
-    deriving (Eq)
+  | TokNew
+  | TokFree
+  deriving (Eq, Ord)
 
 
 -- | Instancia 'Show' para los tokens
 instance Show Token where
-    show = \case
-        TokProgram        -> "\"program\" - Inicio del Programa"
-        TokBegin          -> "\"begin\" - Inicio de Procedimiento o Función"
-        TokEnd            -> "\"end\" - Fin de Procedimiento o Función"
-        -- TokEOF            -> "\"EOF\" - Fin de Archivo"
+  show = \case
+    TokProgram        -> "\"program\" - Inicio del Programa"
+    TokBegin          -> "\"begin\" - Inicio de Procedimiento o Función"
+    TokEnd            -> "\"end\" - Fin de Procedimiento o Función"
 
-        TokFunc           -> "\"func\" - Función"
-        TokProc           -> "\"proc\" - Procedimiento"
-        TokIn             -> "\"in\" - Parámetro de Entrada"
-        TokOut            -> "\"out\" - Parámetro de Salida"
-        TokInOut          -> "\"inout\" - Parámetro de Entrada y Salida"
-        TokRef            -> "\"ref\" - Parámetro por Referencia"
+    TokFunc           -> "\"func\" - Función"
+    TokProc           -> "\"proc\" - Procedimiento"
+    TokIn             -> "\"in\" - Parámetro de Entrada"
+    TokOut            -> "\"out\" - Parámetro de Salida"
+    TokInOut          -> "\"inout\" - Parámetro de Entrada y Salida"
+    TokRef            -> "\"ref\" - Parámetro por Referencia"
 
-        TokWith           -> "\"with\" - Indicador de Archivo de Entrada"
+    TokWith           -> "\"with\" - Indicador de Archivo de Entrada"
 
-        TokVar            -> "\"var\" - Definidor de Variables"
-        TokConst          -> "\"const\" - Definidor de Constantes"
-        TokOf             -> "\"of\" - of del Arreglo"
+    TokVar            -> "\"var\" - Definidor de Variables"
+    TokConst          -> "\"const\" - Definidor de Constantes"
+    TokOf             -> "\"of\" - of del Arreglo"
 
-        TokAsig           -> "\":=\" - Asignación"
+    TokAsig           -> "\":=\" - Asignación"
 
-        TokPlus           -> "\"+\" - Suma"
-        TokMinus          -> "\"-\" - Resta"
-        TokTimes          -> "\"*\" - Multiplicación"
-        TokDiv            -> "\"/\" - División"
-        TokMod            -> "\"mod\" - Modulo"
-        TokPower          -> "\"^\" - Potencia"                       --"
+    TokPlus           -> "\"+\" - Suma"
+    TokMinus          -> "\"-\" - Resta"
+    TokTimes          -> "\"*\" - Multiplicación"
+    TokDiv            -> "\"/\" - División"
+    TokMod            -> "\"mod\" - Modulo"
+    TokPower          -> "\"^\" - Potencia"
 
-        TokAbs            -> "\"abs\" - Valor Absoluto"
-        TokSqrt           -> "\"sqrt\" - Raíz Cuadrada"
+    TokAbs            -> "\"abs\" - Valor Absoluto"
+    TokSqrt           -> "\"sqrt\" - Raíz Cuadrada"
 
-        TokComma          -> "\",\" - Coma"
-        TokColon          -> "\":\" - Dos Puntos"
-        TokSemicolon      -> "\";\" - Punto y Coma"
-        TokArrow          -> "\"->\" - Flecha"
+    TokComma          -> "\",\" - Coma"
+    TokColon          -> "\":\" - Dos Puntos"
+    TokSemicolon      -> "\";\" - Punto y Coma"
+    TokArrow          -> "\"->\" - Flecha"
 
-        TokEQ             -> "\"==\" - Equivalencia"
-        TokNE             -> "\"!=\" - Inequivalencia"
-        TokLE             -> "\"<=\" - Menor o Igual que"
-        TokGE             -> "\">=\" - Mayor o Igual que"
-        TokLT             -> "\"<\" - Menor que"
-        TokGT             -> "\">\" - Mayor que"
+    TokBEQ            -> "\"===\" - Equivalencia lógica"
+    TokBNE            -> "\"!==\" - Inequivalencia lógica"
 
-        TokAnd            -> "\"/\\\" - Conjunción Lógica"
-        TokOr             -> "\"\\/\" - Disyunción Lógica"
-        TokNot            -> "\"!\" - Negación"
+    TokAEQ            -> "\"==\" - Igualdad aritmética"
+    TokANE            -> "\"!=\" - Desigualdad aritmética"
 
-        TokImplies        -> "\"==>\" - Implicación"
-        TokConsequent     -> "\"<==\" - Consecuencia"
+    TokLE             -> "\"<=\" - Menor o Igual que"
+    TokGE             -> "\">=\" - Mayor o Igual que"
+    TokLT             -> "\"<\" - Menor que"
+    TokGT             -> "\">\" - Mayor que"
 
-        TokLeftPar        -> "\"(\" - Paréntesis Izquierdo"
-        TokRightPar       -> "\")\" - Paréntesis Derecho"
+    TokAnd            -> "\"/\\\" - Conjunción Lógica"
+    TokOr             -> "\"\\/\" - Disyunción Lógica"
+    TokNot            -> "\"!\" - Negación"
 
-        TokLeftPercent    -> "\"(%\" - Apertura de Cuantificador"
-        TokRightPercent   -> "\"%)\" - Cierre de Cuantificador"
+    TokImplies        -> "\"==>\" - Implicación"
+    TokConsequent     -> "\"<==\" - Consecuencia"
 
-        TokLeftBracket    -> "\"[\" - Corchete Izquierdo"
-        TokRightBracket   -> "\"]\" - Corchete Derecho"
+    TokLeftPar        -> "\"(\" - Paréntesis Izquierdo"
+    TokRightPar       -> "\")\" - Paréntesis Derecho"
 
-        TokLeftBrace      -> "\"{\" - Llave Izquierda"
-        TokRightBrace     -> "\"}\" - Llave Derecho"
+    TokLeftPercent    -> "\"(%\" - Apertura de Cuantificador"
+    TokRightPercent   -> "\"%)\" - Cierre de Cuantificador"
 
-        TokOpenBlock      -> "\"|[\" - Apertura de Bloque"
-        TokCloseBlock     -> "\"]|\" - Cierre de Bloque"
+    TokLeftBracket    -> "\"[\" - Corchete Izquierdo"
+    TokRightBracket   -> "\"]\" - Corchete Derecho"
 
-        TokLeftPre        -> "\"{pre\" - Apertura de Precondición"
-        TokRightPre       -> "\"pre}\" - Cierre de Precondición"
-        TokLeftPost       -> "\"{post\" - Apertura de Postcondición"
-        TokRightPost      -> "\"post}\" - Cierre de Postcondición"
-        TokLeftBound      -> "\"{bound\" - Apertura de la Función de Cota"
-        TokRightBound     -> "\"bound}\" - Cierre de la Función de Cota"
-        TokLeftA          -> "\"{a\" - Apertura de Aserción"
-        TokRightA         -> "\"a}\" - Cierre de Aserción"
-        TokLeftInv        -> "\"{inv\" - Apertura de Invariante"
-        TokRightInv       -> "\"inv}\" - Cierre de Invariante"
-        TokPipe           -> "\"|\" - Barra Vertical"
+    TokLeftBrace      -> "\"{\" - Llave Izquierda"
+    TokRightBrace     -> "\"}\" - Llave Derecho"
 
-        TokMax            -> "\"max\" - Máximo"
-        TokMin            -> "\"min\" - Mínimo"
-        TokForall         -> "\"forall\" - Para Todo"
-        TokExist          -> "\"exist\" - Existencial"
-        TokNotExist       -> "\"not-exist\" - Existencial Negado"
-        TokSigma          -> "\"sigma\" - Sumatoria"
-        TokPi             -> "\"pi\" - Productoria"
+    TokOpenBlock      -> "\"|[\" - Apertura de Bloque"
+    TokCloseBlock     -> "\"]|\" - Cierre de Bloque"
 
-        TokIf             -> "\"if\" - Apertura de Selector"
-        TokFi             -> "\"fi\" - Cierre de Selector"
+    TokLeftPre        -> "\"{pre\" - Apertura de Precondición"
+    TokRightPre       -> "\"pre}\" - Cierre de Precondición"
+    TokLeftPost       -> "\"{post\" - Apertura de Postcondición"
+    TokRightPost      -> "\"post}\" - Cierre de Postcondición"
+    TokLeftBound      -> "\"{bound\" - Apertura de la Función de Cota"
+    TokRightBound     -> "\"bound}\" - Cierre de la Función de Cota"
+    TokLeftA          -> "\"{a\" - Apertura de Aserción"
+    TokRightA         -> "\"a}\" - Cierre de Aserción"
+    TokLeftInv        -> "\"{inv\" - Apertura de Invariante"
+    TokRightInv       -> "\"inv}\" - Cierre de Invariante"
+    TokPipe           -> "\"|\" - Barra Vertical"
 
-        TokDo             -> "\"do\" - Apertura de Repetidor"
-        TokOd             -> "\"od\" - Cierre de Repetidor"
+    TokMax            -> "\"max\" - Máximo"
+    TokMin            -> "\"min\" - Mínimo"
+    TokForall         -> "\"forall\" - Para Todo"
+    TokExist          -> "\"exist\" - Existencial"
+    TokNotExist       -> "\"not-exist\" - Existencial Negado"
+    TokSigma          -> "\"sigma\" - Sumatoria"
+    TokPi             -> "\"pi\" - Productoria"
 
-        TokSepGuards      -> "\"[]\" - Separador de Guardias"
+    TokIf             -> "\"if\" - Apertura de Selector"
+    TokFi             -> "\"fi\" - Cierre de Selector"
 
-        TokAbort          -> "\"abort\" - Abortador de Programa"
-        TokSkip           -> "\"skip\" - Instrucción de Salto"
+    TokDo             -> "\"do\" - Apertura de Repetidor"
+    TokOd             -> "\"od\" - Cierre de Repetidor"
 
-        TokRandom         -> "\"random\" - Random"
-        TokWrite          -> "\"write\" - Escritor"
-        TokWriteln        -> "\"writeln\" - Escritor con Salto de Línea"
-        TokRead           -> "\"read\" - Lector"
+    TokSepGuards      -> "\"[]\" - Separador de Guardias"
 
-        TokToInt          -> "\"toInt\" - Conversión a Entero"
-        TokToDouble       -> "\"toDouble\" - Conversión a Flotante"
-        TokToChar         -> "\"toChar\" - Conversión a Caracter"
+    TokAbort          -> "\"abort\" - Abortador de Programa"
+    TokSkip           -> "\"skip\" - Instrucción de Salto"
 
-        TokMinInt         -> "\"MIN_INT\" - Mínimo Entero"
-        TokMinDouble      -> "\"MIN_DOUBLE\" - Mínimo Flotante"
-        TokMaxInt         -> "\"MAX_INT\" - Máximo Entero"
-        TokMaxDouble      -> "\"MAX_DOUBLE\" - Máximo Flotante"
+    TokRandom         -> "\"random\" - Random"
+    TokWrite          -> "\"write\" - Escritor"
+    TokWriteln        -> "\"writeln\" - Escritor con Salto de Línea"
+    TokRead           -> "\"read\" - Lector"
 
-        (TokBool       b) -> "\"" ++ showBool b ++ "\" - Booleano"
-        (TokChar       c) -> "" ++ show c ++ " - Caracter"
-        (TokInteger    n) -> "\"" ++ show n ++ "\" - Entero"
-        (TokFloat      n) -> " \"" ++ show n ++ "\" - Flotante"
-        (TokString     e) -> "" ++ show e ++ " - Cadena de Caracteres"
+    TokToInt          -> "\"toInt\" - Conversión a Entero"
+    TokToDouble       -> "\"toDouble\" - Conversión a Flotante"
+    TokToChar         -> "\"toChar\" - Conversión a Caracter"
 
-        TokArray          -> "\"array\" - Tipo Arreglo"
-        (TokType       t) -> "\"" ++ show t ++ "\" - Tipo " ++ showType t
+    -- TokMinInt         -> "\"MIN_INT\" - Mínimo Entero"
+    -- TokMinDouble      -> "\"MIN_DOUBLE\" - Mínimo Flotante"
+    -- TokMaxInt         -> "\"MAX_INT\" - Máximo Entero"
+    -- TokMaxDouble      -> "\"MAX_DOUBLE\" - Máximo Flotante"
 
-        (TokId         i) -> "" ++ show i ++ " - Variable"
+    (TokBool    True) -> "\"true\" - Booleano"
+    (TokBool   False) -> "\"false\" - Booleano"
+    (TokChar       c) -> "" ++ show c ++ " - Caracter"
+    (TokInteger    n) -> "\"" ++ show n ++ "\" - Entero"
+    (TokFloat      n) -> " \"" ++ show n ++ "\" - Flotante"
+    (TokString     e) -> "" ++ show e ++ " - Cadena de Caracteres"
 
-        TokComment        -> "\"//\" - Comentatios"
-        EmptyToken        -> "Token Vacío"
-        (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
+    TokArray          -> "\"array\" - Tipo Arreglo"
 
-        -- V2.0
-        TokDataType       -> "\"type\""
-        TokImplements     -> "\"implements\""
-        TokAbstract       -> "\"abstract\""
-        TokLeftRep        -> "\"{repinv\""       -- UGLY
-        TokRightRep       -> "\"repinv\"}"       -- UGLY
-        TokLeftAcopl      -> "\"{coupinv\""        -- UGLY
-        TokRightAcopl     -> "\"coupinv\"}"        -- UGLY
+    (TokId         i) -> "" ++ show i ++ " - Identificador"
 
-        TokElem           -> "\"elem\" - Elemento de conjunto"
-        TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
-        TokSetMinus       -> "\"\\\" - Resta de conjuntos"
-        TokSetUnion       -> "\"union\" - Unión de conjuntos"
-        TokSetIntersect   -> "\"intersect\" - Intersección de conjuntos"
+    -- TokComment        -> "\"//\" - Comentatios"
+    -- EmptyToken        -> "Token Vacío"
+    -- (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
 
-        TokSet            -> "\"set\" - Conjunto"
-        TokMultiset       -> "\"multiset\" - Multiconjunto"
-        TokSeq            -> "\"seq\" - Secuencia"
-        TokRel            -> "\"rel\" - Relación"
+    -- V2.0
+    TokType           -> "\"type\""
+    TokImplements     -> "\"implements\""
+    TokAbstract       -> "\"abstract\""
+    TokLeftRep        -> "\"{repinv\""       -- UGLY
+    TokRightRep       -> "\"repinv\"}"       -- UGLY
+    TokLeftAcopl      -> "\"{coupinv\""      -- UGLY
+    TokRightAcopl     -> "\"coupinv\"}"      -- UGLY
 
-        TokNew            -> "\"new\" - asignar una ubicación en el heap"
-        TokFree           -> "\"free\" - liberar ubicación en el heap"
+    TokElem           -> "\"elem\" - Elemento de conjunto"
+    TokNotElem        -> "\"notelem\" - Elemento de conjunto, negado"
+    TokSetMinus       -> "\"\\\" - Resta de conjuntos"
+    TokSetUnion       -> "\"union\" - Unión de conjuntos"
+    TokSetIntersect   -> "\"intersect\" - Intersección de conjuntos"
+    TokEmptySet       -> "\"emptyset\" - Conjunto vacío"
 
-        where
-            showType :: Type -> String
-            showType GInt   = "Entero "
-            showType GFloat = "Flotante "
-            showType GChar  = "Caracter "
-            showType GBoolean  = "Booleano "
-            showType _      = ""
+    TokSet            -> "\"set\" - Conjunto"
+    TokMultiset       -> "\"multiset\" - Multiconjunto"
+    TokSeq            -> "\"seq\" - Secuencia"
+    TokRel            -> "\"rel\" - Relación"
 
-            showBool :: Bool -> String
-            showBool True = "true"
-            showBool False = "false"
+    TokNew            -> "\"new\" - asignar una ubicación en el heap"
+    TokFree           -> "\"free\" - liberar ubicación en el heap"

@@ -11,7 +11,7 @@ import           Contents
 import           Parser.Assertions
 import           Parser.Declarations
 import           Parser.Instructions
-import           Parser.ParserType
+import           Parser.Type
 import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
                                       panicModeId)
 import           Parser.TokenParser

@@ -1,7 +1,7 @@
 {-|
 Module      : SymbolTable
 Description : Tabla de Simbolos
-Copyright   : GraCieLa
+Copyright   : Graciela
 
 Modulo donde se encuentra todo lo referente al manejo de la tabla de simbolos
 del compilador
