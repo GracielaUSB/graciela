@@ -37,7 +37,7 @@ begin
     var   clave     : array[MAX] of int;
     var   valor     : array[MAX] of int;
 
-    {repinv MAX > 0 ∧ //{-0≤tam ∧ tam ≤ MAX  ∧
+    {repinv MAX > 0 ∧ // 0 ≤ tam ∧ tam ≤ MAX  ∧
         (%forall i : int | 0 ≤ i /\ i ≤ tam
           | (%forall j : int | 0 ≤ j /\ j ≤ tam // ∧ i ≢ j
               | clave[i] ≢ clave[j]

@@ -107,41 +107,41 @@ data UnknownRange = SetRange   { getOp :: OpSet, getLexp :: UnknownRange, getRex
       deriving (Eq)
 
 
-data AST a = Abort      { posation  :: SourcePos, tag         :: a } -- ^ Instruccion Abort.
-         | Arithmetic   { opBinA    :: OpNum   , posation    :: SourcePos -- ^ Operadores Matematicos de dos expresiones.
+data AST a = Abort      { position  :: SourcePos, tag         :: a } -- ^ Instruccion Abort.
+         | Arithmetic   { opBinA    :: OpNum   , position    :: SourcePos -- ^ Operadores Matematicos de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
                         , tag :: a
                         }
-         | ArrCall      { posation  :: SourcePos, name        :: Text      -- ^ Búsqueda en arreglo.
+         | ArrCall      { position  :: SourcePos, name        :: Text      -- ^ Búsqueda en arreglo.
                         , list      :: [AST a] , tag         :: a
                         }
-         | Bposk        { posation  :: SourcePos, bposkStable :: SymbolTable
+         | Bposk        { position  :: SourcePos, bposkStable :: SymbolTable
                         , listDec   :: [AST a] , lisAct      :: [AST a]
                         , tag       :: a
                         }
-         | Bool         { posation  :: SourcePos, cbool       :: Bool   , tag :: a } -- ^ Tipo booleano con el token.
+         | Bool         { position  :: SourcePos, cbool       :: Bool   , tag :: a } -- ^ Tipo booleano con el token.
 
-         | Boolean      { opBinB    :: OpBool  , posation    :: SourcePos -- ^ Operadores Booleanos de dos expresiones.
+         | Boolean      { opBinB    :: OpBool  , position    :: SourcePos -- ^ Operadores Booleanos de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
                         , tag :: a
                         }
-         | Char         { posation  :: SourcePos, mchar       :: Char    , tag :: a }  -- ^ Tipo caracter con el token.
+         | Char         { position  :: SourcePos, mchar       :: Char    , tag :: a }  -- ^ Tipo caracter con el token.
 
-         | Cond         { cguard    :: [AST a] , posation    :: SourcePos, tag :: a }  -- ^ Instruccion If.
+         | Cond         { cguard    :: [AST a] , position    :: SourcePos, tag :: a }  -- ^ Instruccion If.
 
-         | ConsAssign   { posation  :: SourcePos, caId        :: [(Text, SourcePos)]
+         | ConsAssign   { position  :: SourcePos, caId        :: [(Text, SourcePos)]
                         , caExpr    :: [AST a] , tag         :: a
                         }
-         | Constant     { posation  :: SourcePos, int         :: Bool                  -- ^ Constantes.
+         | Constant     { position  :: SourcePos, int         :: Bool                  -- ^ Constantes.
                         , max       ::  Bool   , tag         :: a
                         }
-         | Conversion   { toType    :: Conv    , posation    :: SourcePos              -- ^ Conversión a entero.
+         | Conversion   { toType    :: Conv    , position    :: SourcePos              -- ^ Conversión a entero.
                         , tiexp     :: AST a   , tag         :: a
                         }
          | DecArray     { dimension :: [AST a] , tag         :: a }
 
          | DefFun       { dfname    ::  Text   , astSTable   :: SymbolTable
-                        , posation  :: SourcePos, fbody       :: AST a
+                        , position  :: SourcePos, fbody       :: AST a
                         , retType   ::  Type   , nodeBound   :: AST a
                         , params    ::[(Text, Type)], tag    :: a
                         }
@@ -152,78 +152,78 @@ data AST a = Abort      { posation  :: SourcePos, tag         :: a } -- ^ Instru
                         }
          | EmptyAST     { tag ::  a }
 
-         | EmptyRange   { posation  :: SourcePos, tag         :: a }
+         | EmptyRange   { position  :: SourcePos, tag         :: a }
 
-         | Float        { posation  :: SourcePos, expFloat    :: Double , tag :: a } -- ^ Numero Flotante.
+         | Float        { position  :: SourcePos, expFloat    :: Double , tag :: a } -- ^ Numero Flotante.
 
          | FCallExp     { fname     ::  Text   , astSTable   :: SymbolTable         -- ^ Llamada a funcion.
-                        , posation  :: SourcePos, args        :: [AST a], tag :: a
+                        , position  :: SourcePos, args        :: [AST a], tag :: a
                         }
-         | Id           { posation  :: SourcePos, id          :: Text   , tag :: a } -- ^ Identificador.
+         | Id           { position  :: SourcePos, id          :: Text   , tag :: a } -- ^ Identificador.
 
-         | Int          { posation  :: SourcePos, expInt      :: Integer, tag :: a } -- ^ Numero entero.
+         | Int          { position  :: SourcePos, expInt      :: Integer, tag :: a } -- ^ Numero entero.
 
          | Guard        { gexp      ::  AST a  , gact        :: AST a               -- ^ Guardia.
-                        , posation  :: SourcePos, tag         :: a
+                        , position  :: SourcePos, tag         :: a
                         }
          | GuardExp     { gexp      ::  AST a  , gact        :: AST a                -- ^ Guardia de Expresion.
-                        , posation  :: SourcePos, tag         :: a
+                        , position  :: SourcePos, tag         :: a
                         }
-         | GuardAction  { posation  :: SourcePos, assertionGa :: AST a
+         | GuardAction  { position  :: SourcePos, assertionGa :: AST a
                         , actionGa  :: AST a   , tag         :: a
                         }
          | LAssign      { idlist    :: [AST a] , explista    :: [AST a]
-                        , posation  :: SourcePos, tag         :: a
+                        , position  :: SourcePos, tag         :: a
                         }
          | ProcCall     { pname     ::  Text   , astSTable   :: SymbolTable
-                        , posation  :: SourcePos, args        :: [AST a]
+                        , position  :: SourcePos, args        :: [AST a]
                         , tag       :: a
                         }
          | ProcCallCont { pname     ::  Text   , astSTable   :: SymbolTable
-                        , posation  :: SourcePos, args        :: [AST a]
+                        , position  :: SourcePos, args        :: [AST a]
                         , con       :: Contents SymbolTable, tag :: a
                         }
 
-         | Program      { pname     :: Text    , posation    :: SourcePos
+         | Program      { pname     :: Text    , position    :: SourcePos
                         , listdef   :: [AST a] , listacc     :: AST a, tag :: a
                         }
          | Quant        { opQ       :: OpQuant , varQ        :: Text
-                        , posation  :: SourcePos, rangeExp    :: AST a
+                        , position  :: SourcePos, rangeExp    :: AST a
                         , termExpr  :: AST a   , tag         :: a
                         }
          | QuantRan     { opQ       :: OpQuant , varQ        :: Text
-                        , posation  :: SourcePos, rangeVExp   :: [Range Integer]
+                        , position  :: SourcePos, rangeVExp   :: [Range Integer]
                         , termExpr  :: AST a   , tag         :: a
                         }
          | QuantRanUn   { opQ       :: OpQuant , varQ        :: Text
-                        , posation  :: SourcePos, rangeUExp   :: UnknownRange
+                        , position  :: SourcePos, rangeUExp   :: UnknownRange
                         , termExpr  :: AST a   , tag         :: a
                         }
          | Ran          { var       :: Text    , retType     :: Type
-                        , posation  :: SourcePos, tag         :: a
+                        , position  :: SourcePos, tag         :: a
                         }
-         | Read         { posation  :: SourcePos, file        :: Maybe String
+         | Read         { position  :: SourcePos, file        :: Maybe String
                         , varTypes  :: [Type]  , vars        :: [(Text, SourcePos)], tag :: a
                         }
-         | Relational   { opBinR    :: OpRel   , posation    :: SourcePos -- ^ Operadores Relacionales de dos expresiones.
+         | Relational   { opBinR    :: OpRel   , position    :: SourcePos -- ^ Operadores Relacionales de dos expresiones.
                         , lexpr     :: AST a   , rexp        :: AST a
                         , tag       :: a
                         }
          | Rept         { rguard    :: [AST a] , rinv        :: AST a                -- ^ Instruccion Do.
-                        , rbound    ::  AST a  , posation    :: SourcePos , tag :: a
+                        , rbound    ::  AST a  , position    :: SourcePos , tag :: a
                         }
-         | Skip         { posation  :: SourcePos, tag         :: a } -- ^ Instruccion Skip.
+         | Skip         { position  :: SourcePos, tag         :: a } -- ^ Instruccion Skip.
 
-         | States       { tstate    :: StateCond, posation   :: SourcePos
+         | States       { tstate    :: StateCond, position   :: SourcePos
                         , exps      :: AST a    , tag        :: a
                         }
-         | String       { posation  :: SourcePos, mstring     :: String , tag :: a } -- ^ Tipo string con el token.
+         | String       { position  :: SourcePos, mstring     :: String , tag :: a } -- ^ Tipo string con el token.
 
-         | Unary        { opUn      :: OpUn    , posation    :: SourcePos             -- ^ Función raíz cuadrada.
+         | Unary        { opUn      :: OpUn    , position    :: SourcePos             -- ^ Función raíz cuadrada.
                         , lenExp    :: AST a   , tag         :: a
                         }
          | Write        { ln        ::  Bool   , wexp        :: AST a             -- ^ Escribir.
-                        , posation  :: SourcePos, tag         :: a
+                        , position  :: SourcePos, tag         :: a
                         }
 
     deriving (Eq)
@@ -426,11 +426,11 @@ checkWrite True  = "Escribir con Salto de línea"
 checkWrite False = "Escribir"
 
 putSourcePos :: SourcePos -> String
-putSourcePos posation = " --- en el " <> show posation
+putSourcePos position = " --- en el " <> show position
 
 
 putSourcePosLn :: SourcePos -> String
-putSourcePosLn posation = " --- en el " <> show posation <> "\n"
+putSourcePosLn position = " --- en el " <> show position <> "\n"
 
 
 drawAST :: Show a => Int -> AST a -> String

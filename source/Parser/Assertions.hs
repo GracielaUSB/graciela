@@ -31,49 +31,31 @@ import           Text.Parsec
 assertions :: Graciela Token -> Graciela Token
            -> StateCond      -> Graciela Token
            -> Graciela (Maybe (AST Type) )
-assertions initial final ty follow = do
-    try $do initial
-            e <- expr final (follow <|> final)
-            try $do final
-                    pos <- getPosition
-                    return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
-             <|> do t <- lookAhead follow
-                    genNewError (return t) PE.TokenCA
-                    return Nothing
-             <|> do (t:_) <- manyTill anyToken $lookAhead follow
-                    genNewError (return $fst t) PE.TokenCA
-                    return Nothing
-
-     <|> do t <- lookAhead follow
-            genNewError (return t) PE.TokenOA
-            return Nothing
-     <|> do (t:_) <- manyTill anyToken final
-            genNewError (return $fst t) PE.TokenOA
-            return Nothing
-     <|> do (t:_) <- manyTill anyToken $lookAhead follow
-            genNewError (return $fst t) PE.TokenOA
-            return Nothing
-
+assertions initial final ty follow = do 
+    initial  
+    e <- expression
+    final
+    return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
 
 precondition :: Graciela Token -> Graciela (Maybe (AST Type) )
-precondition follow = assertions parseTokLeftPre parseTokRightPre Pre follow
+precondition follow = assertions (match TokLeftPre) (match TokRightPre) Pre follow
 
 postcondition :: Graciela Token -> Graciela (Maybe (AST Type) )
-postcondition follow = assertions parseTokLeftPost parseTokRightPost Post follow
+postcondition follow = assertions (match TokLeftPost) (match TokRightPost) Post follow
 
 bound :: Graciela Token -> Graciela (Maybe (AST Type) )
-bound follow = assertions parseTokLeftBound parseTokRightBound Bound follow
+bound follow = assertions (match TokLeftBound) (match TokRightBound) Bound follow
 
 assertion :: Graciela Token -> Graciela (Maybe (AST Type) )
-assertion follow = assertions parseTokLeftA parseTokRightA Assertion follow
+assertion follow = assertions (match TokLeftA) (match TokRightA) Assertion follow
 
 invariant :: Graciela Token -> Graciela (Maybe (AST Type) )
-invariant follow = assertions parseTokLeftInv parseTokRightInv Invariant follow
+invariant follow = assertions (match TokLeftInv) (match TokRightInv) Invariant follow
 
 repInvariant :: Graciela (Maybe (AST Type))
-repInvariant = assertions (verify TokLeftRep) (verify TokRightRep) Representation
-                          (parseEnd <|> parseProc <|> (verify TokLeftAcopl))
+repInvariant = assertions (match TokLeftRep) (match TokRightRep) Representation
+                          (parseEnd <|> parseProc <|> (match TokLeftAcopl))
 
 coupInvariant :: Graciela (Maybe (AST Type) )
-coupInvariant = assertions (verify TokLeftAcopl) (verify TokRightAcopl) Couple
+coupInvariant = assertions (match TokLeftAcopl) (match TokRightAcopl) Couple
                           (parseEnd <|> parseProc)
