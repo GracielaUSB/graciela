@@ -6,15 +6,14 @@ module Parser.Type
     ) where
 --------------------------------------------------------------------------------
 import           Graciela
-import           Location
-import           Parser.Token    (match, identifier, integerLit)
+import           Parser.Token    (identifier, integerLit, match)
 import           ParserState
 import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Monad   (void, when)
 import           Data.Text       (Text, unpack)
-import           Text.Megaparsec ((<|>), lookAhead, try, getPosition)
+import           Text.Megaparsec (getPosition, lookAhead, try, (<|>))
 --------------------------------------------------------------------------------
 
 myBasicType :: Graciela Token -> Graciela Token -> Graciela Text

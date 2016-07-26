@@ -1,10 +1,10 @@
 module Contents where
 --------------------------------------------------------------------------------
-import           Type
-import           Treelike
 import           Token
+import           Treelike
+import           Type
 --------------------------------------------------------------------------------
-import           Data.Text (Text, unpack)
+import           Data.Text           (Text, unpack)
 import           Text.Megaparsec.Pos (SourcePos)
 --------------------------------------------------------------------------------
 
@@ -26,8 +26,6 @@ instance Show Value where
     show (D a) = show a
     show (S a) = show a
     show (B a) = show a
-
-
 
 
 data Contents s
@@ -71,7 +69,6 @@ data Contents s
         }
     deriving (Eq)
 
-
 instance Treelike s => Treelike (Contents s) where
     toTree (Contents name behavior pos sType value initialize) =
         Node ("Variable `" ++ unpack name ++ "` " ++ showPos pos) $
@@ -82,7 +79,7 @@ instance Treelike s => Treelike (Contents s) where
                     _      -> []
 
     toTree (ArgProcCont name targ pos sType) =
-        Node ("Argument `" ++ unpack name ++ "` " ++ showPos pos) $
+        Node ("Argument `" ++ unpack name ++ "` " ++ showPos pos)
             [ leaf $ "Arg Type: "    ++ show targ
             , leaf $ "Type: "        ++ show sType
             ]
@@ -99,8 +96,6 @@ instance Treelike s => Treelike (Contents s) where
 
     toTree (TypeContent name pos) =
         Node ("Type `" ++ unpack name ++ "` " ++ showPos pos) []
-
-
 
 instance Show a => Show (Contents a) where
     show (Contents _ var pos t v i) =
@@ -123,20 +118,20 @@ instance Show a => Show (Contents a) where
 
 
 isInitialized :: Contents a -> Bool
-isInitialized (Contents _ _ _ _ _ True) = True
-isInitialized (ArgProcCont {})        = True
-isInitialized (FunctionCon {})        = True
-isInitialized (ProcCon {}    )        = True
-isInitialized _                       = False
+isInitialized (Contents _ _ _ _ _ ini) = ini
+isInitialized ArgProcCont {}           = True
+isInitialized FunctionCon {}           = True
+isInitialized ProcCon {}               = True
+isInitialized _                        = False
 
 
 isRValue :: Contents a -> Bool
-isRValue (Contents {})              = True
+isRValue Contents {}                = True
 isRValue (ArgProcCont _ In    _ _ ) = True
 isRValue (ArgProcCont _ InOut _ _ ) = True
 isRValue (ArgProcCont _ Ref   _ _ ) = True
-isRValue (FunctionCon {})           = True
-isRValue (ProcCon {})               = True
+isRValue FunctionCon {}             = True
+isRValue ProcCon {}                 = True
 isRValue _                          = False
 
 
@@ -149,28 +144,29 @@ isLValue _                             = False
 
 
 isArg :: Contents a -> Bool
-isArg (Contents {}) = False
-isArg _             = True
+isArg Contents {} = False
+isArg _           = True
 
 
 initSymbolContent :: Contents a -> Contents a
 initSymbolContent (Contents n vb pos t v _) = Contents n vb pos t v True
-initSymbolContent c                       = c
+initSymbolContent c                         = c
 
-getLoc :: Contents a -> SourcePos
-getLoc (Contents _ _ l _ _ _)  = l
-getLoc (ArgProcCont _ _ l _ )  = l
-getLoc (FunctionCon _ l _ _ _) = l
-getLoc (ProcCon _ l _ _ _)     = l
-getLoc (AbstractContent _ l)   = l
-getLoc (TypeContent _ l)   = l
+
+getPos :: Contents a -> SourcePos
+getPos (Contents _ _ l _ _ _)  = l
+getPos (ArgProcCont _ _ l _ )  = l
+getPos (FunctionCon _ l _ _ _) = l
+getPos (ProcCon _ l _ _ _)     = l
+getPos (AbstractContent _ l)   = l
+getPos (TypeContent _ l)       = l
+
 
 getContentType :: Contents a -> Type
 getContentType (Contents _ _ _ t _ _)  = t
 getContentType (ArgProcCont _ _ _ t )  = t
 getContentType (FunctionCon _ _ t _ _) = t
 getContentType _                       = GEmpty
-
 
 
 getVarBeh :: Contents a -> Maybe VarBehavior

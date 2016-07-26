@@ -6,16 +6,16 @@ module Main where
 --------------------------------------------------------------------------------
 import           AST
 import           ASTtype
-import           LLVM.Codegen
 import           Contents
-import           Lexer
-import           TypeError
-import           Parser.Program
 import           Graciela
-import           Token
-import           Type
-import           Treelike
+import           Lexer
+import           LLVM.Codegen
+import           Parser.Program
 import           SymbolTable
+import           Token
+import           Treelike
+import           Type
+import           TypeError
 --------------------------------------------------------------------------------
 import           Control.Monad          (unless, void, when, (>=>))
 import           Control.Monad.Except   (ExceptT, runExceptT)
@@ -24,8 +24,8 @@ import           Control.Monad.State    (runStateT)
 
 import           Data.Foldable          (toList)
 import           Data.List              (nub)
-import           Data.Maybe             (fromMaybe)
 import           Data.Map.Strict        (showTree)
+import           Data.Maybe             (fromMaybe)
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
 import           Data.String.Utils      (replace)
@@ -49,9 +49,9 @@ import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
 import           System.Process         (readProcess, readProcessWithExitCode)
 
-import           Text.Parsec            (ParsecT, runPT, runParser,
+import           Text.Megaparsec        (ParsecT, runPT, runParser,
                                          sourceColumn, sourceLine)
-import           Text.Parsec.Error      (ParseError, errorMessages, errorPos,
+import           Text.Megaparsec.Error  (ParseError, errorMessages, errorPos,
                                          messageString)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
@@ -164,10 +164,10 @@ play opts inp llName = case runParser concatLexPar () "" inp of
                     let types    = _typesTable st
                     putStrLn $ drawTree $ toTree symTable
                     putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
-                when (optAST opts) $ do
-                    putStrLn $ drawTree $ toTree ast
-                
-                let (t, l) = runTVerifier (symTable) ast
+                when (optAST opts) $
+                    putStrLn . drawTree . toTree $ ast
+
+                let (t, l) = runTVerifier symTable ast
 
                 if Seq.null l then do
                     version <- getOSVersion

@@ -5,13 +5,12 @@ import           Contents            as C
 import           Data.Monoid
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Foldable       (foldl, toList)
+import           Data.Foldable       (toList)
 import           Data.Function       (on)
 import           Data.List           hiding (sortBy)
 import           Data.Sequence       (Seq)
 import           Data.Sequence       as Seq (sortBy, take)
 import           Data.Text           (Text)
-import           Prelude             hiding (foldl)
 import           Text.Megaparsec.Pos (SourcePos)
 --------------------------------------------------------------------------------
 
@@ -312,8 +311,10 @@ instance Show TypeError where
         (IntError  id           _) ->
             ": La variable " ++ show id ++ " no es del tipo int."
 
+
 drawTypeError n =
     unlines . map show . toList . take' n . Seq.sortBy (compare `on` pos)
+
 
 take' :: Maybe Int -> Seq a -> Seq a
 take' Nothing  = Prelude.id

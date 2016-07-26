@@ -1,13 +1,11 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Graciela where
 --------------------------------------------------------------------------------
 import           Contents
 import           Data.Monoid
 import           MyParseError           as P
+import           Parser.Prim
 import           SymbolTable
 import           Token
 import           Type                   (Type (..))
@@ -26,7 +24,6 @@ import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert)
 import           Data.Text              (Text, pack)
 import           Text.Megaparsec        (Dec, ParsecT)
-import qualified Text.Megaparsec.Prim   as Prim
 import           Text.Megaparsec.Pos    (SourcePos (..), unsafePos)
 --------------------------------------------------------------------------------
 
@@ -90,13 +87,3 @@ drawState n st = if Seq.null $ _synErrorList st
 drawError list = if Seq.null list
     then "LISTA DE ERRORES VACIA"
     else unlines . map show . toList $ list
-
-
-
-instance Prim.Stream [TokenPos] where
-  type Token [TokenPos] = TokenPos
-  uncons [] = Nothing
-  uncons (t:ts) = Just (t, ts)
-  {-# INLINE uncons #-}
-  updatePos _ width _ TokenPos {start, end} = (start, end)
-  {-# INLINE updatePos #-}

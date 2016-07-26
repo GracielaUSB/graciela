@@ -5,62 +5,61 @@ module Parser.ADT
 
 -------------------------------------------------------------------------------
 import           AST
-
+import           Contents
+import           Graciela
 import           MyParseError        as PE
-import           Contents                      
 import           Parser.Assertions
 import           Parser.Declarations
 import           Parser.Instructions
-import           Parser.Type
 import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
                                       panicModeId)
-import           Parser.TokenParser
+import           Parser.Token
+import           Parser.Type
 import           ParserState
-import           Graciela
+import           SymbolTable
 import           Token
 import           Type
-import           Location
-import           SymbolTable
 -------------------------------------------------------------------------------
+import           Control.Lens        (use, (%=), (.=))
 import           Control.Monad       (void)
-import           Control.Lens        (use, (.=), (%=))
-import           Text.Megaparsec     (Dec, between, getPosition, 
-                                      sepBy, try, (<|>), ParseError)
 import           Data.Text           (Text)
+import           Text.Megaparsec     (Dec, ParseError, between, choice,
+                                      getPosition, sepBy, try, (<|>))
+import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
 abstractDataType :: Graciela (Maybe (AST Type))
 abstractDataType = do
-    pos <- getPosition
-    match TokAbstract
-    abstractId <- panicModeId  -- parseLeftParent
-    abstractTypes
-    insertType abstractId (GAbstractType abstractId [] [] []) (toLocation pos)
-    match TokBegin  -- (parseVar <|> parseTokLeftInv) PE.Begin
+  pos <- getPosition
+  match TokAbstract
+  abstractId <- panicModeId  -- parseLeftParent
+  abstractTypes
+  insertType abstractId (GAbstractType abstractId [] [] []) pos
+  match TokBegin  -- (parseVar <|> parseTokLeftInv) PE.Begin
 
-    newScopeParser
-    addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
-    abstractBody (topDecl <|> parseEnd)
-    exitScopeParser
-    match TokEnd
+  newScopeParser
+  addSymbolParser abstractId (AbstractContent abstractId pos)
+  abstractBody (topDecl <|> parseEnd)
+  exitScopeParser
+  match TokEnd
 
-    -- try $do void match TokEnd
-    --  <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
-    --         try $do token <- lookAhead topDecl
-    --                 genNewError (return token) PE.LexEnd
-    --          <|> do parseEnd
-    --                 genNewError (return . fst . head $ t) PE.LexEnd
-    --  <|> do void  parseEOF
+  -- try $do void match TokEnd
+  --  <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
+  --         try $do token <- lookAhead topDecl
+  --                 genNewError (return token) PE.LexEnd
+  --          <|> do parseEnd
+  --                 genNewError (return . fst . head $ t) PE.LexEnd
+  --  <|> do void  parseEOF
 
-    return Nothing
+  return Nothing
 
 topDecl :: Graciela Token
-topDecl = choice  [ verify TokAbstract
-                  , verify TokDataType
-                  , parseProgram
-                  ]
+topDecl = choice [ verify TokAbstract
+                 , verify TokDataType
+                 , parseProgram
+                 ]
 
 -- AbstractType -> '(' ListTypes ')'
 -- ListTypes: lista de ids contruidas con parsec
@@ -75,9 +74,8 @@ abstractTypes = do
      --        manyTill  anyToken (lookAhead $ parseId)   -- abstract Dicc [t1,t2)
      --        genNewError (return token) PE.TokenLP      --               ^
 
-    between (match TokLeftParent) (match RightParent) 
-            (identifier sepBy match TokComma)
-    -- try $do void parseRightParent
+    parens $ identifier `sepBy` match TokComma
+    -- try $do void parseTokRightPar
     --  <|> do lookAhead $ parseBegin                    -- abstract Dicc (t1,t2
     --         genNewError (return TokBegin) PE.TokenRP  --                     ^
     --  <|> do (token,_) <- anyToken                     -- abstract Dicc (t1,t2]
@@ -108,24 +106,18 @@ abstractDec = do
     addManyUniSymParser (Just ids) t
 
 
-
-
-
 abstType :: Graciela Type
-abstType =  do {match TokSet; match TokOf; basic >>= return . GSet }
-        <|> do {match TokMultiset; match TokOf; basic >>= return . GMultiset }
-        <|> do {match TokSeq; match TokOf; basic >>= return . GSeq }
+abstType =  do {match TokSet;      match TokOf; GSet      <$> basic }
+        <|> do {match TokMultiset; match TokOf; GMultiset <$> basic }
+        <|> do {match TokSeq;      match TokOf; GSeq      <$> basic }
         <|> do {match TokFunc; ba <- basic; match TokArrow; bb <- basic; return $ GFunc ba bb}
-        <|> do {match TokRel; ba <- basic; parseArrow; bb <- basic; return $ GRel ba bb}
-        <|> (between (match TokLeftParent) 
-                     (match RightParent)
-                     (basic `sepBy` parseComma)
-                >>=  return . GTuple)
+        <|> do {match TokRel;  ba <- basic; match TokBiArrow; bb <- basic; return $ GRel ba bb}
+        <|> GTuple <$> parens (basic `sepBy` parseComma)
         <|> basic
 
 
 basic :: Graciela Type
-basic = (identifier >>= return . GTypeVar)
+basic = GTypeVar <$> identifier
 
 
 -- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
@@ -143,24 +135,24 @@ procDecl follow = do
     match TokProc
     id    <- identifier -- parseLeftParent                                  -- Id
     match TokLeftParent                                                     -- (
-    newScopeParser                                                          
-    targs <- listArgProc id (match RightParent) (match RightParent)         -- arguments
-    match RightParent                                                       -- ) 
+    newScopeParser
+    targs <- listArgProc id (match TokRightPar) (match TokRightPar)         -- arguments
+    match TokRightPar                                                       -- )
     pre   <- precondition parseTokLeftPost                                  -- pre
     post  <- postcondition follow                                           -- post
     sb    <- getCurrentScope
-    addProcTypeParser id targs (toLocation pos) sb
+    addProcTypeParser id targs pos sb
     exitScopeParser
-    addProcTypeParser id targs (toLocation pos) sb
+    addProcTypeParser id targs pos sb
 
-    -- panicMode parseLeftParent (argTypes <|> parseRightParent) PE.TokenLP
+    -- panicMode parseLeftParent (argTypes <|> parseTokRightPar) PE.TokenLP
     -- newScopeParser
-    -- targs <- listArgProc id parseRightParent parseRightParent
-    -- panicMode parseRightParent parseTokLeftPre PE.TokenRP
+    -- targs <- listArgProc id parseTokRightPar parseTokRightPar
+    -- panicMode parseTokRightPar parseTokLeftPre PE.TokenRP
     -- pre  <- precondition parseTokLeftPost
     -- post <- postcondition follow
     -- sb <- getCurrentScope
-    
+
 
     return Nothing
     where
@@ -180,17 +172,17 @@ dataType = do
     typeId <- identifier -- (match TokImplements)
     match TokImplements
     match TokLeftParent
-    t  <- types 
-    insertType typeId (GDataType typeId [] [] []) (toLocation pos)
+    t  <- types
+    insertType typeId (GDataType typeId [] [] []) pos
     newScopeParser
-    addSymbolParser typeId (TypeContent typeId (toLocation pos))
-    between (match TokBegin) (match TokEnd) typeBody 
+    addSymbolParser typeId (TypeContent typeId pos)
+    beginEnd typeBody
     exitScopeParser
     return Nothing
     -- panicMode (verify TokImplements) parseTokId PE.Implements
     -- abstractId <- panicModeId parseLeftParent
     -- types
-    -- insertType typeId (GDataType typeId [] [] []) (toLocation pos)
+    -- insertType typeId (GDataType typeId [] [] []) pos
     -- panicMode parseBegin (parseVar <|> verify TokLeftRep) PE.Begin
     -- try $do void parseEnd
     --  <|> do t <- manyTill anyToken $lookAhead (topDecl <|> parseEnd)
@@ -199,24 +191,20 @@ dataType = do
     --          <|> do parseEnd
     --                 genNewError (return $ fst $ head t) PE.LexEnd
     --  <|> do void parseEOF
-    where 
-        typeBody = do
-            dl    <- decList (match TokEnd) (match TokEnd)
-            repInvariant
-            coupInvariant
-            procs <- listDefProc (match TokEnd) (match TokEnd)
-        types = do
-            match TokLeftParent         
-            t  <- identifier `sepBy` match TokComma
-            match TokRightParent
-            return t
+    where
+      typeBody = do
+        dl    <- decList (match TokEnd) (match TokEnd)
+        repInvariant
+        coupInvariant
+        procs <- listDefProc (match TokEnd) (match TokEnd)
+        return ()
+      types = do
+        match TokLeftParent
+        t  <- identifier `sepBy` match TokComma
+        match TokTokRightPar
+        return t
 
-            
+
 
 -- Types -> '(' ListTypes ')'
 -- ListTypes: lista de tipos contruidas con parsec
-
-
-
-
-

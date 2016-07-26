@@ -2,11 +2,10 @@ module ASTtype where
 --------------------------------------------------------------------------------
 import           AST
 import           Limits
-import           Location
-import           TypeError
 import           ReduceAST
 import           SymbolTable
 import           Type
+import           TypeError
 import           VerTypes
 --------------------------------------------------------------------------------
 import           Control.Applicative      (liftA2)
@@ -16,6 +15,7 @@ import           Data.Range.Range         (Range (..), intersection, invert,
                                            union)
 import           Data.Sequence            (Seq)
 import           Data.Text                (Text)
+import           Text.Megaparsec.Pos      (SourcePos)
 --------------------------------------------------------------------------------
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, Seq TypeError)
@@ -23,151 +23,151 @@ runTVerifier sTable sTree = evalRWS (verTypeAST sTree) sTable []
 
 
 verTypeAST :: AST Type -> RWS SymbolTable (Seq TypeError) [String] (AST Type)
-verTypeAST (AST.Program name loc defs accs _) = do
+verTypeAST (AST.Program name pos defs accs _) = do
     defs' <- mapM verTypeAST defs
     accs' <- verTypeAST accs
     let defsT = map tag defs'
     let accsT = tag accs'
     checkT   <- verProgram defsT accsT
-    return $ AST.Program name loc defs' accs' checkT
+    return $ AST.Program name pos defs' accs' checkT
 
 
-verTypeAST (Constant loc True  max _) =
-    return $ Constant loc True  max GInt
-verTypeAST (Constant loc False max _) =
-    return $ Constant loc False max GFloat
+verTypeAST (Constant pos True  max _) =
+    return $ Constant pos True  max GInt
+verTypeAST (Constant pos False max _) =
+    return $ Constant pos False max GFloat
 
 
-verTypeAST (Arithmetic t loc lexpr rexp _) = do
+verTypeAST (Arithmetic t pos lexpr rexp _) = do
     lexpr' <- verTypeAST lexpr
     rexp'  <- verTypeAST rexp
-    checkT <- verArithmetic (tag lexpr') (tag rexp') loc t
-    return $ Arithmetic t loc lexpr' rexp' checkT
+    checkT <- verArithmetic (tag lexpr') (tag rexp') pos t
+    return $ Arithmetic t pos lexpr' rexp' checkT
 
 
-verTypeAST (Relational t loc lexpr rexp _) = do
+verTypeAST (Relational t pos lexpr rexp _) = do
     lexpr' <- verTypeAST lexpr
     rexp'  <- verTypeAST rexp
-    checkT <- verRelational (tag lexpr') (tag rexp') loc t
-    return $ Relational t loc lexpr' rexp' checkT
+    checkT <- verRelational (tag lexpr') (tag rexp') pos t
+    return $ Relational t pos lexpr' rexp' checkT
 
 
-verTypeAST (Boolean    t loc lexpr rexp _) = do
+verTypeAST (Boolean    t pos lexpr rexp _) = do
     lexpr' <- verTypeAST lexpr
     rexp'  <- verTypeAST rexp
-    checkT <- verBoolean (tag lexpr') (tag rexp') loc t
-    return $ Boolean t loc lexpr' rexp' checkT
+    checkT <- verBoolean (tag lexpr') (tag rexp') pos t
+    return $ Boolean t pos lexpr' rexp' checkT
 
 
-verTypeAST (Conversion t loc exp _) = do
+verTypeAST (Conversion t pos exp _) = do
     exp'   <- verTypeAST exp
     checkT <- verConversion t
-    return $ Conversion t loc exp' checkT
+    return $ Conversion t pos exp' checkT
 
 
-verTypeAST (Unary op loc exp _) = do
+verTypeAST (Unary op pos exp _) = do
     exp'   <- verTypeAST exp
-    checkT <- verUnary op (tag exp') loc
-    return $ Unary op loc exp' checkT
+    checkT <- verUnary op (tag exp') pos
+    return $ Unary op pos exp' checkT
 
 
-verTypeAST (Block loc st decs accs _) = do
+verTypeAST (Bposk pos st decs accs _) = do
     decs'  <- mapM verTypeAST decs
     accs'  <- mapM verTypeAST accs
-    checkT <- verBlock (map tag accs')
-    return $ Block loc st decs accs' checkT
+    checkT <- verBposk (map tag accs')
+    return $ Bposk pos st decs accs' checkT
 
 
-verTypeAST (Skip  loc _) = return $ Skip  loc GEmpty
-verTypeAST (Abort loc _) = return $ Abort loc GEmpty
+verTypeAST (Skip  pos _) = return $ Skip  pos GEmpty
+verTypeAST (Abort pos _) = return $ Abort pos GEmpty
 
 
-verTypeAST (Ran var t loc _) = do
-    checkT <- verRandom var t loc
-    return $ Ran var t loc checkT
+verTypeAST (Ran var t pos _) = do
+    checkT <- verRandom var t pos
+    return $ Ran var t pos checkT
 
 
-verTypeAST (Write ln exp loc _) = do
+verTypeAST (Write ln exp pos _) = do
     exp'   <- verTypeAST exp
     checkT <- verWrite (tag exp')
-    return $ Write ln exp' loc checkT
+    return $ Write ln exp' pos checkT
 
 
-verTypeAST (ArrCall loc name args t) = do
+verTypeAST (ArrCall pos name args t) = do
     args'  <- mapM verTypeAST args
-    checkT <- verArrayCall name (map tag args') t loc
-    return $ ArrCall loc name args' checkT
+    checkT <- verArrayCall name (map tag args') t pos
+    return $ ArrCall pos name args' checkT
 
 
-verTypeAST (Guard exp action loc _) = do
+verTypeAST (Guard exp action pos _) = do
     exp'    <- verTypeAST exp
     action' <- verTypeAST action
-    checkT  <- verGuard (tag exp') (tag action') loc
-    return $ Guard exp' action' loc checkT
+    checkT  <- verGuard (tag exp') (tag action') pos
+    return $ Guard exp' action' pos checkT
 
 
-verTypeAST (GuardExp exp action loc _) = do
+verTypeAST (GuardExp exp action pos _) = do
     exp'    <- verTypeAST exp
     action' <- verTypeAST action
-    checkT  <- verGuardExp (tag exp') (tag action') loc
-    return $ GuardExp exp' action' loc checkT
+    checkT  <- verGuardExp (tag exp') (tag action') pos
+    return $ GuardExp exp' action' pos checkT
 
 
-verTypeAST (States t loc expr _) = do
+verTypeAST (States t pos expr _) = do
     expr'  <- verTypeAST expr
-    checkT <- verState (tag expr') loc t
-    return $ States t loc expr' checkT
+    checkT <- verState (tag expr') pos t
+    return $ States t pos expr' checkT
 
 
-verTypeAST (GuardAction loc assert action _) = do
+verTypeAST (GuardAction pos assert action _) = do
     assert' <- verTypeAST assert
     action' <- verTypeAST action
     checkT  <- verGuardAction (tag assert') (tag action')
-    return $ GuardAction loc assert' action' checkT
+    return $ GuardAction pos assert' action' checkT
 
 
-verTypeAST (LAssign idlist explist loc _) = do
+verTypeAST (LAssign idlist explist pos _) = do
     explist' <- mapM verTypeAST explist
     idlist'  <- mapM verTypeAST idlist
     checkT   <- verLAssign (map (fromJust . astToId) idlist')
-                 (map tag idlist') (map tag explist') (map AST.location idlist)
-    return $ LAssign idlist' explist' loc checkT
+                 (map tag idlist') (map tag explist') (map position idlist)
+    return $ LAssign idlist' explist' pos checkT
 
 
-verTypeAST (Cond guard loc _) = do
+verTypeAST (Cond guard pos _) = do
     guard' <- mapM verTypeAST guard
-    checkT <- verCond (map tag guard') loc
-    return $ Cond guard' loc checkT
+    checkT <- verCond (map tag guard') pos
+    return $ Cond guard' pos checkT
 
 
-verTypeAST (Rept guard inv bound loc _) = do
+verTypeAST (Rept guard inv bound pos _) = do
     guard' <- mapM verTypeAST guard
     inv'   <- verTypeAST inv
     bound' <- verTypeAST bound
     checkT <- verRept (map tag guard') (tag inv') (tag bound')
-    return $ Rept guard' inv' bound' loc checkT
+    return $ Rept guard' inv' bound' pos checkT
 
 
-verTypeAST (ProcCall name sb loc args _) = do
+verTypeAST (ProcCall name sb pos args _) = do
     args'  <- mapM verTypeAST args
-    locs   <- getLocArgs args
-    checkT <- verProcCall name sb args' loc locs
+    poss   <- getPosArgs args
+    checkT <- verProcCall name sb args' pos poss
     sbc <- ask
-    return (ProcCallCont name sb loc args' (myFromJust (lookUpRoot name sbc)) checkT)
+    return (ProcCallCont name sb pos args' (myFromJust (lookUpRoot name sbc)) checkT)
 
 
-verTypeAST (FCallExp name sb loc args _) = do
+verTypeAST (FCallExp name sb pos args _) = do
     args'  <- mapM verTypeAST args
-    locs   <- getLocArgs args
-    checkT <- verCallExp name sb (map tag args') loc locs
-    return $ FCallExp name sb loc args' checkT
+    poss   <- getPosArgs args
+    checkT <- verCallExp name sb (map tag args') pos poss
+    return $ FCallExp name sb pos args' checkT
 
 
-verTypeAST (DefFun name st loc body ret bound params _) = do
+verTypeAST (DefFun name st pos body ret bound params _) = do
     body'  <- verTypeAST body
     bound' <- verTypeAST bound
-    checkT <- verDefFun name (tag body') (tag bound') loc
-    return $ DefFun name st loc body' ret bound' params checkT
+    checkT <- verDefFun name (tag body') (tag bound') pos
+    return $ DefFun name st pos body' ret bound' params checkT
 
 
 verTypeAST (DefProc name st accs pre post bound cdec args _) = do
@@ -180,21 +180,21 @@ verTypeAST (DefProc name st accs pre post bound cdec args _) = do
     return $ DefProc name st accs' pre' post' bound' cdec' args checkT
 
 
-verTypeAST (ConsAssign loc xs es t) = do
+verTypeAST (ConsAssign pos xs es t) = do
     es'    <- mapM verTypeAST es
-    checkT <- verConsAssign xs loc (map tag es') t
-    return $ ConsAssign loc xs es checkT
+    checkT <- verConsAssign xs pos (map tag es') t
+    return $ ConsAssign pos xs es checkT
 
 
-verTypeAST (Quant op var loc range term _) = do
+verTypeAST (Quant op var pos range term _) = do
     range' <- verTypeAST range
     term'  <- verTypeAST term
     if tag range' == GError || tag term' == GError
-        then return $ Quant op var loc range' term' GError
+        then return $ Quant op var pos range' term' GError
         else do
-            checkT <- verQuant op (tag range') (tag term') loc
+            checkT <- verQuant op (tag range') (tag term') pos
             case checkT of
-                GError   -> return (Quant op var loc range' term' checkT)
+                GError   -> return (Quant op var pos range' term' checkT)
                 _ -> do
                     let id = var
                     r <- occursCheck range id
@@ -202,12 +202,12 @@ verTypeAST (Quant op var loc range term _) = do
                         then case astToRange var range' of
                             Nothing ->
                                 let rang = createRange var range
-                                in return $ QuantRanUn op var loc rang term' checkT
-                            Just r  -> return $ QuantRan op var loc r term' checkT
+                                in return $ QuantRanUn op var pos rang term' checkT
+                            Just r  -> return $ QuantRan op var pos r term' checkT
 
                         else do
-                            addTypeError $ NotOccursVar op id loc
-                            return $ Quant op var loc range' term' GError
+                            addTypeError $ NotOccursVar op id pos
+                            return $ Quant op var pos range' term' GError
 verTypeAST ast = return ast
 
 myFromJust (Just t) = t
@@ -252,8 +252,8 @@ buildRange Ine      (QuanVariable id) (Reducible n) = return $ invert [Singleton
 buildRange _ _ _                                    = return $ return InfiniteRange
 
 
-getLocArgs :: [AST Type] -> MyVerType [Location]
-getLocArgs args = return $ fmap AST.location args
+getPosArgs :: [AST Type] -> MyVerType [SourcePos]
+getPosArgs args = return $ fmap position args
 
 
 --drawASTtype :: (AST Type, DS.Seq TypeError) -> String
@@ -288,40 +288,40 @@ createRange var (Relational op _ lexp rexp _) =
 
 
 checkNode :: Text -> OpRel -> AST Type -> AST Type -> (AST Type, AST Type)
-checkNode id op lexp@(Id loc id' t) rexp =
+checkNode id op lexp@(Id pos id' t) rexp =
     if id == id'
       then case op of
-          Less -> (Int loc minInteger t, sub1 rexp)
-          LEqual -> (Int loc minInteger t, rexp)
-          Greater -> (Int loc maxInteger t, sum1 rexp)
-          GEqual -> (Int loc maxInteger t, rexp)
+          Less -> (Int pos minInteger t, sub1 rexp)
+          LEqual -> (Int pos minInteger t, rexp)
+          Greater -> (Int pos maxInteger t, sum1 rexp)
+          GEqual -> (Int pos maxInteger t, rexp)
       else
-          let loc = location rexp
+          let pos = position rexp
               ty  = tag rexp
           in case op of
-              Less -> (sum1 lexp, Int loc maxInteger ty)
-              LEqual -> (lexp, Int loc maxInteger ty)
-              Greater -> (sub1 lexp, Int loc minInteger ty)
-              GEqual -> (lexp, Int loc minInteger ty)
+              Less -> (sum1 lexp, Int pos maxInteger ty)
+              LEqual -> (lexp, Int pos maxInteger ty)
+              Greater -> (sub1 lexp, Int pos minInteger ty)
+              GEqual -> (lexp, Int pos minInteger ty)
 
-checkNode id op lexp (Id loc id' t) =
+checkNode id op lexp (Id pos id' t) =
     case op of
-        Less    -> (sum1 lexp, Int loc maxInteger t)
-        LEqual  -> (lexp, Int loc maxInteger t)
-        Greater -> (sub1 lexp, Int loc minInteger t)
-        GEqual  -> (lexp, Int loc minInteger t)
+        Less    -> (sum1 lexp, Int pos maxInteger t)
+        LEqual  -> (lexp, Int pos maxInteger t)
+        Greater -> (sub1 lexp, Int pos minInteger t)
+        GEqual  -> (lexp, Int pos minInteger t)
 
 
 
 sub1 :: AST Type -> AST Type
 sub1 exp =
-    let loc = location exp
+    let pos = position exp
         ty  = tag exp
-    in Arithmetic Sub loc exp (Int loc 1 ty) ty
+    in Arithmetic Sub pos exp (Int pos 1 ty) ty
 
 
 sum1 :: AST Type -> AST Type
 sum1 exp =
-    let loc = location exp
+    let pos = position exp
         ty  = tag exp
-    in Arithmetic Sum loc exp (Int loc 1 ty) ty
+    in Arithmetic Sum pos exp (Int pos 1 ty) ty

@@ -15,11 +15,11 @@ import           Token
 import           Control.Monad         (void)
 import           Data.Functor          (($>))
 import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (Dec, Parsec, alphaNumChar, between,
-                                        char, eof, getPosition, hidden,
+import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,
+                                        between, char, eof, getPosition, hidden,
                                         letterChar, many, manyTill,
-                                        notFollowedBy, spaceChar, string, try,
-                                        (<|>), runParser, ParseError)
+                                        notFollowedBy, runParser, spaceChar,
+                                        string, try, (<|>))
 import qualified Text.Megaparsec.Lexer as L
 --------------------------------------------------------------------------------
 
@@ -90,6 +90,8 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   ";"           $> TokSemicolon)
       <|> (symbol   "->"          $> TokArrow)
       <|> (symbol   "\8594"       $> TokArrow) -- →
+      <|> (symbol   "<->"         $> TokBiArrow)
+      <|> (symbol   "\8596"       $> TokBiArrow) -- ↔
 
       <|> (reserved "with"        $> TokWith)
 

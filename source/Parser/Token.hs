@@ -15,6 +15,10 @@ module Parser.Token
   , satisfy
   , match
   , oneOf
+  , parens
+  , percents
+  , brackets
+  , beginEnd
   , identifier
   , boolLit
   , charLit
@@ -26,11 +30,11 @@ module Parser.Token
 import           Graciela
 import           Token
 --------------------------------------------------------------------------------
-import           Data.List.NonEmpty     (NonEmpty ((:|)))
-import           Data.Set               (Set)
-import qualified Data.Set               as Set
-import           Data.Text              (Text)
-import           Text.Megaparsec        (ErrorItem (Tokens), token)
+import           Data.List.NonEmpty   (NonEmpty ((:|)))
+import           Data.Set             (Set)
+import qualified Data.Set             as Set
+import           Data.Text            (Text)
+import           Text.Megaparsec      (ErrorItem (Tokens), token, between)
 --------------------------------------------------------------------------------
 
 unex :: TokenPos -> (Set (ErrorItem TokenPos), Set a, Set b)
@@ -57,6 +61,22 @@ satisfy f = token test Nothing
 
 oneOf :: [Token] -> Graciela Token
 oneOf ts = satisfy (`elem` ts)
+
+
+parens :: Graciela a -> Graciela a
+parens = between (match TokLeftPar) (match TokRightPar)
+
+
+percents :: Graciela a -> Graciela a
+percents = between (match TokLeftPercent) (match TokRightPercent)
+
+
+brackets :: Graciela a -> Graciela a
+brackets = between (match TokLeftBracket) (match TokRightBracket)
+
+
+beginEnd :: Graciela a -> Graciela a
+beginEnd = between (match TokBegin) (match TokEnd)
 
 
 anyToken :: Graciela Token

@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-|
 Module      : Type
 Description : Tipos del lenguaje
@@ -7,6 +6,9 @@ Copyright   : Graciela
 Modulo donde se encuentra todo lo referente a los tipos provisto en el lenguaje,
 como tambien los utilizados de forma interna en el compilador.
 -}
+
+{-# LANGUAGE LambdaCase #-}
+
 module Type where
 --------------------------------------------------------------------------------
 import           Data.Text (Text, unpack)

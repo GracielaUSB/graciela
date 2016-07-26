@@ -6,7 +6,6 @@ import           AST
 import           Graciela
 import           Lexer
 import           Limits
-import           Location
 import           MyParseError              as PE
 import           Parser.Token
 import           ParserState               as PS
@@ -18,18 +17,18 @@ import           Control.Monad.Trans.State (evalState)
 import           Data.Functor              (($>))
 import           Data.Text                 (Text, pack)
 import           Text.Megaparsec           (between, runParser, runParserT,
-                                            (<|>), some)
+                                            some, (<|>))
 import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
 
-import Data.Tree
+import           Data.Tree
 
 
 expression :: Graciela (Tree String)
 expression = makeExprParser term operator
 
 
-quantification = between (match TokLeftPercent) (match TokRightPercent) q
+quantification = percents q
   where
     q = do
       void quantifier
@@ -55,10 +54,6 @@ quantifier =  (match TokExist  $> Exists)
           <|> (match TokPi     $> Product)
 
 
-parens :: Graciela a -> Graciela a
-parens = between (match TokLeftPar) (match TokRightPar)
-
-
 leaf x = Node x []
 
 
@@ -76,15 +71,15 @@ term =  parens expression
           <|> (leaf . show <$> identifier)
     ops :: [[ Operator Graciela (Tree String) ]]
     ops =
-      [ {-Level 0-}
-        [ Prefix (foldr1 (.) <$> some pointer)
-        , Postfix (do
+      [ {-Level -1-}
+        [ Postfix (do
             e <- subindex
             return (\x -> Node "sub" [x,e]))
         ]
+      , {-Level 0-}
+        [Prefix (foldr1 (.) <$> some pointer)]
       ]
-    subindex =
-      between (match TokLeftBracket) (match TokRightBracket) expression
+    subindex = brackets expression
 
     pointer = match TokTimes $> \x -> Node "pointer to" [x]
 

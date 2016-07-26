@@ -7,7 +7,7 @@ Contiene lo referente a los lexemas (tokens) generados por el analizador
 lexicográfico (lexer) para ser utilizados por el analizador semántico (parser)
 -}
 
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Token
@@ -84,6 +84,7 @@ data Token
   | TokColon
   | TokSemicolon
   | TokArrow
+  | TokBiArrow
 
   | TokBEQ
   | TokBNE
@@ -238,6 +239,7 @@ instance Show Token where
     TokColon          -> "`:` - Dos Puntos"
     TokSemicolon      -> "`;` - Punto y Coma"
     TokArrow          -> "`->` - Flecha"
+    TokBiArrow        -> "`<->` - Doble flecha"
 
     TokBEQ            -> "`===` - Equivalencia lógica"
     TokBNE            -> "`!==` - Inequivalencia lógica"

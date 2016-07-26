@@ -13,9 +13,9 @@ import           Text.Megaparsec.Pos (SourcePos (..))
 --------------------------------------------------------------------------------
 
 {- |
-   Tipo de dato que nos permite representar el árbol sintáctico abstracto
-   del lenguaje. Los campos @line@ y @column@ representan la línea y columna, respectivamente,
-   del nodo en el texto del programa.
+   Tipo de dato que nos permite representar el árbol sintáctico abstracto del
+   lenguaje. Los campos @line@ y @column@ representan la línea y columna,
+   respectivamente, del nodo en el texto del programa.
  -}
 
 data OpNum = Sum | Sub | Mul | Div | Exp | Max | Min | Mod
@@ -267,7 +267,7 @@ instance Show a => Treelike (AST a) where
       Node (show to ++ " " ++ showPos' pos) [toTree expr]
 
    toTree (DecArray dim _) =
-      Node ("Array Declaration") (toForest dim)
+      Node "Array Declaration" (toForest dim)
 
    toTree (DefFun name st pos body retrn bound params _) =
       Node ("Function " ++ unpack name ++ " -> " ++ show retrn ++ " " ++ showPos' pos)
@@ -520,10 +520,10 @@ drawAST level (Constant pos t max ast) =
 drawAST level (LAssign idlist explist pos ast) =
    putSpacesLn level <> "Asignación: " <> putSourcePos pos
                      <> " //Tag: "     <> show ast
-                     <> drawLAssign (level) idlist explist
+                     <> drawLAssign level idlist explist
 
 
-drawAST level ((Rept guard inv bound pos ast)) =
+drawAST level (Rept guard inv bound pos ast) =
    putSpacesLn level <> "Repetición: " <> putSourcePos pos
                      <> " //Tag: "     <> show ast
                      <> drawASTList (level + 4) guard
@@ -531,13 +531,13 @@ drawAST level ((Rept guard inv bound pos ast)) =
                      <> putSpaces   (level + 4) <> drawAST (level + 4) bound
 
 
-drawAST level ((Cond guard pos ast)) =
+drawAST level (Cond guard pos ast) =
    putSpacesLn level <> "Condicional: " <> putSourcePos pos
                      <> " //Tag: "      <> show ast
                      <> drawASTList (level + 4) guard
 
 
-drawAST level ((Guard exp action pos ast)) =
+drawAST level (Guard exp action pos ast) =
    putSpacesLn level <> "Guardia: " <> putSourcePos pos
                      <> " //Tag: "  <> show ast
                      <> drawAST (level + 4) exp
@@ -545,7 +545,7 @@ drawAST level ((Guard exp action pos ast)) =
                      <> drawAST (level + 8) action
 
 
-drawAST level ((GuardExp exp action pos ast)) =
+drawAST level (GuardExp exp action pos ast) =
    putSpacesLn level <> "Guardia de Expresión: " <> putSourcePos pos
                      <> " //Tag: "               <> show ast
                      <> drawAST (level + 4) exp
@@ -553,34 +553,34 @@ drawAST level ((GuardExp exp action pos ast)) =
                      <> drawAST (level + 8) action
 
 
-drawAST level ((Bposk pos st _ action ast)) =
+drawAST level (Bposk pos st _ action ast) =
    putSpacesLn level <> "Bloque: " <> putSourcePos pos
                      <> " //Tag: " <> show ast  <> show st
                      <> drawASTList (level + 4) action
 
 
-drawAST level ((Skip pos ast)) =
+drawAST level (Skip pos ast) =
    putSpacesLn level <> "Saltar: " <> putSourcePos pos
                      <> " //Tag: " <> show ast
 
 
-drawAST level ((Abort pos ast)) =
+drawAST level (Abort pos ast) =
    putSpacesLn level <> "Abortar: " <> putSourcePos pos
                      <> " //Tag: "  <> show ast
 
 
-drawAST level ((Ran var _ pos ast)) =
+drawAST level (Ran var _ pos ast) =
    putSpacesLn level <> "Aleatorio: " <> show var <> putSourcePos pos
                      <> " //Tag: "    <> show ast
 
 
-drawAST level ((Write ln exp pos ast)) =
+drawAST level (Write ln exp pos ast) =
    putSpacesLn level <> checkWrite ln <> putSourcePos pos
                      <> " //Tag: "  <> show ast
-                     <> drawAST (level + 4) (exp)
+                     <> drawAST (level + 4) exp
 
 
-drawAST level ((GuardAction pos assert action  ast)) =
+drawAST level (GuardAction pos assert action  ast) =
    putSpacesLn level <> "Guardia de Acción: " <> putSourcePos pos
                      <> " //Tag: "            <> show ast
                      <> drawAST (level + 4) assert
@@ -589,7 +589,7 @@ drawAST level ((GuardAction pos assert action  ast)) =
 
 
 
-drawAST level ((Quant op var pos range term ast)) =
+drawAST level (Quant op var pos range term ast) =
    putSpacesLn level <> "Cuantificador: " <> show op <> putSourcePos pos
                      <> " //Tag: "        <> show ast
    <> putSpacesLn (level + 4) <> "Variable cuantificada: " <> show var
@@ -598,35 +598,35 @@ drawAST level ((Quant op var pos range term ast)) =
 
 
 
-drawAST level ((Conversion t pos exp ast)) =
+drawAST level (Conversion t pos exp ast) =
    putSpacesLn level <> "Conversión: " <> show t <> putSourcePos pos
                      <> " //Tag: "     <> show ast
                      <> drawAST (level + 4) exp
 
 
 
-drawAST level ((Unary op pos exp ast)) =
+drawAST level (Unary op pos exp ast) =
    putSpacesLn level <> show op    <> putSourcePos pos
                      <> " //Tag: " <> show ast
                      <> drawAST (level + 4) exp
 
 
 
-drawAST level ((FCallExp name _ pos args ast)) =
+drawAST level (FCallExp name _ pos args ast) =
    putSpacesLn level <> "Llamada de la Función: " <> show name <> putSourcePos pos
                      <> " //Tag: "                <> show ast
    <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
 
 
 
-drawAST level ((ArrCall pos name args ast)) =
+drawAST level (ArrCall pos name args ast) =
    putSpacesLn level <> "Llamada del Arreglo: " <> show name <> putSourcePos pos
                      <> " //Tag: "              <> show ast
    <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
 
 
 
-drawAST level ((ProcCall name st pos args ast)) =
+drawAST level (ProcCall name st pos args ast) =
    putSpacesLn level <> "Llamada del Procedimiento: " <> show name <> putSourcePos pos
                      <> " //Tag: "                    <> show ast
    <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
@@ -634,7 +634,7 @@ drawAST level ((ProcCall name st pos args ast)) =
    <> show st
 
 
-drawAST level ((DefFun name st _ body _ bound _ ast)) =
+drawAST level (DefFun name st _ body _ bound _ ast) =
    putSpacesLn level <> "Función: " <> show name
                      <> " //Tag: "   <> show ast
                      <> drawAST(level + 4) bound
@@ -646,10 +646,10 @@ drawAST _ (EmptyAST _) = "vacio"
 
 drawAST _ _ = "undefined"
 
-drawASTList level xs = foldl (\acc d -> (acc <> drawAST level (d))) [] xs
+drawASTList level = foldl (\acc d -> (acc <> drawAST level d)) []
 
 
 drawLAssign level idlist explist = foldl (\acc (id, exp) ->
-   (acc <> putSpacesLn (level + 4) <> "Variable: " <> show (id)
+   (acc <> putSpacesLn (level + 4) <> "Variable: " <> show id
         <> putSpacesLn (level + 8) <> "Lado derecho: "
         <> drawAST (level + 12) exp)) [] $ zip idlist explist

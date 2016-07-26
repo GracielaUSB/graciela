@@ -6,17 +6,19 @@ Copyright   : Graciela
 Modulo donde se encuentra todo lo referente al manejo de la tabla de simbolos
 del compilador
 -}
+
 module SymbolTable where
-
-import Treelike
-
-import qualified Data.Tree       as Tr
-import           Data.Text       (Text, unpack)
+--------------------------------------------------------------------------------
+import           Treelike
+import           Contents
+--------------------------------------------------------------------------------
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Monoid ((<>))
-import Contents
-import Prelude hiding (id)
+import           Data.Monoid     ((<>))
+import           Data.Text       (Text, unpack)
+import qualified Data.Tree       as Tr
+import           Prelude         hiding (id)
+--------------------------------------------------------------------------------
 
 -- | Numero que especifica el nivel de alcance que posee un procedimiento
 type Scope = Int
@@ -26,25 +28,26 @@ type Scope = Int
 newtype Dictionary = Dictionary { getMap :: Map Text (Contents SymbolTable) }
         deriving (Eq)
 
-
-
 -- | Instancia 'Show' para el tipo 'Dictionary'
 instance Show Dictionary where
    show (Dictionary dic)  =  if Map.null dic then "No hay ningun elemento" else drawDic 0 (Map.toList dic)
 
+instance Treelike Dictionary where
+  toTree (Dictionary m) =
+    Node "Symbols" (fmap  toTree (Map.elems m))
+
 
 -- | Arbol de 'Dictionary', cada puede poseer otro 'SymbolTable' con todos sus alcances anidados
-newtype SymbolTable = Table { current :: Tr.Tree ((Dictionary, Scope), Maybe SymbolTable) }
-        deriving (Eq, Show)
-
-
-instance Treelike Dictionary where
-  toTree (Dictionary m) = 
-    Node "Symbols" (fmap  toTree (Map.elems m))
+newtype SymbolTable
+  = Table
+    { current :: Tr.Tree ((Dictionary, Scope)
+    , Maybe SymbolTable)
+    }
+  deriving (Eq, Show)
 
 instance Treelike SymbolTable where
   toTree (Table (Node ((dic, _), _) subTrees)) =
-    Node "Scope" $ [toTree dic] ++ toForest (fmap Table subTrees)
+    Node "Scope" $ toTree dic : toForest (fmap Table subTrees)
 
 
 -- | Retorna la coleccion de variables del alcance actual
@@ -154,11 +157,14 @@ addSymbol valor content tabla =
 space :: Char
 space = ' '
 
+
 putSpaces :: Int -> String
 putSpaces level = replicate level space
 
+
 putSpacesLn :: Int -> String
 putSpacesLn level = "\n" <> replicate level space
+
 
 drawST :: Show b
        => Int -> Tr.Tree ((Dictionary, b), b1) -> String
@@ -166,6 +172,7 @@ drawST :: Show b
 drawST level st =  putSpacesLn level <> "Alcance: " <> show ((snd . fst) $ Tr.rootLabel st)
                                      <> drawDic level (Map.toList (getMap (fst . fst $ Tr.rootLabel st)))
                                      <> drawSTforest (level + 4) (Tr.subForest st)
+
 
 drawSTforest :: Show b
              => Int -> Tr.Forest ((Dictionary, b), b1) -> String
@@ -177,4 +184,3 @@ drawDic :: (Show a, Show a1, Foldable t)
         => Int -> t (a, a1) -> String
 drawDic level = foldl (\acc (var,cont) -> (acc <> putSpacesLn level
   <> show var <> show cont )) []
-

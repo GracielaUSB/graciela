@@ -10,32 +10,32 @@ module Parser.Assertions
   )
   where
 -------------------------------------------------------------------------------
-import Parser.Declarations
-import Parser.Expression
-import MyParseError                  as PE
-import ParserState
-import Parser.TokenParser
-import Parser.Type
-import Contents
-import Location
-import Token
-import Graciela
-import Type
-import AST
+import           AST
+import           Contents
+import           Graciela
+import           MyParseError        as PE
+import           Parser.Declarations
+import           Parser.Expression
+import           Parser.Token
+import           Parser.Type
+import           ParserState
+import           Token
+import           Type
 -------------------------------------------------------------------------------
-import           Control.Monad       (void, unless)
 import qualified Control.Applicative as AP
-import           Text.Parsec
+import           Control.Monad       (unless, void)
+import           Text.Megaparsec
+import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 assertions :: Graciela Token -> Graciela Token
            -> StateCond      -> Graciela Token
            -> Graciela (Maybe (AST Type) )
-assertions initial final ty follow = do 
-    initial  
+assertions initial final ty follow = do
+    initial
     e <- expression
     final
-    return $ AP.liftA2 (States ty (toLocation pos)) e (return (GEmpty))
+    return $ AP.liftA2 (States ty pos) e (return GEmpty)
 
 precondition :: Graciela Token -> Graciela (Maybe (AST Type) )
 precondition follow = assertions (match TokLeftPre) (match TokRightPre) Pre follow

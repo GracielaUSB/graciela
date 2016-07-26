@@ -1,35 +1,33 @@
 module ParserState where
 --------------------------------------------------------------------------------
 -- import           Parser.TokenParser
-import           AST                 hiding (Constant)
+import           AST                    hiding (Constant)
 import           Contents
 import           Data.Maybe
-import           MyParseError
-import           TypeError
-import           ParserError
 import           Graciela
+import           MyParseError
+import           ParserError
 import           SymbolTable
 import           Token
 import           Type
+import           TypeError
 --------------------------------------------------------------------------------
+import           Control.Lens           (use, (%=), (.=))
 import           Control.Monad.Identity (Identity)
-import           Control.Lens           (use, (.=), (%=))
-import           Control.Monad.State    (StateT)
-import           Control.Monad.State    (get, modify)
+import           Control.Monad.State    (StateT, get, modify)
 import           Data.Foldable          (toList)
 import           Data.Function          (on)
 import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
+import qualified Data.Set               as Set (Set, empty, insert)
 import           Data.Text              (Text)
 import           Text.Megaparsec
 import           Text.Megaparsec.Pos    (SourcePos)
-import qualified Data.Set               as Set (Set, empty, insert)
 --------------------------------------------------------------------------------
 
-
 addFileToReadParser :: String -> Graciela ()
-addFileToReadParser file = do
-        filesToRead %= Set.insert file
+addFileToReadParser file = filesToRead %= Set.insert file
+
 
 addFunTypeParser :: Text
                  -> Maybe [(Text, Type)]
@@ -56,9 +54,7 @@ addProcTypeParser _ _ _ _             = return ()
 
 
 getCurrentScope :: Graciela SymbolTable
-getCurrentScope = do
-    st <- use symbolTable
-    return $ st
+getCurrentScope = use symbolTable
 
 
 newScopeParser :: Graciela ()
@@ -147,10 +143,9 @@ addSymbolParser symbol content = do
     case addSymbol symbol content st of
         Left con ->
             sTableErrorList %=
-                (|> (RepSymbolError symbol `on` getLoc) con content)
+                (|> (RepSymbolError symbol `on` getPos) con content)
         Right sb ->
             symbolTable .= sb
-
 
 
 addCuantVar :: OpQuant -> Text -> Type -> SourcePos -> Graciela ()
@@ -223,30 +218,36 @@ addConsIdError id = do
     pos <- getPosition
     sTableErrorList %= (|> ConstIdError id pos)
 
+
 addNonDeclVarError :: Text -> Graciela ()
 addNonDeclVarError id = do
     pos <- getPosition
     sTableErrorList %= (|> ConstIdError id pos)
+
 
 addNonAsocError :: Graciela ()
 addNonAsocError = do
     pos <- getPosition
     synErrorList %= (|> NonAsocError pos)
 
+
 addArrayCallError :: Int -> Int -> Graciela ()
 addArrayCallError waDim prDim = do
     pos <- getPosition
     synErrorList %= (|> ArrayError waDim prDim pos)
+
 
 -- genNewError :: Graciela Token -> ExpectedToken -> Graciela ()
 -- genNewError laset msg = do
 --     pos <- cleanEntry laset
 --     synErrorList %= (|> newParseError msg pos)
 
+
 genCustomError :: String -> Graciela ()
 genCustomError msg = do
     pos <- getPosition
     synErrorList %= (|> CustomError msg pos)
+
 
 genNewEmptyError :: Graciela ()
 genNewEmptyError = do
