@@ -1,32 +1,32 @@
 module LLVM.Codegen where
 
 --------------------------------------------------------------------------------
-import Aborts
-import LLVM.CodegenState
-import Contents
-import Limits
+import           Aborts
 import qualified AST                                     as MyAST
+import           Contents
+import           Limits
+import           LLVM.CodegenState
+import           SymbolTable
 import qualified Type                                    as T
-import SymbolTable
 --------------------------------------------------------------------------------
-import           Control.Lens                           (use, (.=), (%=))
+import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.State
-import           Data.Foldable                          (toList)
+import           Data.Foldable                           (toList)
+import qualified Data.Map                                as DM
 import           Data.Maybe
 import           Data.Range.Range                        as RA
-import           Data.Word
-import qualified Data.Map                                as DM
 import qualified Data.Text                               as TE
+import           Data.Word
 import           LLVM.General.AST                        as AST
 import           LLVM.General.AST.Attribute
-import           LLVM.General.AST.Type
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
 import qualified LLVM.General.AST.IntegerPredicate       as IL
-import           System.Info                            (os,arch)
-import           System.Process                         (callCommand)
-import           Text.Megaparsec.Pos                    (SourcePos)
+import           LLVM.General.AST.Type
+import           System.Info                             (arch, os)
+import           System.Process                          (callCommand)
+import           Text.Megaparsec.Pos                     (SourcePos)
 --------------------------------------------------------------------------------
 
 writeLnInt    = "_writeLnInt"

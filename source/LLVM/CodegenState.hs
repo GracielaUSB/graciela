@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module LLVM.CodegenState where
 
@@ -8,8 +8,8 @@ import           Contents
 import           SymbolTable
 import qualified Type                               as T
 --------------------------------------------------------------------------------
-import           Control.Applicative
-import           Control.Lens                       (makeLenses, use, (%=), (.=))
+import           Control.Lens                       (makeLenses, use, (%=),
+                                                     (.=))
 import           Control.Monad.State
 import           Data.Char
 import           Data.Foldable                      (toList)
@@ -23,14 +23,13 @@ import           Data.Word
 import           LLVM.General.AST                   as AST
 import           LLVM.General.AST.AddrSpace
 import           LLVM.General.AST.Attribute
+import qualified LLVM.General.AST.CallingConvention as CC
+import qualified LLVM.General.AST.Constant          as C
 import           LLVM.General.AST.Float
 import           LLVM.General.AST.Global            as Global
 import           LLVM.General.AST.Linkage
 import           LLVM.General.AST.Type
-import qualified LLVM.General.AST.CallingConvention as CC
-import qualified LLVM.General.AST.Constant          as C
 --------------------------------------------------------------------------------
-
 
 data CodegenSt
   = CodeGenSt
@@ -58,7 +57,7 @@ execCodegen :: LLVM a -> CodegenSt
 execCodegen m = execState (unLLVM m) emptyCodegen
 
 
-newLabel :: LLVM (Name)
+newLabel :: LLVM Name
 newLabel = do
     n <- getCount
     return $ UnName n
@@ -78,10 +77,10 @@ addDefinition name params retTy = do
                 { name        = Name name
                 , parameters  = params
                 , returnType  = retTy
-                , basicBlocks = (toList bbl)
+                , basicBlocks = toList bbl
                 }
-    bblocs     .= Seq.empty 
-    varsLoc    .= Map.empty 
+    bblocs     .= Seq.empty
+    varsLoc    .= Map.empty
     moduleDefs .= defs Seq.|> def
 
 
@@ -109,7 +108,7 @@ addBasicBlock t800 = do
     bblocs    .= bbl Seq.|> BasicBlock name (toList lins) t800
 
 
-addNamedInstruction :: Type -> String -> Instruction -> LLVM (Operand)
+addNamedInstruction :: Type -> String -> Instruction -> LLVM Operand
 addNamedInstruction t name ins = do
     lins <- use instrs
     let r = Name name
@@ -144,7 +143,7 @@ addFileName msg name t = do
 
 
 
-addStringOpe :: String -> LLVM (Operand)
+addStringOpe :: String -> LLVM Operand
 addStringOpe msg = do
     let n  = fromIntegral $ Prelude.length msg+1
     let t = ArrayType n i16
@@ -153,7 +152,7 @@ addStringOpe msg = do
     return $ ConstantOperand $ C.GetElementPtr True (global i16 name) [C.Int 64 0, C.Int 64 0]
 
 
-addFileNameOpe :: String -> LLVM (Operand)
+addFileNameOpe :: String -> LLVM Operand
 addFileNameOpe msg = do
     let n =  fromIntegral $ Prelude.length msg+1
     let t =  ArrayType n i8
@@ -173,8 +172,7 @@ checkVar id t = do
     vars <- use varsLoc
     case Map.lookup id vars of
       Just op -> return op
-      Nothing -> do op <- alloca Nothing t id
-                    return op
+      Nothing -> alloca Nothing t id
 
 
 addVarOperand :: String -> Operand -> LLVM()
@@ -189,7 +187,7 @@ getVarOperand name = do
     return $ fromJust $ Map.lookup name map
 
 
-addUnNamedInstruction :: Type -> Instruction -> LLVM (Operand)
+addUnNamedInstruction :: Type -> Instruction -> LLVM Operand
 addUnNamedInstruction t ins = do
     r    <- newLabel
     lins <- use instrs
@@ -201,7 +199,7 @@ getCount :: LLVM Word
 getCount = do
     n <- use insCount
     insCount .= n + 1
-    return $ n
+    return n
 
 
 local :: Type -> Name -> Operand
@@ -234,38 +232,37 @@ defaultChar = ConstantOperand $ C.Int 9 1
 
 constantString :: String -> C.Constant
 constantString msg =
-   C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- (msg ++ "\0")]
+   C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- msg ++ "\0"]
 
 constantFileName:: String -> C.Constant
 constantFileName msg =
-   C.Array pointerType [C.Int 8 (toInteger (ord c)) | c <- (msg ++ "\0")]
+   C.Array pointerType [C.Int 8 (toInteger (ord c)) | c <- msg ++ "\0"]
 
 
 definedFunction :: Type -> Name -> Operand
-definedFunction t = ConstantOperand . (global t)
+definedFunction t = ConstantOperand . global t
 
 
-initialize :: String -> T.Type -> LLVM (Operand)
-initialize id (T.GInt) = do
+initialize :: String -> T.Type -> LLVM Operand
+initialize id T.GInt = do
    op <- getVarOperand id
    store intType op $ constantInt 0
 
-initialize id (T.GFloat) = do
+initialize id T.GFloat = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
 
-initialize id (T.GBoolean) = do
+initialize id T.GBoolean = do
    op <- getVarOperand id
    store charType op $ constantBool 0
 
-initialize id (T.GChar) = do
+initialize id T.GChar = do
    op <- getVarOperand id
-   store charType op $ defaultChar
+   store charType op defaultChar
 
 
 alloca :: Maybe Operand -> Type -> String -> LLVM Operand
-alloca cant t r = do
-    addNamedInstruction t r $ Alloca t cant 0 []
+alloca cant t r = addNamedInstruction t r $ Alloca t cant 0 []
 
 
 store :: Type -> Operand -> Operand -> LLVM Operand
@@ -273,7 +270,7 @@ store t ptr val =
     addUnNamedInstruction t $ Store False ptr val Nothing 0 []
 
 
-load :: String -> Type -> LLVM (Operand)
+load :: String -> Type -> LLVM Operand
 load name t = do
     map <- use varsLoc
     let i = fromJust $ Map.lookup name map
@@ -293,7 +290,7 @@ condBranch op true false = Do $ CondBr op true false []
 
 
 nothing :: Named Terminator
-nothing = (Do $ Unreachable [])
+nothing = Do $ Unreachable []
 
 
 returnVal :: Operand -> Named Terminator
@@ -309,7 +306,7 @@ dimToOperand (Right n) = return $ ConstantOperand $ C.Int 32 n
 dimToOperand (Left id) = load (unpack id) intType
 
 
-opsToArrayIndex :: String -> [Operand] -> LLVM (Operand)
+opsToArrayIndex :: String -> [Operand] -> LLVM Operand
 opsToArrayIndex name ops = do
     arrD <- use arrsDim
     let arrDims' = fromJust $ Map.lookup name arrD
@@ -346,11 +343,11 @@ convertParams ((id,c):xs) =
 
     case argTypeArg c of
       T.In      -> (id, t) : convertParams xs
-      otherwise -> (id, PointerType t (AddrSpace 0)) : convertParams xs
+      _         -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 
 convertFuncParams :: [(Text, T.Type)] -> [(String, Type)]
 convertFuncParams [] = []
-convertFuncParams ((id, (T.GArray s t)):xs) =
+convertFuncParams ((id, T.GArray s t):xs) =
     (unpack id, PointerType (toType t) (AddrSpace 0)) : convertFuncParams xs
 convertFuncParams ((id, t):xs) =
     (unpack id, toType t) : convertFuncParams xs
@@ -381,9 +378,8 @@ stringType = PointerType i16 (AddrSpace 0)
 
 
 toType :: T.Type -> Type
-toType (T.GInt)         = intType
-toType (T.GFloat)       = floatType
-toType (T.GBoolean)        = boolType
-toType (T.GChar)        = charType
+toType T.GInt         = intType
+toType T.GFloat       = floatType
+toType T.GBoolean     = boolType
+toType T.GChar        = charType
 toType (T.GArray _ t) = toType t
-
