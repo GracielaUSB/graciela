@@ -30,24 +30,25 @@ import           Text.Megaparsec.Pos            (SourcePos)
 -------------------------------------------------------------------------------
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
-decList follow recSet =
-    do pos <- getPosition
-       do parseVar
-          idl <- idList (parseColon <|> parseAssign) (recSet <|> parseColon <|> parseAssign)
-          do parseColon
-             t <- myType parseSemicolon recSet
+
+decList follow recSet = do
+      pos <- getPosition
+      do match TokVar
+          idl <- idList (match TokColon <|> match TokAssign) (recSet <|> match TokColon <|> match TokAssign)
+          do match TokColon
+             t <- myType (match TokSemicolon) recSet
              addManyUniSymParser idl t
-             do parseSemicolon
+             do match TokSemicolon
                 rl <- decList follow recSet
-                return $ liftA2 (++) (fmap (map (\(name,pos') -> AST.Id pos' name t)) idl) rl
+                return $ AP.liftA2 (++) (fmap (map (\(name,pos') -> AST.Id pos' name t)) idl) rl
                 <|> do genNewError follow SColon
                        return Nothing
-             <|> do parseAssign
-                    lexp <- consListParser parseColon (parseColon <|> recSet)
-                    do parseColon
-                       t <- myType parseSemicolon recSet
+             <|> do match TokAssign
+                    lexp <- consListParser (match TokColon) (match TokColon <|> recSet)
+                    do match TokColon
+                       t <- myType (match TokSemicolon) recSet
                        addManySymParser CO.Variable idl t lexp
-                       do parseSemicolon
+                       do (match Semicolon)
                           rl <- decList follow recSet
                           let idlist = fmap (map (\(id, pos) -> Id pos id t)) idl
                           return $ liftA2 (:) (liftM4 LAssign idlist lexp (return pos) (return GEmpty)) rl
@@ -57,28 +58,27 @@ decList follow recSet =
                               return Nothing
              <|> do genNewError follow AssignOrColon
                     return Nothing
-          <|> do parseConst
-                 idl <- idList parseAssign (recSet <|> parseAssign)
-                 parseAssign
-                 lexp <- consListParser parseColon (parseColon <|> recSet)
-                 do parseColon
-                    t <- myType parseSemicolon recSet
+          <|> do match TokConst
+                 idl <- idList (match TokAssign) (recSet <|> match TokAssign)
+                 match TokAssign
+                 lexp <- consListParser (match TokColon) (match TokColon <|> recSet)
+                 do match TokColon
+                    t <- myType (match TokSemicolon) recSet
                     addManySymParser CO.Constant idl t lexp
-                    parseSemicolon
+                    match TokSemicolon
                     rl <- decList follow recSet
                     let idlist = fmap (map (\(id, pos) -> Id pos id t)) idl
                     return $ liftA2 (:) (liftM4 LAssign idlist lexp (return pos) (return GEmpty)) rl
                     <|> do genNewError follow Colon
                            return Nothing
-
           <|> return $ return []
 
 
 -- | Se encarga del parseo de una lista de constantes o variables con inicializacion
 consListParser :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 consListParser follow recSet =
-    do c <- expr (parseComma <|> follow) (parseComma <|> recSet)
-       do parseComma
+    do c <- expr (match TokComma <|> follow) (match TokComma <|> recSet)
+       do match TokComma
           l <- consListParser follow recSet
           return $ liftA2 (:) c l
           <|> return $ fmap (:[]) c
@@ -89,8 +89,8 @@ idList :: Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, SourcePo
 idList follow recSet =
     do lookAhead follow
        genNewEmptyError
-       return Nothing
-       <|> do ac <- parseId
+       return $ Nothing
+       <|> do ac <- identifier
               pos <- getPosition
               rl <- idListAux follow recSet
               return (fmap ((ac, pos) :) rl)
@@ -99,32 +99,33 @@ idList follow recSet =
 -- | Se encarga del parseo de la lista de Id's de las variables
 idListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, SourcePos)])
 idListAux follow recSet = do
-    parseComma
-    ac <- parseId
+    match TokComma
+    ac  <- identifier
     pos <- getPosition
-    rl <- idListAux follow recSet
+    rl  <- idListAux follow recSet
     return (fmap ((ac, pos) :) rl)
-    <|> return $ return []
+    <|> do return $ return []
+
+
 
 
 -- | Se encarga del parseo de la lectura de variables
-reading :: Graciela Token -> Maybe [AST Type] -> ParsecT [TokenPos] ()
-           (StateT GracielaState Identity) (Maybe [AST Type])
-reading follow ld =
-  do pos <- getPosition
-     do parseRead
-        do parseLeftParent
-           lid <- idList parseTokRightPar parseTokRightPar
-           ts <- verifyReadVars lid
-           do parseTokRightPar
-              do parseWith
-                 id <- parseString
+reading :: Graciela Token -> Maybe [AST Type] -> Graciela (Maybe [AST Type])
+reading follow ld = do
+     pos <- getPosition
+     do (match TokRead)
+        do match TokLeftParent
+           lid <- idList (match TokRightParent) (match TokRightParent)
+           ts  <- verifyReadVars lid
+           do match TokRightParent
+              do match TokWith
+                 id <- match TokString
                  addFileToReadParser id
-                 do parseSemicolon
+                 do match TokSemicolon
                     return $ liftA2 (++) ld $ (:[]) <$> liftA2 (Read pos (Just id) ts) lid (return GEmpty)
                     <|> do genNewError follow SColon
                            return Nothing
-                 <|> do parseSemicolon
+                 <|> do match TokSemicolon
                         return $ liftA2 (++) ld $ (:[]) <$> liftA2 (Read pos Nothing ts) lid (return GEmpty)
                         <|> do genNewError follow SColon
                                return Nothing
@@ -137,11 +138,11 @@ reading follow ld =
 -- | Verifica las variables utilizadas en la lectura
 decListWithRead :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
 decListWithRead follow recSet =
-  do lookAhead (parseConst <|> parseVar)
-     ld <- decList (follow <|> parseRead) (recSet <|> parseRead)
-     do lookAhead parseRead
+  do lookAhead (match TokConst <|> match TokVar)
+     ld <- decList (follow <|> (match TokRead)) (recSet <|> (match TokRead))
+     do lookAhead (match TokRead)
         reading follow ld
-        <|> return ld
-     <|> do lookAhead parseRead
+        <|> do return ld
+     <|> do lookAhead (match TokRead)
             reading follow (return [])
      <|> return $ return []
