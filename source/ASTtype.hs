@@ -71,11 +71,11 @@ verTypeAST (Unary op pos exp _) = do
     return $ Unary op pos exp' checkT
 
 
-verTypeAST (Bposk pos st decs accs _) = do
+verTypeAST (Block pos st decs accs _) = do
     decs'  <- mapM verTypeAST decs
     accs'  <- mapM verTypeAST accs
-    checkT <- verBposk (map tag accs')
-    return $ Bposk pos st decs accs' checkT
+    checkT <- verBlock (map tag accs')
+    return $ Block pos st decs accs' checkT
 
 
 verTypeAST (Skip  pos _) = return $ Skip  pos GEmpty

@@ -89,28 +89,28 @@ addManyUniSymParser _ _ = return ()
 addManySymParser :: VarBehavior
                  -> Maybe [(Text , SourcePos)]
                  -> Type
-                 -> Maybe [AST Type]
+                 -> Maybe [AST]
                  -> Graciela ()
-addManySymParser vb (Just xs) t (Just ys) =
-    if length xs /= length ys then
-        do pos <- getPosition
-           sTableErrorList %= (|> IncomDefError vb pos)
-    else f vb xs t ys
-      where
-        f vb ((id, pos):xs) t (ast:ys) =
-            do addSymbolParser id $ Contents id vb pos t (astToValue ast) True
-               f vb xs t ys
-        f _ [] _ []                    = return ()
+-- addManySymParser vb (Just xs) t (Just ys) =
+--     if length xs /= length ys then
+--         do pos <- getPosition
+--            sTableErrorList %= (|> IncomDefError vb pos)
+--     else f vb xs t ys
+--       where
+--         f vb ((id, pos):xs) t (ast:ys) =
+--             do addSymbolParser id $ Contents id vb pos t (astToValue ast) True
+--                f vb xs t ys
+--         f _ [] _ []                    = return ()
 
 addManySymParser _ _ _ _               = return ()
 
 
-astToValue (Int _ n _)    = Just $ I n
-astToValue (Float _ f _)  = Just $ D f
-astToValue (Bool _ b _)   = Just $ B b
-astToValue (Char _ c _)   = Just $ C c
-astToValue (String _ s _) = Just $ S s
-astToValue _              = Nothing
+astToValue AST { ast' = (Int    n) } = Just $ I n
+astToValue AST { ast' = (Float  f) } = Just $ D f
+astToValue AST { ast' = (Bool   b) } = Just $ B b
+astToValue AST { ast' = (Char   c) } = Just $ C c
+astToValue AST { ast' = (String s) } = Just $ S s
+astToValue _                         = Nothing
 
 
 verifyReadVars :: Maybe [(Text, SourcePos)] -> Graciela [Type]
@@ -148,7 +148,7 @@ addSymbolParser symbol content = do
             symbolTable .= sb
 
 
-addCuantVar :: OpQuant -> Text -> Type -> SourcePos -> Graciela ()
+addCuantVar :: QuantOp -> Text -> Type -> SourcePos -> Graciela ()
 addCuantVar op id t pos =
     if isQuantifiable t then
        addSymbolParser id $ Contents id Constant pos t Nothing True

@@ -86,11 +86,11 @@ data Token
   | TokArrow
   | TokBiArrow
 
-  | TokBEQ
-  | TokBNE
+  | TokBEQ -- Boolean Equivalent
+  | TokBNE -- Boolean Not Equivalent
 
-  | TokAEQ
-  | TokANE
+  | TokAEQ -- Arithmetic Equal
+  | TokANE -- Arithmetic Not Equal
 
   | TokLE
   | TokGE

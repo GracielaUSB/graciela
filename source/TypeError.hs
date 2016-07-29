@@ -120,11 +120,11 @@ data TypeError
         , pos    :: SourcePos
         }
     | UncountableError
-        { op  :: OpQuant
+        { op  :: QuantOp
         , pos :: SourcePos
         }
     | NotOccursVar
-        { op     :: OpQuant
+        { op     :: QuantOp
         , symbol :: Text
         , pos    :: SourcePos
         }
@@ -134,7 +134,7 @@ data TypeError
         }
     | InvalidPar
         { name :: Text
-        , tree :: AST Type
+        , tree :: AST
         , pos  :: SourcePos
         }
     | DiffSizeError
@@ -147,17 +147,17 @@ data TypeError
         , tyVar  :: Type
         }
     | QuantRangeError
-        { op     :: OpQuant
+        { op     :: QuantOp
         , trange :: Type
         , pos    :: SourcePos
         }
     | QuantIntError
-        { op    :: OpQuant
+        { op    :: QuantOp
         , tterm :: Type
         , pos   :: SourcePos
         }
     | QuantBoolError
-        { op    :: OpQuant
+        { op    :: QuantOp
         , tterm :: Type
         , pos   :: SourcePos
         }

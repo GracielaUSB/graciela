@@ -132,8 +132,8 @@ verDefProc accs pre post bound decs =
         else return GError
 
 
-verBposk :: [Type] -> MyVerType Type
-verBposk accs =
+verBlock :: [Type] -> MyVerType Type
+verBlock accs =
     if foldl (checkListType GEmpty) True accs
         then return GEmpty
         else return GError

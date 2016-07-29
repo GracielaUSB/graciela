@@ -179,7 +179,7 @@ createLLVM files defs accs = do
   mapM_ openFile files
   createInstruction accs
   mapM_ closeFile files
-  addBasicBposk m800
+  addBasicBlock m800
   addDefinition "main" ([],False) voidType
   return ()
 
@@ -207,15 +207,15 @@ addArgOperand ((id',c):xs) = do
 
   void $ case tp of
     T.InOut -> do exp <- addUnNamedInstruction t $ Load False e' Nothing 0 []
-                  op  <- alposa Nothing t id
+                  op  <- alloca Nothing t id
                   store t op exp
                   addVarOperand id' op
 
-    T.In    -> do op <- alposa Nothing t id
+    T.In    -> do op <- alloca Nothing t id
                   store t op e'
                   addVarOperand id' op
 
-    T.Out   -> do op <- alposa Nothing t id
+    T.Out   -> do op <- alloca Nothing t id
                   addVarOperand id' op
                   initialize id $ argType c
 
@@ -255,7 +255,7 @@ createState name (MyAST.States cond pos exp _) = do
 
   case cond of
     MyAST.Pre        -> do let checkPre = "_resPre" ++ name
-                           op <- alposa Nothing boolType checkPre
+                           op <- alloca Nothing boolType checkPre
                            store boolType op e'
                            addVarOperand checkPre op
                            setLabel warAbort $ condBranch e' next warAbort
@@ -307,12 +307,12 @@ createDef (MyAST.DefProc name st accs pre post bound decs params _) = do
   let args' = ([Parameter t (Name id) [] | (id, t) <- convertParams args], False)
   retTy <- retVoid
   addArgOperand args
-  mapM_ accToAlposa decs
+  mapM_ accToAlloca decs
   createState name' pre
   createInstruction accs
   retVarOperand $ reverse args
   createState name' post
-  addBasicBposk retTy
+  addBasicBlock retTy
   addDefinition name' args' voidType
 
 
@@ -321,16 +321,16 @@ createDef (MyAST.DefFun fname st _ exp reType bound params _) = do
   mapM_ addFuncParam params
   exp'  <- createExpression exp
   retTy <- retType exp'
-  addBasicBposk retTy
+  addBasicBlock retTy
   addDefinition (TE.unpack fname) args' (toType reType)
 
 
-accToAlposa :: MyAST.AST T.Type -> LLVM ()
-accToAlposa acc@(MyAST.Id _ id' t) = do
+accToAlloca :: MyAST.AST T.Type -> LLVM ()
+accToAlloca acc@(MyAST.Id _ id' t) = do
   let id = TE.unpack id'
   dim <- typeToOperand id t
   let t' = toType t
-  alposa dim t' id
+  alloca dim t' id
 
   case t of
     T.GArray d ty -> createInstruction acc
@@ -338,17 +338,17 @@ accToAlposa acc@(MyAST.Id _ id' t) = do
       initialize id t
       createInstruction acc
 
-accToAlposa acc@(MyAST.LAssign lids _ _ _) = do
-  mapM_ idToAlposa lids
+accToAlloca acc@(MyAST.LAssign lids _ _ _) = do
+  mapM_ idToAlloca lids
   createInstruction acc
 
-accToAlposa (MyAST.Read _ Nothing types vars _) = do
+accToAlloca (MyAST.Read _ Nothing types vars _) = do
   res <- mapM callRead types
   ads <- mapM (getVarOperand . TE.unpack . fst) vars
   mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
   return ()
 
-accToAlposa (MyAST.Read _ (Just arch) types vars _) = do
+accToAlloca (MyAST.Read _ (Just arch) types vars _) = do
   res <- mapM (callReadFile arch) types
   ads <- mapM (getVarOperand . TE.unpack . fst) vars
   mapM_ (\(ty, r, a) -> store (toType ty) a r) $ zip3 types res ads
@@ -383,11 +383,11 @@ callRead T.GFloat =
   caller floatType (Right $ definedFunction floatType (Name readDoubleStd)) []
 
 
-idToAlposa :: MyAST.AST T.Type -> LLVM ()
-idToAlposa (MyAST.Id _ id t) = do
+idToAlloca :: MyAST.AST T.Type -> LLVM ()
+idToAlloca (MyAST.Id _ id t) = do
   let id' = TE.unpack id
   dim <- typeToOperand id' t
-  alposa dim (toType t) id'
+  alloca dim (toType t) id'
   return ()
 
 
@@ -497,8 +497,8 @@ createInstruction (MyAST.Write False exp _ t) = do
   return ()
 
 
-createInstruction (MyAST.Bposk _ st decs accs _) = do
-  mapM_ accToAlposa decs
+createInstruction (MyAST.Block _ st decs accs _) = do
+  mapM_ accToAlloca decs
   mapM_ createInstruction accs
   return ()
 
@@ -519,7 +519,7 @@ createInstruction (MyAST.Rept guards inv bound _ _) = do
 
   name <- getCount
   let boundName = show name
-  op' <- alposa Nothing intType boundName
+  op' <- alloca Nothing intType boundName
   store intType op' $ constantInt maxInteger
   addVarOperand (show boundName) op'
 
@@ -802,7 +802,7 @@ createQuant :: Bool -> MyAST.OpQuant -> String -> SourcePos ->
 createQuant True opQ var pos exp (SpanRange a b) = do
   let ini = constantInt a
   let fin = constantInt b
-  op     <- alposa Nothing intType var
+  op     <- alloca Nothing intType var
   store intType op ini
   addVarOperand var op
 
@@ -812,7 +812,7 @@ createQuant True opQ var pos exp (SpanRange a b) = do
 
   name <- getCount
   let varBool = show name
-  op' <- alposa Nothing boolType varBool
+  op' <- alloca Nothing boolType varBool
   store boolType op' $ constantBool 1
   addVarOperand varBool op'
   setLabel initial $ branch initial
@@ -844,7 +844,7 @@ createQuant True opQ var pos exp (SpanRange a b) = do
 createQuant False opQ var pos exp (SpanRange a b) = do
   let ini = constantInt a
   let fin = constantInt b
-  op <- alposa Nothing intType var
+  op <- alloca Nothing intType var
   store intType op ini
   addVarOperand var op
 
@@ -857,7 +857,7 @@ createQuant False opQ var pos exp (SpanRange a b) = do
 
   case tyExp of
     T.GInt -> do
-      op' <- alposa Nothing intType varQuant
+      op' <- alloca Nothing intType varQuant
       case opQ of
         MyAST.Summation -> store intType op' $ constantInt 0
         MyAST.Product   -> store intType op' $ constantInt 1
@@ -896,7 +896,7 @@ createQuant False opQ var pos exp (SpanRange a b) = do
       return res
 
     T.GFloat -> do
-      op' <- alposa Nothing floatType varQuant
+      op' <- alloca Nothing floatType varQuant
 
       case opQ of
         MyAST.Summation -> store floatType op' $ constantFloat 0.0
@@ -994,7 +994,7 @@ createQuant' True opQ var pos exp (RangeOp a b) = do
   let ini = a
   let fin = b
 
-  op <- alposa Nothing intType var
+  op <- alloca Nothing intType var
   store intType op ini
   addVarOperand var op
 
@@ -1005,7 +1005,7 @@ createQuant' True opQ var pos exp (RangeOp a b) = do
 
   name <- getCount
   let varBool = show name
-  op' <- alposa Nothing boolType varBool
+  op' <- alloca Nothing boolType varBool
   store boolType op' $ constantBool 1
   addVarOperand varBool op'
 
@@ -1044,7 +1044,7 @@ createQuant' True opQ var pos exp (RangeOp a b) = do
 createQuant' False opQ var pos exp (RangeOp a b) = do
   let ini = a
   let fin = b
-  op <- alposa Nothing intType var
+  op <- alloca Nothing intType var
   store intType op ini
   addVarOperand var op
 
@@ -1058,7 +1058,7 @@ createQuant' False opQ var pos exp (RangeOp a b) = do
 
   case tyExp of
     T.GInt   -> do
-      op' <- alposa Nothing intType varQuant
+      op' <- alloca Nothing intType varQuant
 
       case opQ of
         MyAST.Summation -> store intType op' $ constantInt 0
@@ -1104,7 +1104,7 @@ createQuant' False opQ var pos exp (RangeOp a b) = do
       load varQuant intType
 
     T.GFloat -> do
-      op' <- alposa Nothing floatType varQuant
+      op' <- alloca Nothing floatType varQuant
 
       case opQ of
         MyAST.Summation -> store floatType op' $ constantFloat 0.0
@@ -1226,14 +1226,14 @@ genExpGuard (MyAST.GuardExp guard acc _ _) next = do
   createGuardExp acc code
 
 
-createBasicBposks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
-createBasicBposks accs m800 = genIntructions accs
+createBasicBlocks :: [MyAST.AST T.Type] -> Named Terminator -> LLVM ()
+createBasicBlocks accs m800 = genIntructions accs
   where
     genIntructions (acc:xs) = do
       createInstruction acc
       genIntructions xs
     genIntructions [] =
-      addBasicBposk m800
+      addBasicBlock m800
 
 
 intToDouble :: Operand -> LLVM Operand

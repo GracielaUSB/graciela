@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Parser.Expression
   ( expression
   ) where
@@ -15,9 +17,10 @@ import           Type
 import           Control.Monad             (void)
 import           Control.Monad.Trans.State (evalState)
 import           Data.Functor              (($>))
-import           Data.Text                 (Text, pack)
+import           Data.Monoid               ((<>))
+import           Data.Text                 (Text, pack, unpack)
 import           Text.Megaparsec           (between, runParser, runParserT,
-                                            some, (<|>))
+                                            sepBy, some, try, (<|>))
 import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
 
@@ -31,21 +34,28 @@ expression = makeExprParser term operator
 quantification = percents q
   where
     q = do
-      void quantifier
-      declaration
+      q <- quantifier
+      (var, t) <- declaration
       match TokPipe
-      expression
+      range <- expression
       match TokPipe
-      expression
+      expr <- expression
+      pure . Node "Quantification" $
+        [ leaf . show $ q
+        , leaf . unpack $  var
+        , leaf . unpack $ t
+        ]
+
 
 
 declaration = do
-  void identifier
+  var <- identifier
   match TokColon
-  void identifier
+  t <- identifier
+  pure (var, t)
 
 
-quantifier :: Graciela OpQuant
+quantifier :: Graciela QuantOp
 quantifier =  (match TokExist  $> Exists)
           <|> (match TokMax    $> Maximum)
           <|> (match TokSigma  $> Summation)
@@ -57,26 +67,38 @@ quantifier =  (match TokExist  $> Exists)
 leaf x = Node x []
 
 
+call :: Graciela (Tree String)
+call = do
+  name <- identifier
+  args <- parens (expression `sepBy` match TokComma)
+  return $
+    Node ("call " <> unpack name) $
+      case args of
+        [] -> [leaf "no args"]
+        _  -> (\(i, arg) -> Node ("arg " ++ show i) [arg]) <$> zip [0..] args
+
+
 term :: Graciela (Tree String)
 term =  parens expression
-    <|> (leaf . show <$> boolLit )
+    <|> try call
     <|> value
+    <|> (leaf . show <$> boolLit)
     <|> (leaf . show <$> integerLit)
     <|> (leaf . show <$> floatLit)
     <|> (leaf . show <$> charLit)
-    -- <|> quantification
+    <|> quantification
   where
-    value = makeExprParser value' ops
+    value  = makeExprParser value' ops
     value' =  parens value
           <|> (leaf . show <$> identifier)
     ops :: [[ Operator Graciela (Tree String) ]]
     ops =
-      [ {-Level -1-}
+      [ {-Level 0-}
         [ Postfix (do
             e <- subindex
             return (\x -> Node "sub" [x,e]))
         ]
-      , {-Level 0-}
+      , {-Level 1-}
         [Prefix (foldr1 (.) <$> some pointer)]
       ]
     subindex = brackets expression
@@ -85,49 +107,49 @@ term =  parens expression
 
 operator :: [[ Operator Graciela (Tree String) ]]
 operator =
-  [ {-Level 1-}
+  [ {-Level 2-}
     [ Prefix (match TokNot        $> \x -> Node "not" [x])
     , Prefix (match TokMinus      $> \x -> Node "minus" [x])
     ]
-  , {-Level 2-}
-    [ InfixR (match TokPower      $> \x y -> Node "" [])
-    ]
   , {-Level 3-}
-    [ InfixL (match TokTimes      $> \x y -> Node "" [])
-    , InfixL (match TokDiv        $> \x y -> Node "" [])
-    , InfixL (match TokMod        $> \x y -> Node "" [])
+    [ InfixR (match TokPower      $> \x y -> Node "^" [x,y])
     ]
   , {-Level 4-}
-    [ InfixL (match TokPlus       $> \x y -> Node "" [])
-    , InfixL (match TokMinus      $> \x y -> Node "" [])
+    [ InfixL (match TokTimes      $> \x y -> Node "*" [x,y])
+    , InfixL (match TokDiv        $> \x y -> Node "/" [x,y])
+    , InfixL (match TokMod        $> \x y -> Node "mod" [x,y])
     ]
   , {-Level 5-}
-    [ InfixL (match TokMax        $> \x y -> Node "" [])
-    , InfixL (match TokMin        $> \x y -> Node "" [])
+    [ InfixL (match TokPlus       $> \x y -> Node "+" [x,y])
+    , InfixL (match TokMinus      $> \x y -> Node "-" [x,y])
     ]
   , {-Level 6-}
-    [ InfixN (match TokLT         $> \x y -> Node "" [])
-    , InfixN (match TokLE         $> \x y -> Node "" [])
-    , InfixN (match TokGT         $> \x y -> Node "" [])
-    , InfixN (match TokGE         $> \x y -> Node "" [])
+    [ InfixL (match TokMax        $> \x y -> Node "max" [x,y])
+    , InfixL (match TokMin        $> \x y -> Node "min" [x,y])
     ]
   , {-Level 7-}
-    [ InfixN (match TokAEQ        $> \x y -> Node "" [])
-    , InfixN (match TokANE        $> \x y -> Node "" [])
+    [ InfixN (match TokLT         $> \x y -> Node "<" [x,y])
+    , InfixN (match TokLE         $> \x y -> Node "<=" [x,y])
+    , InfixN (match TokGT         $> \x y -> Node ">" [x,y])
+    , InfixN (match TokGE         $> \x y -> Node ">=" [x,y])
     ]
   , {-Level 8-}
-    [ InfixR (match TokAnd        $> \x y -> Node "" [])
+    [ InfixN (match TokAEQ        $> \x y -> Node "==" [x,y])
+    , InfixN (match TokANE        $> \x y -> Node "!=" [x,y])
     ]
   , {-Level 9-}
-    [ InfixR (match TokOr         $> \x y -> Node "" [])
+    [ InfixR (match TokAnd        $> \x y -> Node "/\\" [x,y])
     ]
   , {-Level 10-}
-    [ InfixR (match TokImplies    $> \x y -> Node "" [])
-    , InfixL (match TokConsequent $> \x y -> Node "" [])
+    [ InfixR (match TokOr         $> \x y -> Node "\\/" [x,y])
     ]
   , {-Level 11-}
-    [ InfixN (match TokBEQ        $> \x y -> Node "" [])
-    , InfixN (match TokBNE        $> \x y -> Node "" [])
+    [ InfixR (match TokImplies    $> \x y -> Node "==>" [x,y])
+    , InfixL (match TokConsequent $> \x y -> Node "<==" [x,y])
+    ]
+  , {-Level 12-}
+    [ InfixN (match TokBEQ        $> \x y -> Node "===" [x,y])
+    , InfixN (match TokBNE        $> \x y -> Node "!==" [x,y])
     ]
   ]
 
