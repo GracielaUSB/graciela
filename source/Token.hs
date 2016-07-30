@@ -61,7 +61,7 @@ data Token
   | TokConst
   | TokOf
 
-  | TokAsig
+  | TokAssign
 
   | TokPlus
   | TokMinus
@@ -217,7 +217,7 @@ instance Show Token where
     TokConst          -> "`const` - Definidor de Constantes"
     TokOf             -> "`of` - of del Arreglo"
 
-    TokAsig           -> "`:=` - Asignación"
+    TokAssign           -> "`:=` - Asignación"
 
     TokPlus           -> "`+` - Suma"
     TokMinus          -> "`-` - Resta"

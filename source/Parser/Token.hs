@@ -35,18 +35,19 @@ import           Data.Set             (Set)
 import qualified Data.Set             as Set
 import           Data.Text            (Text)
 import           Text.Megaparsec      (ErrorItem (Tokens), token, between)
+import           Text.Megaparsec      hiding (Token, satisfy, oneOf)
 --------------------------------------------------------------------------------
 
 unex :: TokenPos -> (Set (ErrorItem TokenPos), Set a, Set b)
 unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
 
 
-match :: Token -> Graciela ()
+match :: Token -> Graciela Token
 match t = token test Nothing
   where
     test tp @ TokenPos {tok} =
       if t == tok
-        then Right ()
+        then Right t
         else Left . unex $ tp
 
 

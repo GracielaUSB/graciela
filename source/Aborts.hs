@@ -28,8 +28,8 @@ abortArgs :: (Operand, [ParameterAttribute])
           -> [(Operand, [ParameterAttribute])]
 abortArgs x pos =
   [ x
-  , (ConstantOperand $ C.Int 32 (fromIntegral $ sourceLine   pos), [])
-  , (ConstantOperand $ C.Int 32 (fromIntegral $ sourceColumn pos), [])
+  , (ConstantOperand $ C.Int 32 (fromIntegral $ unPos $ sourceLine   pos), [])
+  , (ConstantOperand $ C.Int 32 (fromIntegral $ unPos $ sourceColumn pos), [])
   ]
 
 

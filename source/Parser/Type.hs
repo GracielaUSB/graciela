@@ -14,6 +14,7 @@ import           Type
 import           Control.Monad   (void, when)
 import           Data.Text       (Text, unpack)
 import           Text.Megaparsec (getPosition, lookAhead, try, (<|>))
+import           Text.Megaparsec hiding (Token)
 --------------------------------------------------------------------------------
 
 myBasicType :: Graciela Token -> Graciela Token -> Graciela Text
@@ -32,23 +33,25 @@ myType follow recSet =
         tname <- identifier
         t <- getType tname
         when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.")
-        try $do parsePointer t
-          <|> return t
-       <|> do match TokArray
-              match TokLeftBracket
-              n <- parseConstNumber (match TokOf) (recSet <|> match TokOf)
-              match TokRightBracket
-              match TokOf
-              t <- myType follow recSet
-              case n of
-                  Nothing -> return GEmpty
-                  Just n' -> return $ GArray n' t
+        parsePointer t
 
-       <|> do id <- identifier
-              match TokOf
-              t <- myType follow recSet
-              -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
-              return (GDataType id [t] [] [])
+      <|> do  
+            match TokArray
+            match TokLeftBracket
+            n <- parseConstNumber (match TokOf) (recSet <|> match TokOf)
+            match TokRightBracket
+            match TokOf
+            t <- myType follow recSet
+            case n of
+                Nothing -> return GEmpty
+                Just n' -> return $ GArray n' t
+
+      <|> do
+            id <- identifier
+            match TokOf
+            t <- myType follow recSet
+            -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
+            return (GDataType id [t] [] [])
 
 
 parseConstNumber :: Graciela Token -> Graciela Token

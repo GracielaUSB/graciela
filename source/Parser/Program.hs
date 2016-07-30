@@ -17,32 +17,31 @@ import           Type
 -------------------------------------------------------------------------------
 import qualified Control.Monad       as M
 import qualified Data.Text           as T
-import           Text.Megaparsec
+import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-mainProgram :: Graciela (Maybe (AST Type))
+mainProgram :: Graciela (Maybe AST)
 mainProgram = do
   pos <- getPosition
-  panicMode parseProgram parseTokId PE.Program
-  id <- panicModeId parseBegin
-  panicMode parseBegin (parseProc <|> parseFunc <|> parseTokOpenBlock) PE.Begin
+  match TokProgram
+  id <- identifier
+  match TokBegin
 
-
-  ast  <- listDefProc parseTokOpenBlock parseTokOpenBlock
-  lacc <- block parseEnd parseEnd
-  try ( do parseEnd
-           parseEOF
+  ast  <- listDefProc (match TokOpenBlock) (match TokOpenBlock)
+  lacc <- block (match TokEnd) (match TokEnd)
+  try ( do match TokEnd
+           eof
            return (M.liftM3 (AST.Program id pos) ast lacc (return GEmpty))
       )
-      <|> do genNewError parseEOF PE.LexEnd
+      <|> do genNewError eof PE.LexEnd
              return Nothing
 
 
 -- Program -> Abstract Program
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
-program :: Graciela (Maybe (AST Type))
+program :: Graciela (Maybe AST)
 program = do
   newScopeParser
   many (abstractDataType <|> dataType) -- Por ahora debe haber un programa

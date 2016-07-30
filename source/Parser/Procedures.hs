@@ -9,8 +9,6 @@ module Parser.Procedures
   , listArgProc
   , listArgProcAux
   , listDefProc
-  , panicMode
-  , panicModeId
   , proc
   , procOrFunc
   ) where
@@ -33,12 +31,12 @@ import           Type
 import qualified Control.Applicative as AP (liftA2)
 import           Control.Monad       (void, liftM5)
 import qualified Data.Text           as T
-import           Text.Megaparsec
+import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
-listDefProc :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+listDefProc :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST])
 listDefProc follow recSet =
-    do lookAhead parseEOF
+    do lookAhead eof
        return Nothing
        <|> do lookAhead follow
               return $ return []
@@ -48,18 +46,18 @@ listDefProc follow recSet =
        <|> return Nothing
 
 
-procOrFunc :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+procOrFunc :: Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 procOrFunc follow recSet =
     try $ do
-        lookAhead (parseProc <|> parseTokId)
+        lookAhead (match TokProc <|> match TokId)
         proc
 
-    <|> try (do lookAhead (parseFunc <|> parseTokId)
-                function (follow <|> parseFunc <|> parseProc) recSet)
-    <|> do genNewError (follow <|> parseFunc <|> parseProc) PE.ProcOrFunc
+    <|> try (do lookAhead (match TokFunc <|> match TokId)
+                function (follow <|> match TokFunc <|> match TokProc) recSet)
+    <|> do genNewError (follow <|> match TokFunc <|> match TokProc) PE.ProcOrFunc
            do lookAhead follow
               return Nothing
-           <|> do lookAhead (parseProc <|> parseFunc)
+           <|> do lookAhead (match TokProc <|> match TokFunc)
                   procOrFunc follow recSet
                   return Nothing
 
@@ -69,115 +67,51 @@ procOrFunc follow recSet =
 
 
 followTypeFunction :: Graciela Token
-followTypeFunction = parseTokOpenBlock <|> parseTokLeftBound
+followTypeFunction = match TokOpenBlock <|> match TokLeftBound
 
 
-function :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+function :: Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 function follow recSet = do
     pos <- getPosition
 
     do match TokFunc
-        <|> do try $ do t <- parseId
-                        lookAhead parseId
-                        genNewError (return $ TokId t) PE.ProcOrFunc
-        <|> do t <- lookAhead parseId
-               genNewError (return $ TokId t) PE.ProcOrFunc
-        <|> do (t:_) <- manyTill anyToken (lookAhead parseId)
-               genNewError (return $ fst t) PE.ProcOrFunc
-
-    id <- panicModeId parseColon                                            -- Id
-    -- panicMode parseColon parseLeftParent PE.Colon                           -- :
-    panicMode parseLeftParent (parseTokId <|> parseTokRightPar) PE.TokenLP  -- (
+    id <- identifier
+    match TokLeftPar (match TokId <|> (match TokRightPar)) PE.TokenLP  -- (
     newScopeParser
-    lt <- listArgFunc id parseTokRightPar parseTokRightPar                  -- arguments
-    panicMode parseTokRightPar parseTokLeftPre PE.TokenRP                   -- )
-
-    try $do match TokArrow
-     <|> do t <- lookAhead parseType'
-            genNewError (return $ TokType t) PE.Arrow
-     <|> do (t:_) <- manyTill  anyToken (lookAhead parseType')
-            genNewError (return $fst t) PE.Arrow
-
-    t <- try $do parseType'
-     <|> do t <- lookAhead parseBegin
-            genNewError (return t) PE.TokenType
-            return GUndef
-     <|> do (t:_) <- manyTill  anyToken (lookAhead parseBegin)
-            genNewError (return $fst t) PE.TokenType
-            return GUndef
-
-    try $do match TokBegin
-     <|> do (t,_) <- lookAhead anyToken                                     -- func id : (in a :int) -> int
-            genNewError (return t) PE.Begin                                 --                               ^
-     <|> do (t:_) <- manyTill anyToken (lookAhead conditionalOrExpr)        -- func id : (in a :int) -> int [][]
-            genNewError (return $fst t) PE.Begin                            --                              ^^^^
-
+    lt <- listArgFunc id (match TokRightPar) (match TokRightPar)                  -- arguments
+    match TokRightPar 
+    match TokArrow
+    tname <- identifier
+    retType <- getType
+    when (retType == GError) $ void $genCustomError ("El tipo `"++unpack tname++"` no existe.")
+    match TokBegin
     sb <- getCurrentScope
-    addFunTypeParser id lt t pos sb
+    addFunTypeParser id lt retType pos sb
     b <- conditionalOrExpr
     exitScopeParser
-    addFunTypeParser id lt t pos sb
-
-    try $do parseEnd
-            return(liftM5 (DefFun id sb pos) b (return t) (Just (EmptyAST GEmpty)) lt (return GEmpty))
-     <|> do genNewError follow PE.LexEnd
-            return Nothing
+    addFunTypeParser id lt retType pos sb
+    match TokEnd
+            
     where
-        conditionalOrExpr = conditional CExpression parseEnd parseEnd <|> (expr parseEnd parseEnd)
-        parseType' :: Graciela Type
-        parseType' = myType followTypeFunction followTypeFunction
-
-   -- do pos <- getPosition
-   --    try ( do parseFunc
-   --             try ( do id <- parseId
-   --                      try ( do parseColon
-   --                               try ( do parseLeftParent
-   --                                        newScopeParser
-   --                                        lt <- listArgFunc id parseTokRightPar (recSet <|> parseTokRightPar)
-   --                                        try ( do parseTokRightPar
-   --                                                 try ( do parseArrow
-   --                                                          t  <- myType (followTypeFunction) (recSet <|> followTypeFunction)
-   --                                                          sb <- getCurrentScope
-   --                                                          addFunTypeParser id lt t pos sb
-   --                                                          b  <- functionBody follow follow
-   --                                                          exitScopeParser
-   --                                                          addFunTypeParser id lt t pos sb
-   --                                                          return(liftM5 (DefFun id sb pos) b (return t) (Just (EmptyAST GEmpty)) lt (return GEmpty))
-   --                                                     )
-   --                                                     <|> do genNewError follow PE.Arrow
-   --                                                            return Nothing
-   --                                            )
-   --                                            <|> do genNewError follow PE.TokenRP
-   --                                                   return Nothing
-   --                                   )
-   --                                   <|> do genNewError follow PE.TokenLP
-   --                                          return Nothing
-   --                          )
-   --                          <|> do genNewError follow PE.Colon
-   --                                 return Nothing
-   --                 )
-   --                 <|> do genNewError follow PE.IdError
-   --                        return Nothing
-   --        )
-   --        <|> do genNewError follow PE.TokenFunc
-   --               return Nothing
+        conditionalOrExpr =  conditional CExpression (match TokEnd) (match TokEnd) 
+                         <|> expr (match TokEnd) (match TokEnd)
 
 
 listArgFunc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgFunc idf follow recSet =
-    do lookAhead parseEOF
+    do lookAhead eof
        return Nothing
        <|> do lookAhead follow
               return $ return []
-       <|> do ar <- argFunc idf (follow <|> parseComma) (recSet <|> parseComma)
+       <|> do ar <- argFunc idf (follow <|> match TokComma) (recSet <|> match TokComma)
               rl <- listArgFuncAux idf follow recSet
               return(liftA2 (:) ar rl)
 
 
 argFunc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe (T.Text, Type))
 argFunc idf follow recSet =
-    try ( do id <- parseId
-             try ( do parseColon
+    try ( do id <- identifier
+             try ( do match TokColon
                       t  <- myType follow follow
                       pos <- getPosition
                       addFunctionArgParser idf id t pos
@@ -192,52 +126,35 @@ argFunc idf follow recSet =
 
 listArgFuncAux :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgFuncAux idf follow recSet =
-    do lookAhead parseEOF
+    do lookAhead eof
        return Nothing
        <|> do lookAhead follow
               return $ return []
-       <|> try ( do parseComma
-                    ar <- argFunc idf (follow <|> parseComma) (recSet <|> parseComma)
+       <|> try ( do match TokComma
+                    ar <- argFunc idf (follow <|> match TokComma) (recSet <|> match TokComma)
                     rl <- listArgFuncAux idf follow recSet
                     return(liftA2 (:) ar rl)
                )
                <|> do genNewError follow PE.Comma
                       return Nothing
 
-proc :: {-Graciela Token -> Graciela Token ->-} Graciela (Maybe (AST Type) )
+proc :: {-Graciela Token -> Graciela Token ->-} Graciela (Maybe AST )
 proc {-follow recSet-} = do
     pos <- getPosition
-
     match TokProc
-        <|> do try $ do t <- parseId
-                        lookAhead parseId
-                        genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do t <- lookAhead parseId
-               genNewError (return $TokId t) PE.ProcOrFunc
-        <|> do (t:_) <- manyTill anyToken (lookAhead parseId)
-               genNewError (return $fst t) PE.Begin                            -- proc
-
-    id <- panicModeId parseColon                                            -- Id
-    -- panicMode parseColon parseLeftParent PE.Colon                           -- :
-    panicMode parseLeftParent (argTypes <|> parseTokRightPar) PE.TokenLP    -- (
+    id <- identifier
+    match TokLeftPar
     newScopeParser
-    targs <- listArgProc id parseTokRightPar parseTokRightPar               -- arguments
-    panicMode parseTokRightPar parseTokLeftPre PE.TokenRP                   -- )
-    notFollowedBy parseArrow
+    targs <- listArgProc id (match TokRightPar) (match TokRightPar)               -- arguments
+    match TokRightPar
+    notFollowedBy $ match TokArrow
     try $do match TokBegin
-     <|> do t <- lookAhead $ parseVar <|> parseTokLeftPre
-            genNewError (return t) PE.Begin                                 -- begin
-     <|> do (t:_) <- manyTill anyToken (lookAhead $
-                               parseVar <|> parseTokLeftPre)
-            genNewError (return $fst t) PE.Begin
-    dl   <- decListWithRead parseTokLeftPre parseTokLeftPre                 -- declarations
-    pre  <- precondition parseTokOpenBlock                                  -- pre
-    la   <- block parseTokLeftPost parseTokLeftPost                         -- body
-    post <- postcondition parseEnd                                          -- post
+    dl   <- decListWithRead (match TokLeftPre) (match TokLeftPre)
+    pre  <- precondition $ match TokOpenBlock
+    la   <- block (match TokLeftPost) (match TokLeftPost)
+    post <- postcondition $ match TokEnd
     try $do match TokEnd
-     <|> do (t,_) <- lookAhead anyToken
-            genNewError (return t) PE.LexEnd
-    sb <- getCurrentScope
+    sb   <- getCurrentScope
     addProcTypeParser id targs pos sb
     exitScopeParser
     addProcTypeParser id targs pos sb
@@ -245,68 +162,19 @@ proc {-follow recSet-} = do
                 <*> targs <*> return GEmpty
     where
         argTypes :: Graciela Token
-        argTypes = choice   [ parseIn
-                            , parseOut
-                            , parseInOut
-                            , parseRef
+        argTypes = choice   [ match TokIn
+                            , match TokOut
+                            , match TokInOut
+                            , match TokRef
                             ]
-
-
-    -- do pos <- getPosition
-    --    try (
-    --       do parseProc
-    --          try (
-    --            do id <- parseId
-    --               try (
-    --                 do parseColon
-    --                    try (
-    --                      do parseLeftParent
-    --                         newScopeParser
-    --                         targs <- listArgProc id parseTokRightPar parseTokRightPar
-    --                         try (
-    --                           do parseTokRightPar
-    --                              try (
-    --                                do parseBegin
-    --                                   dl   <- decListWithRead parseTokLeftPre (parseTokLeftPre <|> recSet)
-    --                                   pre  <- precondition parseTokOpenBlock
-    --                                   la   <- block parseTokLeftPost parseTokLeftPost
-    --                                   post <- postcondition parseEnd
-    --                                   try (
-    --                                     do parseEnd
-    --                                        sb   <- getCurrentScope
-    --                                        addProcTypeParser id targs pos sb
-    --                                        exitScopeParser
-    --                                        addProcTypeParser id targs pos sb
-    --                                        return $ (liftM5 (DefProc id sb) la pre post (Just (EmptyAST GEmpty)) dl) <*> targs <*> (return GEmpty)
-    --                                       )
-    --                                       <|> do genNewError follow PE.LexEnd
-    --                                              return Nothing
-    --                                   )
-    --                                   <|> do genNewError follow PE.Begin
-    --                                          return Nothing
-    --                              )
-    --                              <|> do genNewError follow PE.TokenRP
-    --                                     return Nothing
-    --                         )
-    --                         <|> do genNewError follow PE.TokenLP
-    --                                return Nothing
-    --                    )
-    --                    <|> do genNewError follow PE.Colon
-    --                           return Nothing
-    --               )
-    --               <|> do genNewError follow PE.IdError
-    --                      return Nothing
-    --        )
-    --        <|> do genNewError follow PE.ProcOrFunc
-    --               return Nothing
 
 listArgProc :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe [(T.Text, Type)])
 listArgProc id follow recSet =do
     try $do lookAhead follow
             return $ return []
-     <|> do lookAhead parseEOF
+     <|> do lookAhead eof
             return Nothing
-     <|> do ar <- arg id (follow <|> parseComma) (recSet <|> parseComma) `sepBy` parseComma
+     <|> do ar <- arg id (follow <|> match TokComma) (recSet <|> match TokComma) `sepBy` match TokComma
             return (Just $ foldr aux [] ar)
       where
           aux Nothing  l = l
@@ -317,28 +185,27 @@ listArgProcAux :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe 
 listArgProcAux id follow recSet =
     do lookAhead follow
        return $ return []
-       <|> do lookAhead parseEOF
+       <|> do lookAhead eof
               return Nothing
        <|> try (
-             do parseComma
-                ar <- arg id (follow <|> parseComma) (recSet <|> parseComma)
+             do match TokComma
+                ar <- arg id (follow <|> match TokComma) (recSet <|> match TokComma)
                 rl <- listArgProcAux id follow recSet
                 return(liftA2 (:) ar rl)
                )
                <|> do genNewError follow PE.Comma
                       return Nothing
 
-
 argumentType :: Graciela Token -> Graciela Token -> Graciela (Maybe TypeArg)
 argumentType follow recSet =
-    do lookAhead (parseIn <|> parseOut <|> parseInOut <|> parseRef)
-       do parseIn
+    do lookAhead (match TokIn <|> match TokOut <|> match TokInOut <|> match TokRef)
+       do match TokIn
           return (return In)
-          <|> do parseOut
+          <|> do match TokOut
                  return (return Out)
-          <|> do parseInOut
+          <|> do match TokInOut
                  return (return InOut)
-          <|> do parseRef
+          <|> do match TokRef
                  return (return Ref)
     <|> do genNewError follow TokenArg
            return Nothing
@@ -346,10 +213,10 @@ argumentType follow recSet =
 
 arg :: T.Text -> Graciela Token -> Graciela Token -> Graciela (Maybe (T.Text, Type))
 arg pid follow recSet =
-    do at <- argumentType parseTokId (recSet <|> parseTokId)
+    do at <- argumentType (match TokId) (recSet <|> match TokId)
        try (
-         do id  <- parseId
-            parseColon
+         do id  <- identifier
+            match TokColon
             t   <- myType follow recSet
             pos <- getPosition
             addArgProcParser id pid t pos at
@@ -361,8 +228,8 @@ arg pid follow recSet =
 -- Deberian estar en el lugar adecuando, hasta ahora aqui porq no le he usado en archivos q no dependen de Procedure
 
 panicModeId :: Graciela Token -> Graciela T.Text
-panicModeId follow =
-        try parseId
+panicModeId token follow =
+        try identifier
     <|> do t <- lookAhead follow
            genNewError (return t) PE.IdError
            return $ T.pack "No Id"

@@ -9,8 +9,8 @@ import           Graciela
 import           Lexer
 import           Limits
 import           MyParseError              as PE
+import           Parser.State              as PS
 import           Parser.Token
-import           Parser.State               as PS
 import           Token
 import           Type
 --------------------------------------------------------------------------------
@@ -19,17 +19,23 @@ import           Control.Monad.Trans.State (evalState)
 import           Data.Functor              (($>))
 import           Data.Monoid               ((<>))
 import           Data.Text                 (Text, pack, unpack)
-import           Text.Megaparsec           (between, runParser, runParserT,
-                                            sepBy, sepBy1, some, try, (<|>))
+import           Text.Megaparsec           (between, getPosition, runParser,
+                                            runParserT, sepBy, sepBy1, some,
+                                            try, (<|>))
 import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
 
 import           Data.Tree
 
 
-expression :: Graciela (Tree String)
-expression = makeExprParser term operator
+expression :: Graciela AST
+expression = do
+    makeExprParser term operator
+    p <- getPosition                    -- Dummy
+    return $ AST p p GEmpty (Bool True) -- Dummy
 
+expression' :: Graciela (Tree String)
+expression' = makeExprParser term operator
 
 quantification = percents q
   where
@@ -37,9 +43,9 @@ quantification = percents q
       q <- quantifier
       (var, t) <- declaration
       match TokPipe
-      range <- expression
+      range <- expression'
       match TokPipe
-      expr <- expression
+      expr <- expression'
       pure . Node "Quantification" $
         [ leaf . show $ q
         , leaf . unpack $  var
@@ -71,7 +77,7 @@ leaf x = Node x []
 call :: Graciela (Tree String)
 call = do
   name <- identifier
-  args <- parens (expression `sepBy` match TokComma)
+  args <- parens (expression' `sepBy` match TokComma)
   return $
     Node ("call " <> unpack name) $
       case args of
@@ -94,7 +100,7 @@ if' element = between (match TokIf) (match TokFi) contents
 
 
 term :: Graciela (Tree String)
-term =  parens expression
+term =  parens expression'
     <|> try call
     <|> value
     <|> (leaf . show <$> boolLit)
@@ -118,7 +124,7 @@ term =  parens expression
       ]
 
     subindex = do
-      es <- some $ brackets expression
+      es <- some $ brackets expression'
       pure (\x -> Node "sub" (x:es))
 
     pointer = match TokTimes $> \x -> Node "pointer to" [x]
@@ -176,5 +182,5 @@ operator =
 concatLexPar :: Text -> IO ()
 concatLexPar input = do
   let Right ets = runParser lexer "" input
-  let Right r   = evalState (runParserT expression "" ets) initialState
+  let Right r   = evalState (runParserT expression' "" ets) initialState
   putStrLn . drawTree $ r

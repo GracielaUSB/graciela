@@ -40,35 +40,35 @@ import           Control.Applicative    (liftA2, liftA3)
 import           Control.Monad          (liftM4)
 import           Control.Monad.Identity (Identity)
 import qualified Data.Text              as T
-import           Text.Megaparsec
+import           Text.Megaparsec        hiding (Token)
 -------------------------------------------------------------------------------
 
 data CasesConditional = CExpression | CAction
 
 
-actionsList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+actionsList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST])
 actionsList follow recSet =
   do lookAhead follow
      genNewEmptyError
      return Nothing
-     <|> do ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
+     <|> do ac <- action (follow <|> match TokSemicolon) (recSet <|> match TokSemicolon)
             rl <- actionsListAux follow recSet
             return $ liftA2 (:) ac rl
 
-actionsListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+actionsListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST])
 actionsListAux follow recSet =
-  do parseSemicolon
-     ac <- action (follow <|> parseSemicolon) (recSet <|> parseSemicolon)
+  do match TokSemicolon
+     ac <- action (follow <|> match TokSemicolon) (recSet <|> match TokSemicolon)
      rl <- actionsListAux follow recSet
      return (liftA2 (:) ac rl)
      <|> return $ return []
 
-action :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+action :: Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 action follow recSet =
     do pos <- getPosition
        do  lookAhead followAction
            actionAux follow recSet
-           <|> do lookAhead parseTokLeftA
+           <|> do lookAhead $ match TokLeftA
                   as  <- assertion followAction
                   do lookAhead followAction
                      res <- actionAux follow recSet
@@ -80,7 +80,7 @@ action follow recSet =
            <|> do genNewError follow Action
                   return Nothing
 
-actionAux :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+actionAux :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 actionAux follow recSet =
         skip follow recSet
     <|> conditional CAction follow recSet
@@ -96,39 +96,39 @@ actionAux follow recSet =
 
 
 followAction ::  Graciela Token
-followAction =  parseTokId
-            <|> parseIf
-            <|> parseAbort
-            <|> parseSkip
-            <|> parseTokOpenBlock
-            <|> parseWrite
-            <|> parseWriteln
-            <|> parseTokLeftInv
-            <|> parseRandom
+followAction =  match TokId
+            <|> match TokIf
+            <|> match TokAbort
+            <|> match TokSkip
+            <|> match TokOpenBlock
+            <|> match TokWrite
+            <|> match TokWriteln
+            <|> match TokLeftInv
+            <|> match TokRandom
 
 
-block :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+block :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 block follow recSet =
     do pos <- getPosition
-       parseTokOpenBlock
+       match TokOpenBlock
        newScopeParser
        dl  <- decList followAction (recSet <|> followAction)
-       la  <- actionsList parseTokCloseBlock (parseTokCloseBlock <|> recSet)
+       la  <- actionsList match TokCloseBlock (match TokCloseBlock <|> recSet)
        st  <- getCurrentScope
        exitScopeParser
-       do parseTokCloseBlock
+       do match TokCloseBlock
           return $ liftA2 (Block pos st) dl la <*> return GEmpty
           <|> do genNewError follow TokenCB
                  return Nothing
 
 
-random :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+random :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 random follow recSet =
     do pos <- getPosition
-       parseRandom
-       do parseLeftParent
-          do id  <- parseId
-             do parseTokRightPar
+       match TokRandom
+       do match TokLeftPar
+          do id  <- identifier
+             do match TokRightPar
                 cont <- lookUpSymbol id
                 case cont of
                   Just (Contents _ _ _ t _ _) ->
@@ -147,171 +147,174 @@ random follow recSet =
                  return Nothing
 
 
-guardsList :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+guardsList :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela [AST]
 guardsList casec follow recSet =
-    do g  <- guard casec (parseSepGuards <|> follow) (parseSepGuards <|> recSet)
+    do g  <- guard casec (match TokSepGuards <|> follow) (match TokSepGuards <|> recSet)
        gl <- guardsListAux casec follow recSet
-       return $ liftA2 (:) g gl
+       return (g:gl)
 
 
-guardsListAux :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+guardsListAux :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela [AST]
 guardsListAux casec follow recSet =
-  do parseSepGuards
-     g  <- guard casec (parseSepGuards <|> follow) (recSet <|> parseSepGuards)
+  do match TokSepGuards
+     g  <- guard casec (match TokSepGuards <|> follow) (recSet <|> match TokSepGuards)
      rl <- guardsListAux casec follow recSet
      return $ liftA2 (:) g rl
      <|> return $ return []
 
 
-guard :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
-guard CAction follow recSet     =
-    do pos <- getPosition
-       e <- expr parseArrow (recSet <|> parseArrow)
-       parseArrow
+guard :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela AST
+guard CAction follow recSet =
+    do posFrom <- getPosition
+       e <- expression
+       match TokArrow
        a <- action follow recSet
-       return (liftA2  (\f -> f pos) (liftA2 Guard e a) (return GEmpty))
+       posTo < getPosition
+       return $ AST posFrom posTo GEmpty (Guard e a)
 
 guard CExpression follow recSet =
-    do pos <- getPosition
-       e <- expr parseArrow (recSet <|> parseArrow)
-       parseArrow
-       do lookAhead parseIf
+    do posFrom <- getPosition
+       e <- expression
+       match TokArrow
+       do lookAhead (match TokIf)
           a <- conditional CExpression follow recSet
-          return (liftA2 (\f -> f pos) (liftA2 GuardExp e a) (return GEmpty))
-          <|> do a <- expr follow recSet
-                 return (liftA2 (\f -> f pos) (liftA2 GuardExp e a) (return GEmpty))
+          posTo <- getPosition
+          return $ AST posFrom posTo GEmpty (Guard e a)
+          <|> do a <- expression
+                 posTo <- getPosition
+                 return $ AST posFrom posTo GEmpty (Guard e a)
 
 
-functionCallOrAssign ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+
+
+functionCallOrAssign ::  Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 functionCallOrAssign follow recSet =
     do pos <- getPosition
-       id <- parseId
-       do parseLeftParent
-          lexp  <- listExp (follow <|> parseTokRightPar) (recSet <|> parseTokRightPar)
-          do parseTokRightPar
-             sb <- getCurrentScope
-             return $ fmap (ProcCall id sb pos) lexp <*> return GEmpty
-             <|> do genNewError follow TokenRP
-                    return Nothing
-          <|> do bl <- bracketsList (parseComma <|> parseAssign) (parseComma <|> parseAssign <|> recSet)
-                 rl <- idAssignListAux parseAssign (recSet <|> parseAssign)
-                 t <- lookUpConsParser id
-                 parseAssign
-                 do le <- listExp follow recSet
-                    case bl of
-                      Nothing  -> return Nothing
-                      Just bl' ->
-                        case bl' of
-                          [] ->
-                            do let idast = fmap (Id pos id) t
-                               return $ liftM4 LAssign (liftA2 (:) idast rl) le (return pos) (return GEmpty)
-                          _  ->
-                            do let idast = fmap (ArrCall pos id) bl <*>  t
-                               return $ liftM4 LAssign (liftA2 (:) idast rl) le (return pos) (return GEmpty)
-                 <|> do genNewError follow TokenAs
-                        return Nothing
+       id <- identifier
+       do 
+          lexp  <- parens (expression `sepBy` match TokComma)
+          sb <- getCurrentScope
+          return $ fmap (ProcCall id sb pos) lexp <*> return GEmpty
+            
+        <|> do bl <- brackets (many expression)
+               rl <- idAssignListAux (match TokAssign) (recSet <|> match TokAssign)
+               t <- lookUpConsParser id
+               match TokAssign
+               do le <- many expression
+                  case bl of
+                    Nothing  -> return Nothing
+                    Just bl' ->
+                      case bl' of
+                        [] ->
+                          do let idast = fmap (Id pos id) t
+                             return $ liftM4 LAssign (liftA2 (:) idast rl) le (return pos) (return GEmpty)
+                        _  ->
+                          do let idast = fmap (ArrCall pos id) bl <*>  t
+                             return $ liftM4 LAssign (liftA2 (:) idast rl) le (return pos) (return GEmpty)
+               <|> do genNewError follow TokenAs
+                      return Nothing
 
-idAssignListAux :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])
+idAssignListAux :: Graciela Token -> Graciela Token -> Graciela [AST]
 idAssignListAux follow recSet =
-  do parseComma
+  do match TokComma
      pos <- getPosition
-     do ac <- parseId
+     do ac <- identifier
         t  <- lookUpConsParser ac
-        bl <- bracketsList (parseComma <|> parseAssign)
-                (parseComma <|> parseAssign <|> recSet)
+        bl <- brackets (many expression)
         rl <- idAssignListAux follow recSet
         case bl of
-          Nothing  -> return Nothing
+          Nothing  -> return []
           Just bl' ->
             case bl' of
-              [] ->
-                do let ast = fmap (Id pos ac) t
-                   return $ liftA2 (:) ast rl
-              _  ->
-                do let ast = fmap (ArrCall pos ac) bl <*>  t
-                   return $ liftA2 (:) ast rl
+              [] -> do 
+                posTo <- getPosition
+                let  t' = case t of; Just x -> x; Nothing -> GEmpty
+                let ast = AST posFrom posTo t' (Id ac)
+                return (ast : rl)
+              _  -> do 
+                posTo <- getPosition
+                let  t' = case t of; Just x -> x; Nothing -> GEmpty
+                let ast = AST posFrom posTo t' (ArrCall ac bl)
+                return (ast : rl)
         <|> do genNewError follow IdError
-               return Nothing
-     <|> return $ return []
+               return []
+     <|> return []
 
-write :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
-write follow recSet =
-    do pos <- getPosition
-       parseWrite
-       do parseLeftParent
-          e   <- expr parseTokRightPar (recSet <|> parseTokRightPar)
-          do parseTokRightPar
-             return $ fmap (Write False) e <*> return pos <*> return GEmpty
+write :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
+write follow recSet = write' False follow
+
+writeln :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
+writeln follow recSet = write' True follow
+
+write' ::  Bool -> Graciela Token -> Graciela (Maybe AST )
+write' ln follow =
+    do posFrom <- getPosition
+       match TokWriteln
+       do match TokLeftPar
+          e <- expression
+          do match TokRightPar
+             posTo <- getPosition
+             return $ Just $ AST posFrom posTo GEmpty (Write ln e) 
              <|> do genNewError follow TokenRP
                     return Nothing
           <|> do genNewError follow TokenLP
                  return Nothing
 
-
-writeln ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
-writeln follow recSet =
-    do pos <- getPosition
-       parseWriteln
-       do parseLeftParent
-          e <- expr parseTokRightPar (recSet <|> parseTokRightPar)
-          do parseTokRightPar
-             return $ fmap (Write True) e <*> return pos <*> return GEmpty
-             <|> do genNewError follow TokenRP
-                    return Nothing
-          <|> do genNewError follow TokenLP
-                 return Nothing
-
-new :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+new :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 new follow recSet = do
-    parseNew
-    parseLeftParent
-    _ <- parseId
-    parseTokRightPar
+    posFrom <- getPosition
+    match TokNew
+    match TokLeftPar
+    id <- identifier
+    match TokRightPar
+    posTo <- getPosition
+    return $ Just $ AST posFrom posTo GEmpty (New id) 
 
-    return . Just . EmptyAST $ GEmpty
-
-free :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+free :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 free follow recSet = do
-    parseFree
-    parseLeftParent
-    _ <- parseId
-    parseTokRightPar
+    posFrom <- getPosition
+    match TokFree
+    match TokLeftPar
+    id <- identifier
+    match TokRightPar
+    posTo <- getPosition
+    return $ Just $ AST posFrom posTo GEmpty (Free id) 
 
-    return . Just . EmptyAST $ GEmpty
-
-abort ::  Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+abort ::  Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 abort folow recSet =
     do pos <- getPosition
-       parseAbort
-       return $ return $ Abort pos GEmpty
+       match TokAbort
+       return $ return $ AST pos pos GEmpty Abort
 
 
-conditional :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+conditional :: CasesConditional -> Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 conditional casec follow recSet =
-    do pos <- getPosition
-       parseIf
-       gl <- guardsList casec parseFi (recSet <|> parseFi)
-       do parseFi
-          return $ fmap Cond gl <*> return pos <*> return GEmpty
+    do posFrom <- getPosition
+       match TokIf
+       gl <- guardsList casec (match TokFi) (recSet <|> match TokFi)
+       do match TokFi
+          posTo <- getPosition
+          return $ Just $ AST posFrom posTo GEmpty (Cond gl)
           <|> do genNewError follow TokenFI
                  return Nothing
 
-repetition :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type) )
+repetition :: Graciela Token -> Graciela Token -> Graciela (Maybe AST )
 repetition follow recSet =
-    do pos <- getPosition
-       inv <- invariant parseTokLeftBound
-       bou <- bound parseDo
-       do parseDo
-          gl <- guardsList CAction parseOd (recSet <|> parseOd)
-          do parseOd
-             return $ fmap Rept gl <*> inv <*> bou <*> return pos <*> return GEmpty
+    do posFrom <- getPosition
+       inv <- invariant $ match TokLeftBound
+       bou <- bound     $ match TokDo
+       do match TokDo
+          gl <- guardsList CAction (match TokOd) (recSet <|> match TokOd)
+          posTo <- getPosition
+          do match TokOd
+             return $ Just $ AST posFrom posTo GEmpty (Rept gl inv bou)
              <|> do genNewError follow TokenOD
                     return Nothing
           <|> do genNewError follow TokEOFO
                  return Nothing
 
-skip :: Graciela Token -> Graciela Token -> Graciela (Maybe (AST Type))
+skip :: Graciela Token -> Graciela Token -> Graciela (Maybe AST)
 skip follow recSet =
     do  pos <- getPosition
-        parseSkip
-        return $ return $ Skip pos GEmpty
+        match TokSkip
+        return $ return $ AST pos pos GEmpty Skip

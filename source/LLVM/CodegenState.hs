@@ -20,11 +20,14 @@ import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq
 import           Data.Text                          (Text, unpack)
 import           Data.Word
-import           LLVM.General.AST                   as AST
+import           LLVM.General.AST.Name              (Name(..))
+import           LLVM.General.AST.Instruction       (Instruction(..), Named(..), Terminator(..))
+import           LLVM.General.AST.Operand           (Operand(..), CallableOperand)
+import           LLVM.General.AST                   (Definition(..))
 import           LLVM.General.AST.AddrSpace
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention as CC
-import qualified LLVM.General.AST.Constant          as C
+import qualified LLVM.General.AST.Constant          as C (Constant(..))
 import           LLVM.General.AST.Float
 import           LLVM.General.AST.Global            as Global
 import           LLVM.General.AST.Linkage

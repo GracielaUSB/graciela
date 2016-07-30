@@ -310,7 +310,6 @@ instance Show TypeError where
         (IntError  id           _) ->
             ": La variable " ++ show id ++ " no es del tipo int."
 
-
 drawTypeError n =
     unlines . map show . toList . take' n . Seq.sortBy (compare `on` pos)
 

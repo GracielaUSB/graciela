@@ -82,8 +82,8 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (reserved "out"         $> TokOut)
       <|> (reserved "inout"       $> TokInOut)
       <|> (reserved "ref"         $> TokRef)
-      <|> (symbol   ":="          $> TokAsig)
-      <|> (symbol   "\8788"       $> TokAsig) -- ≔
+      <|> (symbol   ":="          $> TokAssign)
+      <|> (symbol   "\8788"       $> TokAssign) -- ≔
 
       <|> (symbol   ","           $> TokComma)
       <|> (symbol   ":"           $> TokColon)
