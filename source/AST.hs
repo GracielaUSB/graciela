@@ -177,12 +177,12 @@ data AST'
   | DecArray
     { dimension :: [AST]
     }
-  | DefFun
+  | DefFunc
     { dfname    :: Text
     , astST     :: SymbolTable
     , fbody     :: AST
     , retType   :: Type
-    , nodeBound :: AST
+    -- , nodeBound :: AST
     , params    :: [(Text, Type)]
     }
   | DefProc
@@ -191,7 +191,7 @@ data AST'
     , prbody    :: AST
     , nodePre   :: AST
     , nodePost  :: AST
-    , nodeBound :: AST
+    -- , nodeBound :: AST
     , constDec  :: [AST]
     , params    :: [(Text, Type)]
     }
@@ -360,20 +360,19 @@ instance Treelike AST where
       Node "Array Declaration"
         (toForest dimension)
 
-    DefFun { dfname, {-astST,-} fbody, retType, nodeBound, params } ->
+    DefFunc { dfname, {-astST,-} fbody, retType, {-nodeBound,-} params } ->
       Node ("Function " ++ unpack dfname ++ " -> " ++ show retType ++ posFrom')
         [ Node "Parameters" (showPs params)
-        , toTree nodeBound
         , toTree fbody
         ]
 
     DefProc { pname, {-astST,-} prbody, nodePre, nodePost
-            , nodeBound, constDec, params } ->
+            , {-nodeBound,-} constDec, params } ->
       Node ("Procedure " ++ unpack pname )
         [ Node "Parameters" (showPs params)
         , Node "Declarations" (toForest constDec)
         , toTree nodePre
-        , toTree nodeBound
+        -- , toTree nodeBound
         , toTree prbody
         , toTree nodePost
         ]
@@ -716,7 +715,7 @@ putSourcePosLn position = " --- en el " <> show position <> "\n"
 --   <> show st
 --
 --
--- drawAST level (DefFun name st _ body _ bound _ ast) =
+-- drawAST level (DefFunc name st _ body _ bound _ ast) =
 --   putSpacesLn level <> "Función: " <> show name
 --                      <> " //Tag: "   <> show ast
 --                      <> drawAST(level + 4) bound

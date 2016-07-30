@@ -62,8 +62,8 @@ data Type
     | GPointer Type
     -- | Tipo para las funciones
     | GFunction
-       { paramType  :: [Type] -- ^ Los tipos de los parametros
-       , returnType ::  Type   -- ^ El tipo de retorno
+       { fParamType  :: [Type] -- ^ Los tipos de los parametros
+       , fReturnType ::  Type   -- ^ El tipo de retorno
        }
     | GProcedure [Type] -- ^ Tipo para los procedimientos
     | GError            -- ^ Tipo usado para propagar los errores

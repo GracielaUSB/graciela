@@ -17,8 +17,8 @@ import           Text.Megaparsec (getPosition, lookAhead, try, (<|>))
 import           Text.Megaparsec hiding (Token)
 --------------------------------------------------------------------------------
 
-myBasicType :: Graciela Token -> Graciela Token -> Graciela Text
-myBasicType follow recSet = identifier
+myBasicType :: Graciela Token -> Graciela Text
+myBasicType follow = identifier
 
 parsePointer :: Type -> Graciela Type
 parsePointer t =
@@ -27,8 +27,8 @@ parsePointer t =
     parsePointer $GPointer t
   <|> return t
 
-myType :: Graciela Token -> Graciela Token -> Graciela Type
-myType follow recSet =
+myType :: Graciela Token -> Graciela Type
+myType follow =
       do
         tname <- identifier
         t <- getType tname
@@ -38,10 +38,10 @@ myType follow recSet =
       <|> do  
             match TokArray
             match TokLeftBracket
-            n <- parseConstNumber (match TokOf) (recSet <|> match TokOf)
+            n <- parseConstNumber (match TokOf)
             match TokRightBracket
             match TokOf
-            t <- myType follow recSet
+            t <- myType follow
             case n of
                 Nothing -> return GEmpty
                 Just n' -> return $ GArray n' t
@@ -49,14 +49,13 @@ myType follow recSet =
       <|> do
             id <- identifier
             match TokOf
-            t <- myType follow recSet
+            t <- myType follow
             -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
             return (GDataType id [t] [] [])
 
 
-parseConstNumber :: Graciela Token -> Graciela Token
-                  -> Graciela (Maybe (Either Text Integer))
-parseConstNumber follow recSet =
+parseConstNumber :: Graciela Token -> Graciela (Maybe (Either Text Integer))
+parseConstNumber follow =
     do pos <- getPosition
        do  lookAhead follow
            genNewEmptyError

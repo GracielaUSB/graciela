@@ -33,7 +33,7 @@ import           LLVM.General.AST.Type
   
 
 
-createExpression :: AST T.Type -> LLVM Operand
+createExpression :: AST -> LLVM Operand
 createExpression (AST.Id _ id t) = do
   var <- use varsLoc
   let (n, ty) = (TE.unpack id, toType t)

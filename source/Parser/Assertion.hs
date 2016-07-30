@@ -1,4 +1,4 @@
-module Parser.Assertions
+module Parser.Assertion
   ( assertions
   , precondition
   , postcondition
@@ -14,7 +14,7 @@ import           AST
 import           Contents
 import           Graciela
 import           MyParseError        as PE
-import           Parser.Declarations
+import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
