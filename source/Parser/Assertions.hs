@@ -24,38 +24,40 @@ import           Type
 -------------------------------------------------------------------------------
 import qualified Control.Applicative as AP
 import           Control.Monad       (unless, void)
-import           Text.Megaparsec
+import           Text.Megaparsec     hiding (Token)
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 assertions :: Graciela Token -> Graciela Token
            -> StateCond      -> Graciela Token
-           -> Graciela (Maybe (AST Type) )
-assertions initial final ty follow = do
+           -> Graciela AST
+assertions initial final stateCond follow = do
+    posFrom <- getPosition
     initial
     e <- expression
     final
-    return $ AP.liftA2 (States ty pos) e (return GEmpty)
+    posTo <- getPosition
+    return $ AST posFrom posTo GEmpty (States stateCond e)
 
-precondition :: Graciela Token -> Graciela (Maybe (AST Type) )
+precondition :: Graciela Token -> Graciela AST
 precondition follow = assertions (match TokLeftPre) (match TokRightPre) Pre follow
 
-postcondition :: Graciela Token -> Graciela (Maybe (AST Type) )
+postcondition :: Graciela Token -> Graciela AST
 postcondition follow = assertions (match TokLeftPost) (match TokRightPost) Post follow
 
-bound :: Graciela Token -> Graciela (Maybe (AST Type) )
+bound :: Graciela Token -> Graciela AST
 bound follow = assertions (match TokLeftBound) (match TokRightBound) Bound follow
 
-assertion :: Graciela Token -> Graciela (Maybe (AST Type) )
+assertion :: Graciela Token -> Graciela AST
 assertion follow = assertions (match TokLeftA) (match TokRightA) Assertion follow
 
-invariant :: Graciela Token -> Graciela (Maybe (AST Type) )
+invariant :: Graciela Token -> Graciela AST
 invariant follow = assertions (match TokLeftInv) (match TokRightInv) Invariant follow
 
-repInvariant :: Graciela (Maybe (AST Type))
+repInvariant :: Graciela AST
 repInvariant = assertions (match TokLeftRep) (match TokRightRep) Representation
-                          (parseEnd <|> parseProc <|> (match TokLeftAcopl))
+                          (match TokEnd <|> match TokProc <|> (match TokLeftAcopl))
 
-coupInvariant :: Graciela (Maybe (AST Type) )
-coupInvariant = assertions (match TokLeftAcopl) (match TokRightAcopl) Couple
-                          (parseEnd <|> parseProc)
+coupInvariant :: Graciela AST
+coupInvariant = assertions (match TokLeftAcopl) (match TokRightAcopl) Coupling
+                          (match TokEnd <|> match TokProc)

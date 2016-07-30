@@ -55,6 +55,12 @@ instance Show OpRel where
   show GEqual  = "(>=)"
   show Ine     = "(!=)"
 
+data OpSet = Difference | Intersection | Union
+instance Show OpSet where
+  show Difference   = "Difference (∖)"
+  show Intersection = "Intersection (∪)"
+  show Union        = "Union (∩)"
+  
 
 data Conv = ToInt | ToDouble | ToChar
     deriving (Eq)
@@ -69,9 +75,9 @@ data OpUn = Minus | Not | Abs | Sqrt
   deriving (Eq)
 
 instance Show OpUn where
+  show Abs    = "abs"
   show Minus  = "(-)"
   show Not    = "not"
-  show Abs    = "abs"
   show Sqrt   = "sqrt"
 
 
@@ -80,13 +86,13 @@ data StateCond
   deriving (Eq)
 
 instance Show StateCond where
-  show Pre            = "Precondición"
-  show Post           = "Postcondición"
   show Assertion      = "Aserción"
   show Bound          = "Función de Cota"
-  show Invariant      = "Invariante"
-  show Representation = "Invariante de Representation"
   show Coupling       = "Invariante de Acoplamiento"
+  show Invariant      = "Invariante"
+  show Post           = "Postcondición"
+  show Pre            = "Precondición"
+  show Representation = "Invariante de Representation"
 
 
 data QuantOp = ForAll | Exists | Summation | Product | Minimum | Maximum
@@ -181,7 +187,7 @@ data AST'
     }
   | DefProc
     { pname     :: Text
-    , astST :: SymbolTable
+    , astST     :: SymbolTable
     , prbody    :: AST
     , nodePre   :: AST
     , nodePost  :: AST
@@ -191,6 +197,9 @@ data AST'
     }
   | EmptyAST
   | EmptyRange
+  | Free 
+    { idName :: Text
+    }
   | Float
     { expFloat :: Double
     } -- ^ Numero Flotante.
@@ -221,6 +230,9 @@ data AST'
     { ids   :: [AST]
     , exprs :: [AST]
     }
+  | New 
+    { idName :: Text
+    }
   | ProcCall
     { pname :: Text
     , astST :: SymbolTable
@@ -250,7 +262,7 @@ data AST'
     , retType  :: Type
     }
   | Read
-    { file     :: Maybe String
+    { file     :: Maybe Text
     , varTypes :: [Type]
     , vars     :: [(Text, SourcePos)]
     }
@@ -261,8 +273,8 @@ data AST'
     }
   | Rept
     { rguard   :: [AST]
-    , rinv     :: AST                -- ^ Instruccion Do.
-    , rbound   :: AST
+    , rinv     ::  AST                -- ^ Instruccion Do.
+    , rbound   ::  AST
     }
   | Skip -- ^ Instruccion Skip.
   | States
@@ -270,9 +282,9 @@ data AST'
     , exps     :: AST
     }
   | String
-    { mstring  :: String
-    } -- ^ Tipo string con el token.
-  | Unary -- ^ Función raíz cuadrada.
+    { mstring  :: String             -- ^ Tipo string con el token.
+    } 
+  | Unary
     { opUn   :: OpUn
     , lenExp :: AST
     }
@@ -445,7 +457,7 @@ instance Treelike AST where
       where
         hasFile = case file of
           Nothing -> ""
-          Just fileName -> " in file `"++fileName++"` "
+          Just fileName -> " in file `"++ unpack fileName++"` "
 
     Relational op l r ->
       Node (show op ++ posFrom') [toTree l, toTree r]

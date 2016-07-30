@@ -18,11 +18,11 @@ import           Data.Text                (Text)
 import           Text.Megaparsec.Pos      (SourcePos)
 --------------------------------------------------------------------------------
 
-runTVerifier :: SymbolTable -> AST Type -> (AST Type, Seq TypeError)
+runTVerifier :: SymbolTable -> AST -> (AST, Seq TypeError)
 runTVerifier sTable sTree = evalRWS (verTypeAST sTree) sTable []
 
 
-verTypeAST :: AST Type -> RWS SymbolTable (Seq TypeError) [String] (AST Type)
+verTypeAST :: AST -> RWS SymbolTable (Seq TypeError) [String] AST
 verTypeAST (AST.Program name pos defs accs _) = do
     defs' <- mapM verTypeAST defs
     accs' <- verTypeAST accs
@@ -212,7 +212,7 @@ verTypeAST ast = return ast
 
 myFromJust (Just t) = t
 
-astToRange :: Text -> AST Type -> Maybe [Range Integer]
+astToRange :: Text -> AST -> Maybe [Range Integer]
 astToRange id (Relational c _ l r _) =
     let lr = reduceAST id l
         rr = reduceAST id r
@@ -252,11 +252,11 @@ buildRange Ine      (QuanVariable id) (Reducible n) = return $ invert [Singleton
 buildRange _ _ _                                    = return $ return InfiniteRange
 
 
-getPosArgs :: [AST Type] -> MyVerType [SourcePos]
+getPosArgs :: [AST] -> MyVerType [SourcePos]
 getPosArgs args = return $ fmap position args
 
 
---drawASTtype :: (AST Type, DS.Seq TypeError) -> String
+--drawASTtype :: (AST, DS.Seq TypeError) -> String
 --drawASTtype (ast, err) = case (DS.null err) of
 --                         { True  ->  show ast
 --                         ; False -> (show ast) ++ (drawTypeError err)
@@ -264,7 +264,7 @@ getPosArgs args = return $ fmap position args
 
 
 
-createRange :: Text -> AST Type -> UnknownRange
+createRange :: Text -> AST -> UnknownRange
 createRange var (Boolean    op  _ lexp rexp _) =
     let l = createRange var lexp
         r = createRange var rexp
@@ -287,7 +287,7 @@ createRange var (Relational op _ lexp rexp _) =
 
 
 
-checkNode :: Text -> OpRel -> AST Type -> AST Type -> (AST Type, AST Type)
+checkNode :: Text -> OpRel -> AST -> AST -> (AST, AST)
 checkNode id op lexp@(Id pos id' t) rexp =
     if id == id'
       then case op of
@@ -313,14 +313,14 @@ checkNode id op lexp (Id pos id' t) =
 
 
 
-sub1 :: AST Type -> AST Type
+sub1 :: AST -> AST
 sub1 exp =
     let pos = position exp
         ty  = tag exp
     in Arithmetic Sub pos exp (Int pos 1 ty) ty
 
 
-sum1 :: AST Type -> AST Type
+sum1 :: AST -> AST
 sum1 exp =
     let pos = position exp
         ty  = tag exp

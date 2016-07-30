@@ -19,7 +19,7 @@ data Reducibility
   deriving (Show, Eq)
 
 
-reduceAST :: T.Text -> AST Type -> Reducibility
+reduceAST :: T.Text -> AST -> Reducibility
 reduceAST id (Arithmetic op _ l r _)
   |  lr == NonReducible
   || rr == NonReducible

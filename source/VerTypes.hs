@@ -270,7 +270,7 @@ validFuncArgs lnp lnc posarg sbp sbc = return True
 ---------------------------------------------------------------------
 
 
-verProcCall :: Text -> SymbolTable -> [AST Type] -> SourcePos -> [SourcePos] -> MyVerType Type
+verProcCall :: Text -> SymbolTable -> [AST] -> SourcePos -> [SourcePos] -> MyVerType Type
 verProcCall name sbc args'' pos posarg = do
     sb <- ask
     case lookUpRoot name sb of
@@ -303,7 +303,7 @@ verProcCall name sbc args'' pos posarg = do
 
 
 
-validProcArgs :: Text -> [Text] -> [AST Type] -> [SourcePos] -> SymbolTable -> SymbolTable -> MyVerType Bool
+validProcArgs :: Text -> [Text] -> [AST] -> [SourcePos] -> SymbolTable -> SymbolTable -> MyVerType Bool
 validProcArgs name lnp lnc posarg sbp sbc =
     let lat = map ((getProcArgType . fromJust) . flip checkSymbol sbp) lnp
         lvt = map (isASTLValue sbc) lnc

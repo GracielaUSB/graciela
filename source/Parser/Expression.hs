@@ -21,15 +21,22 @@ import           Data.Monoid               ((<>))
 import           Data.Text                 (Text, pack, unpack)
 import           Text.Megaparsec           (between, runParser, runParserT,
                                             sepBy, some, try, (<|>))
+import           Text.Megaparsec           hiding (Token)
 import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
 
 import           Data.Tree
 
 
-expression :: Graciela (Tree String)
-expression = makeExprParser term operator
 
+expression :: Graciela AST
+expression = do 
+    makeExprParser term operator
+    p <- getPosition                    -- Dummy
+    return $ AST p p GEmpty (Bool True) -- Dummy
+
+expression' :: Graciela (Tree String)
+expression' = makeExprParser term operator
 
 quantification = percents q
   where
@@ -37,9 +44,9 @@ quantification = percents q
       q <- quantifier
       (var, t) <- declaration
       match TokPipe
-      range <- expression
+      range <- expression'
       match TokPipe
-      expr <- expression
+      expr <- expression'
       pure . Node "Quantification" $
         [ leaf . show $ q
         , leaf . unpack $  var
@@ -70,7 +77,7 @@ leaf x = Node x []
 call :: Graciela (Tree String)
 call = do
   name <- identifier
-  args <- parens (expression `sepBy` match TokComma)
+  args <- parens (expression' `sepBy` match TokComma)
   return $
     Node ("call " <> unpack name) $
       case args of
@@ -79,7 +86,7 @@ call = do
 
 
 term :: Graciela (Tree String)
-term =  parens expression
+term =  parens expression'
     <|> try call
     <|> value
     <|> (leaf . show <$> boolLit)
@@ -101,7 +108,7 @@ term =  parens expression
       , {-Level 1-}
         [Prefix (foldr1 (.) <$> some pointer)]
       ]
-    subindex = brackets expression
+    subindex = brackets expression'
 
     pointer = match TokTimes $> \x -> Node "pointer to" [x]
 
@@ -157,5 +164,5 @@ operator =
 concatLexPar :: Text -> IO ()
 concatLexPar input = do
   let Right ets = runParser lexer "" input
-  let Right r   = evalState (runParserT expression "" ets) initialState
+  let Right r   = evalState (runParserT expression' "" ets) initialState
   putStrLn . drawTree $ r

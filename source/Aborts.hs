@@ -15,7 +15,7 @@ import           LLVM.General.AST
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.Constant  as C
 import           Text.Megaparsec.Pos        (SourcePos (..), sourceColumn,
-                                             sourceLine)
+                                             sourceLine, unPos)
 --------------------------------------------------------------------------------
 
 -- | String usado para terminar la ejecucion del programa
@@ -29,8 +29,8 @@ abortArgs :: (Operand, [ParameterAttribute])
           -> [(Operand, [ParameterAttribute])]
 abortArgs x pos =
   [ x
-  , (ConstantOperand $ C.Int 32 (fromIntegral $ sourceLine   pos), [])
-  , (ConstantOperand $ C.Int 32 (fromIntegral $ sourceColumn pos), [])
+  , (ConstantOperand $ C.Int 32 (fromIntegral $ unPos $ sourceLine   pos), [])
+  , (ConstantOperand $ C.Int 32 (fromIntegral $ unPos $ sourceColumn pos), [])
   ]
 
 

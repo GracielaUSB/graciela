@@ -20,13 +20,13 @@ import           Data.Function          (on)
 import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert)
-import           Data.Text              (Text)
-import           Text.Megaparsec
+import           Data.Text              (Text, unpack)
+import           Text.Megaparsec        hiding (Token)
 import           Text.Megaparsec.Pos    (SourcePos)
 --------------------------------------------------------------------------------
 
-addFileToReadParser :: String -> Graciela ()
-addFileToReadParser file = filesToRead %= Set.insert file
+addFileToReadParser :: Text -> Graciela ()
+addFileToReadParser file = filesToRead %= Set.insert (unpack file)
 
 
 addFunTypeParser :: Text
@@ -75,34 +75,31 @@ exitScopeParser = do
 
 
 
-addManyUniSymParser :: Maybe [(Text, SourcePos)] -> Type -> Graciela ()
-addManyUniSymParser (Just xs) t = f xs t
-    where
-        f ((id, pos):xs) t = do
-            addSymbolParser id $ Contents id Variable pos t Nothing False
-            f xs t
-        f [] _ = return ()
+addManyUniSymParser :: [(Text, SourcePos)] -> Type -> Graciela ()
+addManyUniSymParser [] _ = return ()
+addManyUniSymParser xs t = mapM_ 
+    (\(id,pos) -> addSymbolParser id $ Contents id Variable pos t Nothing False) xs
 
-addManyUniSymParser _ _ = return ()
+
+
 
 
 addManySymParser :: VarBehavior
-                 -> Maybe [(Text , SourcePos)]
+                 -> [(Text , SourcePos)]
                  -> Type
-                 -> Maybe [AST]
+                 -> [AST]
                  -> Graciela ()
--- addManySymParser vb (Just xs) t (Just ys) =
---     if length xs /= length ys then
---         do pos <- getPosition
---            sTableErrorList %= (|> IncomDefError vb pos)
---     else f vb xs t ys
---       where
---         f vb ((id, pos):xs) t (ast:ys) =
---             do addSymbolParser id $ Contents id vb pos t (astToValue ast) True
---                f vb xs t ys
---         f _ [] _ []                    = return ()
+addManySymParser  _ [] _ [] = return ()
+addManySymParser vb xs t ys =
+    if length xs /= length ys then
+        do pos <- getPosition
+           sTableErrorList %= (|> IncomDefError vb pos)
+    else mapM_ (\((id,pos), ast) -> addSymbolParser id $ Contents id vb pos t (astToValue ast) True) 
+               (zip xs ys) 
+      
 
-addManySymParser _ _ _ _               = return ()
+
+
 
 
 astToValue AST { ast' = (Int    n) } = Just $ I n
@@ -113,9 +110,10 @@ astToValue AST { ast' = (String s) } = Just $ S s
 astToValue _                         = Nothing
 
 
-verifyReadVars :: Maybe [(Text, SourcePos)] -> Graciela [Type]
-verifyReadVars (Just lid) = catMaybes <$> mapM (lookUpConsParser . fst) lid
-verifyReadVars _          = return []
+verifyReadVars :: [(Text, SourcePos)] -> Graciela [Type]
+verifyReadVars []  = return []
+verifyReadVars lid = catMaybes <$> mapM (lookUpConsParser . fst) lid
+
 
 
 addFunctionArgParser :: Text -> Text -> Type -> SourcePos -> Graciela ()
@@ -237,10 +235,10 @@ addArrayCallError waDim prDim = do
     synErrorList %= (|> ArrayError waDim prDim pos)
 
 
--- genNewError :: Graciela Token -> ExpectedToken -> Graciela ()
--- genNewError laset msg = do
---     pos <- cleanEntry laset
---     synErrorList %= (|> newParseError msg pos)
+genNewError :: Graciela Token -> ExpectedToken -> Graciela ()
+genNewError laset msg = do
+    pos <- getPosition
+    laset >>= \token -> synErrorList %= (|> newParseError msg (token, pos))
 
 
 genCustomError :: String -> Graciela ()

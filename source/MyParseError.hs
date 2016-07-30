@@ -121,11 +121,6 @@ instance Show MyParseError where
     "Error " ++ show loc ++ ": " ++ msg
 
 
--- newEmptyError :: SourcePos -> MyParseError
--- newEmptyError pos =
---     EmptyError { loc = toSourcePos pos }
-
-
--- newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
--- newParseError msg (e, pos) =
---     MyParseError { loc = toSourcePos pos, expectedTok = msg, currentTok = e }
+newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
+newParseError msg (e, pos) =
+    MyParseError { loc = pos, expectedTok = msg, currentTok = e }

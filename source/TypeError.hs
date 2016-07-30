@@ -181,6 +181,7 @@ data TypeError
         { symbol :: Text
         , pos    :: SourcePos
         }
+
     deriving (Eq)
 
 
@@ -310,7 +311,6 @@ instance Show TypeError where
             ": La variable " ++ show id ++ " no es un r-value."
         (IntError  id           _) ->
             ": La variable " ++ show id ++ " no es del tipo int."
-
 
 drawTypeError n =
     unlines . map show . toList . take' n . Seq.sortBy (compare `on` pos)
