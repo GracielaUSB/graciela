@@ -6,6 +6,7 @@ import qualified AST                                     as MyAST
 import           Contents
 import           Limits
 import           LLVM.CodegenState
+import           SourcePos
 import           SymbolTable
 import qualified Type                                    as T
 --------------------------------------------------------------------------------
@@ -26,7 +27,6 @@ import qualified LLVM.General.AST.IntegerPredicate       as IL
 import           LLVM.General.AST.Type
 import           System.Info                             (arch, os)
 import           System.Process                          (callCommand)
-import           Text.Megaparsec.Pos                     (SourcePos)
 --------------------------------------------------------------------------------
 
 writeLnInt    = "_writeLnInt"

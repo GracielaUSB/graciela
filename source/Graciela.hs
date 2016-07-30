@@ -2,10 +2,9 @@
 
 module Graciela where
 --------------------------------------------------------------------------------
-import           Contents
-import           Data.Monoid
 import           MyParseError           as P
 import           Parser.Prim
+import           SourcePos
 import           SymbolTable
 import           Token
 import           Type                   (Type (..))
@@ -19,12 +18,12 @@ import           Data.Function          (on)
 import           Data.Map               (Map)
 import qualified Data.Map               as Map (empty, fromList, insert, lookup,
                                                 member)
+import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert)
 import           Data.Text              (Text, pack)
 import           Text.Megaparsec        (Dec, ParsecT)
-import           Text.Megaparsec.Pos    (SourcePos (..), unsafePos)
 --------------------------------------------------------------------------------
 
 type Graciela = ParsecT Dec [TokenPos] (State GracielaState)
@@ -36,9 +35,13 @@ data GracielaState = GracielaState
     , _filesToRead     :: Set.Set String
     , _typesTable      :: Map Text (Type, SourcePos)
     }
-    deriving(Show)
 
 makeLenses ''GracielaState
+
+
+gracielaDef :: SourcePos
+gracielaDef = SourcePos "graciela.def" (unsafePos 1) (unsafePos 1)
+
 
 initialTypes :: Map Text (Type, SourcePos)
 initialTypes = Map.fromList
@@ -47,14 +50,12 @@ initialTypes = Map.fromList
   , (pack "boolean",(GBoolean, gracielaDef))
   , (pack "char",   (GChar,    gracielaDef))
   ]
-    where
-      gracielaDef = SourcePos "graciela.def" (unsafePos 1) (unsafePos 1)
 
 
 initialState :: GracielaState
 initialState = GracielaState
     { _synErrorList    = Seq.empty
-    , _symbolTable     = emptyTable
+    , _symbolTable     = empty gracielaDef
     , _sTableErrorList = Seq.empty
     , _filesToRead     = Set.empty
     , _typesTable      = initialTypes

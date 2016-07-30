@@ -18,14 +18,14 @@ import           Parser.Declarations
 import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
-import           ParserState
+import           Parser.State
+import           SourcePos
 import           Token
 import           Type
 -------------------------------------------------------------------------------
 import qualified Control.Applicative as AP
 import           Control.Monad       (unless, void)
 import           Text.Megaparsec
-import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 assertions :: Graciela Token -> Graciela Token
@@ -54,7 +54,7 @@ invariant follow = assertions (match TokLeftInv) (match TokRightInv) Invariant f
 
 repInvariant :: Graciela (Maybe (AST Type))
 repInvariant = assertions (match TokLeftRep) (match TokRightRep) Representation
-                          (parseEnd <|> parseProc <|> (match TokLeftAcopl))
+                          (parseEnd <|> parseProc <|> match TokLeftAcopl)
 
 coupInvariant :: Graciela (Maybe (AST Type) )
 coupInvariant = assertions (match TokLeftAcopl) (match TokRightAcopl) Couple

@@ -224,6 +224,8 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   "\8721"       $> TokSigma)    -- ∑
       <|> (reserved "pi"          $> TokPi)
       <|> (symbol   "\8719"       $> TokPi)       -- ∏
+      <|> (reserved "count"       $> TokCount)
+      <|> (symbol   "#"           $> TokCount)
 
       <|> (reserved "if"          $> TokIf)
       <|> (reserved "fi"          $> TokFi)

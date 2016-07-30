@@ -7,7 +7,7 @@ module Parser.Type
 --------------------------------------------------------------------------------
 import           Graciela
 import           Parser.Token    (identifier, integerLit, match)
-import           ParserState
+import           Parser.State
 import           Token
 import           Type
 --------------------------------------------------------------------------------

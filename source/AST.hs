@@ -6,12 +6,10 @@ import           SymbolTable
 import           Token
 import           Treelike
 import           Type
+import           SourcePos
 --------------------------------------------------------------------------------
-import           Contents            (Contents)
 import           Data.Monoid         ((<>))
--- import           Data.Range.Range    (Range)
 import           Data.Text           (Text, unpack)
-import           Text.Megaparsec.Pos (SourcePos (..))
 --------------------------------------------------------------------------------
 
 {- |
@@ -89,33 +87,21 @@ instance Show StateCond where
   show Coupling       = "Invariante de Acoplamiento"
 
 
-data QuantOp = ForAll | Exists | Summation | Product | Minimum | Maximum
+data QuantOp
+  = ForAll    | Exists
+  | Summation | Product
+  | Minimum   | Maximum
+  | Count
   deriving(Eq)
 
 instance Show QuantOp where
   show ForAll    = "Forall (∀)"
   show Exists    = "Exists (∃)"
-  show Summation = "Summatory (∑)"
-  show Product   = "Productory (∏)"
+  show Summation = "Summation (∑)"
+  show Product   = "Product (∏)"
   show Minimum   = "Minimum (min)"
   show Maximum   = "Maximum (max)"
-
-
--- --Rangos
--- data OpSet = Union | Intersec
---   deriving (Eq)
---
--- data UnknownRange
---   = SetRange
---     { getOp   :: OpSet
---     , getLexp :: UnknownRange
---     , getRexp :: UnknownRange
---     }
---   | TupleRange
---     { getLeft  :: AST
---     , getRight :: AST
---     }
---   deriving (Eq)
+  show Count     = "Count (#)"
 
 
 data QRange
@@ -156,14 +142,6 @@ data AST'
   | Cond
     { cguard   :: [AST]
     }  -- ^ Instruccion If.
-  -- | ConsAssign
-  --   { caIds   :: [(Text, SourcePos)]
-  --   , caExprs :: [AST]
-  --   }
-  -- | Constant
-  --   { int       :: Bool                  -- ^ Constantes.
-  --   , max       :: Bool
-  --   }
   | Conversion
     { toType :: Conv
     , cExp   :: AST
@@ -226,12 +204,12 @@ data AST'
     , astST :: SymbolTable
     , args  :: [AST]
     }
-  | ProcCallCont
-    { pname :: Text
-    , astST :: SymbolTable
-    , args  :: [AST]
-    , con   :: Contents SymbolTable
-    }
+  -- | ProcCallCont
+  --   { pname :: Text
+  --   , astST :: SymbolTable
+  --   , args  :: [AST]
+  --   , con   :: Contents SymbolTable
+  --   }
   | Program
     { pname    :: Text
     , listdef  :: [AST]
@@ -280,7 +258,6 @@ data AST'
     { ln   :: Bool
     , wexp :: AST             -- ^ Escribir.
     }
-  deriving (Eq)
 
 
 data AST
@@ -290,7 +267,6 @@ data AST
     , astType :: Type
     , ast'    :: AST'
     }
-  deriving (Eq)
 
 
 instance Treelike AST where
@@ -329,16 +305,6 @@ instance Treelike AST where
     Cond { cguard } ->
       Node ("If " ++ posFrom')
         (toForest cguard)
-
-    -- ConsAssign { caIds, caExprs } ->
-    --   let ids = fmap (\(t,l) -> leaf (unpack t ++ " " ++ showPos' l)) caIds in
-    --   Node ("ConsAssign" ++ posFromTo)
-    --     [ Node "IDs" ids
-    --     , Node "Expresions" (toForest caExprs)
-    --     ]
-
-    -- Constant int isMax ->
-    --   leaf (checkMaxMin int isMax ++ posFrom')
 
     Conversion { toType, cExp } ->
       Node (show toType ++ posFrom')
@@ -410,9 +376,9 @@ instance Treelike AST where
       Node ("Call Proc "++unpack name ++ posFrom')
         [Node "Arguments" (toForest args)]
 
-    ProcCallCont name ast args content ->
-      Node ("Call Proc Cont (?)"++unpack name ++ posFrom')
-        [Node "Arguments" (toForest args)]
+    -- ProcCallCont name ast args content ->
+    --   Node ("Call Proc Cont (?)"++unpack name ++ posFrom')
+    --     [Node "Arguments" (toForest args)]
 
     Program name defs block ->
       Node ("Program " ++ unpack name ++ posFrom')
@@ -473,253 +439,6 @@ instance Treelike AST where
       posFrom'  = " "  ++ showPos' posFrom
       showPs    = fmap (\(n,t) -> leaf (unpack n ++ " : " ++ show t))
 
-astToId :: AST -> Maybe Text
-astToId AST { ast' = (Id i)        } = Just i
-astToId AST { ast' = (ArrCall i _) } = Just i
-astToId AST { ast' = _             } = Nothing
-
 
 instance Show AST where
   show = drawTree . toTree
-
-
-checkMaxMin :: Bool -> Bool -> String
-checkMaxMin True  True  = "MAX_INT"
-checkMaxMin True  False = "MIN_INT"
-checkMaxMin False True  = "MAX_DOUBLE"
-checkMaxMin False False = "MIN_DOUBLE"
-
-
-checkWrite :: Bool -> String
-checkWrite True  = "Escribir con Salto de línea"
-checkWrite False = "Escribir"
-
-
-putSourcePos :: SourcePos -> String
-putSourcePos position = " --- en el " <> show position
-
-
-putSourcePosLn :: SourcePos -> String
-putSourcePosLn position = " --- en el " <> show position <> "\n"
-
-
--- drawAST :: Int -> AST -> String
--- drawAST level (Program name defs accs) =
---   putSpacesLn level <> "Programa: " <> show name <> putSourcePos pos
---                      <> " //Tag: "   <> show ast
---                      <> drawASTList (level + 4) defs <> drawAST (level + 4) accs
---
---
--- drawAST level (DefProc name _ accs pre post bound _ _ ast) =
---   putSpacesLn level <> "Procedimiento: " <> show name  -- <> putSourcePos pos
---                      <> " //Tag: "        <> show ast
---                      <> putSpaces (level + 4)   <> drawAST (level + 4) pre
---                      <> putSpaces (level + 4)   <> drawAST (level + 8) bound
---                      <> putSpacesLn (level + 4) <> "Acciones: " <> drawAST (level + 8) accs
---                      <> putSpaces (level + 4)   <> drawAST (level + 4) post
---
---
--- drawAST level (States t pos expr ast) =
---   putSpacesLn level <> show t     <> putSourcePos pos
---                      <> " //Tag: " <> show ast
---                      <> drawAST (level + 4) expr
---
---
--- drawAST level (Arithmetic t pos lexpr rexp ast) =
---   putSpacesLn   level <> "Operador Aritmético: " <> show t <> putSourcePos pos
---                        <> " //Tag: "              <> show ast
---                        <> putSpacesLn (level + 4) <> "Lado izquierdo:"
---                                                          <> drawAST (level + 8) lexpr
---                        <> putSpacesLn (level + 4) <> "Lado derecho:"
---                                                          <> drawAST (level + 8) rexp
---
---
--- drawAST level (Relational t pos lexpr rexp ast) =
---   putSpacesLn level <> "Operador Relacional: " <> show t <> putSourcePos pos
---                      <> " //Tag: "              <> show ast
---                      <> putSpacesLn (level + 4) <> "Lado izquierdo:"
---                                                        <> drawAST (level + 8) lexpr
---                      <> putSpacesLn (level + 4) <> "Lado derecho:"
---                                                        <> drawAST (level + 8) rexp
---
---
--- drawAST level (Boolean t pos lexpr rexp ast) =
---   putSpacesLn level <> "Operador Booleano: "   <> show t <> putSourcePos pos
---                      <> " //Tag: "              <> show ast
---                      <> putSpacesLn (level + 4) <> "Lado izquierdo:"
---                                                        <> drawAST (level + 8) lexpr
---                      <> putSpacesLn (level + 4) <> "Lado derecho:"
---                                                        <> drawAST (level + 8) rexp
---
---
--- drawAST level (Id pos cont ast) =
---   putSpacesLn level <> "Id: "        <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (Int pos cont ast) =
---   putSpacesLn level <> "Entero: "    <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (Float pos cont ast) =
---   putSpacesLn level <> "Flotante: "  <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (Bool pos cont ast) =
---   putSpacesLn level <> "Booleano: "  <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (Char pos cont ast) =
---   putSpacesLn level <> "Caracter: "  <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (String pos cont ast) =
---   putSpacesLn level <> "String: "    <> show cont <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- -- drawAST level (Constant pos t max ast) =
--- --   putSpacesLn level <> "Constante: " <> checkMaxMin t max <> putSourcePos pos
--- --                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (LAssign idlist explist pos ast) =
---   putSpacesLn level <> "Asignación: " <> putSourcePos pos
---                      <> " //Tag: "     <> show ast
---                      <> drawLAssign level idlist explist
---
---
--- drawAST level (Rept guard inv bound pos ast) =
---   putSpacesLn level <> "Repetición: " <> putSourcePos pos
---                      <> " //Tag: "     <> show ast
---                      <> drawASTList (level + 4) guard
---                      <> putSpaces   (level + 4) <> drawAST (level + 4) inv
---                      <> putSpaces   (level + 4) <> drawAST (level + 4) bound
---
---
--- drawAST level (Cond guard pos ast) =
---   putSpacesLn level <> "Condicional: " <> putSourcePos pos
---                      <> " //Tag: "      <> show ast
---                      <> drawASTList (level + 4) guard
---
---
--- drawAST level (Guard exp action pos ast) =
---   putSpacesLn level <> "Guardia: " <> putSourcePos pos
---                      <> " //Tag: "  <> show ast
---                      <> drawAST (level + 4) exp
---                      <> putSpacesLn (level + 4) <> "Acciones:"
---                      <> drawAST (level + 8) action
---
---
--- -- drawAST level (GuardExp exp action pos ast) =
--- --   putSpacesLn level <> "Guardia de Expresión: " <> putSourcePos pos
--- --                      <> " //Tag: "               <> show ast
--- --                      <> drawAST (level + 4) exp
--- --                      <> putSpacesLn (level + 4) <> "Expresión:"
--- --                      <> drawAST (level + 8) action
---
---
--- drawAST level (Block pos st _ action ast) =
---   putSpacesLn level <> "Bloque: " <> putSourcePos pos
---                      <> " //Tag: " <> show ast  <> show st
---                      <> drawASTList (level + 4) action
---
---
--- drawAST level (Skip pos ast) =
---   putSpacesLn level <> "Saltar: " <> putSourcePos pos
---                      <> " //Tag: " <> show ast
---
---
--- drawAST level (Abort pos ast) =
---   putSpacesLn level <> "Abortar: " <> putSourcePos pos
---                      <> " //Tag: "  <> show ast
---
---
--- drawAST level (Ran var _ pos ast) =
---   putSpacesLn level <> "Aleatorio: " <> show var <> putSourcePos pos
---                      <> " //Tag: "    <> show ast
---
---
--- drawAST level (Write ln exp pos ast) =
---   putSpacesLn level <> checkWrite ln <> putSourcePos pos
---                      <> " //Tag: "  <> show ast
---                      <> drawAST (level + 4) exp
---
---
--- drawAST level (GuardAction pos assert action  ast) =
---   putSpacesLn level <> "Guardia de Acción: " <> putSourcePos pos
---                      <> " //Tag: "            <> show ast
---                      <> drawAST (level + 4) assert
---                      <> putSpacesLn (level + 4) <> "Acciones:"
---                      <> drawAST (level + 8) action
---
---
---
--- -- drawAST level (Quant op var pos range term ast) =
--- --   putSpacesLn level <> "Cuantificador: " <> show op <> putSourcePos pos
--- --                      <> " //Tag: "        <> show ast
--- --   <> putSpacesLn (level + 4) <> "Variable cuantificada: " <> show var
--- --   <> putSpacesLn (level + 4) <> "Rango: "  <> drawAST (level + 8) range
--- --   <> putSpacesLn (level + 4) <> "Cuerpo: " <> drawAST (level + 8) term
---
---
---
--- drawAST level (Conversion t pos exp ast) =
---   putSpacesLn level <> "Conversión: " <> show t <> putSourcePos pos
---                      <> " //Tag: "     <> show ast
---                      <> drawAST (level + 4) exp
---
---
---
--- drawAST level (Unary op pos exp ast) =
---   putSpacesLn level <> show op    <> putSourcePos pos
---                      <> " //Tag: " <> show ast
---                      <> drawAST (level + 4) exp
---
---
---
--- drawAST level (FCallExp name _ pos args ast) =
---   putSpacesLn level <> "Llamada de la Función: " <> show name <> putSourcePos pos
---                      <> " //Tag: "                <> show ast
---   <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
---
---
---
--- drawAST level (ArrCall pos name args ast) =
---   putSpacesLn level <> "Llamada del Arreglo: " <> show name <> putSourcePos pos
---                      <> " //Tag: "              <> show ast
---   <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
---
---
---
--- drawAST level (ProcCall name st pos args ast) =
---   putSpacesLn level <> "Llamada del Procedimiento: " <> show name <> putSourcePos pos
---                      <> " //Tag: "                    <> show ast
---   <> putSpacesLn (level + 4) <> "Argumentos: " <> drawASTList (level + 8) args
---   <> "------------------------------------------------------------------------------------"
---   <> show st
---
---
--- drawAST level (DefFun name st _ body _ bound _ ast) =
---   putSpacesLn level <> "Función: " <> show name
---                      <> " //Tag: "   <> show ast
---                      <> drawAST(level + 4) bound
---                      <> drawAST(level + 4) body
---
---
--- drawAST _ (EmptyRange _ _) = "rango vacio"
--- drawAST _ (EmptyAST _) = "vacio"
---
--- drawAST _ _ = "undefined"
---
--- drawASTList level = foldl (\acc d -> (acc <> drawAST level d)) []
---
---
--- drawLAssign level idlist explist = foldl (\acc (id, exp) ->
---   (acc <> putSpacesLn (level + 4) <> "Variable: " <> show id
---         <> putSpacesLn (level + 8) <> "Lado derecho: "
---         <> drawAST (level + 12) exp)) [] $ zip idlist explist

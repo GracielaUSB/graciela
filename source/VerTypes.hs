@@ -1,8 +1,8 @@
 module VerTypes where
 --------------------------------------------------------------------------------
 import           AST
-import           Contents
 import           Data.Maybe
+import           SourcePos
 import           SymbolTable
 import           Type
 import           TypeError
@@ -12,7 +12,6 @@ import           Data.List                (zip4)
 import           Data.Sequence            (Seq, singleton)
 import           Data.Text                (Text)
 import           Data.Tree
-import           Text.Megaparsec.Pos      (SourcePos)
 import           Treelike
 --------------------------------------------------------------------------------
 

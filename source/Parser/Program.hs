@@ -11,7 +11,7 @@ import           Parser.ADT
 import           Parser.Instructions (block)
 import           Parser.Procedures   (listDefProc, panicMode, panicModeId)
 import           Parser.Token
-import           ParserState
+import           Parser.State
 import           Token
 import           Type
 -------------------------------------------------------------------------------

@@ -3,6 +3,7 @@ module ASTtype where
 import           AST
 import           Limits
 import           ReduceAST
+import           SourcePos
 import           SymbolTable
 import           Type
 import           TypeError
@@ -15,7 +16,6 @@ import           Data.Range.Range         (Range (..), intersection, invert,
                                            union)
 import           Data.Sequence            (Seq)
 import           Data.Text                (Text)
-import           Text.Megaparsec.Pos      (SourcePos)
 --------------------------------------------------------------------------------
 
 runTVerifier :: SymbolTable -> AST Type -> (AST Type, Seq TypeError)

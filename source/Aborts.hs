@@ -10,12 +10,11 @@ module Aborts where
 
 --------------------------------------------------------------------------------
 import           LLVM.CodegenState
+import           SourcePos
 --------------------------------------------------------------------------------
 import           LLVM.General.AST
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.Constant  as C
-import           Text.Megaparsec.Pos        (SourcePos (..), sourceColumn,
-                                             sourceLine)
 --------------------------------------------------------------------------------
 
 -- | String usado para terminar la ejecucion del programa

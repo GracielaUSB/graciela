@@ -1,17 +1,17 @@
 module TypeError where
 --------------------------------------------------------------------------------
 import           AST
-import           Contents            as C
+import           Entry      as E
 import           Data.Monoid
+import           SourcePos
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Foldable       (toList)
-import           Data.Function       (on)
-import           Data.List           hiding (sortBy)
-import           Data.Sequence       (Seq)
-import           Data.Sequence       as Seq (sortBy, take)
-import           Data.Text           (Text)
-import           Text.Megaparsec.Pos (SourcePos)
+import           Data.Foldable (toList)
+import           Data.Function (on)
+import           Data.List     hiding (sortBy)
+import           Data.Sequence (Seq)
+import           Data.Sequence as Seq (sortBy, take)
+import           Data.Text     (Text)
 --------------------------------------------------------------------------------
 
 data TypeError
@@ -63,10 +63,10 @@ data TypeError
     | CondError
         { pos :: SourcePos
         }
-    | IncomDefError
-        { cont :: VarBehavior
-        , pos  :: SourcePos
-        }
+    -- | IncomDefError
+    --     { cont :: VarBehavior
+    --     , pos  :: SourcePos
+    --     }
     | UndecFunError
         { symbol :: Text
         , isFunc :: Bool
@@ -181,7 +181,6 @@ data TypeError
         { symbol :: Text
         , pos    :: SourcePos
         }
-    deriving (Eq)
 
 
 instance Show TypeError where
@@ -226,10 +225,10 @@ instance Show TypeError where
             show t ++ "."
         (CondError                   _) ->
             ": Los condicionales no son del mismo tipo."
-        (IncomDefError C.Constant    _) ->
-            ": Definición de constantes incompleta."
-        (IncomDefError C.Variable    _) ->
-            ": Definición de variables incompleta."
+        -- (IncomDefError C.Constant    _) ->
+        --     ": Definición de constantes incompleta."
+        -- (IncomDefError C.Variable    _) ->
+        --     ": Definición de variables incompleta."
         (UndecFunError   sym  True   _) ->
             ": La función " ++ show sym ++
             " no se puede usar, no esta definida."

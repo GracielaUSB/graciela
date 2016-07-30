@@ -18,11 +18,12 @@ module Token
   )where
 --------------------------------------------------------------------------------
 import           Type
+import           SourcePos
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
 import           Data.List.NonEmpty (toList)
 import           Data.Text          (Text)
-import           Text.Megaparsec    (ShowToken (..), SourcePos (..))
+import           Text.Megaparsec    (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
 
@@ -39,14 +40,6 @@ instance Ord TokenPos where
 instance ShowToken TokenPos where
   showTokens = unwords . map show . toList
 
-
-showPos :: SourcePos -> String
-showPos SourcePos { sourceLine, sourceColumn } =
-  "en la línea " ++ show sourceLine ++ ", columna " ++ show sourceColumn
-
-showPos' :: SourcePos -> String
-showPos' SourcePos { sourceLine, sourceColumn } =
-  show (sourceLine, sourceColumn)
 
 -- Tokens ------------------------------
 -- | Representa a todos las palabras reservadas en el lenguaje
@@ -138,6 +131,7 @@ data Token
   | TokNotExist
   | TokSigma
   | TokPi
+  | TokCount
 
   | TokIf
   | TokFi
@@ -293,6 +287,7 @@ instance Show Token where
     TokNotExist       -> "`not-exist` - Existencial Negado"
     TokSigma          -> "`sigma` - Sumatoria"
     TokPi             -> "`pi` - Productoria"
+    TokCount          -> "`count` - Cuenta"
 
     TokIf             -> "`if` - Apertura de Selector"
     TokFi             -> "`fi` - Cierre de Selector"

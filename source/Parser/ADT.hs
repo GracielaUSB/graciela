@@ -15,7 +15,8 @@ import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
                                       panicModeId)
 import           Parser.Token
 import           Parser.Type
-import           ParserState
+import           Parser.State
+import           SourcePos
 import           SymbolTable
 import           Token
 import           Type
@@ -25,7 +26,6 @@ import           Control.Monad       (void)
 import           Data.Text           (Text)
 import           Text.Megaparsec     (Dec, ParseError, between, choice,
                                       getPosition, sepBy, try, (<|>))
-import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 
@@ -44,17 +44,17 @@ abstractDataType = do
     exitScopeParser
     match TokEnd
     return Nothing
-    where 
+    where
         -- AbstractType -> '(' ListTypes ')'
-        abstractTypes = return between (match TokLeftParent) 
-                               (match RightParent) 
+        abstractTypes = return between (match TokLeftParent)
+                               (match RightParent)
                                (identifier `sepBy` match TokComma)
 topDecl :: Graciela Token
 topDecl = choice  [ match TokAbstract
                   , match TokDataType
                   , match TokProgram
                   ]
-                  
+
 -- AbstractBody -> DecList Invariant ListProcDecl
 abstractBody :: Graciela Token -> Graciela (Maybe (AST Type))
 abstractBody follow = do

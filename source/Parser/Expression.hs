@@ -10,7 +10,7 @@ import           Lexer
 import           Limits
 import           MyParseError              as PE
 import           Parser.Token
-import           ParserState               as PS
+import           Parser.State               as PS
 import           Token
 import           Type
 --------------------------------------------------------------------------------
@@ -20,7 +20,7 @@ import           Data.Functor              (($>))
 import           Data.Monoid               ((<>))
 import           Data.Text                 (Text, pack, unpack)
 import           Text.Megaparsec           (between, runParser, runParserT,
-                                            sepBy, some, try, (<|>))
+                                            sepBy, sepBy1, some, try, (<|>))
 import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
 
@@ -62,6 +62,7 @@ quantifier =  (match TokExist  $> Exists)
           <|> (match TokMin    $> Minimum)
           <|> (match TokForall $> ForAll)
           <|> (match TokPi     $> Product)
+          <|> (match TokCount  $> Count)
 
 
 leaf x = Node x []
@@ -78,6 +79,20 @@ call = do
         _  -> (\(i, arg) -> Node ("arg " ++ show i) [arg]) <$> zip [0..] args
 
 
+if' :: Graciela (Tree String) -> Graciela (Tree String)
+if' element = between (match TokIf) (match TokFi) contents
+  where
+    contents = Node "If" <$> line `sepBy1` match TokSepGuards
+    line = do
+      expr <- expression
+      match TokArrow
+      elem' <- element
+      return $ Node "Guard"
+        [ Node "Condition" [expr]
+        , Node "Result" [elem']
+        ]
+
+
 term :: Graciela (Tree String)
 term =  parens expression
     <|> try call
@@ -87,6 +102,7 @@ term =  parens expression
     <|> (leaf . show <$> floatLit)
     <|> (leaf . show <$> charLit)
     <|> quantification
+    <|> if' expression
   where
     value  = makeExprParser value' ops
     value' =  parens value
@@ -94,16 +110,19 @@ term =  parens expression
     ops :: [[ Operator Graciela (Tree String) ]]
     ops =
       [ {-Level 0-}
-        [ Postfix (do
-            e <- subindex
-            return (\x -> Node "sub" [x,e]))
+        [ Postfix subindex
         ]
       , {-Level 1-}
-        [Prefix (foldr1 (.) <$> some pointer)]
+        [ Prefix  (foldr1 (.) <$> some pointer)
+        ]
       ]
-    subindex = brackets expression
+
+    subindex = do
+      es <- some $ brackets expression
+      pure (\x -> Node "sub" (x:es))
 
     pointer = match TokTimes $> \x -> Node "pointer to" [x]
+
 
 operator :: [[ Operator Graciela (Tree String) ]]
 operator =

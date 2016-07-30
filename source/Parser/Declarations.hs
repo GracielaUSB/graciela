@@ -16,9 +16,10 @@ import           MyParseError
 import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
-import           ParserState
+import           Parser.State
 import           Token
 import           Type
+import           SourcePos
 -------------------------------------------------------------------------------
 import           Control.Applicative            (liftA2)
 import           Control.Monad                  (liftM4)
@@ -26,7 +27,6 @@ import           Control.Monad.Trans.State.Lazy
 import           Data.Functor.Identity
 import qualified Data.Text                      as T
 import           Text.Megaparsec
-import           Text.Megaparsec.Pos            (SourcePos)
 -------------------------------------------------------------------------------
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 decList :: Graciela Token -> Graciela Token -> Graciela (Maybe [AST Type])

@@ -32,7 +32,7 @@ import           Parser.Declarations
 import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
-import           ParserState
+import           Parser.State
 import           Token
 import           Type
 -------------------------------------------------------------------------------
