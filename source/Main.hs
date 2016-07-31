@@ -4,7 +4,7 @@
 
 module Main where
 --------------------------------------------------------------------------------
-import           AST
+import           AST.Program
 import           ASTtype
 import           Contents
 import           Graciela
@@ -120,17 +120,17 @@ opts = do
             ioError (userError (concat errs ++ help))
 
 -- Processing --------------------------
-concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe AST), GracielaState)
+concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe Program), GracielaState)
 concatLexPar = playParser <$> lexer
 
 
-playParser :: [TokenPos] -> (Either ParseError (Maybe AST), GracielaState)
+playParser :: [TokenPos] -> (Either ParseError (Maybe Program), GracielaState)
 playParser inp = runStateParse program "" inp initialState
 
 
-runStateParse :: Graciela (Maybe AST) -> String
+runStateParse :: Graciela (Maybe Program) -> String
               -> [TokenPos]-> GracielaState
-              -> (Either ParseError (Maybe AST), GracielaState)
+              -> (Either ParseError (Maybe Program), GracielaState)
 runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 

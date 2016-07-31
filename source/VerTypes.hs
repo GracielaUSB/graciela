@@ -184,7 +184,7 @@ verRandom name t pos =
         else addTypeError $ RanError name t pos
 
 
-verQuant :: OpQuant -> Type -> Type -> SourcePos -> MyVerType Type
+verQuant :: QuantOp -> Type -> Type -> SourcePos -> MyVerType Type
 verQuant op range term pos = case range of
     GBool -> case op of
         ForAll    -> if term == GBool
@@ -281,7 +281,7 @@ verProcCall name sbc args'' pos posarg = do
                 if wtL /= prL
                     then addTypeError $ NumberArgsError name False wtL prL pos -- Error porque el numero de parametros en la llamada
                     else do                                                    -- es distinto al de la declaracion
-                        let args = map tag args''
+                        let args = map astType args''
                         let t    = zip args args'
                         if all (uncurry (==)) t
                             then do
@@ -322,7 +322,7 @@ validProcArgs name lnp lnc posarg sbp sbc =
                return True
 
 
-isASTLValue :: SymbolTable -> AST a -> Bool
+isASTLValue :: SymbolTable -> AST -> Bool
 isASTLValue sb id =
     case astToId id of
         Nothing -> False

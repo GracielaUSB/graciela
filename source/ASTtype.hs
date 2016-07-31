@@ -153,7 +153,7 @@ verTypeAST (ProcCall name sb pos args _) = do
     poss   <- getPosArgs args
     checkT <- verProcCall name sb args' pos poss
     sbc <- ask
-    return (ProcCallCont name sb pos args' (myFromJust (lookUpRoot name sbc)) checkT)
+    return (ProcCallCont name sb pos args' (fromJust (lookUpRoot name sbc)) checkT)
 
 
 verTypeAST (FCallExp name sb pos args _) = do
@@ -209,8 +209,6 @@ verTypeAST (Quant op var pos range term _) = do
                             addTypeError $ NotOccursVar op id pos
                             return $ Quant op var pos range' term' GError
 verTypeAST ast = return ast
-
-myFromJust (Just t) = t
 
 astToRange :: Text -> AST -> Maybe [Range Integer]
 astToRange id (Relational c _ l r _) =

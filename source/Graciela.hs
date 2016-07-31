@@ -13,7 +13,7 @@ import           TypeError              as T
 import           Control.Lens           (makeLenses, use, (%=))
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.State    (State)
-import           Data.Foldable          (toList)
+import           Data.Foldable          (toList, null)
 import           Data.Function          (on)
 import           Data.Map               (Map)
 import qualified Data.Map               as Map (empty, fromList, insert, lookup,
@@ -74,7 +74,7 @@ getType name = do
     types <- use typesTable
     case Map.lookup name types of
         Just (t, loc) -> return t
-        Nothing -> return GError
+        Nothing       -> return GError
 {- Graciela 2.0-}
 
 drawState :: Maybe Int -> GracielaState -> String

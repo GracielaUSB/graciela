@@ -6,10 +6,10 @@ module Parser.Program
 -------------------------------------------------------------------------------
 import           AST
 import           Graciela
-import           MyParseError        as PE
+import qualified MyParseError        as PE
 import           Parser.ADT
-import           Parser.Instructions (block)
-import           Parser.Procedures   (listDefProc, panicMode, panicModeId)
+import           Parser.Instruction (block)
+import           Parser.Procedure   
 import           Parser.Token
 import           Parser.State
 import           Token
@@ -21,21 +21,22 @@ import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-mainProgram :: Graciela (Maybe AST)
+mainProgram :: Graciela AST
 mainProgram = do
-  pos <- getPosition
+  posFrom <- getPosition
   match TokProgram
   id <- identifier
   match TokBegin
 
-  ast  <- listDefProc (match TokOpenBlock) (match TokOpenBlock)
-  lacc <- block (match TokEnd) (match TokEnd)
+  decls <- listDefProc (match TokOpenBlock)
+  body  <- block (match TokEnd)
   try ( do match TokEnd
            eof
-           return (M.liftM3 (AST.Program id pos) ast lacc (return GEmpty))
+           posTo <- getPosition
+           return (AST posFrom posTo GEmpty (Program id decls body))
       )
-      <|> do genNewError eof PE.LexEnd
-             return Nothing
+      <|> do --genNewError eof PE.LexEnd
+             return (AST posFrom posFrom GError (EmptyAST))
 
 
 -- Program -> Abstract Program
@@ -45,4 +46,5 @@ program :: Graciela (Maybe AST)
 program = do
   newScopeParser
   many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
-  mainProgram                          -- principal al final del archivo
+  ast <- mainProgram                   -- principal al final del archivo
+  return $ Just $ ast

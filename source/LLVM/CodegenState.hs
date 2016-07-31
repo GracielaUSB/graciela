@@ -34,6 +34,36 @@ import           LLVM.General.AST.Linkage
 import           LLVM.General.AST.Type
 --------------------------------------------------------------------------------
 
+writeLnInt     = "_writeLnInt"
+writeLnBool    = "_writeLnBool"
+writeLnChar    = "_writeLnChar"
+writeLnDouble  = "_writeLnDouble"
+writeLnString  = "_writeLnString"
+writeInt       = "_writeInt"
+writeBool      = "_writeBool"
+writeChar      = "_writeChar"
+writeDouble    = "_writeDouble"
+writeString    = "_writeString"
+randomInt      = "_random"
+sqrtString     = "llvm.sqrt.f64"
+fabsString     = "llvm.fabs.f64"
+powString      = "llvm.pow.f64"
+minnumString   = "_min"
+maxnumString   = "_max"
+minnumFstring  = "_minF"
+maxnumFtring   = "_maxF"
+readIntStd     = "_readIntStd"
+readCharStd    = "_readCharStd"
+readDoubleStd  = "_readDoubleStd"
+openFileStr    = "_openFile"
+readFileInt    = "_readFileInt"
+closeFileStr   = "_closeFile"
+readFileChar   = "_readFileChar"
+readFileDouble = "_readFileDouble"
+intAdd         = "llvm.sadd.with.overflow.i32"
+intSub         = "llvm.ssub.with.overflow.i32"
+intMul         = "llvm.smul.with.overflow.i32"
+
 data CodegenSt
   = CodeGenSt
     { _insCount   :: Word                        -- Cantidad de instrucciones sin nombre
@@ -325,12 +355,6 @@ mulDims (arrDim:xs) (acc:ys) = do
     op    <- mulDims xs ys
     opMul <- addUnNamedInstruction intType $ Mul False False arrDim acc []
     addUnNamedInstruction intType $ Add False False op opMul []
-
-
-retType :: Operand -> LLVM (Named Terminator)
-retType op = do
-    n <- newLabel
-    return $ n := Ret (Just op) []
 
 
 retVoid :: LLVM (Named Terminator)

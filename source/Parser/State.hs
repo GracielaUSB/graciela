@@ -1,7 +1,7 @@
 module Parser.State where
 -- --------------------------------------------------------------------------------
--- import           AST                    hiding (Constant)
--- import           Entry
+-- -- import           Parser.TokenParser
+-- import           Contents
 -- import           Data.Maybe
 -- import           Graciela
 -- import           MyParseError
@@ -29,27 +29,24 @@ module Parser.State where
 --
 --
 -- addFunTypeParser :: Text
---                  -> Maybe [(Text, Type)]
+--                  -> [(Text, Type)]
 --                  -> Type
 --                  -> SourcePos
 --                  -> SymbolTable
 --                  -> Graciela ()
--- addFunTypeParser id (Just lt) t pos sb =
---     addSymbolParser id (Function id pos (GFunction snds t) fsts sb)
+-- addFunTypeParser id params t pos st =
+--     addSymbolParser id (FunctionCon id pos (GFunction snds t) fsts st)
 --     where
---         (fsts, snds) = unzip lt
---
--- addFunTypeParser _ _ _ _ _ = return ()
+--         (fsts, snds) = unzip params
 --
 --
 -- addProcTypeParser :: Text
---                   -> Maybe [(Text, Type)]
+--                   -> [(Text, Type)]
 --                   -> SourcePos
 --                   -> SymbolTable -> Graciela ()
--- addProcTypeParser id (Just xs) pos sb =
---     addSymbolParser id $ Procedure id pos (GProcedure snds) fsts sb
---     where (fsts, snds) = unzip xs
--- addProcTypeParser _ _ _ _             = return ()
+-- addProcTypeParser id params pos st =
+--     addSymbolParser id $ ProcCon id pos (GProcedure snds) fsts st
+--     where (fsts, snds) = unzip params
 --
 --
 -- getCurrentScope :: Graciela SymbolTable
@@ -77,7 +74,7 @@ module Parser.State where
 -- addManyUniSymParser :: [(Text, SourcePos)] -> Type -> Graciela ()
 -- addManyUniSymParser [] _ = return ()
 -- addManyUniSymParser xs t = mapM_
---     (\(id,pos) -> addSymbolParser id $ Entry id Variable pos t Nothing False) xs
+--     (\(id,pos) -> addSymbolParser id $ Contents id Variable pos t Nothing False) xs
 --
 --
 --
@@ -111,7 +108,7 @@ module Parser.State where
 --
 -- verifyReadVars :: [(Text, SourcePos)] -> Graciela [Type]
 -- verifyReadVars []  = return []
--- verifyReadVars lid = catMaybes <$> mapM (lookUpConsParser . fst) lid
+-- verifyReadVars lid = mapM (lookUpConsParser . fst) lid
 --
 --
 --
@@ -123,9 +120,9 @@ module Parser.State where
 --         typeError $ FunctionNameError id pos
 --
 --
--- addArgProcParser :: Text -> Text
---                  -> Type -> SourcePos
---                  -> Maybe TypeArg -> Graciela ()
+-- addArgProcParser :: Text -> Text -> Type
+--                  -> SourcePos -> Maybe TypeArg
+--                  -> Graciela ()
 -- addArgProcParser id pid t pos (Just targ) =
 --     if id /= pid then
 --       addSymbolParser id $ ArgProcCont id targ pos t
@@ -174,18 +171,18 @@ module Parser.State where
 --
 --
 --
--- lookUpConsParser :: Text -> Graciela (Maybe Type)
+-- lookUpConsParser :: Text -> Graciela Type
 -- lookUpConsParser id = do
 --     symbol <- lookUpSymbol id
 --     case symbol of
 --         Just content ->
 --             if isLValue content then do
 --                 symbolTable %= initSymbol id
---                 return $ Just $ getContentType content
+--                 return $ getContentType content
 --             else do
 --                 addConsIdError id
---                 return Nothing
---         _   -> return Nothing
+--                 return GError
+--         _   -> return GError
 --
 --
 -- lookUpConstIntParser :: Text -> SourcePos -> Graciela (Maybe Type)

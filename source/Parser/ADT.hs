@@ -8,11 +8,10 @@ import           AST
 import           Contents
 import           Graciela
 import           MyParseError        as PE
-import           Parser.Assertions
-import           Parser.Declarations
-import           Parser.Instructions
-import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
-                                      panicModeId)
+import           Parser.Assertion
+import           Parser.Declaration
+import           Parser.Instruction
+import           Parser.Procedure
 import           Parser.Token
 import           Parser.Type
 import           Parser.State
@@ -24,8 +23,11 @@ import           Type
 import           Control.Lens        (use, (%=), (.=))
 import           Control.Monad       (void)
 import           Data.Text           (Text)
-import           Text.Megaparsec     (Dec, ParseError, between, choice,
-                                      getPosition, sepBy, try, (<|>))
+import           Data.Maybe          (catMaybes)
+import           Text.Megaparsec     (Dec, ParseError, between, choice, many,
+                                      getPosition, sepBy, try, endBy, (<|>),
+                                      manyTill, lookAhead)
+import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
 
@@ -34,13 +36,13 @@ abstractDataType :: Graciela (Maybe AST)
 abstractDataType = do
     pos <- getPosition
     match TokAbstract
-    abstractId <- panicModeId
+    abstractId <- identifier
     atypes <- parens (identifier `sepBy` match TokComma)
-    insertType abstractId (GAbstractType abstractId [] [] []) (toLocation pos)
+    insertType abstractId (GAbstractType abstractId [] [] []) pos
     match TokBegin
     newScopeParser
-    addSymbolParser abstractId (AbstractContent abstractId (toLocation pos))
-    abstractBody (topDecl <|> parseEnd)
+    addSymbolParser abstractId (AbstractContent abstractId pos)
+    abstractBody (topDecl <|> match TokEnd)
     exitScopeParser
     match TokEnd
     return Nothing
@@ -50,10 +52,10 @@ abstractDataType = do
                                (match RightParent)
                                (identifier `sepBy` match TokComma)
 topDecl :: Graciela Token
-topDecl = choice  [ match TokAbstract
-                  , match TokDataType
-                  , match TokProgram
-                  ]
+topDecl = choice [ match TokAbstract
+                 , match TokType
+                 , match TokProgram
+                 ]
 
 -- AbstractBody -> DecList Invariant ListProcDecl
 abstractBody :: Graciela Token -> Graciela (Maybe AST)
@@ -65,16 +67,21 @@ abstractBody follow = do
 
 
 abstractDecList :: Graciela ()
-abstractDecList = void $ abstractDec `endBy` parseSemicolon
+abstractDecList = void $ abstractDec `endBy` match TokSemicolon
 
 
 abstractDec :: Graciela ()
 abstractDec = do
     match TokVar <|> match TokConst
-    ids <- identifier `sepBy` match TokComma
-    parseColon
+    ids <- idAndPos `sepBy` match TokComma
+    match TokColon
     t  <- abstType
-    addManyUniSymParser (Just ids) t
+    addManyUniSymParser ids t
+    where
+        idAndPos = do
+                pos <- getPosition
+                id  <- identifier
+                return (id, pos)
 
 abstType :: Graciela Type
 abstType =  do {match TokSet;      match TokOf; GSet      <$> basic }
@@ -82,7 +89,7 @@ abstType =  do {match TokSet;      match TokOf; GSet      <$> basic }
         <|> do {match TokSeq;      match TokOf; GSeq      <$> basic }
         <|> do {match TokFunc; ba <- basic; match TokArrow; bb <- basic; return $ GFunc ba bb}
         <|> do {match TokRel;  ba <- basic; match TokBiArrow; bb <- basic; return $ GRel ba bb}
-        <|> GTuple <$> parens (basic `sepBy` parseComma)
+        <|> GTuple <$> parens (basic `sepBy` match TokComma)
         <|> basic
 
 basic :: Graciela Type
@@ -92,18 +99,20 @@ basic = GTypeVar <$> identifier
 -- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
 procDecl :: Graciela Token -> Graciela (Maybe AST)
 procDecl follow = do
+    pos <- getPosition
     match TokProc
-    id    <- identifier -- parseLeftParent                                  -- Id
-    match TokLeftPar                                                     -- (
+    id    <- identifier
+    match TokLeftPar
     newScopeParser
-    targs <- listArgProc id (match TokRightPar) (match TokRightPar)         -- arguments
-    match TokRightPar                                                       -- )
-    pre   <- precondition parseTokLeftPost                                  -- pre
-    post  <- postcondition follow                                           -- post
+    params' <- parens . many $ procParam id (match TokBegin)
+    let params = catMaybes params'
+    match TokRightPar
+    pre   <- precondition (match TokLeftPost)
+    post  <- postcondition follow
     sb    <- getCurrentScope
-    addProcTypeParser id targs pos sb
+    addProcTypeParser id params pos sb
     exitScopeParser
-    addProcTypeParser id targs (toLocation pos) sb
+    addProcTypeParser id params pos sb
 
     return Nothing
 
@@ -120,21 +129,21 @@ dataType = do
     insertType typeId (GDataType typeId [] [] []) pos
     newScopeParser
     addSymbolParser typeId (TypeContent typeId pos)
-    beginEnd typeBody
+    (decls, procs) <- between (match TokBegin) (match TokEnd) typeBody
     exitScopeParser
     return Nothing
 
     where
       typeBody = do
-        dl    <- decList (match TokEnd) (match TokEnd)
+        decls <- decList (match TokEnd)
         repInvariant
         coupInvariant
-        procs <- listDefProc (match TokEnd) (match TokEnd)
-        return ()
+        procs <- many procedure
+        return (decls, procs)
       types = do
         match TokLeftPar
         t  <- identifier `sepBy` match TokComma
-        match TokTokRightPar
+        match TokRightPar
         return t
 
 
