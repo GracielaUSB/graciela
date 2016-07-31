@@ -19,7 +19,7 @@ import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
 import           Parser.State
-import           SourcePos
+import           Location
 import           Token
 import           Type
 -------------------------------------------------------------------------------

@@ -19,7 +19,7 @@ import           Parser.Type
 import           Parser.State
 import           Token
 import           Type
-import           SourcePos
+import           Location
 -------------------------------------------------------------------------------
 import           Control.Applicative            (liftA2)
 import           Control.Monad                  (liftM4)

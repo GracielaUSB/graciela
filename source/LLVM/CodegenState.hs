@@ -255,7 +255,7 @@ initialize id T.GFloat = do
    op <- getVarOperand id
    store floatType op $ constantFloat 0.0
 
-initialize id T.GBoolean = do
+initialize id T.GBool = do
    op <- getVarOperand id
    store charType op $ constantBool 0
 
@@ -383,6 +383,6 @@ stringType = PointerType i16 (AddrSpace 0)
 toType :: T.Type -> Type
 toType T.GInt         = intType
 toType T.GFloat       = floatType
-toType T.GBoolean     = boolType
+toType T.GBool     = boolType
 toType T.GChar        = charType
 toType (T.GArray _ t) = toType t

@@ -2,7 +2,7 @@ module VerTypes where
 --------------------------------------------------------------------------------
 import           AST
 import           Data.Maybe
-import           SourcePos
+import           Location
 import           SymbolTable
 import           Type
 import           TypeError
@@ -53,7 +53,7 @@ verArithmetic ltype rtype pos op =
 verBoolean :: Type -> Type -> SourcePos -> OpBool -> MyVerType Type
 verBoolean ltype rtype pos op =
     case verType ltype rtype of
-        GBoolean -> return GBoolean
+        GBool -> return GBool
         GError   -> return GError
         _        -> addTypeError $ BooleanError ltype rtype op pos
 
@@ -63,7 +63,7 @@ verRelational ltype rtype pos op =
     case verType ltype rtype of
         GError   -> return GError
         GEmpty   -> addTypeError $ RelationalError ltype rtype op pos
-        _        -> return GBoolean
+        _        -> return GBool
 
 
 verConversion :: Conv -> MyVerType Type
@@ -84,7 +84,7 @@ verUnary Minus GInt     pos = return GInt
 verUnary Minus GFloat   pos = return GFloat
 verUnary Minus errType  pos = addTypeError $ UnaryError errType Minus pos
 
-verUnary Not   GBoolean pos = return GBoolean
+verUnary Not   GBool pos = return GBool
 verUnary Not   errType  pos = addTypeError $ UnaryError errType Not pos
 
 verUnary Abs   GInt     pos = return GInt
@@ -98,7 +98,7 @@ verUnary Sqrt  errType  pos = addTypeError $ UnaryError errType Sqrt pos
 
 verGuardAction :: Type -> Type -> MyVerType Type
 verGuardAction assert action =
-    if assert == GBoolean && action == GEmpty
+    if assert == GBool && action == GEmpty
         then return GEmpty
         else return GError
 
@@ -110,7 +110,7 @@ verGuard exp action pos =
         GEmpty ->
             case exp of
                 GError   -> return GError
-                GBoolean -> return GEmpty
+                GBool -> return GEmpty
                 _        -> addTypeError $ GuardError exp pos
 
 
@@ -120,13 +120,13 @@ verGuardExp exp action pos =
         GError   -> return GError
         _        -> case exp of
             GError   -> return GError
-            GBoolean -> return action
+            GBool -> return action
             _        -> addTypeError $ GuardError exp pos
 
 
 verDefProc :: Type -> Type -> Type -> Type -> [Type] -> MyVerType Type
 verDefProc accs pre post bound decs =
-    if pre == GBoolean && post == GBoolean && accs == GEmpty && all (== GEmpty) decs
+    if pre == GBool && post == GBool && accs == GEmpty && all (== GEmpty) decs
         then return GEmpty
         else return GError
 
@@ -166,12 +166,12 @@ verState expr pos stateCond =
         where
             checkT = case stateCond of
                         Bound -> GInt
-                        _     -> GBoolean
+                        _     -> GBool
 
 verRept :: [Type] -> Type -> Type -> MyVerType Type
 verRept guard inv bound =
     let func = checkListType GEmpty
-    in if foldl func True guard && inv == GBoolean && bound == GInt
+    in if foldl func True guard && inv == GBool && bound == GInt
         then return GEmpty
         else return GError
 
@@ -186,13 +186,13 @@ verRandom name t pos =
 
 verQuant :: OpQuant -> Type -> Type -> SourcePos -> MyVerType Type
 verQuant op range term pos = case range of
-    GBoolean -> case op of
-        ForAll    -> if term == GBoolean
-            then return GBoolean
+    GBool -> case op of
+        ForAll    -> if term == GBool
+            then return GBool
             else addTypeError $ QuantBoolError  op term pos
 
-        Exists    -> if term == GBoolean
-            then return GBoolean
+        Exists    -> if term == GBool
+            then return GBool
             else addTypeError $ QuantBoolError  op term pos
 
         Product   -> if term == GInt || term == GFloat

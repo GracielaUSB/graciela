@@ -85,6 +85,7 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   ":="          $> TokAssign)
       <|> (symbol   "\8788"       $> TokAssign) -- ≔
 
+      <|> (symbol   "."           $> TokDot)
       <|> (symbol   ","           $> TokComma)
       <|> (symbol   ":"           $> TokColon)
       <|> (symbol   ";"           $> TokSemicolon)

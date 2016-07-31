@@ -16,7 +16,7 @@ import           Parser.Procedures   (listArgProc, listDefProc, panicMode,
 import           Parser.Token
 import           Parser.Type
 import           Parser.State
-import           SourcePos
+import           Location
 import           SymbolTable
 import           Token
 import           Type

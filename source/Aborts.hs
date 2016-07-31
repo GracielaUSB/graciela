@@ -10,7 +10,7 @@ module Aborts where
 
 --------------------------------------------------------------------------------
 import           LLVM.CodegenState
-import           SourcePos
+import           Location
 --------------------------------------------------------------------------------
 import           LLVM.General.AST
 import           LLVM.General.AST.Attribute

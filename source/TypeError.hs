@@ -1,17 +1,18 @@
 module TypeError where
 --------------------------------------------------------------------------------
-import           AST
-import           Entry      as E
+import           AST.Expression (BinaryOperator, QuantOperator,
+                                 UnaryOperator (..))
 import           Data.Monoid
-import           SourcePos
+import           Entry          as E
+import           Location
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Foldable (toList)
-import           Data.Function (on)
-import           Data.List     hiding (sortBy)
-import           Data.Sequence (Seq)
-import           Data.Sequence as Seq (sortBy, take)
-import           Data.Text     (Text)
+import           Data.Foldable  (toList)
+import           Data.Function  (on)
+import           Data.List      hiding (sortBy)
+import           Data.Sequence  (Seq)
+import           Data.Sequence  as Seq (sortBy, take)
+import           Data.Text      (Text)
 --------------------------------------------------------------------------------
 
 data TypeError
@@ -31,31 +32,31 @@ data TypeError
     | ArithmeticError
         { ltype :: Type
         , rtype :: Type
-        , arOp  :: OpNum
+        , arOp  :: BinaryOperator
         , pos   :: SourcePos
         }
     | BooleanError
         { ltype :: Type
         , rtype :: Type
-        , boOp  :: OpBool
+        , boOp  :: BinaryOperator
         , pos   :: SourcePos
         }
     | RelationalError
         { ltype :: Type
         , rtype :: Type
-        , reOp  :: OpRel
+        , reOp  :: BinaryOperator
         , pos   :: SourcePos
         }
     | UnaryError
         { prType :: Type
-        , unOp   :: OpUn
+        , unOp   :: UnaryOperator
         , pos    :: SourcePos
         }
-    | StateError
-        { prType :: Type
-        , state  :: StateCond
-        , pos    :: SourcePos
-        }
+    -- | StateError
+    --     { prType :: Type
+    --     , state  :: StateCond
+    --     , pos    :: SourcePos
+    --     }
     | GuardError
         { prType :: Type
         , pos    :: SourcePos
@@ -120,11 +121,11 @@ data TypeError
         , pos    :: SourcePos
         }
     | UncountableError
-        { op  :: QuantOp
+        { op  :: QuantOperator
         , pos :: SourcePos
         }
     | NotOccursVar
-        { op     :: QuantOp
+        { op     :: QuantOperator
         , symbol :: Text
         , pos    :: SourcePos
         }
@@ -134,7 +135,7 @@ data TypeError
         }
     | InvalidPar
         { name :: Text
-        , tree :: AST
+        -- , tree :: AST
         , pos  :: SourcePos
         }
     | DiffSizeError
@@ -147,17 +148,17 @@ data TypeError
         , tyVar  :: Type
         }
     | QuantRangeError
-        { op     :: QuantOp
+        { op     :: QuantOperator
         , trange :: Type
         , pos    :: SourcePos
         }
     | QuantIntError
-        { op    :: QuantOp
+        { op    :: QuantOperator
         , tterm :: Type
         , pos   :: SourcePos
         }
     | QuantBoolError
-        { op    :: QuantOp
+        { op    :: QuantOperator
         , tterm :: Type
         , pos   :: SourcePos
         }
@@ -205,7 +206,7 @@ instance Show TypeError where
             ": Tipos incompatibles en el operador relacional " ++
             show op ++ ", se suministró el tipo " ++ show lt ++ " & " ++
             show rt ++ "."
-        (UnaryError          t Minus _) ->
+        (UnaryError          t UMinus _) ->
             ": Tipo incompatible en el operador unario Negativo, se suministró el tipo " ++
             show t ++ ", se esperaba el tipo int o double."
         (UnaryError          t Not   _) ->
@@ -215,11 +216,11 @@ instance Show TypeError where
             ": Tipo incompatible en el operador unario " ++
             show op ++", se suministró el tipo " ++ show t ++
             ", se esperaba el tipo int."
-        (StateError          t Bound _) ->
-            ": Se esperaba en la Función de Cota una expresión de tipo int."
-        (StateError          t s     _) ->
-            ": Se esperaba en la " ++ show s ++
-            " una expresión de tipo boolean."
+        -- (StateError          t Bound _) ->
+        --     ": Se esperaba en la Función de Cota una expresión de tipo int."
+        -- (StateError          t s     _) ->
+        --     ": Se esperaba en la " ++ show s ++
+        --     " una expresión de tipo boolean."
         (GuardError          t       _) ->
             ": Se esperaba un tipo boolean en la guardia, se suministró " ++
             show t ++ "."
@@ -279,9 +280,9 @@ instance Show TypeError where
         (FunctionNameError  id            _) ->
             ": El parámetro " ++ show id ++
             " es del mismo nombre de la función que está siendo definida."
-        (InvalidPar  name _         _) ->
+        (InvalidPar  name _         {-_-}) ->
             ": En el procedimiento " ++ show name ++
-            " se suministrado una constante como parámetro de salida."
+            " se ha suministrado una constante como parámetro de salida."
         (DiffSizeError                _) ->
             ": El número de variables declaradas es distinto al de expresiones de inicialización encontradas."
         (TypeDecError  id pos te tv) ->

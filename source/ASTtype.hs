@@ -3,7 +3,7 @@ module ASTtype where
 import           AST
 import           Limits
 import           ReduceAST
-import           SourcePos
+import           Location
 import           SymbolTable
 import           Type
 import           TypeError

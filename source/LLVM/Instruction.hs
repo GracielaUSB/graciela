@@ -71,7 +71,7 @@ createInstruction (AST.Write True exp _ t) = do
   case ty of
     T.GInt      -> procedureCall ty' writeLnInt    [e']
     T.GFloat    -> procedureCall ty' writeLnDouble [e']
-    T.GBoolean  -> procedureCall ty' writeLnBool   [e']
+    T.GBool  -> procedureCall ty' writeLnBool   [e']
     T.GChar     -> procedureCall ty' writeLnChar   [e']
     T.GEmpty    -> procedureCall ty' writeLnString [e']
   return ()
@@ -85,7 +85,7 @@ createInstruction (AST.Write False exp _ t) = do
   case ty of
     T.GInt      -> procedureCall ty' writeInt    [e']
     T.GFloat    -> procedureCall ty' writeDouble [e']
-    T.GBoolean  -> procedureCall ty' writeBool   [e']
+    T.GBool  -> procedureCall ty' writeBool   [e']
     T.GChar     -> procedureCall ty' writeChar   [e']
     T.GEmpty    -> procedureCall ty' writeString [e']
   return ()

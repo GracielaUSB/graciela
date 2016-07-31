@@ -47,7 +47,7 @@ data Type
 
   | GInt           -- ^ Tipo entero
   | GFloat         -- ^ Tipo flotante
-  | GBoolean       -- ^ Tipo boleano
+  | GBool          -- ^ Tipo boleano
   | GChar          -- ^ Tipo caracter
 
   -- Tipo para los Data types
@@ -84,7 +84,7 @@ data Type
 instance Eq Type where
   GInt                      == GInt                      = True
   GFloat                    == GFloat                    = True
-  GBoolean                  == GBoolean                  = True
+  GBool                     == GBool                     = True
   GChar                     == GChar                     = True
   GError                    == GError                    = True
   GEmpty                    == GEmpty                    = True
@@ -115,7 +115,7 @@ instance Show Type where
   show = \case
     GInt              -> "int"
     GFloat            -> "double"
-    GBoolean          -> "boolean"
+    GBool             -> "boolean"
     GChar             -> "char"
     GEmpty            -> "void"
     GError            -> "error"
@@ -146,6 +146,6 @@ getDimension _            = 0
 isQuantifiable :: Type -> Bool
 isQuantifiable GInt     = True
 isQuantifiable GChar    = True
-isQuantifiable GBoolean = True
+isQuantifiable GBool    = True
 isQuantifiable GFloat   = False
 isQuantifiable _        = False

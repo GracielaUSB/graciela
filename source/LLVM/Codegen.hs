@@ -9,7 +9,7 @@ import           Limits
 import           LLVM.CodegenState
 import           LLVM.Expression
 import           LLVM.Instruction
-import           SourcePos
+import           Location
 import           SymbolTable
 import qualified Type                                    as T
 --------------------------------------------------------------------------------
@@ -1025,9 +1025,9 @@ irRelational AST.Ine     T.GInt   a b = ICmp IL.NE  a b []
 
 irConversion :: AST.Conv -> T.Type -> Operand -> Instruction
 irConversion AST.ToInt    T.GFloat a = _toInt   a
-irConversion AST.ToInt    T.GBoolean
+irConversion AST.ToInt    T.GBool
           (ConstantOperand (C.Int 1 0)) = _toInt $ constantInt 0
-irConversion AST.ToInt    T.GBoolean
+irConversion AST.ToInt    T.GBool
           (ConstantOperand (C.Int 1 1)) = _toInt $ constantInt 1
 irConversion AST.ToDouble T.GInt   a = _toFloat a
 irConversion AST.ToDouble T.GChar  a = _toFloat a
@@ -1042,7 +1042,7 @@ irUnary AST.Abs   T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction flo
                                          (Name fabsString))) [(a, [])] [] []
 irUnary AST.Sqrt  T.GFloat a = Call Nothing CC.C [] (Right ( definedFunction floatType
                                          (Name sqrtString))) [(a, [])] [] []
-irUnary AST.Not   T.GBoolean  a = _not a
+irUnary AST.Not   T.GBool  a = _not a
 
 
 _and    a b = And a b []

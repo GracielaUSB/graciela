@@ -18,7 +18,7 @@ module Token
   )where
 --------------------------------------------------------------------------------
 import           Type
-import           SourcePos
+import           Location
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
 import           Data.List.NonEmpty (toList)
@@ -73,6 +73,7 @@ data Token
   | TokAbs
   | TokSqrt
 
+  | TokDot
   | TokComma
   | TokColon
   | TokSemicolon
@@ -229,6 +230,7 @@ instance Show Token where
     TokAbs            -> "`abs` - Valor Absoluto"
     TokSqrt           -> "`sqrt` - Raíz Cuadrada"
 
+    TokDot            -> "`.` - Punto"
     TokComma          -> "`,` - Coma"
     TokColon          -> "`:` - Dos Puntos"
     TokSemicolon      -> "`;` - Punto y Coma"

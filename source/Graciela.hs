@@ -4,7 +4,7 @@ module Graciela where
 --------------------------------------------------------------------------------
 import           MyParseError           as P
 import           Parser.Prim
-import           SourcePos
+import           Location
 import           SymbolTable
 import           Token
 import           Type                   (Type (..))
@@ -45,10 +45,10 @@ gracielaDef = SourcePos "graciela.def" (unsafePos 1) (unsafePos 1)
 
 initialTypes :: Map Text (Type, SourcePos)
 initialTypes = Map.fromList
-  [ (pack "int",    (GInt,     gracielaDef))
-  , (pack "float",  (GFloat,   gracielaDef))
-  , (pack "boolean",(GBoolean, gracielaDef))
-  , (pack "char",   (GChar,    gracielaDef))
+  [ (pack "int",    (GInt,   gracielaDef))
+  , (pack "float",  (GFloat, gracielaDef))
+  , (pack "boolean",(GBool,  gracielaDef))
+  , (pack "char",   (GChar,  gracielaDef))
   ]
 
 

@@ -1,7 +1,8 @@
 module MyParseError where
 --------------------------------------------------------------------------------
-import           SourcePos
+import           Location
 import           Token
+import           Data.Monoid ((<>))
 --------------------------------------------------------------------------------
 
 data MyParseError
@@ -105,19 +106,19 @@ instance Show ExpectedToken where
 
 instance Show MyParseError where
   show (MyParseError loc wt at) =
-    "Error " ++ show loc ++ ": Esperaba " ++ show wt ++ " en vez de " ++
-    show at ++ "."
+    "Error " <> " " <> show loc <> ": Esperaba " <> show wt <> " en vez de " <>
+    show at <> "."
   show (EmptyError   loc)       =
-    "Error " ++ show loc ++ ": No se permiten Expresiones vacías."
+    "Error " <> " " <> show loc <> ": No se permiten Expresiones vacías."
   show (NonAsocError loc)       =
-    "Error " ++ show loc ++ ": Operador no asociativo."
+    "Error " <> " " <> show loc <> ": Operador no asociativo."
   show (ArrayError   wt pr loc) =
-    "Error " ++ show loc ++ ": Esperaba Arreglo de dimensión " ++ show wt ++
-    ", encontrado Arreglo de dimensión " ++ show pr ++ "."
+    "Error " <> " " <> show loc <> ": Esperaba Arreglo de dimensión " <> show wt <>
+    ", encontrado Arreglo de dimensión " <> show pr <> "."
   show ScopesError              =
     "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
   show (CustomError msg loc) =
-    "Error " ++ show loc ++ ": " ++ msg
+    "Error " <> " " <> show loc <> ": " <> msg
 
 
 newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError

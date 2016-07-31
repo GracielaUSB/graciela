@@ -36,7 +36,7 @@ module SymbolTable
   ) where
 --------------------------------------------------------------------------------
 import           Entry
-import           SourcePos
+import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.List       (sortOn)
