@@ -56,6 +56,8 @@ instance Show OpRel where
   show Ine     = "(!=)"
 
 data OpSet = Difference | Intersection | Union
+  deriving (Eq)
+  
 instance Show OpSet where
   show Difference   = "Difference (∖)"
   show Intersection = "Intersection (∪)"
@@ -171,7 +173,7 @@ data AST'
   --   , max       :: Bool
   --   }
   | Conversion
-    { toType :: Conv
+    { cToType :: Conv
     , cExp   :: AST
     }
   | DecArray
@@ -352,8 +354,8 @@ instance Treelike AST where
     -- Constant int isMax ->
     --   leaf (checkMaxMin int isMax ++ posFrom')
 
-    Conversion { toType, cExp } ->
-      Node (show toType ++ posFrom')
+    Conversion { cToType, cExp } ->
+      Node (show cToType ++ posFrom')
         [toTree cExp]
 
     DecArray { dimension } ->
