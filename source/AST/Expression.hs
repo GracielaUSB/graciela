@@ -1,26 +1,31 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module AST.Expression
-  ( Expression (..)
+  ( BinaryOperator (..)
+  , Conversion (..)
+  , Expression (..)
   , Expression' (..)
   , Object (..)
-  , BinaryOperator (..)
-  , UnaryOperator (..)
-  , Conversion (..)
+  , QRange (..)
   , QuantOperator (..)
+  , Reason (..)
+  , UnaryOperator (..)
   , from
   , to
   )
   where
 --------------------------------------------------------------------------------
-import           AST.Object (Object')
+import           AST.Object    (Object')
 import           Location
 import           Treelike
-import           Type        (Type)
+import           Type          (Type)
 --------------------------------------------------------------------------------
-import           Data.Monoid ((<>))
-import           Data.Text   (Text, unpack)
-import           Prelude     hiding (Ordering (..))
+import           Data.Foldable (toList)
+import           Data.Monoid   ((<>))
+import           Data.Sequence (Seq)
+import qualified Data.Sequence as Seq (Seq)
+import           Data.Text     (Text, unpack)
+import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 type Object = Object' Expression
@@ -98,11 +103,37 @@ instance Show QuantOperator where
 
 
 data QRange
-  = QRange
-  deriving (Eq)
+  = ExpRange
+    { low  :: Expression
+    , high :: Expression
+    }
+  | SetRange
+    { theSet :: Expression
+    }
+  | MultisetRange
+    { theMultiset :: Expression
+    }
+  | EmptyRange
 
 instance Treelike QRange where
-  toTree _ = leaf "QRange" -- Dummy as fuck
+  toTree ExpRange { low, high } =
+    Node "Exp Range"
+      [ Node "From" [toTree low]
+      , Node "To"   [toTree high]
+      ]
+
+  toTree SetRange { theSet } =
+    Node "Set Range"
+      [Node "Over" [toTree theSet]
+      ]
+
+  toTree MultisetRange { theMultiset } =
+    Node "Multiset Range"
+      [Node "Over" [toTree theMultiset]
+      ]
+
+  toTree EmptyRange =
+    leaf "Empty Range"
 
 
 data Expression'
@@ -112,7 +143,10 @@ data Expression'
   | IntLit    { theInt    :: Integer }
   | StringLit { theString :: String  }
 
-  | Obj      { theObj :: Object }
+  | EmptySet
+  | EmptyMultiset
+
+  | Obj       { theObj :: Object }
 
   | Binary
     { binOp :: BinaryOperator
@@ -141,9 +175,15 @@ data Expression'
     , qVar     :: Text
     , qVarType :: Type
     , qRange   :: QRange
-    , qCond    :: Maybe Expression
+    , qCond    :: Expression
     , qBody    :: Expression
     }
+
+  | EConditional
+    { eguards :: Seq (Expression, Expression)
+    }  -- ^ Instruccion If.
+
+  | ESkip
 
 data Expression
   = Expression
@@ -153,6 +193,7 @@ data Expression
     }
   | BadExpression
     { loc     :: Location
+    , reasons :: Seq Reason
     }
 
 
@@ -172,6 +213,12 @@ instance Treelike Expression where
 
     StringLit { theString } -> leaf $
       "String Literal `" <> show theString <> "` " <> show loc
+
+    EmptySet -> leaf $
+      "Set Literal `Empty Set` " <> show loc
+
+    EmptyMultiset -> leaf $
+      "Multiset Literal `Empty Multiset` " <> show loc
 
     Obj { theObj } ->
       Node ("Object " <> show loc)
@@ -205,19 +252,41 @@ instance Treelike Expression where
           ]
         , Node "Range"      [toTree qRange]
         , case qCond of
-          Just cond -> Node "Conditions" [toTree cond]
-          Nothing   -> leaf "No Conditions"
+            Expression { exp' = ESkip } -> leaf "No Conditions"
+            _ -> Node "Conditions" [toTree qCond]
         , Node "Body"       [toTree qBody]
         ]
 
-  toTree BadExpression { loc } =
-    leaf $ "Bad Expression " <> show loc
+    EConditional { eguards } ->
+      Node ("Conditional Expression " <> show loc)
+        (map g . toList $ eguards)
 
+      where
+        g (lhs, rhs) =
+          Node "Guard"
+            [ Node "If"   [toTree lhs]
+            , Node "Then" [toTree rhs]
+            ]
+
+    ESkip ->
+      leaf "Skip Expression"
+
+  toTree BadExpression { loc, reasons } =
+    Node ("Bad Expression " <> show loc)
+      [ Node "Reasons" (map toTree . toList $ reasons)]
+
+data Reason
+  = CustomReason
+    { rloc :: Location
+    , rtxt :: String
+    }
+
+instance Treelike Reason where
+  toTree CustomReason { rloc, rtxt } =
+    Node (show rloc) [leaf rtxt]
 
 from :: Expression -> SourcePos
-from Expression    { loc = Location (f,_)} = f
-from BadExpression { loc = Location (f,_)} = f
+from e = let Location (f,_) = loc e in f
 
 to :: Expression -> SourcePos
-to Expression    { loc = Location (_,t)} = t
-to BadExpression { loc = Location (_,t)} = t
+to e =   let Location (_,t) = loc e in t

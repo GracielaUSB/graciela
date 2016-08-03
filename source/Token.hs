@@ -110,6 +110,9 @@ data Token
   | TokLeftBrace
   | TokRightBrace
 
+  | TokLeftBag
+  | TokRightBag
+
   | TokOpenBlock
   | TokCloseBlock
 
@@ -187,6 +190,7 @@ data Token
   | TokSetUnion
   | TokSetIntersect
   | TokEmptySet
+  | TokEmptyMultiset
 
   | TokSet
   | TokMultiset
@@ -267,6 +271,9 @@ instance Show Token where
     TokLeftBrace      -> "`{` - Llave Izquierda"
     TokRightBrace     -> "`}` - Llave Derecho"
 
+    TokLeftBag        -> "`{{` - Signo de multiconjunto Izquierdo"
+    TokRightBag       -> "`}}` - Signo de multiconjunto Derecho"
+
     TokOpenBlock      -> "`|[` - Apertura de Bloque"
     TokCloseBlock     -> "`]|` - Cierre de Bloque"
 
@@ -345,7 +352,8 @@ instance Show Token where
     TokSetMinus       -> "`\\` - Resta de conjuntos"
     TokSetUnion       -> "`union` - Unión de conjuntos"
     TokSetIntersect   -> "`intersect` - Intersección de conjuntos"
-    TokEmptySet       -> "`emptyset` - Conjunto vacío"
+    TokEmptySet       -> "`{}` - Conjunto vacío"
+    TokEmptyMultiset  -> "`{{}}` - Multiconjunto vacío"
 
     TokSet            -> "`set` - Conjunto"
     TokMultiset       -> "`multiset` - Multiconjunto"

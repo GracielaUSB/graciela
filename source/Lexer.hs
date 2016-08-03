@@ -127,8 +127,6 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (reserved "seq"         $> TokSeq)
       <|> (reserved "rel"         $> TokRel)
 
-      <|> (reserved "emptyset"    $> TokEmptySet)
-      <|> (symbol   "\8709"       $> TokEmptySet) -- ∅
       <|> (symbol   "\\"          $> TokSetMinus)
       <|> (reserved "union"       $> TokSetUnion)
       <|> (symbol   "\8746"       $> TokSetUnion) -- ∪
@@ -208,8 +206,21 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (reserved "{inv"        $> TokLeftInv)
       <|> (symbol   "inv}"        $> TokRightInv)
 
+
+      -- V2.0
+      <|> try (symbol "{{"     *> symbol "}}"     $> TokEmptyMultiset)
+      <|> try (symbol "\10181" *> symbol "\10182" $> TokEmptyMultiset) -- ⟅ ⟆
+      <|> (symbol   "{{"          $> TokLeftBag)
+      <|> (symbol   "\10181"      $> TokLeftBag)  -- ⟅
+      <|> (symbol   "}}"          $> TokRightBag)
+      <|> (symbol   "\10182"      $> TokRightBag) -- ⟆
+
+      <|> try (symbol "{" *> symbol "}" $> TokEmptySet)
+      <|> (symbol   "\8709"       $> TokEmptySet) -- ∅
       <|> (symbol   "{"           $> TokLeftBrace)
       <|> (symbol   "}"           $> TokRightBrace)
+      -- V2.0
+
 
       <|> (symbol   "|"           $> TokPipe)
 

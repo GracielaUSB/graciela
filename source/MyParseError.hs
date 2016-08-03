@@ -7,25 +7,25 @@ import           Data.Monoid ((<>))
 
 data MyParseError
   = MyParseError
-    { loc         :: SourcePos
+    { pos         :: SourcePos
     , expectedTok :: ExpectedToken
     , currentTok  :: Token
     }
   | EmptyError
-    { loc :: SourcePos
+    { pos :: SourcePos
     }
   | ArrayError
     { waDim :: Int
     , prDim :: Int
-    , loc   :: SourcePos
+    , pos   :: SourcePos
     }
   | NonAsocError
-    { loc :: SourcePos
+    { pos :: SourcePos
     }
   | ScopesError
   | CustomError -- Mientras no mejoremos los errores jajaja
     { msg :: String
-    , loc :: SourcePos
+    , loc :: Location
     }
 
 data ExpectedToken
@@ -105,15 +105,15 @@ instance Show ExpectedToken where
 
 
 instance Show MyParseError where
-  show (MyParseError loc wt at) =
-    "Error " <> " " <> show loc <> ": Esperaba " <> show wt <> " en vez de " <>
+  show (MyParseError pos wt at) =
+    "Error " <> " " <> show pos <> ": Esperaba " <> show wt <> " en vez de " <>
     show at <> "."
-  show (EmptyError   loc)       =
-    "Error " <> " " <> show loc <> ": No se permiten Expresiones vacías."
-  show (NonAsocError loc)       =
-    "Error " <> " " <> show loc <> ": Operador no asociativo."
-  show (ArrayError   wt pr loc) =
-    "Error " <> " " <> show loc <> ": Esperaba Arreglo de dimensión " <> show wt <>
+  show (EmptyError   pos)       =
+    "Error " <> " " <> show pos <> ": No se permiten Expresiones vacías."
+  show (NonAsocError pos)       =
+    "Error " <> " " <> show pos <> ": Operador no asociativo."
+  show (ArrayError   wt pr pos) =
+    "Error " <> " " <> show pos <> ": Esperaba Arreglo de dimensión " <> show wt <>
     ", encontrado Arreglo de dimensión " <> show pr <> "."
   show ScopesError              =
     "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
@@ -123,4 +123,4 @@ instance Show MyParseError where
 
 newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
 newParseError msg (e, pos) =
-    MyParseError { loc = pos, expectedTok = msg, currentTok = e }
+    MyParseError { pos = pos, expectedTok = msg, currentTok = e }

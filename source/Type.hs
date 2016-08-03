@@ -12,7 +12,8 @@ como tambien los utilizados de forma interna en el compilador.
 module Type
   ( ArgMode (..)
   , Type (..)
-  , isQuantifiable
+  , quantifiableTypes
+  , (=:=)
   ) where
 --------------------------------------------------------------------------------
 import           Data.Text (Text, unpack)
@@ -45,9 +46,12 @@ data Type
   | GTuple   [Type]     -- ^ Tipo n-upla ( graciela 2.0 )
   | GTypeVar  Text      -- ^ Variable de tipo ( graciela 2.0 )
 
+  | GAny                -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
+  | GOneOf   [Type]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
+
   | GInt           -- ^ Tipo entero
   | GFloat         -- ^ Tipo flotante
-  | GBoolean       -- ^ Tipo boleano
+  | GBool          -- ^ Tipo boleano
   | GChar          -- ^ Tipo caracter
 
   -- Tipo para los Data types
@@ -78,36 +82,31 @@ data Type
     { getSize   :: Either Text Integer -- ^ Tamano del arreglo
     , arrayType :: Type                 -- ^ Tipo del arreglo
     }
+  deriving (Eq)
 
 
--- | Instancia 'Eq' para los tipos.
-instance Eq Type where
-  GInt                      == GInt                      = True
-  GFloat                    == GFloat                    = True
-  GBool                     == GBool                     = True
-  GChar                     == GChar                     = True
-  GError                    == GError                    = True
-  GEmpty                    == GEmpty                    = True
-  (GDataType _n1 _ _ _)     == (GDataType _n2 _ _ _)     = True
-  (GAbstractType _n1 _ _ _) == (GAbstractType _n2 _ _ _) = True
-  (GDataType _n1 _ _ _)     == (GAbstractType _n2 _ _ _) = True
-  (GProcedure  _)           == (GProcedure   _)          = True
-  (GFunction _ t)           == (GFunction _ t')          = t == t'
-  (GArray    _ t)           == (GArray    _ t')          = t == t'
-
-  (GSet t)                  == (GSet t')                 = t == t'
-  (GMultiset t)             == (GMultiset t')            = t == t'
-  (GSeq t)                  == (GSeq t')                 = t == t'
-
-  (GFunc d r)               == (GFunc d' r')             =
-      (d == d') && (r == r')
-  (GRel d r)                == (GRel d' r')              =
-      (d == d') && (r == r')
-
-  (GTuple    ts)            == (GTuple    ts')           = ts == ts'
-  (GTypeVar  t)             == (GTypeVar  t')            = t == t'
-
-  _                         == _                         = False
+(=:=) :: Type -> Type -> Bool
+a =:= b
+  |  a == b
+  || b /= GError && b /= GUndef && a == GAny
+  || a /= GError && a /= GUndef && b == GAny = True
+GOneOf        as =:= a                = a `elem` as
+a                =:= GOneOf        as = a `elem` as
+GDataType     {} =:= GDataType     {} = True
+GAbstractType {} =:= GAbstractType {} = True
+GDataType     {} =:= GAbstractType {} = True
+GAbstractType {} =:= GDataType     {} = True
+GProcedure    {} =:= GProcedure    {} = True
+GArray       _ a =:= GArray       _ b = a =:= b
+GFunction    _ a =:= GFunction    _ b = a =:= b
+GSet           a =:= GSet           b = a =:= b
+GMultiset      a =:= GMultiset      b = a =:= b
+GSeq           a =:= GSeq           b = a =:= b
+GFunc      da ra =:= GFunc      db rb = da =:= db && ra =:= rb
+GRel       da ra =:= GRel       db rb = da =:= db && ra =:= rb
+GTuple        as =:= GTuple        bs = and $ zipWith (=:=) as bs
+GTypeVar       a =:= GTypeVar       b = a == b
+_                =:= _                = False
 
 
 -- | Instancia 'Show' para los tipos.
@@ -133,7 +132,11 @@ instance Show Type where
     GTypeVar  n       -> "variable de tipo `" ++ show n ++ "`"
     GDataType n _ _ _ -> "type `" ++ unpack n ++ "`"
     GAbstractType n _ _ _ -> "abstract `" ++ unpack n ++ "`"
-    GUndef -> undefined
+
+    GAny              -> "any type"
+    GOneOf         as -> "one of " ++ show as
+
+    GUndef            -> undefined
 
 
 -- | Retorna la dimensión del arreglo.
@@ -143,9 +146,12 @@ getDimension _            = 0
 
 
 -- | Verifica si el tipo es cuantificable (Tipo Enumerado).
-isQuantifiable :: Type -> Bool
-isQuantifiable GInt     = True
-isQuantifiable GChar    = True
-isQuantifiable GBool    = True
-isQuantifiable GFloat   = False
-isQuantifiable _        = False
+-- isQuantifiable :: Type -> Bool
+-- isQuantifiable GInt     = True
+-- isQuantifiable GChar    = True
+-- isQuantifiable GBool    = True
+-- isQuantifiable GFloat   = False
+-- isQuantifiable _        = False
+
+quantifiableTypes :: Type
+quantifiableTypes = GOneOf [ GInt, GChar, GBool ]

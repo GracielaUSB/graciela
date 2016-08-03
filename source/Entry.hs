@@ -2,8 +2,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Entry
-  ( Entry'(..)
-  , Entry''(..)
+  ( Entry' (..)
+  , Entry'' (..)
+  , info
+  , varType
   ) where
 --------------------------------------------------------------------------------
 import           Location
@@ -27,11 +29,11 @@ instance Show Value where
 
 
 data Entry'' s
-  = Variable
+  = Var
     { _varType  :: Type
     , _varValue :: Maybe Value
     }
-  | Constant
+  | Const
     { _constType  :: Type
     , _constValue :: Value
     }
@@ -59,8 +61,7 @@ makeLenses ''Entry''
 data Entry' s
   = Entry
     { _entryName :: Text
-    , _posFrom   :: !SourcePos
-    , _posTo     :: !SourcePos
+    , _loc       :: Location
     , _info      :: Entry'' s
     }
 
@@ -68,43 +69,40 @@ makeLenses ''Entry'
 
 
 instance Treelike (Entry' s) where
-  toTree Entry { _entryName, _posFrom, _posTo, _info } = case _info of
+  toTree Entry { _entryName, _loc, _info } = case _info of
 
-    Variable { _varType, _varValue } ->
-      Node ("Variable `" <> unpack _entryName <> "`" <> posFromTo)
+    Var { _varType, _varValue } ->
+      Node ("Variable `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _varType)
         , leaf $ case _varValue of
             Just x -> "Initial value: " <> show x
             _      -> "Not initialized"
         ]
 
-    Constant { _constType, _constValue } ->
-      Node ("Constant `" <> unpack _entryName <> "`" <> posFromTo)
+    Const { _constType, _constValue } ->
+      Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ "Type: " <> show _constType
         , leaf $ "Value: " <> show _constValue
         ]
 
     Argument { _argMode, _argType } ->
-      Node ("Argument `" <> unpack _entryName ++ "`" <> posFromTo)
+      Node ("Argument `" <> unpack _entryName ++ "` " <> show _loc)
         [ leaf $ "Type: " <> show _argType
         , leaf $ "Mode: " <> show _argMode
         ]
 
     Function { _funcType, _funcArgs, _funcTable } ->
-      Node ("Function `" <> unpack _entryName ++ "`" <> posFromTo)
+      Node ("Function `" <> unpack _entryName ++ "` " <> show _loc)
         [ leaf $ show _funcType
         ]
 
     Procedure { _procType, _procArgs, _procTable } ->
-      Node ("Procedure `" <> unpack _entryName ++ "`" <> posFromTo)
+      Node ("Procedure `" <> unpack _entryName ++ "` " <> show _loc)
         [ leaf $ show _procType
         ]
 
     AbstractTypeEntry {} ->
-      leaf ("Abstract Data Type `" <> unpack _entryName ++ "`" <> posFromTo)
+      leaf ("Abstract Data Type `" <> unpack _entryName ++ "` " <> show _loc)
 
     TypeEntry {} ->
-      leaf ("Data Type `" <> unpack _entryName ++ "`" <> posFromTo)
-
-    where
-      posFromTo = " (" ++ showPos' _posFrom ++ " - " ++ showPos' _posTo ++ ")"
+      leaf ("Data Type `" <> unpack _entryName ++ "` " <> show _loc)

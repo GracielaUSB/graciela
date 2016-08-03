@@ -56,8 +56,7 @@ type Entries = Map Text Entry
 
 -- Symbol Table Scope ------------------
 data Scope = Scope
-  { sFrom     :: SourcePos
-  , sTo       :: SourcePos
+  { sLoc      :: Location
   , sEntries  :: Entries
   , sChildren :: Scopes
   }
@@ -65,12 +64,12 @@ data Scope = Scope
 type Scopes = Seq Scope
 
 instance Treelike Scope where
-  toTree Scope { sFrom, sTo, sEntries, sChildren } =
-    Node ("Scope " <> showPos' sFrom <> " -> " <> showPos' sTo) $
+  toTree Scope { sLoc, sEntries, sChildren } =
+    Node ("Scope " <> show sLoc) $
       if Map.null sEntries
         then toForest sChildren
         else Node "Symbols"
-          (toForest . sortOn _posFrom . Map.elems $ sEntries) :
+          (toForest . sortOn _loc . Map.elems $ sEntries) :
             toForest sChildren
 
 
@@ -92,15 +91,14 @@ insertST' newScope s @ Scope { sChildren } =
 
 
 close' :: SourcePos -> Scope -> Scope
-close' pos scope =
-  scope { sTo = pos }
+close' pos scope @ Scope { sLoc = Location (from, _) } =
+  scope { sLoc = Location (from, pos) }
 
 
 empty' :: SourcePos -> Scope
 empty' pos
   = Scope
-    { sFrom     = pos
-    , sTo       = pos
+    { sLoc      = Location (pos, pos)
     , sEntries  = Map.empty
     , sChildren = Seq.empty
     }
@@ -109,7 +107,7 @@ empty' pos
 -- Symbol Table ------------------------
 data Breadcrumb
   = Breadcrumb
-    { bScope :: (SourcePos, SourcePos, Entries)
+    { bScope :: (Location, Entries)
     , bLeft  :: Scopes
     , bRight :: Scopes
     }
@@ -125,19 +123,19 @@ empty = focus . empty'
 
 ---- Moving around -----------
 goDownFirst :: SymbolTable -> Either Text SymbolTable
-goDownFirst (Scope { sFrom, sTo, sEntries, sChildren }, bs)
+goDownFirst (Scope { sLoc, sEntries, sChildren }, bs)
   | Seq.null sChildren = Left "No embedded scopes."
   | otherwise =
-    Right (x, Breadcrumb (sFrom, sTo, sEntries) Seq.empty xs : bs)
+    Right (x, Breadcrumb (sLoc, sEntries) Seq.empty xs : bs)
   where
     x :< xs = Seq.viewl sChildren
 
 
 goDownLast :: SymbolTable -> Either Text SymbolTable
-goDownLast (Scope { sFrom, sTo, sEntries, sChildren }, bs)
+goDownLast (Scope { sLoc, sEntries, sChildren }, bs)
   | Seq.null sChildren = Left "No embedded scopes."
   | otherwise =
-    Right (x, Breadcrumb (sFrom, sTo, sEntries) xs Seq.empty : bs)
+    Right (x, Breadcrumb (sLoc, sEntries) xs Seq.empty : bs)
   where
     xs :> x = Seq.viewr sChildren
 
@@ -165,8 +163,8 @@ goPrevious (s, Breadcrumb { bScope, bLeft, bRight } : bs)
 goUp :: SymbolTable -> Either Text SymbolTable
 goUp (_, []) =
   Left "Already at root scope."
-goUp (s, Breadcrumb { bScope = (sFrom, sTo, sEntries), bLeft, bRight } : bs) =
-  Right (Scope sFrom sTo sEntries ((bLeft |> s) >< bRight), bs)
+goUp (s, Breadcrumb { bScope = (sLoc, sEntries), bLeft, bRight } : bs) =
+  Right (Scope sLoc sEntries ((bLeft |> s) >< bRight), bs)
 
 
 root :: SymbolTable -> Either a SymbolTable -- we want to stay in the monad
@@ -229,5 +227,9 @@ openScope :: SourcePos -> SymbolTable -> SymbolTable
 openScope p = (\(Right x) -> x) . goDownLast . insertST (empty' p)
 
 
-closeScope :: SourcePos -> SymbolTable -> Either Text SymbolTable
-closeScope p (s, bs) = goUp (close' p s, bs)
+closeScope' :: SourcePos -> SymbolTable -> Either Text SymbolTable
+closeScope' p (s, bs) = goUp (close' p s, bs)
+
+
+closeScope :: SourcePos -> SymbolTable -> SymbolTable
+closeScope p st = (\(Right x) -> x) $ closeScope' p st
