@@ -3,7 +3,7 @@
 {-# LANGUAGE TupleSections     #-}
 
 module Parser.Expression
-  ( metaexpr
+  ( expression
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression            hiding (inner, loc)
@@ -198,8 +198,7 @@ quantification = do
   match TokPipe
 
   put (Just var)
-  -- (cond @ Expression { E.loc = rloc }, protorange ) <- metaexpr
-  (cond, protorange ) <- metaexpr
+  (cond, protorange) <- metaexpr
   let rloc = E.loc cond
   put Nothing
 
@@ -260,6 +259,8 @@ quantification = do
               <|> (match TokMin    $> (Minimum,   numeric))
               <|> (match TokCount  $> (Count,     GBool))
 
+    quantifiableTypes = GOneOf [ GInt, GChar, GBool ]
+
     declaration = do
       from <- getPosition
 
@@ -312,7 +313,7 @@ ifExp = do
     guards = do
       -- We run `line` for each "a -> b" pair in the If metaexpr,
       -- and then we extract the final set of guards
-      line `sepBy1` lift (match TokSepGuards)
+      line `sepBy1` match TokSepGuards
       st <- get
 
       -- If there were errors, we return a BadExpression, otherwise,
@@ -353,7 +354,7 @@ ifExp = do
           -- before which we can only propagate
           put Nothing
 
-      lift . lift $ match TokArrow
+      match TokArrow
 
       rhs <- lift expr
       -- We take the right hand side of the guard,
@@ -394,11 +395,10 @@ ifExp = do
 operator :: [[ Operator GracielaRange MetaExpr ]]
 operator =
   [ {-Level 0-}
-    -- [ Postfix (subindex) ]
-    [ Postfix (foldr1 (>=>) <$> some subindex)]
-    -- , Postfix (foldr1 (flip (.)) <$> some field) ]
+    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+    -- , Postfix (foldr1 (>=>) <$> some field) ]
   -- , {-Level 1-}
-    -- [ Prefix  (foldr1 (.) <$> some pointer) ]
+    -- [ Prefix  (foldr1 (>=>) <$> some pointer) ]
   -- , {-Level 2-}
   --   [ Prefix (match TokNot        $> \x -> Node "not" [x])
   --   , Prefix (match TokMinus      $> \x -> Node "minus" [x]) ]
@@ -572,8 +572,9 @@ ffb =  (GFloat, GFloat, GBool)
 
 
 
-concatLexPar :: Text -> IO ()
-concatLexPar input = do
+testExpr :: String -> IO ()
+testExpr strinput = do
+  let input = pack strinput
   let Right ets = runParser lexer "" input
   let init' = initialState &~ do
         symbolTable %= openScope (SourcePos "" (unsafePos 4) (unsafePos 10))

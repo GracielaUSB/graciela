@@ -101,7 +101,6 @@ pTerm prefix term postfix = do
   pre  <- option return (hidden prefix)
   x    <- term
   post <- option return (hidden postfix)
-  -- return . post . pre $ x
   post =<< pre x
 
 
@@ -125,7 +124,7 @@ pInfixL op p x = do
   f <- op
   y <- p
   let r = f x y
-  (r >>= pInfixL op p) <|> r
+  (pInfixL op p =<< r) <|> r
 
 -- | @pInfixR op p x@ parses right-associative infix operator @op@, then
 -- term with parser @p@, then returns result of the operator application on

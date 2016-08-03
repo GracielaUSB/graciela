@@ -12,7 +12,6 @@ como tambien los utilizados de forma interna en el compilador.
 module Type
   ( ArgMode (..)
   , Type (..)
-  , quantifiableTypes
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
@@ -152,6 +151,3 @@ getDimension _            = 0
 -- isQuantifiable GBool    = True
 -- isQuantifiable GFloat   = False
 -- isQuantifiable _        = False
-
-quantifiableTypes :: Type
-quantifiableTypes = GOneOf [ GInt, GChar, GBool ]

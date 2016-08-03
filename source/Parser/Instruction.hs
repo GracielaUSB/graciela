@@ -43,9 +43,6 @@ import qualified Data.Text              as T
 import           Text.Megaparsec        hiding (Token)
 -------------------------------------------------------------------------------
 
-data CasesConditional = CExpression | CAction
-
-
 actionsList :: Graciela Token -> Graciela [AST]
 actionsList follow =
   do lookAhead follow
@@ -64,15 +61,15 @@ actionsListAux follow =
      <|> return []
 
 action :: Graciela Token -> Graciela AST
-action follow = do 
+action follow = do
   posFrom <- getPosition
-  do  
+  do
     lookAhead followAction
     actionAux follow
     <|> do
           lookAhead  $  match TokLeftA
           assertions <- assertion followAction
-          do 
+          do
             lookAhead  followAction
             actions <- actionAux follow
             posTo   <- getPosition
@@ -197,7 +194,7 @@ functionCallOrAssign ::  Graciela Token -> Graciela AST
 functionCallOrAssign follow =
     do posFrom <- getPosition
        id <- identifier
-       do 
+       do
           args  <- parens (expression `sepBy` match TokComma)
           sb    <- getCurrentScope
           posTo <- getPosition
@@ -208,37 +205,37 @@ functionCallOrAssign follow =
               rl    <- idAssignListAux (match TokAssign)
               t     <- lookUpConsParser id
               match TokAssign
-              do 
+              do
                 le    <- many expression
                 posTo <- getPosition
                 if null bl
-                  then do 
+                  then do
                     let aId = AST posFrom posId t (Id id)
                     return  $ AST posFrom posTo GEmpty (LAssign (aId:rl) le)
-                  else do 
+                  else do
                     let aId = AST posFrom posId t (ArrCall id bl)
                     return  $ AST posFrom posTo GEmpty (LAssign (aId:rl) le)
                <|> do genNewError follow TokenAs
                       return $ AST posFrom posFrom GError (EmptyAST)
 
 idAssignListAux :: Graciela Token -> Graciela [AST]
-idAssignListAux follow = do 
+idAssignListAux follow = do
   match TokComma
   posFrom <- getPosition
-  do 
+  do
     ac <- identifier
     t  <- lookUpConsParser ac
     bl <- many $ brackets expression
     rl <- idAssignListAux follow
     posTo  <- getPosition
     if null bl
-      then do 
+      then do
         let ast = AST posFrom posTo t (ArrCall ac bl)
-        return (ast : rl)    
-      else do 
+        return (ast : rl)
+      else do
         let ast = AST posFrom posTo t (Id ac)
         return (ast : rl)
-            
+
     <|> do genNewError follow IdError
            return []
   <|> return []
@@ -257,7 +254,7 @@ write' ln follow =
           e <- expression
           do match TokRightPar
              posTo <- getPosition
-             return $ AST posFrom posTo GEmpty (Write ln e) 
+             return $ AST posFrom posTo GEmpty (Write ln e)
              <|> do genNewError follow TokenRP
                     return $ AST posFrom posFrom GError (EmptyAST)
           <|> do genNewError follow TokenLP
@@ -271,7 +268,7 @@ new follow = do
     id <- identifier
     match TokRightPar
     posTo <- getPosition
-    return $ AST posFrom posTo GEmpty (New id) 
+    return $ AST posFrom posTo GEmpty (New id)
 
 free :: Graciela Token -> Graciela AST
 free follow = do
@@ -281,7 +278,7 @@ free follow = do
     id <- identifier
     match TokRightPar
     posTo <- getPosition
-    return $ AST posFrom posTo GEmpty (Free id) 
+    return $ AST posFrom posTo GEmpty (Free id)
 
 abort ::  Graciela Token -> Graciela AST
 abort folow =

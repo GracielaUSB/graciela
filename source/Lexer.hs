@@ -19,7 +19,7 @@ import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,
                                         between, char, eof, getPosition, hidden,
                                         letterChar, many, manyTill,
                                         notFollowedBy, runParser, spaceChar,
-                                        string, try, (<|>))
+                                        string, try, (<|>), anyChar)
 import qualified Text.Megaparsec.Lexer as L
 --------------------------------------------------------------------------------
 
@@ -265,6 +265,8 @@ token  =  (reserved "program"     $> TokProgram)
       <|> intLit
       <|> stringLit
       <|> identifier
+
+      <|> (TokUnexpected <$> anyChar)
 
 
 tokenPos :: Lexer TokenPos

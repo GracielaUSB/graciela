@@ -173,7 +173,7 @@ data Token
 
   -- | TokComment
   -- | EmptyToken
-  -- | TokUnexpected { unTokUnexpected :: Char}
+  | TokUnexpected { unTokUnexpected :: Char}
 
   -- V2.0
   | TokType

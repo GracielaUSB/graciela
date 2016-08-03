@@ -40,7 +40,6 @@ import           Text.Megaparsec.Pos                     (SourcePos)
 --------------------------------------------------------------------------------
 
 
-
 createQuant :: Bool -> QuantOperator -> String -> SourcePos ->
                    Expression -> Range Integer -> LLVM Operand
 createQuant True opQ var pos exp (SpanRange a b) = do
