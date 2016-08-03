@@ -6,10 +6,10 @@ module Parser.Expression
   ( metaexpr
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression            hiding (loc, inner)
-import qualified AST.Expression            as E (loc, inner)
-import           AST.Object                hiding (loc, name, inner)
-import qualified AST.Object                as O (loc, name, inner)
+import           AST.Expression            hiding (inner, loc)
+import qualified AST.Expression            as E (inner, loc)
+import           AST.Object                hiding (inner, loc, name)
+import qualified AST.Object                as O (inner, loc, name)
 import           Entry                     (Entry' (..), Entry'' (..), info,
                                             varType)
 import           Graciela
@@ -17,6 +17,7 @@ import           Lexer
 import           Limits
 import           Location
 import           MyParseError              as PE
+import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Token
 import           SymbolTable               (closeScope, insertSymbol, lookup,
                                             openScope)
@@ -25,9 +26,9 @@ import           Treelike
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens              (makeLenses, use, (%=), (^.))
-import           Control.Monad             (void, when)
+import           Control.Monad             (void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT, evalState, evalStateT, get,
+import           Control.Monad.Trans.State (StateT, runState, evalStateT, get,
                                             modify, put)
 import           Data.Functor              (($>))
 import qualified Data.Map                  as Map (lookup)
@@ -39,12 +40,10 @@ import           Prelude                   hiding (lookup)
 import           Text.Megaparsec           (between, getPosition, runParser,
                                             runParserT, sepBy, sepBy1, some,
                                             try, (<|>))
-import           Text.Megaparsec.Expr      (Operator (..), makeExprParser)
 --------------------------------------------------------------------------------
-import Control.Lens ((&~))
 
-
-import Debug.Trace
+import           Control.Lens              ((&~))
+import           Debug.Trace
 
 expression :: Graciela Expression
 expression = evalStateT expr Nothing
@@ -155,10 +154,12 @@ variable = do
 
   case name `lookup` st of
 
-    Left _ -> pure . (,ProtoNothing) $ BadExpression
-      { E.loc
-      , reasons = Seq.singleton . CustomReason loc $
-        "`" <> unpack name <> "` isn't defined in this scope"}
+    Left _ -> do
+      lift . syntaxError . (`CustomError` loc) $
+        "Variable `" <> unpack name <> "` not defined in this scope."
+
+      pure . (,ProtoNothing) $ BadExpression
+        { E.loc }
 
     Right entry -> case entry^.info of
 
@@ -183,15 +184,11 @@ variable = do
    -- Constant { _constType } ???
 
       _ -> pure . (,ProtoNothing) $ BadExpression
-        { E.loc
-        , reasons = Seq.singleton . CustomReason loc $
-          unpack name <> "isn't defined in this scope as a variable" }
+        { E.loc }
 
 
 quantification :: GracielaRange MetaExpr
 quantification = do
-  let reasons = Seq.empty
-
   from <- getPosition
   match TokLeftPercent
   lift $ symbolTable %= openScope from
@@ -248,10 +245,10 @@ quantification = do
           , qCond    = cond
           , qBody    = body }}
       else BadExpression
-        { E.loc, reasons = Seq.empty }
+        { E.loc }
 
     _ -> BadExpression
-      { E.loc, reasons = Seq.empty }
+      { E.loc }
 
   where
     numeric = GOneOf [GBool, GChar, GInt, GFloat]
@@ -323,7 +320,7 @@ ifExp = do
       pure $ \from to -> (,ProtoNothing) $ case st of
         Nothing ->
           BadExpression
-            { E.loc = Location (from, to), reasons = Seq.empty }
+            { E.loc = Location (from, to) }
         Just (t, gs) ->
           Expression
             { E.loc = Location (from, to)
@@ -391,13 +388,14 @@ ifExp = do
         BadExpression {} ->
           -- 4. We have a bad expression, which means there was an error
           -- deeper in the expression which we can only propagate
-          put Nothing -- IfState { t = GError, gs = Seq.empty }
+          put Nothing
 
 
 operator :: [[ Operator GracielaRange MetaExpr ]]
 operator =
   [ {-Level 0-}
-    -- [ Postfix (foldr1 (flip (.)) <$> some subindex) ]
+    -- [ Postfix (subindex) ]
+    [ Postfix (foldr1 (>=>) <$> some subindex)]
     -- , Postfix (foldr1 (flip (.)) <$> some field) ]
   -- , {-Level 1-}
     -- [ Prefix  (foldr1 (.) <$> some pointer) ]
@@ -439,45 +437,60 @@ operator =
   ]
 
 
--- subindex :: GracielaRange (MetaExpr -> MetaExpr)
--- subindex = do
---   from' <- getPosition
---   e @ Expression { expType } <- brackets expr
---   to <- getPosition
---
---   case expType of
---     GInt -> do
---       pure $ \(expr, _) -> case expr of
---         BadExpression { E.loc = Location (from, _) } ->
---           (,ProtoNothing) BadExpression
---             { E.loc = Location (from, to) }
---
---         Expression
---           { E.loc = Location (from, _)
---           , expType = GArray { arrayType }
---           , exp' = Obj o } ->
---             (,ProtoNothing) Expression
---               { E.loc = Location (from, to)
---               , expType = arrayType
---               , exp' = Obj
---                 { theObj = Object
---                   { O.loc = Location (from, to)
---                   , objType = arrayType
---                   , obj' = Index
---                     { O.inner = o
---                     , index = e }}}}
---
---         e ->
---           let Location (from, _) = E.loc e
---           in (,ProtoNothing) BadExpression { E.loc = Location (from, to) }
---
---     _ -> do
---       let subloc = Location (from', to)
---       lift . syntaxError $
---         CustomError "Bad subindex. Must be integer expression." subloc
---       pure $ \(e,_) ->
---         let Location (from, _) = E.loc e
---         in (,ProtoNothing) BadExpression { E.loc = Location (from, to) }
+subindex :: GracielaRange (MetaExpr -> GracielaRange MetaExpr)
+subindex = do
+  from' <- getPosition
+  sub <- brackets expr
+  to <- getPosition
+
+  case sub of
+    BadExpression {} ->
+      pure $ \(e,_) -> do
+        let Location (from, _) = E.loc e
+        pure $ (,ProtoNothing) BadExpression
+          { E.loc = Location (from, to) }
+
+    Expression { expType } ->
+      case expType of
+        GInt ->
+          pure $ \(expr, _) -> case expr of
+            BadExpression { E.loc = Location (from, _) } ->
+              pure . (,ProtoNothing) $ BadExpression
+                { E.loc = Location (from, to) }
+
+            Expression
+              { E.loc = Location (from, _)
+              , expType = GArray { arrayType }
+              , exp' = Obj o } ->
+                pure . (,ProtoNothing) $ Expression
+                  { E.loc = Location (from, to)
+                  , expType = arrayType
+                  , exp' = Obj
+                    { theObj = Object
+                      { O.loc = Location (from, to)
+                      , objType = arrayType
+                      , obj' = Index
+                        { O.inner = o
+                        , index = sub }}}}
+
+            e -> do
+              let Location (from, _) = E.loc e
+              let loc = Location (from, to)
+
+              lift . syntaxError $
+                CustomError "Cannot subindex non-array." loc
+
+              pure . (,ProtoNothing) $ BadExpression
+                { E.loc = Location (from, to) }
+
+        _ -> do
+          let subloc = Location (from', to)
+          lift . syntaxError $
+            CustomError "Bad subindex. Must be integer expression." subloc
+          pure $ \(e,_) -> do
+            let Location (from, _) = E.loc e
+            pure $ (,ProtoNothing) BadExpression
+              { E.loc = Location (from, to) }
 
 
 
@@ -570,5 +583,16 @@ concatLexPar input = do
           , _info       = Var
             { _varType  = GArray (Right 10) GInt
             , _varValue = Nothing }}
-  let Right r   = evalState (runParserT expression "" ets) init'
-  putStrLn . drawTree . toTree $ r
+        symbolTable %= insertSymbol (pack "b") Entry
+          { _entryName  = pack "b"
+          , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
+          , _info       = Var
+            { _varType  = GArray (Right 10) (GArray (Right 10) GInt)
+            , _varValue = Nothing }}
+  let (r, s) = runState (runParserT expression "" ets) init'
+  case r of
+    Right r' -> do
+      putStrLn . drawTree . toTree $ r'
+      putStrLn "-------------------"
+      mapM_ print (s ^. synErrorList)
+    Left _ -> mapM_ print (s ^. synErrorList)

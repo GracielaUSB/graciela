@@ -8,7 +8,6 @@ module AST.Expression
   , Object (..)
   , QRange (..)
   , QuantOperator (..)
-  , Reason (..)
   , UnaryOperator (..)
   , from
   , to
@@ -193,7 +192,6 @@ data Expression
     }
   | BadExpression
     { loc     :: Location
-    , reasons :: Seq Reason
     }
 
 
@@ -271,19 +269,9 @@ instance Treelike Expression where
     ESkip ->
       leaf "Skip Expression"
 
-  toTree BadExpression { loc, reasons } =
-    Node ("Bad Expression " <> show loc)
-      [ Node "Reasons" (map toTree . toList $ reasons)]
+  toTree BadExpression { loc } =
+    leaf $ "Bad Expression " <> show loc
 
-data Reason
-  = CustomReason
-    { rloc :: Location
-    , rtxt :: String
-    }
-
-instance Treelike Reason where
-  toTree CustomReason { rloc, rtxt } =
-    Node (show rloc) [leaf rtxt]
 
 from :: Expression -> SourcePos
 from e = let Location (f,_) = loc e in f
