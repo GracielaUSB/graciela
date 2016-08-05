@@ -1,5 +1,5 @@
 module Parser.Assertion
-  ( assertions
+  ( assertion
   , precondition
   , postcondition
   , bound
@@ -10,7 +10,8 @@ module Parser.Assertion
   )
   where
 -------------------------------------------------------------------------------
-import           Contents
+import           AST.Expression
+
 import           Graciela
 import           MyParseError        as PE
 import           Parser.Declaration
@@ -27,36 +28,32 @@ import           Control.Monad       (unless, void)
 import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
-assertions :: Graciela Token -> Graciela Token
-           -> StateCond      -> Graciela Token
-           -> Graciela AST
-assertions initial final stateCond follow = do
-    posFrom <- getPosition
-    initial
-    e <- expression
-    final
-    posTo <- getPosition
-    return $ AST posFrom posTo GEmpty (States stateCond e)
+assert ::  Graciela Expression
+assert  = do 
+  expr <- expression 
+  case expr of 
+    Expression _ exprType _ -> return expr
+    Expression loc _ _ -> do 
+      genCustomError ("Las asserciones solo pueden tener expresiones booleanas")
+      return $ BadExpression loc
 
-precondition :: Graciela Token -> Graciela AST
-precondition follow = assertions (match TokLeftPre) (match TokRightPre) Pre follow
+precondition :: Graciela Expression
+precondition = between (match TokLeftPre) (match TokRightPre) assert
 
-postcondition :: Graciela Token -> Graciela AST
-postcondition follow = assertions (match TokLeftPost) (match TokRightPost) Post follow
+postcondition :: Graciela Expression
+postcondition = between (match TokLeftPost) (match TokRightPost)  assert
 
-bound :: Graciela Token -> Graciela AST
-bound follow = assertions (match TokLeftBound) (match TokRightBound) Bound follow
+bound :: Graciela Expression
+bound = between (match TokLeftBound) (match TokRightBound) assert
 
-assertion :: Graciela Token -> Graciela AST
-assertion follow = assertions (match TokLeftA) (match TokRightA) Assertion follow
+assertion :: Graciela Expression
+assertion = between (match TokLeftA) (match TokRightA) assert
 
-invariant :: Graciela Token -> Graciela AST
-invariant follow = assertions (match TokLeftInv) (match TokRightInv) Invariant follow
+invariant :: Graciela Expression
+invariant = between (match TokLeftInv) (match TokRightInv) assert
 
-repInvariant :: Graciela AST
-repInvariant = assertions (match TokLeftRep) (match TokRightRep) Representation
-                          (match TokEnd <|> match TokProc <|> match TokLeftAcopl)
+repInvariant :: Graciela Expression
+repInvariant = between (match TokLeftRep) (match TokRightRep) assert
 
-coupInvariant :: Graciela AST
-coupInvariant = assertions (match TokLeftAcopl) (match TokRightAcopl) Coupling
-                          (match TokEnd <|> match TokProc)
+coupInvariant :: Graciela Expression
+coupInvariant = between (match TokLeftAcopl) (match TokRightAcopl) assert

@@ -39,7 +39,7 @@ data Definition
     }
 
 instance Treelike Definition where
-  toTree Definition { from, to, name, params, {-st,-} bound, def' }
+  toTree Definition { loc, name, params, {-st,-} bound, def' }
     = case def' of
 
       FunctionDef { funcbody, retType } ->

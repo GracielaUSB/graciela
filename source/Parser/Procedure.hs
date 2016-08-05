@@ -8,8 +8,8 @@ module Parser.Procedure
   ) where
 
 -------------------------------------------------------------------------------
-import           AST
-import           Contents
+import           AST.Definition
+
 import           Graciela
 import           MyParseError        as PE
 import           Parser.Assertion
@@ -29,12 +29,12 @@ import           Data.Maybe          (catMaybes)
 import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
-listDefProc :: Graciela Token -> Graciela [AST]
+listDefProc :: Graciela Token -> Graciela [Definition]
 listDefProc follow = many (function <|> procedure)
 
-function :: Graciela AST
+function :: Graciela Definition
 function  = do
-    posFrom <- getPosition
+    from <- getPosition
     do 
         match TokFunc
         id <- identifier
@@ -44,24 +44,21 @@ function  = do
         match TokArrow
         tname <- identifier
         retType <- getType tname
-        when (retType == GError) $ void $genCustomError ("El tipo `"++T.unpack tname++"` no existe.")
+        when (retType == GError) $ syntaxError $ CustomError ("El tipo `"++T.unpack tname++"` no existe.")
         
         (match TokBegin)              
         pos <- getPosition 
         st <- getCurrentScope
         addFunTypeParser id params retType pos st
-        body <- conditionalOrExpr
+        body <- expression
         exitScopeParser
         addFunTypeParser id params retType pos st
         (match TokEnd) 
 
-        posTo <- getPosition
-        let func = (DefFunc id st body retType params)
-        return $ AST posFrom posTo GEmpty func
-      <|> return (AST posFrom posFrom GError (EmptyAST))
-    where          
-        conditionalOrExpr =  conditional CExpression (match TokEnd) 
-                         <|> expression
+        to <- getPosition
+        let func = (FunctionDef body retType)
+        return $ Definition Location(from,to) id params st Nothing func
+      -- <|> return (AST from from GError (EmptyAST))  
 
 
 funcParam :: T.Text -> Graciela Token -> Graciela (Maybe (T.Text, Type))
@@ -79,30 +76,28 @@ funcParam idf follow =
         <|> do genNewError follow PE.IdError
                return Nothing
 
-procedure :: {-Graciela Token -> Graciela Token ->-} Graciela AST
+procedure :: {-Graciela Token -> Graciela Token ->-} Graciela Definition
 procedure {-follow -} = do
-    posFrom <- getPosition
-    do 
-      match TokProc
-      id <- identifier
-      newScopeParser
-      params' <- parens . many $ procParam id (match TokBegin)
-      let params = catMaybes params'
-      notFollowedBy $ match TokArrow
-      try $do match TokBegin
-      decls <- decListWithRead (match TokLeftPre)
-      pre   <- precondition $ match TokOpenBlock
-      body  <- block (match TokLeftPost)
-      post  <- postcondition $ match TokEnd
-      match TokEnd
-      st   <- getCurrentScope
-      addProcTypeParser id params posFrom st
-      exitScopeParser
-      addProcTypeParser id params posFrom st
-      posTo <- getPosition
-      let proc = (DefProc id st body pre post decls params)
-      return $ AST posFrom posTo GEmpty proc
-      <|> return (AST posFrom posFrom GError (EmptyAST))
+    from <- getPosition
+    match TokProc
+    id <- identifier
+    newScopeParser
+    params' <- parens . many $ procParam id (match TokBegin)
+    let params = catMaybes params'
+    notFollowedBy $ match TokArrow
+    try $do match TokBegin
+    decls <- decListWithRead (match TokLeftPre)
+    pre   <- precondition $ match TokOpenBlock
+    body  <- block (match TokLeftPost)
+    post  <- postcondition $ match TokEnd
+    match TokEnd
+    st   <- getCurrentScope
+    addProcTypeParser id params from st
+    exitScopeParser
+    addProcTypeParser id params from st
+    to <- getPosition
+    let proc = (ProcedureDef decls pre body post)
+    return $ Definition Location(from,to) id params st Nothing proc
 
 
 paramType :: Graciela (Maybe TypeArg)

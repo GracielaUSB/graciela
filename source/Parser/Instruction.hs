@@ -1,30 +1,24 @@
 module Parser.Instruction
-  ( CasesConditional(..)
-  , actionsList
-  , actionsListAux
-  , action
-  , actionAux
-  , followAction
+  ( instruction
   , block
+  , assign
   , random
-  , guardsList
-  , guardsListAux
   , guard
-  , functionCallOrAssign
-  , idAssignListAux
   , write
   , writeln
   , new
   , free
   , abort
   , conditional
+  , reading
   , repetition
   , skip
   ) where
 
 -------------------------------------------------------------------------------
-import           AST
-import           Contents
+import           AST.Instruction
+import           AST.Expression
+import           AST.Object
 import           Graciela
 import           MyParseError           as PE
 import           Parser.Assertion
@@ -33,288 +27,290 @@ import           Parser.Expression
 import           Parser.Token
 import           Parser.Type
 import           Parser.State
+import           SymbolTable
+import           Entry
+import           Location
 import           Token
 import           Type
 -------------------------------------------------------------------------------
 import           Control.Applicative    (liftA2, liftA3)
-import           Control.Monad          (liftM4)
+import           Control.Lens           (use, (^.), (%=))
+import           Control.Monad          (liftM4, void, when)
 import           Control.Monad.Identity (Identity)
-import qualified Data.Text              as T
+import qualified Data.Text              as T (Text,unpack)
+import qualified Data.Set               as Set
+import qualified Data.List              as L (any)
 import           Text.Megaparsec        hiding (Token)
+import           Prelude                hiding (lookup)
 -------------------------------------------------------------------------------
 
-actionsList :: Graciela Token -> Graciela [AST]
-actionsList follow =
-  do lookAhead follow
-     genNewEmptyError
-     return []
-     <|> do ac <- action (follow <|> match TokSemicolon)
-            rl <- actionsListAux follow
-            return $ ac : rl
-
-actionsListAux :: Graciela Token -> Graciela [AST]
-actionsListAux follow =
-  do match TokSemicolon
-     ac <- action (follow <|> match TokSemicolon)
-     rl <- actionsListAux follow
-     return (ac:rl)
-     <|> return []
-
-action :: Graciela Token -> Graciela AST
-action follow = do
-  posFrom <- getPosition
-  do
-    lookAhead followAction
-    actionAux follow
-    <|> do
-          lookAhead  $  match TokLeftA
-          assertions <- assertion followAction
-          do
-            lookAhead  followAction
-            actions <- actionAux follow
-            posTo   <- getPosition
-            return $ AST posFrom posTo GEmpty (GuardAction assertions actions)
-            <|> do  genNewError follow Action
-                    return $ AST posFrom posFrom GError (EmptyAST)
-         <|> do genNewError follow Action
-                return $ AST posFrom posFrom GError (EmptyAST)
-     <|> do genNewError follow Action
-            return $ AST posFrom posFrom GError (EmptyAST)
-
-actionAux :: Graciela Token -> Graciela AST
-actionAux follow =
-        skip follow
-    <|> conditional CAction follow
-    <|> abort follow
-    <|> write follow
-    <|> writeln follow
-    <|> new follow
-    <|> free follow
-    <|> functionCallOrAssign follow
-    <|> random follow
-    <|> block follow
-    <|> repetition follow
-
-
-followAction ::  Graciela Token
-followAction = identifier >>= \id -> return (TokId id)
-            <|> match TokIf
-            <|> match TokAbort
-            <|> match TokSkip
-            <|> match TokOpenBlock
-            <|> match TokWrite
-            <|> match TokWriteln
-            <|> match TokLeftInv
-            <|> match TokRandom
-
-
-block :: Graciela Token -> Graciela AST
-block follow =
-    do posFrom <- getPosition
-       match TokOpenBlock
-       newScopeParser
-       decls   <- decList followAction
-       actions <- actionsList (match TokCloseBlock)
-       st      <- getCurrentScope
-       exitScopeParser
-       do match TokCloseBlock
-          posTo <- getPosition
-          return $ AST posFrom posTo GEmpty (Block st decls actions)
-          <|> do genNewError follow TokenCB
-                 return $ AST posFrom posFrom GError (EmptyAST)
-
-
-random :: Graciela Token -> Graciela AST
-random follow =
-    do posFrom <- getPosition
-       match TokRandom
-       do match TokLeftPar
-          do id  <- identifier
-             do match TokRightPar
-                cont <- lookUpSymbol id
-                posTo <- getPosition
-                case cont of
-                  Just (Contents _ _ _ t _ _) ->
-                    return $ AST posFrom posTo GEmpty (Ran id t)
-                  Just (ArgProcCont _ _ _ t) ->
-                    return $ AST posFrom posTo GEmpty (Ran id t)
-                  Just (FunctionCon _ _ t _ _) ->
-                    return $ AST posFrom posTo GEmpty (Ran id t)
-                  _ ->
-                    return $ AST posFrom posTo GError (Ran id GError)
-                <|> do genNewError follow TokenRP
-                       return $ AST posFrom posFrom GError (EmptyAST)
-             <|> do genNewError follow IdError
-                    return $ AST posFrom posFrom GError (EmptyAST)
-          <|> do genNewError follow TokenLP
-                 return $ AST posFrom posFrom GError (EmptyAST)
-
-
-guardsList :: CasesConditional -> Graciela Token -> Graciela [AST]
-guardsList casec follow =
-    do g  <- guard casec (match TokSepGuards <|> follow)
-       gl <- guardsListAux casec follow
-       return (g:gl)
-
-
-guardsListAux :: CasesConditional -> Graciela Token -> Graciela [AST]
-guardsListAux casec follow =
-  do match TokSepGuards
-     g  <- guard casec (match TokSepGuards <|> follow)
-     rl <- guardsListAux casec follow
-     return (g:rl)
-     <|> return []
-
-
-guard :: CasesConditional -> Graciela Token -> Graciela AST
-guard CAction follow =
-    do posFrom <- getPosition
-       e <- expression
-       match TokArrow
-       a <- action follow
-       posTo <- getPosition
-       return $ AST posFrom posTo GEmpty (Guard e a)
-
-guard CExpression follow =
-    do posFrom <- getPosition
-       e <- expression
-       match TokArrow
-       do lookAhead (match TokIf)
-          a <- conditional CExpression follow
-          posTo <- getPosition
-          return $ AST posFrom posTo GEmpty (Guard e a)
-          <|> do a <- expression
-                 posTo <- getPosition
-                 return $ AST posFrom posTo GEmpty (Guard e a)
 
 
 
+instruction :: Graciela Instruction
+instruction =
+        abort
+    <|> try assign
+    <|> block
+    <|> conditional
+    <|> free
+    -- <|> functionCallOrAssign
+    <|> new
+    <|> random
+    <|> repetition
+    <|> skip
+    <|> write
+    <|> writeln
 
-functionCallOrAssign ::  Graciela Token -> Graciela AST
-functionCallOrAssign follow =
-    do posFrom <- getPosition
-       id <- identifier
-       do
-          args  <- parens (expression `sepBy` match TokComma)
-          sb    <- getCurrentScope
-          posTo <- getPosition
-          return $ AST posFrom posTo GEmpty (ProcCall id sb args)
-        <|> do
-              bl    <- many $ brackets expression
-              posId <- getPosition
-              rl    <- idAssignListAux (match TokAssign)
-              t     <- lookUpConsParser id
-              match TokAssign
-              do
-                le    <- many expression
-                posTo <- getPosition
-                if null bl
-                  then do
-                    let aId = AST posFrom posId t (Id id)
-                    return  $ AST posFrom posTo GEmpty (LAssign (aId:rl) le)
-                  else do
-                    let aId = AST posFrom posId t (ArrCall id bl)
-                    return  $ AST posFrom posTo GEmpty (LAssign (aId:rl) le)
-               <|> do genNewError follow TokenAs
-                      return $ AST posFrom posFrom GError (EmptyAST)
+block :: Graciela Instruction
+block = do 
+  from <- getPosition
+  symbolTable %= openScope from
+  match TokOpenBlock
+  decls   <- declaration `sepBy` (match TokSemicolon)
+  actions <- instruction `sepBy` (match TokSemicolon)
+  st      <- use symbolTable
+  match TokCloseBlock
+  to <- getPosition
+  symbolTable %= closeScope to
+  let loc = (Location(from,to))
+  if L.any (\x -> case x of; NoInstruction _ -> True; _ -> False) actions
+    then return $ NoInstruction loc
+    else return $ Instruction loc (Block st decls actions)
+  
+  where 
+    declaration = (constantDeclaration <|> variableDeclaration <|> reading)
 
-idAssignListAux :: Graciela Token -> Graciela [AST]
-idAssignListAux follow = do
-  match TokComma
-  posFrom <- getPosition
-  do
-    ac <- identifier
-    t  <- lookUpConsParser ac
-    bl <- many $ brackets expression
-    rl <- idAssignListAux follow
-    posTo  <- getPosition
-    if null bl
-      then do
-        let ast = AST posFrom posTo t (ArrCall ac bl)
-        return (ast : rl)
-      else do
-        let ast = AST posFrom posTo t (Id ac)
-        return (ast : rl)
+assign :: Graciela Instruction
+assign = do 
+  from <- getPosition
+  lvals <- expression `sepBy` match TokComma
+  match TokAssign
+  exprs <- expression `sepBy` match TokComma
+  to <- getPosition
+  let len = length lvals == length exprs
+  when (not len) (syntaxError $ CustomError 
+          ("La cantidad de lvls es distinta a la de expresiones") 
+          (Location(from,to)))
+  (correct, lvals') <- checkTypes (zip lvals exprs) 
+  if correct && len
+    then return $ Instruction (Location(from,to)) (Assign lvals' exprs)
+    else return $ NoInstruction (Location(from,from))
 
-    <|> do genNewError follow IdError
-           return []
-  <|> return []
+  where 
+    {- Checks if the left expressions are valid lvals and 
+       if the assigned expression has the correct type
+    -}
+    checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
+    checks [] = (True,[])
+    checkTypes (x:xs) = case x of 
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) -> do 
+        if t1 == t2 && t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
+          then do 
+            (c,objs) <- checkTypes xs
+            return $ (c,o:objs)
+          else do
+            syntaxError $ CustomError 
+                ("No se puede asignar una expresion del tipo `" ++ 
+                  show t2 ++ "` a una variable del tipo `" ++
+                  show t1 ++ "`") loc1
+            (c,objs) <- checkTypes xs
+            return (False,objs)
+      (Expression loc _ _, _) -> do 
+        syntaxError $ CustomError 
+                ("No se puede asignar un valor a una expresion") 
+                loc
+        (c,objs) <- checkTypes xs
+        return (False, objs)
 
-write :: Graciela Token -> Graciela AST
+
+random :: Graciela Instruction
+random = do 
+  from <- getPosition
+  match TokRandom
+  match TokLeftPar
+  id   <- identifier
+  match TokRightPar
+  to   <- getPosition
+  let loc = Location (from,to)
+  
+  writable  <- isWritable id 
+  if writable
+    then return $ Instruction loc (Random id)
+    else return $ NoInstruction loc
+  
+  where 
+    {- Checks if an entry is a variable or an In/InOut argument -}
+    isWritable :: T.Text -> Graciela Bool
+    isWritable id = do 
+      st <- use symbolTable
+      case id `lookup` st of
+        Right entry -> case _info entry of 
+            Var {} -> return True
+            Argument mode _ | mode == In || mode == InOut -> 
+              return True
+            _ -> return False
+        _ -> do
+          genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
+          return False
+
+guard :: Graciela Guard
+guard = do 
+  from  <- getPosition
+  cond  <- expression
+  match TokArrow
+  inst  <- instruction
+  to    <- getPosition
+  return (cond,inst)
+
+
+write :: Graciela Instruction
 write = write' False
 
-writeln :: Graciela Token -> Graciela AST
+writeln :: Graciela Instruction
 writeln = write' True
 
-write' ::  Bool -> Graciela Token -> Graciela AST
-write' ln follow =
-    do posFrom <- getPosition
-       match TokWriteln
-       do match TokLeftPar
-          e <- expression
-          do match TokRightPar
-             posTo <- getPosition
-             return $ AST posFrom posTo GEmpty (Write ln e)
-             <|> do genNewError follow TokenRP
-                    return $ AST posFrom posFrom GError (EmptyAST)
-          <|> do genNewError follow TokenLP
-                 return $ AST posFrom posFrom GError (EmptyAST)
+write' :: Bool -> Graciela Instruction
+write' ln = do
+  from <- getPosition
+  match TokWriteln
+  e <- between (match TokLeftPar) (match TokRightPar) expression
+  to <- getPosition
+  let loc = Location(from,to)
+  case e of 
+    Expression {} ->
+      return $ Instruction loc (Write ln e) 
+    _ -> return $ NoInstruction loc
+             
 
-new :: Graciela Token -> Graciela AST
-new follow = do
-    posFrom <- getPosition
+new :: Graciela Instruction
+new  = do
+    from <- getPosition
     match TokNew
     match TokLeftPar
     id <- identifier
     match TokRightPar
-    posTo <- getPosition
-    return $ AST posFrom posTo GEmpty (New id)
+    to <- getPosition
+    
+    let loc = Location(from,to)
+    st <- use symbolTable
+    case id `lookup` st of
+      Right entry -> case _info entry of 
+        Var (GPointer t) _ -> 
+          return $ Instruction loc (New id) 
+        _              -> do 
+          genCustomError ("New solo recibe apuntadores")
+          return $ NoInstruction loc
+      Left _ -> do
+        genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
+        return $ NoInstruction loc
+      
 
-free :: Graciela Token -> Graciela AST
-free follow = do
-    posFrom <- getPosition
+free :: Graciela Instruction
+free = do
+    from <- getPosition
     match TokFree
     match TokLeftPar
     id <- identifier
     match TokRightPar
-    posTo <- getPosition
-    return $ AST posFrom posTo GEmpty (Free id)
+    to <- getPosition
 
-abort ::  Graciela Token -> Graciela AST
-abort folow =
+    let loc = Location(from,to)
+    st <- use symbolTable
+    case id `lookup` st of
+      Right entry -> case _info entry of 
+        Var (GPointer t) _ -> 
+          return $ Instruction loc (Free id) 
+        _              -> do 
+          genCustomError ("Free solo recibe apuntadores")
+          return $ NoInstruction loc
+      Left _ -> do
+        genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
+        return $ NoInstruction loc
+
+abort :: Graciela Instruction
+abort =
     do pos <- getPosition
        match TokAbort
-       return $ AST pos pos GEmpty Abort
+       return $ Instruction (Location(pos,pos)) Abort
 
 
-conditional :: CasesConditional -> Graciela Token -> Graciela AST
-conditional casec follow =
-    do posFrom <- getPosition
-       match TokIf
-       gl <- guardsList casec (match TokFi)
-       do match TokFi
-          posTo <- getPosition
-          return $ AST posFrom posTo GEmpty (Cond gl)
-          <|> do genNewError follow TokenFI
-                 return $ AST posFrom posFrom GError (EmptyAST)
+conditional ::  Graciela Instruction
+conditional = do 
+  from <- getPosition
+  match TokIf
+  gl <- many guard
+  match TokFi
+  to <- getPosition
+  return $ Instruction (Location(from,to)) (Conditional gl)
+  
+-- | Se encarga del parseo de la lectura de variables
+reading :: Graciela Instruction
+reading = do
+  from <- getPosition
+  match TokRead
+  match TokLeftPar
+  ids <- identifier' `sepBy` match TokComma
+  match TokRightPar
+  types <- mapM isWritable ids
+  if GError `elem` types
+    then do 
+      to <- getPosition
+      return $ NoInstruction (Location(from,to))
+    else do 
+      try $ do
+          match TokWith
+          id <- stringLit
+          filesToRead %= Set.insert (T.unpack id)
+          to <- getPosition
+          return $ Instruction (Location(from,to)) (Read (Just id) types ids)
+        <|> do 
+          to <- getPosition
+          return $ Instruction (Location(from,to)) (Read Nothing types ids)
 
-repetition :: Graciela Token -> Graciela AST
-repetition follow =
-    do posFrom <- getPosition
-       inv <- invariant $ match TokLeftBound
-       bou <- bound     $ match TokDo
-       do match TokDo
-          gl <- guardsList CAction (match TokOd)
-          posTo <- getPosition
-          do match TokOd
-             return $ AST posFrom posTo GEmpty (Rept gl inv bou)
-             <|> do genNewError follow TokenOD
-                    return $ AST posFrom posFrom GError (EmptyAST)
-          <|> do genNewError follow TokEOFO
-                 return $ AST posFrom posFrom GError (EmptyAST)
+    where
+      {- Checks if an entry is a variable or an In/InOut argument and 
+         checks if it has a basic type -}
+      isWritable :: (T.Text,Location) -> Graciela Type
+      isWritable (id,_) = do 
+        st <- use symbolTable
+        case id `lookup` st of
+          Right entry -> case _info entry of 
+              Var t _ -> if t `elem` [GBool,GChar,GFloat,GInt]
+                then return t
+                else do
+                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
+                  return GError
+              Argument mode t | mode == In || mode == InOut  -> 
+                if t `elem` [GBool,GChar,GFloat,GInt]
+                then return t
+                else do
+                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
+                  return GError
+              _ -> do 
+                genCustomError ("el argumento `" ++ T.unpack id ++ "` no es una variable valida")
+                return GError
+          _ -> do
+            genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
+            return GError
 
-skip :: Graciela Token -> Graciela AST
-skip follow =
+repetition :: Graciela Instruction
+repetition = do 
+  from   <- getPosition
+  inv    <- invariant
+  bound' <- bound    
+  match TokDo
+  gl <- guard `sepBy` (match TokSepGuards)
+  to <- getPosition
+  match TokOd
+  return $ Instruction (Location(from,to)) (Repeat gl inv bound')
+     
+
+skip :: Graciela Instruction
+skip =
     do  pos <- getPosition
         match TokSkip
-        return $ AST pos pos GEmpty Skip
+        return $ Instruction (Location(pos,pos)) Skip
+
+
+    

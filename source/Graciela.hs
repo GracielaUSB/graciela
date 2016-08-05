@@ -23,7 +23,7 @@ import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert)
 import           Data.Text              (Text, pack)
-import           Text.Megaparsec        (Dec, ParsecT)
+import           Text.Megaparsec        (Dec, ParsecT, getPosition)
 --------------------------------------------------------------------------------
 
 type Graciela = ParsecT Dec [TokenPos] (State GracielaState)
@@ -93,3 +93,11 @@ drawError list = if Seq.null list
 syntaxError :: MyParseError -> Graciela ()
 syntaxError err =
   synErrorList %= (|> err)
+
+
+
+-- Provisional
+genCustomError :: String -> Graciela ()
+genCustomError msg = do
+    pos <- getPosition
+    synErrorList %= (|> CustomError msg  (Location (pos,pos)))

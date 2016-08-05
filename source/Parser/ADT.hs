@@ -4,8 +4,8 @@ module Parser.ADT
     ) where
 
 -------------------------------------------------------------------------------
-import           AST
-import           Contents
+import           AST.Definition
+
 import           Graciela
 import           MyParseError        as PE
 import           Parser.Assertion
@@ -32,7 +32,7 @@ import           Text.Megaparsec.Pos (SourcePos)
 
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
-abstractDataType :: Graciela (Maybe AST)
+abstractDataType :: Graciela (Maybe Definition)
 abstractDataType = do
     pos <- getPosition
     match TokAbstract
@@ -58,7 +58,7 @@ topDecl = choice [ match TokAbstract
                  ]
 
 -- AbstractBody -> DecList Invariant ListProcDecl
-abstractBody :: Graciela Token -> Graciela (Maybe AST)
+abstractBody :: Graciela Token -> Graciela (Maybe Definition)
 abstractBody follow = do
     abstractDecList
     invariant follow
@@ -97,7 +97,7 @@ basic = GTypeVar <$> identifier
 
 
 -- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
-procDecl :: Graciela Token -> Graciela (Maybe AST)
+procDecl :: Graciela Token -> Graciela (Maybe Definition)
 procDecl follow = do
     pos <- getPosition
     match TokProc
@@ -118,7 +118,7 @@ procDecl follow = do
 
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
-dataType :: Graciela (Maybe AST)
+dataType :: Graciela (Maybe Definition)
 dataType = do
     pos <- getPosition
     match TokType

@@ -4,7 +4,7 @@ where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Expression
-import           Contents
+
 import           Limits
 import           LLVM.CodegenState
 import           SymbolTable

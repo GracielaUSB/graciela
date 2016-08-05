@@ -10,8 +10,8 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           Entry                     (Entry' (..), Entry'' (..), info,
-                                            varType)
+import           Entry                     (Entry' (..), Entry'' (..),
+                                            Value(..), info, varType)
 import           Graciela
 import           Lexer
 import           Limits
@@ -288,7 +288,7 @@ quantification = do
                 , _loc = Location (from, to)
                 , _info = Var
                   { _varType  = t
-                  , _varValue = Nothing }}
+                  , _varValue = None }}
               pure (var, t)
             else do
               lift . syntaxError $
@@ -572,28 +572,28 @@ ffb =  (GFloat, GFloat, GBool)
 
 
 
-testExpr :: String -> IO ()
-testExpr strinput = do
-  let input = pack strinput
-  let Right ets = runParser lexer "" input
-  let init' = initialState &~ do
-        symbolTable %= openScope (SourcePos "" (unsafePos 4) (unsafePos 10))
-        symbolTable %= insertSymbol (pack "a") Entry
-          { _entryName  = pack "a"
-          , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
-          , _info       = Var
-            { _varType  = GArray (Right 10) GInt
-            , _varValue = Nothing }}
-        symbolTable %= insertSymbol (pack "b") Entry
-          { _entryName  = pack "b"
-          , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
-          , _info       = Var
-            { _varType  = GArray (Right 10) (GArray (Right 10) GInt)
-            , _varValue = Nothing }}
-  let (r, s) = runState (runParserT expression "" ets) init'
-  case r of
-    Right r' -> do
-      putStrLn . drawTree . toTree $ r'
-      putStrLn "-------------------"
-      mapM_ print (s ^. synErrorList)
-    Left _ -> mapM_ print (s ^. synErrorList)
+-- testExpr :: String -> IO ()
+-- testExpr strinput = do
+--   let input = pack strinput
+--   let Right ets = runParser lexer "" input
+--   let init' = initialState &~ do
+--         symbolTable %= openScope (SourcePos "" (unsafePos 4) (unsafePos 10))
+--         symbolTable %= insertSymbol (pack "a") Entry
+--           { _entryName  = pack "a"
+--           , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
+--           , _info       = Var
+--             { _varType  = GArray (Right 10) GInt
+--             , _varValue = Nothing }}
+--         symbolTable %= insertSymbol (pack "b") Entry
+--           { _entryName  = pack "b"
+--           , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
+--           , _info       = Var
+--             { _varType  = GArray (Right 10) (GArray (Right 10) GInt)
+--             , _varValue = Nothing }}
+--   let (r, s) = runState (runParserT expression "" ets) init'
+--   case r of
+--     Right r' -> do
+--       putStrLn . drawTree . toTree $ r'
+--       putStrLn "-------------------"
+--       mapM_ print (s ^. synErrorList)
+--     Left _ -> mapM_ print (s ^. synErrorList)

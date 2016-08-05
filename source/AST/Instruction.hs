@@ -2,7 +2,7 @@
 
 module AST.Instruction where
 --------------------------------------------------------------------------------
-import           AST.Expression (Expression)
+import           AST.Expression (Expression, Object)
 import qualified AST.Expression as E
 import           Location
 import           SymbolTable
@@ -20,6 +20,9 @@ import           Data.Text      (Text, unpack)
   respectivamente, del nodo en el texto del programa.
  -}
 
+type Guard = (Expression,Instruction)
+
+
 data Instruction'
   = Abort -- ^ Instruccion Abort.
 
@@ -30,7 +33,7 @@ data Instruction'
     }
 
   | Conditional
-    { cguards :: [(Expression, Instruction)]
+    { cguards :: [Guard]
     }  -- ^ Instruccion If.
 
   -- | DecArray
@@ -46,10 +49,12 @@ data Instruction'
     }
 
   | Assign
-    { ids   :: [Text]
+    { lvals :: [Object]
     , exprs :: [Expression]
     }
-
+  | Declaration 
+    { lvals :: [Object]
+    }
   | ProcedureCall
     { pname :: Text
     , astST :: SymbolTable
@@ -63,13 +68,13 @@ data Instruction'
   | Read
     { file     :: Maybe Text
     , varTypes :: [Type]
-    , vars     :: [(Text, SourcePos)]
+    , vars     :: [(Text, Location)]
     }
 
   | Repeat
-    { rguards :: [(Expression, Instruction)]
-    , rinv    :: Instruction
-    , rbound  :: Instruction
+    { rguards :: [Guard]
+    , rinv    :: Expression
+    , rbound  :: Expression
     } -- ^ Instruccion Do.
 
   | Skip -- ^ Instruccion Skip.
@@ -113,9 +118,9 @@ instance Treelike Instruction where
       Node ("Free " <> show loc)
         [leaf . unpack $ idName]
 
-    Assign { ids, exprs } ->
+    Assign { lvals, exprs } ->
       Node "Assignments"
-        (zipWith assignToTree ids exprs)
+        (zipWith assignToTree lvals exprs)
 
     ProcedureCall { pname, {-ast,-} args} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
@@ -153,9 +158,9 @@ instance Treelike Instruction where
         , Node "Instruction" [toTree inst]
         ]
       assignToTree ident expr = Node "(:=)"
-        [ leaf $ unpack ident
+        [ toTree ident
         , toTree expr
         ]
 
-  toTree NoInstruction { from, to } =
+  toTree NoInstruction { loc } =
     leaf $ "No instruction " <> show loc

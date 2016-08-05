@@ -4,12 +4,14 @@
 module Entry
   ( Entry' (..)
   , Entry'' (..)
+  , Value (..)
   , info
   , varType
   ) where
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
+import           AST.Expression
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens (makeLenses)
@@ -17,21 +19,21 @@ import           Data.Monoid  ((<>))
 import           Data.Text    (Text, unpack)
 --------------------------------------------------------------------------------
 
-data Value = I Integer | C Char | D Double {-| S String-} | B Bool
+data Value = I Integer | C Char | F Double {-| S String-} | B Bool | None
   deriving (Eq)
 
 instance Show Value where
   show (I i) = show i
   show (C c) = show c
-  show (D d) = show d
-  -- show (S s) = show s
+  show (F f) = show f
+  show None  = "None"
   show (B b) = show b
 
 
 data Entry'' s
   = Var
     { _varType  :: Type
-    , _varValue :: Maybe Value
+    , _varValue :: Value
     }
   | Const
     { _constType  :: Type
@@ -75,8 +77,8 @@ instance Treelike (Entry' s) where
       Node ("Variable `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _varType)
         , leaf $ case _varValue of
-            Just x -> "Initial value: " <> show x
-            _      -> "Not initialized"
+            None -> "Not initialized"
+            _    -> "Initial value: " <> show _varValue
         ]
 
     Const { _constType, _constValue } ->

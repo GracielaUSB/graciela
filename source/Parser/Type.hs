@@ -1,69 +1,90 @@
 module Parser.Type
-    ( myBasicType
-    , parsePointer
-    , myType
-    , parseConstNumber
+    ( basicType
+    , type'
     ) where
 --------------------------------------------------------------------------------
+import           AST.Expression
+import           AST.Object      
+import           SymbolTable     (lookup)
+import           Entry
 import           Graciela
 import           Parser.Token    (identifier, integerLit, match)
-import           Parser.State
+import           Parser.Expression
 import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Monad   (void, when)
+import           Control.Lens    (use)
 import           Data.Text       (Text, unpack)
 import           Text.Megaparsec (getPosition, lookAhead, try, (<|>))
 import           Text.Megaparsec hiding (Token)
+import           Prelude         hiding (lookup)
 --------------------------------------------------------------------------------
 
-myBasicType :: Graciela Token -> Graciela Text
-myBasicType follow = identifier
+basicType :: Graciela Type
+basicType = do 
+  tname <- identifier
+  t <- getType tname
+  if t `elem` [GBool, GChar, GFloat, GInt]
+    then return t
+    else do 
+      genCustomError ("El tipo `"++unpack tname++"` no es un tipo basico.")
+      return GError
 
-parsePointer :: Type -> Graciela Type
-parsePointer t =
-  do
-    match TokTimes
-    parsePointer $GPointer t
-  <|> return t
 
-myType :: Graciela Token -> Graciela Type
-myType follow =
-      do
+type' :: Graciela Type
+type' = try arrayOf <|> try type'' <|> userDefined   
+  where
+    arrayOf = do
+        match TokArray
+        match TokLeftBracket
+        n <- arraySize
+        match TokRightBracket
+        match TokOf
+        t <- type' 
+        if t == GError
+          then return t
+          else return $ GArray n t
+    type'' = do
+        -- If its not an array, then try with a basic type or a pointer
         tname <- identifier
         t <- getType tname
         when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.")
-        parsePointer t
+        isPointer t
+    isPointer :: Type -> Graciela Type 
+    isPointer t = do
+        match TokTimes
+        isPointer (GPointer t)
+      <|> return t
 
-      <|> do  
-            match TokArray
-            match TokLeftBracket
-            n <- parseConstNumber (match TokOf)
-            match TokRightBracket
-            match TokOf
-            t <- myType follow
-            case n of
-                Nothing -> return GEmpty
-                Just n' -> return $ GArray n' t
+    -- Or ty if its a user defined Type
+    userDefined = do
+      id <- identifier
+      match TokOf
+      t <- type' 
+      return (GDataType id [t] [] [])
 
-      <|> do
-            id <- identifier
-            match TokOf
-            t <- myType follow
-            -- lookup (id,t) y devuelve si es un tipo abstracto o uno concreto
-            return (GDataType id [t] [] [])
-
-
-parseConstNumber :: Graciela Token -> Graciela (Maybe (Either Text Integer))
-parseConstNumber follow =
-    do pos <- getPosition
-       do  lookAhead follow
-           genNewEmptyError
-           return Nothing
-           <|> do e <- integerLit
-                  return $ return $ return e
-           <|> do id <- identifier
-                  res <- lookUpConstIntParser id pos
-                  case res of
-                    Nothing -> return Nothing
-                    Just _  -> return $ return $ Left id
+arraySize :: Graciela Integer
+arraySize = do 
+  pos <- getPosition
+  do  
+    notFollowedBy expression
+    genCustomError ("No se especifico el tamaño del arreglo.")
+    return 0
+    <|> do 
+      e <- expression
+      case exp' e of 
+        IntLit value -> return value
+        Obj (Object _ _ (Variable name)) -> do 
+          st <- use symbolTable 
+          case lookup name st of 
+            Left _ -> do 
+              genCustomError ("La variable `"++unpack name++"` no esta definida.")
+              return 0
+            Right (Entry _ _ (Const _ (I value))) -> return value
+            _ -> do 
+              genCustomError ("No se puede declarar un arreglo de tamaño variable.")
+              return 0
+        _ -> do 
+          genCustomError ("El tamaño del arreglo debe definirse usando un numero o una variable constante")
+          return 0

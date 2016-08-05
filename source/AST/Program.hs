@@ -26,11 +26,11 @@ data Program
     }
 
 instance Treelike Program where
-  toTree Program { name, from, to, defs, insts } =
+  toTree Program { name, loc, defs, insts } =
     Node ("Program " <> unpack name <> " " <> show loc)
       [ Node "Definitions" (toForest defs)
       , toTree insts
       ]
 
-    where
-      " " <> show loc = " (" <> showPos' from <> " - " <> showPos' to <> ")"
+    -- where
+    --   " " <> show loc = " (" <> showPos' from <> " - " <> showPos' to <> ")"

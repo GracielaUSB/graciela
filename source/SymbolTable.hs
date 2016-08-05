@@ -116,7 +116,7 @@ data Breadcrumb
 type SymbolTable = (Scope, [Breadcrumb])
 
 
----- Starter Symbo lTable ----
+---- Starter Symbol Table ----
 empty :: SourcePos -> SymbolTable
 empty = focus . empty'
 

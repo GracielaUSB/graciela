@@ -5,7 +5,7 @@ import           Aborts
 import           AST.Expression                          (BinaryOperator (Plus, Times),
                                                           Expression,
                                                           QuantOperator (..))
-import           Contents
+
 import           Limits
 import           LLVM.CodegenState
 import           LLVM.Expression

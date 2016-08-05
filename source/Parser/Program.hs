@@ -4,7 +4,7 @@ module Parser.Program
 
 
 -------------------------------------------------------------------------------
-import           AST
+import           AST.Program
 import           Graciela
 import qualified MyParseError        as PE
 import           Parser.ADT
@@ -21,28 +21,28 @@ import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-mainProgram :: Graciela AST
+mainProgram :: Graciela Program
 mainProgram = do
-  posFrom <- getPosition
+  from <- getPosition
   match TokProgram
   id <- identifier
   match TokBegin
 
   decls <- listDefProc (match TokOpenBlock)
   body  <- block (match TokEnd)
-  try ( do match TokEnd
-           eof
-           posTo <- getPosition
-           return (AST posFrom posTo GEmpty (Program id decls body))
-      )
-      <|> do --genNewError eof PE.LexEnd
-             return (AST posFrom posFrom GError (EmptyAST))
+  match TokEnd
+  eof
+  to <- getPosition
+  return (Program id Location(from, to) decls body)
+  
+      -- <|> do --genNewError eof PE.LexEnd
+      --        return (AST from from GError (EmptyAST))
 
 
 -- Program -> Abstract Program
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
-program :: Graciela (Maybe AST)
+program :: Graciela (Maybe Program)
 program = do
   newScopeParser
   many (abstractDataType <|> dataType) -- Por ahora debe haber un programa

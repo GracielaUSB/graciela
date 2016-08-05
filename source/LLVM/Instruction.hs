@@ -3,9 +3,9 @@ module LLVM.Instruction
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST                                     (AST(..), AST'(..))
-import qualified AST                                     as AST
-import           Contents
+import           AST.Instruction
+-- import qualified AST.Instruction                         as AST
+
 import           Limits
 import           LLVM.CodegenState
 import           LLVM.Expression
@@ -33,8 +33,8 @@ import qualified LLVM.General.AST.IntegerPredicate       as IL
 import           LLVM.General.AST.Type
 
 
-createInstruction :: AST -> LLVM ()
-createInstruction (AST pos _ t ast') = case ast' of
+createInstruction :: Instruction -> LLVM ()
+createInstruction (Instruction loc t inst') = case ast' of
 
   EmptyAST {} -> return ()
   Id       {} -> return ()
@@ -45,23 +45,23 @@ createInstruction (AST pos _ t ast') = case ast' of
     createTagAbort pos
     return ()
 
-  GuardAction assert action -> do
-    createState "" assert
-    createInstruction action
+  -- GuardAction assert action -> do
+  --   createState "" assert
+  --   createInstruction action
 
-  LAssign [id] [exp] -> do
-    let ty = toType $ astType id
-    e'  <- createExpression exp
-    id' <- getStoreDir id
-    store ty id' e'
-    return ()
+  -- LAssign [id] [exp] -> do
+  --   let ty = toType $ expType id
+  --   e'  <- createExpression exp
+  --   id' <- getStoreDir id
+  --   store ty id' e'
+  --   return ()
 
-  LAssign ids exps -> do
-    list <- zipWithM createAssign ids exps
-    zipWithM_ createMultyAssign ids list
+  -- LAssign ids exps -> do
+  --   list <- zipWithM createAssign ids exps
+  --   zipWithM_ createMultyAssign ids list
 
   Write True exp -> do
-    let ty  = astType exp
+    let ty  = expType exp
     let ty' = voidType
     e'     <- createExpression exp
     case ty of
@@ -73,7 +73,7 @@ createInstruction (AST pos _ t ast') = case ast' of
     return ()
 
   Write False exp -> do
-    let ty  = astType exp
+    let ty  = expType exp
     let ty' = voidType
     e'     <- createExpression exp
 
@@ -90,7 +90,7 @@ createInstruction (AST pos _ t ast') = case ast' of
     mapM_ createInstruction accs
     return ()
 
-  Cond guards -> do
+  Conditional guards -> do
     final <- newLabel
     abort <- newLabel
     genGuards guards abort final
@@ -99,7 +99,7 @@ createInstruction (AST pos _ t ast') = case ast' of
     createTagIf final pos
     return ()
 
-  Rept guards inv bound -> do
+  Repeat guards inv bound -> do
     final   <- newLabel
     initial <- newLabel
 
@@ -236,7 +236,7 @@ callRead T.GFloat =
 createAssign :: AST -> AST -> LLVM String
 createAssign id' exp = do
   let id = convertId' id'
-  let ty = toType $ astType exp
+  let ty = toType $ expType exp
   e'  <- createExpression exp
   op  <- checkVar id ty
   res <- store ty op e'
@@ -245,7 +245,7 @@ createAssign id' exp = do
 
 createMultyAssign :: AST -> String -> LLVM ()
 createMultyAssign id aux = do
-  let ty = toType $ astType id
+  let ty = toType $ expType id
   id'   <- getStoreDir id
   e'    <- load aux ty
   store ty id' e'
