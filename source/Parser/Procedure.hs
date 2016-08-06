@@ -1,10 +1,10 @@
 module Parser.Procedure
   ( listDefProc
   , function
-  , funcParam
   , procedure
   , paramType
   , procParam
+  , procedureDeclaration
   ) where
 
 -------------------------------------------------------------------------------
@@ -19,88 +19,89 @@ import           Parser.Instruction
 import           Parser.Token
 import           Parser.Type
 import           Parser.State
+import           Location
+import           SymbolTable
+import           Entry
 import           Token
 import           Type
 -------------------------------------------------------------------------------
-import qualified Control.Applicative as AP (liftA2)
-import           Control.Monad       (void, liftM5, when)
+import           Control.Monad       (void, when)
+import           Control.Lens        (use, (%=))
 import qualified Data.Text           as T
 import           Data.Maybe          (catMaybes)
 import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
-listDefProc :: Graciela Token -> Graciela [Definition]
-listDefProc follow = many (function <|> procedure)
+listDefProc :: Graciela [Definition]
+listDefProc = many (function <|> procedure)
 
 function :: Graciela Definition
 function  = do
-    from <- getPosition
-    do 
-        match TokFunc
-        id <- identifier
-        newScopeParser
-        params' <- parens . many $ funcParam id (match TokArrow)
-        let params = catMaybes params'
-        match TokArrow
-        tname <- identifier
-        retType <- getType tname
-        when (retType == GError) $ syntaxError $ CustomError ("El tipo `"++T.unpack tname++"` no existe.")
-        
-        (match TokBegin)              
-        pos <- getPosition 
-        st <- getCurrentScope
-        addFunTypeParser id params retType pos st
-        body <- expression
-        exitScopeParser
-        addFunTypeParser id params retType pos st
-        (match TokEnd) 
+  from <- getPosition 
+  symbolTable %= openScope from
+  
+  match TokFunc
+  id      <- identifier
+  params  <- parens $ functionParameters `sepBy` (match TokComma)
+  match TokArrow
+  tname   <- identifier
+  retType <- getType tname
+  when (retType == GError) $ void $ genCustomError ("El tipo `"++T.unpack tname++"` no existe.")
+  
+  (match TokBegin)              
+  body <- expression
+  (match TokEnd) 
 
-        to <- getPosition
-        let func = (FunctionDef body retType)
-        return $ Definition Location(from,to) id params st Nothing func
+  st  <- use symbolTable
+  to  <- getPosition
+  let loc = Location(from,to)
+  symbolTable %= closeScope to
+  symbolTable %= insertSymbol id (Entry id loc (Function retType params st))  
+  
+  let func = (FunctionDef body retType)
+  return $ Definition loc id params st Nothing func
       -- <|> return (AST from from GError (EmptyAST))  
 
+  where 
+    functionParameters :: Graciela (T.Text, Type)
+    functionParameters = do
+        from <- getPosition
+        id <- identifier
+        match TokColon
+        t  <- type'
+        to <- getPosition
+        let loc = Location(from,to)
+        symbolTable %= insertSymbol id (Entry id loc (Argument In t))
+        return (id, t)
 
-funcParam :: T.Text -> Graciela Token -> Graciela (Maybe (T.Text, Type))
-funcParam idf follow =
-    try ( do id <- identifier
-             try ( do match TokColon
-                      t  <- myType follow
-                      pos <- getPosition
-                      addFunctionArgParser idf id t pos
-                      return $ Just (id, t)
-                 )
-                 <|> do genNewError follow PE.Colon
-                        return Nothing
-        )
-        <|> do genNewError follow PE.IdError
-               return Nothing
-
-procedure :: {-Graciela Token -> Graciela Token ->-} Graciela Definition
-procedure {-follow -} = do
+procedure :: Graciela Definition
+procedure = do
     from <- getPosition
+    -- Parse the procedure signature. it most not be followed by an Arrow (->).
     match TokProc
     id <- identifier
-    newScopeParser
-    params' <- parens . many $ procParam id (match TokBegin)
-    let params = catMaybes params'
+    symbolTable %= openScope from
+    params <- parens . many $ procParam
     notFollowedBy $ match TokArrow
-    try $do match TokBegin
-    decls <- decListWithRead (match TokLeftPre)
-    pre   <- precondition $ match TokOpenBlock
-    body  <- block (match TokLeftPost)
-    post  <- postcondition $ match TokEnd
+    -- Parse the procedure's body
+    match TokBegin
+    decls <- declarationBlock 
+    pre   <- precondition 
+    body  <- block 
+    post  <- postcondition 
     match TokEnd
-    st   <- getCurrentScope
-    addProcTypeParser id params from st
-    exitScopeParser
-    addProcTypeParser id params from st
-    to <- getPosition
+    -- Get the actual symbol table and build the ast and the entry of the procedure
+    st    <- use symbolTable
+    to    <- getPosition
+    let loc = Location(from,to)
+    symbolTable %= closeScope to
+    symbolTable %= insertSymbol id (Entry id loc (Procedure params st))
+    
     let proc = (ProcedureDef decls pre body post)
-    return $ Definition Location(from,to) id params st Nothing proc
+    return $ Definition loc id params st Nothing proc
 
 
-paramType :: Graciela (Maybe TypeArg)
+paramType :: Graciela (Maybe ArgMode)
 paramType = do  
         match TokIn
         return (Just $ In)
@@ -115,37 +116,59 @@ paramType = do
         return (Just $ Ref)
   <|> return Nothing
 
-procParam :: T.Text -> Graciela Token -> Graciela (Maybe (T.Text, Type))
-procParam pid follow =
-    do at <- paramType
-       try (
-         do id  <- identifier
-            match TokColon
-            t   <- myType follow
-            pos <- getPosition
-            addArgProcParser id pid t pos at
-            return $ Just (id, t)
-           )
-           <|> do genNewError follow PE.IdError
-                  return Nothing
+procParam :: Graciela (T.Text, Type)
+procParam = do 
+  from <- getPosition
+  ptype <- paramType
+  id  <- identifier
+  match TokColon
+  t   <- type'
+  to <- getPosition
+  let loc = Location(from,to)
+  case ptype of
+    Just x | t /= GError -> symbolTable %= insertSymbol id (Entry id loc (Argument In t))   
+    _  -> genCustomError ("Se debe especificar el comportamiento de la variable `"
+                           ++T.unpack id++"` (In, Out, InOut)") 
+  return (id, t)
+         
+
+-- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
+procedureDeclaration :: Graciela Definition
+procedureDeclaration = do
+    from <- getPosition
+    match TokProc
+    id <- identifier
+    symbolTable %= openScope from
+    params <- parens . many $ procParam
+    notFollowedBy $ match TokArrow
+    pre  <- precondition 
+    post <- postcondition 
+    st   <- use symbolTable
+    to   <- getPosition
+    let loc = Location(from,to)
+    symbolTable %= closeScope to
+    symbolTable %= insertSymbol id (Entry id loc (Procedure params st))
+    
+    let proc = (AbstractProcedureDef pre post)
+    return $ Definition loc id params st Nothing proc 
 
 -- Deberian estar en el lugar adecuando, hasta ahora aqui porq no le he usado en archivos q no dependen de Procedure
 
 -- panicModeId :: Graciela Token -> Graciela T.Text
--- panicModeId token follow =
+-- panicModeId token =
 --         try identifier
---     <|> do t <- lookAhead follow
+--     <|> do t <- lookAhead
 --            genNewError (return t) PE.IdError
 --            return $ T.pack "No Id"
---     <|> do (t:_) <- anyToken `manyTill` lookAhead follow
+--     <|> do (t:_) <- anyToken `manyTill` lookAhead
 --            genNewError (return $fst t) PE.IdError
 --            return $ T.pack "No Id"
 
 
 -- panicMode :: Graciela Token -> Graciela Token -> ExpectedToken -> Graciela ()
--- panicMode token follow err =
+-- panicMode token err =
 --         try (void token)
---     <|> do t <- lookAhead follow
+--     <|> do t <- lookAhead
 --            genNewError (return t) err
---     <|> do (t:_) <- anyToken `manyTill` lookAhead follow
+--     <|> do (t:_) <- anyToken `manyTill` lookAhead
 --            genNewError (return $ fst t) err

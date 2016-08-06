@@ -28,7 +28,8 @@ data Object'' e
   | Deref
     { inner :: Object' e
     }
-
+  deriving (Eq)
+  
 {- The type variable in `Object' e` allows us to separate this code from
  - the code in `Expression` without creating a cycle.
  -}
@@ -41,6 +42,7 @@ data Object' e
   | BadObject
     { loc     :: Location
     }
+  deriving (Eq)
 
 instance Treelike e => Treelike (Object' e) where
   toTree Object { loc, objType, obj' } = case obj' of

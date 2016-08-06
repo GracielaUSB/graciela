@@ -113,6 +113,7 @@ data QRange
     { theMultiset :: Expression
     }
   | EmptyRange
+  deriving (Eq)
 
 instance Treelike QRange where
   toTree ExpRange { low, high } =
@@ -183,6 +184,7 @@ data Expression'
     }  -- ^ Instruccion If.
 
   | ESkip
+  deriving (Eq)
 
 data Expression
   = Expression
@@ -193,6 +195,7 @@ data Expression
   | BadExpression
     { loc     :: Location
     }
+  deriving (Eq)
 
 
 instance Treelike Expression where

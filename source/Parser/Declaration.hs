@@ -37,39 +37,50 @@ variableDeclaration :: Graciela Instruction
 variableDeclaration = do
   from <- getPosition
   match TokVar
-  idList <- identifier' `sepBy` match TokComma
-  try (withAssign idList) <|> withoutAssign idList
-  to <- getPosition
-  return $ NoInstruction (Location(from,to))
+  ids <- identifierAndLoc `sepBy` match TokComma
+  ast <- try (withAssign ids) <|> withoutAssign ids
+  to  <- getPosition
+  let loc = Location(from,to)
+  case ast of 
+    Nothing   -> return $ NoInstruction loc
+    Just inst -> return $ Instruction loc inst
 
   where 
     -- Try to parse if the declared variables are beign assigned
-    withAssign idList = do 
+    withAssign ids = do 
       match TokAssign
       exprs <- expression `sepBy` match TokComma
       match TokColon
       t <- type'
-      let len = length idList == length exprs
+      let len = length ids == length exprs
       when (not len) $ void $ genCustomError "La cantidad de variables es distinta a la de expresiones" 
-      mapM_ (\( (id,loc), (Expression _ exprType _) ) -> 
+      mapM_ (\( (id,loc), expr@(Expression _ exprType _) ) -> 
                 if t == exprType
-                  then symbolTable %= insertSymbol id (Entry id loc (Var t E.None))
+                  then do 
+                    let entry = Entry id loc $ Var t $ Just expr
+                    symbolTable %= insertSymbol id entry
                   else genCustomError ("Intentando asignar una expresion de tipo `"
                                         ++ show exprType ++ "` a una variable de tipo `"
                                         ++ show t ++ "`")  
-            ) $ zip idList exprs
+            ) $ zip ids exprs
+      let ids' = map (\(id,_) -> id) ids
+      if not len
+        then return Nothing
+        else return $ Just $ Declaration ids' exprs
       
-    withoutAssign idList = do 
+    withoutAssign ids = do 
       -- If not followed by an Assign token, then just put all the variables in the symbol table 
       match TokColon
       t <- type'
-      mapM_ (\(id,loc) -> do symbolTable %= insertSymbol id (Entry id loc (Var t E.None))) idList
+      mapM_ (\(id,loc) -> symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))) ids
+      let ids' = map (\(id,_) -> id) ids
+      return $ Just $ Declaration ids' []
 
 constantDeclaration :: Graciela Instruction
 constantDeclaration = do
   from <- getPosition
   match TokConst    
-  idList <- identifier' `sepBy` match TokComma
+  ids <- identifierAndLoc `sepBy` match TokComma
   match TokAssign
   values <- valueOfConstantExpr `sepBy` match TokComma
   match TokColon
@@ -83,17 +94,25 @@ constantDeclaration = do
       return $ NoInstruction location
     else do 
       -- Check if the length of both, constants and values, are the same
-      let len = length idList == length values
+      let len = length ids == length values
       when (not len) $ void $ genCustomError "La cantidad de constantes es distinta a la de expresiones" 
       -- Check for each value, if has the correct type
-      mapM_ (\((id,loc),(valueType,value)) -> if valueType == t
-                then symbolTable %= insertSymbol id (Entry id loc (Var t value))
-                else genCustomError ("Intentando asignar una expresion de tipo `" ++ 
-                                       show valueType++"` a una constante de tipo `"++ 
-                                       show t ++ "`")
-            ) $ zip idList values
-
-      return $ NoInstruction location
+      mapM_ (checkType t) (zip ids values)
+      if not len 
+        then return $ NoInstruction location
+        else do 
+          -- Get the ids' text and the assigned expressions
+          let exprs = map (\(_,x,_) -> x) values
+          let ids'  = map (\(id,_) -> id) ids
+          return $ Instruction location (Declaration ids' exprs)
+  where 
+    checkType t ((id,loc),(valueType,_,value)) = if valueType == t
+      then 
+        symbolTable %= insertSymbol id (Entry id loc (E.Const t value))
+      else 
+        genCustomError ("Intentando asignar una expresion de tipo `" ++ 
+                         show valueType++"` a una constante de tipo `"++ 
+                         show t ++ "`")
 
 
 
@@ -101,25 +120,25 @@ constantDeclaration = do
    in the symbol table returning its value. If the expression is not
    constant, None is returned
 -}
-valueOfConstantExpr :: Graciela (Type,Value)
+valueOfConstantExpr :: Graciela (Type,Expression,Value)
 valueOfConstantExpr = do 
   expr <- expression
   case exp' expr of 
-    BoolLit  b -> return $ (GBool , E.B b)
-    CharLit  c -> return $ (GChar , E.C c)
-    FloatLit f -> return $ (GFloat, E.F f)
-    IntLit   i -> return $ (GInt  , E.I i)
+    BoolLit  b -> return (GBool , expr, E.B b)
+    CharLit  c -> return (GChar , expr, E.C c)
+    FloatLit f -> return (GFloat, expr, E.F f)
+    IntLit   i -> return (GInt  , expr, E.I i)
     Obj (Object _ _ (Variable name)) -> do 
       st <- use symbolTable 
       case lookup name st of 
-        Left _  -> return (GError,E.None)
-        Right (Entry _ _ (E.Const t value)) -> return (t,value)
-        Right _ -> return (GError,E.None)
-    _  -> return (GError,E.None)
+        Left _  -> return (GError, expr, E.None)
+        Right (Entry _ _ (E.Const t value)) -> return (t,expr,value)
+        _       -> return (GError, expr, E.None)
+    _  -> return (GError, expr, E.None)
 
 -- Find an identifier and returns it's name and the location
-identifier' :: Graciela (T.Text, Location)
-identifier'  = do 
+identifierAndLoc :: Graciela (T.Text, Location)
+identifierAndLoc  = do 
   from <- getPosition
   id <- identifier
   to <- getPosition

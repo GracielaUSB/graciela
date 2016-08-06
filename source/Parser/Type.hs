@@ -1,6 +1,7 @@
 module Parser.Type
     ( basicType
     , type'
+    , abstType
     ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
@@ -8,7 +9,7 @@ import           AST.Object
 import           SymbolTable     (lookup)
 import           Entry
 import           Graciela
-import           Parser.Token    (identifier, integerLit, match)
+import           Parser.Token    (identifier, integerLit, match,parens)
 import           Parser.Expression
 import           Token
 import           Type
@@ -35,6 +36,7 @@ basicType = do
 type' :: Graciela Type
 type' = try arrayOf <|> try type'' <|> userDefined   
   where
+    -- Try to parse an array type
     arrayOf = do
         match TokArray
         match TokLeftBracket
@@ -48,9 +50,10 @@ type' = try arrayOf <|> try type'' <|> userDefined
     type'' = do
         -- If its not an array, then try with a basic type or a pointer
         tname <- identifier
-        t <- getType tname
-        when (t == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.")
-        isPointer t
+        t  <- getType tname
+        t' <- isPointer t
+        when (t' == GError) $ void $genCustomError ("Tipo de variable `"++unpack tname++"` no existe.")
+        return t'
     isPointer :: Type -> Graciela Type 
     isPointer t = do
         match TokTimes
@@ -88,3 +91,15 @@ arraySize = do
         _ -> do 
           genCustomError ("El tamaño del arreglo debe definirse usando un numero o una variable constante")
           return 0
+
+abstType :: Graciela Type
+abstType =  do {match TokSet;      match TokOf; GSet      <$> basic }
+        <|> do {match TokMultiset; match TokOf; GMultiset <$> basic }
+        <|> do {match TokSeq;      match TokOf; GSeq      <$> basic }
+        <|> do {match TokFunc; ba <- basic; match TokArrow; bb <- basic; return $ GFunc ba bb}
+        <|> do {match TokRel;  ba <- basic; match TokBiArrow; bb <- basic; return $ GRel ba bb}
+        <|> GTuple <$> parens (basic `sepBy` match TokComma)
+        <|> basic
+
+basic :: Graciela Type
+basic = GTypeVar <$> identifier

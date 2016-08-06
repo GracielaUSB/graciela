@@ -288,7 +288,7 @@ quantification = do
                 , _loc = Location (from, to)
                 , _info = Var
                   { _varType  = t
-                  , _varValue = None }}
+                  , _varValue = Nothing }}
               pure (var, t)
             else do
               lift . syntaxError $

@@ -33,7 +33,7 @@ instance Show Value where
 data Entry'' s
   = Var
     { _varType  :: Type
-    , _varValue :: Value
+    , _varValue :: Maybe Expression
     }
   | Const
     { _constType  :: Type
@@ -45,12 +45,11 @@ data Entry'' s
     }
   | Function
     { _funcType  :: Type
-    , _funcArgs  :: [Text]
+    , _funcArgs  :: [(Text,Type)]
     , _funcTable :: s
     }
   | Procedure
-    { _procType  :: Type
-    , _procArgs  :: [Text]
+    { _procArgs  :: [(Text,Type)]
     , _procTable :: s
     }
   | AbstractTypeEntry
@@ -76,14 +75,14 @@ instance Treelike (Entry' s) where
     Var { _varType, _varValue } ->
       Node ("Variable `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _varType)
-        , leaf $ case _varValue of
-            None -> "Not initialized"
-            _    -> "Initial value: " <> show _varValue
+        , case _varValue of
+            Nothing     -> leaf "Not initialized"
+            Just value  -> Node "Initial value: " [toTree value]
         ]
 
     Const { _constType, _constValue } ->
       Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $ "Type: " <> show _constType
+        [ leaf $  "Type: " <> show _constType
         , leaf $ "Value: " <> show _constValue
         ]
 
@@ -98,9 +97,9 @@ instance Treelike (Entry' s) where
         [ leaf $ show _funcType
         ]
 
-    Procedure { _procType, _procArgs, _procTable } ->
+    Procedure { _procArgs, _procTable } ->
       Node ("Procedure `" <> unpack _entryName ++ "` " <> show _loc)
-        [ leaf $ show _procType
+        [
         ]
 
     AbstractTypeEntry {} ->

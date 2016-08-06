@@ -53,7 +53,8 @@ data Instruction'
     , exprs :: [Expression]
     }
   | Declaration 
-    { lvals :: [Object]
+    { declLvals :: [Text]
+    , exprs     :: [Expression]
     }
   | ProcedureCall
     { pname :: Text
@@ -122,6 +123,11 @@ instance Treelike Instruction where
       Node "Assignments"
         (zipWith assignToTree lvals exprs)
 
+    Declaration {declLvals, exprs} -> Node "Declaration" $ 
+      case exprs of 
+        [] -> map (\id -> leaf $ unpack id) declLvals
+        _  -> zipWith declarationToTree declLvals exprs
+
     ProcedureCall { pname, {-ast,-} args} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
         [Node "Arguments" (toForest args)]
@@ -161,6 +167,11 @@ instance Treelike Instruction where
         [ toTree ident
         , toTree expr
         ]
+      declarationToTree ident expr = Node "(:=)"
+        [ leaf $ unpack ident
+        , toTree expr
+        ]
+
 
   toTree NoInstruction { loc } =
     leaf $ "No instruction " <> show loc

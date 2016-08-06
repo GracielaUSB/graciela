@@ -79,7 +79,7 @@ data Type
   -- | Tipo para los arreglos
   | GArray
     { getSize   :: Integer -- ^ Tamano del arreglo
-    , arrayType :: Type                 -- ^ Tipo del arreglo
+    , arrayType :: Type    -- ^ Tipo del arreglo
     }
   deriving (Eq)
 

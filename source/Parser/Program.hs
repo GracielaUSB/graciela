@@ -12,10 +12,13 @@ import           Parser.Instruction (block)
 import           Parser.Procedure   
 import           Parser.Token
 import           Parser.State
+import           SymbolTable         (openScope)
+import           Location            (Location(..))
 import           Token
 import           Type
 -------------------------------------------------------------------------------
 import qualified Control.Monad       as M
+import           Control.Lens        ((%=))
 import qualified Data.Text           as T
 import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
@@ -28,12 +31,12 @@ mainProgram = do
   id <- identifier
   match TokBegin
 
-  decls <- listDefProc (match TokOpenBlock)
-  body  <- block (match TokEnd)
+  decls <- listDefProc
+  body  <- block
   match TokEnd
   eof
   to <- getPosition
-  return (Program id Location(from, to) decls body)
+  return (Program id (Location(from, to)) decls body)
   
       -- <|> do --genNewError eof PE.LexEnd
       --        return (AST from from GError (EmptyAST))
@@ -44,7 +47,8 @@ mainProgram = do
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
 program :: Graciela (Maybe Program)
 program = do
-  newScopeParser
+  pos <- getPosition
+  symbolTable %= openScope pos
   many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
   ast <- mainProgram                   -- principal al final del archivo
   return $ Just $ ast

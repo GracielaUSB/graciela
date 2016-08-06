@@ -1,5 +1,6 @@
 module Parser.Instruction
   ( instruction
+  , declarationBlock
   , block
   , assign
   , random
@@ -44,9 +45,6 @@ import           Text.Megaparsec        hiding (Token)
 import           Prelude                hiding (lookup)
 -------------------------------------------------------------------------------
 
-
-
-
 instruction :: Graciela Instruction
 instruction =
         abort
@@ -62,12 +60,17 @@ instruction =
     <|> write
     <|> writeln
 
+declarationBlock :: Graciela [Instruction]
+declarationBlock = 
+  (constantDeclaration <|> variableDeclaration <|> reading) 
+  `sepBy` (match TokSemicolon)
+
 block :: Graciela Instruction
 block = do 
   from <- getPosition
   symbolTable %= openScope from
   match TokOpenBlock
-  decls   <- declaration `sepBy` (match TokSemicolon)
+  decls   <- declarationBlock
   actions <- instruction `sepBy` (match TokSemicolon)
   st      <- use symbolTable
   match TokCloseBlock
@@ -77,9 +80,6 @@ block = do
   if L.any (\x -> case x of; NoInstruction _ -> True; _ -> False) actions
     then return $ NoInstruction loc
     else return $ Instruction loc (Block st decls actions)
-  
-  where 
-    declaration = (constantDeclaration <|> variableDeclaration <|> reading)
 
 assign :: Graciela Instruction
 assign = do 
@@ -250,7 +250,7 @@ reading = do
   from <- getPosition
   match TokRead
   match TokLeftPar
-  ids <- identifier' `sepBy` match TokComma
+  ids <- identifierAndLoc `sepBy` match TokComma
   match TokRightPar
   types <- mapM isWritable ids
   if GError `elem` types
