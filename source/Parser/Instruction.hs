@@ -276,13 +276,13 @@ reading = do
         st <- use symbolTable
         case id `lookup` st of
           Right entry -> case _info entry of 
-              Var t _ -> if t `elem` [GBool,GChar,GFloat,GInt]
+              Var t _ -> if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
                 then return t
                 else do
                   genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
                   return GError
               Argument mode t | mode == In || mode == InOut  -> 
-                if t `elem` [GBool,GChar,GFloat,GInt]
+                if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
                 then return t
                 else do
                   genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")

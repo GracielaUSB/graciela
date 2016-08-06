@@ -26,7 +26,7 @@ basicType :: Graciela Type
 basicType = do 
   tname <- identifier
   t <- getType tname
-  if t `elem` [GBool, GChar, GFloat, GInt]
+  if t =:= GOneOf [GInt, GFloat, GBool, GChar]
     then return t
     else do 
       genCustomError ("El tipo `"++unpack tname++"` no es un tipo basico.")
