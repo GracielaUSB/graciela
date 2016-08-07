@@ -41,29 +41,30 @@ import           Control.Monad.Identity (Identity)
 import qualified Data.Text              as T (Text,unpack)
 import qualified Data.Set               as Set
 import qualified Data.List              as L (any)
+import           Text.Megaparsec        (sepBy, endBy)
 import           Text.Megaparsec        hiding (Token)
 import           Prelude                hiding (lookup)
 -------------------------------------------------------------------------------
 
 instruction :: Graciela Instruction
 instruction =
-        abort
+        block
     <|> try assign
-    <|> block
+    <|> abort
     <|> conditional
     <|> free
-    -- <|> functionCallOrAssign
     <|> new
     <|> random
+    <|> reading
     <|> repetition
     <|> skip
     <|> write
     <|> writeln
+    <|> procedureCall
 
 declarationBlock :: Graciela [Instruction]
 declarationBlock = 
-  (constantDeclaration <|> variableDeclaration <|> reading) 
-  `sepBy` (match TokSemicolon)
+  (constantDeclaration <|> variableDeclaration) `endBy` match TokSemicolon
 
 block :: Graciela Instruction
 block = do 
@@ -154,26 +155,19 @@ random = do
           genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
           return False
 
-guard :: Graciela Guard
-guard = do 
-  from  <- getPosition
-  cond  <- expression
-  match TokArrow
-  inst  <- instruction
-  to    <- getPosition
-  return (cond,inst)
+
 
 
 write :: Graciela Instruction
-write = write' False
+write = write' False TokWrite
 
 writeln :: Graciela Instruction
-writeln = write' True
+writeln = write' True TokWriteln
 
-write' :: Bool -> Graciela Instruction
-write' ln = do
+write' :: Bool -> Token -> Graciela Instruction
+write' ln writeToken = do
   from <- getPosition
-  match TokWriteln
+  match writeToken
   e <- between (match TokLeftPar) (match TokRightPar) expression
   to <- getPosition
   let loc = Location(from,to)
@@ -182,6 +176,55 @@ write' ln = do
       return $ Instruction loc (Write ln e) 
     _ -> return $ NoInstruction loc
              
+-- | Se encarga del parseo de la lectura de variables
+reading :: Graciela Instruction
+reading = do
+  from <- getPosition
+  match TokRead
+  match TokLeftPar
+  ids <- identifierAndLoc `sepBy` match TokComma
+  match TokRightPar
+  types <- mapM isWritable ids
+  if GError `elem` types
+    then do 
+      to <- getPosition
+      return $ NoInstruction (Location(from,to))
+    else do 
+      try $ do
+          match TokWith
+          id <- stringLit
+          filesToRead %= Set.insert (T.unpack id)
+          to <- getPosition
+          return $ Instruction (Location(from,to)) (Read (Just id) types ids)
+        <|> do 
+          to <- getPosition
+          return $ Instruction (Location(from,to)) (Read Nothing types ids)
+
+    where
+      {- Checks if an entry is a variable or an In/InOut argument and 
+         checks if it has a basic type -}
+      isWritable :: (T.Text,Location) -> Graciela Type
+      isWritable (id,_) = do 
+        st <- use symbolTable
+        case id `lookup` st of
+          Right entry -> case _info entry of 
+              Var t _ -> if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
+                then return t
+                else do
+                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
+                  return GError
+              Argument mode t | mode == In || mode == InOut  -> 
+                if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
+                then return t
+                else do
+                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
+                  return GError
+              _ -> do 
+                genCustomError ("el argumento `" ++ T.unpack id ++ "` no es una variable valida")
+                return GError
+          _ -> do
+            genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
+            return GError
 
 new :: Graciela Instruction
 new  = do
@@ -234,65 +277,28 @@ abort =
        match TokAbort
        return $ Instruction (Location(pos,pos)) Abort
 
+guard :: Graciela Guard
+guard = do 
+  from  <- getPosition
+  cond  <- expression
+  match TokArrow
+  symbolTable %= openScope from
+  inst  <- instruction
+  to    <- getPosition
+  symbolTable %= closeScope to
+  return (cond,inst)
+
 
 conditional ::  Graciela Instruction
 conditional = do 
   from <- getPosition
   match TokIf
-  gl <- many guard
+  gl <- guard `sepBy` match TokSepGuards
   match TokFi
   to <- getPosition
   return $ Instruction (Location(from,to)) (Conditional gl)
   
--- | Se encarga del parseo de la lectura de variables
-reading :: Graciela Instruction
-reading = do
-  from <- getPosition
-  match TokRead
-  match TokLeftPar
-  ids <- identifierAndLoc `sepBy` match TokComma
-  match TokRightPar
-  types <- mapM isWritable ids
-  if GError `elem` types
-    then do 
-      to <- getPosition
-      return $ NoInstruction (Location(from,to))
-    else do 
-      try $ do
-          match TokWith
-          id <- stringLit
-          filesToRead %= Set.insert (T.unpack id)
-          to <- getPosition
-          return $ Instruction (Location(from,to)) (Read (Just id) types ids)
-        <|> do 
-          to <- getPosition
-          return $ Instruction (Location(from,to)) (Read Nothing types ids)
 
-    where
-      {- Checks if an entry is a variable or an In/InOut argument and 
-         checks if it has a basic type -}
-      isWritable :: (T.Text,Location) -> Graciela Type
-      isWritable (id,_) = do 
-        st <- use symbolTable
-        case id `lookup` st of
-          Right entry -> case _info entry of 
-              Var t _ -> if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
-                then return t
-                else do
-                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
-                  return GError
-              Argument mode t | mode == In || mode == InOut  -> 
-                if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
-                then return t
-                else do
-                  genCustomError ("La variable `" ++ T.unpack id ++ "` no es de un tipo basico.")
-                  return GError
-              _ -> do 
-                genCustomError ("el argumento `" ++ T.unpack id ++ "` no es una variable valida")
-                return GError
-          _ -> do
-            genCustomError ("La variable `" ++ T.unpack id ++ "` No existe.")
-            return GError
 
 repetition :: Graciela Instruction
 repetition = do 
@@ -305,6 +311,20 @@ repetition = do
   match TokOd
   return $ Instruction (Location(from,to)) (Repeat gl inv bound')
      
+procedureCall :: Graciela Instruction
+procedureCall = do 
+  from <- getPosition
+  id   <- identifier
+  args <- parens $ expression `sepBy` match TokComma
+  st   <- use symbolTable
+  to   <- getPosition
+  let loc = Location (from,to)
+  case id `lookup` st of
+    Right (Entry _ _ (Procedure _ _)) ->
+      return $ Instruction loc (ProcedureCall id args)
+    _ -> do
+      genCustomError ("El procedimiento `" ++ T.unpack id ++ "` no esta definido")
+      return $ NoInstruction loc
 
 skip :: Graciela Instruction
 skip =

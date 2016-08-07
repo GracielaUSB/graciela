@@ -53,12 +53,13 @@ data Instruction'
     , exprs :: [Expression]
     }
   | Declaration 
-    { declLvals :: [Text]
+    { declType  ::  Type
+    , declLvals :: [Text]
     , exprs     :: [Expression]
     }
   | ProcedureCall
     { pname :: Text
-    , astST :: SymbolTable
+    {-, astST :: SymbolTable-}
     , args  :: [Expression]
     }
 
@@ -123,14 +124,18 @@ instance Treelike Instruction where
       Node "Assignments"
         (zipWith assignToTree lvals exprs)
 
-    Declaration {declLvals, exprs} -> Node "Declaration" $ 
+    Declaration {declType, declLvals, exprs} -> Node "Declaration" $ 
+      leaf ("Type " ++ show declType) :
       case exprs of 
-        [] -> map (\id -> leaf $ unpack id) declLvals
+        [] -> map (\id -> Node (unpack id) [leaf "Value: None"]) declLvals
         _  -> zipWith declarationToTree declLvals exprs
 
     ProcedureCall { pname, {-ast,-} args} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
-        [Node "Arguments" (toForest args)]
+        [case args of 
+          [] -> leaf "No arguments"
+          _  -> Node "Arguments" (toForest args)
+        ]
 
     Random { var } ->
       Node ("Random " <> show loc)
@@ -139,7 +144,7 @@ instance Treelike Instruction where
     Read file varTypes vars ->
       Node ("Read" <> hasFile <> " " <> show loc)
         (fmap (\(t,(name, l)) ->
-                    leaf (unpack name <> " " <> show t <> " " <> show loc))
+                    leaf ("`" <> unpack name <> "` " <> show t <> " " <> show loc))
                  (zip varTypes vars))
       where
         hasFile = case file of
@@ -168,7 +173,7 @@ instance Treelike Instruction where
         , toTree expr
         ]
       declarationToTree ident expr = Node "(:=)"
-        [ leaf $ unpack ident
+        [ leaf $ "`" <> unpack ident <> "`"
         , toTree expr
         ]
 

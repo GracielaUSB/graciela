@@ -66,7 +66,7 @@ abstractDec = constant <|> variable
                 symbolTable %= insertSymbol id (Entry id loc (Const t None))
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Instruction location (Declaration ids' [])
+      return $ Instruction location (Declaration t ids' [])
     variable = do
       from <- getPosition
       match TokVar
@@ -79,7 +79,7 @@ abstractDec = constant <|> variable
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Instruction location (Declaration ids' [])
+      return $ Instruction location (Declaration t ids' [])
 
 
 
@@ -94,7 +94,7 @@ dataType = do
     types <- parens $ (try genericType <|> basicType') `sepBy` match TokComma
     symbolTable %= openScope from
     match TokBegin 
-    decls   <- (variableDeclaration <|> constantDeclaration) `sepBy` (match TokSemicolon)
+    decls   <- (variableDeclaration <|> constantDeclaration) `endBy` (match TokSemicolon)
     repinv  <- repInvariant
     coupinv <- coupInvariant
     procs   <- many procedure

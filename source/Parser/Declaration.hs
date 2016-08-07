@@ -66,7 +66,7 @@ variableDeclaration = do
       let ids' = map (\(id,_) -> id) ids
       if not len
         then return Nothing
-        else return $ Just $ Declaration ids' exprs
+        else return $ Just $ Declaration t ids' exprs
       
     withoutAssign ids = do 
       -- If not followed by an Assign token, then just put all the variables in the symbol table 
@@ -74,7 +74,7 @@ variableDeclaration = do
       t <- type'
       mapM_ (\(id,loc) -> symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Just $ Declaration ids' []
+      return $ Just $ Declaration t ids' []
 
 constantDeclaration :: Graciela Instruction
 constantDeclaration = do
@@ -104,7 +104,7 @@ constantDeclaration = do
           -- Get the ids' text and the assigned expressions
           let exprs = map (\(_,x,_) -> x) values
           let ids'  = map (\(id,_) -> id) ids
-          return $ Instruction location (Declaration ids' exprs)
+          return $ Instruction location (Declaration t ids' exprs)
   where 
     checkType t ((id,loc),(valueType,_,value)) = if valueType == t
       then 

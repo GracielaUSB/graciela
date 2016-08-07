@@ -28,23 +28,38 @@ import           Control.Monad       (unless, void)
 import           Text.Megaparsec     hiding (Token)
 -------------------------------------------------------------------------------
 
+
+
+bound :: Graciela Expression
+bound = between (match TokLeftBound) (match TokRightBound) bound'
+  where
+    bound' = do 
+      expr <- expression 
+      case expr of 
+        Expression _ exprType _ | exprType == GInt -> return expr
+        Expression loc _ _ -> do 
+          genCustomError ("La cota debe ser de tipo entero")
+          return $ BadExpression loc
+        badexpr@(BadExpression _) ->
+          return $ badexpr
+
 assert ::  Graciela Expression
 assert  = do 
   expr <- expression 
   case expr of 
-    Expression _ exprType _ -> return expr
+    Expression _ exprType _ | exprType == GBool -> return expr
     Expression loc _ _ -> do 
       genCustomError ("Las asserciones solo pueden tener expresiones booleanas")
       return $ BadExpression loc
+    badexpr@(BadExpression _) ->
+      return $ badexpr
+
 
 precondition :: Graciela Expression
 precondition = between (match TokLeftPre) (match TokRightPre) assert
 
 postcondition :: Graciela Expression
-postcondition = between (match TokLeftPost) (match TokRightPost)  assert
-
-bound :: Graciela Expression
-bound = between (match TokLeftBound) (match TokRightBound) assert
+postcondition = between (match TokLeftPost) (match TokRightPost) assert
 
 assertion :: Graciela Expression
 assertion = between (match TokLeftA) (match TokRightA) assert

@@ -12,7 +12,7 @@ import           Parser.Instruction (block)
 import           Parser.Procedure   
 import           Parser.Token
 import           Parser.State
-import           SymbolTable         (openScope)
+import           SymbolTable         (openScope, closeScope)
 import           Location            (Location(..))
 import           Token
 import           Type
@@ -45,10 +45,11 @@ mainProgram = do
 -- Program -> Abstract Program
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}
-program :: Graciela (Maybe Program)
+program :: Graciela Program
 program = do
   pos <- getPosition
   symbolTable %= openScope pos
   many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
-  ast <- mainProgram                   -- principal al final del archivo
-  return $ Just $ ast
+  program' <- mainProgram              -- principal al final del archivo
+  symbolTable %= closeScope pos
+  return program'

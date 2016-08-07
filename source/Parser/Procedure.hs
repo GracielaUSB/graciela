@@ -38,9 +38,8 @@ listDefProc = many (function <|> procedure)
 function :: Graciela Definition
 function  = do
   from <- getPosition 
-  symbolTable %= openScope from
-  
   match TokFunc
+  
   id      <- identifier
   params  <- parens $ functionParameters `sepBy` (match TokComma)
   match TokArrow
@@ -48,13 +47,14 @@ function  = do
   retType <- getType tname
   when (retType == GError) $ void $ genCustomError ("El tipo `"++T.unpack tname++"` no existe.")
   
+  symbolTable %= openScope from
   (match TokBegin)              
   body <- expression
   (match TokEnd) 
-
-  st  <- use symbolTable
   to  <- getPosition
   let loc = Location(from,to)
+
+  st  <- use symbolTable
   symbolTable %= closeScope to
   symbolTable %= insertSymbol id (Entry id loc (Function retType params st))  
   
