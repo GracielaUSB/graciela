@@ -14,13 +14,13 @@ import           Location
 import           MyParseError       as PE
 import           Parser.Declaration
 import           Parser.Expression
-import           Parser.State
 import           Parser.Token
 import           Parser.Type
 import           Token
 import           Type
 -------------------------------------------------------------------------------
-import           Text.Megaparsec    (between)
+import           Control.Monad       (unless, void)
+import           Text.Megaparsec     (between)
 -------------------------------------------------------------------------------
 
 
@@ -50,19 +50,19 @@ assert  = do
 
 
 precondition :: Graciela Expression
-precondition = between (match TokLeftPre) (match TokRightPre) assert
+precondition = between (match TokLeftPre) (withRecovery TokRightPre ) assert
 
 postcondition :: Graciela Expression
-postcondition = between (match TokLeftPost) (match TokRightPost) assert
+postcondition = between (match TokLeftPost) (withRecovery TokRightPost ) assert
 
 assertion :: Graciela Expression
-assertion = between (match TokLeftA) (match TokRightA) assert
+assertion = between (match TokLeftA) (withRecovery TokRightA ) assert
 
 invariant :: Graciela Expression
-invariant = between (match TokLeftInv) (match TokRightInv) assert
+invariant = between (match TokLeftInv) (withRecovery TokRightInv ) assert
 
 repInvariant :: Graciela Expression
-repInvariant = between (match TokLeftRep) (match TokRightRep) assert
+repInvariant = between (match TokLeftRep) (withRecovery TokRightRep ) assert
 
 coupInvariant :: Graciela Expression
-coupInvariant = between (match TokLeftAcopl) (match TokRightAcopl) assert
+coupInvariant = between (match TokLeftAcopl) (withRecovery TokRightAcopl ) assert

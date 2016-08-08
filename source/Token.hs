@@ -32,7 +32,10 @@ data TokenPos = TokenPos
   { start :: SourcePos
   , end   :: SourcePos
   , tok   :: Token
-  } deriving (Eq, Show)
+  } deriving (Eq)
+
+instance Show TokenPos where
+  show TokenPos { tok } = show tok
 
 instance Ord TokenPos where
   compare = compare `on` start

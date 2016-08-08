@@ -49,7 +49,7 @@ import           System.Info            (os)
 import           System.Process         (readProcess, readProcessWithExitCode)
 
 import           Text.Megaparsec        (ParsecT, runParser, runParserT,
-                                         sourceColumn, sourceLine)
+                                         sourceColumn, sourceLine, parseErrorPretty)
 import           Text.Megaparsec.Error  (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
@@ -223,15 +223,16 @@ main = do
     let Right ets = runParser lexer fileName source
     let (r, s) = runState (runParserT program (unpack source) ets) initialState
 
-    case r of
-        Right program -> do
-            putStrLn . drawTree . toTree $ program
-            putStrLn . drawTree . toTree . fst . _symbolTable $ s
-            putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ s
-        Left e -> putStr $ show e
+    case r of 
+        Right program -> do 
+            when (optAST options) $ putStrLn $ drawTree $ toTree  program
+            when (optSTable options) $ do 
+                putStrLn $ drawTree $ toTree $ fst $ _symbolTable s
+                putStrLn $ drawTree $ Node "Types" $ fmap (leaf . show) $ toList $ _typesTable s
+        Left e -> putStr $ parseErrorPretty e
         _ -> undefined
 
-    putStr . unlines . toList . fmap show . _synErrorList $ s
+    putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ s
 
     {- Testing /-}
 

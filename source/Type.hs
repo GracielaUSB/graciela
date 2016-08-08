@@ -113,11 +113,11 @@ _                =:= _                = False
 -- | Instancia 'Show' para los tipos.
 instance Show Type where
   show = \case
-    GInt              -> "int"
-    GFloat            -> "double"
-    GBool             -> "boolean"
-    GChar             -> "char"
-    GEmpty            -> "void"
+    GInt              -> "`int`"
+    GFloat            -> "`double`"
+    GBool             -> "`boolean`"
+    GChar             -> "`char`"
+    GEmpty            -> "`void`"
     GError            -> "error"
     GPointer      t   -> "pointer of " <> show t
     (GProcedure   _)  -> "proc"

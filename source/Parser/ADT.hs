@@ -15,7 +15,6 @@ import           Parser.Instruction
 import           Parser.Procedure
 import           Parser.Token
 import           Parser.Type
-import           Parser.State
 import           Location
 import           SymbolTable
 import           Entry

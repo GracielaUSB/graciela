@@ -69,10 +69,10 @@ begin
 end
 
 
-program main begin
+program hola begin
 
-    proc hola () begin
-    	var i,j,k := 1,2,3: int;
+    proc  ( in k  int, out j int) begin
+    	var i,j,k  1,2,3: int;
     	const z := i : int;
 
         {pre true pre}
@@ -109,7 +109,8 @@ program main begin
     
 |[
 	var i,j,k : int;
-    {inv true inv}
+	var a : array[10] of array[20] of int****;
+    {inv true 
     {bound i bound}
     do true ->
     	if true  -> 
@@ -136,10 +137,11 @@ program main begin
     		if true -> write(1) fi
     	]|
     ]|;
+    i,j,k  1,3,4;
     hola();
     write(1);
     writeln(i);
     read(i,j,k)
 ]|
 
-end
+

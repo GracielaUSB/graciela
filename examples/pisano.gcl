@@ -167,6 +167,15 @@ program main begin
         {post true post}
     end
 
+    proc hola (x : int) begin
+    
+        {pre true pre}
+        |[
+            write(1)
+        ]|
+        {post true post}
+    end
+    
 
     |[
         var   m := 10 : int;
@@ -182,6 +191,7 @@ program main begin
         ]|
         od;
         random(x);
+        
         write("El random es: ");
         writeln(x);
         writeln(1-1-1);

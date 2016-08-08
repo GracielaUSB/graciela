@@ -28,18 +28,33 @@ module Parser.Token
   , stringLit
   , integerLit
   , floatLit
+  , errorId
+  , identifierWithRecovery
+  , Parser.Token.withRecovery
+  , withRecoveryFollowedBy
   ) where
 --------------------------------------------------------------------------------
 import           Token
 import           Location
+import           MyParseError
+import           Graciela
 --------------------------------------------------------------------------------
-import           Data.List.NonEmpty   (NonEmpty ((:|)))
-import           Data.Set             (Set)
-import qualified Data.Set             as Set
-import           Data.Text            (Text)
-import           Text.Megaparsec      (ErrorItem (Tokens), token, between)
-import           Text.Megaparsec.Prim (MonadParsec)
-import qualified Text.Megaparsec.Prim as Prim (Token)
+import           Control.Monad         (when, void)
+import           Data.List             (intercalate) 
+import           Data.List.NonEmpty    (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty     as NE
+import           Data.Set              (Set)
+import qualified Data.Set              as Set
+import           Data.Text             (Text, pack)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..), 
+                                        token, between, manyTill, lookAhead, 
+                                        parseErrorPretty, getPosition,
+                                        ShowErrorComponent,showErrorComponent, 
+                                        ShowToken, parseErrorPretty)
+import           Text.Megaparsec        as MP (withRecovery)
+-- import           Text.Megaparsec.Error (sourcePosStackPretty)
+import           Text.Megaparsec.Prim  (MonadParsec)
+import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 
 unex :: TokenPos -> (Set (ErrorItem TokenPos), Set a, Set b)
@@ -144,3 +159,74 @@ floatLit = token test Nothing
   where
     test    TokenPos {tok = TokFloat f} = Right f
     test tp@TokenPos {tok}              = Left . unex $ tp
+
+
+errorId :: Text
+errorId = pack "0#Error"
+
+identifierWithRecovery :: Graciela Text
+identifierWithRecovery = MP.withRecovery recover identifier
+  where 
+    recover err = do
+      genCustomError (parseErrorPretty err)
+      return errorId
+
+withRecovery :: Token -> Graciela Location 
+withRecovery token = MP.withRecovery (recover [token]) (match token)   
+  where 
+    recover expected err = do 
+        pos <- getPosition
+        -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
+        let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
+        let err' = err { errorExpected = f expected }
+        -- Print (put it in the error list)
+        genCustomError (parseErrorPretty err')
+        return $ Location (gracielaDef,gracielaDef) 
+
+withRecoveryFollowedBy :: Token -> Graciela Token -> Graciela Location 
+withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (match token)   
+  where 
+    recover expected follow err = do 
+        pos <- getPosition
+        -- if any follow token is especified, then trash many token until a follow is at the look ahead
+        anyToken `manyTill` lookAhead follow
+        -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
+        let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
+        let err' = err { errorExpected = f expected }
+        -- Print (put it in the error list)
+        genCustomError (parseErrorPretty err')
+        return $ Location (gracielaDef,gracielaDef) 
+
+
+-- Modify the pretty print of errores
+
+-- prettyError :: ( Ord t
+--                , ShowToken t
+--                , ShowErrorComponent e )
+--   => ParseError t e    -- ^ Parse error to render
+--   -> String            -- ^ Result of rendering
+-- prettyError (ParseError pos us ps xs) =
+--   sourcePosStackPretty pos ++ ":\n" ++
+--   if Set.null us && Set.null ps && Set.null xs
+--     then "unknown parse error\n"
+--     else concat
+--       [ messageItemsPretty "\tunexpected " us
+--       , messageItemsPretty "\texpecting "  ps
+--       , unlines (showErrorComponent <$> Set.toAscList xs) ]
+
+
+-- messageItemsPretty :: ShowErrorComponent a
+--   => String            -- ^ Prefix to prepend
+--   -> Set a             -- ^ Collection of messages
+--   -> String            -- ^ Result of rendering
+-- messageItemsPretty prefix ts
+--   | Set.null ts = ""
+--   | otherwise =
+--     let f = orList . NE.fromList . Set.toAscList . Set.map showErrorComponent
+--     in prefix ++ f ts ++ "\n"
+
+
+-- orList :: NonEmpty String -> String
+-- orList (x:|[])  = x
+-- orList (x:|[y]) = x ++ " or " ++ y
+-- orList xs       = intercalate ", " (NE.init xs) ++ ", or " ++ NE.last xs

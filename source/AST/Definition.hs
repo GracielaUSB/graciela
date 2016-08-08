@@ -41,8 +41,12 @@ data Definition
     , bound  :: Maybe Expression
     , def'   :: Definition'
     }
+  | BadDefinition
+    { loc :: Location
+    }
 
 instance Treelike Definition where
+  toTree BadDefinition {loc} = leaf $ "Bad Definition " <> show loc
   toTree Definition { loc, name, params, {-st,-} bound, def' }
     = case def' of
 
@@ -69,7 +73,7 @@ instance Treelike Definition where
           , Node "Precondition" [toTree pre]
           , Node "Postcondition" [toTree post]
           ]
-
+  
     where
       showPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t))
       boundNode = case bound of

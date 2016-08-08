@@ -18,21 +18,19 @@ import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Instruction
-import           Parser.State
 import           Parser.Token
 import           Parser.Type
 import           SymbolTable
 import           Token
 import           Type
 -------------------------------------------------------------------------------
-import           Control.Lens       (use, (%=))
 import           Control.Monad      (void, when)
 import           Data.Functor       (($>))
-import           Data.Maybe         (catMaybes)
 import           Data.Monoid        ((<>))
+import           Control.Lens       (use, (%=))
 import qualified Data.Text          as T
-import           Text.Megaparsec    (getPosition, many, notFollowedBy, sepBy,
-                                     (<|>))
+import           Data.Maybe         (catMaybes)
+import           Text.Megaparsec    ((<|>), many, notFollowedBy, sepBy, getPosition)
 -------------------------------------------------------------------------------
 
 listDefProc :: Graciela [Definition]
@@ -45,16 +43,16 @@ function  = do
 
   id      <- identifier
   params  <- parens $ functionParameters `sepBy` match TokComma
-  match TokArrow
+  withRecovery TokArrow
   tname   <- identifier
   retType <- getType tname
   when (retType == GError) $
     genCustomError ("El tipo `" <> T.unpack tname <> "` no existe.")
 
   symbolTable %= openScope from
-  match TokBegin
+  withRecovery TokBegin
   body <- expression
-  match TokEnd
+  withRecovery TokEnd 
   to  <- getPosition
   let loc = Location (from, to)
 
@@ -71,7 +69,7 @@ function  = do
     functionParameters = do
         from <- getPosition
         id <- identifier
-        match TokColon
+        withRecovery TokColon
         t  <- type'
         to <- getPosition
         let loc = Location(from,to)
@@ -83,27 +81,30 @@ procedure = do
     from <- getPosition
     -- Parse the procedure signature. it most not be followed by an Arrow (->).
     match TokProc
-    id <- identifier
+    id <- identifierWithRecovery
     symbolTable %= openScope from
-    params <- parens . many $ procParam
+    params <- parens $ procParam `sepBy` match TokComma
     notFollowedBy $ match TokArrow
     -- Parse the procedure's body
-    match TokBegin
-    decls <- declarationBlock
-    pre   <- precondition
-    body  <- block
-    post  <- postcondition
-    match TokEnd
+    withRecovery TokBegin
+    decls <- declarationBlock 
+    pre   <- precondition 
+    body  <- block 
+    post  <- postcondition 
+    withRecovery TokEnd
     -- Get the actual symbol table and build the ast and the entry of the procedure
     st    <- use symbolTable
     to    <- getPosition
-    let loc = Location (from, to)
+    let loc = Location(from,to)
     symbolTable %= closeScope to
-    symbolTable %= insertSymbol id (Entry id loc (Procedure params st))
-
-    let proc = ProcedureDef decls pre body post
-    return $ Definition loc id params st Nothing proc
-
+    if id /= errorId
+      then do 
+        symbolTable %= insertSymbol id (Entry id loc (Procedure params st))
+        
+        let proc = (ProcedureDef decls pre body post)
+        return $ Definition loc id params st Nothing proc
+      else 
+        return $ BadDefinition loc
 
 paramType :: Graciela (Maybe ArgMode)
 paramType =  match TokIn    $> Just In
@@ -118,7 +119,7 @@ procParam = do
   from <- getPosition
   ptype <- paramType
   id  <- identifier
-  match TokColon
+  withRecovery TokColon
   t   <- type'
   to <- getPosition
   let loc = Location(from,to)

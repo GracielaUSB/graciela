@@ -26,7 +26,6 @@ import           MyParseError           as PE
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Expression
-import           Parser.State
 import           Parser.Token
 import           Parser.Type
 import           SymbolTable
@@ -41,26 +40,25 @@ import           Data.Monoid            ((<>))
 import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as T (unpack)
+import           Text.Megaparsec        (sepBy, endBy, sepBy1, notFollowedBy,
+                                         getPosition, try, between, (<|>))
 import           Prelude                hiding (lookup)
-import           Text.Megaparsec        (between, endBy, getPosition, sepBy,
-                                         try, (<|>))
 -------------------------------------------------------------------------------
 
 instruction :: Graciela Instruction
-instruction =
-        block
-    <|> try assign
-    <|> abort
-    <|> conditional
-    <|> free
-    <|> new
-    <|> random
-    <|> reading
-    <|> repetition
-    <|> skip
-    <|> write
-    <|> writeln
-    <|> procedureCall
+instruction = try procedureCall
+          <|> try assign
+          <|> abort
+          <|> conditional
+          <|> free
+          <|> new
+          <|> random
+          <|> reading
+          <|> repetition
+          <|> skip
+          <|> write
+          <|> writeln
+          <|> block
 
 declarationBlock :: Graciela [Instruction]
 declarationBlock =
@@ -74,7 +72,7 @@ block = do
   decls   <- declarationBlock
   actions <- instruction `sepBy` match TokSemicolon
   st      <- use symbolTable
-  match TokCloseBlock
+  withRecovery TokCloseBlock
   to <- getPosition
   symbolTable %= closeScope to
   let loc = Location (from, to)
@@ -85,9 +83,9 @@ block = do
 assign :: Graciela Instruction
 assign = do
   from <- getPosition
-  lvals <- expression `sepBy` match TokComma
-  match TokAssign
-  exprs <- expression `sepBy` match TokComma
+  lvals <- expression `sepBy1` match TokComma
+  withRecovery TokAssign
+  exprs <- expression `sepBy1` match TokComma
   to <- getPosition
   let len = length lvals == length exprs
   unless len . syntaxError $ CustomError
@@ -103,9 +101,9 @@ assign = do
        if the assigned expression has the correct type
     -}
     checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
-    checks [] = (True,[])
-    checkTypes (x:xs) = case x of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) ->
+    checkTypes [] = return (True,[])
+    checkTypes (x:xs) = case x of 
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) -> do 
         if t1 == t2 && t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
           then do
             (c,objs) <- checkTypes xs
@@ -295,7 +293,7 @@ conditional = do
   from <- getPosition
   match TokIf
   gl <- guard `sepBy` match TokSepGuards
-  match TokFi
+  withRecovery TokFi
   to <- getPosition
   return $ Instruction (Location(from,to)) (Conditional gl)
 
@@ -305,18 +303,21 @@ repetition :: Graciela Instruction
 repetition = do
   from   <- getPosition
   inv    <- invariant
-  bound' <- bound
-  match TokDo
+  bound' <- bound    
+  withRecovery TokDo
   gl <- guard `sepBy` match TokSepGuards
   to <- getPosition
-  match TokOd
+  withRecovery TokOd
   return $ Instruction (Location(from,to)) (Repeat gl inv bound')
 
 procedureCall :: Graciela Instruction
 procedureCall = do
   from <- getPosition
   id   <- identifier
-  args <- parens $ expression `sepBy` match TokComma
+  notFollowedBy (oneOf [TokComma, TokColon])
+  withRecovery TokLeftPar
+  args <- expression `sepBy` match TokComma
+  withRecovery TokRightPar
   st   <- use symbolTable
   to   <- getPosition
   let loc = Location (from,to)

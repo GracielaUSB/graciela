@@ -29,16 +29,16 @@ import           Control.Monad.Trans.State.Lazy
 import           Data.Functor.Identity
 import           Data.Monoid                    ((<>))
 import           Data.Text                      (Text)
+import           Text.Megaparsec                (sepBy1,sepBy, (<|>), try, 
+                                                 getPosition, notFollowedBy)
 import           Prelude                        hiding (lookup)
-import           Text.Megaparsec                (getPosition, sepBy, try, (<|>))
 -------------------------------------------------------------------------------
 -- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
 variableDeclaration :: Graciela Instruction
 variableDeclaration = do
   from <- getPosition
   match TokVar
-  ids <- identifierAndLoc `sepBy` match TokComma
-  ast <- try (withAssign ids) <|> withoutAssign ids
+  ast <- try withAssign <|> withoutAssign
   to  <- getPosition
   let loc = Location(from,to)
   case ast of
@@ -47,9 +47,11 @@ variableDeclaration = do
 
   where
     -- Try to parse if the declared variables are beign assigned
-    withAssign ids = do
-      match TokAssign
-      exprs <- expression `sepBy` match TokComma
+    withAssign = do
+      ids <- identifierAndLoc `sepBy1` match TokComma
+      notFollowedBy (match TokColon)
+      withRecovery TokAssign
+      exprs <- expression `sepBy1` match TokComma
       match TokColon
       t <- type'
 
@@ -73,10 +75,11 @@ variableDeclaration = do
       let ids' = fmap fst ids
       if not len
         then return Nothing
-        else return . Just $ Declaration t ids' exprs
-
-    withoutAssign ids = do
-      -- If not followed by an Assign token, then just put all the variables in the symbol table
+        else return $ Just $ Declaration t ids' exprs
+      
+    withoutAssign = do 
+      -- If not followed by an Assign token, then just put all the variables in the symbol table 
+      ids <- identifierAndLoc `sepBy1` match TokComma
       match TokColon
       t <- type'
       mapM_ (\(id,loc) -> symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))) ids
@@ -86,11 +89,11 @@ variableDeclaration = do
 constantDeclaration :: Graciela Instruction
 constantDeclaration = do
   from <- getPosition
-  match TokConst
-  ids <- identifierAndLoc `sepBy` match TokComma
-  match TokAssign
-  values <- valueOfConstantExpr `sepBy` match TokComma
-  match TokColon
+  match TokConst    
+  ids <- identifierAndLoc `sepBy1` match TokComma
+  withRecovery TokAssign
+  values <- valueOfConstantExpr `sepBy1` match TokComma
+  withRecovery TokColon
   t <- basicType
   to <- getPosition
   let location = Location(from,to)

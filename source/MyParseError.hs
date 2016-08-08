@@ -3,6 +3,8 @@ module MyParseError where
 import           Location
 import           Token
 import           Data.Monoid ((<>))
+import           Text.Megaparsec       hiding (Token)
+import           Text.Megaparsec.Error  
 --------------------------------------------------------------------------------
 
 data MyParseError
@@ -27,6 +29,9 @@ data MyParseError
     { msg :: String
     , loc :: Location
     }
+
+
+
 
 data ExpectedToken
   = Action
@@ -117,8 +122,7 @@ instance Show MyParseError where
     ", encontrado Arreglo de dimensión " <> show pr <> "."
   show ScopesError              =
     "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
-  show (CustomError msg loc) =
-    "Error " <> " " <> show loc <> ": " <> msg
+  show (CustomError msg loc) = msg
 
 
 newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
