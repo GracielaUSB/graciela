@@ -848,7 +848,7 @@ pointRange opLoc
 
     Right _ -> error "internal error: impossible type equality"
 
-pointRange opLoc l r = binary elemSet Elem opLoc l r
+pointRange opLoc l r = binary equality Elem opLoc l r
 
 
 conjunction :: Location
