@@ -31,6 +31,7 @@ module Parser.Token
   ) where
 --------------------------------------------------------------------------------
 import           Token
+import           Location
 --------------------------------------------------------------------------------
 import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import           Data.Set             (Set)
@@ -46,12 +47,12 @@ unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
 
 
 match :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-      => Token -> m ()
+      => Token -> m Location
 match t = token test Nothing
   where
-    test tp @ TokenPos {tok} =
+    test tp @ TokenPos { tok, start, end } =
       if t == tok
-        then Right ()
+        then Right $ Location (start, end)
         else Left . unex $ tp
 
 
