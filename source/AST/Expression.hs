@@ -39,10 +39,10 @@ instance Show Conversion where
 
 
 data BinaryOperator
-  = Plus | BMinus | Times | Div | Mod | Exp | Max | Min
+  = Plus | BMinus | Times | Div | Mod | Power | Max | Min
   | And | Or | Implies | Consequent | BEQ | BNE
   | AEQ | ANE | LT | LE | GT | GE
-  | Difference | Intersection | Union
+  | Elem | NotElem | Difference | Intersection | Union
   deriving (Eq)
 
 instance Show BinaryOperator where
@@ -51,12 +51,12 @@ instance Show BinaryOperator where
   show Times  = "(*)"
   show Div    = "(/)"
   show Mod    = "mod"
-  show Exp    = "(^)"
+  show Power  = "(^)"
   show Max    = "max"
   show Min    = "min"
 
-  show And        = "(\\/)"
-  show Or         = "(/\\)"
+  show And        = "(/\\)"
+  show Or         = "(\\/)"
   show Implies    = "(==>)"
   show Consequent = "(<==)"
   show BEQ        = "(===)"
@@ -69,19 +69,23 @@ instance Show BinaryOperator where
   show GT  = "(>)"
   show GE  = "(>=)"
 
+  show Elem         = "Member of (∈)"
+  show NotElem      = "Not Member of (∉)"
   show Difference   = "Difference (∖)"
   show Intersection = "Intersection (∩)"
   show Union        = "Union (∪)"
 
 
-data UnaryOperator = UMinus | Not | Abs | Sqrt
+data UnaryOperator = UMinus | Not | Abs | Sqrt | Pred | Succ
   deriving (Eq)
 
 instance Show UnaryOperator where
   show Abs    = "abs"
-  show UMinus  = "(-)"
+  show UMinus = "(-)"
   show Not    = "not"
   show Sqrt   = "sqrt"
+  show Pred   = "pred"
+  show Succ   = "succ"
 
 
 data QuantOperator
@@ -102,44 +106,39 @@ instance Show QuantOperator where
 
 
 data QRange
-  = ExpRange
+  = ExpRange -- Both limits are included, i.e. low <= var <= high
     { low  :: Expression
-    , high :: Expression
-    }
-  | SetRange
-    { theSet :: Expression
-    }
-  | MultisetRange
-    { theMultiset :: Expression
-    }
+    , high :: Expression }
+  | SetRange -- ^ Works for Multiset as well
+    { theSet :: Expression }
+  | PointRange
+    { thePoint :: Expression }
   | EmptyRange
+
 
 instance Treelike QRange where
   toTree ExpRange { low, high } =
     Node "Exp Range"
       [ Node "From" [toTree low]
-      , Node "To"   [toTree high]
-      ]
+      , Node "To"   [toTree high] ]
 
   toTree SetRange { theSet } =
     Node "Set Range"
-      [Node "Over" [toTree theSet]
-      ]
+      [ Node "Over" [toTree theSet] ]
 
-  toTree MultisetRange { theMultiset } =
-    Node "Multiset Range"
-      [Node "Over" [toTree theMultiset]
-      ]
+  toTree PointRange { thePoint } =
+    Node "One-point Range"
+      [ Node "At" [toTree thePoint] ]
 
   toTree EmptyRange =
     leaf "Empty Range"
 
 
 data Expression'
-  = BoolLit   { theBool   :: Bool    }
-  | CharLit   { theChar   :: Char    }
-  | FloatLit  { theFloat  :: Double  }
-  | IntLit    { theInt    :: Integer }
+  = BoolLit   { theBool :: Bool }
+  | CharLit   { theChar :: Char }
+  | FloatLit  { theFloat :: Double }
+  | IntLit    { theInt :: Integer }
   | StringLit { theString :: String  }
 
   | EmptySet
@@ -150,24 +149,20 @@ data Expression'
   | Binary
     { binOp :: BinaryOperator
     , lexpr :: Expression
-    , rexpr :: Expression
-    }
+    , rexpr :: Expression }
 
   | Unary
     { unOp  :: UnaryOperator
-    , inner :: Expression
-    }
+    , inner :: Expression }
 
-  | FunctionCall
+  | FunctionCall -- ^ Llamada a funcion.
     { fname :: Text
     -- , astST :: SymbolTable  -- ?
-    , args  :: [Expression]
-    } -- ^ Llamada a funcion.
+    , args  :: [Expression] }
 
   | Conversion
     { toType :: Conversion
-    , cExp   :: Expression
-    }
+    , cExp   :: Expression }
 
   | Quantification
     { qOp      :: QuantOperator
@@ -175,12 +170,10 @@ data Expression'
     , qVarType :: Type
     , qRange   :: QRange
     , qCond    :: Expression
-    , qBody    :: Expression
-    }
+    , qBody    :: Expression }
 
-  | EConditional
-    { eguards :: Seq (Expression, Expression)
-    }  -- ^ Instruccion If.
+  | EConditional -- ^ Expresión If.
+    { eguards :: Seq (Expression, Expression) }
 
   | ESkip
 
@@ -188,11 +181,9 @@ data Expression
   = Expression
     { loc     :: Location
     , expType :: Type
-    , exp'    :: Expression'
-    }
+    , exp'    :: Expression' }
   | BadExpression
-    { loc     :: Location
-    }
+    { loc :: Location }
 
 
 instance Treelike Expression where
@@ -220,51 +211,45 @@ instance Treelike Expression where
 
     Obj { theObj } ->
       Node ("Object " <> show loc)
-        [toTree theObj]
+        [ toTree theObj ]
 
     Binary { binOp, lexpr, rexpr } ->
       Node (show binOp <> " " <> show loc)
         [ toTree lexpr
-        , toTree rexpr
-        ]
+        , toTree rexpr ]
 
     Unary { unOp, inner } ->
       Node (show unOp <> " " <> show loc)
-        [ toTree inner
-        ]
+        [ toTree inner ]
 
     FunctionCall { fname, {-astST,-} args } ->
       Node ("Call Func " <> unpack fname <> " " <> show loc)
-        [ Node "Arguments" (toForest args)
-        ]
+        [ Node "Arguments" (toForest args) ]
 
     Conversion { toType, cExp } ->
       Node (show toType <> " " <> show loc)
-        [toTree cExp]
+        [ toTree cExp ]
 
     Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
       Node ("Quantification " <> show qOp <> " " <> show loc)
         [ Node "Variable"
           [ leaf $ unpack qVar
-          , leaf $ "of type " <> show qVarType
-          ]
-        , Node "Range"      [toTree qRange]
+          , leaf $ "of type " <> show qVarType ]
+        , Node "Range" [toTree qRange]
         , case qCond of
             Expression { exp' = ESkip } -> leaf "No Conditions"
-            _ -> Node "Conditions" [toTree qCond]
-        , Node "Body"       [toTree qBody]
-        ]
+            _ -> Node "Conditions" [ toTree qCond ]
+        , Node "Body" [ toTree qBody ] ]
 
     EConditional { eguards } ->
       Node ("Conditional Expression " <> show loc)
-        (map g . toList $ eguards)
+        ( fmap g . toList $ eguards )
 
       where
         g (lhs, rhs) =
           Node "Guard"
             [ Node "If"   [toTree lhs]
-            , Node "Then" [toTree rhs]
-            ]
+            , Node "Then" [toTree rhs] ]
 
     ESkip ->
       leaf "Skip Expression"

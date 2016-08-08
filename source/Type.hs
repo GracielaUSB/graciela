@@ -15,7 +15,8 @@ module Type
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
-import           Data.Text (Text, unpack)
+import           Data.Monoid ((<>))
+import           Data.Text   (Text, unpack)
 --------------------------------------------------------------------------------
 
 -- | Es el tipos para los argumentos.
@@ -47,6 +48,7 @@ data Type
 
   | GAny                -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
   | GOneOf   [Type]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
+  | GUnsafeName Text    -- Tipo para
 
   | GInt           -- ^ Tipo entero
   | GFloat         -- ^ Tipo flotante
@@ -117,23 +119,25 @@ instance Show Type where
     GChar             -> "char"
     GEmpty            -> "void"
     GError            -> "error"
-    GPointer      t   -> "pointer of "++show t
+    GPointer      t   -> "pointer of " <> show t
     (GProcedure   _)  -> "proc"
-    (GFunction  _ t)  -> "func -> (" ++ show t ++ ")"
-    (GArray     s t)  -> "array " ++ show s ++ " of `" ++ show t ++ "`"
-    GSet      t       -> "conjunto de `" ++ show t ++ "`"
-    GMultiset t       -> "multiconjunto de `" ++ show t ++ "`"
-    GSeq      t       -> "secuencia de `" ++ show t ++ "`"
-    GFunc     ta tb   -> "función `" ++ show ta ++ "->" ++ show tb ++ "`"
-    GRel      ta tb   -> "relación `" ++ show ta ++ "->" ++ show tb ++ "`"
+    (GFunction  _ t)  -> "func -> (" <> show t <> ")"
+    (GArray     s t)  -> "array " <> show s <> " of `" <> show t <> "`"
+    GSet      t       -> "conjunto de `" <> show t <> "`"
+    GMultiset t       -> "multiconjunto de `" <> show t <> "`"
+    GSeq      t       -> "secuencia de `" <> show t <> "`"
+    GFunc     ta tb   -> "función `" <> show ta <> "->" <> show tb <> "`"
+    GRel      ta tb   -> "relación `" <> show ta <> "->" <> show tb <> "`"
     GTuple    ts      ->
-      "tupla (" ++ (unwords . map show $ ts) ++ ")"
-    GTypeVar  n       -> "variable de tipo `" ++ show n ++ "`"
-    GDataType n _ _ _ -> "type `" ++ unpack n ++ "`"
-    GAbstractType n _ _ _ -> "abstract `" ++ unpack n ++ "`"
+      "tupla (" <> (unwords . fmap show $ ts) <> ")"
+    GTypeVar  n       -> "variable de tipo `" <> show n <> "`"
+    GDataType n _ _ _ -> "type `" <> unpack n <> "`"
+    GAbstractType n _ _ _ -> "abstract `" <> unpack n <> "`"
 
     GAny              -> "any type"
-    GOneOf         as -> "one of " ++ show as
+    GOneOf         as -> "one of " <> show as
+
+    GUnsafeName t     -> unpack t
 
     GUndef            -> undefined
 
