@@ -27,6 +27,10 @@ data Definition'
     , procbody :: Instruction
     , post     :: Expression
     }
+  | AbstractProcedureDef
+    { pre  :: Expression
+    , post :: Expression
+    }
 
 data Definition
   = Definition
@@ -59,8 +63,15 @@ instance Treelike Definition where
           , Node "Postcondition" [toTree post]
           ]
 
+      ProcedureDef { pre, post } ->
+        Node ("Procedure " <> unpack name <> " " <> show loc)
+          [ Node "Parameters" (showPs params)
+          , Node "Precondition" [toTree pre]
+          , Node "Postcondition" [toTree post]
+          ]
+
     where
-      showPs = fmap (\(n,t) -> leaf (unpack n ++ " : " ++ show t))
+      showPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t))
       boundNode = case bound of
         Just b -> Node "Bound" [toTree b]
         Nothing -> leaf "Not bounded"

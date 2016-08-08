@@ -332,7 +332,7 @@ quantification = do
                 , _loc = Location (from, to)
                 , _info = Var
                   { _varType  = t
-                  , _varValue = None }}
+                  , _varValue = Nothing }}
               pure (var, t)
             else do
               lift . syntaxError $
@@ -1041,19 +1041,19 @@ testExpr strinput = do
           , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
           , _info       = Var
             { _varType  = GArray 10 GInt
-            , _varValue = None }}
+            , _varValue = Nothing }}
         symbolTable %= insertSymbol (pack "b") Entry
           { _entryName  = pack "b"
           , _loc        = Location (SourcePos "" (unsafePos 3) (unsafePos 3), SourcePos "" (unsafePos 3) (unsafePos 20))
           , _info       = Var
             { _varType  = GArray 10 (GArray 10 GInt)
-            , _varValue = None }}
+            , _varValue = Nothing }}
         symbolTable %= insertSymbol (pack "c") Entry
           { _entryName  = pack "c"
           , _loc        = Location (SourcePos "" (unsafePos 4) (unsafePos 4), SourcePos "" (unsafePos 4) (unsafePos 20))
           , _info       = Var
             { _varType  = GPointer GInt
-            , _varValue = None }}
+            , _varValue = Nothing }}
   let (r, s) = runState (runParserT expression "" ets) init'
   case r of
     Right r' -> do

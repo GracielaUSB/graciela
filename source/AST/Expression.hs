@@ -114,6 +114,7 @@ data QRange
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
+  deriving (Eq)
 
 
 instance Treelike QRange where
@@ -176,6 +177,7 @@ data Expression'
     { eguards :: Seq (Expression, Expression) }
 
   | ESkip
+  deriving (Eq)
 
 data Expression
   = Expression
@@ -184,6 +186,7 @@ data Expression
     , exp'    :: Expression' }
   | BadExpression
     { loc :: Location }
+  deriving (Eq)
 
 
 instance Treelike Expression where

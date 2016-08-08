@@ -52,12 +52,14 @@ data Instruction'
     { lvals :: [Object]
     , exprs :: [Expression]
     }
-  | Declaration 
-    { lvals :: [Object]
+  | Declaration
+    { declType  ::  Type
+    , declLvals :: [Text]
+    , exprs     :: [Expression]
     }
   | ProcedureCall
     { pname :: Text
-    , astST :: SymbolTable
+    {-, astST :: SymbolTable-}
     , args  :: [Expression]
     }
 
@@ -91,7 +93,7 @@ data Instruction
     , inst' :: Instruction'
     }
   | NoInstruction
-    { loc   :: Location
+    { loc :: Location
     }
 
 
@@ -108,7 +110,7 @@ instance Treelike Instruction where
 
     Conditional { cguards } ->
       Node ("If " <> show loc)
-        (map guardToTree cguards)
+        (fmap guardToTree cguards)
 
     New { idName } ->
       Node ("New " <> show loc)
@@ -122,9 +124,18 @@ instance Treelike Instruction where
       Node "Assignments"
         (zipWith assignToTree lvals exprs)
 
+    Declaration {declType, declLvals, exprs} -> Node "Declaration" $
+      leaf ("Type " <> show declType) :
+      case exprs of
+        [] -> fmap (\id -> Node (unpack id) [leaf "Value: None"]) declLvals
+        _  -> zipWith declarationToTree declLvals exprs
+
     ProcedureCall { pname, {-ast,-} args} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
-        [Node "Arguments" (toForest args)]
+        [case args of
+          [] -> leaf "No arguments"
+          _  -> Node "Arguments" (toForest args)
+        ]
 
     Random { var } ->
       Node ("Random " <> show loc)
@@ -133,7 +144,7 @@ instance Treelike Instruction where
     Read file varTypes vars ->
       Node ("Read" <> hasFile <> " " <> show loc)
         (fmap (\(t,(name, l)) ->
-                    leaf (unpack name <> " " <> show t <> " " <> show loc))
+                    leaf ("`" <> unpack name <> "` " <> show t <> " " <> show loc))
                  (zip varTypes vars))
       where
         hasFile = case file of
@@ -144,7 +155,7 @@ instance Treelike Instruction where
       Node ("Do " <> show loc) $
         [ Node "Invariant" [toTree rinv]
         , Node "Bound"     [toTree rbound]
-        ] <> map guardToTree rguards
+        ] <> fmap guardToTree rguards
 
     Skip -> leaf $ "Skip " <> show loc
 
@@ -161,6 +172,11 @@ instance Treelike Instruction where
         [ toTree ident
         , toTree expr
         ]
+      declarationToTree ident expr = Node "(:=)"
+        [ leaf $ "`" <> unpack ident <> "`"
+        , toTree expr
+        ]
+
 
   toTree NoInstruction { loc } =
     leaf $ "No instruction " <> show loc

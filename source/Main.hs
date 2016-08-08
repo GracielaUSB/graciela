@@ -4,12 +4,11 @@
 
 module Main where
 --------------------------------------------------------------------------------
+-- import           LLVM.Codegen
+-- import           ASTtype
 import           AST.Program
-import           ASTtype
-
 import           Graciela
 import           Lexer
-import           LLVM.Codegen
 import           Parser.Program
 import           SymbolTable
 import           Token
@@ -20,16 +19,16 @@ import           TypeError
 import           Control.Monad          (unless, void, when, (>=>))
 import           Control.Monad.Except   (ExceptT, runExceptT)
 import           Control.Monad.Identity (Identity, runIdentity)
-import           Control.Monad.State    (runStateT)
-
+import           Control.Monad.State    (runState)
 import           Data.Foldable          (toList)
 import           Data.List              (nub)
 import           Data.Map.Strict        (showTree)
 import           Data.Maybe             (fromMaybe)
+import           Data.Monoid            ((<>))
 import qualified Data.Sequence          as Seq (null)
 import           Data.Set               (empty)
 import           Data.String.Utils      (replace)
-import           Data.Text              (Text)
+import           Data.Text              (Text, unpack)
 import           Data.Text.IO           (readFile)
 
 import           LLVM.General.Context   (withContext)
@@ -49,10 +48,9 @@ import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
 import           System.Process         (readProcess, readProcessWithExitCode)
 
-import           Text.Megaparsec        (ParsecT, runPT, runParser,
+import           Text.Megaparsec        (ParsecT, runParser, runParserT,
                                          sourceColumn, sourceLine)
-import           Text.Megaparsec.Error  (ParseError, errorMessages, errorPos,
-                                         messageString)
+import           Text.Megaparsec.Error  (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -117,77 +115,78 @@ opts = do
         (flags, rest, []) ->
             return (foldl (flip Prelude.id) defaultOptions flags, rest)
         (_, _, errs) ->
-            ioError (userError (concat errs ++ help))
+            ioError (userError (concat errs <> help))
 
 -- Processing --------------------------
-concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe Program), GracielaState)
-concatLexPar = playParser <$> lexer
+-- concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe Program), GracielaState)
+-- concatLexPar = playParser <$> lexer
 
 
-playParser :: [TokenPos] -> (Either ParseError (Maybe Program), GracielaState)
-playParser inp = runStateParse program "" inp initialState
+-- playParser :: [TokenPos] -> (Either ParseError (Maybe Program), GracielaState)
+-- playParser inp = runStateParse program "" inp initialState
 
 
-runStateParse :: Graciela (Maybe Program) -> String
-              -> [TokenPos]-> GracielaState
-              -> (Either ParseError (Maybe Program), GracielaState)
-runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
+-- runStateParse :: Graciela (Maybe Program) -> String
+--               -> [TokenPos]-> GracielaState
+--               -> (Either ParseError (Maybe Program), GracielaState)
+-- runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 
-liftError :: ExceptT String IO a -> IO a
-liftError = runExceptT >=> either fail return
+-- liftError :: ExceptT String IO a -> IO a
+-- liftError = runExceptT >=> either fail return
 
 
-generateCode :: Module -> ExceptT String IO ()
-generateCode m =
-    withHostTargetMachine $ \tm ->
-        liftError $ writeObjectToFile tm (File "prueba") m
+-- generateCode :: Module -> ExceptT String IO ()
+-- generateCode m =
+--     withHostTargetMachine $ \tm ->
+--         liftError $ writeObjectToFile tm (File "prueba") m
 
-play opts inp llName = case runParser concatLexPar () "" inp of
-    Left err -> do
-        let msg  = head $ messageString $ head $ errorMessages err
-            col  = sourceColumn $ errorPos err
-            line = sourceLine   $ errorPos err
-        die $
-            "Error en la línea " ++ show line ++ ", columna " ++ show col ++
-            ": Caracter Lexicográfico " ++ show msg ++ " inválido.\n"
+-- play opts inp llName =
+--   case runParser concatLexPar () "" inp of
+--     Left err -> do
+--         let msg  = head $ messageString $ head $ errorMessages err
+--             col  = sourceColumn $ errorPos err
+--             line = sourceLine   $ errorPos err
+--         die $
+--             "Error en la línea " <> show line <> ", columna " <> show col <>
+--             ": Caracter Lexicográfico " <> show msg <> " inválido.\n"
 
-    Right (Left  err', _) ->
-        die $ "\nOcurrió un error en el proceso de análisis sintáctico " ++ show err'
+--     Right (Left  err', _) ->
+--         die $ "\nOcurrió un error en el proceso de análisis sintáctico " <> show err'
 
-    Right (Right (Just ast), st) ->
-        if Seq.null (_sTableErrorList st) && Seq.null (_synErrorList st)
-            then do
-                -- putStrLn $drawST 0 $current $symbolTable st
-                let symTable = _symbolTable st
-                when (optSTable opts) $ do
-                    let types    = _typesTable st
-                    putStrLn $ drawTree $ toTree symTable
-                    putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
-                when (optAST opts) $
-                    putStrLn . drawTree . toTree $ ast
+--     Right (Right (Just ast), st) ->
+--         if Seq.null (_sTableErrorList st) && Seq.null (_synErrorList st)
+--             then do
+--                 -- putStrLn $drawST 0 $current $symbolTable st
+--                 let symTable = _symbolTable st
+--                 when (optSTable opts) $ do
+--                     let types    = _typesTable st
+--                     putStrLn $ drawTree $ toTree symTable
+--                     putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
+--                 when (optAST opts) $
+--                     putStrLn . drawTree . toTree $ ast
 
-                let (t, l) = runTVerifier symTable ast
+--                 let (t, l) = runTVerifier symTable ast
 
-                if Seq.null l then do
-                    version <- getOSVersion
-                    let newast = astToLLVM (toList $ _filesToRead st) t version
+--                 if Seq.null l then do
+--                     version <- getOSVersion
+--                     let newast = astToLLVM (toList $ _filesToRead st) t version
 
-                    withContext $ \context ->
-                        liftError $ withModuleFromAST context newast $ \m ->
-                            liftError $ writeLLVMAssemblyToFile
-                                (File llName ) m
-                else die $ drawTypeError (optErrors opts) l
+--                     withContext $ \context ->
+--                         liftError $ withModuleFromAST context newast $ \m ->
+--                             liftError $ writeLLVMAssemblyToFile
+--                                 (File llName ) m
+--                 else die $ drawTypeError (optErrors opts) l
 
-            else die $ drawState (optErrors opts) st
-            where
-                {- Gets OSX version -}
-                getOSVersion :: IO String
-                getOSVersion = case os of
-                    "darwin" ->
-                        readProcess "/usr/bin/sw_vers" ["-productVersion"] []
-                    _        -> return ""
-    Right (Right Nothing, st) -> die $ drawState (optErrors opts) st
+--             else die $ drawState (optErrors opts) st
+--             where
+--                 {- Gets OSX version -}
+--                 getOSVersion :: IO String
+--                 getOSVersion = case os of
+--                     "darwin" ->
+--                         readProcess "/usr/bin/sw_vers" ["-productVersion"] []
+--                     _        -> return ""
+--     Right (Right Nothing, st) -> die $ drawState (optErrors opts) st
 
 -- Main --------------------------------
 main :: IO ()
@@ -206,7 +205,7 @@ main = do
     let fileName = head args
 
     doesFileExist fileName >>= \x -> unless x
-        (die $ "ERROR: El archivo `" ++ fileName ++ "` no existe.")
+        (die $ "ERROR: El archivo `" <> fileName <> "` no existe.")
 
     unless (takeExtension fileName == ".gcl")
         (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
@@ -214,13 +213,29 @@ main = do
     let execName = optExecName options
     let llName = if execName == "a.out"
         then "a.ll"
-        else execName ++ ".ll"
+        else execName <> ".ll"
 
     source <- readFile fileName
 
-    play options source llName
+    -- play options source llName
 
-    compileLL llName execName
+    {-/ Testing -}
+    let Right ets = runParser lexer fileName source
+    let (r, s) = runState (runParserT program (unpack source) ets) initialState
+
+    case r of
+        Right program -> do
+            putStrLn . drawTree . toTree $ program
+            putStrLn . drawTree . toTree . fst . _symbolTable $ s
+            putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ s
+        Left e -> putStr $ show e
+        _ -> undefined
+
+    putStr . unlines . toList . fmap show . _synErrorList $ s
+
+    {- Testing /-}
+
+    -- compileLL llName execName
 
 
 compileLL :: String -> String -> IO ()

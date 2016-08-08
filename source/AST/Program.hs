@@ -2,10 +2,10 @@
 
 module AST.Program where
 --------------------------------------------------------------------------------
+import           AST.Definition  (Definition)
+import qualified AST.Definition  as D
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           AST.Definition (Definition)
-import qualified AST.Definition as D
 import           Location
 import           SymbolTable
 import           Token
@@ -31,6 +31,3 @@ instance Treelike Program where
       [ Node "Definitions" (toForest defs)
       , toTree insts
       ]
-
-    -- where
-    --   " " <> show loc = " (" <> showPos' from <> " - " <> showPos' to <> ")"

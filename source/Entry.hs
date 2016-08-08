@@ -9,14 +9,14 @@ module Entry
   , varType
   ) where
 --------------------------------------------------------------------------------
+import           AST.Expression
 import           Location
 import           Treelike
-import           AST.Expression
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Lens (makeLenses)
-import           Data.Monoid  ((<>))
-import           Data.Text    (Text, unpack)
+import           Control.Lens   (makeLenses)
+import           Data.Monoid    ((<>))
+import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Value = I Integer | C Char | F Double {-| S String-} | B Bool | None
@@ -26,33 +26,27 @@ instance Show Value where
   show (I i) = show i
   show (C c) = show c
   show (F f) = show f
-  show None  = "None"
   show (B b) = show b
+  show None  = "None"
 
 
 data Entry'' s
   = Var
     { _varType  :: Type
-    , _varValue :: Value
-    }
+    , _varValue :: Maybe Expression }
   | Const
     { _constType  :: Type
-    , _constValue :: Value
-    }
+    , _constValue :: Value }
   | Argument
     { _argMode :: ArgMode
-    , _argType :: Type
-    }
+    , _argType :: Type }
   | Function
     { _funcType  :: Type
-    , _funcArgs  :: [Text]
-    , _funcTable :: s
-    }
+    , _funcArgs  :: [(Text,Type)]
+    , _funcTable :: s }
   | Procedure
-    { _procType  :: Type
-    , _procArgs  :: [Text]
-    , _procTable :: s
-    }
+    { _procArgs  :: [(Text,Type)]
+    , _procTable :: s }
   | AbstractTypeEntry
   | TypeEntry
   deriving (Eq)
@@ -64,8 +58,7 @@ data Entry' s
   = Entry
     { _entryName :: Text
     , _loc       :: Location
-    , _info      :: Entry'' s
-    }
+    , _info      :: Entry'' s }
 
 makeLenses ''Entry'
 
@@ -76,35 +69,29 @@ instance Treelike (Entry' s) where
     Var { _varType, _varValue } ->
       Node ("Variable `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _varType)
-        , leaf $ case _varValue of
-            None -> "Not initialized"
-            _    -> "Initial value: " <> show _varValue
-        ]
+        , case _varValue of
+            Nothing     -> leaf "Not initialized"
+            Just value  -> Node "Initial value: " [toTree value] ]
 
     Const { _constType, _constValue } ->
       Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $ "Type: " <> show _constType
-        , leaf $ "Value: " <> show _constValue
-        ]
+        [ leaf $  "Type: " <> show _constType
+        , leaf $ "Value: " <> show _constValue ]
 
     Argument { _argMode, _argType } ->
-      Node ("Argument `" <> unpack _entryName ++ "` " <> show _loc)
+      Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ "Type: " <> show _argType
-        , leaf $ "Mode: " <> show _argMode
-        ]
+        , leaf $ "Mode: " <> show _argMode ]
 
     Function { _funcType, _funcArgs, _funcTable } ->
-      Node ("Function `" <> unpack _entryName ++ "` " <> show _loc)
-        [ leaf $ show _funcType
-        ]
+      Node ("Function `" <> unpack _entryName <> "` " <> show _loc)
+        [ leaf $ show _funcType ]
 
-    Procedure { _procType, _procArgs, _procTable } ->
-      Node ("Procedure `" <> unpack _entryName ++ "` " <> show _loc)
-        [ leaf $ show _procType
-        ]
+    Procedure { _procArgs, _procTable } ->
+      leaf ("Procedure `" <> unpack _entryName <> "` " <> show _loc)
 
     AbstractTypeEntry {} ->
-      leaf ("Abstract Data Type `" <> unpack _entryName ++ "` " <> show _loc)
+      leaf ("Abstract Data Type `" <> unpack _entryName <> "` " <> show _loc)
 
     TypeEntry {} ->
-      leaf ("Data Type `" <> unpack _entryName ++ "` " <> show _loc)
+      leaf ("Data Type `" <> unpack _entryName <> "` " <> show _loc)

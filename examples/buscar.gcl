@@ -1,37 +1,145 @@
 //Linear Search
-
-program main
-using (Dicc)
+abstract jamonAbstracto (a)
 begin
+	// jamonAbstracto variables
+	var a : int;
+	
+	{inv true inv}
 
-    proc pedir (out c: char)
-    begin
-        read(c);
+	// func hola ( ) -> int
+	// begin
+	// 	if true -> 1
+	// 	[] false -> 2
+	// 	fi
+	// end
+
+	// jamonAbstracto procedures
+	proc name ( ) 	
+		{pre true pre}
+		{post true post}
+	
+
+end
+
+type jamon implements jamonAbstracto (int)
+begin
+	/* jamon variables */
+	var i,j,k : int;
+	const a := 1 : int;
+	
+	{repinv true repinv}
+
+	{coupinv true coupinv}
+
+	/* jamon procedures */
+	proc name () begin
+	
+		{pre true pre}
+		|[
+        	{inv true inv}
+		    {bound i bound}
+		    do true ->
+		    	if true  -> 
+		    		{inv true inv}
+		    		{bound i bound}
+		    		do i ->
+		    			if true -> 
+				    		if true -> writeln(1) 
+				    		[] false -> read(i)
+				    		fi
+				    	[] false -> 
+				    		|[
+				    			var i,j,k := 'c', 'b', 'h': char;
+				    			write(i)
+				    		]|
+				    	fi
+		    		od
+		    	[] false -> write(2)
+		    	fi
+		    od;
+		    // hola();
+		    write(1);
+		    writeln(i);
+		    read(i,j,k)
+		]|
+		{post true post}
+	end
+	
+
+end
+
+
+program main begin
+
+    proc hola () begin
+    	var i,j,k := 1,2,3: int;
+    	const z := i : int;
 
         {pre true pre}
+        |[
+
+        	{inv true inv}
+		    {bound i bound}
+		    do true ->
+		    	if true  -> 
+		    		{inv true inv}
+		    		{bound i bound}
+		    		do i ->
+		    			if true -> 
+				    		if true -> writeln(1) 
+				    		[] false -> read(i)
+				    		fi
+				    	[] false -> 
+				    		|[
+				    			var i,j,k := 'c', 'b', 'h': char;
+				    			write(i)
+				    		]|
+				    	fi
+		    		od
+		    	[] false -> write(2)
+		    	fi
+		    od;
+		    // hola();
+		    write(1);
+		    writeln(i);
+		    read(i,j,k)
+        ]|
         {post true post}
     end
+    
+|[
+	var i,j,k : int;
+    {inv true inv}
+    {bound i bound}
+    do true ->
+    	if true  -> 
+    		{inv true inv}
+    		{bound i bound}
+    		do i ->
+    			if true -> 
+		    		if true -> writeln(1) 
+		    		[] false -> read(i)
+		    		fi
+		    	[] false -> 
+		    		|[
+		    			var i,j,k := 'c', 'b', 'h': char;
+		    			write(i)
+		    		]|
+		    	fi
+    		od
+    	[] false -> write(2)
+    	fi
+    od;
+    |[ 
+    	write(1); 
+    	|[
+    		if true -> write(1) fi
+    	]|
+    ]|;
+    hola();
+    write(1);
+    writeln(i);
+    read(i,j,k)
+]|
 
-    |[
-        var miDi : Dicc(int, char);
-        var i : int;
-        var c : char;
-        var v : char;
-
-        i := 0;
-
-        crear (50, miDi);
-
-        {inv true inv}
-        {bound 50 - i bound}
-        do i < 50 ->
-            pedir(c);
-            agregar(i, c);
-        od
-
-        buscar(d, 42, v);
-
-        write("El resultado es: ");
-        writeln(v)
-    ]|
 end
