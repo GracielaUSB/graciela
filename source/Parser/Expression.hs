@@ -278,7 +278,7 @@ quantification = do
               ProtoQRange qRange -> if bType =:= allowedBType
                 then Expression
                   { E.loc
-                  , expType = GBool
+                  , expType = expType body
                   , exp' = Quantification
                     { qOp      = q
                     , qVar     = var
