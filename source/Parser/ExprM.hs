@@ -85,7 +85,7 @@ makeExprParser = foldl addPrecLevel
 
 addPrecLevel :: MonadParsec e s m => m a -> [Operator m a] -> m a
 addPrecLevel term ops =
-  term' >>= \x -> choice [ras' x, las' x, nas' x, return x] <?> "operator"
+  term' >>= \x -> choice [ras' x, las' x, nas' x, pure x] <?> "operator"
   where (ras, las, nas, prefix, postfix) = foldr splitOp ([],[],[],[],[]) ops
         term' = pTerm (choice prefix) term (choice postfix)
         ras'  = pInfixR (choice ras) term'
@@ -98,12 +98,10 @@ addPrecLevel term ops =
 
 pTerm :: MonadParsec e s m => m (a -> m a) -> m a -> m (a -> m a) -> m a
 pTerm prefix term postfix = do
-  pre  <- option return (hidden prefix)
+  pre  <- option pure (hidden prefix)
   x    <- term
-  post <- option return (hidden postfix)
+  post <- option pure (hidden postfix)
   post =<< pre x
-
-
 
 -- | @pInfixN op p x@ parses non-associative infix operator @op@, then term
 -- with parser @p@, then returns result of the operator application on @x@
@@ -123,8 +121,8 @@ pInfixL :: MonadParsec e s m => m (a -> a -> m a) -> m a -> a -> m a
 pInfixL op p x = do
   f <- op
   y <- p
-  let r = f x y
-  (pInfixL op p =<< r) <|> r
+  r <- f x y
+  pInfixL op p r <|> pure r
 
 -- | @pInfixR op p x@ parses right-associative infix operator @op@, then
 -- term with parser @p@, then returns result of the operator application on
@@ -133,7 +131,7 @@ pInfixL op p x = do
 pInfixR :: MonadParsec e s m => m (a -> a -> m a) -> m a -> a -> m a
 pInfixR op p x = do
   f <- op
-  y <- p >>= \r -> pInfixR op p r <|> return r
+  y <- p >>= \r -> pInfixR op p r <|> pure r
   f x y
 
 type Batch m a =
