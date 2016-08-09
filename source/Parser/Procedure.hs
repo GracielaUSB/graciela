@@ -27,7 +27,7 @@ import           Type
 import           Control.Monad      (void, when)
 import           Data.Functor       (($>))
 import           Data.Monoid        ((<>))
-import           Control.Lens       (use, (%=))
+import           Control.Lens       (use, (%=), (.=))
 import qualified Data.Text          as T
 import           Data.Maybe         (catMaybes)
 import           Text.Megaparsec    ((<|>), many, notFollowedBy, sepBy, getPosition)
@@ -85,6 +85,7 @@ procedure = do
     symbolTable %= openScope from
     params <- parens $ procParam `sepBy` match TokComma
     notFollowedBy $ match TokArrow
+    currentProc .= Just (id, from, params)
     -- Parse the procedure's body
     withRecovery TokBegin
     decls <- declarationBlock 
@@ -97,6 +98,7 @@ procedure = do
     to    <- getPosition
     let loc = Location(from,to)
     symbolTable %= closeScope to
+    currentProc .= Nothing
     if id /= errorId
       then do 
         symbolTable %= insertSymbol id (Entry id loc (Procedure params st))
@@ -116,12 +118,12 @@ paramType =  match TokIn    $> Just In
 
 procParam :: Graciela (T.Text, Type)
 procParam = do
-  from <- getPosition
+  from  <- getPosition
   ptype <- paramType
-  id  <- identifier
+  id    <- identifier
   withRecovery TokColon
-  t   <- type'
-  to <- getPosition
+  t     <- type'
+  to    <- getPosition
   let loc = Location(from,to)
   case ptype of
     Just x | t /= GError -> symbolTable %= insertSymbol id (Entry id loc (Argument In t))
@@ -150,23 +152,4 @@ procedureDeclaration = do
     let proc = AbstractProcedureDef pre post
     return $ Definition loc id params st Nothing proc
 
--- Deberian estar en el lugar adecuando, hasta ahora aqui porq no le he usado en archivos q no dependen de Procedure
 
--- panicModeId :: Graciela Token -> Graciela T.Text
--- panicModeId token =
---         try identifier
---     <|> do t <- lookAhead
---            genNewError (return t) PE.IdError
---            return $ T.pack "No Id"
---     <|> do (t:_) <- anyToken `manyTill` lookAhead
---            genNewError (return $fst t) PE.IdError
---            return $ T.pack "No Id"
-
-
--- panicMode :: Graciela Token -> Graciela Token -> ExpectedToken -> Graciela ()
--- panicMode token err =
---         try (void token)
---     <|> do t <- lookAhead
---            genNewError (return t) err
---     <|> do (t:_) <- anyToken `manyTill` lookAhead
---            genNewError (return $ fst t) err

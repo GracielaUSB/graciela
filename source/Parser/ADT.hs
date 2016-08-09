@@ -101,6 +101,7 @@ dataType = do
     to <- getPosition
     symbolTable %= closeScope to
     let loc = Location(from,to)
+    insertType id (GAbstractType id) from
     symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
     return $ Struct id loc (DataType abstractId types decls repinv coupinv procs)
 

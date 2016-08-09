@@ -53,17 +53,21 @@ program hola begin
         |[
 		    write(1);
 		    writeln(i);
-		    read(i,j,k)
+		    hola(k,'a');
+		    read(z,j,p)
         ]|
         {post true post}
     end
     
 |[
 	var x : int;
-	if x > 10  -> write(1)
-	[] x == 1  -> write(0)
-	[] x < -10 -> write(-1)
-	fi
+	x := 1;
+	{inv x > 0 /\ x <= 10 inv}
+	{bound 10-x bound}
+	do x < 10  -> x := x + 1
+	[] x >= 10 -> abort	 
+	od;
+	jamon()
 ]|
 
 end

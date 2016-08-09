@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns#-}
 module Parser.Instruction
   ( instruction
   , declarationBlock
@@ -33,7 +34,7 @@ import           Token
 import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (^.))
-import           Control.Monad          (unless, void, when)
+import           Control.Monad          (unless, void, when, foldM)
 import           Control.Monad.Identity (Identity)
 import qualified Data.List              as L (any)
 import           Data.Monoid            ((<>))
@@ -41,7 +42,8 @@ import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as T (unpack)
 import           Text.Megaparsec        (sepBy, endBy, sepBy1, notFollowedBy,
-                                         getPosition, try, between, (<|>))
+                                         getPosition, try, between, (<|>),
+                                         lookAhead)
 import           Prelude                hiding (lookup)
 -------------------------------------------------------------------------------
 
@@ -69,13 +71,17 @@ block = do
   from <- getPosition
   symbolTable %= openScope from
   match TokOpenBlock
+
   decls   <- declarationBlock
   actions <- instruction `sepBy` match TokSemicolon
   st      <- use symbolTable
+
   withRecovery TokCloseBlock
   to <- getPosition
   symbolTable %= closeScope to
+
   let loc = Location (from, to)
+
   if L.any (\x -> case x of; NoInstruction _ -> True; _ -> False) actions
     then return $ NoInstruction loc
     else return $ Instruction loc (Block st decls actions)
@@ -83,15 +89,21 @@ block = do
 assign :: Graciela Instruction
 assign = do
   from <- getPosition
+
   lvals <- expression `sepBy1` match TokComma
   withRecovery TokAssign
   exprs <- expression `sepBy1` match TokComma
+  
   to <- getPosition
+  
   let len = length lvals == length exprs
+  
   unless len . syntaxError $ CustomError
     "La cantidad de lvls es distinta a la de expresiones"
     (Location (from, to))
+  
   (correct, lvals') <- checkTypes (zip lvals exprs)
+  
   if correct && len
     then return $ Instruction (Location(from,to)) (Assign lvals' exprs)
     else return $ NoInstruction (Location(from,from))
@@ -202,26 +214,26 @@ reading = do
       {- Checks if an entry is a variable or an In/InOut argument and
          checks if it has a basic type -}
       isWritable :: (Text,Location) -> Graciela Type
-      isWritable (id,_) = do
+      isWritable (id,loc) = do
         st <- use symbolTable
         case id `lookup` st of
           Right entry -> case _info entry of
               Var t _ -> if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
                 then return t
                 else do
-                  genCustomError ("La variable `" <> T.unpack id <> "` no es de un tipo basico.")
+                  putError loc $ InvalidReadArgumentType id t
                   return GError
               Argument mode t | mode == In || mode == InOut  ->
                 if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
                 then return t
                 else do
-                  genCustomError ("La variable `" <> T.unpack id <> "` no es de un tipo basico.")
+                  putError loc $ InvalidReadArgumentType id t
                   return GError
               _ -> do
-                genCustomError ("el argumento `" <> T.unpack id <> "` no es una variable valida")
+                putError loc $ InvalidReadArgument id
                 return GError
           _ -> do
-            genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
+            putError loc $ UndefinedProcedure id
             return GError
 
 
@@ -314,19 +326,50 @@ procedureCall :: Graciela Instruction
 procedureCall = do
   from <- getPosition
   id   <- identifier
-  notFollowedBy (oneOf [TokComma, TokColon])
+  lookAhead (match TokLeftPar)
+
   withRecovery TokLeftPar
   args <- expression `sepBy` match TokComma
   withRecovery TokRightPar
   st   <- use symbolTable
+  
   to   <- getPosition
   let loc = Location (from,to)
+  
   case id `lookup` st of
-    Right (Entry _ _ (Procedure _ _)) ->
-      return $ Instruction loc (ProcedureCall id args)
+    {- Check if the called procedure if defined in the symbol table-}
+    Right (Entry _ (Location (pos,_)) (Procedure {_procArgs})) -> do
+        {- Now check the arguments types match with the procedure parameter's types-}
+        argumentsOk <- foldM (checkTypes id pos loc) False $ zip _procArgs (fmap expType args)
+        if argumentsOk 
+          then return $ Instruction loc (ProcedureCall id args)
+          else return $ NoInstruction loc
+    
     _ -> do
-      genCustomError ("El procedimiento `" <> T.unpack id <> "` no esta definido")
-      return $ NoInstruction loc
+      {- If the procedure is not defined, maybe the current block is a procedure calling 
+         itself, recursively. The information of a procedure that is beign defined is store 
+         temporaly at Graciela's currentSymbol -}
+      currentProcedure <- use currentProc
+      case currentProcedure of 
+        {- If the current symbol match with the call, then check the arguments types 
+           and return the proper AST -}
+        Just (name, pos, types) | name == id -> do
+          argumentsOk <- foldM (checkTypes id pos loc) False $ zip types (fmap expType args)
+          if argumentsOk 
+            then return $ Instruction   loc (ProcedureCall id args)
+            else return $ NoInstruction loc
+        {- If there is no procedure defined that matchs with the current call, then report the error-}
+        Nothing -> do 
+          putError loc (UndefinedProcedure id)
+          return $ NoInstruction loc
+  where 
+    checkTypes pName pPos loc ok ((name, pType), aType) = do 
+      if pType == aType 
+        then return ok
+        else do
+          putError loc $ InvalidProcedureArgumentType name pName pPos pType aType
+          return False
+
 
 skip :: Graciela Instruction
 skip =

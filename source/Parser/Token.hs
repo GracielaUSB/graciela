@@ -40,17 +40,19 @@ import           MyParseError
 import           Graciela
 --------------------------------------------------------------------------------
 import           Control.Monad         (when, void)
+import           Control.Lens          ((%=))
 import           Data.List             (intercalate) 
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty     as NE
 import           Data.Set              (Set)
+import           Data.Sequence         ((|>))
 import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
 import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..), 
                                         token, between, manyTill, lookAhead, 
                                         parseErrorPretty, getPosition,
                                         ShowErrorComponent,showErrorComponent, 
-                                        ShowToken, parseErrorPretty)
+                                        ShowToken)
 import           Text.Megaparsec        as MP (withRecovery)
 -- import           Text.Megaparsec.Error (sourcePosStackPretty)
 import           Text.Megaparsec.Prim  (MonadParsec)
@@ -178,9 +180,9 @@ withRecovery token = MP.withRecovery (recover [token]) (match token)
         pos <- getPosition
         -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
         let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
-        let err' = err { errorExpected = f expected }
+        let err' = err { errorExpected = f expected}
         -- Print (put it in the error list)
-        genCustomError (parseErrorPretty err')
+        errors %= (|> err')
         return $ Location (gracielaDef,gracielaDef) 
 
 withRecoveryFollowedBy :: Token -> Graciela Token -> Graciela Location 
@@ -192,9 +194,9 @@ withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (
         anyToken `manyTill` lookAhead follow
         -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
         let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
-        let err' = err { errorExpected = f expected }
-        -- Print (put it in the error list)
-        genCustomError (parseErrorPretty err')
+        let err' = err { errorExpected = f expected}
+
+        errors %= (|> err')
         return $ Location (gracielaDef,gracielaDef) 
 
 

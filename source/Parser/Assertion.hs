@@ -30,7 +30,7 @@ bound = between (match TokLeftBound) (match TokRightBound) bound'
     bound' = do
       expr <- expression
       case expr of
-        Expression _ exprType _ | exprType == GInt -> return expr
+        Expression _ exprType _ | exprType =:= GInt -> return expr
         Expression loc _ _ -> do
           genCustomError "La cota debe ser de tipo entero"
           return $ BadExpression loc
@@ -41,7 +41,7 @@ assert ::  Graciela Expression
 assert  = do
   expr <- expression
   case expr of
-    Expression _ exprType _ | exprType == GBool -> return expr
+    Expression _ exprType _ | exprType =:= GBool -> return expr
     Expression loc _ _ -> do
       genCustomError "Las aserciones solo pueden tener expresiones booleanas"
       return $ BadExpression loc

@@ -66,7 +66,7 @@ type' = try arrayOf <|> try type'' <|> userDefined
       id <- identifier
       match TokOf
       t <- type'
-      return (GDataType id [t] [] [])
+      return (GDataType id)
 
 arraySize :: Graciela Integer
 arraySize = do

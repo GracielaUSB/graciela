@@ -5,7 +5,6 @@
 module Main where
 --------------------------------------------------------------------------------
 -- import           LLVM.Codegen
--- import           ASTtype
 import           AST.Program
 import           Graciela
 import           Lexer
@@ -233,7 +232,7 @@ main = do
         _ -> undefined
 
     putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ s
-
+    putStr . unlines . toList . fmap  parseErrorPretty . _errors $ s
     {- Testing /-}
 
     -- compileLL llName execName

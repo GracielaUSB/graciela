@@ -34,15 +34,13 @@ import           LLVM.General.AST.Type
 
 
 createInstruction :: Instruction -> LLVM ()
-createInstruction (Instruction loc t inst') = case ast' of
+createInstruction (Instruction loc inst') = case inst' of
 
-  EmptyAST {} -> return ()
-  Id       {} -> return ()
   Skip        -> return ()
 
 
   Abort -> do
-    createTagAbort pos
+    createTagAbort (from loc)
     return ()
 
   -- GuardAction assert action -> do
@@ -96,7 +94,7 @@ createInstruction (Instruction loc t inst') = case ast' of
     genGuards guards abort final
 
     setLabel abort $ branch final
-    createTagIf final pos
+    createTagIf final (from loc)
     return ()
 
   Repeat guards inv bound -> do
@@ -133,9 +131,11 @@ createInstruction (Instruction loc t inst') = case ast' of
 
 
 
-accToAlloca :: AST -> LLVM ()
-accToAlloca acc@(AST pos _ t ast') = case ast' of
+accToAlloca :: Instruction -> LLVM ()
+accToAlloca acc@(AST loc inst') = case inst' of
 
+  Declaration t lvals exprs -> do 
+    mapM_ (\id -> 
   Id name -> do
     let name' = TE.unpack name
     dim <- typeToOperand name' t
@@ -148,7 +148,7 @@ accToAlloca acc@(AST pos _ t ast') = case ast' of
         initialize name' t
         createInstruction acc
 
-  LAssign lids _  -> do
+  Assign lids _  -> do
     mapM_ idToAlloca lids
     createInstruction acc
 

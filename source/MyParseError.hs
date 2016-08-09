@@ -1,130 +1,80 @@
+{-#LANGUAGE NamedFieldPuns,InstanceSigs#-}
+
 module MyParseError where
 --------------------------------------------------------------------------------
 import           Location
 import           Token
+import           Type                  (Type)
+import           Data.Text             (unpack, Text)
 import           Data.Monoid ((<>))
 import           Text.Megaparsec       hiding (Token)
 import           Text.Megaparsec.Error  
 --------------------------------------------------------------------------------
 
 data MyParseError
-  = MyParseError
-    { pos         :: SourcePos
-    , expectedTok :: ExpectedToken
-    , currentTok  :: Token
-    }
-  | EmptyError
-    { pos :: SourcePos
-    }
-  | ArrayError
-    { waDim :: Int
-    , prDim :: Int
-    , pos   :: SourcePos
-    }
-  | NonAsocError
-    { pos :: SourcePos
-    }
-  | ScopesError
-  | CustomError -- Mientras no mejoremos los errores jajaja
+  = CustomError -- Mientras no mejoremos los errores jajaja
     { msg :: String
     , loc :: Location
     }
 
+data Error 
+  = InvalidProcedureArgumentType
+    { name  :: Text
+    , pName :: Text
+    , pPos  :: SourcePos
+    , pType :: Type 
+    , aType :: Type
+    }
+  | InvalidReadArgument
+    { name :: Text
+    }
+  | InvalidReadArgumentType
+    { name  :: Text
+    , aType :: Type
+    }
+  | UndefinedProcedure
+    { name :: Text
+    }
+  | UndefinedSymbol
+    { name :: Text
+    }
+  | UnknowError
+    { emsg :: String 
+    }
+  deriving (Ord, Eq)
+
+instance ErrorComponent Error where
+  representFail :: String -> Error
+  representFail =  UnknowError 
+
+  {- Unused, just to remove the class warning-}
+  representIndentation _ _ _ = UnknowError ""
 
 
+instance ShowErrorComponent Error where
+  showErrorComponent err = case err of
+    InvalidProcedureArgumentType { name, pName, pPos, pType, aType} ->
+      "The parameter `" <> unpack name <>"` of the procedure `" <> unpack pName <>
+      "` defined at " <> showPos' pPos <> " has type " <> show pType <> 
+      ", but a expression with type " <> show aType <> " was given."
 
-data ExpectedToken
-  = Action
-  | Arrow
-  | AssignOrColon
-  | Begin
-  | Colon
-  | Comma
-  | Cuant
-  | Final
-  | GuardSep
-  | IdError
-  | Implements
-  | LexEnd
-  | Number
-  | Operator
-  | Pipe
-  | ProcOrFunc
-  | Program
-  | RightPer
-  | SColon
-  | TokenArg
-  | TokenAs
-  | TokenCA
-  | TokenCB
-  | TokenFI
-  | TokenFunc
-  | TokenIF
-  | TokenLP
-  | TokenLB
-  | TokenOA
-  | TokenOB
-  | TokenOD
-  | TokenRB
-  | TokenRP
-  | TokEOFO
-  | TokenType
+    InvalidReadArgument { name } -> 
+      "The variable `" <> unpack name <> "` cannot be a constant."
 
+    InvalidReadArgumentType { name, aType } -> 
+      "The variable `" <> unpack name <> "` has type " <> show aType <> 
+      " but only basic type can be read."
 
-instance Show ExpectedToken where
-  show Action        = "acción"
-  show Arrow         = "token '->'"
-  show AssignOrColon = "token ':=' o ':'"
-  show Begin         = "'begin'"
-  show Colon         = "token ':' "
-  show Comma         = "token ','"
-  show Cuant         = "cuantificador"
-  show Final         = "Final de Archivo"
-  show GuardSep      = "separador de guardias"
-  show IdError       = "identificador"
-  show Implements    = "implements"
-  show LexEnd        = "token 'end'"
-  show Number        = "número"
-  show Operator      = "operador"
-  show Pipe          = "barra vertical"
-  show ProcOrFunc    = "Procedimiento o Función"
-  show Program       = "Program"
-  show RightPer      = "cierre de cuantificador"
-  show SColon        = "token ';'"
-  show TokenArg      = "token representante de clase de argumento"
-  show TokenAs       = ":="
-  show TokenCA       = "token representante de final de aserción"
-  show TokenCB       = "Final de Bloque"
-  show TokenFI       = "fi"
-  show TokenFunc     = "token func"
-  show TokenIF       = "if"
-  show TokenLP       = "token '('"
-  show TokenLB       = "token ']'"
-  show TokenOA       = "token representante de inicio de aserción"
-  show TokenOB       = "token '|['"
-  show TokenOD       = "od"
-  show TokenRB       = "token ']'"
-  show TokenRP       = "token ')'"
-  show TokEOFO       = "do"
-  show TokenType     = "un tipo"
+    UndefinedProcedure {name} -> 
+      "Undefined procedure named `" <> unpack name <> "`."
+
+    UndefinedSymbol {name} -> 
+      "Undefined symbol named `" <> unpack name <> "`."
+
+    UnknowError {emsg} -> emsg 
+
 
 
 instance Show MyParseError where
-  show (MyParseError pos wt at) =
-    "Error " <> " " <> show pos <> ": Esperaba " <> show wt <> " en vez de " <>
-    show at <> "."
-  show (EmptyError   pos)       =
-    "Error " <> " " <> show pos <> ": No se permiten Expresiones vacías."
-  show (NonAsocError pos)       =
-    "Error " <> " " <> show pos <> ": Operador no asociativo."
-  show (ArrayError   wt pr pos) =
-    "Error " <> " " <> show pos <> ": Esperaba Arreglo de dimensión " <> show wt <>
-    ", encontrado Arreglo de dimensión " <> show pr <> "."
-  show ScopesError              =
-    "Error en la tabla de símbolos: intento de salir de un alcance sin padre."
   show (CustomError msg loc) = msg
 
-
-newParseError :: ExpectedToken -> (Token, SourcePos) -> MyParseError
-newParseError msg (e, pos) =
-    MyParseError { pos = pos, expectedTok = msg, currentTok = e }

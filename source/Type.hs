@@ -58,15 +58,15 @@ data Type
   -- Tipo para los Data types
   | GDataType
     { name   ::  Text
-    , oftype :: [Type]
-    , fields :: [Type]
-    , procs  :: [Type]
+    -- , oftype :: [Type]
+    -- , fields :: [Type]
+    -- , procs  :: [Type]
     }
   | GAbstractType
     { name   ::  Text
-    , oftype :: [Type]
-    , fields :: [Type]
-    , procs  :: [Type]
+    -- , oftype :: [Type]
+    -- , fields :: [Type]
+    -- , procs  :: [Type]
     }
   | GPointer Type
   -- | Tipo para las funciones
@@ -83,7 +83,7 @@ data Type
     { getSize   :: Integer -- ^ Tamano del arreglo
     , arrayType :: Type    -- ^ Tipo del arreglo
     }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 
 (=:=) :: Type -> Type -> Bool
@@ -112,34 +112,36 @@ _                =:= _                = False
 
 -- | Instancia 'Show' para los tipos.
 instance Show Type where
-  show = \case
-    GInt              -> "`int`"
-    GFloat            -> "`double`"
-    GBool             -> "`boolean`"
-    GChar             -> "`char`"
-    GEmpty            -> "`void`"
-    GError            -> "error"
-    GPointer      t   -> "pointer of " <> show t
-    (GProcedure   _)  -> "proc"
-    (GFunction  _ t)  -> "func -> (" <> show t <> ")"
-    (GArray     s t)  -> "array " <> show s <> " of `" <> show t <> "`"
-    GSet      t       -> "conjunto de `" <> show t <> "`"
-    GMultiset t       -> "multiconjunto de `" <> show t <> "`"
-    GSeq      t       -> "secuencia de `" <> show t <> "`"
-    GFunc     ta tb   -> "función `" <> show ta <> "->" <> show tb <> "`"
-    GRel      ta tb   -> "relación `" <> show ta <> "->" <> show tb <> "`"
-    GTuple    ts      ->
-      "tupla (" <> (unwords . fmap show $ ts) <> ")"
-    GTypeVar  n       -> "variable de tipo `" <> show n <> "`"
-    GDataType n _ _ _ -> "type `" <> unpack n <> "`"
-    GAbstractType n _ _ _ -> "abstract `" <> unpack n <> "`"
+  show t = "`" <> show' t <> "`"
+    where 
+      show' = \case
+        GInt            -> "int"
+        GFloat          -> "double"
+        GBool           -> "boolean"
+        GChar           -> "char"
+        GEmpty          -> "void"
+        GError          -> "error"
+        GPointer      t -> "pointer of " <> show' t
+        GProcedure   _  -> "proc"
+        GFunction  _ t  -> "func -> (" <> show' t <> ")"
+        GArray     s t  -> "array " <> show s <> " of " <> show' t <> ""
+        GSet      t     -> "conjunto de " <> show' t <> ""
+        GMultiset t     -> "multiconjunto de " <> show' t <> ""
+        GSeq      t     -> "secuencia de " <> show' t <> ""
+        GFunc     ta tb -> "función " <> show' ta <> "->" <> show' tb <> ""
+        GRel      ta tb -> "relación " <> show' ta <> "->" <> show' tb <> ""
+        GTuple    ts    ->
+          "tupla (" <> (unwords . fmap show' $ ts) <> ")"
+        GTypeVar  n     -> "variable de tipo " <> show n <> ""
+        GDataType n     -> "type " <> unpack n <> ""
+        GAbstractType n -> "abstract " <> unpack n <> ""
 
-    GAny              -> "any type"
-    GOneOf         as -> "one of " <> show as
+        GAny            -> "any type"
+        GOneOf       as -> "one of " <> show as
 
-    GUnsafeName t     -> unpack t
+        GUnsafeName t     -> unpack t
 
-    GUndef            -> undefined
+        GUndef            -> undefined
 
 
 -- | Retorna la dimensión del arreglo.
