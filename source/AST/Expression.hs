@@ -181,9 +181,10 @@ data Expression'
 
 data Expression
   = Expression
-    { loc     :: Location
-    , expType :: Type
-    , exp'    :: Expression' }
+    { loc      :: Location
+    , expType  :: Type
+    , constant :: Bool
+    , exp'     :: Expression' }
   | BadExpression
     { loc :: Location }
   deriving (Eq)

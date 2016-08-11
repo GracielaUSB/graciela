@@ -30,7 +30,7 @@ basicType = do
   if t =:= GOneOf [GInt, GFloat, GBool, GChar]
     then return t
     else do
-      genCustomError ("El tipo `"<>unpack tname<>"` no es un tipo basico.")
+      genCustomError ("El tipo `" <> unpack tname <> "` no es un tipo basico.")
       return GError
 
 

@@ -13,13 +13,14 @@ module Lexer
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Monad         (void)
+import           Data.Monoid ((<>))
 import           Data.Functor          (($>))
 import           Data.Text             (Text, pack)
 import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,
                                         between, char, eof, getPosition, hidden,
                                         letterChar, many, manyTill,
                                         notFollowedBy, runParser, spaceChar,
-                                        string, try, (<|>), anyChar)
+                                        string, try, (<|>), anyChar, optional)
 import qualified Text.Megaparsec.Lexer as L
 --------------------------------------------------------------------------------
 
@@ -67,9 +68,16 @@ stringLit = TokString . pack <$> lexeme p
 
 
 identifier :: Lexer Token
-identifier = TokId . pack <$> lexeme p
+identifier = lexeme p
   where
-    p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '?')
+    p = do
+      c     <- letterChar
+      cs    <- many (alphaNumChar <|> char '_' <|> char '?')
+      prime <- optional (char '\'')
+
+      return . maybe TokId (const TokId') prime . pack $ c : cs
+
+      -- (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '?')
 
 
 token :: Lexer Token

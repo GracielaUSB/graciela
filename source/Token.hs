@@ -17,12 +17,13 @@ module Token
   , showPos'
   )where
 --------------------------------------------------------------------------------
-import           Type
 import           Location
+import           Type
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
 import           Data.List.NonEmpty (toList)
-import           Data.Text          (Text)
+import           Data.Monoid        ((<>))
+import           Data.Text          (Text, unpack)
 import           Text.Megaparsec    (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
@@ -172,7 +173,8 @@ data Token
   | TokString     { unTokString :: Text }
 
   | TokArray
-  | TokId         { unTokId :: Text}
+  | TokId         { unTokId :: Text }
+  | TokId'        { unTokId' :: Text }
 
   -- | TokComment
   -- | EmptyToken
@@ -328,18 +330,19 @@ instance Show Token where
 
     (TokBool    True) -> "`true` - Booleano"
     (TokBool   False) -> "`false` - Booleano"
-    (TokChar       c) -> "" ++ show c ++ " - Caracter"
-    (TokInteger    n) -> "`" ++ show n ++ "` - Entero"
-    (TokFloat      n) -> " `" ++ show n ++ "` - Flotante"
-    (TokString     e) -> "" ++ show e ++ " - Cadena de Caracteres"
+    (TokChar       c) -> "" <> show c <> " - Caracter"
+    (TokInteger    n) -> "`" <> show n <> "` - Entero"
+    (TokFloat      n) -> " `" <> show n <> "` - Flotante"
+    (TokString     e) -> "" <> show e <> " - Cadena de Caracteres"
 
     TokArray          -> "`array` - Tipo Arreglo"
 
-    (TokId         i) -> "" ++ show i ++ " - Identificador"
+    (TokId         i) -> "\"" <> unpack i <> "\" - Identificador"
+    (TokId'        i) -> "\"" <> unpack i <> "\'\" - Identificador'"
 
     -- TokComment        -> "`//` - Comentatios"
     -- EmptyToken        -> "Token Vacío"
-    -- (TokUnexpected e) -> show e ++ " - Caracter no Permitido"
+    -- (TokUnexpected e) -> show e <> " - Caracter no Permitido"
 
     -- V2.0
     TokType           -> "`type`"

@@ -75,12 +75,12 @@ insertType :: Text -> Type -> SourcePos -> Graciela ()
 insertType name t loc =
   typesTable %= Map.insert name (t, loc)
 
-getType :: Text -> Graciela Type
+getType :: Text -> Graciela (Maybe Type)
 getType name = do
   types <- use typesTable
   case Map.lookup name types of
-    Just (t, loc) -> return t
-    Nothing       -> return GError
+    Just (t, loc) -> return $ Just t
+    Nothing       -> return Nothing
 {- Graciela 2.0-}
 
 drawState :: Maybe Int -> GracielaState -> String
@@ -109,6 +109,6 @@ genCustomError msg = do
     synErrorList %= (|> CustomError msg  (Location (pos,pos)))
 
 putError :: Location -> Error -> Graciela ()
-putError (Location(from,to)) e = do 
+putError (Location(from,to)) e = do
   let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
   errors %= (|> err)

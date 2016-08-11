@@ -37,8 +37,7 @@ instance Show ArgMode where
 
 -- | Son los tipos utilizados en el compilador.
 data Type
-  = GUndef              -- ^ Tipo indefinido ( graciela 2.0 )
-  | GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
+  = GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
   | GMultiset Type      -- ^ Tipo multiconjunto ( graciela 2.0 )
   | GSeq      Type      -- ^ Tipo secuencia ( graciela 2.0 )
   | GFunc     Type Type -- ^ Tipo func para TDAs ( graciela 2.0 )
@@ -48,7 +47,7 @@ data Type
 
   | GAny                -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
   | GOneOf   [Type]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
-  | GUnsafeName Text    -- Tipo para
+  | GUnsafeName Text    -- Tipo para mensajes ( graciela 2.0 )
 
   | GInt           -- ^ Tipo entero
   | GFloat         -- ^ Tipo flotante
@@ -70,13 +69,13 @@ data Type
     }
   | GPointer Type
   -- | Tipo para las funciones
-  | GFunction
-   { fParamType  :: [Type] -- ^ Los tipos de los parametros
-   , fReturnType ::  Type   -- ^ El tipo de retorno
-   }
-  | GProcedure [Type] -- ^ Tipo para los procedimientos
-  | GError            -- ^ Tipo usado para propagar los errores
-  | GEmpty            -- ^ Tipo usado cuando la ver. de tipos es correcta
+  -- | GFunction
+  --  { fParamType  :: [Type] -- ^ Los tipos de los parametros
+  --  , fReturnType ::  Type   -- ^ El tipo de retorno
+  --  }
+  -- | GProcedure [Type] -- ^ Tipo para los procedimientos
+  -- | GError            -- ^ Tipo usado para propagar los errores
+  -- | GEmpty            -- ^ Tipo usado cuando la ver. de tipos es correcta
 
   -- | Tipo para los arreglos
   | GArray
@@ -89,17 +88,17 @@ data Type
 (=:=) :: Type -> Type -> Bool
 a =:= b
   |  a == b
-  || b /= GError && b /= GUndef && a == GAny
-  || a /= GError && a /= GUndef && b == GAny = True
+  || a == GAny
+  || b == GAny = True
 GOneOf        as =:= a                = a `elem` as
 a                =:= GOneOf        as = a `elem` as
 GDataType     {} =:= GDataType     {} = True
 GAbstractType {} =:= GAbstractType {} = True
 GDataType     {} =:= GAbstractType {} = True
 GAbstractType {} =:= GDataType     {} = True
-GProcedure    {} =:= GProcedure    {} = True
+-- GProcedure    {} =:= GProcedure    {} = True
 GArray       _ a =:= GArray       _ b = a =:= b
-GFunction    _ a =:= GFunction    _ b = a =:= b
+-- GFunction    _ a =:= GFunction    _ b = a =:= b
 GSet           a =:= GSet           b = a =:= b
 GMultiset      a =:= GMultiset      b = a =:= b
 GSeq           a =:= GSeq           b = a =:= b
@@ -113,17 +112,17 @@ _                =:= _                = False
 -- | Instancia 'Show' para los tipos.
 instance Show Type where
   show t = "`" <> show' t <> "`"
-    where 
+    where
       show' = \case
         GInt            -> "int"
         GFloat          -> "double"
         GBool           -> "boolean"
         GChar           -> "char"
-        GEmpty          -> "void"
-        GError          -> "error"
+        -- GEmpty          -> "void"
+        -- GError          -> "error"
         GPointer      t -> "pointer of " <> show' t
-        GProcedure   _  -> "proc"
-        GFunction  _ t  -> "func -> (" <> show' t <> ")"
+        -- GProcedure   _  -> "proc"
+        -- GFunction  _ t  -> "func -> (" <> show' t <> ")"
         GArray     s t  -> "array " <> show s <> " of " <> show' t <> ""
         GSet      t     -> "conjunto de " <> show' t <> ""
         GMultiset t     -> "multiconjunto de " <> show' t <> ""
@@ -140,8 +139,6 @@ instance Show Type where
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
-
-        GUndef            -> undefined
 
 
 -- | Retorna la dimensión del arreglo.
