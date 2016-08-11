@@ -2,12 +2,12 @@
 
 module Graciela where
 --------------------------------------------------------------------------------
-import           MyParseError           as P
+import           Error
 import           Parser.Prim
 import           Location
 import           SymbolTable
 import           Token
-import           Type                   (Type (..))
+import           AST.Type               (Type, Type'(..))
 import           TypeError              as T
 --------------------------------------------------------------------------------
 import           Control.Lens           (makeLenses, use, (%=))
@@ -34,7 +34,6 @@ data GracielaState = GracielaState
   { _synErrorList    :: Seq MyParseError
   , _errors          :: Seq (ParseError TokenPos Error)
   , _symbolTable     :: SymbolTable
-  , _sTableErrorList :: Seq TypeError
   , _filesToRead     :: Set.Set String
   , _currentProc     :: Maybe (Text, SourcePos, [(Text,Type)])
   , _typesTable      :: Map Text (Type, SourcePos)
@@ -61,15 +60,12 @@ initialState = GracielaState
   { _synErrorList    = Seq.empty
   , _errors          = Seq.empty
   , _symbolTable     = empty gracielaDef
-  , _sTableErrorList = Seq.empty
   , _filesToRead     = Set.empty
   , _currentProc     = Nothing
   , _typesTable      = initialTypes
   }
 
 {- Graciela 2.0-}
-typeError :: TypeError -> Graciela ()
-typeError err = sTableErrorList %= (|> err)
 
 insertType :: Text -> Type -> SourcePos -> Graciela ()
 insertType name t loc =
@@ -81,19 +77,26 @@ getType name = do
   case Map.lookup name types of
     Just (t, loc) -> return $ Just t
     Nothing       -> return Nothing
+
+
+putError :: Location -> Error -> Graciela ()
+putError (Location(from,to)) e = do
+  let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
+  errors %= (|> err)
+
 {- Graciela 2.0-}
 
-drawState :: Maybe Int -> GracielaState -> String
-drawState n st = if Seq.null $ _synErrorList st
-  then if Seq.null $ _sTableErrorList st
-    then "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
-    else drawError . take' n . Seq.sortBy (compare `on` T.pos) . _sTableErrorList $ st
-  else drawError . take' n . Seq.sortBy (compare `on` P.loc) . _synErrorList $ st
+-- drawState :: Maybe Int -> GracielaState -> String
+-- drawState n st = if Seq.null $ _synErrorList st
+--   then if Seq.null $ _sTableErrorList st
+--     then "\n HUBO UN ERROR PERO LAS LISTAS ESTAN VACIAS... \n"
+--     else drawError . take' n . Seq.sortBy (compare `on` T.pos) . _sTableErrorList $ st
+--   else drawError . take' n . Seq.sortBy (compare `on` P.loc) . _synErrorList $ st
 
 
-drawError list = if Seq.null list
-  then "LISTA DE ERRORES VACIA"
-  else unlines . map show . toList $ list
+-- drawError list = if Seq.null list
+--   then "LISTA DE ERRORES VACIA"
+--   else unlines . map show . toList $ list
 
 
 syntaxError :: MyParseError -> Graciela ()
@@ -107,8 +110,3 @@ genCustomError :: String -> Graciela ()
 genCustomError msg = do
     pos <- getPosition
     synErrorList %= (|> CustomError msg  (Location (pos,pos)))
-
-putError :: Location -> Error -> Graciela ()
-putError (Location(from,to)) e = do
-  let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
-  errors %= (|> err)

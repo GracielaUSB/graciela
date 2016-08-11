@@ -28,32 +28,19 @@ module Parser.Token
   , stringLit
   , integerLit
   , floatLit
-  , errorId
-  , identifierWithRecovery
-  , Parser.Token.withRecovery
-  , withRecoveryFollowedBy
   ) where
 --------------------------------------------------------------------------------
 import           Token
 import           Location
-import           MyParseError
+import           Error
 import           Graciela
 --------------------------------------------------------------------------------
-import           Control.Monad         (when, void)
-import           Control.Lens          ((%=))
-import           Data.List             (intercalate) 
-import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty     as NE
 import           Data.Set              (Set)
-import           Data.Sequence         ((|>))
 import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
+import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..), 
-                                        token, between, manyTill, lookAhead, 
-                                        parseErrorPretty, getPosition,
-                                        ShowErrorComponent,showErrorComponent, 
-                                        ShowToken)
-import           Text.Megaparsec        as MP (withRecovery)
+                                        token, between)
 -- import           Text.Megaparsec.Error (sourcePosStackPretty)
 import           Text.Megaparsec.Prim  (MonadParsec)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
@@ -161,43 +148,6 @@ floatLit = token test Nothing
   where
     test    TokenPos {tok = TokFloat f} = Right f
     test tp@TokenPos {tok}              = Left . unex $ tp
-
-
-errorId :: Text
-errorId = pack "0#Error"
-
-identifierWithRecovery :: Graciela Text
-identifierWithRecovery = MP.withRecovery recover identifier
-  where 
-    recover err = do
-      genCustomError (parseErrorPretty err)
-      return errorId
-
-withRecovery :: Token -> Graciela Location 
-withRecovery token = MP.withRecovery (recover [token]) (match token)   
-  where 
-    recover expected err = do 
-        pos <- getPosition
-        -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
-        let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
-        let err' = err { errorExpected = f expected}
-        -- Print (put it in the error list)
-        errors %= (|> err')
-        return $ Location (gracielaDef,gracielaDef) 
-
-withRecoveryFollowedBy :: Token -> Graciela Token -> Graciela Location 
-withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (match token)   
-  where 
-    recover expected follow err = do 
-        pos <- getPosition
-        -- if any follow token is especified, then trash many token until a follow is at the look ahead
-        anyToken `manyTill` lookAhead follow
-        -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
-        let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos pos pos t)
-        let err' = err { errorExpected = f expected}
-
-        errors %= (|> err')
-        return $ Location (gracielaDef,gracielaDef) 
 
 
 -- Modify the pretty print of errores

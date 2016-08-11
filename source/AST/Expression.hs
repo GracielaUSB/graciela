@@ -17,7 +17,7 @@ module AST.Expression
 import           AST.Object    (Object')
 import           Location
 import           Treelike
-import           Type          (Type)
+import           Type          (Type')
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
 import           Data.Monoid   ((<>))
@@ -28,6 +28,8 @@ import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 type Object = Object' Expression
+type Type   = Type' Expression
+
 
 data Conversion = ToInt | ToDouble | ToChar
   deriving (Eq)

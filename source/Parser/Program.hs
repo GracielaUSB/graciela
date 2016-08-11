@@ -8,9 +8,9 @@ module Parser.Program
 -------------------------------------------------------------------------------
 import           AST.Program
 import           Graciela
-import qualified MyParseError        as PE
 import           Parser.ADT
 import           Parser.Instruction (block)
+import           Parser.Recovery
 import           Parser.Procedure   
 import           Parser.Token
 import           SymbolTable         (openScope, closeScope)
@@ -29,7 +29,7 @@ mainProgram :: Graciela Program
 mainProgram = do
   from <- getPosition
   withRecovery TokProgram
-  id <- identifierWithRecovery
+  id <- safeIdentifier
   TokBegin `withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
 
   decls <- listDefProc
@@ -39,9 +39,6 @@ mainProgram = do
   to <- getPosition
   return $ Program id (Location(from, to)) decls body
   
-      -- <|> do --genNewError eof PE.LexEnd
-      --        return (AST from from GError (EmptyAST))
-
 -- Program -> Abstract Program
 -- Program -> MainProgram
 {- The program consists in a set of Abstract Data Types, Data Types and a main program -}

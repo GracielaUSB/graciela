@@ -17,16 +17,4 @@ import           Prelude hiding (until)
 import           Text.Megaparsec (manyTill, lookAhead, (<|>), eof)
 
 
--- -- | Se encarga de descartar tokens hasta llegar a algun follow de la regla.
--- cleanEntry :: Graciela Token
---            -> Graciela (Token, SourcePos)
--- cleanEntry laset =
---   do pos <- getPosition
---      e   <- lookAhead laset <|> eof <|> anyToken
---      panicMode laset
---      return (e, pos)
 
-
--- | Se encarga de ignorar tokens hasta encontrar 'until'
-panicMode :: Graciela Token -> Graciela [Token]
-panicMode until = manyTill anyToken (void (lookAhead until) <|> eof)

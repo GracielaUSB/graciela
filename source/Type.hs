@@ -11,7 +11,7 @@ como tambien los utilizados de forma interna en el compilador.
 
 module Type
   ( ArgMode (..)
-  , Type (..)
+  , Type' (..)
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
@@ -36,38 +36,39 @@ instance Show ArgMode where
     Ref   -> "Ref"
 
 -- | Son los tipos utilizados en el compilador.
-data Type
-  = GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
-  | GMultiset Type      -- ^ Tipo multiconjunto ( graciela 2.0 )
-  | GSeq      Type      -- ^ Tipo secuencia ( graciela 2.0 )
-  | GFunc     Type Type -- ^ Tipo func para TDAs ( graciela 2.0 )
-  | GRel      Type Type -- ^ Tipo relación ( graciela 2.0 )
-  | GTuple   [Type]     -- ^ Tipo n-upla ( graciela 2.0 )
-  | GTypeVar  Text      -- ^ Variable de tipo ( graciela 2.0 )
+data Type' e
+  = GUndef              -- ^ Tipo indefinido ( graciela 2.0 )
+  | GSet      (Type' e)      -- ^ Tipo conjunto ( graciela 2.0 )
+  | GMultiset (Type' e)      -- ^ Tipo multiconjunto ( graciela 2.0 )
+  | GSeq      (Type' e)      -- ^ Tipo secuencia ( graciela 2.0 )
+  | GFunc     (Type' e) (Type' e) -- ^ Tipo func para TDAs ( graciela 2.0 )
+  | GRel      (Type' e) (Type' e) -- ^ Tipo relación ( graciela 2.0 )
+  | GTuple    [Type' e]     -- ^ Tipo n-upla ( graciela 2.0 )
+  | GTypeVar   Text      -- ^ Variable de tipo ( graciela 2.0 )
 
   | GAny                -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
-  | GOneOf   [Type]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
-  | GUnsafeName Text    -- Tipo para mensajes ( graciela 2.0 )
+  | GOneOf    [Type' e]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
+  | GUnsafeName Text    -- Tipo para
 
   | GInt           -- ^ Tipo entero
   | GFloat         -- ^ Tipo flotante
   | GBool          -- ^ Tipo boleano
   | GChar          -- ^ Tipo caracter
 
-  -- Tipo para los Data types
+  -- Tipo para los Data type' as
   | GDataType
     { name   ::  Text
-    -- , oftype :: [Type]
-    -- , fields :: [Type]
-    -- , procs  :: [Type]
+    -- , oftype :: [Type' e]
+    -- , fields :: [Type' e]
+    -- , procs  :: [Type' e]
     }
   | GAbstractType
     { name   ::  Text
-    -- , oftype :: [Type]
-    -- , fields :: [Type]
-    -- , procs  :: [Type]
+    -- , oftype :: [Type' e]
+    -- , fields :: [Type' e]
+    -- , procs  :: [Type' e]
     }
-  | GPointer Type
+  | GPointer (Type' e)
   -- | Tipo para las funciones
   -- | GFunction
   --  { fParamType  :: [Type] -- ^ Los tipos de los parametros
@@ -79,13 +80,13 @@ data Type
 
   -- | Tipo para los arreglos
   | GArray
-    { getSize   :: Integer -- ^ Tamano del arreglo
-    , arrayType :: Type    -- ^ Tipo del arreglo
+    { size      :: e
+    , arrayType :: Type' e       -- ^ Tipo del arreglo
     }
   deriving (Eq, Ord)
 
 
-(=:=) :: Type -> Type -> Bool
+(=:=) :: Eq e => Type' e -> Type' e -> Bool
 a =:= b
   |  a == b
   || a == GAny
@@ -108,9 +109,8 @@ GTuple        as =:= GTuple        bs = and $ zipWith (=:=) as bs
 GTypeVar       a =:= GTypeVar       b = a == b
 _                =:= _                = False
 
-
 -- | Instancia 'Show' para los tipos.
-instance Show Type where
+instance Show (Type' e) where
   show t = "`" <> show' t <> "`"
     where
       show' = \case
@@ -123,17 +123,17 @@ instance Show Type where
         GPointer      t -> "pointer of " <> show' t
         -- GProcedure   _  -> "proc"
         -- GFunction  _ t  -> "func -> (" <> show' t <> ")"
-        GArray     s t  -> "array " <> show s <> " of " <> show' t <> ""
-        GSet      t     -> "conjunto de " <> show' t <> ""
-        GMultiset t     -> "multiconjunto de " <> show' t <> ""
-        GSeq      t     -> "secuencia de " <> show' t <> ""
-        GFunc     ta tb -> "función " <> show' ta <> "->" <> show' tb <> ""
-        GRel      ta tb -> "relación " <> show' ta <> "->" <> show' tb <> ""
+        GArray     _ t  -> "array of " <> show' t
+        GSet      t     -> "conjunto de " <> show' t
+        GMultiset t     -> "multiconjunto de " <> show' t
+        GSeq      t     -> "secuencia de " <> show' t
+        GFunc     ta tb -> "función " <> show' ta <> "->" <> show' tb
+        GRel      ta tb -> "relación " <> show' ta <> "->" <> show' tb
         GTuple    ts    ->
           "tupla (" <> (unwords . fmap show' $ ts) <> ")"
-        GTypeVar  n     -> "variable de tipo " <> show n <> ""
-        GDataType n     -> "type " <> unpack n <> ""
-        GAbstractType n -> "abstract " <> unpack n <> ""
+        GTypeVar  n     -> "variable de tipo " <> unpack n
+        GDataType n     -> "type " <> unpack n
+        GAbstractType n -> "abstract " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as
@@ -142,13 +142,13 @@ instance Show Type where
 
 
 -- | Retorna la dimensión del arreglo.
-getDimension :: Type -> Int
+getDimension :: Type' e -> Int
 getDimension (GArray _ t) = 1 + getDimension t
 getDimension _            = 0
 
 
 -- | Verifica si el tipo es cuantificable (Tipo Enumerado).
--- isQuantifiable :: Type -> Bool
+-- isQuantifiable :: Type' e -> Bool
 -- isQuantifiable GInt     = True
 -- isQuantifiable GChar    = True
 -- isQuantifiable GBool    = True

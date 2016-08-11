@@ -2,8 +2,10 @@
 
 module AST.Instruction where
 --------------------------------------------------------------------------------
-import           AST.Expression (Expression, Object)
-import qualified AST.Expression as E
+import           AST.Declaration (Declaration)
+import           AST.Expression  (Expression, Object)
+import qualified AST.Expression  as E
+import           AST.Type        (Type)
 import           Location
 import           SymbolTable
 import           Token
@@ -20,15 +22,15 @@ import           Data.Text      (Text, unpack)
   respectivamente, del nodo en el texto del programa.
  -}
 
-type Guard = (Expression,Instruction)
 
+type Guard = (Expression,Instruction)
 
 data Instruction'
   = Abort -- ^ Instruccion Abort.
 
   | Block
-    { blockST    :: SymbolTable
-    , blockDecs  :: [Instruction]
+    { blockST    ::  SymbolTable
+    , blockDecs  :: [Declaration]
     , blockInsts :: [Instruction]
     }
 
@@ -51,11 +53,6 @@ data Instruction'
   | Assign
     { lvals :: [Object]
     , exprs :: [Expression]
-    }
-  | Declaration
-    { declType  ::  Type
-    , declLvals :: [Text]
-    , exprs     :: [Expression]
     }
   | ProcedureCall
     { pname :: Text
@@ -124,12 +121,6 @@ instance Treelike Instruction where
       Node "Assignments"
         (zipWith assignToTree lvals exprs)
 
-    Declaration {declType, declLvals, exprs} -> Node "Declaration" $
-      leaf ("Type " <> show declType) :
-      case exprs of
-        [] -> fmap (\id -> Node (unpack id) [leaf "Value: None"]) declLvals
-        _  -> zipWith declarationToTree declLvals exprs
-
     ProcedureCall { pname, {-ast,-} args} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
         [case args of
@@ -170,10 +161,6 @@ instance Treelike Instruction where
         ]
       assignToTree ident expr = Node "(:=)"
         [ toTree ident
-        , toTree expr
-        ]
-      declarationToTree ident expr = Node "(:=)"
-        [ leaf $ "`" <> unpack ident <> "`"
         , toTree expr
         ]
 

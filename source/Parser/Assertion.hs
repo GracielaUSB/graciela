@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Parser.Assertion
   ( assertion
   , bound
@@ -9,15 +10,16 @@ module Parser.Assertion
   ) where
 -------------------------------------------------------------------------------
 import           AST.Expression
+import           AST.Type
 import           Graciela
 import           Location
-import           MyParseError       as PE
+import           Error       as PE
 import           Parser.Declaration
 import           Parser.Expression
+import           Parser.Recovery
 import           Parser.Token
 import           Parser.Type
 import           Token
-import           Type
 -------------------------------------------------------------------------------
 import           Control.Monad       (unless, void)
 import           Text.Megaparsec     (between)
@@ -28,22 +30,22 @@ bound :: Graciela Expression
 bound = between (match TokLeftBound) (match TokRightBound) bound'
   where
     bound' = do
-      expr <- expression
+      expr <- safeExpression
       case expr of
-        Expression _ exprType _ | exprType =:= GInt -> return expr
-        Expression loc _ _ -> do
-          genCustomError "La cota debe ser de tipo entero"
+        Expression { expType } | expType =:= GInt -> return expr
+        Expression { loc, expType } -> do
+          putError loc $ BadBoundType expType
           return $ BadExpression loc
         badexpr@(BadExpression _) ->
           return badexpr
 
 assert ::  Graciela Expression
 assert  = do
-  expr <- expression
+  expr <- safeExpression
   case expr of
-    Expression _ exprType _ | exprType =:= GBool -> return expr
-    Expression loc _ _ -> do
-      genCustomError "Las aserciones solo pueden tener expresiones booleanas"
+    Expression { expType } | expType =:= GBool -> return expr
+    Expression { loc, expType } -> do
+      putError loc $ BadAssertType expType
       return $ BadExpression loc
     badexpr@(BadExpression _) ->
       return badexpr

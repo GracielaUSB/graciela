@@ -4,31 +4,30 @@
 module Entry
   ( Entry' (..)
   , Entry'' (..)
-  , Value (..)
+  -- , Value (..)
   , info
   , varType
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
+import           AST.Type
 import           Location
 import           Treelike
-import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
 import           Data.Monoid    ((<>))
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
 
-data Value = I Integer | C Char | F Double {-| S String-} | B Bool | None
-  deriving (Eq)
+-- data Value = I Integer | C Char | F Double {-| S String-} | B Bool | None
+--   deriving (Eq)
 
-instance Show Value where
-  show (I i) = show i
-  show (C c) = show c
-  show (F f) = show f
-  show (B b) = show b
-  show None  = "None"
-
+-- instance Show Value where
+--   show (I i) = show i
+--   show (C c) = show c
+--   show (F f) = show f
+--   show (B b) = show b
+--   show None  = "None"
 
 data Entry'' s
   = Var
@@ -36,7 +35,7 @@ data Entry'' s
     , _varValue :: Maybe Expression }
   | Const
     { _constType  :: Type
-    , _constValue :: Value }
+    , _constValue :: Expression }
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
@@ -76,7 +75,7 @@ instance Treelike (Entry' s) where
     Const { _constType, _constValue } ->
       Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $  "Type: " <> show _constType
-        , leaf $ "Value: " <> show _constValue ]
+        , Node "Value" [toTree _constValue] ]
 
     Argument { _argMode, _argType } ->
       Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)

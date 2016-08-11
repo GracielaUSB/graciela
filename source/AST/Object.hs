@@ -7,7 +7,7 @@ module AST.Object
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
-import           Type        (Type)
+import           Type        (Type')
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
@@ -36,7 +36,7 @@ data Object'' e
 data Object' e
   = Object
     { loc     :: Location
-    , objType :: Type
+    , objType :: Type' e
     , obj'    :: Object'' e
     }
   | BadObject

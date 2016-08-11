@@ -10,8 +10,6 @@ import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type            (Type)
-import qualified Type            as T
 --------------------------------------------------------------------------------
 import           Data.Monoid     ((<>))
 import           Data.Text       (Text, unpack)

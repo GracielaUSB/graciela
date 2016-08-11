@@ -9,20 +9,21 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
+import           AST.Type                  (Type, Type'(..), (=:=))
 import           Entry                     (Entry' (..), Entry'' (..),
-                                            Value (..), info, varType)
+                                            info, varType)
 import           Graciela
 import           Lexer
 import           Limits
 import           Location
-import           MyParseError              as PE
+import           Error              as PE
 import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Token
 import           SymbolTable               (closeScope, insertSymbol, lookup,
                                             openScope)
 import           Token
 import           Treelike
-import           Type
+
 --------------------------------------------------------------------------------
 import           Control.Applicative       (Alternative)
 import           Control.Lens              (makeLenses, use, (%=), (<&>), (^.))
@@ -304,6 +305,7 @@ quantification = do
 
   where
     numeric = GOneOf [ GChar, GInt, GFloat ]
+
     quantifier =  (match TokForall $> (ForAll,    GBool))
               <|> (match TokExist  $> (Exists,    GBool))
               <|> (match TokPi     $> (Product,   numeric))
@@ -348,8 +350,7 @@ quantification = do
                 CustomError
                   ("type `" <> unpack tname <> "` is not quantifiable" ) loc
               pure (var, Nothing)
-
-
+              
 
 data IfState = IfState
   { ifType :: Type
@@ -1115,13 +1116,13 @@ testExpr myparser strinput = do
           { _entryName  = pack "a"
           , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
           , _info       = Var
-            { _varType  = GArray 10 GInt
+            { _varType  = GInt
             , _varValue = Nothing }}
         symbolTable %= insertSymbol (pack "b") Entry
           { _entryName  = pack "b"
           , _loc        = Location (SourcePos "" (unsafePos 3) (unsafePos 3), SourcePos "" (unsafePos 3) (unsafePos 20))
           , _info       = Var
-            { _varType  = GArray 10 (GArray 10 GInt)
+            { _varType  = GInt
             , _varValue = Nothing }}
         symbolTable %= insertSymbol (pack "c") Entry
           { _entryName  = pack "c"

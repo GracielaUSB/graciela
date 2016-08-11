@@ -224,10 +224,10 @@ main = do
 
     case r of 
         Right program -> do 
-            when (optAST options) $ putStrLn $ drawTree $ toTree  program
+            when (optAST options) $ putStrLn . drawTree . toTree $ program
             when (optSTable options) $ do 
-                putStrLn $ drawTree $ toTree $ fst $ _symbolTable s
-                putStrLn $ drawTree $ Node "Types" $ fmap (leaf . show) $ toList $ _typesTable s
+                putStrLn . drawTree . toTree . fst . _symbolTable $ s
+                putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ s
         Left e -> putStr $ parseErrorPretty e
         _ -> undefined
 

@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-module LLVM.CodegenState where
+module LLVM.LLVMState where
 
 --------------------------------------------------------------------------------
 
@@ -64,8 +64,8 @@ intAdd         = "llvm.sadd.with.overflow.i32"
 intSub         = "llvm.ssub.with.overflow.i32"
 intMul         = "llvm.smul.with.overflow.i32"
 
-data CodegenSt
-  = CodeGenSt
+data LLVMState
+  = LLVMState
     { _insCount   :: Word                        -- Cantidad de instrucciones sin nombre
     , _condName   :: Name
     , _blockName  :: Name                        -- Cantidad de bloques básicos en el programa
@@ -76,17 +76,17 @@ data CodegenSt
     , _arrsDim    :: Map String [Operand]
     } deriving (Show)
 
-makeLenses ''CodegenSt
+makeLenses ''LLVMState
 
-newtype LLVM a = LLVM { unLLVM :: State CodegenSt a }
-  deriving (Functor, Applicative, Monad, MonadState CodegenSt)
-
-
-emptyCodegen :: CodegenSt
-emptyCodegen = CodeGenSt 1 (UnName 0) (UnName 0) Seq.empty Seq.empty Seq.empty Map.empty Map.empty
+newtype LLVM a = LLVM { unLLVM :: State LLVMState a }
+  deriving (Functor, Applicative, Monad, MonadState LLVMState)
 
 
-execCodegen :: LLVM a -> CodegenSt
+emptyCodegen :: LLVMState
+emptyCodegen = LLVMState 1 (UnName 0) (UnName 0) Seq.empty Seq.empty Seq.empty Map.empty Map.empty
+
+
+execCodegen :: LLVM a -> LLVMState
 execCodegen m = execState (unLLVM m) emptyCodegen
 
 

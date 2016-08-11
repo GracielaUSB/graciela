@@ -2,15 +2,15 @@
 
 module AST.Definition where
 --------------------------------------------------------------------------------
+import           AST.Declaration  (Declaration)
 import           AST.Expression  (Expression)
 import qualified AST.Expression  as E
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
+import           AST.Type        (Type)
 import           Location
 import           SymbolTable
 import           Treelike
-import           Type            (Type)
-import qualified Type            as T
 --------------------------------------------------------------------------------
 import           Data.Monoid     ((<>))
 import           Data.Text       (Text, unpack)
@@ -18,13 +18,13 @@ import           Data.Text       (Text, unpack)
 
 data Definition'
   = FunctionDef
-    { funcbody :: Expression
+    { funcBody :: Expression
     , retType  :: Type
     }
   | ProcedureDef
-    { constDec :: [Instruction] -- ?
+    { procDecl :: [Either Declaration Instruction] 
     , pre      :: Expression
-    , procbody :: Instruction
+    , procBody :: Instruction
     , post     :: Expression
     }
   | AbstractProcedureDef
@@ -34,41 +34,42 @@ data Definition'
 
 data Definition
   = Definition
-    { loc    :: Location
-    , name   :: Text
-    , params :: [(Text, Type)]
-    , st     :: SymbolTable
-    , bound  :: Maybe Expression
-    , def'   :: Definition'
+    { defLoc   :: Location
+    , defName  :: Text
+    , params   :: [(Text, Type)]
+    , st       :: SymbolTable
+    , defBound :: Maybe Expression
+    , def'     :: Definition'
     }
   | BadDefinition
-    { loc :: Location
+    { defLoc :: Location
     }
 
 instance Treelike Definition where
-  toTree BadDefinition {loc} = leaf $ "Bad Definition " <> show loc
-  toTree Definition { loc, name, params, {-st,-} bound, def' }
+  toTree BadDefinition {defLoc} = leaf $ "Bad Definition " <> show defLoc
+  toTree Definition { defLoc, defName, params, {-st,-} defBound, def' }
     = case def' of
 
-      FunctionDef { funcbody, retType } ->
-        Node ("Function " <> unpack name <> " -> " <> show retType <> " " <> show loc)
+      FunctionDef { funcBody, retType } ->
+        Node ("Function " <> unpack defName <> " -> " <> show retType <> " " <> show defLoc)
           [ Node "Parameters" (showPs params)
           , boundNode
-          , Node "Body" [toTree funcbody]
+          , Node "Body" [toTree funcBody]
           ]
 
-      ProcedureDef { constDec, pre, procbody, post } ->
-        Node ("Procedure " <> unpack name <> " " <> show loc)
+      ProcedureDef { procDecl, pre, procBody, post } ->
+        Node ("Procedure " <> unpack defName <> " " <> show defLoc)
           [ Node "Parameters" (showPs params)
-          , Node "Declarations" (toForest constDec)
+          , Node "Declarations" $ 
+              fmap (\x -> case x of; Left a -> toTree a; Right b -> toTree b) procDecl
           , Node "Precondition" [toTree pre]
           , boundNode
-          , Node "Body" [toTree procbody]
+          , Node "Body" [toTree procBody]
           , Node "Postcondition" [toTree post]
           ]
 
       ProcedureDef { pre, post } ->
-        Node ("Procedure " <> unpack name <> " " <> show loc)
+        Node ("Procedure " <> unpack defName <> " " <> show defLoc)
           [ Node "Parameters" (showPs params)
           , Node "Precondition" [toTree pre]
           , Node "Postcondition" [toTree post]
@@ -76,6 +77,6 @@ instance Treelike Definition where
   
     where
       showPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t))
-      boundNode = case bound of
+      boundNode = case defBound of
         Just b -> Node "Bound" [toTree b]
         Nothing -> leaf "Not bounded"

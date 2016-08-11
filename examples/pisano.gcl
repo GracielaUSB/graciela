@@ -5,13 +5,14 @@ abstract Diccionario (t0,t1) begin
     var conoc : set of t0;
     var tabla : func t0 -> t1;
 
-    {inv MAX > 0 /\ conoc <=  MAX inv}
+    {inv MAX > 0 /\ 1 <=  MAX inv}
 
     proc crear (out m : int)
         {pre    0 <  m                pre}
         {post MAX == m /\ conoc == m post}
 
-    proc agregar (inout d : int, in c : int, in v : int)
+// No funcion
+/*    proc agregar (inout d : int, in c : int, in v : int)
         {pre  !(c   == conoc)    /\ conoc <  MAX        pre}
         {post conoc == conoc + 1 /\ tabla == tabla + c post}
 
@@ -25,22 +26,22 @@ abstract Diccionario (t0,t1) begin
 
     proc existe (in d : int, in c : int, out e : boolean)
         {pre  true       pre}
-        {post e == c > 2 post}
+        {post e == c > 2 post}*/
 end
 
 
-type Dicc implements Diccionario (int***,char)
+type Dicc implements Diccionario (int,char)
 begin
 
-    var MAX := 10 : int;
+    var   MAX := 10 : int;
     var   tam       : int;
-    var   clave     : array[MAX] of int;
-    var   valor     : array[MAX] of int;
+    var   clave     : array [1] of int;
+    var   valor     : array [2] of int;
 
     {repinv MAX > 0 ∧ // 0 ≤ tam ∧ tam ≤ MAX  ∧
         (%forall i : int | 0 ≤ i /\ i ≤ tam
           | (%forall j : int | 0 ≤ j /\ j ≤ tam // ∧ i ≢ j
-              | clave[i] ≢ clave[j]
+              | clave[i] != clave[j]
             %)
         %)
     repinv}
@@ -136,7 +137,7 @@ program main begin
     begin
         if n == 0  -> 0
         [] n == 1  -> 1
-        [] n >  1  -> fibonacci(n-1) + fibonacci(n-2)
+        [] n >  1  -> 2 /*fibonacci(n-1) + fibonacci(n-2)*/ // Recursion
         fi
     end
 
@@ -148,8 +149,8 @@ program main begin
         {pre num ≥ 0 pre}
         |[
             var i,j,k := 1,2,3 : int;
-            write("El resultado es: ");
-            writeln(fibonacci(num))
+            // write("El resultado es: "); // No acepta strings
+            // writeln(fibonacci(num)) // No buscar las funciones
         ]|
         {post true post}
     end
@@ -161,13 +162,13 @@ program main begin
 
         {pre num ≥ 0 pre}
         |[
-            write("El resultado es: ");
-            writeln(fibonacci(num))
+            // write("El resultado es: "); // No acepta strings
+            // writeln(fibonacci(num)) // No buscar las funciones
         ]|
         {post true post}
     end
 
-    proc hola (x : int) begin
+    proc hola (in x : int) begin
     
         {pre true pre}
         |[
@@ -180,7 +181,7 @@ program main begin
     |[
         var   m := 10 : int;
         var   x := 0  : int;
-        var   a       : array[m] of int;
+        var   a       : array[1] of int;
 
         {inv (%forall i : int | i > 0 /\ i < 10 | true %) inv}
         {bound (m-x) bound}
@@ -192,10 +193,10 @@ program main begin
         od;
         random(x);
         
-        write("El random es: ");
-        writeln(x);
+        // write("El random es: "); // No acepta strings
+        writeln(1);
         writeln(1-1-1);
-        write("Numero de Fibonacci, ingrese un numero: ");
+        // write("Numero de Fibonacci, ingrese un numero: "); // No acepta strings
         x,m := 1,20;
         readNum()
     ]|

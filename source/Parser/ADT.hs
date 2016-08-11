@@ -4,15 +4,18 @@ module Parser.ADT
     ) where
 
 -------------------------------------------------------------------------------
+import           AST.Declaration    
+import           AST.Expression     (Expression(..))
 import           AST.Definition
 import           AST.Instruction
 import           AST.Struct
 import           Graciela
-import           MyParseError        as PE
+import           Error        as PE
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Instruction
 import           Parser.Procedure
+import           Parser.Recovery
 import           Parser.Token
 import           Parser.Type
 import           Location
@@ -42,7 +45,7 @@ abstractDataType = do
     match TokBegin
     symbolTable %= openScope from
     decls <- abstractDec `endBy` match TokSemicolon
-    inv <- invariant
+    inv <- safeAssertion invariant (NoAbstractInvariant abstractId)
     procs <- many procedureDeclaration
     match TokEnd
     to <- getPosition
@@ -50,7 +53,7 @@ abstractDataType = do
     symbolTable %= closeScope to
     return $ Struct abstractId loc (AbstractDataType atypes decls inv procs)
 
-abstractDec :: Graciela Instruction
+abstractDec :: Graciela Declaration
 abstractDec = constant <|> variable
   where 
     constant = do
@@ -58,27 +61,27 @@ abstractDec = constant <|> variable
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
       match TokColon
-      t  <- abstType
+      t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
       mapM_ (\(id,loc) -> do 
-                symbolTable %= insertSymbol id (Entry id loc (Const t None))
+                symbolTable %= insertSymbol id (Entry id loc (Var t Nothing){- TODO-})
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Instruction location (Declaration t ids' [])
+      return $ Declaration location t ids' []
     variable = do
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
       match TokColon
-      t  <- abstType
+      t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
       mapM_ (\(id,loc) -> do 
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Instruction location (Declaration t ids' [])
+      return $ Declaration location t ids' []
 
 
 
@@ -90,14 +93,18 @@ dataType = do
     id <- identifier
     match TokImplements
     abstractId <- identifier
-    types <- parens $ (try genericType <|> basicType') `sepBy` match TokComma
+    types <- parens $ (try typeVar <|> basicType) `sepBy` match TokComma
     symbolTable %= openScope from
+    
     match TokBegin 
     decls   <- (variableDeclaration <|> constantDeclaration) `endBy` (match TokSemicolon)
-    repinv  <- repInvariant
-    coupinv <- coupInvariant
+
+    repinv  <- safeAssertion repInvariant  (NoTypeRepInv  id)
+    coupinv <- safeAssertion coupInvariant (NoTypeCoupInv id)
+
     procs   <- many procedure
     match TokEnd
+    
     to <- getPosition
     symbolTable %= closeScope to
     let loc = Location(from,to)
@@ -105,11 +112,3 @@ dataType = do
     symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
     return $ Struct id loc (DataType abstractId types decls repinv coupinv procs)
 
-    where
-      basicType' = do 
-        t <- basicType
-        return $ Right t
-      genericType = do 
-        id <- identifier
-        notFollowedBy (match TokTimes) 
-        return $ Left id
