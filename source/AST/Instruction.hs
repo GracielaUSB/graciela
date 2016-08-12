@@ -27,7 +27,9 @@ type Guard = (Expression,Instruction)
 
 data Instruction'
   = Abort -- ^ Instruccion Abort.
-
+  | Assertion
+    { expr :: Expression
+    }
   | Block
     { blockST    ::  SymbolTable
     , blockDecs  :: [Declaration]
@@ -61,13 +63,13 @@ data Instruction'
     }
 
   | Random
-    { var :: Text
+    { var :: Object
     }
 
   | Read
     { file     :: Maybe Text
     , varTypes :: [Type]
-    , vars     :: [(Text, Location)]
+    , vars     :: [Object]
     }
 
   | Repeat
@@ -86,35 +88,38 @@ data Instruction'
 
 data Instruction
   = Instruction
-    { loc   :: Location
-    , inst' :: Instruction'
+    { instLoc :: Location
+    , inst'   :: Instruction'
     }
-  | NoInstruction
-    { loc :: Location
+  | BadInstruction
+    { instLoc :: Location
     }
 
 
 instance Treelike Instruction where
-  toTree Instruction { loc, {-astType,-} inst' } = case inst' of
+  toTree Instruction { instLoc, {-astType,-} inst' } = case inst' of
     Abort ->
-      leaf $ "Abort " <> show loc
+      leaf $ "Abort " <> show instLoc
+
+    Assertion { expr } -> 
+      Node "Assertion" [toTree expr]
 
     Block { blockST, blockDecs, blockInsts } ->
-      Node ("Scope " <> show loc)
+      Node ("Scope " <> show instLoc)
         [ Node "Declarations" (toForest blockDecs)
         , Node "Actions"      (toForest blockInsts)
         ]
 
     Conditional { cguards } ->
-      Node ("If " <> show loc)
+      Node ("If " <> show instLoc)
         (fmap guardToTree cguards)
 
     New { idName } ->
-      Node ("New " <> show loc)
+      Node ("New " <> show instLoc)
         [leaf . unpack $ idName]
 
     Free { idName } ->
-      Node ("Free " <> show loc)
+      Node ("Free " <> show instLoc)
         [leaf . unpack $ idName]
 
     Assign { lvals, exprs } ->
@@ -122,36 +127,34 @@ instance Treelike Instruction where
         (zipWith assignToTree lvals exprs)
 
     ProcedureCall { pname, {-ast,-} args} ->
-      Node ("Call Procedure `" <> unpack pname <> "` " <> show loc)
+      Node ("Call Procedure `" <> unpack pname <> "` " <> show instLoc)
         [case args of
           [] -> leaf "No arguments"
           _  -> Node "Arguments" (toForest args)
         ]
 
     Random { var } ->
-      Node ("Random " <> show loc)
-        [leaf . unpack $ var]
+      Node ("Random " <> show instLoc)
+        [toTree var]
 
     Read file varTypes vars ->
-      Node ("Read" <> hasFile <> " " <> show loc)
-        (fmap (\(t,(name, l)) ->
-                    leaf ("`" <> unpack name <> "` " <> show t <> " " <> show loc))
-                 (zip varTypes vars))
+      Node ("Read" <> hasFile <> " " <> show instLoc)
+        (fmap toTree vars)
       where
         hasFile = case file of
           Nothing -> ""
           Just fileName -> " in file `"<> unpack fileName<>"` "
 
     Repeat { rguards, rinv, rbound } ->
-      Node ("Do " <> show loc) $
+      Node ("Do " <> show instLoc) $
         [ Node "Invariant" [toTree rinv]
         , Node "Bound"     [toTree rbound]
         ] <> fmap guardToTree rguards
 
-    Skip -> leaf $ "Skip " <> show loc
+    Skip -> leaf $ "Skip " <> show instLoc
 
     Write { ln, wexpr } ->
-      Node ("Write" <> (if ln then "Ln" else "") <> " " <> show loc)
+      Node ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc)
         [toTree wexpr]
 
     where
@@ -165,5 +168,5 @@ instance Treelike Instruction where
         ]
 
 
-  toTree NoInstruction { loc } =
-    leaf $ "No instruction " <> show loc
+  toTree BadInstruction { instLoc } =
+    leaf $ "No instruction " <> show instLoc

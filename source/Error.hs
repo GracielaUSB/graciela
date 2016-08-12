@@ -28,6 +28,11 @@ data Error
   | BadBoundType
     { bType :: Type
     }
+  |BadFuncExpressionType 
+    { fName :: Text
+    , fType :: Type
+    , eType :: Type
+    }
   | BadProcNumberofArgs
     { pName   :: Text
     , pPos    :: SourcePos
@@ -48,6 +53,12 @@ data Error
     { aName  :: Text
     , aType :: Type
     }
+  | EmptyBlock
+  
+  | NoDoInvariant 
+
+  | NoDoBound
+
   | NoAbstractInvariant
     { aName :: Text
     }
@@ -57,11 +68,17 @@ data Error
   | NoTypeCoupInv
     { tName :: Text
     }
+  | NoProcBody 
+    { pName :: Text
+    }
   | NoProcPrecondition
     { pName :: Text
     }
   | NoProcPostcondition
     { pName :: Text
+    }
+  | NotInScope
+    { sName :: Text
     }
   | UndefinedProcedure
     { pName :: Text
@@ -69,17 +86,20 @@ data Error
   | UndefinedSymbol
     { sName :: Text
     }
-  | UnknowError
+  | UndefinedType 
+    { tName :: Text
+    }
+  | UnknownError
     { emsg :: String 
     }
   deriving ( Eq)
 
 instance ErrorComponent Error where
   representFail :: String -> Error
-  representFail =  UnknowError 
+  representFail =  UnknownError 
 
   {- Unused, just to remove the class warning-}
-  representIndentation _ _ _ = UnknowError ""
+  representIndentation _ _ _ = UnknownError ""
 
 
 instance ShowErrorComponent Error where
@@ -91,7 +111,9 @@ instance ShowErrorComponent Error where
     BadBoundType  { bType } -> 
       "Bounds must contain an expression of type " <> show GInt <>
       ". Actual type is " <> show bType <> "."
-
+    BadFuncExpressionType { fName, fType, eType } ->
+      "The function `" <> unpack fName <> "` returns " <> show fType <> 
+      " but has an expression of type " <> show eType
     BadProcNumberofArgs { pName, pPos, nParams, nArgs } ->
       "The procedure `" <> unpack pName <> "` " <> showPos' pPos <>
       " was defined with " <> show nParams <> 
@@ -110,6 +132,15 @@ instance ShowErrorComponent Error where
       "The variable `" <> unpack aName <> "` has type " <> show aType <> 
       " but only basic type can be read."
 
+    EmptyBlock ->
+      "Instruction blocks can not be empty and must contain at least an instruccion"
+
+    NoDoInvariant ->
+      "Missing invariant of instruction `do`."
+
+    NoDoBound ->
+      "Missing bound of instruction `do`."
+
     NoAbstractInvariant { aName } -> 
       "Missing invariant in abstract type `" <> unpack aName <> "`"
 
@@ -119,11 +150,18 @@ instance ShowErrorComponent Error where
     NoTypeCoupInv { tName } -> 
       "Missing couple invariant in type `" <> unpack tName <> "`"
 
+    NoProcBody { pName } ->
+      "Procedure `" <> unpack pName <> "` has not instruction block.\n" <>
+      "Possible solution: Declare a instruction block using `|[` and `]|`"
+      
     NoProcPrecondition { pName } -> 
       "Missing precondition of procedure `" <> unpack pName <> "`"
 
     NoProcPostcondition { pName } -> 
       "Missing postcondition of procedure `" <> unpack pName <> "`"
+
+    NotInScope { sName } ->
+      "Not in the scope: `" <> unpack sName <> "`"
 
     UndefinedProcedure { pName } -> 
       "Undefined procedure named `" <> unpack pName <> "`."
@@ -131,7 +169,10 @@ instance ShowErrorComponent Error where
     UndefinedSymbol { sName } -> 
       "Undefined symbol named `" <> unpack sName <> "`."
 
-    UnknowError {emsg} -> emsg 
+    UndefinedType { tName } ->
+      "Undefined type `" <> unpack tName <> "`"
+
+    UnknownError {emsg} -> emsg 
 
 instance Ord Error where
   a <= b = True

@@ -40,11 +40,11 @@ data Entry'' s
     { _argMode :: ArgMode
     , _argType :: Type }
   | Function
-    { _funcType  :: Type
-    , _funcArgs  :: [(Text,Type)]
-    , _funcTable :: s }
+    { _funcType   :: Type
+    , _funcParams :: [(Text,Type)]
+    , _funcTable  :: s }
   | Procedure
-    { _procArgs  :: [(Text,Type)]
+    { _procParams  :: [(Text,Type)]
     , _procTable :: s }
   | AbstractTypeEntry
   | TypeEntry
@@ -82,11 +82,11 @@ instance Treelike (Entry' s) where
         [ leaf $ "Type: " <> show _argType
         , leaf $ "Mode: " <> show _argMode ]
 
-    Function { _funcType, _funcArgs, _funcTable } ->
+    Function { _funcType, _funcParams, _funcTable } ->
       Node ("Function `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ show _funcType ]
 
-    Procedure { _procArgs, _procTable } ->
+    Procedure { _procParams, _procTable } ->
       leaf ("Procedure `" <> unpack _entryName <> "` " <> show _loc)
 
     AbstractTypeEntry {} ->

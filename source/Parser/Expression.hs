@@ -9,7 +9,7 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           AST.Type                  (Type, Type'(..), (=:=))
+import           AST.Type                  (Type, Type'(..), (=:=), ArgMode(..))
 import           Entry                     (Entry' (..), Entry'' (..),
                                             info, varType)
 import           Graciela
@@ -204,12 +204,28 @@ variable = do
           expr = Expression
             { E.loc
             , expType = _constType
-            , constant = False
+            , constant = True
             , exp' = Obj
               { theObj = Object
                 { O.loc
                 , objType = _constType
                 , obj' = Variable
+                  { O.name }}}}
+
+        in pure (expr, ProtoNothing, Taint False)
+
+
+      Argument { _argMode, _argType } | _argMode == In || _argMode == InOut ->
+        let 
+          expr = Expression
+            { E.loc
+            , expType  = _argType
+            , constant = _argMode == In
+            , exp'     = Obj
+              { theObj = Object
+                { O.loc
+                , objType = _argType
+                , obj'    = Variable
                   { O.name }}}}
 
         in pure (expr, ProtoNothing, Taint False)
@@ -416,7 +432,7 @@ ifExp = do
       -- and three things could have happened,
 
       case l of
-        e @ Expression { expType = GBool } ->
+        e @ Expression { expType = GBool, E.loc } -> do
         -- 1. We have a good boolean expression, which is ideal
           pure (Just e, st, taint0)
 
@@ -427,7 +443,7 @@ ifExp = do
             CustomError "bad left side in conditional expression" loc
           pure (Nothing, st, taint0)
 
-        BadExpression {} ->
+        BadExpression { E.loc } -> do
         -- 3. We have a bad expression, which means there was an error
         -- before which we can only propagate
           pure (Nothing, st, taint0)

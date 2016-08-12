@@ -114,6 +114,7 @@ instance Show (Type' e) where
   show t = "`" <> show' t <> "`"
     where
       show' = \case
+        GUndef          -> "undefined"
         GInt            -> "int"
         GFloat          -> "double"
         GBool           -> "boolean"

@@ -44,6 +44,15 @@ data Object' e
     }
   deriving (Eq)
 
+instance Show e => Show (Object' e) where
+  show BadObject {} = ""
+
+  show Object { loc, objType, obj' } = case obj' of
+    Variable {name} -> unpack name 
+    Member {inner,field} -> show inner <> "." <> unpack field
+    Index {inner, index} -> show inner <> "[" <> show index <> "]"
+    Deref {inner}        -> "*" <> show inner  
+
 instance Treelike e => Treelike (Object' e) where
   toTree Object { loc, objType, obj' } = case obj' of
 

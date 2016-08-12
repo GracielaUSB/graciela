@@ -20,6 +20,7 @@ module Parser.Instruction
 -------------------------------------------------------------------------------
 import           AST.Declaration    (Declaration)
 import           AST.Expression     (Expression(..),Expression'(..),Object(..))
+import           AST.Expression     as E
 import           AST.Instruction    (Instruction(..),Instruction'(..),Guard)
 import           AST.Object
 import           AST.Type           (Type, Type'(..), (=:=), ArgMode(..))
@@ -43,16 +44,17 @@ import qualified Data.List              as L (any)
 import           Data.Monoid            ((<>))
 import qualified Data.Set               as Set
 import           Data.Text              (Text)
-import qualified Data.Text              as T (unpack)
+import qualified Data.Text              as T (unpack, pack)
 import           Text.Megaparsec        (sepBy, endBy, sepBy1, notFollowedBy,
                                          getPosition, try, between, (<|>),
-                                         lookAhead, eitherP)
+                                         lookAhead, eitherP, many )
 import           Prelude                hiding (lookup)
 -------------------------------------------------------------------------------
 
 instruction :: Graciela Instruction
 instruction = try procedureCall
           <|> try assign
+          <|> assertionInst
           <|> abort
           <|> conditional
           <|> free
@@ -64,6 +66,17 @@ instruction = try procedureCall
           <|> write
           <|> writeln
           <|> block
+
+assertionInst :: Graciela Instruction
+assertionInst = do
+  from <- getPosition
+  expr <- assertion
+  to   <- getPosition
+  return $ Instruction
+    { instLoc = Location(from,to)
+    , inst'   = Assertion expr
+    }
+
 
 declarationBlock :: Graciela [Declaration]
 declarationBlock =
@@ -80,19 +93,36 @@ block = do
   symbolTable %= openScope from
   match TokOpenBlock
 
-  decls   <- declarationBlock
-  actions <- instruction `sepBy` match TokSemicolon
-  st      <- use symbolTable
-
+  decls       <- declarationBlock
+  actions     <- insts `sepBy` match TokSemicolon
+  assertions' <- many assertionInst 
+  st          <- use symbolTable
+  let actions' = (concat actions) <> assertions'
   withRecovery TokCloseBlock
   to <- getPosition
   symbolTable %= closeScope to
 
   let loc = Location (from, to)
 
-  if L.any (\x -> case x of; NoInstruction _ -> True; _ -> False) actions
-    then return $ NoInstruction loc
-    else return $ Instruction loc (Block st decls actions)
+  if null actions
+    then do 
+      putError loc EmptyBlock
+      return $ BadInstruction loc
+  else if L.any (\x -> case x of; BadInstruction _ -> True; _ -> False) actions'
+    then return $ BadInstruction loc
+  else return $ Instruction
+            { instLoc = loc
+            , inst'   = Block
+              { blockST    = st
+              , blockDecs  = decls
+              , blockInsts = actions'}}
+  where
+    insts = do
+      a1   <- many assertionInst
+      inst <- instruction
+      a2   <- many assertionInst
+      return $ a1 <> [inst] <> a2
+
 
 assign :: Graciela Instruction
 assign = do
@@ -114,7 +144,7 @@ assign = do
   
   if correct && len
     then return $ Instruction (Location(from,to)) (Assign lvals' exprs)
-    else return $ NoInstruction (Location(from,from))
+    else return $ BadInstruction (Location(from,from))
 
   where
     {- Checks if the left expressions are valid lvals and
@@ -123,7 +153,8 @@ assign = do
     checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
     checkTypes [] = return (True,[])
     checkTypes (x:xs) = case x of 
-      (Expression loc1 t1 _ (Obj o), Expression loc2 t2 _ _) -> do 
+      (Expression loc1 t1 constant (Obj o), Expression loc2 t2 _ _) 
+          | constant == False -> do 
         if t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
           then do
             (c,objs) <- checkTypes xs
@@ -148,34 +179,23 @@ random :: Graciela Instruction
 random = do
   from <- getPosition
   match TokRandom
-  match TokLeftPar
-  id   <- identifier
-  match TokRightPar
+  expr   <- parens expression
   to   <- getPosition
   let loc = Location (from,to)
-
-  writable  <- isWritable id
-  if writable
-    then return $ Instruction loc (Random id)
-    else return $ NoInstruction loc
-
-  where
-    {- Checks if an entry is a variable or an In/InOut argument -}
-    isWritable :: Text -> Graciela Bool
-    isWritable id = do
-      st <- use symbolTable
-      case id `lookup` st of
-        Right entry -> case _info entry of
-            Var {} -> return True
-            Argument mode _ | mode == In || mode == InOut ->
-              return True
-            _ -> return False
-        _ -> do
-          genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
-          return False
-
-
-
+  {- Checks if the expression can be assigned -}
+  case expr of 
+    Expression {E.loc, expType, constant, exp'} -> case exp' of
+      -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
+      Obj o | correctType expType && not constant ->
+        return $ Instruction loc (Random o)
+      -- If not, its an expression or a constant (or both).
+      _ -> do
+        genCustomError "No se puede asignar un numero random a una expresion constante"
+        return $ BadInstruction loc
+    -- If its a bad expression just return bad instruction
+    _ -> return $ BadInstruction loc 
+  where 
+    correctType = (=:= GOneOf [GInt{-, GFloat, GBool, GChar-}])
 
 write :: Graciela Instruction
 write = write' False TokWrite
@@ -193,58 +213,60 @@ write' ln writeToken = do
   case e of
     Expression {} ->
       return $ Instruction loc (Write ln e)
-    _ -> return $ NoInstruction loc
+    _ -> return $ BadInstruction loc
 
 -- | Se encarga del parseo de la lectura de variables
 reading :: Graciela Instruction
 reading = do
-  from <- getPosition
+  from  <- getPosition
   match TokRead
   match TokLeftPar
-  ids <- identifierAndLoc `sepBy` match TokComma
+  ids   <- expression `sepBy` match TokComma
   match TokRightPar
-  types <- mapM isWritable ids
+  res   <- mapM isWritable ids
+  let types = fmap fst res
+  let objs  = fmap snd res
   if GUndef `elem` types
     then do
       to <- getPosition
-      return $ NoInstruction (Location(from,to))
+      return $ BadInstruction (Location(from,to))
     else
       try $ do
           match TokWith
           id <- stringLit
           filesToRead %= Set.insert (T.unpack id)
           to <- getPosition
-          return $ Instruction (Location(from,to)) (Read (Just id) types ids)
+          return $ Instruction 
+                { instLoc   = (Location(from,to))
+                , inst' = Read 
+                    { file     = Just id
+                    , varTypes = types
+                    , vars     = objs}}
         <|> do
           to <- getPosition
-          return $ Instruction (Location(from,to)) (Read Nothing types ids)
+          return $ Instruction 
+                { instLoc   = (Location(from,to))
+                , inst' = Read 
+                    { file     = Nothing
+                    , varTypes = types
+                    , vars     = objs}}
 
     where
-      {- Checks if an entry is a variable or an In/InOut argument and
-         checks if it has a basic type -}
-      isWritable :: (Text,Location) -> Graciela Type
-      isWritable (id,loc) = do
-        st <- use symbolTable
-        case id `lookup` st of
-          Right entry -> case _info entry of
-              Var t _ -> if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
-                then return t
-                else do
-                  putError loc $ BadReadArgumentType id t
-                  return GUndef
-              Argument mode t | mode == In || mode == InOut  ->
-                if t =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
-                then return t
-                else do
-                  putError loc $ BadReadArgumentType id t
-                  return GUndef
-              _ -> do
-                putError loc $ BadReadArgument id
-                return GUndef
+      {- Checks the expression is a variable and if it has a basic type -}
+      isWritable :: Expression -> Graciela (Type, Object)
+      isWritable expr = case expr of 
+        Expression {E.loc, expType, constant, exp'} -> case exp' of
+          -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
+          Obj o | correctType expType && not constant ->
+            return (expType, o)
+          -- If not, its an expression or a constant (or both).
           _ -> do
-            putError loc $ UndefinedProcedure id
-            return GUndef
-
+            putError loc $ BadReadArgumentType (T.pack (show expr)) expType
+            return (GUndef, BadObject loc)
+        -- If its a bad expression just return bad instruction
+        BadExpression loc -> return (GUndef, BadObject loc)
+        where 
+            correctType = (=:= GOneOf [GInt, GFloat, GBool, GChar])
 
 new :: Graciela Instruction
 new  = do
@@ -263,10 +285,10 @@ new  = do
           return $ Instruction loc (New id)
         _              -> do
           genCustomError "New solo recibe apuntadores"
-          return $ NoInstruction loc
+          return $ BadInstruction loc
       Left _ -> do
         genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
-        return $ NoInstruction loc
+        return $ BadInstruction loc
 
 
 free :: Graciela Instruction
@@ -286,10 +308,10 @@ free = do
           return $ Instruction loc (Free id)
         _              -> do
           genCustomError "Free solo recibe apuntadores"
-          return $ NoInstruction loc
+          return $ BadInstruction loc
       Left _ -> do
         genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
-        return $ NoInstruction loc
+        return $ BadInstruction loc
 
 abort :: Graciela Instruction
 abort =
@@ -297,6 +319,7 @@ abort =
        match TokAbort
        return $ Instruction (Location(pos,pos)) Abort
 
+{- Parse guards for both repetition and conditional -}
 guard :: Graciela Guard
 guard = do
   from  <- getPosition
@@ -319,17 +342,49 @@ conditional = do
   return $ Instruction (Location(from,to)) (Conditional gl)
 
 
-
+{- Parse the instruction do .. od -}
 repetition :: Graciela Instruction
 repetition = do
-  from   <- getPosition
-  inv    <- invariant
-  bound' <- bound    
-  withRecovery TokDo
-  gl <- guard `sepBy` match TokSepGuards
-  to <- getPosition
-  withRecovery TokOd
-  return $ Instruction (Location(from,to)) (Repeat gl inv bound')
+    {- First case: Neither invariant nor bound -}
+    from <- getPosition
+    try $ match TokDo
+    gl <- guard `sepBy` match TokSepGuards
+    withRecovery TokOd 
+    to <- getPosition
+    let location = Location (from,to)
+    putError location NoDoInvariant
+    putError location NoDoBound
+    return $ BadInstruction location 
+    <|> do
+      {- Second case: No invariant -}
+      from <- getPosition
+      lookAhead $ match TokLeftBound
+      bound
+      withRecovery TokDo
+      guard `sepBy` match TokSepGuards
+      withRecovery TokOd 
+      to <- getPosition
+      let location = Location (from,to)
+      putError location NoDoBound
+      return $ BadInstruction location 
+    <|> do
+      {- Third case: An invariant is at the lookAhead.
+         Parse normally and in case of not-}
+      lookAhead (match TokLeftInv)
+      from   <- getPosition
+      inv    <- safeAssertion invariant NoDoInvariant
+      bound' <- safeAssertion bound NoDoBound
+      withRecovery TokDo
+      gl <- guard `sepBy` match TokSepGuards
+      withRecovery TokOd
+      to <- getPosition
+      return $ Instruction 
+          { instLoc = Location(from,to)
+          , inst'   = Repeat 
+            { rguards = gl 
+            , rinv    = inv
+            , rbound  = bound'}}
+
 
 procedureCall :: Graciela Instruction
 procedureCall = do
@@ -345,9 +400,9 @@ procedureCall = do
   
   case id `lookup` st of
     {- Check if the called procedure if defined in the symbol table-}
-    Right (Entry _ (Location (pos,_)) (Procedure {_procArgs})) -> do
+    Right (Entry _ (Location (pos,_)) (Procedure {_procParams})) -> do
         let nArgs   = length args
-        let nParams = length _procArgs
+        let nParams = length _procParams
         {- Check if the call recived enough arguments-}
         if nArgs /= nParams 
           then do 
@@ -357,15 +412,15 @@ procedureCall = do
                           , nParams = nParams
                           , nArgs   = nArgs 
                           }
-            return $ NoInstruction loc
+            return $ BadInstruction loc
         else if nArgs == 0 && nParams == 0
             then return $ Instruction loc (ProcedureCall id [])
         else do 
           {- Now check the arguments types match with the procedure parameter's types-}
-          argumentsOk <- foldM (checkTypes id pos loc) False $ zip _procArgs args
+          argumentsOk <- foldM (checkTypes id pos loc) False $ zip _procParams args
           if argumentsOk 
             then return $ Instruction loc (ProcedureCall id args)
-            else return $ NoInstruction loc
+            else return $ BadInstruction loc
     
     _ -> do
       {- If the procedure is not defined, maybe the current block is a procedure calling 
@@ -387,7 +442,7 @@ procedureCall = do
                             , nParams = nParams
                             , nArgs   = nArgs 
                             }
-              return $ NoInstruction loc
+              return $ BadInstruction loc
           else if nArgs == 0 && nParams == 0
             then return $ Instruction loc (ProcedureCall id [])
           else do
@@ -395,11 +450,11 @@ procedureCall = do
             argumentsOk <- foldM (checkTypes id pos loc) False $ zip types args
             if argumentsOk 
               then return $ Instruction loc (ProcedureCall id args)
-              else return $ NoInstruction loc
+              else return $ BadInstruction loc
         {- If there is no procedure defined that matchs with the current call, then report the error-}
         Nothing -> do 
           putError loc (UndefinedProcedure id)
-          return $ NoInstruction loc
+          return $ BadInstruction loc
   where 
     checkTypes pName pPos loc ok ((name, pType), Expression {expType}) = do 
       if pType == expType 

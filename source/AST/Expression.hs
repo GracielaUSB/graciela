@@ -269,3 +269,46 @@ from e = let Location (f,_) = loc e in f
 
 to :: Expression -> SourcePos
 to e =   let Location (_,t) = loc e in t
+
+
+instance Show Expression where
+  show Expression { loc, expType, exp' } = case exp' of
+    BoolLit   { theBool   } -> show theBool
+
+    CharLit   { theChar   } -> [theChar]
+
+    FloatLit  { theFloat  } -> show theFloat
+
+    IntLit    { theInt    } -> show theInt
+
+    StringLit { theString } -> show theString
+
+    EmptySet -> "{}"
+
+    EmptyMultiset -> "{{}}"
+
+    Obj { theObj } -> show theObj
+
+    Binary { binOp, lexpr, rexpr } -> 
+      show lexpr <> (init . tail . show) binOp <> show rexpr
+
+    Unary { unOp, inner } -> show unOp ++ show inner
+
+    FunctionCall { fname, {-astST,-} args } -> 
+      unpack fname <> "(" <> (concat . fmap show) args <> ")"
+
+    Conversion { toType, cExp } -> 
+      show toType <> "(" <> show cExp <> ")"
+
+    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> "quantifier"
+
+    EConditional { eguards } -> 
+      "if " <> (concat . fmap showG . toList) eguards <> "fi"
+
+      where
+        showG (lhs, rhs) =
+          show lhs <> " -> " <> show rhs <> "[]"
+
+    ESkip -> "skip"
+
+  show BadExpression {} = ""

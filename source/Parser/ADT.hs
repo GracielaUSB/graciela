@@ -4,13 +4,13 @@ module Parser.ADT
     ) where
 
 -------------------------------------------------------------------------------
-import           AST.Declaration    
+import           AST.Declaration
 import           AST.Expression     (Expression(..))
 import           AST.Definition
 import           AST.Instruction
 import           AST.Struct
 import           Graciela
-import           Error        as PE
+import           Error
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Instruction
@@ -42,16 +42,23 @@ abstractDataType = do
     match TokAbstract
     abstractId <- identifier
     atypes <- parens (identifier `sepBy` match TokComma)
-    match TokBegin
+    withRecovery TokBegin
     symbolTable %= openScope from
     decls <- abstractDec `endBy` match TokSemicolon
-    inv <- safeAssertion invariant (NoAbstractInvariant abstractId)
+    inv   <- safeAssertion invariant (NoAbstractInvariant abstractId)
     procs <- many procedureDeclaration
-    match TokEnd
-    to <- getPosition
+    withRecovery TokEnd
+    to    <- getPosition
     let loc = Location (from,to)
     symbolTable %= closeScope to
-    return $ Struct abstractId loc (AbstractDataType atypes decls inv procs)
+    return $ Struct
+        { structName = abstractId
+        , structLoc  = loc
+        , struct'    = AbstractDataType
+         { atypes = atypes
+         , decls  = decls
+         , inv    = inv
+         , procs  = procs}}
 
 abstractDec :: Graciela Declaration
 abstractDec = constant <|> variable
@@ -60,7 +67,7 @@ abstractDec = constant <|> variable
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
-      match TokColon
+      withRecovery TokColon
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
@@ -73,7 +80,7 @@ abstractDec = constant <|> variable
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
-      match TokColon
+      withRecovery TokColon
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
@@ -91,24 +98,33 @@ dataType = do
     from <- getPosition
     match TokType
     id <- identifier
-    match TokImplements
+    withRecovery TokImplements
     abstractId <- identifier
     types <- parens $ (try typeVar <|> basicType) `sepBy` match TokComma
     symbolTable %= openScope from
     
-    match TokBegin 
+    withRecovery TokBegin 
     decls   <- (variableDeclaration <|> constantDeclaration) `endBy` (match TokSemicolon)
 
     repinv  <- safeAssertion repInvariant  (NoTypeRepInv  id)
     coupinv <- safeAssertion coupInvariant (NoTypeCoupInv id)
 
     procs   <- many procedure
-    match TokEnd
+    withRecovery TokEnd
     
     to <- getPosition
     symbolTable %= closeScope to
     let loc = Location(from,to)
     insertType id (GAbstractType id) from
     symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
-    return $ Struct id loc (DataType abstractId types decls repinv coupinv procs)
+    return $ Struct
+        { structName = id
+        , structLoc  = loc
+        , struct'    = DataType
+         { abstract = abstractId
+         , types    = types
+         , decls    = decls
+         , repinv   = repinv
+         , coupinv  = coupinv
+         , procs    = procs}}
 

@@ -15,6 +15,8 @@ import           Parser.Expression (expression)
 import           Parser.Recovery
 import           Parser.Token      (identifier, integerLit, match, parens)
 import           SymbolTable       (lookup)
+import           Location
+import           Error
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens      (use)
@@ -44,6 +46,7 @@ basicType = do
         return GUndef
 
 
+
 type' :: Graciela Type
 type' = try arrayOf <|> try type'' <|> userDefined
   where
@@ -60,19 +63,24 @@ type' = try arrayOf <|> try type'' <|> userDefined
           else return $ GArray expr t
     type'' = do
         -- If its not an array, then try with a basic type or a pointer
+        from  <- getPosition
         tname <- identifier
-        t  <- getType tname
-        when (t == Nothing) $ void $genCustomError ("El tipo `"<>unpack tname<>"` no existe.")
-        let (Just t') = t
-        t'' <- isPointer t'
-        return t''
+        to    <- getPosition
+        let loc = Location(from,to)
+        t     <- getType tname
+        case t of 
+          Nothing -> do 
+            putError loc (UndefinedType tname)
+            return GUndef
+          Just t' -> isPointer t'
+
     isPointer :: Type -> Graciela Type
     isPointer t = do
         match TokTimes
         isPointer (GPointer t)
       <|> return t
 
-    -- Or ty if its a user defined Type
+    -- TODO: Or if its a user defined Type
     userDefined = do
       id <- identifier
       match TokOf

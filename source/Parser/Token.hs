@@ -150,35 +150,3 @@ floatLit = token test Nothing
     test tp@TokenPos {tok}              = Left . unex $ tp
 
 
--- Modify the pretty print of errores
-
--- prettyError :: ( Ord t
---                , ShowToken t
---                , ShowErrorComponent e )
---   => ParseError t e    -- ^ Parse error to render
---   -> String            -- ^ Result of rendering
--- prettyError (ParseError pos us ps xs) =
---   sourcePosStackPretty pos ++ ":\n" ++
---   if Set.null us && Set.null ps && Set.null xs
---     then "unknown parse error\n"
---     else concat
---       [ messageItemsPretty "\tunexpected " us
---       , messageItemsPretty "\texpecting "  ps
---       , unlines (showErrorComponent <$> Set.toAscList xs) ]
-
-
--- messageItemsPretty :: ShowErrorComponent a
---   => String            -- ^ Prefix to prepend
---   -> Set a             -- ^ Collection of messages
---   -> String            -- ^ Result of rendering
--- messageItemsPretty prefix ts
---   | Set.null ts = ""
---   | otherwise =
---     let f = orList . NE.fromList . Set.toAscList . Set.map showErrorComponent
---     in prefix ++ f ts ++ "\n"
-
-
--- orList :: NonEmpty String -> String
--- orList (x:|[])  = x
--- orList (x:|[y]) = x ++ " or " ++ y
--- orList xs       = intercalate ", " (NE.init xs) ++ ", or " ++ NE.last xs

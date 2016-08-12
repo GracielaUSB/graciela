@@ -43,8 +43,10 @@ variableDeclaration = try withAssign <|> withoutAssign
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy1` match TokComma
+      -- If not followed by a `:` then its followed by a `:=`
       notFollowedBy (match TokColon)
       withRecovery TokAssign
+      -- Get the expressions beign assigned
       exprs <- expression `sepBy1` match TokComma
       match TokColon
       t  <- type'
@@ -79,7 +81,7 @@ variableDeclaration = try withAssign <|> withoutAssign
         show (expType expr) <> "` a una variable de tipo `" <>
         show  t <> "`"
     
-    -- If not followed by an Assign token, then just put all the variables in the symbol table 
+    -- If not followed by a `:=`, then just put all the variables in the symbol table 
     withoutAssign = do 
       from <- getPosition
       match TokVar

@@ -38,25 +38,24 @@ data Struct'
 
 data Struct
   = Struct
-    { name    ::  Text
-    , loc     ::  Location
-
-    , struct' ::  Struct'
+    { structName ::  Text
+    , structLoc  ::  Location
+    , struct'    ::  Struct'
     }
 
 instance Treelike Struct where
-  toTree Struct { loc, name, struct' }
+  toTree Struct { structLoc, structName, struct' }
     = case struct' of
 
       AbstractDataType { atypes, decls, inv, procs } ->
-        Node ("Abstract Type " <> unpack name <> " (" <> intercalate "," (fmap show atypes) <> ") " <> show loc)
+        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show atypes) <> ") " <> show structLoc)
           [ Node "Declarations" $ fmap toTree decls
           , Node "Invariant" [toTree inv]
           , Node "Procedures" $ fmap toTree procs
           ]
       DataType { abstract, types, decls, repinv, coupinv, procs } ->
-        Node ("Abstract Type " <> unpack name <> " (" <> intercalate "," (fmap show types) <>
-              ") implements " <> unpack abstract <> " " <> show loc)
+        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show types) <>
+              ") implements " <> unpack abstract <> " " <> show structLoc)
           [ Node "Declarations" $ fmap toTree decls
           , Node "Representation Invariant" [toTree repinv]
           , Node "Coupling Invariant" [toTree coupinv]

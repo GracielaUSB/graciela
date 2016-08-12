@@ -9,6 +9,7 @@ import           AST.Program
 import           Graciela
 import           Lexer
 import           Parser.Program
+import           Parser.Recovery        (prettyError)
 import           SymbolTable
 import           Token
 import           Treelike
@@ -228,11 +229,13 @@ main = do
             when (optSTable options) $ do 
                 putStrLn . drawTree . toTree . fst . _symbolTable $ s
                 putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ s
-        Left e -> putStr $ parseErrorPretty e
+        Left e -> putStrLn $ prettyError e
         _ -> undefined
-
+    
     putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ s
-    putStr . unlines . toList . fmap  parseErrorPretty . _errors $ s
+    case (optErrors options) of
+        Just n -> putStr . unlines . take n . toList . fmap  prettyError . _errors $ s
+        _      -> putStr . unlines . toList . fmap  prettyError . _errors $ s
     {- Testing /-}
 
     -- compileLL llName execName
