@@ -180,7 +180,7 @@ program main begin
     
 
     |[
-        var   m := 10 : int;
+        const   m := 10 : int;
         var   a : array[10] of array[10] of int;
 
        
@@ -201,7 +201,7 @@ program main begin
         //     {a x <= 10 a}
         // ]|
         // od;
-        random(a[1][2]);
+        random(m);
         
         // // write("El random es: "); // No acepta strings
         // writeln(1);
@@ -209,6 +209,6 @@ program main begin
         // // write("Numero de Fibonacci, ingrese un numero: "); // No acepta strings
         // x,m := 1,20;
         // readNum()
-        read(a[1][1])
+        read(a)
     ]|
 end

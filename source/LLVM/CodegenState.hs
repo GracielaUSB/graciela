@@ -223,8 +223,7 @@ getVarOperand name = do
 addUnNamedInstruction :: Type -> Instruction -> LLVM Operand
 addUnNamedInstruction t ins = do
     r    <- newLabel
-    lins <- use instrs
-    instrs .= lins Seq.|> (r := ins)
+    instrs %= (Seq.|> (r := ins))
     return $ local t r
 
 
@@ -366,9 +365,8 @@ retVoid = do
 convertParams :: [(String, Contents SymbolTable)] -> [(String, Type)]
 convertParams [] = []
 convertParams ((id,c):xs) =
-    let t  = toType $ argType c in
-
-    case argTypeArg c of
+    let t  = toType $ argType c 
+    in case argTypeArg c of
       T.In      -> (id, t) : convertParams xs
       _         -> (id, PointerType t (AddrSpace 0)) : convertParams xs
 
@@ -379,34 +377,4 @@ convertFuncParams ((id, T.GArray s t):xs) =
 convertFuncParams ((id, t):xs) =
     (unpack id, toType t) : convertFuncParams xs
 
-floatType :: Type
-floatType = double
 
-intType :: Type
-intType = i32
-
-charType :: Type
-charType = IntegerType 9
-
-pointerType :: Type
-pointerType = IntegerType 8
-
-voidType :: Type
-voidType   = VoidType
-
-boolType :: Type
-boolType   = i1
-
-doubleType :: Type
-doubleType = double
-
-stringType :: Type
-stringType = PointerType i16 (AddrSpace 0)
-
-
-toType :: T.Type -> Type
-toType T.GInt         = intType
-toType T.GFloat       = floatType
-toType T.GBool     = boolType
-toType T.GChar        = charType
-toType (T.GArray _ t) = toType t

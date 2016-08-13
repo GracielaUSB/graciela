@@ -111,7 +111,7 @@ prettyError :: ( Ord t
   => ParseError t e    -- ^ Parse error to render
   -> String            -- ^ Result of rendering
 prettyError (ParseError pos us ps xs) =
-  sourcePosStackPretty pos ++ ":\n" ++
+  sourcePosStackPretty pos ++ ": " ++ "\ESC[1;31m" ++ "Error:" ++ "\ESC[m\n" ++
   if Set.null us && Set.null ps && Set.null xs
     then "unknown parse error\n"
     else concat

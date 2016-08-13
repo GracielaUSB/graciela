@@ -3,6 +3,7 @@
 module Error where
 --------------------------------------------------------------------------------
 import           AST.Type              (Type, Type'(..))
+import           AST.Expression        (Expression)
 import           Location
 import           Token
 import           Data.Text             (unpack, Text)
@@ -47,10 +48,10 @@ data Error
     , aType     :: Type
     }
   | BadReadArgument
-    { aName :: Text
+    { aExpr :: Expression
     }
   | BadReadArgumentType
-    { aName  :: Text
+    { aExpr :: Expression
     , aType :: Type
     }
   | EmptyBlock
@@ -125,12 +126,12 @@ instance ShowErrorComponent Error where
       "` " <> showPos' pPos <> " has type " <> show pType <> 
       ", but recived a expression with type " <> show aType
 
-    BadReadArgument { aName } -> 
-      "The variable `" <> unpack aName <> "` cannot be a constant."
+    BadReadArgument { aExpr } -> 
+      "The expression `" <> show aExpr <> "` is a constant expression."
 
-    BadReadArgumentType { aName, aType } -> 
-      "The variable `" <> unpack aName <> "` has type " <> show aType <> 
-      " but only basic type can be read."
+    BadReadArgumentType { aExpr, aType } -> 
+      "The variable `" <> show aExpr <> "` has type " <> show aType <> 
+      " but only basic types can be read."
 
     EmptyBlock ->
       "Instruction blocks can not be empty and must contain at least an instruccion"
@@ -153,7 +154,7 @@ instance ShowErrorComponent Error where
     NoProcBody { pName } ->
       "Procedure `" <> unpack pName <> "` has not instruction block.\n" <>
       "Possible solution: Declare a instruction block using `|[` and `]|`"
-      
+
     NoProcPrecondition { pName } -> 
       "Missing precondition of procedure `" <> unpack pName <> "`"
 

@@ -257,11 +257,14 @@ reading = do
       isWritable expr = case expr of 
         Expression {E.loc, expType, constant, exp'} -> case exp' of
           -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
-          Obj o | correctType expType && not constant ->
-            return (expType, o)
+          Obj o | not constant -> if correctType expType
+            then return (expType, o)
+            else do 
+              putError loc $ BadReadArgumentType expr expType
+              return (GUndef, BadObject loc)
           -- If not, its an expression or a constant (or both).
           _ -> do
-            putError loc $ BadReadArgumentType (T.pack (show expr)) expType
+            putError loc $ BadReadArgument expr
             return (GUndef, BadObject loc)
         -- If its a bad expression just return bad instruction
         BadExpression loc -> return (GUndef, BadObject loc)

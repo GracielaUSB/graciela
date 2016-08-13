@@ -271,6 +271,44 @@ to :: Expression -> SourcePos
 to e =   let Location (_,t) = loc e in t
 
 
+prettyBinOp :: BinaryOperator -> String
+prettyBinOp Plus   = " + "
+prettyBinOp BMinus = " - "
+prettyBinOp Times  = " * "
+prettyBinOp Div    = " / "
+prettyBinOp Mod    = " mod "
+prettyBinOp Power  = " ^ "
+prettyBinOp Max    = " max "
+prettyBinOp Min    = " min "
+
+prettyBinOp And        = " /\\ "
+prettyBinOp Or         = " \\/ "
+prettyBinOp Implies    = " ==> "
+prettyBinOp Consequent = " <== "
+prettyBinOp BEQ        = " === "
+prettyBinOp BNE        = " !== "
+
+prettyBinOp AEQ = " == "
+prettyBinOp ANE = " != "
+prettyBinOp LT  = " < "
+prettyBinOp LE  = " <= "
+prettyBinOp GT  = " > "
+prettyBinOp GE  = " >= "
+
+prettyBinOp Elem         = " ∈ "
+prettyBinOp NotElem      = " ∉ "
+prettyBinOp Difference   = " ∖ "
+prettyBinOp Intersection = " ∩ "
+prettyBinOp Union        = " ∪ "
+
+prettyUnOp :: UnaryOperator -> String
+prettyUnOp Abs    = "abs"
+prettyUnOp UMinus = " - "
+prettyUnOp Not    = " not "
+prettyUnOp Sqrt   = "sqrt"
+prettyUnOp Pred   = "pred"
+prettyUnOp Succ   = "succ"
+
 instance Show Expression where
   show Expression { loc, expType, exp' } = case exp' of
     BoolLit   { theBool   } -> show theBool
@@ -290,9 +328,10 @@ instance Show Expression where
     Obj { theObj } -> show theObj
 
     Binary { binOp, lexpr, rexpr } -> 
-      show lexpr <> (init . tail . show) binOp <> show rexpr
+      "(" <> show lexpr <> prettyBinOp binOp <> show rexpr <> ")"
 
-    Unary { unOp, inner } -> show unOp ++ show inner
+    Unary { unOp, inner } -> 
+      prettyUnOp unOp <> show inner
 
     FunctionCall { fname, {-astST,-} args } -> 
       unpack fname <> "(" <> (concat . fmap show) args <> ")"

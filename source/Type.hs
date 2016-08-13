@@ -111,10 +111,10 @@ _                =:= _                = False
 
 -- | Instancia 'Show' para los tipos.
 instance Show (Type' e) where
-  show t = "`" <> show' t <> "`"
+  show t = "\ESC[0;32m" <> show' t <> "\ESC[m"
     where
       show' = \case
-        GUndef          -> "undefined"
+        GUndef          -> "\ESC[0;31m" <> "undefined" <> "\ESC[0;32m"
         GInt            -> "int"
         GFloat          -> "double"
         GBool           -> "boolean"

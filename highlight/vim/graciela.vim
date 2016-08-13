@@ -10,13 +10,18 @@
 syn keyword	gFunction	begin end proc func program
 syn keyword	gFunction	abstract type implements if 
 syn keyword	gFunction	do od fi var const array of
-syn keyword	gFunction	int bool char string float
+syn keyword	gFunction	int bool char float
 syn keyword	gFunction	forall exist min max sigma pi
 syn keyword	gFunction	set multiset rel seq tuple
+syn keyword	gFunction	write writeln read random
 
 syn keyword	gAssert 	inv pre post repinv coupinv bound 
 
-syn match String "\".*\""
+syn match gAssert       "{a"
+syn match gAssert       "a}" 
+syn match String        "\".*\""
+syn match Comment       "//.*$"
+syn match Comment       "/\*.*\*/"
 
 " Operators
 syn match Operator	"\(<<\|>>\|[-+*/\^|:<>!=]\)="
