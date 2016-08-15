@@ -14,7 +14,7 @@ import           Error
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Instruction
-import           Parser.Procedure
+import           Parser.Definition
 import           Parser.Recovery
 import           Parser.Token
 import           Parser.Type

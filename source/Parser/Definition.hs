@@ -1,4 +1,4 @@
-module Parser.Procedure
+module Parser.Definition
   ( listDefProc
   , function
   , procedure

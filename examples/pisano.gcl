@@ -133,7 +133,7 @@
 
 program main begin
 
-    func fibonacci (n : int, x : array [n] of int) -> char
+    func fibonacci (n : int, x : array [n] of int) -> int
     begin
         if n == 0  -> 0
         [] n == 1  -> 1
@@ -141,19 +141,19 @@ program main begin
         fi
     end
 
-    // proc readNum ()
-    // begin
-    //     var num : int;
-    //     read(num);
+    proc readNum ()
+    begin
+        var num : int;
+        read(num);
 
-    //     {pre num ≥ 0 pre}
-    //     |[
-    //         var i,j,k := 1,2,3 : int;
-    //         // write("El resultado es: "); // No acepta strings
-    //         // writeln(fibonacci(num)) // No buscar las funciones
-    //     ]|
-    //     {post true post}
-    // end
+        {pre num ≥ 0 pre}
+        |[
+            var i,j,k := 1,2,3 : int;
+            // write("El resultado es: "); // No acepta strings
+            writeln(1) // No buscar las funciones
+        ]|
+        {post true post}
+    end
 
     // proc readNum2 ()
     // begin
@@ -180,19 +180,20 @@ program main begin
     
 
     |[
-        const   m := 10 : int;
-        var   a : array[10] of array[10] of int;
+        write(1)
+        // const   m := 10 : int;
+        // var   a : array[10] of array[10] of int;
 
        
 
-        {inv (%forall i : int | i > 0 /\ i < 10 | true %)  inv}
-        {bound 1 bound}
-        do 
-            true ->  
-                if a[1][2] > 1 ->
-                     write(1) 
-                fi
-        od;
+        // {inv (%forall i : int | i > 0 /\ i < 10 | true %)  inv}
+        // {bound 1 bound}
+        // do 
+        //     true ->  
+        //         if a[1][2] > 1 ->
+        //              write(1) 
+        //         fi
+        // od;
         // |[  a[x] := x;
         //     {a a[x] < 10 /\ a[x] >= 0 a}
         //     writeln(a[x]);
@@ -201,7 +202,7 @@ program main begin
         //     {a x <= 10 a}
         // ]|
         // od;
-        random(m);
+        // random(m);
         
         // // write("El random es: "); // No acepta strings
         // writeln(1);
@@ -209,6 +210,6 @@ program main begin
         // // write("Numero de Fibonacci, ingrese un numero: "); // No acepta strings
         // x,m := 1,20;
         // readNum()
-        read(a)
+        //read(a[1][1])
     ]|
 end

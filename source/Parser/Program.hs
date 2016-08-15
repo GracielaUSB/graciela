@@ -11,7 +11,7 @@ import           Graciela
 import           Parser.ADT
 import           Parser.Instruction (block)
 import           Parser.Recovery
-import           Parser.Procedure   
+import           Parser.Definition   
 import           Parser.Token
 import           SymbolTable         (openScope, closeScope)
 import           Location            (Location(..))

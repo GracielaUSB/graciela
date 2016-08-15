@@ -4,7 +4,7 @@
 
 module Main where
 --------------------------------------------------------------------------------
--- import           LLVM.Codegen
+import           LLVM.Program
 import           AST.Program
 import           Graciela
 import           Lexer
@@ -133,8 +133,8 @@ opts = do
 -- runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
 
 
--- liftError :: ExceptT String IO a -> IO a
--- liftError = runExceptT >=> either fail return
+liftError :: ExceptT String IO a -> IO a
+liftError = runExceptT >=> either fail return
 
 
 -- generateCode :: Module -> ExceptT String IO ()
@@ -180,6 +180,8 @@ opts = do
 --                 else die $ drawTypeError (optErrors opts) l
 
 --             else die $ drawState (optErrors opts) st
+--                     version <- getOSVersion
+--                     let newast = astToLLVM (toList $ _filesToRead st) t version
 --             where
 --                 {- Gets OSX version -}
 --                 getOSVersion :: IO String
@@ -192,51 +194,83 @@ opts = do
 -- Main --------------------------------
 main :: IO ()
 main = do
-    (options, args) <- opts
+  (options, args) <- opts
 
-    when (optVersion options) $ do
-        putStrLn version
-        exitSuccess
-    when (optHelp options) $ do
-        putStr help
-        exitSuccess
-    when (null args) $
-        die "ERROR: No se indicó un archivo."
+  -- Print Version
+  when (optVersion options) $ do
+      putStrLn version
+      exitSuccess
+  
+  -- Print command options
+  when (optHelp options) $ do
+      putStr help
+      exitSuccess
 
-    let fileName = head args
+  -- Print "No file" Error
+  when (null args) $
+      die "ERROR: No se indicó un archivo."
 
-    doesFileExist fileName >>= \x -> unless x
-        (die $ "ERROR: El archivo `" <> fileName <> "` no existe.")
+  -- Get the name of source file
+  let fileName = head args
 
-    unless (takeExtension fileName == ".gcl")
-        (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
+  doesFileExist fileName >>= \x -> unless x
+      (die $ "ERROR: El archivo `" <> fileName <> "` no existe.")
 
-    let execName = optExecName options
-    let llName = if execName == "a.out"
-        then "a.ll"
-        else execName <> ".ll"
+  unless (takeExtension fileName == ".gcl")
+      (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-    source <- readFile fileName
+  -- Get the name of the output file, given with flag -o
+  let execName = optExecName options
 
-    -- play options source llName
+  -- Set the IR file name. This file will be delete after finish the compilation
+  let llName = if execName == "a.out"
+      then "a.ll"
+      else execName <> ".ll"
 
-    {-/ Testing -}
-    let Right ets = runParser lexer fileName source
-    let (r, s) = runState (runParserT program (unpack source) ets) initialState
+  -- Read the source file
+  source <- readFile fileName
 
-    case r of 
-        Right program -> do 
-            when (optAST options) $ putStrLn . drawTree . toTree $ program
-            when (optSTable options) $ do 
-                putStrLn . drawTree . toTree . fst . _symbolTable $ s
-                putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ s
-        Left e -> putStrLn $ prettyError e
-    
-    putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ s
-    case (optErrors options) of
-        Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ s
-        _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ s
-    {- Testing /-}
+  -- play options source llName
+
+  {-/ Testing -}
+  let Right ets = runParser lexer fileName source
+  let (r, state) = runState (runParserT program (unpack source) ets) initialState
+
+  case r of 
+    Right program -> do 
+        {-Print AST-}
+        when (optAST options) $ putStrLn . drawTree . toTree $ program
+        {-Print Symbol Table-}
+        when (optSTable options) $ do 
+          putStrLn . drawTree . toTree . fst . _symbolTable $ state
+          putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
+        
+        {- Print Errors-}
+        putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
+        case (optErrors options) of
+          Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
+          _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
+
+        {- If no errors -}
+        when (Seq.null (_errors $ state)) $ do 
+          {- Generate LLVM AST -}
+          newast <- programToLLVM (toList $ _filesToRead state) program <$> getOSVersion
+          {- And write it as IR on a ll file -}
+          withContext $ \context ->
+            liftError $ withModuleFromAST context newast $ \m ->
+              liftError $ writeLLVMAssemblyToFile (File llName ) m
+
+    {- If an unrecoverable erro occurs during Parsing, will be printed here-}
+    Left e -> putStrLn $ prettyError e
+
+  {- Testing /-}
+  where
+      {- Gets OSX version -}
+    getOSVersion :: IO String
+    getOSVersion = case os of
+      "darwin" ->
+          readProcess "/usr/bin/sw_vers" ["-productVersion"] []
+      _        -> return ""
 
     -- compileLL llName execName
 

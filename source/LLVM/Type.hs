@@ -5,18 +5,18 @@ module LLVM.Type
 	, pointerType 
 	, voidType 
 	, boolType 
-	, doubleType 
 	, stringType 
-	, toType 
+	, toLLVMType
 	)
 where
 --------------------------------------------------------------------------------
-import           AST.Type              (Type, Type'(..))
-import           AST.Type              (Expression)
+import           AST.Type              as T (Type, Type'(..))
+import           AST.Expression        (Expression)
 --------------------------------------------------------------------------------
-import qualified LLVM.General.AST.Type  as LLVM (Type)
-import           LLVM.General.AST.Type  (IntegerType, i1, i8, i32, double)
-import           Data.Word              (Word64, Word32)
+import qualified LLVM.General.AST.AddrSpace  as LLVM (AddrSpace(..))
+import qualified LLVM.General.AST.Type       as LLVM (Type(..))
+import           LLVM.General.AST.Type       (i1, i8, i16, i32, double)
+import           Data.Word                   (Word64, Word32)
 --------------------------------------------------------------------------------
 
 floatType :: LLVM.Type
@@ -26,27 +26,27 @@ intType :: LLVM.Type
 intType = i32
 
 charType :: LLVM.Type
-charType = IntegerType 9
+charType = LLVM.IntegerType 9
 
 pointerType :: LLVM.Type
 pointerType = i8
 
 voidType :: LLVM.Type
-voidType = VoidType
+voidType = LLVM.VoidType
 
 boolType :: LLVM.Type
 boolType   = i1
 
 stringType :: LLVM.Type
-stringType = PointerType i16 (AddrSpace 0)
+stringType = LLVM.PointerType i16 (LLVM.AddrSpace 0)
 
 
-toLLVMType :: Type -> LLVM.Type
+toLLVMType :: T.Type -> LLVM.Type
 toLLVMType T.GInt         = intType
 toLLVMType T.GFloat       = floatType
 toLLVMType T.GBool        = boolType
 toLLVMType T.GChar        = charType
-toLLVMType (T.GArray e t) = ArrayType (constantToWord64 e) t
+toLLVMType (T.GArray e t) = LLVM.ArrayType (constantToWord64 e) (toLLVMType t)
 
 -- Calculate constant expressions
 constantToWord64 :: Expression -> Word64

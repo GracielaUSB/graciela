@@ -197,9 +197,11 @@ random = do
   where 
     correctType = (=:= GOneOf [GInt{-, GFloat, GBool, GChar-}])
 
+-- Parse `write` instruction
 write :: Graciela Instruction
 write = write' False TokWrite
 
+-- Parse `writeln` instruction
 writeln :: Graciela Instruction
 writeln = write' True TokWriteln
 
@@ -212,10 +214,10 @@ write' ln writeToken = do
   let loc = Location(from,to)
   case e of
     Expression {} ->
-      return $ Instruction loc (Write ln e)
+      return $ Instruction loc (Write ln e) -- if ln == True -> writeln, else -> write
     _ -> return $ BadInstruction loc
 
--- | Se encarga del parseo de la lectura de variables
+-- Parse the read instrucction
 reading :: Graciela Instruction
 reading = do
   from  <- getPosition
@@ -226,30 +228,34 @@ reading = do
   res   <- mapM isWritable ids
   let types = fmap fst res
   let objs  = fmap snd res
+  -- If any expression has type `GUndef`, return BadInstruction
   if GUndef `elem` types
     then do
       to <- getPosition
       return $ BadInstruction (Location(from,to))
-    else
-      try $ do
-          match TokWith
-          id <- stringLit
-          filesToRead %= Set.insert (T.unpack id)
-          to <- getPosition
-          return $ Instruction 
-                { instLoc   = (Location(from,to))
-                , inst' = Read 
-                    { file     = Just id
-                    , varTypes = types
-                    , vars     = objs}}
-        <|> do
-          to <- getPosition
-          return $ Instruction 
-                { instLoc   = (Location(from,to))
-                , inst' = Read 
-                    { file     = Nothing
-                    , varTypes = types
-                    , vars     = objs}}
+    else do
+      -- Read instruccion can be followed by the token `with` and a file name.
+      -- In that case, save the file name in state's `fileToRead` and 
+      -- return the instruction
+      match TokWith
+      id <- stringLit
+      filesToRead %= Set.insert (T.unpack id)
+      to <- getPosition
+      return $ Instruction 
+            { instLoc   = (Location(from,to))
+            , inst' = Read 
+                { file     = Just id
+                , varTypes = types
+                , vars     = objs}}
+      <|> do
+        -- If no token `with` is found, just return the instruction 
+        to <- getPosition
+        return $ Instruction 
+              { instLoc   = (Location(from,to))
+              , inst' = Read 
+                  { file     = Nothing
+                  , varTypes = types
+                  , vars     = objs}}
 
     where
       {- Checks the expression is a variable and if it has a basic type -}
