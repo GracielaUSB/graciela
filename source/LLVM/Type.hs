@@ -26,10 +26,10 @@ intType :: LLVM.Type
 intType = i32
 
 charType :: LLVM.Type
-charType = LLVM.IntegerType 9
+charType = i8
 
 pointerType :: LLVM.Type
-pointerType = i8
+pointerType = i32
 
 voidType :: LLVM.Type
 voidType = LLVM.VoidType

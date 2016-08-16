@@ -6,9 +6,12 @@ where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Expression                          hiding (BinaryOperator(..))
-import qualified AST.Expression                          as Op (BinaryOperator(..))
+import qualified AST.Expression                          as Exp (inner)
+import qualified AST.Expression                          as Op (BinaryOperator(..),
+                                                                UnaryOperator(..))
 import           AST.Expression                          (Expression(..), Object)
 import           AST.Object                              (Object'(..), Object''(..))
+import qualified AST.Object                              as Obj (inner)
 import           AST.Type                                as T
 import           Limits
 import           LLVM.State
@@ -71,9 +74,9 @@ expression Expression { expType, constant, exp'} = case exp' of
     where 
       opInt :: Op.BinaryOperator -> Operand -> Operand -> Instruction
       opInt op lOperand rOperand = case op of
-        -- Plus   -> secureIntFunc intAdd lOperand rOperand
-        -- BMinus -> secureIntFunc intSub lOperand rOperand
-        -- Times  -> secureIntFunc intMul lOperand rOperand
+        -- Plus   -> callFunction intAdd lOperand rOperand
+        -- BMinus -> callFunction intSub lOperand rOperand
+        -- Times  -> callFunction intMul lOperand rOperand
         Op.Plus   -> Add  { nsw      = False
                           , nuw      = False
                           , operand0 = lOperand
@@ -102,15 +105,12 @@ expression Expression { expType, constant, exp'} = case exp' of
                           , metadata = [] 
                           }
         -- Op.Power  -> undefined
-        -- Op.Max    -> undefined
-        -- Op.Min    -> undefined
+        Op.Min    -> callFunction minnumString lOperand rOperand
+        Op.Max    -> callFunction maxnumString  lOperand rOperand
         _         -> error "opFloat"
 
       opFloat :: Op.BinaryOperator -> Operand -> Operand -> Instruction
       opFloat op lOperand rOperand = case op of
-        -- Plus   -> secureIntFunc intAdd lOperand rOperand
-        -- BMinus -> secureIntFunc intSub lOperand rOperand
-        -- Times  -> secureIntFunc intMul lOperand rOperand
         Op.Plus   -> FAdd { fastMathFlags = NoFastMathFlags 
                           , operand0      = lOperand
                           , operand1      = rOperand
@@ -131,9 +131,9 @@ expression Expression { expType, constant, exp'} = case exp' of
                           , operand1      = rOperand
                           , metadata      = []
                           }
-        -- Op.Power  -> undefined
-        -- Op.Max    -> undefined
-        -- Op.Min    -> undefined
+        Op.Power  -> callFunction powString     lOperand rOperand
+        Op.Min    -> callFunction minnumFstring lOperand rOperand
+        Op.Max    -> callFunction maxnumFstring lOperand rOperand
         _         -> error "opFloat"
 
       opBool :: Op.BinaryOperator -> Operand -> Operand -> Instruction
@@ -152,12 +152,13 @@ expression Expression { expType, constant, exp'} = case exp' of
         -- Op.BEQ        ->undefined
         -- Op.BNE        ->undefined
 
+
       -- LLVM offers a set of secure operations that know when an int operation reach an overflow
-      -- llvm.sadd.with.overflow.i32 (intAdd)
-      -- llvm.ssub.with.overflow.i32 (intSub)
-      -- llvm.smul.with.overflow.i32 (intMul)
-      secureIntFunc :: String -> Operand -> Operand -> Instruction
-      secureIntFunc fun lOperand rOperand = 
+      -- llvm.sadd.with.overflow.i32 (fun == intAdd)
+      -- llvm.ssub.with.overflow.i32 (fun == intSub)
+      -- llvm.smul.with.overflow.i32 (fun == intMul)
+      callFunction :: String -> Operand -> Operand -> Instruction
+      callFunction fun lOperand rOperand = 
         let
           type' = StructureType False [i32, i1]
           funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
@@ -166,6 +167,76 @@ expression Expression { expType, constant, exp'} = case exp' of
                 , returnAttributes   = []
                 , function           = funRef
                 , arguments          = [(lOperand,[]), (rOperand,[])]
+                , functionAttributes = []
+                , metadata           = []
+                }
+
+  Unary { unOp, Exp.inner } -> do
+    (innerOperand, innerInsts) <- expression inner
+
+    label <- nextLabel
+    let inst = case expType of
+          T.GInt   -> opInt   unOp innerOperand
+          T.GBool  -> opBool  unOp innerOperand
+          T.GFloat -> opFloat unOp innerOperand
+
+    let operand = LocalReference (toLLVMType expType) label
+
+    return (operand, innerInsts <> [label := inst])
+
+    where 
+      opInt :: Op.UnaryOperator -> Operand -> Instruction
+      opInt op innerOperand = case op of
+        Op.Abs    -> undefined
+
+        Op.UMinus -> Mul  { nsw      = False
+                          , nuw      = False
+                          , operand0 = innerOperand
+                          , operand1 = ConstantOperand $ C.Int 32 (-1)
+                          , metadata = []
+                          }
+        {-! Creo que esta no va :D-}
+        Op.Succ   -> Add  { nsw      = False
+                          , nuw      = False
+                          , operand0 = innerOperand
+                          , operand1 = ConstantOperand $ C.Int 32 (1)
+                          , metadata = []
+                          }
+
+      opFloat :: Op.UnaryOperator -> Operand -> Instruction
+      opFloat op innerOperand = case op of
+        Op.Abs    -> callUnaryFunction fabsString innerOperand
+
+        Op.UMinus -> FMul  { fastMathFlags = NoFastMathFlags
+                           , operand0 = innerOperand
+                           , operand1 = ConstantOperand $ C.Float $ LLVM.Double (-1.0)
+                           , metadata = []
+                           }
+        Op.Sqrt   -> callUnaryFunction sqrtString innerOperand 
+        
+        {-! Creo que esta tampoco va jaja-}
+        Op.Succ  -> FAdd  { fastMathFlags = NoFastMathFlags
+                          , operand0 = innerOperand
+                          , operand1 = ConstantOperand $ C.Int 32 (1)
+                          , metadata = []
+                          }
+
+      opBool :: Op.UnaryOperator -> Operand -> Instruction
+      opBool op innerOperand = case op of
+        Op.Not -> Xor { operand0 = innerOperand
+                      , operand1 = ConstantOperand $ C.Int 1 (-1)
+                      , metadata = []
+                      }
+
+      callUnaryFunction :: String -> Operand -> Instruction
+      callUnaryFunction fun innerOperand = 
+        let
+          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
+        in Call { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = funRef
+                , arguments          = [(innerOperand,[])]
                 , functionAttributes = []
                 , metadata           = []
                 }
@@ -182,8 +253,9 @@ object Object { objType, obj' } = case obj' of
     Variable { name } -> do
       label <- nextLabel
       let 
-        -- Load the value in the variable address (e.g. %12 = load i32* %a, align 4)
+        -- Make a reference to the variable that will be loaded (e.g. %a)
         addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name) 
+        -- Load the value in the variable address (e.g. %12 = load i32* %a, align 4)
         load = Load { volatile  = False
                     , address   = addrToLoad 
                     , maybeAtomicity = Nothing

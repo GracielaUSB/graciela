@@ -95,7 +95,6 @@ instruction Instruction { inst' } = case inst'  of
 
         label <- nextLabel
 
-        {- While no support to objects -}
         let store = case obj' var of 
               Variable { name } -> LLVM.Store 
                 { LLVM.volatile = False

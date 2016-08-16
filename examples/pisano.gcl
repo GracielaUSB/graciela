@@ -180,11 +180,15 @@ program main begin
     
 
     |[
-        var a,b,c,d := 1,2,3,4 : int;
-        var g := a+b+c+d : int;
-        var bol := true /\ false : boolean;
+        var a,b,c,d := -1.0,2.0,3.1,4.3 : float;
+        var g := a+b+c+d : float;
+        var c := 'c' : char;
         // write(a)
-        write(3 mod 2)
+        writeln(g);
+        writeln(¬(true/\false));
+        writeln(a);
+        write( (1 max 3) min (-2))
+
         // const   m := 10 : int;
         // var   a : array[10] of array[10] of int;
 

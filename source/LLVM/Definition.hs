@@ -142,9 +142,9 @@ preDefinitions files = return [
   , declareFunction sqrtString    floatParam floatType
   , declareFunction fabsString    floatParam floatType
 
-  , declareFunction minnumFstring floatParams2 floatType
-  , declareFunction maxnumFtring  floatParams2 floatType
-  , declareFunction powString     floatParams2 floatType
+  , declareFunction minnumFstring  floatParams2 floatType
+  , declareFunction maxnumFstring  floatParams2 floatType
+  , declareFunction powString      floatParams2 floatType
 
 
   , declareFunction intSub intParams2 overflow'
