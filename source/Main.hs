@@ -118,78 +118,8 @@ opts = do
         (_, _, errs) ->
             ioError (userError (concat errs <> help))
 
--- Processing --------------------------
--- concatLexPar :: ParsecT Text () Identity (Either ParseError (Maybe Program), GracielaState)
--- concatLexPar = playParser <$> lexer
-
-
--- playParser :: [TokenPos] -> (Either ParseError (Maybe Program), GracielaState)
--- playParser inp = runStateParse program "" inp initialState
-
-
--- runStateParse :: Graciela (Maybe Program) -> String
---               -> [TokenPos]-> GracielaState
---               -> (Either ParseError (Maybe Program), GracielaState)
--- runStateParse p sn inp init = runIdentity $ runStateT (runPT p () sn inp) init
-
-
 liftError :: ExceptT String IO a -> IO a
 liftError = runExceptT >=> either fail return
-
-
--- generateCode :: Module -> ExceptT String IO ()
--- generateCode m =
---     withHostTargetMachine $ \tm ->
---         liftError $ writeObjectToFile tm (File "prueba") m
-
--- play opts inp llName =
---   case runParser concatLexPar () "" inp of
---     Left err -> do
---         let msg  = head $ messageString $ head $ errorMessages err
---             col  = sourceColumn $ errorPos err
---             line = sourceLine   $ errorPos err
---         die $
---             "Error en la línea " <> show line <> ", columna " <> show col <>
---             ": Caracter Lexicográfico " <> show msg <> " inválido.\n"
-
---     Right (Left  err', _) ->
---         die $ "\nOcurrió un error en el proceso de análisis sintáctico " <> show err'
-
---     Right (Right (Just ast), st) ->
---         if Seq.null (_sTableErrorList st) && Seq.null (_synErrorList st)
---             then do
---                 -- putStrLn $drawST 0 $current $symbolTable st
---                 let symTable = _symbolTable st
---                 when (optSTable opts) $ do
---                     let types    = _typesTable st
---                     putStrLn $ drawTree $ toTree symTable
---                     putStrLn $ drawTree $ Node "Types" $fmap (leaf . show) $toList types
---                 when (optAST opts) $
---                     putStrLn . drawTree . toTree $ ast
-
---                 let (t, l) = runTVerifier symTable ast
-
---                 if Seq.null l then do
---                     version <- getOSVersion
---                     let newast = astToLLVM (toList $ _filesToRead st) t version
-
---                     withContext $ \context ->
---                         liftError $ withModuleFromAST context newast $ \m ->
---                             liftError $ writeLLVMAssemblyToFile
---                                 (File llName ) m
---                 else die $ drawTypeError (optErrors opts) l
-
---             else die $ drawState (optErrors opts) st
---                     version <- getOSVersion
---                     let newast = astToLLVM (toList $ _filesToRead st) t version
---             where
---                 {- Gets OSX version -}
---                 getOSVersion :: IO String
---                 getOSVersion = case os of
---                     "darwin" ->
---                         readProcess "/usr/bin/sw_vers" ["-productVersion"] []
---                     _        -> return ""
---     Right (Right Nothing, st) -> die $ drawState (optErrors opts) st
 
 -- Main --------------------------------
 main :: IO ()
@@ -230,9 +160,6 @@ main = do
   -- Read the source file
   source <- readFile fileName
 
-  -- play options source llName
-
-  {-/ Testing -}
   let Right ets = runParser lexer fileName source
   let (r, state) = runState (runParserT program (unpack source) ets) initialState
 
@@ -260,11 +187,8 @@ main = do
             liftError $ withModuleFromAST context newast $ \m ->
               liftError $ writeLLVMAssemblyToFile (File llName ) m
 
-    {- If an unrecoverable erro occurs during Parsing, will be printed here-}
+    {- If an unrecoverable error occurs during Parsing, will be printed here-}
     Left e -> putStrLn $ prettyError e
-
-  {- Testing /-}
-
 
   compileLL llName execName
 

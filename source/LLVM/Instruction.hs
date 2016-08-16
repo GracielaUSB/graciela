@@ -9,7 +9,7 @@ import           AST.Expression                         (Expression(..))
 import           AST.Object                             (Object''(..), Object'(..))
 import           Limits
 import           LLVM.State
-import           LLVM.Expression                        (expression)
+import           LLVM.Expression                        (expression, objectRef)
 import           LLVM.Declaration                       (declaration)
 import           LLVM.Type
 import           SymbolTable
@@ -65,14 +65,14 @@ instruction Instruction { inst' } = case inst'  of
           T.GFloat  -> writeLnFloat
           T.GInt    -> writeLnInt
           T.GString -> writeLnString 
-          _         -> undefined
+          _         -> error "No se puede escribir algo q no sea basico :D"
       fwrite False expType = Name $ case expType of
           T.GBool   -> writeBool
           T.GChar   -> writeChar
           T.GFloat  -> writeFloat
           T.GInt    -> writeInt
           T.GString -> writeString 
-          _         -> undefined
+          _         -> error "No se puede escribir algo q no sea basico :D"
 
   Read { file, varTypes, vars } -> case file of
     Nothing -> do
@@ -89,16 +89,24 @@ instruction Instruction { inst' } = case inst'  of
               T.GInt    -> readIntStd
               _         -> undefined
 
+        -- Build a call instruction to the function read
         let fun = Right . ConstantOperand $ C.GlobalReference type' fread
-
-        let call = LLVM.Call Nothing CC.C [] fun [] [] []
+        let call = LLVM.Call 
+                { LLVM.tailCallKind       = Nothing
+                , LLVM.callingConvention  = CC.C
+                , LLVM.returnAttributes   = []
+                , LLVM.function           = fun
+                , LLVM.arguments          = []
+                , LLVM.functionAttributes = []
+                , LLVM.metadata           = []}
 
         label <- nextLabel
-
-        let store = case obj' var of 
-              Variable { name } -> LLVM.Store 
+        -- Get the reference of the variable's memory
+        objRef <- objectRef var
+        -- Store the value saved at `label` in the variable memory
+        let store = LLVM.Store 
                 { LLVM.volatile = False
-                , LLVM.address  = LocalReference type' $ Name (unpack name) 
+                , LLVM.address  = objRef
                 , LLVM.value    = LocalReference type' label 
                 , LLVM.maybeAtomicity = Nothing
                 , LLVM.alignment = 4

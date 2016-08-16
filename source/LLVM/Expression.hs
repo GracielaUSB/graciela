@@ -6,12 +6,10 @@ where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Expression                          hiding (BinaryOperator(..))
-import qualified AST.Expression                          as Exp (inner)
 import qualified AST.Expression                          as Op (BinaryOperator(..),
                                                                 UnaryOperator(..))
 import           AST.Expression                          (Expression(..), Object)
 import           AST.Object                              (Object'(..), Object''(..))
-import qualified AST.Object                              as Obj (inner)
 import           AST.Type                                as T
 import           Limits
 import           LLVM.State
@@ -151,8 +149,6 @@ expression Expression { expType, constant, exp'} = case exp' of
         -- Op.Consequent ->undefined
         -- Op.BEQ        ->undefined
         -- Op.BNE        ->undefined
-
-
       -- LLVM offers a set of secure operations that know when an int operation reach an overflow
       -- llvm.sadd.with.overflow.i32 (fun == intAdd)
       -- llvm.ssub.with.overflow.i32 (fun == intSub)
@@ -171,7 +167,9 @@ expression Expression { expType, constant, exp'} = case exp' of
                 , metadata           = []
                 }
 
-  Unary { unOp, Exp.inner } -> do
+
+
+  Unary unOp inner -> do
     (innerOperand, innerInsts) <- expression inner
 
     label <- nextLabel
@@ -241,6 +239,7 @@ expression Expression { expType, constant, exp'} = case exp' of
                 , metadata           = []
                 }
 
+
   Obj obj -> object obj
 
 
@@ -268,7 +267,15 @@ object Object { objType, obj' } = case obj' of
 
     _ -> error "Obj"
 
+-- Get the reference to the object. Used in read, random, assign ...
+objectRef :: Object -> LLVM Operand
+objectRef Object { objType, obj' } = case obj' of
+  Variable { name } -> return $ LocalReference type' $ Name (unpack name)
 
+  _ -> error "Aun no hay soporte para arreglos ni estructuras"
+
+  where 
+    type' = toLLVMType objType
 -- createExpression :: Expression -> LLVM Operand
 -- createExpression (Expression loc expType constant exp') = case exp' of
 
