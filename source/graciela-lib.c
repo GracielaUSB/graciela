@@ -131,10 +131,10 @@ void _writeDouble(double x) {
 
 void _writeBool(int x) {
 
-    if (x == 1)
-    	printf("%s", "true");
-    else
+    if (x == 0)
     	printf("%s", "false");
+    else
+    	printf("%s", "true");
 
     return;
 }

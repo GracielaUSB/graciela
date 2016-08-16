@@ -27,6 +27,7 @@ import           LLVM.General.AST.Name                   (Name(..))
 import qualified LLVM.General.AST.Type                   as LLVM (Type)
 import           LLVM.General.AST.Type                   (double, ptr)
 import           LLVM.General.AST.ParameterAttribute     (ParameterAttribute(..))
+import           LLVM.General.AST.Type                   (Type(StructureType))
 --------------------------------------------------------------------------------
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
@@ -44,13 +45,13 @@ mainDefinition insts = do
 definition :: Definition -> LLVM LLVM.Definition
 definition Definition {defName, params, st, def'} = case def' of 
   FunctionDef {funcBody, retType} -> do 
-    operand <- expression funcBody
+    (operand, insts) <- expression funcBody
     let name = Name $ unpack defName
     return $ LLVM.GlobalDefinition $ functionDefaults
         { name        = name
         , parameters  = (fmap toLLVMParameter params, False)
         , returnType  = toLLVMType retType
-        , basicBlocks = [BasicBlock name [] $ Do $ Ret (Just operand) []]
+        , basicBlocks = [BasicBlock name insts $ Do $ Ret (Just operand) []]
         }
         
   ProcedureDef {procDecl, pre, procBody, post} -> do
@@ -146,9 +147,9 @@ preDefinitions files = return [
   , declareFunction powString     floatParams2 floatType
 
 
-  -- , declareFunction intSub intParams2 overflow'
-  -- , declareFunction intMul intParams2 overflow'
-  -- , declareFunction intAdd intParams2 overflow'
+  , declareFunction intSub intParams2 overflow'
+  , declareFunction intMul intParams2 overflow'
+  , declareFunction intAdd intParams2 overflow'
 
   -- Read 
   , declareFunction readIntStd    [] intType
@@ -173,11 +174,11 @@ preDefinitions files = return [
         , basicBlocks = []
         }
       parameter (name, t) = Parameter t (Name name) []
-      intParam      = [parameter ("x", intType)]
-      intParams2    = fmap parameter [("x", intType),("y", intType)]
-      charParam     = [parameter ("x", charType)]
-      boolParam     = [parameter ("x", boolType)]
-      floatParam   = [parameter ("x", floatType)]
-      floatParams2 = fmap parameter [("x", floatType), ("y", floatType)]
+      intParam      = [parameter ("x",   intType)]
+      charParam     = [parameter ("x",  charType)]
+      boolParam     = [parameter ("x",  boolType)]
+      floatParam    = [parameter ("x", floatType)]
+      intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
+      floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
       stringParam   = [Parameter stringType (Name "msg") [NoCapture]]
-      -- overflow'     = StructureType False [intType, boolType]
+      overflow'     = StructureType False [intType, boolType]

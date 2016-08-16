@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {-|
 Module      : Declarations
 Description : Parseo y almacenamiento de las declaraciones
@@ -65,7 +67,7 @@ variableDeclaration = try withAssign <|> withoutAssign
                     , declLvals = fmap fst ids
                     , declExprs = exprs
                     }
-    checkType t (id,location) expr = if t == expType expr
+    checkType t (id,location) expr@(Expression {}) = if t == expType expr
       then do
         let entry = Entry 
               { _entryName = id 
@@ -80,6 +82,8 @@ variableDeclaration = try withAssign <|> withoutAssign
         "Intentando asignar una expresion de tipo `" <>
         show (expType expr) <> "` a una variable de tipo `" <>
         show  t <> "`"
+
+    checkType t _ _ = return ()
     
     -- If not followed by a `:=`, then just put all the variables in the symbol table 
     withoutAssign = do 

@@ -47,7 +47,7 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           System.Info                             (arch, os)
-import           System.Process                          (callCommand)
+import           System.Process                          (callCommand, readProcess)
 --------------------------------------------------------------------------------
 
 
@@ -57,32 +57,43 @@ import           System.Process                          (callCommand)
 -- addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
 
 
-programToLLVM :: [String] -> Program -> String -> Module
-programToLLVM files (Program name _ defs insts) version = do
+programToLLVM :: [String] -> Program -> IO Module
+programToLLVM files (Program name _ defs insts) = do
+  -- Eval the program with the LLVMState 
   let definitions = evalState (unLLVM program) initialState
+  version <- getOSXVersion -- Mac OS only
 
-  defaultModule
+  return defaultModule
     { moduleName         = T.unpack name
-    -- , moduleDefinitions  = toList . _moduleDefs . execCodegen $ createLLVM files defs insts
     , moduleDefinitions  = definitions
-    , moduleTargetTriple = Just whichTarget
+    , moduleTargetTriple = Just $ whichTarget version
     }
   where
-    -- merge all predefined definitions (e.g read, write), user functions and the main function
+    -- merge all predefined definitions (e.g read, write), user functions/procedures
+    -- and the main program, that will be a function called main... of course.
+    -- TODO add also all types and abstract types as Definition's `TypeDefinition`
     program = do 
       definitions <- mapM definition defs
       preDef <- preDefinitions files
       main   <- mainDefinition insts
       return $ preDef <> definitions <> [main]
 
-    whichTarget = case os of
-      "darwin"  -> arch <> "-apple-macosx" <> crop version -- With Mac, version needs to end with "0",
+    -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
+    whichTarget version = case os of
+      "darwin"  -> arch <> "-apple-macosx" <> version -- With Mac, version needs to end with "0",
                                                            -- example: 11.10.3 -> 11.10.0
       "linux"   -> arch <> "-unknown-linux-gnu"
       "windows" -> undefined
+    -- As mentioned above, Macs need a version ended with .0
     crop str = if last str == '.'
         then str <> "0"
         else crop $ init str
+    -- Gets OSX version
+    getOSXVersion :: IO String
+    getOSXVersion = case os of
+      "darwin" -> do
+        crop <$> (readProcess "/usr/bin/sw_vers" ["-productVersion"] [])
+      _        -> return ""
     
 
 

@@ -55,15 +55,17 @@ data Type' e
   | GBool          -- ^ Tipo boleano
   | GChar          -- ^ Tipo caracter
 
+  | GString
+
   -- Tipo para los Data type' as
   | GDataType
-    { name   ::  Text
+    { typeName   ::  Text
     -- , oftype :: [Type' e]
     -- , fields :: [Type' e]
     -- , procs  :: [Type' e]
     }
   | GAbstractType
-    { name   ::  Text
+    { typeName   ::  Text
     -- , oftype :: [Type' e]
     -- , fields :: [Type' e]
     -- , procs  :: [Type' e]

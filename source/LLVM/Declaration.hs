@@ -1,10 +1,12 @@
-module LLVM.Instruction
+{-# LANGUAGE NamedFieldPuns #-}
+
+module LLVM.Declaration
 
 where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Expression
-import           AST.Declaration                        (Declaration)
+import           AST.Declaration                        (Declaration(..))
 
 import           Limits
 import           LLVM.State
@@ -15,45 +17,53 @@ import qualified Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (zipWithM)
-import           Data.Foldable                           (toList)
-import qualified Data.Map                                as DM
-import           Data.Maybe
-import           Data.Range.Range                        as RA
-import qualified Data.Text                               as TE
+import           Data.Monoid                             ((<>))
+import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST.Name                  (Name(..))
-import           LLVM.General.AST.Instruction           (Instruction(..), Named(..),
-                                                         Terminator(..), FastMathFlags(..))
+import           LLVM.General.AST.Instruction           as LLVM (Instruction(..))
+import           LLVM.General.AST.Instruction           (Named(..))
 import           LLVM.General.AST.Operand               (Operand(..), CallableOperand)
 --------------------------------------------------------------------------------
 
- -- graciela 2.0
--- alloc :: Declaration -> LLVM ()
--- alloc Declaration {declType, declLvals, declExpr } = if null declType 
---   then mapM allocWithoutAssign declLvals 
---   else zipWithM allocWithAssign declLvals declExpr
---   where
+declaration :: Declaration -> LLVM [Named LLVM.Instruction]
+declaration Declaration {declType, declLvals, declExprs } = do 
+  
+  allocations <- mapM alloc declLvals
+  
+  -- Declarations can be, With Assign or Without Assign
+  if null declExprs
+    then return allocations
+    else do 
+      stores <- zipWithM store declLvals declExprs
+      return  $ allocations <> concat stores
 
---     type' = toLLVMType declType
+  where
+    {- LLVM type of all the variables in the declaration -}
+    type' = toLLVMType declType
+    
+    {- Allocate a variable -}
+    alloc lval = do 
+      let alloc' = LLVM.Alloca 
+            { allocatedType = type'
+            , numElements   = Nothing
+            , alignment     = 4
+            , metadata      = []
+            }
+      return $ Name (unpack lval) := alloc'
 
---     allocWithoutAssign lval = do 
---       let alloc = alloca Nothing type' lval
---       instrs %= (|> Name lval := alloc)
-
---     allocWithAssign lval expr = do 
---       let alloc = Alloc Nothing type' lval
---       instrs %= (|> Name lval := alloc)
---       let local = LocalReference (unpack lval) declType
+    {- Store an expression in a variable memory -}
+    store lval expr = do
+      (value, insts) <- expression expr
+      let store = LLVM.Store
+            { volatile = False
+            , address  = LocalReference type' $ Name (unpack lval) 
+            , value    = value
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = []
+            }
+      -- The store is an unamed instruction, so get the next instrucction label
+      label <- nextLabel
+      return $ insts <> [label := store]
       
-
-
-
-
-
-
-
-
-
-
-
-

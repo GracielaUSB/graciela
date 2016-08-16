@@ -5,27 +5,27 @@ module LLVM.Expression
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Expression
-
+import           AST.Expression                          hiding (BinaryOperator(..))
+import qualified AST.Expression                          as Op (BinaryOperator(..))
+import           AST.Expression                          (Expression(..), Object)
+import           AST.Object                              (Object'(..), Object''(..))
+import           AST.Type                                as T
 import           Limits
 import           LLVM.State
+import           LLVM.Type                               (toLLVMType)
 import           SymbolTable
-import qualified Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad.State
 import           Data.Foldable                           (toList)
-import qualified Data.Map                                as DM
-import           Data.Maybe
-import           Data.Range.Range                        as RA
-import qualified Data.Text                               as TE
+import           Data.Text                               (unpack)
 import           Data.Word
-import           LLVM.General.AST                        (Definition (..),
-                                                          Module (..))
+import           Data.Monoid                             ((<>))
+import           Data.Char                               (ord)
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
+import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat(Double))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction (..),
                                                           Named (..),
@@ -36,17 +36,166 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
-import           Text.Megaparsec                         (SourcePos)
+import           Debug.Trace                            
 --------------------------------------------------------------------------------
 
 
-expression :: Expression -> LLVM Operand
+expression :: Expression -> LLVM (Operand, [Named Instruction])
 expression Expression { expType, constant, exp'} = case exp' of
-  -- Binary {} -> undefined
+
+  BoolLit   theBool   -> 
+    return (ConstantOperand $ C.Int 1 (if theBool then 1 else 0), [])
+  CharLit   theChar   -> 
+    return (ConstantOperand $ C.Int 8 $ (fromIntegral . ord) theChar, [])
+  FloatLit  theFloat  -> 
+    return (ConstantOperand $ C.Float $ LLVM.Double theFloat, [])
+  IntLit    theInt    -> 
+    return (ConstantOperand $ C.Int 32 theInt, [])
+
+  -- StringLit theString -> return $ ConstantOperand $ C.Int 32 10
+
+  Binary { binOp, lexpr, rexpr } -> do
+    (lOperand, lInsts) <- expression lexpr
+    (rOperand, rInsts) <- expression rexpr
+
+    label <- nextLabel
+    let inst = case expType of
+          T.GInt   -> opInt  binOp lOperand rOperand
+          T.GBool  -> opBool binOp lOperand rOperand
+          T.GFloat -> opFloat binOp lOperand rOperand
+
+    let operand = LocalReference (toLLVMType expType) label
+
+    return (operand, lInsts <> rInsts <> [label := inst])
+
+    where 
+      opInt :: Op.BinaryOperator -> Operand -> Operand -> Instruction
+      opInt op lOperand rOperand = case op of
+        -- Plus   -> secureIntFunc intAdd lOperand rOperand
+        -- BMinus -> secureIntFunc intSub lOperand rOperand
+        -- Times  -> secureIntFunc intMul lOperand rOperand
+        Op.Plus   -> Add  { nsw      = False
+                          , nuw      = False
+                          , operand0 = lOperand
+                          , operand1 = rOperand
+                          , metadata = []
+                          }
+        Op.BMinus -> Sub  { nsw      = False
+                          , nuw      = False
+                          , operand0 = lOperand
+                          , operand1 = rOperand
+                          , metadata = []
+                          }
+        Op.Times  -> Mul  { nsw      = False
+                          , nuw      = False
+                          , operand0 = lOperand
+                          , operand1 = rOperand
+                          , metadata = []
+                          }
+        Op.Div    -> SDiv { exact = True
+                          , operand0 = lOperand
+                          , operand1 = rOperand
+                          , metadata = [] 
+                          }
+        Op.Mod    -> SRem { operand0 = lOperand
+                          , operand1 = rOperand 
+                          , metadata = [] 
+                          }
+        -- Op.Power  -> undefined
+        -- Op.Max    -> undefined
+        -- Op.Min    -> undefined
+        _         -> error "opFloat"
+
+      opFloat :: Op.BinaryOperator -> Operand -> Operand -> Instruction
+      opFloat op lOperand rOperand = case op of
+        -- Plus   -> secureIntFunc intAdd lOperand rOperand
+        -- BMinus -> secureIntFunc intSub lOperand rOperand
+        -- Times  -> secureIntFunc intMul lOperand rOperand
+        Op.Plus   -> FAdd { fastMathFlags = NoFastMathFlags 
+                          , operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        Op.BMinus -> FSub { fastMathFlags = NoFastMathFlags
+                          , operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        Op.Times  -> FMul { fastMathFlags = NoFastMathFlags
+                          , operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        Op.Div   -> FDiv  { fastMathFlags = NoFastMathFlags
+                          , operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        -- Op.Power  -> undefined
+        -- Op.Max    -> undefined
+        -- Op.Min    -> undefined
+        _         -> error "opFloat"
+
+      opBool :: Op.BinaryOperator -> Operand -> Operand -> Instruction
+      opBool op lOperand rOperand = case op of
+        Op.And     -> And { operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        Op.Or      -> Or  { operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+        _ -> error "opBool"
+        -- Op.Implies    ->undefined
+        -- Op.Consequent ->undefined
+        -- Op.BEQ        ->undefined
+        -- Op.BNE        ->undefined
+
+      -- LLVM offers a set of secure operations that know when an int operation reach an overflow
+      -- llvm.sadd.with.overflow.i32 (intAdd)
+      -- llvm.ssub.with.overflow.i32 (intSub)
+      -- llvm.smul.with.overflow.i32 (intMul)
+      secureIntFunc :: String -> Operand -> Operand -> Instruction
+      secureIntFunc fun lOperand rOperand = 
+        let
+          type' = StructureType False [i32, i1]
+          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
+        in Call { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = funRef
+                , arguments          = [(lOperand,[]), (rOperand,[])]
+                , functionAttributes = []
+                , metadata           = []
+                }
+
+  Obj obj -> object obj
 
 
   -- Dummy operand
-  _ -> return $ ConstantOperand $ C.Int 32 10
+  _ -> return (ConstantOperand $ C.Int 32 10,[])
+
+
+object :: Object -> LLVM (Operand, [Named Instruction])
+object Object { objType, obj' } = case obj' of
+    Variable { name } -> do
+      label <- nextLabel
+      let 
+        -- Load the value in the variable address (e.g. %12 = load i32* %a, align 4)
+        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name) 
+        load = Load { volatile  = False
+                    , address   = addrToLoad 
+                    , maybeAtomicity = Nothing
+                    , alignment = 4
+                    , metadata  = []
+                    }
+        -- Ref is the label where the variable value was loaded (e.g. %12)
+        ref = LocalReference (toLLVMType objType) label
+      return (ref, [label := load])
+
+    _ -> error "Obj"
+
 
 -- createExpression :: Expression -> LLVM Operand
 -- createExpression (Expression loc expType constant exp') = case exp' of

@@ -252,9 +252,9 @@ main = do
           _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
 
         {- If no errors -}
-        when (Seq.null (_errors $ state)) $ do 
+        when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do 
           {- Generate LLVM AST -}
-          newast <- programToLLVM (toList $ _filesToRead state) program <$> getOSVersion
+          newast <- programToLLVM (toList $ _filesToRead state) program
           {- And write it as IR on a ll file -}
           withContext $ \context ->
             liftError $ withModuleFromAST context newast $ \m ->
@@ -264,27 +264,21 @@ main = do
     Left e -> putStrLn $ prettyError e
 
   {- Testing /-}
-  where
-      {- Gets OSX version -}
-    getOSVersion :: IO String
-    getOSVersion = case os of
-      "darwin" ->
-          readProcess "/usr/bin/sw_vers" ["-productVersion"] []
-      _        -> return ""
 
-    -- compileLL llName execName
+
+  compileLL llName execName
 
 
 compileLL :: String -> String -> IO ()
 compileLL llName execName = void $ do
-    (exitCode, _out, _errs) <-
-        readProcessWithExitCode clang ["-o", execName, llName, lib] ""
+    -- (exitCode, _out, _errs) <-
+      readProcessWithExitCode clang ["-o", execName, llName, lib] ""
 
-    case exitCode of
-        ExitSuccess ->
-            void $ readProcess "rm" [llName] ""
-        ExitFailure _ ->
-            die "clang error"
+    -- case exitCode of
+    --     ExitSuccess ->
+    --         void $ readProcess "rm" [llName] ""
+    --     ExitFailure _ ->
+    --         die "clang error"
 
     where
         lib  = case os of

@@ -141,19 +141,19 @@ program main begin
         fi
     end
 
-    proc readNum ()
-    begin
-        var num : int;
-        read(num);
+    // proc readNum ()
+    // begin
+    //     var num : int;
+    //     read(num);
 
-        {pre num ≥ 0 pre}
-        |[
-            var i,j,k := 1,2,3 : int;
-            // write("El resultado es: "); // No acepta strings
-            writeln(1) // No buscar las funciones
-        ]|
-        {post true post}
-    end
+    //     {pre num ≥ 0 pre}
+    //     |[
+    //         var i,j,k := 1,2,3 : int;
+    //         // write("El resultado es: "); // No acepta strings
+    //         writeln(1) // No buscar las funciones
+    //     ]|
+    //     {post true post}
+    // end
 
     // proc readNum2 ()
     // begin
@@ -180,7 +180,11 @@ program main begin
     
 
     |[
-        write(1)
+        var a,b,c,d := 1,2,3,4 : int;
+        var g := a+b+c+d : int;
+        var bol := true /\ false : boolean;
+        // write(a)
+        write(3 mod 2)
         // const   m := 10 : int;
         // var   a : array[10] of array[10] of int;
 

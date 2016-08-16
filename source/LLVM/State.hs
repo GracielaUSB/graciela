@@ -21,8 +21,8 @@ import qualified Data.Sequence                      as Seq
 import           Data.Text                          (Text, unpack)
 import           Data.Word
 import           LLVM.General.AST.Name              (Name(..))
-import           LLVM.General.AST.Instruction       as LLVM (Instruction(..),
-                                                    Named(..), Terminator(..))
+import qualified LLVM.General.AST.Instruction       as LLVM (Instruction(..))
+import           LLVM.General.AST.Instruction       (Named(..), Terminator(..))
 import           LLVM.General.AST.Operand           (Operand(..), CallableOperand)
 import qualified LLVM.General.AST                   as LLVM (Definition(..))
 import           LLVM.General.AST                   (BasicBlock)
@@ -49,7 +49,7 @@ newtype LLVM a = LLVM { unLLVM :: State LLVMState a }
 
 initialState :: LLVMState
 initialState = LLVMState
-  { _insCount   = 0
+  { _insCount   = 1
   , _condName   = Name "a"
   , _blockName  = Name "a"
   , _instrs     = Seq.empty

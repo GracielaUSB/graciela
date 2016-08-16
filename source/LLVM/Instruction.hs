@@ -4,11 +4,13 @@ module LLVM.Instruction
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Instruction
-import           AST.Expression
+import           AST.Instruction                        (Instruction(..), Instruction'(..)) 
+import           AST.Expression                         (Expression(..))
+import           AST.Object                             (Object''(..), Object'(..))
 import           Limits
 import           LLVM.State
 import           LLVM.Expression                        (expression)
+import           LLVM.Declaration                       (declaration)
 import           LLVM.Type
 import           SymbolTable
 import qualified Type                                    as T
@@ -17,9 +19,9 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.State
 import           Data.Foldable                           (toList)
 import qualified Data.Map                                as DM
-import           Data.Maybe
+import           Data.Monoid                             ((<>))
 import           Data.Range.Range                        as RA
-import qualified Data.Text                               as TE
+import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST                       (BasicBlock(..))
 import           LLVM.General.AST.Name                  (Name(..))
@@ -35,33 +37,76 @@ import           LLVM.General.AST.Type
 block :: String -> Instruction -> LLVM BasicBlock
 block name Instruction {inst'} = case inst' of 
   Block st decls insts -> do 
+    decls' <- mapM declaration decls
     insts' <- mapM instruction insts
     let terminator = Do $ Ret Nothing []
-    return $ BasicBlock (Name name) insts' terminator
+    return $ BasicBlock (Name name) (concat decls' <> concat insts') terminator
   _                    -> error "Tratando de construir un block con una instrucion que no es un block"
 
 
-instruction :: Instruction -> LLVM (Named LLVM.Instruction)
+instruction :: Instruction -> LLVM [Named LLVM.Instruction]
 instruction Instruction { inst' } = case inst'  of
   Write { ln, wexpr } -> do
-    name  <- nextLabel
+    label <- nextLabel
     -- Callable operand (is the Name of the function that will be called)
-    let fun = Right . ConstantOperand $ C.GlobalReference voidType $ funName ln (expType wexpr)
+    let fun = Right . ConstantOperand $ C.GlobalReference voidType $ fwrite ln (expType wexpr)
     -- Build the operand of the expression
-    operand <- expression wexpr
-    -- Build a LLVM argument (Operand, [ParameterAttribute])
+    (operand, insts) <- expression wexpr
+    -- Build a LLVM argument :: (Operand, [ParameterAttribute])
     let arg = [(operand, [])]
     -- Build a call instruction
     let call = LLVM.Call Nothing CC.C [] fun arg [] []
-    -- return a name instruction
-    return $ name := call
-  where 
-    funName True expType = Name $ case expType of 
-        T.GInt -> writeLnInt
-        _ -> "hola"
-    funName False expType = Name $ case expType of
-        T.GInt -> writeInt
-        _ -> "Chao"
+    -- return a named instruction
+    return $ insts ++ [label := call]
+    where 
+      fwrite True expType = Name $ case expType of 
+          T.GBool   -> writeLnBool
+          T.GChar   -> writeLnChar
+          T.GFloat  -> writeLnFloat
+          T.GInt    -> writeLnInt
+          T.GString -> writeLnString 
+          _         -> undefined
+      fwrite False expType = Name $ case expType of
+          T.GBool   -> writeBool
+          T.GChar   -> writeChar
+          T.GFloat  -> writeFloat
+          T.GInt    -> writeInt
+          T.GString -> writeString 
+          _         -> undefined
+
+  Read { file, varTypes, vars } -> case file of
+    Nothing -> do
+      reads' <- zipWithM readVarStdin varTypes vars
+      return $ concat reads'
+    Just file' -> undefined
+
+    where 
+      readVarStdin t var= do 
+        let type' = toLLVMType t
+        let fread = Name $ case t of
+              T.GChar   -> readCharStd
+              T.GFloat  -> readFloatStd
+              T.GInt    -> readIntStd
+              _         -> undefined
+
+        let fun = Right . ConstantOperand $ C.GlobalReference type' fread
+
+        let call = LLVM.Call Nothing CC.C [] fun [] [] []
+
+        label <- nextLabel
+
+        {- While no support to objects -}
+        let store = case obj' var of 
+              Variable { name } -> LLVM.Store 
+                { LLVM.volatile = False
+                , LLVM.address  = LocalReference type' $ Name (unpack name) 
+                , LLVM.value    = LocalReference type' label 
+                , LLVM.maybeAtomicity = Nothing
+                , LLVM.alignment = 4
+                , LLVM.metadata  = []
+                }
+        label' <- nextLabel
+        return $ [label := call, label' := store]
 
 
 

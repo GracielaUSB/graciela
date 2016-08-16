@@ -1,13 +1,13 @@
 module LLVM.Type
-	( floatType 
-	, intType 
-	, charType 
-	, pointerType 
-	, voidType 
-	, boolType 
-	, stringType 
-	, toLLVMType
-	)
+    ( floatType 
+    , intType 
+    , charType 
+    , pointerType 
+    , voidType 
+    , boolType 
+    , stringType 
+    , toLLVMType
+    )
 where
 --------------------------------------------------------------------------------
 import           AST.Type              as T (Type, Type'(..))
