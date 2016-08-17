@@ -6,7 +6,8 @@ where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Expression                          (Expression (..),
-                                                          Object)
+                                                          Expression' (..),
+                                                          Object, Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import           AST.Object                              (Object' (..),
