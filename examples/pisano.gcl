@@ -133,13 +133,13 @@
 
 program main begin
 
-    func fibonacci (n : int, x : array [n] of int) -> int
-    begin
-        if n == 0  -> 0
-        [] n == 1  -> 1
-        [] n >  1  -> 2 /*fibonacci(n-1) + fibonacci(n-2)*/ // Recursion
-        fi
-    end
+    // func fibonacci (n : int, x : array [n] of int) -> int
+    // begin
+    //     if n == 0  -> 0
+    //     [] n == 1  -> 1
+    //     [] n >  1  -> 2 /*fibonacci(n-1) + fibonacci(n-2)*/ // Recursion
+    //     fi
+    // end
 
     // proc readNum ()
     // begin
@@ -182,16 +182,41 @@ program main begin
     |[
         var a,b,c,d := -1.0,2.0,3.1,4.3 : float;
         var g := a+b+c+d : float;
-        var i : int;
+        var i := 12  : int;
         var c := 'c' : char;
+        var bool     : boolean;
+        |[
+            writeln(12345)
+        ]|;
+        read(a);
+        if a > 1.0 -> 
+            if a != 5.0 -> writeln(1.01234)
+            [] true   -> writeln(1234.01)
+            fi
+        [] a < 1.0  -> writeln(2)
+        fi;
+
+        writeln(a < 10.0);
+        writeln(a > 10.0);
+        writeln(a <= 10.0);
+        writeln(a >= 10.0);
+        writeln(a != 10.0);
+
+        writeln(i < 10);
+        writeln(i > 10);
+        writeln(i <= 10);
+        writeln(i >= 10);
+        writeln(i != 10);
+
+        writeln(false ==> true);
         
         writeln(i);
 
         writeln(g);
         writeln(¬(true/\false));
         writeln(a);
-        writeln(1.0 + √2.0 - √10.0);
-        write( (1 max 3) min (-2))
+        writeln(¬ (√(9.0+16.0) >= 5.0) );
+        write( -2 + 2147483647 )
 
         // const   m := 10 : int;
         // var   a : array[10] of array[10] of int;

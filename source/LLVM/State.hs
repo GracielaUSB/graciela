@@ -11,11 +11,12 @@ import qualified Type                               as T
 import           Control.Lens                       (makeLenses, use, (%=),
                                                      (.=), (+=))
 import           Control.Monad.State
+import           Control.Monad                      (when)
 import           Data.Char
 import           Data.Foldable                      (toList)
 import           Data.Map                           (Map)
 import qualified Data.Map                           as Map
-import           Data.Maybe
+import           Data.Monoid                        ((<>))
 import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq
 import           Data.Text                          (Text, unpack)
@@ -25,20 +26,23 @@ import qualified LLVM.General.AST.Instruction       as LLVM (Instruction(..))
 import           LLVM.General.AST.Instruction       (Named(..), Terminator(..))
 import           LLVM.General.AST.Operand           (Operand(..), CallableOperand)
 import qualified LLVM.General.AST                   as LLVM (Definition(..))
-import           LLVM.General.AST                   (BasicBlock)
+import           LLVM.General.AST                   (BasicBlock(..))
 --------------------------------------------------------------------------------
 
 
+type Insts = Seq (Named LLVM.Instruction)
+
 data LLVMState
   = LLVMState
-    { _insCount   :: Word                        -- Cantidad de instrucciones sin nombre
-    , _condName   :: Name
-    , _blockName  :: Name                        -- Cantidad de bloques básicos en el programa
-    , _instrs     :: Seq (Named LLVM.Instruction)     -- Lista de instrucciones en el bloque básico actual
-    , _bblocs     :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
-    , _moduleDefs :: Seq LLVM.Definition
-    , _varsLoc    :: Map String Operand
-    , _arrsDim    :: Map String [Operand]
+    { _insCount     :: Word                        -- Cantidad de instrucciones sin nombre
+    , _condName     :: Name
+    , _blockName    :: Name                        -- Cantidad de bloques básicos en el programa
+    , _currentBlock :: Seq (Named LLVM.Instruction)     -- Lista de instrucciones en el bloque básico actual
+    , _blocks       :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
+    , _moduleDefs   :: Seq LLVM.Definition
+    , _varsLoc      :: Map String Operand
+    , _arrsDim      :: Map String [Operand]
+    , _outerBlock  :: Bool
     } deriving (Show)
 
 makeLenses ''LLVMState
@@ -49,18 +53,37 @@ newtype LLVM a = LLVM { unLLVM :: State LLVMState a }
 
 initialState :: LLVMState
 initialState = LLVMState
-  { _insCount   = 1
-  , _condName   = Name "a"
-  , _blockName  = Name "a"
-  , _instrs     = Seq.empty
-  , _bblocs     = Seq.empty
-  , _moduleDefs = Seq.empty
-  , _varsLoc    = Map.empty
-  , _arrsDim    = Map.empty
+  { _insCount     = 1
+  , _condName     = UnName 0
+  , _blockName    = UnName 0
+  , _currentBlock = Seq.empty
+  , _blocks       = Seq.empty
+  , _moduleDefs   = Seq.empty
+  , _varsLoc      = Map.empty
+  , _arrsDim      = Map.empty
+  , _outerBlock  = True
   }
 
-nextLabel :: LLVM Name
-nextLabel = do 
+addInstructions :: Insts -> LLVM ()
+addInstructions insts = do 
+  currentBlock %= (<> insts)
+
+addBlock :: Named Terminator -> LLVM ()
+addBlock terminator = do
+  insts <- use currentBlock
+  currentBlock .= Seq.empty
+  name  <- use blockName
+  blocks %= (Seq.|> (BasicBlock name (toList insts) terminator ))
+  name' <-  newLabel
+  blockName .= name'
+  
+setLabel :: Name -> Named Terminator -> LLVM()
+setLabel name terminator = do
+    addBlock terminator
+    blockName .= name
+
+newLabel :: LLVM Name
+newLabel = do 
   count <- use insCount
   insCount += 1
   return $ UnName count 
@@ -95,6 +118,10 @@ readFileFloat  = "_readFileDouble"
 intAdd         = "llvm.sadd.with.overflow.i32"
 intSub         = "llvm.ssub.with.overflow.i32"
 intMul         = "llvm.smul.with.overflow.i32"
+
+concat' :: [Seq a] -> Seq a
+concat' = foldr (<>) Seq.empty
+
 
 -- emptyCodegen :: LLVMState
 -- emptyCodegen = LLVMState 1 (UnName 0) (UnName 0) Seq.empty Seq.empty Seq.empty Map.empty Map.empty

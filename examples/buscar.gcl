@@ -70,7 +70,17 @@ program hola begin
  //    end
     
 |[
-	var a : array [1+x] of int;
+	var a := 1 : int;
+	read(a);
+	if a > 1 -> 
+		|[
+			|[
+				writeln(101)
+			]|
+			
+		]|
+	[] a < 1  -> writeln(2)
+	fi;
 	write(1)
 ]|
 

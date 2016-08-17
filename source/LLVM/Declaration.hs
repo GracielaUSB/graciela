@@ -16,27 +16,28 @@ import           SymbolTable
 import qualified Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad                           (zipWithM)
+import           Control.Monad                           (zipWithM_)
 import           Data.Monoid                             ((<>))
+import           Data.Sequence                           (Seq)
+import qualified Data.Sequence                           as Seq (singleton,
+                                                         fromList, empty)
 import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST.Name                  (Name(..))
-import           LLVM.General.AST.Instruction           as LLVM (Instruction(..))
+import           LLVM.General.AST.Instruction           (Instruction(..))
 import           LLVM.General.AST.Instruction           (Named(..))
 import           LLVM.General.AST.Operand               (Operand(..), CallableOperand)
 --------------------------------------------------------------------------------
 
-declaration :: Declaration -> LLVM [Named LLVM.Instruction]
+declaration :: Declaration -> LLVM ()
 declaration Declaration {declType, declLvals, declExprs } = do 
   
-  allocations <- mapM alloc declLvals
-  
-  -- Declarations can be, With Assign or Without Assign
   if null declExprs
-    then return allocations
+    then mapM_ alloc declLvals
     else do 
-      stores <- zipWithM store declLvals declExprs
-      return  $ allocations <> concat stores
+      mapM_ alloc declLvals
+      zipWithM_ store declLvals declExprs
+
 
   where
     {- LLVM type of all the variables in the declaration -}
@@ -44,18 +45,18 @@ declaration Declaration {declType, declLvals, declExprs } = do
     
     {- Allocate a variable -}
     alloc lval = do 
-      let alloc' = LLVM.Alloca 
+      let alloc' = Alloca 
             { allocatedType = type'
             , numElements   = Nothing
             , alignment     = 4
             , metadata      = []
             }
-      return $ Name (unpack lval) := alloc'
+      addInstructions $ Seq.singleton $ Name (unpack lval) := alloc'
 
     {- Store an expression in a variable memory -}
     store lval expr = do
-      (value, insts) <- expression expr
-      let store = LLVM.Store
+      value <- expression expr
+      let store = Store
             { volatile = False
             , address  = LocalReference type' $ Name (unpack lval) 
             , value    = value
@@ -64,6 +65,6 @@ declaration Declaration {declType, declLvals, declExprs } = do
             , metadata  = []
             }
       -- The store is an unamed instruction, so get the next instrucction label
-      label <- nextLabel
-      return $ insts <> [label := store]
+      label <- newLabel
+      addInstructions $ Seq.singleton (label := store)
       
