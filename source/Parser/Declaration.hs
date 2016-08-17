@@ -8,172 +8,144 @@ Copyright   : Graciela
 Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
 -}
-module Parser.Declaration where
+module Parser.Declaration (declaration) where
 
 -------------------------------------------------------------------------------
-import           AST.Expression                 (Expression(..))
-import           AST.Declaration                (Declaration(..))
-import           AST.Type
-import           AST.Object
+import           AST.Declaration                (Declaration (..))
+import           AST.Expression                 (Expression (..),
+                                                 Expression' (Value))
 import           Entry                          as E
+import           Error
 import           Graciela
 import           Location
-import           Error
 import           Parser.Expression
 import           Parser.Recovery
 import           Parser.Token
 import           Parser.Type
 import           SymbolTable
 import           Token
--------------------------------------------------------------------------------
+import           Type
+--------------------------------------------------------------------------------
 import           Control.Lens                   (use, (%=))
-import           Control.Monad                  (unless, void, when, zipWithM_)
+import           Control.Monad                  (foldM, forM_, unless, void,
+                                                 when, zipWithM_)
 import           Control.Monad.Trans.State.Lazy
-import           Data.Functor.Identity
+-- import           Data.Functor.Identity
+import           Data.Functor                   (($>))
 import           Data.Monoid                    ((<>))
+import           Data.Sequence                  (Seq, (|>))
+import qualified Data.Sequence                  as Seq (empty, fromList, null)
 import           Data.Text                      (Text, unpack)
-import           Text.Megaparsec                (sepBy1,sepBy, (<|>), try, 
-                                                 getPosition, notFollowedBy)
 import           Prelude                        hiding (lookup)
--------------------------------------------------------------------------------
--- | Se encarga del parseo de las variables y su almacenamiento en la tabla de simbolos.
-variableDeclaration :: Graciela Declaration
-variableDeclaration = try withAssign <|> withoutAssign
-  where
-    -- Try to parse if the declared variables are beign assigned
-    withAssign = do
-      from <- getPosition
-      match TokVar
-      ids <- identifierAndLoc `sepBy1` match TokComma
-      -- If not followed by a `:` then its followed by a `:=`
-      notFollowedBy (match TokColon)
-      withRecovery TokAssign
-      -- Get the expressions beign assigned
-      exprs <- expression `sepBy1` match TokComma
-      match TokColon
-      t  <- type'
-      to <- getPosition
-      let location = Location(from,to)
-      let len = length ids == length exprs
-      if not len
-        then do 
-          genCustomError "La cantidad de variables es distinta a la de expresiones"
-          return $ BadDeclaration location
-        else do 
-          zipWithM_ (checkType t) ids exprs
-          return $ Declaration { 
-                      declLoc   = location
-                    , declType  = t
-                    , declLvals = fmap fst ids
-                    , declExprs = exprs
-                    }
-    checkType t (id,location) expr@(Expression {}) = if t == expType expr
-      then do
-        let entry = Entry 
-              { _entryName = id 
-              , _loc       = location
-              , _info      = Var 
-                { _varType  = t
-                , _varValue = Just expr
-                }
-              }
-        symbolTable %= insertSymbol id entry
-      else genCustomError $
-        "Intentando asignar una expresion de tipo `" <>
-        show (expType expr) <> "` a una variable de tipo `" <>
-        show  t <> "`"
-
-    checkType t _ _ = return ()
-    
-    -- If not followed by a `:=`, then just put all the variables in the symbol table 
-    withoutAssign = do 
-      from <- getPosition
-      match TokVar
-      ids <- identifierAndLoc `sepBy1` match TokComma
-      match TokColon
-      t <- type'
-      to <- getPosition
-      let location = Location(from,to)
-      (flip mapM_) ids $ \(id,loc) -> do 
-                let entry = Entry {
-                      _entryName = id
-                    , _loc       = location
-                    , _info      = Var t Nothing
-                    }
-                symbolTable %= insertSymbol id entry
-      return Declaration 
-        { declLoc   = location
-        , declType  = t
-        , declLvals = fmap fst ids
-        , declExprs = []
-        }
-
-constantDeclaration :: Graciela Declaration
-constantDeclaration = do
+import           Text.Megaparsec                (getPosition, notFollowedBy,
+                                                 optional, sepBy, sepBy1, try,
+                                                 (<|>))
+--------------------------------------------------------------------------------
+type Constness = Bool
+-- | Se encarga del parseo de las variables y su almacenamiento en
+-- la tabla de simbolos.
+declaration :: Graciela Declaration
+declaration = do
   from <- getPosition
-  match TokConst    
+  isConst <- match TokVar $> False <|> match TokConst $> True
   ids <- identifierAndLoc `sepBy1` match TokComma
-  withRecovery TokAssign
-  exprs <- expression `sepBy1` match TokComma
-  withRecovery TokColon
-  t  <- basicType
+
+  mvals <- (if isConst then (Just <$>) else optional) assignment
+
+  match TokColon
+  t <- if isConst then basicType else type'
   to <- getPosition
-  let location = Location(from,to)
-  if t == GUndef
+
+  let
+    location = Location (from, to)
+
+  if isConst && t == GUndef
     then do
-      genCustomError ("Se intenta declarar constante de tipo `" <>
-                       show t <>"`, pero solo pueden ser de tipos basicos.")
-      return $ BadDeclaration location
-    else do
-      -- Check if the length of both, constants and expressions, are the same
-      let len = length ids == length exprs
-      if not len
-        then do 
-          genCustomError "La cantidad de constantes es distinta a la de expresiones"
-          return $ BadDeclaration location
-        else do
-          -- Check for each value, if has the correct type
-          zipWithM_ (checkType t) ids exprs
-          -- Get the ids' text and the assigned expressions
-          let ids'  = fmap fst ids
-          return $ Declaration 
-                    { declLoc   = location
-                    , declType  = t 
-                    , declLvals = ids'
-                    , declExprs = exprs
-                    }
-  where
-    checkType t (id,location) expr = if expType expr == t
-      then if constant expr 
-        then do
-          let entry = Entry 
-                      { _entryName = id
-                      , _loc       = location
-                      , _info      = Var 
-                          { _varType  = t
-                          , _varValue = Just expr
-                          }
-                      }
+      genCustomError $
+        "Se intentó declarar constante de tipo `" <> show t <>
+        "`, pero sólo se permiten constantes de tipos basicos."
+      pure $ BadDeclaration location
+    else case mvals of
+      Nothing -> do
+        forM_ ids $ \(id, loc) -> do
+          let
+            entry = Entry
+              { _entryName = id
+              , _loc       = location
+              , _info      = Var t Nothing }
           symbolTable %= insertSymbol id entry
-        else 
-          genCustomError ("Intentando asignar una expresion que no es constante `" <>
-                           show (expType expr)<>"` a la constante `" <> unpack id <> "`")  
-      else
-        genCustomError ("Intentando asignar una expresion de tipo `" <>
-                         show (expType expr)<>"` a una constante de tipo `"<>
-                         show t <> "`")
+        pure Declaration
+          { declLoc  = location
+          , declType = t
+          , declIds  = fmap fst . Seq.fromList $ ids }
 
--- Find an identifier and returns it's name and the location
-identifierAndLoc :: Graciela (Text, Location)
-identifierAndLoc  = do
-  from <- getPosition
-  id <- identifier
-  to <- getPosition
-  return (id, Location(from,to))
+      Just exprs ->
+        if length ids == length exprs
+          then do
+            pairs <- foldM (checkType isConst t) Seq.empty $ zip ids exprs
+            pure $ if Seq.null pairs
+              then BadDeclaration location
+              else Initialization
+                { declLoc   = location
+                , declType  = t
+                , declPairs = pairs }
+          else do
+            genCustomError $
+              "La cantidad de " <>
+              (if isConst then "constantes" else "variables") <>
+              " es distinta a la de expresiones"
+            pure $ BadDeclaration location
 
+assignment :: Graciela [Expression]
+assignment = match TokAssign *> expression `sepBy1` match TokComma
 
--- | Verifica las variables utilizadas en la lectura
--- decListWithRead :: Graciela Token -> Graciela [Instruction]
--- decListWithRead follow = do
+checkType :: Constness -> Type
+          -> Seq (Text, Expression) -> ((Text, Location), Expression)
+          -> Graciela (Seq (Text, Expression))
+checkType _ _ _ (_, BadExpression {}) = pure Seq.empty
+checkType True t pairs
+  ((identifier, location), expr@Expression { expType, exp' }) =
+  if expType =:= t
+    then case exp' of
+      Value _ -> do
+        let
+          entry = Entry
+            { _entryName  = identifier
+            , _loc        = location
+            , _info       = Const
+              { _constType  = t
+              , _constValue = expr }}
+        symbolTable %= insertSymbol identifier entry
+        pure $ pairs |> (identifier, expr)
+      _       -> do
+        genCustomError $
+          "Se intentó asignar una expresión que no constante a la \
+          \constante `" <> unpack identifier <> "`"
+        pure Seq.empty
+    else do
+      genCustomError $
+        "Se intentó asignar una expresión de tipo `" <> show expType <>
+        "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
+        show t <> "`"
+      pure Seq.empty
 
---   return []
+checkType False t pairs
+  ((identifier, location), expr@Expression { loc, expType, exp' }) =
+  if expType =:= t
+    then do
+      let
+        entry = Entry
+          { _entryName  = identifier
+          , _loc        = location
+          , _info       = Var
+            { _varType  = t
+            , _varValue = Just expr }}
+      symbolTable %= insertSymbol identifier entry
+      pure $ pairs |> (identifier, expr)
+
+    else do
+      genCustomError $
+        "Se intentó asignar una expresión de tipo `" <> show expType <>
+        "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
+        show t <> "`"
+      pure Seq.empty

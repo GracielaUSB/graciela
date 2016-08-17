@@ -11,7 +11,7 @@ module Parser.Definition
 import           AST.Expression
 import           AST.Definition
 import           AST.Instruction
-import           AST.Type
+import           Type
 import           Entry
 import           Graciela
 import           Location
@@ -55,15 +55,15 @@ function  = do
   symbolTable %= openScope from
   withRecovery TokBegin
   body <- expression
-  withRecovery TokEnd 
+  withRecovery TokEnd
   to  <- getPosition
   let location = Location (from, to)
   st  <- use symbolTable
   symbolTable %= closeScope to
   if retType == GUndef
     then return $ BadDefinition location
-    else case body of 
-      BadExpression _ -> do 
+    else case body of
+      BadExpression _ -> do
         putError (loc body) $ UnknownError "Bad expression"
         return $ BadDefinition location
       _ -> if retType /= expType body
@@ -78,20 +78,20 @@ function  = do
                 { _entryName = id
                 , _loc       = location
                 , _info      = Function
-                  { _funcType   = retType 
+                  { _funcType   = retType
                   , _funcParams = params
                   , _funcTable  = st }}
           symbolTable %= insertSymbol id entry
 
-          let def = Definition 
+          let def = Definition
                 { defLoc   = location
                 , defName  = id
                 , params   = params
                 , st       = st
                 , defBound = Nothing
-                , def'     = FunctionDef 
+                , def'     = FunctionDef
                   { funcBody = body
-                  , retType  = retType }} 
+                  , retType  = retType }}
           return def
 
   where
@@ -124,10 +124,10 @@ procedure = do
     pre  <- safeAssertion precondition  (NoProcPrecondition  id)
 
     bodyFrom <- getPosition
-    body <- try block 
-          <|> do 
+    body <- try block
+          <|> do
             bodyTo <- getPosition
-            let loc = Location (bodyFrom, bodyTo) 
+            let loc = Location (bodyFrom, bodyTo)
             putError loc $ NoProcBody id
             try $ anyToken `manyTill` lookAhead (match TokLeftPost)
             return $ BadInstruction loc
@@ -142,7 +142,7 @@ procedure = do
     symbolTable %= closeScope to
     currentProc .= Nothing
     if checkExp pre && checkExp pre && checkInst body && id /= errorId
-      then do 
+      then do
         let entry = Entry
               { _entryName = id
               , _loc       = loc
@@ -150,25 +150,25 @@ procedure = do
                 { _procParams = params
                 , _procTable  = st }}
         symbolTable %= insertSymbol id entry
-        let def = Definition 
+        let def = Definition
               { defLoc   = loc
               , defName  = id
               , params   = params
               , st       = st
               , defBound = Nothing
-              , def'     = ProcedureDef 
+              , def'     = ProcedureDef
                 { procDecl = decls
-                , pre      = pre 
+                , pre      = pre
                 , procBody = body
-                , post     = post }} 
+                , post     = post }}
         return def
-      else 
+      else
         return $ BadDefinition loc
-  where 
-    checkExp e = case e of 
+  where
+    checkExp e = case e of
       BadExpression _ -> False
       _ -> True
-    checkInst e = case e of 
+    checkInst e = case e of
       BadInstruction _ -> False
       _ -> True
 {- Gets the mode of the parameter. If fail then returns Nothing -}
@@ -183,15 +183,15 @@ paramMode =  match TokIn    $> Just In
 procParam :: Graciela (T.Text, Type)
 procParam = do
   from  <- getPosition
-  
+
   ptype <- paramMode
   id    <- identifier
   withRecovery TokColon
   retType     <- type'
-  
+
   to    <- getPosition
   let loc = Location(from,to)
-  
+
   case ptype of
     Just x | retType /= GUndef -> symbolTable %= insertSymbol id (Entry id loc (Argument In retType))
     _  -> genCustomError ("Se debe especificar el comportamiento de la variable `"
@@ -211,15 +211,15 @@ procedureDeclaration = do
     id <- identifier
     symbolTable %= openScope from
     params <- parens $ procParam `sepBy` match TokComma
-    
+
     notFollowedBy $ match TokArrow
     pre  <- precondition
     post <- postcondition
     st   <- use symbolTable
-    
+
     to   <- getPosition
     let loc = Location (from,to)
-    
+
     symbolTable %= closeScope to
     let entry = Entry
             { _entryName = id
@@ -228,16 +228,14 @@ procedureDeclaration = do
               { _procParams = params
               , _procTable  = st }}
     symbolTable %= insertSymbol id entry
-    
-    let def = Definition 
+
+    let def = Definition
           { defLoc   = loc
           , defName  = id
           , params   = params
           , st       = st
           , defBound = Nothing
-          , def'     = AbstractProcedureDef 
-            { pre  = pre 
-            , post = post }} 
+          , def'     = AbstractProcedureDef
+            { pre  = pre
+            , post = post }}
     return def
-
-

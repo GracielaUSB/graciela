@@ -21,6 +21,7 @@ import           Location
 import           Type
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
+import           Data.Int           (Int32)
 import           Data.List.NonEmpty (toList)
 import           Data.Monoid        ((<>))
 import           Data.Text          (Text, unpack)
@@ -168,13 +169,13 @@ data Token
 
   | TokBool       { unTokBool :: Bool }
   | TokChar       { unTokChar :: Char }
-  | TokInteger    { unTokInteger :: Integer }
+  | TokInteger    { unTokInteger :: Int32 }
+  | TokBadInteger { unTokBadInteger :: Integer }
   | TokFloat      { unTokFloatante :: Double}
   | TokString     { unTokString :: Text }
 
   | TokArray
   | TokId         { unTokId :: Text }
-  | TokId'        { unTokId' :: Text }
 
   -- | TokComment
   -- | EmptyToken
@@ -332,13 +333,13 @@ instance Show Token where
     (TokBool   False) -> "`false` - Booleano"
     (TokChar       c) -> "" <> show c <> " - Caracter"
     (TokInteger    n) -> "`" <> show n <> "` - Entero"
+    (TokBadInteger n) -> "`" <> show n <> "` - Entero fuera del rango permitido`"
     (TokFloat      n) -> " `" <> show n <> "` - Flotante"
     (TokString     e) -> "" <> show e <> " - Cadena de Caracteres"
 
     TokArray          -> "`array` - Tipo Arreglo"
 
     (TokId         i) -> "\"" <> unpack i <> "\" - Identificador"
-    (TokId'        i) -> "\"" <> unpack i <> "\'\" - Identificador'"
 
     -- TokComment        -> "`//` - Comentatios"
     -- EmptyToken        -> "Token Vacío"

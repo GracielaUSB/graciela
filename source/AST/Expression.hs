@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module AST.Expression
@@ -9,17 +10,20 @@ module AST.Expression
   , QRange (..)
   , QuantOperator (..)
   , UnaryOperator (..)
+  , Value (..)
   , from
   , to
+  , eSkip
   )
   where
 --------------------------------------------------------------------------------
 import           AST.Object    (Object')
 import           Location
 import           Treelike
-import           Type          (Type')
+import           Type          (Type)
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
+import           Data.Int      (Int32)
 import           Data.Monoid   ((<>))
 import           Data.Sequence (Seq)
 import qualified Data.Sequence as Seq (Seq)
@@ -28,7 +32,6 @@ import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 type Object = Object' Expression
-type Type   = Type' Expression
 
 
 data Conversion = ToInt | ToDouble | ToChar
@@ -137,11 +140,20 @@ instance Treelike QRange where
     leaf "Empty Range"
 
 
+data Value
+  = BoolV Bool
+  | CharV Char
+  | IntV Int32
+  | FloatV Double
+  deriving (Eq, Ord)
+
+
 data Expression'
-  = BoolLit   { theBool :: Bool }
-  | CharLit   { theChar :: Char }
-  | FloatLit  { theFloat :: Double }
-  | IntLit    { theInt :: Integer }
+  = Value { theValue :: Value }
+  --   BoolLit   { theBool :: Bool }
+  -- | CharLit   { theChar :: Char }
+  -- | FloatLit  { theFloat :: Double }
+  -- | IntLit    { theInt :: Integer }
   | StringLit { theString :: String  }
 
   | EmptySet
@@ -178,33 +190,43 @@ data Expression'
   | EConditional -- ^ Expresión If.
     { eguards :: Seq (Expression, Expression) }
 
-  | ESkip
   deriving (Eq)
 
 data Expression
   = Expression
-    { loc      :: Location
-    , expType  :: Type
-    , constant :: Bool
-    , exp'     :: Expression' }
+    { loc     :: Location
+    , expType :: Type
+    -- , constant :: Bool
+    , exp'    :: Expression' }
   | BadExpression
     { loc :: Location }
   deriving (Eq)
 
 
+eSkip :: Expression'
+eSkip = Value . BoolV  $ True
+
+
 instance Treelike Expression where
   toTree Expression { loc, expType, exp' } = case exp' of
-    BoolLit   { theBool   } -> leaf $
-      "Bool Literal `"   <> show theBool   <> "` " <> show loc
+    Value { theValue } -> leaf $
+      case theValue of
+        BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
+        CharV  v -> "Char Value `"  <> show v <> "` " <> show loc
+        IntV   v -> "Int Value `"   <> show v <> "` " <> show loc
+        FloatV v -> "Float Value `" <> show v <> "` " <> show loc
 
-    CharLit   { theChar   } -> leaf $
-      "Char Literal "    <> show theChar   <> " "  <> show loc
-
-    FloatLit  { theFloat  } -> leaf $
-      "Float Literal `"  <> show theFloat  <> "` " <> show loc
-
-    IntLit    { theInt    } -> leaf $
-      "Int Literal `"    <> show theInt    <> "` " <> show loc
+    -- BoolLit   { theBool   } -> leaf $
+    --   "Bool Literal `"   <> show theBool   <> "` " <> show loc
+    --
+    -- CharLit   { theChar   } -> leaf $
+    --   "Char Literal "    <> show theChar   <> " "  <> show loc
+    --
+    -- FloatLit  { theFloat  } -> leaf $
+    --   "Float Literal `"  <> show theFloat  <> "` " <> show loc
+    --
+    -- IntLit    { theInt    } -> leaf $
+    --   "Int Literal `"    <> show theInt    <> "` " <> show loc
 
     StringLit { theString } -> leaf $
       "String Literal `" <> show theString <> "` " <> show loc
@@ -243,7 +265,7 @@ instance Treelike Expression where
           , leaf $ "of type " <> show qVarType ]
         , Node "Range" [toTree qRange]
         , case qCond of
-            Expression { exp' = ESkip } -> leaf "No Conditions"
+            Expression { exp' } | exp' == eSkip -> leaf "No Conditions"
             _ -> Node "Conditions" [ toTree qCond ]
         , Node "Body" [ toTree qBody ] ]
 
@@ -256,9 +278,6 @@ instance Treelike Expression where
           Node "Guard"
             [ Node "If"   [toTree lhs]
             , Node "Then" [toTree rhs] ]
-
-    ESkip ->
-      leaf "Skip Expression"
 
   toTree BadExpression { loc } =
     leaf $ "Bad Expression " <> show loc
@@ -309,15 +328,26 @@ prettyUnOp Sqrt   = "sqrt"
 prettyUnOp Pred   = "pred"
 prettyUnOp Succ   = "succ"
 
+
+instance Show Value where
+  show = \case
+    BoolV  v -> show v
+    CharV  v -> [v]
+    IntV   v -> show v
+    FloatV v -> show v
+
+
 instance Show Expression where
   show Expression { loc, expType, exp' } = case exp' of
-    BoolLit   { theBool   } -> show theBool
+    Value { theValue } -> show theValue
 
-    CharLit   { theChar   } -> [theChar]
-
-    FloatLit  { theFloat  } -> show theFloat
-
-    IntLit    { theInt    } -> show theInt
+    -- BoolLit   { theBool   } -> show theBool
+    --
+    -- CharLit   { theChar   } -> [theChar]
+    --
+    -- FloatLit  { theFloat  } -> show theFloat
+    --
+    -- IntLit    { theInt    } -> show theInt
 
     StringLit { theString } -> show theString
 
@@ -327,27 +357,25 @@ instance Show Expression where
 
     Obj { theObj } -> show theObj
 
-    Binary { binOp, lexpr, rexpr } -> 
+    Binary { binOp, lexpr, rexpr } ->
       "(" <> show lexpr <> prettyBinOp binOp <> show rexpr <> ")"
 
-    Unary { unOp, inner } -> 
+    Unary { unOp, inner } ->
       prettyUnOp unOp <> show inner
 
-    FunctionCall { fname, {-astST,-} args } -> 
-      unpack fname <> "(" <> (concat . fmap show) args <> ")"
+    FunctionCall { fname, {-astST,-} args } ->
+      unpack fname <> "(" <> (show =<< args) <> ")"
 
-    Conversion { toType, cExp } -> 
+    Conversion { toType, cExp } ->
       show toType <> "(" <> show cExp <> ")"
 
     Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> "quantifier"
 
-    EConditional { eguards } -> 
-      "if " <> (concat . fmap showG . toList) eguards <> "fi"
+    EConditional { eguards } ->
+      "if " <> (showG =<< toList eguards) <> "fi"
 
       where
         showG (lhs, rhs) =
           show lhs <> " -> " <> show rhs <> "[]"
-
-    ESkip -> "skip"
 
   show BadExpression {} = ""

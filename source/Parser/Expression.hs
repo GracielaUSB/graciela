@@ -9,28 +9,31 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           AST.Type                  (Type, Type'(..), (=:=), ArgMode(..))
-import           Entry                     (Entry' (..), Entry'' (..),
-                                            info, varType)
+import           Entry                     (Entry' (..), Entry'' (..), info,
+                                            varType)
+import qualified Error                     as PE
 import           Graciela
 import           Lexer
 import           Limits
 import           Location
-import           Error              as PE
 import           Parser.ExprM              (Operator (..), makeExprParser)
+import qualified Parser.Operator           as Op
 import           Parser.Token
 import           SymbolTable               (closeScope, insertSymbol, lookup,
                                             openScope)
 import           Token
 import           Treelike
-
+import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Applicative       (Alternative)
-import           Control.Lens              (makeLenses, use, (%=), (<&>), (^.))
-import           Control.Monad             (void, when, (>=>), unless, foldM)
+import           Control.Lens              (makeLenses, use, (%=), (&~), (<&>),
+                                            (^.))
+import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT, evalStateT, get, gets,
-                                            modify, put, runState)
+import           Control.Monad.Trans.State (StateT, execStateT, evalStateT, get,
+                                            gets, modify, put, runState)
+import           Data.Char                 (chr, ord)
+import           Data.Fixed                (mod')
 import           Data.Functor              (($>))
 import qualified Data.Map                  as Map (lookup)
 import           Data.Monoid               ((<>))
@@ -42,7 +45,6 @@ import           Text.Megaparsec           (between, getPosition, runParser,
                                             runParserT, sepBy, sepBy1, some,
                                             try, (<|>))
 --------------------------------------------------------------------------------
-import           Control.Lens              ((&~))
 import           Debug.Trace
 
 expression :: Graciela Expression
@@ -83,44 +85,36 @@ term :: GracielaRange MetaExpr
 term =  parens metaexpr
  -- <|> try call -- TODO: function calling, depends on ST design
     <|> variable
-    <|> (get >>= bool)
-    <|> basicLit integerLit       IntLit        GInt
-    <|> basicLit floatLit         FloatLit      GFloat
-    <|> basicLit charLit          CharLit       GChar
+    <|> bool
+    <|> basicLit integerLit       IntV          GInt
+    <|> basicLit floatLit         FloatV        GFloat
+    <|> basicLit charLit          CharV         GChar
     <|> setLit   TokEmptySet      EmptySet      GSet
     <|> setLit   TokEmptyMultiset EmptyMultiset GMultiset
     <|> quantification
     <|> ifExp
 
   where
-    bool :: [Text] -> GracielaRange MetaExpr
-    bool [] = basicLit boolLit BoolLit GBool
-    bool _  = do
+    bool :: GracielaRange MetaExpr
+    bool = do
       from <- getPosition
       lit <- boolLit
       to <- getPosition
 
-      let loc = Location (from, to)
+      let
+        expr = Expression
+          { E.loc   = Location (from, to)
+          , expType = GBool
+          , exp'    = Value . BoolV $ lit }
+        range = if lit
+          then ProtoNothing
+          else ProtoQRange EmptyRange
 
-      pure $ if lit
-        then let expr = Expression
-                  { E.loc
-                  , expType = GBool
-                  , constant = True
-                  , exp' = BoolLit lit }
-        in (expr, ProtoNothing, Taint False)
+      pure (expr, range, Taint False)
 
-        else let expr = Expression
-                  { E.loc
-                  , expType = GBool
-                  , constant = True
-                  , exp' = ESkip }
-          in (expr, ProtoQRange EmptyRange, Taint False)
-
-
-    basicLit :: Graciela a -> (a -> Expression') -> Type
+    basicLit :: Graciela a -> (a -> Value) -> Type
              -> GracielaRange MetaExpr
-    basicLit litp expr' t = do
+    basicLit litp val t = do
       from <- getPosition
       lit <- lift litp
       to <- getPosition
@@ -129,8 +123,7 @@ term =  parens metaexpr
         expr = Expression
           { E.loc   = Location (from, to)
           , expType = t
-          , constant = True
-          , exp'    = expr' lit }
+          , exp'    = Value . val $ lit }
 
       pure (expr, ProtoNothing, Taint False)
 
@@ -145,7 +138,6 @@ term =  parens metaexpr
         expr = Expression
           { E.loc    = Location (from, to)
           , expType  = t GAny
-          , constant = True
           , exp'     = e }
 
       pure (expr, ProtoNothing, Taint False)
@@ -164,7 +156,7 @@ variable = do
   case name `lookup` st of
 
     Left _ -> do
-      lift . syntaxError . (`CustomError` loc) $
+      lift . syntaxError . (`PE.CustomError` loc) $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
@@ -175,7 +167,6 @@ variable = do
         let expr = Expression
               { E.loc
               , expType = _varType
-              , constant = False
               , exp' = Obj
                 { theObj = Object
                   { O.loc
@@ -204,7 +195,6 @@ variable = do
           expr = Expression
             { E.loc
             , expType = _constType
-            , constant = True
             , exp' = Obj
               { theObj = Object
                 { O.loc
@@ -214,13 +204,11 @@ variable = do
 
         in pure (expr, ProtoNothing, Taint False)
 
-
       Argument { _argMode, _argType } | _argMode == In || _argMode == InOut ->
-        let 
+        let
           expr = Expression
             { E.loc
             , expType  = _argType
-            , constant = _argMode == In
             , exp'     = Obj
               { theObj = Object
                 { O.loc
@@ -252,20 +240,20 @@ quantification = do
     Expression {} ->
       case protorange of
         ProtoVar ->
-          lift . syntaxError . (`CustomError` rloc) $
+          lift . syntaxError . (`PE.CustomError` rloc) $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoNothing       ->
-          lift . syntaxError . (`CustomError` rloc) $
+          lift . syntaxError . (`PE.CustomError` rloc) $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoLow         _ ->
-          lift . syntaxError $ (`CustomError` rloc)
+          lift . syntaxError $ (`PE.CustomError` rloc)
             "Bad quantification range. No upper bound was given."
         ProtoHigh        _ ->
-          lift . syntaxError $ (`CustomError` rloc)
+          lift . syntaxError $ (`PE.CustomError` rloc)
             "Bad quantification range. No lower bound was given."
         ProtoQRange qrange ->
           pure ()
@@ -277,9 +265,9 @@ quantification = do
   (body, _, taint1) <- metaexpr
 
   case body of
-    Expression { expType = bType, E.loc = bloc } ->
-      unless (bType =:= allowedBType) .
-        lift . syntaxError . (`CustomError` bloc) $
+    Expression { expType = bodyType, E.loc = bloc } ->
+      unless (bodyType =:= allowedBType) .
+        lift . syntaxError . (`PE.CustomError` bloc) $
           "Bad quantification body. Body must be " <> show allowedBType <> "."
     _ -> pure ()
 
@@ -298,13 +286,12 @@ quantification = do
         BadExpression {} ->
           BadExpression { E.loc }
 
-        Expression { expType = bType } ->
+        Expression { expType = bodyType } ->
           case protorange of
-            ProtoQRange qRange -> if bType =:= allowedBType
+            ProtoQRange qRange -> if bodyType =:= allowedBType
               then Expression
                 { E.loc
                 , expType = expType body
-                , constant = False -- Quantifications are never constant
                 , exp' = Quantification
                   { qOp      = q
                   , qVar     = var
@@ -348,7 +335,7 @@ quantification = do
       case typeEntry of
         Nothing -> do
           lift . syntaxError $
-            CustomError ("type `" <> unpack tname <> "` does not exist" ) loc
+            PE.CustomError ("type `" <> unpack tname <> "` does not exist" ) loc
           pure (var, Nothing)
 
         Just (t,_) ->
@@ -363,22 +350,36 @@ quantification = do
               pure (var, Just t)
             else do
               lift . syntaxError $
-                CustomError
+                PE.CustomError
                   ("type `" <> unpack tname <> "` is not quantifiable" ) loc
               pure (var, Nothing)
-              
+
+
+data IfBuilder
+  = IfGuards (Seq (Expression, Expression))
+  | IfExp Expression
+  | IfNothing
+  deriving (Show)
+
+instance Monoid IfBuilder where
+  mempty = IfGuards Seq.empty
+  IfNothing      `mappend` _              = IfNothing
+  _              `mappend` IfNothing      = IfNothing
+  (IfExp e)      `mappend` _              = IfExp e
+  _              `mappend` (IfExp e)      = IfExp e
+  (IfGuards gs0) `mappend` (IfGuards gs1) = IfGuards (gs0 <> gs1)
+
 
 data IfState = IfState
-  { ifType :: Type
-  , ifGuards :: Seq (Expression, Expression)
-  , ifTaint :: Taint
-  , ifConstant :: Bool }
+  { ifType    :: Type
+  , ifBuilder :: IfBuilder
+  , ifTaint   :: Taint }
 
 initialIfState = IfState
-  { ifType     = GAny
-  , ifGuards   = Seq.empty
-  , ifTaint    = Taint False
-  , ifConstant = True }
+  { ifType    = GAny
+  , ifBuilder = IfGuards Seq.empty
+  , ifTaint   = Taint False }
+
 
 ifExp :: GracielaRange MetaExpr
 ifExp = do
@@ -387,42 +388,30 @@ ifExp = do
 
   -- The StateT on top of GracielaRange allows us to manage
   -- a state local to this level of abstraction.
-  if' <- evalStateT guards (Just initialIfState)
+  IfState { ifType, ifBuilder, ifTaint } <- execStateT guards initialIfState
 
   match TokFi
+
   to <- getPosition
 
-  pure $ if' from to
+  let
+    loc = Location (from, to)
+
+    expr = case ifBuilder of
+      IfNothing -> BadExpression { E.loc }
+      IfExp e -> e { E.loc, expType = ifType }
+      IfGuards gs -> Expression
+        { E.loc
+        , expType = ifType
+        , exp' = EConditional gs }
+
+  pure (expr, ProtoNothing, ifTaint)
 
   where
-    guards = do
+    guards =
       -- We run `line` for each "a -> b" pair in the If metaexpr,
       -- and then we extract the final set of guards
       line `sepBy1` match TokSepGuards
-      st <- get
-
-      pure $ \from to ->
-        let
-          -- If there were errors, we return a BadExpression, otherwise,
-          -- it's the conditional we were looking for
-          expr = case st of
-            Just IfState { ifType, ifGuards, ifConstant } ->
-              Expression
-                { E.loc = Location (from, to)
-                , expType = ifType
-                , constant = ifConstant
-                , exp' = EConditional
-                  { eguards = ifGuards }}
-            Nothing ->
-              BadExpression
-                { E.loc = Location (from, to) }
-
-          -- Taint propagates usually
-          taint = case st of
-            Just IfState { ifTaint } -> ifTaint
-            Nothing -> Taint False
-        in
-          (expr, ProtoNothing, taint)
 
     line = (get >>= lhs) <* match TokArrow >>= rhs
 
@@ -432,7 +421,7 @@ ifExp = do
       -- and three things could have happened,
 
       case l of
-        e @ Expression { expType = GBool, E.loc } -> do
+        e @ Expression { expType = GBool, E.loc } ->
         -- 1. We have a good boolean expression, which is ideal
           pure (Just e, st, taint0)
 
@@ -440,77 +429,78 @@ ifExp = do
           -- 2. We have a good expression which isn't boolean, so we
           -- report the error and clear the previous guards
           lift . lift . syntaxError $
-            CustomError "bad left side in conditional expression" loc
+            PE.CustomError "bad left side in conditional expression" loc
           pure (Nothing, st, taint0)
 
-        BadExpression { E.loc } -> do
+        BadExpression { E.loc } ->
         -- 3. We have a bad expression, which means there was an error
         -- before which we can only propagate
           pure (Nothing, st, taint0)
 
 
-    rhs (ml, st, taint0) = do
+    rhs (ml, st@IfState { ifType, ifBuilder, ifTaint }, taint0) = do
       (r, _, taint1) <- lift metaexpr
       -- We take the right hand side of the guard,
       -- and 7 things could have happened,
 
-      case st of
-        Nothing ->
+      case ifBuilder of
+        IfNothing ->
           -- 1. An error occurred in a previous line, there's nothing to do
           -- about this one.
-          put Nothing
+          pure ()
 
-        Just IfState { ifType, ifGuards, ifTaint, ifConstant } ->
+        _ ->
           -- No errors have occured in previous lines, and
 
-          case ml of
-            Nothing ->
-              -- The lhs was bad, but we must still give messages for the rhs,
-              case r of
-                Expression { E.loc = rloc, expType } ->
-                  if expType =:= ifType
-                    then
-                      -- 2. The rhs is perfect, but it's not enough
-                      put Nothing
-                    else do
-                      -- 3. The rhs type doesn't match previous lines
-                      lift . lift . syntaxError $ CustomError
-                        "bad right side in conditional expression"
-                        rloc
-                      put Nothing
-                BadExpression {} ->
-                  -- 4. The rhs is a BadExpression, which means there was
-                  -- an error deep in it which we can only propagate
-                  put Nothing
+          case r of
+            BadExpression {} ->
+              -- 1. The rhs is a BadExpression, which means there was
+              -- an error deep in it which we can only propagate
+              put st { ifType = GUndef, ifBuilder = IfNothing }
 
-            Just l ->
-            -- The lhs was ok, (e is always a (Good)Expression), we must now
-            -- check the rhs
-              case r of
-                Expression { E.loc = rloc, expType } ->
-                  if expType =:= ifType
-                    then
-                      -- 5. We have a good expression whose type matches the
-                      -- type of previous guards. (In the case of the first
-                      -- guard, the match is done against GAny, i.e., any type
-                      -- will match). In this case, we add this guard to the
-                      -- list and we propagate taint.
-                      put $ Just IfState
-                        { ifType     = expType
-                        , ifGuards   = ifGuards |> (l, r)
-                        , ifTaint    = ifTaint <> taint0 <> taint1
-                        , ifConstant = ifConstant && constant l && constant r }
-                    else do
-                      -- 6. We have a good expression whose type didn't match,
-                      -- so we report the error and clear the previous guards.
-                      lift . lift . syntaxError $
-                        CustomError "bad right side in conditional expression" rloc
-                      put Nothing
+            Expression { E.loc = rloc, expType } ->
+              if expType =:= ifType
+                then
+                  -- The rhs is perfect in syntax and type
+                  case ml of
+                    Nothing ->
+                      -- 2. But the lhs was bad, so we clear everything
+                      put st { ifType = GUndef, ifBuilder = IfNothing }
 
-                BadExpression {} ->
-                  -- 7. The rhs is a BadExpression, which means there was
-                  -- an error deep in it which we can only propagate
-                  put Nothing
+                    Just l
+                      | exp' l == Value (BoolV True) ->
+                        -- 3. The lhs has the true value, so we only keep
+                        -- the final value of the ifExp is this rhs.
+
+                        put st
+                          { ifType = expType
+                          , ifBuilder = ifBuilder <> IfExp r
+                          , ifTaint = taint1 }
+
+                      | exp' l == Value (BoolV False) ->
+                        -- 4. We have a good rhs that must be ignored because
+                        -- its lhs was false. Its type does affect the ifExp.
+                        put st { ifType = expType }
+
+                      | otherwise ->
+                        -- 5. We have a good rhs whose type matches the
+                        -- type of previous guards, while the lhs value will be
+                        -- known only at runtime, so we leave this guard
+                        -- expressed as a tuple. (In the case of the first
+                        -- guard, the match is done against GAny, i.e., any
+                        -- type will match).
+                        put IfState
+                          { ifType    = expType
+                          , ifBuilder =
+                            ifBuilder <> IfGuards (Seq.singleton (l, r))
+                          , ifTaint   = ifTaint <> taint0 <> taint1 }
+
+                else do
+                  -- 6. The rhs type doesn't match previous lines
+                  lift . lift . syntaxError $ PE.CustomError
+                    "bad right side in conditional expression"
+                    rloc
+                  put st { ifType = GUndef, ifBuilder = IfNothing }
 
 
 operator :: [[ Operator GracielaRange MetaExpr ]]
@@ -521,42 +511,42 @@ operator =
   , {-Level 1-}
     [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 2-}
-    [ Prefix (match TokNot        <&> unary booleanU    Not   )
-    , Prefix (match TokMinus      <&> unary arithmeticU UMinus)
-    , Prefix (match TokAbs        <&> unary arithmeticU Abs   )
-    , Prefix (match TokSqrt       <&> unary arithmeticU Sqrt  ) ]
+    [ Prefix (match TokNot        <&> unary Op.not    )
+    , Prefix (match TokMinus      <&> unary Op.uMinus )
+    , Prefix (match TokAbs        <&> unary Op.abs    )
+    , Prefix (match TokSqrt       <&> unary Op.sqrt   ) ]
   , {-Level 3-}
-    [ InfixR (match TokPower      <&> binary arithmetic Power) ]
+    [ InfixR (match TokPower      <&> binary Op.power ) ]
   , {-Level 4-}
-    [ InfixL (match TokTimes      <&> binary arithmetic Times)
-    , InfixL (match TokDiv        <&> binary arithmetic Div  )
-    , InfixL (match TokMod        <&> binary arithmetic Mod  ) ]
+    [ InfixL (match TokTimes      <&> binary Op.times )
+    , InfixL (match TokDiv        <&> binary Op.div   )
+    , InfixL (match TokMod        <&> binary Op.mod   ) ]
   , {-Level 5-}
-    [ InfixL (match TokPlus       <&> binary arithmetic Plus  )
-    , InfixL (match TokMinus      <&> binary arithmetic BMinus) ]
+    [ InfixL (match TokPlus       <&> binary Op.plus   )
+    , InfixL (match TokMinus      <&> binary Op.bMinus ) ]
   , {-Level 6-}
-    [ InfixL (match TokMax        <&> binary arithmetic Max)
-    , InfixL (match TokMin        <&> binary arithmetic Min) ]
+    [ InfixL (match TokMax        <&> binary Op.max    )
+    , InfixL (match TokMin        <&> binary Op.min    ) ]
   , {-Level 7-}
-    [ InfixN (match TokElem       <&> membership)
-    , InfixN (match TokNotElem    <&> binary elemSet NotElem)
-    , InfixN (match TokLT         <&> comparison LT)
-    , InfixN (match TokLE         <&> comparison LE)
-    , InfixN (match TokGT         <&> comparison GT)
-    , InfixN (match TokGE         <&> comparison GE) ]
+    [ InfixN (match TokElem       <&> membership        )
+    , InfixN (match TokNotElem    <&> binary Op.notElem )
+    , InfixN (match TokLT         <&> comparison Op.lt  )
+    , InfixN (match TokLE         <&> comparison Op.le  )
+    , InfixN (match TokGT         <&> comparison Op.gt  )
+    , InfixN (match TokGE         <&> comparison Op.ge  ) ]
   , {-Level 8-}
-    [ InfixN (match TokAEQ        <&> pointRange)
-    , InfixN (match TokANE        <&> binary equality ANE) ]
+    [ InfixN (match TokAEQ        <&> pointRange    )
+    , InfixN (match TokANE        <&> binary Op.ane ) ]
   , {-Level 9-}
-    [ InfixR (match TokAnd        <&> conjunction) ]
+    [ InfixR (match TokAnd        <&> conjunction ) ]
   , {-Level 10-}
-    [ InfixR (match TokOr         <&> binary boolean Or) ]
+    [ InfixR (match TokOr         <&> binary Op.or ) ]
   , {-Level 11-}
-    [ InfixR (match TokImplies    <&> binary boolean Implies   )
-    , InfixL (match TokConsequent <&> binary boolean Consequent) ]
+    [ InfixR (match TokImplies    <&> binary Op.implies    )
+    , InfixL (match TokConsequent <&> binary Op.consequent ) ]
   , {-Level 12-}
-    [ InfixN (match TokBEQ        <&> binary boolean BEQ)
-    , InfixN (match TokBNE        <&> binary boolean BNE) ]
+    [ InfixN (match TokBEQ        <&> binary Op.beq )
+    , InfixN (match TokBNE        <&> binary Op.bne ) ]
   ]
 
 
@@ -582,7 +572,6 @@ subindex = do
                   expr = Expression
                     { E.loc = Location (from, to)
                     , expType = arrayType
-                    , constant = False
                     , exp' = Obj
                       { theObj = Object
                         { O.loc = Location (from, to)
@@ -601,14 +590,14 @@ subindex = do
               let loc = Location (from, to)
 
               lift . syntaxError $
-                CustomError "Cannot subindex non-array." loc
+                PE.CustomError "Cannot subindex non-array." loc
 
               pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
         _ -> do
           let subloc = Location (from', to)
           lift . syntaxError $
-            CustomError "Bad subindex. Must be integer expression." subloc
+            PE.CustomError "Bad subindex. Must be integer expression." subloc
           pure $ badSubindex to
 
     where
@@ -631,7 +620,6 @@ deref = do
         let expr = Expression
               { E.loc = Location (from, to)
               , expType = pointerType
-              , constant = False
               , exp' = Obj
                 { theObj = Object
                   { O.loc = Location (from, to)
@@ -650,121 +638,78 @@ deref = do
       let loc = Location (from, to)
 
       lift . syntaxError $
-        CustomError "Cannot deref non-pointer." loc
+        PE.CustomError "Cannot deref non-pointer." loc
 
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
 
-type UnaryOpType = Type -> Either String Type
-
-arithmeticU :: UnaryOpType
-arithmeticU GInt   = Right GInt
-arithmeticU GChar  = Right GChar
-arithmeticU GFloat = Right GFloat
-arithmeticU _      = Left $
-  show GInt   <> ", " <>
-  show GChar  <> ", or " <>
-  show GFloat
-
-booleanU :: UnaryOpType
-booleanU GBool = Right GBool
-booleanU _     = Left $ show GBool
-
-
-unary :: UnaryOpType -> UnaryOperator -> Location
+unary :: Op.Un -> Location
       -> MetaExpr -> GracielaRange MetaExpr
-unary tf unOp
+unary unOp
   opLoc @ (Location (from,_))
-  (i @ Expression { expType = itype, constant }, _, taint)
-  = case tf itype of
+  (i @ Expression { expType = itype, exp' }, _, taint)
+  = case Op.unType unOp itype of
     Left expected -> do
       let loc = Location (from, to i)
-      lift . syntaxError $ CustomError
-        ("Operator `" <> show unOp <> "` at " <> show opLoc <> " expected an \
-          \expression of type " <> expected <> ", but received " <>
-          show itype <> ".") loc
+      lift . syntaxError $ PE.CustomError
+        ("Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
+          " expected an expression of type " <> expected <>
+          ", but received " <> show itype <> ".") loc
       pure (BadExpression { E.loc }, ProtoNothing, taint)
-    Right ret ->
-      let expr = Expression
-            { E.loc = Location (from, to i)
-            , expType = ret
-            , constant
-            , exp' = Unary
-              { unOp
-              , E.inner = i }}
-      in pure (expr, ProtoNothing, taint)
+    Right ret -> do
+      let
+        exp'' = case exp' of
+          Value v -> Value . Op.unFunc unOp $ v
+          _ -> Unary
+            { unOp = Op.unSymbol unOp
+            , E.inner = i }
 
-unary _ _ (Location (from,_)) (i,_,taint) =
+        expr = Expression
+          { E.loc = Location (from, to i)
+          , expType = ret
+          , exp' = exp'' }
+      pure (expr, ProtoNothing, taint)
+
+unary _ (Location (from,_)) (i,_,taint) =
   let loc = Location (from, to i)
   in pure (BadExpression { E.loc }, ProtoNothing, taint)
 
 
-type BinaryOpType = Type -> Type -> Either String Type
-
-arithmetic :: BinaryOpType
-arithmetic GInt   GInt   = Right GInt
-arithmetic GChar  GChar  = Right GChar
-arithmetic GFloat GFloat = Right GFloat
-arithmetic _      _      = Left $
-  show (GInt  , GInt  ) <> ", " <>
-  show (GChar , GChar ) <> ", or " <>
-  show (GFloat, GFloat)
-
-equality :: BinaryOpType
-equality GInt   GInt   = Right GBool
-equality GChar  GChar  = Right GBool
-equality GFloat GFloat = Right GBool
-equality _      _      = Left $
-  show (GInt  , GInt  ) <> ", " <>
-  show (GChar , GChar ) <> ", or " <>
-  show (GFloat, GFloat)
-
-elemSet :: BinaryOpType
-elemSet t1 (GSet t2)
-  | t1 =:= t2 = Right GBool
-  | otherwise = Left $ show (t2, GSet t2)
-elemSet t1 (GMultiset t2)
-  | t1 =:= t2 = Right GBool
-  | otherwise = Left $ show (t2, GMultiset t2)
-elemSet _ _ = Left $
-  show (GUnsafeName "t", GSet      (GUnsafeName "t")) <> ", or " <>
-  show (GUnsafeName "t", GMultiset (GUnsafeName "t"))
-
-boolean :: BinaryOpType
-boolean GBool GBool = Right GBool
-boolean _     _     = Left $
-  show (GBool, GBool)
-
-
-binary :: BinaryOpType -> BinaryOperator -> Location
+binary :: Op.Bin -> Location
        -> MetaExpr -> MetaExpr -> GracielaRange MetaExpr
-binary tf binOp opLoc
-  (l @ Expression { expType = ltype, constant = lconst }, _, ltaint)
-  (r @ Expression { expType = rtype, constant = rconst }, _, rtaint)
-  = case tf ltype rtype of
+binary binOp opLoc
+  (l @ Expression { expType = ltype, exp' = lexp }, _, ltaint)
+  (r @ Expression { expType = rtype, exp' = rexp }, _, rtaint)
+  = case Op.binType binOp ltype rtype of
 
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ CustomError
-        ("Operator `" <> show binOp <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
-          show (ltype, rtype) <> ".") loc
+      lift . syntaxError $ PE.CustomError
+        ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
+          " expected two expressions of types " <> expected <>
+          ", but received " <> show (ltype, rtype) <> ".") loc
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right ret ->
       let
         taint = ltaint <> rtaint
+
+        exp' = case (lexp, rexp) of
+          (Value v, Value w) ->
+            Value $ Op.binFunc binOp v w
+          _ -> Binary
+            { binOp = Op.binSymbol binOp
+            , lexpr = l
+            , rexpr = r }
+
         expr = Expression
           { E.loc = Location (from l, to r)
           , expType = ret
-          , constant = lconst && rconst
-          , exp' = Binary
-            { binOp
-            , lexpr = l
-            , rexpr = r }}
+          , exp' }
+
       in pure (expr, ProtoNothing, taint)
 
-binary _ _ _ (l,_,_) (r,_,_) =
+binary _ _ (l,_,_) (r,_,_) =
   let expr = BadExpression { E.loc = Location (from l, to r) }
   in pure (expr, ProtoNothing, Taint False)
 
@@ -772,12 +717,12 @@ binary _ _ _ (l,_,_) (r,_,_) =
 membership :: Location
            -> MetaExpr -> MetaExpr -> GracielaRange MetaExpr
 membership opLoc
-  (l @ Expression { expType = ltype, constant = lconst }, ProtoVar, ltaint)
-  (r @ Expression { expType = rtype, constant = rconst }, _, Taint False)
-  = case elemSet ltype rtype of
+  (l @ Expression { expType = ltype }, ProtoVar, ltaint)
+  (r @ Expression { expType = rtype }, _, Taint False)
+  = case Op.binType Op.elem ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ CustomError
+      lift . syntaxError $ PE.CustomError
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
           show (ltype, rtype) <> ".") loc
@@ -788,32 +733,31 @@ membership opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
-          , constant = lconst && rconst
-          , exp'     = ESkip }
+          , exp'     = eSkip }
       in pure (expr, ProtoQRange (SetRange r), Taint False)
 
-    Right _ -> error "impossible"
+    Right _ -> error "internal error: impossible membership type"
 
-membership opLoc l r = binary elemSet Elem opLoc l r
+membership opLoc l r = binary Op.elem opLoc l r
 
 
-comparison :: BinaryOperator -> Location
+comparison :: Op.Bin -> Location
            -> MetaExpr -> MetaExpr -> GracielaRange MetaExpr
 comparison binOp opLoc
-  (l @ Expression { expType = ltype, constant = lconst }, _, Taint False)
-  (r @ Expression { expType = rtype, constant = rconst }, ProtoVar, _)
-  = case equality ltype rtype of
+  (l @ Expression { expType = ltype }, _, Taint False)
+  (r @ Expression { expType = rtype }, ProtoVar, _)
+  = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        lift . syntaxError $ CustomError
-          ("Operator `" <> show binOp <> "` at " <> show opLoc <> " expected\
-            \ two expressions of types " <> expected <> ", but received " <>
-            show (ltype, rtype) <> ".") loc
+        lift . syntaxError $ PE.CustomError
+          ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
+            show opLoc <> " expected two expressions of types " <> expected <>
+            ", but received " <> show (ltype, rtype) <> ".") loc
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
         let
-          range = case binOp of
+          range = case Op.binSymbol binOp of
             LT -> ProtoLow  (succ' l)
             LE -> ProtoLow  l
             GT -> ProtoHigh (pred' l)
@@ -821,8 +765,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
-            , constant = lconst && rconst
-            , exp'     = ESkip }
+            , exp'     = eSkip }
         in pure (expr, range, Taint True)
 
       Right _ ->
@@ -831,24 +774,24 @@ comparison binOp opLoc
   where
     succ' = aux Succ
     pred' = aux Pred
-    aux op e @ Expression { E.loc, expType, constant, exp' } =
-      Expression { E.loc, expType, constant, exp' = Unary op e }
+    aux op e @ Expression { E.loc, expType, exp' } =
+      Expression { E.loc, expType, exp' = Unary op e }
 
 comparison binOp opLoc
-  (l @ Expression { expType = ltype, constant = lconst }, ProtoVar, _)
-  (r @ Expression { expType = rtype, constant = rconst }, _, Taint False)
-  = case equality ltype rtype of
+  (l @ Expression { expType = ltype }, ProtoVar, _)
+  (r @ Expression { expType = rtype }, _, Taint False)
+  = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        lift . syntaxError $ CustomError
-          ("Operator `" <> show binOp <> "` at " <> show opLoc <> " expected\
-            \ two expressions of types " <> expected <> ", but received " <>
-            show (ltype, rtype) <> ".") loc
+        lift . syntaxError $ PE.CustomError
+          ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
+            show opLoc <> " expected two expressions of types " <> expected <>
+            ", but received " <> show (ltype, rtype) <> ".") loc
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
         let
-          range = case binOp of
+          range = case Op.binSymbol binOp of
             LT -> ProtoHigh (pred' r)
             LE -> ProtoHigh r
             GT -> ProtoLow  (succ' r)
@@ -856,8 +799,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
-            , constant = lconst && rconst
-            , exp'     = ESkip }
+            , exp'     = eSkip }
         in pure (expr, range, Taint True)
 
       Right _ ->
@@ -866,21 +808,21 @@ comparison binOp opLoc
   where
     succ' = aux Succ
     pred' = aux Pred
-    aux op e @ Expression { E.loc, expType, constant, exp' } =
-      Expression { E.loc, expType, constant, exp' = Unary op e }
+    aux op e @ Expression { E.loc, expType, exp' } =
+      Expression { E.loc, expType, exp' = Unary op e }
 
-comparison binOp opLoc l r = binary equality binOp opLoc l r
+comparison binOp opLoc l r = binary binOp opLoc l r
 
 
 pointRange :: Location
            -> MetaExpr -> MetaExpr -> GracielaRange MetaExpr
 pointRange opLoc
-  (l @ Expression { expType = ltype, constant = lconst }, ProtoVar, ltaint)
-  (r @ Expression { expType = rtype, constant = rconst }, _, Taint False)
-  = case equality ltype rtype of
+  (l @ Expression { expType = ltype }, ProtoVar, ltaint)
+  (r @ Expression { expType = rtype }, _, Taint False)
+  = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ CustomError
+      lift . syntaxError $ PE.CustomError
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
           show (ltype, rtype) <> ".") loc
@@ -891,19 +833,18 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
-          , constant = lconst && rconst
-          , exp'     = ESkip }
+          , exp'     = eSkip }
       in pure (expr, ProtoQRange (PointRange r), Taint False)
 
     Right _ -> error "internal error: impossible type equality"
 
 pointRange opLoc
-  (l @ Expression { expType = rtype, constant = lconst }, _, Taint False)
-  (r @ Expression { expType = ltype, constant = rconst }, ProtoVar, ltaint)
-  = case equality ltype rtype of
+  (l @ Expression { expType = rtype }, _, Taint False)
+  (r @ Expression { expType = ltype }, ProtoVar, ltaint)
+  = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ CustomError
+      lift . syntaxError $ PE.CustomError
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
           show (ltype, rtype) <> ".") loc
@@ -914,101 +855,102 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
-          , constant = lconst && rconst
-          , exp'     = ESkip }
+          , exp'     = eSkip }
       in pure (expr, ProtoQRange (PointRange l), Taint False)
 
     Right _ -> error "internal error: impossible type equality"
 
-pointRange opLoc l r = binary equality Elem opLoc l r
+pointRange opLoc l r = binary Op.aeq opLoc l r
 
 
 conjunction :: Location
             -> MetaExpr -> MetaExpr -> GracielaRange MetaExpr
 conjunction opLoc
-  (l @ Expression { expType = ltype, constant = lconst, exp' = lexp' }, lproto, ltaint)
-  (r @ Expression { expType = rtype, constant = rconst, exp' = rexp' }, rproto, rtaint)
-  = if ltype == rtype && ltype == GBool
-    then do
+  (l @ Expression { expType = ltype, exp' = lexp' }, lproto, ltaint)
+  (r @ Expression { expType = rtype, exp' = rexp' }, rproto, rtaint)
+  = case Op.binType Op.and ltype rtype of
+    Right GBool -> do
       varname <- gets head
       let
         loc = Location (from l, to r)
         taint = ltaint <> rtaint
-        (exp', range) = case (lproto, rproto) of
-          (ProtoVar, proto) -> error "internal error: boolean ProtoVar"
-          (proto, ProtoVar) -> error "internal error: boolean ProtoVar"
+        (exp', range) = case (lexp', rexp') of
+          (Value v, Value w) -> (Value (Op.binFunc Op.and v w), ProtoNothing)
+          _ -> case (lproto, rproto) of
+            (ProtoVar, proto) -> error "internal error: boolean ProtoVar"
+            (proto, ProtoVar) -> error "internal error: boolean ProtoVar"
 
-          (q @ (ProtoQRange EmptyRange), _) ->
-            (ESkip, q)
-          (_, q @ (ProtoQRange EmptyRange)) ->
-            (ESkip, q)
+            (q @ (ProtoQRange EmptyRange), _) ->
+              (eSkip, q)
+            (_, q @ (ProtoQRange EmptyRange)) ->
+              (eSkip, q)
 
-          (ProtoNothing, ProtoNothing) ->
-            let
-              expr = Binary
-                { binOp = And
-                , lexpr = l
-                , rexpr = r }
-            in (expr, ProtoNothing)
+            (ProtoNothing, ProtoNothing) ->
+              let
+                expr = Binary
+                  { binOp = And
+                  , lexpr = l
+                  , rexpr = r }
+              in (expr, ProtoNothing)
 
-          (ProtoNothing, proto) ->
-            (lexp', proto)
-          (proto, ProtoNothing) ->
-            (rexp', proto)
+            (ProtoNothing, proto) ->
+              (lexp', proto)
+            (proto, ProtoNothing) ->
+              (rexp', proto)
 
-          (ProtoLow low, ProtoHigh high) ->
-            (ESkip, ProtoQRange (ExpRange low high))
-          (ProtoHigh high, ProtoLow low) ->
-            (ESkip, ProtoQRange (ExpRange low high))
-          (ProtoLow  llow,  ProtoLow  rlow ) ->
-            (ESkip, ProtoLow  (joinProtos Max llow rlow))
-          (ProtoHigh lhigh, ProtoHigh rhigh) ->
-            (ESkip, ProtoHigh (joinProtos Min lhigh rhigh))
+            (ProtoLow low, ProtoHigh high) ->
+              (eSkip, ProtoQRange (ExpRange low high))
+            (ProtoHigh high, ProtoLow low) ->
+              (eSkip, ProtoQRange (ExpRange low high))
+            (ProtoLow  llow,  ProtoLow  rlow ) ->
+              (eSkip, ProtoLow  (joinProtos Max llow rlow))
+            (ProtoHigh lhigh, ProtoHigh rhigh) ->
+              (eSkip, ProtoHigh (joinProtos Min lhigh rhigh))
 
-          (ProtoQRange l @ ExpRange {}, ProtoQRange r @ ExpRange {}) ->
-            (ESkip, joinExpRanges l r)
+            (ProtoQRange l @ ExpRange {}, ProtoQRange r @ ExpRange {}) ->
+              (eSkip, joinExpRanges l r)
 
-          (ProtoQRange l @ ExpRange {}, r @ ProtoLow {}) ->
-            (ESkip, joinExpRangeProto l r)
-          (ProtoQRange l @ ExpRange {}, r @ ProtoHigh {}) ->
-            (ESkip, joinExpRangeProto l r)
-          (l @ ProtoLow {} , ProtoQRange r @ ExpRange {}) ->
-            (ESkip, joinExpRangeProto r l)
-          (l @ ProtoHigh {}, ProtoQRange r @ ExpRange {}) ->
-            (ESkip, joinExpRangeProto r l)
+            (ProtoQRange l @ ExpRange {}, r @ ProtoLow {}) ->
+              (eSkip, joinExpRangeProto l r)
+            (ProtoQRange l @ ExpRange {}, r @ ProtoHigh {}) ->
+              (eSkip, joinExpRangeProto l r)
+            (l @ ProtoLow {} , ProtoQRange r @ ExpRange {}) ->
+              (eSkip, joinExpRangeProto r l)
+            (l @ ProtoHigh {}, ProtoQRange r @ ExpRange {}) ->
+              (eSkip, joinExpRangeProto r l)
 
-          (point @ (ProtoQRange PointRange {}), proto) ->
-            (rebuild varname proto, point)
-          (proto, point @ (ProtoQRange PointRange {})) ->
-            (rebuild varname proto, point)
+            (point @ (ProtoQRange PointRange {}), proto) ->
+              (rebuild varname proto, point)
+            (proto, point @ (ProtoQRange PointRange {})) ->
+              (rebuild varname proto, point)
 
-          (set @ (ProtoQRange SetRange {}), proto) ->
-            (rebuild varname proto, set)
-          (proto, set @ (ProtoQRange SetRange {})) ->
-            (rebuild varname proto, set)
+            (set @ (ProtoQRange SetRange {}), proto) ->
+              (rebuild varname proto, set)
+            (proto, set @ (ProtoQRange SetRange {})) ->
+              (rebuild varname proto, set)
 
         expr =
           Expression
             { E.loc
             , expType = GBool
-            , constant = False
             , exp' }
 
       pure (expr, range, taint)
 
-    else do
+    Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ CustomError
+      lift . syntaxError $ PE.CustomError
         ("Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> show (GBool, GBool) <>
+          \ expressions of types " <> expected <>
           ", but received " <> show (ltype, rtype) <> ".") loc
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
+
+    Right _ -> error "internal error: Bad andOp type"
 
     where
       joinProtos binOp l r = Expression
         { E.loc    = Location (from l, to r)
         , expType  = expType l
-        , constant = False
         , exp'     = Binary binOp l r }
 
       joinExpRanges l ExpRange { low, high }
@@ -1024,7 +966,6 @@ conjunction opLoc
               { E.loc = Location
                 (from elow `min` from plow, to elow `max` to plow)
               , expType = t
-              , constant = False
               , exp' = Binary
                 { binOp = Max
                 , lexpr = elow
@@ -1041,7 +982,6 @@ conjunction opLoc
               { E.loc = Location
                 (from ehigh `min` from phigh, to ehigh `max` to phigh)
               , expType = t
-              , constant = False
               , exp' = Binary
                 { binOp = Min
                 , lexpr = ehigh
@@ -1078,12 +1018,10 @@ conjunction opLoc
           , lexpr = Expression
             { E.loc = Rearranged
             , expType = GBool
-            , constant = False
             , exp' = lexpr' }
           , rexpr = Expression
             { E.loc = Rearranged
             , expType = GBool
-            , constant = False
             , exp' = rexpr' }}
 
       rebuild varname (ProtoLow l) =
@@ -1108,7 +1046,6 @@ conjunction opLoc
         Expression
           { E.loc = Rearranged
           , expType
-          , constant = False
           , exp' = Obj
             { theObj = Object
               { O.loc = Rearranged
@@ -1119,7 +1056,6 @@ conjunction opLoc
 conjunction opLoc (l,_,_) (r,_,_) =
   let expr = BadExpression { E.loc = Location (from l, to r) }
   in pure (expr, ProtoNothing, Taint False)
-
 
 --------------------------------------------------------------------------------
 testExpr :: Graciela Expression ->  String -> IO ()

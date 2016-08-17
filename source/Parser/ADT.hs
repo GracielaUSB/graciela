@@ -5,32 +5,33 @@ module Parser.ADT
 
 -------------------------------------------------------------------------------
 import           AST.Declaration
-import           AST.Expression     (Expression(..))
 import           AST.Definition
+import           AST.Expression      (Expression (..))
 import           AST.Instruction
 import           AST.Struct
-import           Graciela
+import           Entry
 import           Error
+import           Graciela
+import           Location
 import           Parser.Assertion
 import           Parser.Declaration
-import           Parser.Instruction
 import           Parser.Definition
+import           Parser.Instruction
 import           Parser.Recovery
 import           Parser.Token
 import           Parser.Type
-import           Location
 import           SymbolTable
-import           Entry
 import           Token
 import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens        (use, (%=), (.=))
 import           Control.Monad       (void)
-import           Data.Text           (Text)
 import           Data.Maybe          (catMaybes)
-import           Text.Megaparsec     (Dec, ParseError, between, choice, many,
-                                      getPosition, sepBy, try, endBy, (<|>),
-                                      manyTill, lookAhead, notFollowedBy)
+import qualified Data.Sequence       as Seq (fromList)
+import           Data.Text           (Text)
+import           Text.Megaparsec     (Dec, ParseError, between, choice, endBy,
+                                      getPosition, lookAhead, many, manyTill,
+                                      notFollowedBy, sepBy, try, (<|>))
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
@@ -62,7 +63,7 @@ abstractDataType = do
 
 abstractDec :: Graciela Declaration
 abstractDec = constant <|> variable
-  where 
+  where
     constant = do
       from <- getPosition
       match TokVar
@@ -71,11 +72,15 @@ abstractDec = constant <|> variable
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
-      mapM_ (\(id,loc) -> do 
+      mapM_ (\(id,loc) -> do
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing){- TODO-})
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Declaration location t ids' []
+      return $ Declaration
+        { declLoc  = location
+        , declType = t
+        , declIds  = Seq.fromList ids' }
+
     variable = do
       from <- getPosition
       match TokVar
@@ -84,12 +89,14 @@ abstractDec = constant <|> variable
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
-      mapM_ (\(id,loc) -> do 
+      mapM_ (\(id,loc) -> do
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))
             ) ids
       let ids' = map (\(id,_) -> id) ids
-      return $ Declaration location t ids' []
-
+      return $ Declaration
+        { declLoc  = location
+        , declType = t
+        , declIds  = Seq.fromList ids' }
 
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
@@ -102,16 +109,16 @@ dataType = do
     abstractId <- identifier
     types <- parens $ (try typeVar <|> basicType) `sepBy` match TokComma
     symbolTable %= openScope from
-    
-    withRecovery TokBegin 
-    decls   <- (variableDeclaration <|> constantDeclaration) `endBy` (match TokSemicolon)
+
+    withRecovery TokBegin
+    decls   <- declaration `endBy` (match TokSemicolon)
 
     repinv  <- safeAssertion repInvariant  (NoTypeRepInv  id)
     coupinv <- safeAssertion coupInvariant (NoTypeCoupInv id)
 
     procs   <- many procedure
     withRecovery TokEnd
-    
+
     to <- getPosition
     symbolTable %= closeScope to
     let loc = Location(from,to)
@@ -127,4 +134,3 @@ dataType = do
          , repinv   = repinv
          , coupinv  = coupinv
          , procs    = procs}}
-

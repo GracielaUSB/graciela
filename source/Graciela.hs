@@ -3,19 +3,19 @@
 module Graciela where
 --------------------------------------------------------------------------------
 import           Error
-import           Parser.Prim
 import           Location
+import           Parser.Prim
 import           SymbolTable
 import           Token
-import           AST.Type               (Type, Type'(..))
+import           Type                   (Type (..))
 import           TypeError              as T
 --------------------------------------------------------------------------------
 import           Control.Lens           (makeLenses, use, (%=))
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.State    (State)
-import qualified Data.List.NonEmpty     as NE
-import           Data.Foldable          (toList, null)
+import           Data.Foldable          (null, toList)
 import           Data.Function          (on)
+import qualified Data.List.NonEmpty     as NE
 import           Data.Map               (Map)
 import qualified Data.Map               as Map (empty, fromList, insert, lookup,
                                                 member)
@@ -24,19 +24,20 @@ import           Data.Sequence          (Seq, (|>))
 import qualified Data.Sequence          as Seq (empty, null, sortBy)
 import qualified Data.Set               as Set (Set, empty, insert, singleton)
 import           Data.Text              (Text, pack)
-import           Text.Megaparsec        (ParseError(..), ParsecT, getPosition,
-                                         ShowToken, ShowErrorComponent,parseErrorPretty)
+import           Text.Megaparsec        (ParseError (..), ParsecT,
+                                         ShowErrorComponent, ShowToken,
+                                         getPosition, parseErrorPretty)
 --------------------------------------------------------------------------------
 
 type Graciela = ParsecT Error [TokenPos] (State GracielaState)
 
 data GracielaState = GracielaState
-  { _synErrorList    :: Seq MyParseError
-  , _errors          :: Seq (ParseError TokenPos Error)
-  , _symbolTable     :: SymbolTable
-  , _filesToRead     :: Set.Set String
-  , _currentProc     :: Maybe (Text, SourcePos, [(Text,Type)])
-  , _typesTable      :: Map Text (Type, SourcePos)
+  { _synErrorList :: Seq MyParseError
+  , _errors       :: Seq (ParseError TokenPos Error)
+  , _symbolTable  :: SymbolTable
+  , _filesToRead  :: Set.Set String
+  , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
+  , _typesTable   :: Map Text (Type, SourcePos)
   }
 
 makeLenses ''GracielaState

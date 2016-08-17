@@ -13,14 +13,16 @@ module Lexer
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Monad         (void)
-import           Data.Monoid ((<>))
 import           Data.Functor          (($>))
+import           Data.Int              (Int32)
+import           Data.Monoid           ((<>))
 import           Data.Text             (Text, pack)
 import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,
-                                        between, char, eof, getPosition, hidden,
-                                        letterChar, many, manyTill,
-                                        notFollowedBy, runParser, spaceChar,
-                                        string, try, (<|>), anyChar, optional)
+                                        anyChar, between, char, eof,
+                                        getPosition, hidden, letterChar, many,
+                                        manyTill, notFollowedBy, oneOf,
+                                        optional, runParser, spaceChar, string,
+                                        try, (<|>))
 import qualified Text.Megaparsec.Lexer as L
 --------------------------------------------------------------------------------
 
@@ -52,7 +54,11 @@ floatLit = TokFloat <$> lexeme L.float
 
 
 intLit :: Lexer Token
-intLit = TokInteger <$> lexeme L.integer
+intLit = do
+  n <- lexeme L.integer
+  pure $ if n > fromIntegral (maxBound :: Int32)
+    then TokBadInteger n
+    else TokInteger . fromInteger $ n
 
 
 charLit :: Lexer Token
@@ -68,16 +74,9 @@ stringLit = TokString . pack <$> lexeme p
 
 
 identifier :: Lexer Token
-identifier = lexeme p
+identifier = TokId . pack <$> lexeme p
   where
-    p = do
-      c     <- letterChar
-      cs    <- many (alphaNumChar <|> char '_' <|> char '?')
-      prime <- optional (char '\'')
-
-      return . maybe TokId (const TokId') prime . pack $ c : cs
-
-      -- (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '?')
+    p = (:) <$> letterChar <*> many (alphaNumChar <|> oneOf "_?'")
 
 
 token :: Lexer Token
@@ -163,6 +162,11 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   "!=="         $> TokBNE)
       <|> (symbol   "\8802"       $> TokBNE)   -- ≢
 
+      <|> (symbol   "==>"         $> TokImplies)
+      <|> (symbol   "\8658"       $> TokImplies)    -- ⇒
+      <|> (symbol   "<=="         $> TokConsequent)
+      <|> (symbol   "\8656"       $> TokConsequent) -- ⇐
+
       <|> (symbol   "=="          $> TokAEQ)
       <|> (symbol   "!="          $> TokANE)
       <|> (symbol   "\8800"       $> TokANE)   -- ≠
@@ -176,11 +180,6 @@ token  =  (reserved "program"     $> TokProgram)
 
       <|> (symbol   "!"           $> TokNot)
       <|> (symbol   "\172"        $> TokNot)  -- ¬
-
-      <|> (symbol   "==>"         $> TokImplies)
-      <|> (symbol   "\8658"       $> TokImplies)    -- ⇒
-      <|> (symbol   "<=="         $> TokConsequent)
-      <|> (symbol   "\8656"       $> TokConsequent) -- ⇐
 
       <|> (symbol   "(%"          $> TokLeftPercent)
       <|> (symbol   "%)"          $> TokRightPercent)

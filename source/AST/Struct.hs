@@ -8,7 +8,7 @@ import qualified AST.Definition  as D
 import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           AST.Type        (Type)
+import           Type        (Type)
 import           Location
 import           SymbolTable
 import           Token

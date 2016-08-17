@@ -10,7 +10,7 @@ module Entry
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
-import           AST.Type
+import           Type
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------

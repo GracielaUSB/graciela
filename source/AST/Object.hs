@@ -7,7 +7,7 @@ module AST.Object
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
-import           Type        (Type')
+import           Type        (Type)
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
@@ -36,7 +36,7 @@ data Object'' e
 data Object' e
   = Object
     { loc     :: Location
-    , objType :: Type' e
+    , objType :: Type
     , obj'    :: Object'' e
     }
   | BadObject
@@ -48,10 +48,10 @@ instance Show e => Show (Object' e) where
   show BadObject {} = ""
 
   show Object { loc, objType, obj' } = case obj' of
-    Variable {name} -> unpack name 
+    Variable {name} -> unpack name
     Member {inner,field} -> show inner <> "." <> unpack field
     Index {inner, index} -> show inner <> "[" <> show index <> "]"
-    Deref {inner}        -> "*" <> show inner  
+    Deref {inner}        -> "*" <> show inner
 
 instance Treelike e => Treelike (Object' e) where
   toTree Object { loc, objType, obj' } = case obj' of

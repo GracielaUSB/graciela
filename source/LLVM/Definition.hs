@@ -5,7 +5,7 @@ where
 
 --------------------------------------------------------------------------------
 import           Aborts
-import qualified AST.Type                                as T
+import qualified Type                                as T
 import           AST.Instruction                         (Instruction)
 import           AST.Definition                          
 import           LLVM.Instruction

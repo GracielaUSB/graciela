@@ -10,7 +10,7 @@ module Parser.Assertion
   ) where
 -------------------------------------------------------------------------------
 import           AST.Expression
-import           AST.Type
+import           Type
 import           Graciela
 import           Location
 import           Error       as PE

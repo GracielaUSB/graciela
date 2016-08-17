@@ -5,7 +5,7 @@ module AST.Instruction where
 import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression, Object)
 import qualified AST.Expression  as E
-import           AST.Type        (Type)
+import           Type        (Type)
 import           Location
 import           SymbolTable
 import           Token
@@ -101,7 +101,7 @@ instance Treelike Instruction where
     Abort ->
       leaf $ "Abort " <> show instLoc
 
-    Assertion { expr } -> 
+    Assertion { expr } ->
       Node "Assertion" [toTree expr]
 
     Block { blockST, blockDecs, blockInsts } ->

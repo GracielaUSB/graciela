@@ -23,6 +23,7 @@ module Parser.Token
   , brackets
   , beginEnd
   , identifier
+  , identifierAndLoc
   , boolLit
   , charLit
   , stringLit
@@ -39,9 +40,9 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..), 
-                                        token, between)
--- import           Text.Megaparsec.Error (sourcePosStackPretty)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
+                                        token, between, getPosition)
+import           Data.Int              (Int32)
 import           Text.Megaparsec.Prim  (MonadParsec)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
@@ -110,6 +111,16 @@ identifier = token test Nothing
     test tp@TokenPos {tok}           = Left . unex $ tp
 
 
+-- | Find an identifier and returns it's name and the location
+identifierAndLoc :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
+                 => m (Text, Location)
+identifierAndLoc  = do
+  from <- getPosition
+  id <- identifier
+  to <- getPosition
+  pure (id, Location(from,to))
+
+
 boolLit :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
         => m Bool
 boolLit = token test Nothing
@@ -135,7 +146,7 @@ stringLit = token test Nothing
 
 
 integerLit :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-           => m Integer
+           => m Int32
 integerLit = token test Nothing
   where
     test    TokenPos {tok = TokInteger i} = Right i
@@ -148,5 +159,3 @@ floatLit = token test Nothing
   where
     test    TokenPos {tok = TokFloat f} = Right f
     test tp@TokenPos {tok}              = Left . unex $ tp
-
-

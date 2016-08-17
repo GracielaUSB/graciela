@@ -5,28 +5,31 @@ module LLVM.Expression
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Expression                          hiding (BinaryOperator(..))
-import qualified AST.Expression                          as Op (BinaryOperator(..),
-                                                                UnaryOperator(..))
-import           AST.Expression                          (Expression(..), Object)
-import           AST.Object                              (Object'(..), Object''(..))
-import           AST.Type                                as T
+import           AST.Expression                          hiding
+                                                          (BinaryOperator (..))
+import           AST.Expression                          (Expression (..),
+                                                          Object)
+import qualified AST.Expression                          as Op (BinaryOperator (..),
+                                                                UnaryOperator (..))
+import           AST.Object                              (Object' (..),
+                                                          Object'' (..))
 import           Limits
 import           LLVM.State
 import           LLVM.Type                               (toLLVMType)
 import           SymbolTable
+import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
+import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
+import           Data.Monoid                             ((<>))
 import           Data.Text                               (unpack)
 import           Data.Word
-import           Data.Monoid                             ((<>))
-import           Data.Char                               (ord)
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
+import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat (Double))
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
-import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat(Double))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction (..),
                                                           Named (..),
@@ -37,21 +40,19 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
-import           Debug.Trace                            
 --------------------------------------------------------------------------------
 
-
 expression :: Expression -> LLVM (Operand, [Named Instruction])
-expression Expression { expType, constant, exp'} = case exp' of
-
-  BoolLit   theBool   -> 
-    return (ConstantOperand $ C.Int 1 (if theBool then 1 else 0), [])
-  CharLit   theChar   -> 
-    return (ConstantOperand $ C.Int 8 $ (fromIntegral . ord) theChar, [])
-  FloatLit  theFloat  -> 
-    return (ConstantOperand $ C.Float $ LLVM.Double theFloat, [])
-  IntLit    theInt    -> 
-    return (ConstantOperand $ C.Int 32 theInt, [])
+expression Expression { expType, exp'} = case exp' of
+  Value val -> case val of
+    BoolV  theBool  ->
+      return (ConstantOperand $ C.Int 1 (if theBool then 1 else 0), [])
+    CharV  theChar  ->
+      return (ConstantOperand $ C.Int 8 . fromIntegral . ord $ theChar, [])
+    IntV   theInt   ->
+      return (ConstantOperand $ C.Int 32 . fromIntegral $ theInt, [])
+    FloatV theFloat ->
+      return (ConstantOperand $ C.Float $ LLVM.Double theFloat, [])
 
   -- StringLit theString -> return $ ConstantOperand $ C.Int 32 10
 
@@ -69,7 +70,7 @@ expression Expression { expType, constant, exp'} = case exp' of
 
     return (operand, lInsts <> rInsts <> [label := inst])
 
-    where 
+    where
       opInt :: Op.BinaryOperator -> Operand -> Operand -> Instruction
       opInt op lOperand rOperand = case op of
         -- Plus   -> callFunction intAdd lOperand rOperand
@@ -96,11 +97,11 @@ expression Expression { expType, constant, exp'} = case exp' of
         Op.Div    -> SDiv { exact = True
                           , operand0 = lOperand
                           , operand1 = rOperand
-                          , metadata = [] 
+                          , metadata = []
                           }
         Op.Mod    -> SRem { operand0 = lOperand
-                          , operand1 = rOperand 
-                          , metadata = [] 
+                          , operand1 = rOperand
+                          , metadata = []
                           }
         -- Op.Power  -> undefined
         Op.Min    -> callFunction minnumString lOperand rOperand
@@ -109,7 +110,7 @@ expression Expression { expType, constant, exp'} = case exp' of
 
       opFloat :: Op.BinaryOperator -> Operand -> Operand -> Instruction
       opFloat op lOperand rOperand = case op of
-        Op.Plus   -> FAdd { fastMathFlags = NoFastMathFlags 
+        Op.Plus   -> FAdd { fastMathFlags = NoFastMathFlags
                           , operand0      = lOperand
                           , operand1      = rOperand
                           , metadata      = []
@@ -154,7 +155,7 @@ expression Expression { expType, constant, exp'} = case exp' of
       -- llvm.ssub.with.overflow.i32 (fun == intSub)
       -- llvm.smul.with.overflow.i32 (fun == intMul)
       callFunction :: String -> Operand -> Operand -> Instruction
-      callFunction fun lOperand rOperand = 
+      callFunction fun lOperand rOperand =
         let
           type' = StructureType False [i32, i1]
           funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
@@ -182,7 +183,7 @@ expression Expression { expType, constant, exp'} = case exp' of
 
     return (operand, innerInsts <> [label := inst])
 
-    where 
+    where
       opInt :: Op.UnaryOperator -> Operand -> Instruction
       opInt op innerOperand = case op of
         Op.Abs    -> undefined
@@ -210,8 +211,8 @@ expression Expression { expType, constant, exp'} = case exp' of
                            , operand1 = ConstantOperand $ C.Float $ LLVM.Double (-1.0)
                            , metadata = []
                            }
-        Op.Sqrt   -> callUnaryFunction sqrtString innerOperand 
-        
+        Op.Sqrt   -> callUnaryFunction sqrtString innerOperand
+
         {-! Creo que esta tampoco va jaja-}
         Op.Succ  -> FAdd  { fastMathFlags = NoFastMathFlags
                           , operand0 = innerOperand
@@ -227,7 +228,7 @@ expression Expression { expType, constant, exp'} = case exp' of
                       }
 
       callUnaryFunction :: String -> Operand -> Instruction
-      callUnaryFunction fun innerOperand = 
+      callUnaryFunction fun innerOperand =
         let
           funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
         in Call { tailCallKind       = Nothing
@@ -251,12 +252,12 @@ object :: Object -> LLVM (Operand, [Named Instruction])
 object Object { objType, obj' } = case obj' of
     Variable { name } -> do
       label <- nextLabel
-      let 
+      let
         -- Make a reference to the variable that will be loaded (e.g. %a)
-        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name) 
+        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name)
         -- Load the value in the variable address (e.g. %12 = load i32* %a, align 4)
         load = Load { volatile  = False
-                    , address   = addrToLoad 
+                    , address   = addrToLoad
                     , maybeAtomicity = Nothing
                     , alignment = 4
                     , metadata  = []
@@ -274,7 +275,7 @@ objectRef Object { objType, obj' } = case obj' of
 
   _ -> error "Aun no hay soporte para arreglos ni estructuras"
 
-  where 
+  where
     type' = toLLVMType objType
 -- createExpression :: Expression -> LLVM Operand
 -- createExpression (Expression loc expType constant exp') = case exp' of

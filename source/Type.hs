@@ -11,10 +11,11 @@ como tambien los utilizados de forma interna en el compilador.
 
 module Type
   ( ArgMode (..)
-  , Type' (..)
+  , Type (..)
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
+import           Data.Int    (Int32)
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
 --------------------------------------------------------------------------------
@@ -36,41 +37,41 @@ instance Show ArgMode where
     Ref   -> "Ref"
 
 -- | Son los tipos utilizados en el compilador.
-data Type' e
+data Type
   = GUndef              -- ^ Tipo indefinido ( graciela 2.0 )
-  | GSet      (Type' e)      -- ^ Tipo conjunto ( graciela 2.0 )
-  | GMultiset (Type' e)      -- ^ Tipo multiconjunto ( graciela 2.0 )
-  | GSeq      (Type' e)      -- ^ Tipo secuencia ( graciela 2.0 )
-  | GFunc     (Type' e) (Type' e) -- ^ Tipo func para TDAs ( graciela 2.0 )
-  | GRel      (Type' e) (Type' e) -- ^ Tipo relación ( graciela 2.0 )
-  | GTuple    [Type' e]     -- ^ Tipo n-upla ( graciela 2.0 )
-  | GTypeVar   Text      -- ^ Variable de tipo ( graciela 2.0 )
+  | GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
+  | GMultiset Type      -- ^ Tipo multiconjunto ( graciela 2.0 )
+  | GSeq      Type      -- ^ Tipo secuencia ( graciela 2.0 )
+  | GFunc     Type Type -- ^ Tipo func para TDAs ( graciela 2.0 )
+  | GRel      Type Type -- ^ Tipo relación ( graciela 2.0 )
+  | GTuple   [Type]     -- ^ Tipo n-upla ( graciela 2.0 )
+  | GTypeVar  Text      -- ^ Variable de tipo ( graciela 2.0 )
 
-  | GAny                -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
-  | GOneOf    [Type' e]     -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
-  | GUnsafeName Text    -- Tipo para
+  | GAny              -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
+  | GOneOf     [Type] -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
+  | GUnsafeName Text  -- Tipo para
 
-  | GInt           -- ^ Tipo entero
-  | GFloat         -- ^ Tipo flotante
-  | GBool          -- ^ Tipo boleano
-  | GChar          -- ^ Tipo caracter
+  | GInt   -- ^ Tipo entero
+  | GFloat -- ^ Tipo flotante
+  | GBool  -- ^ Tipo boleano
+  | GChar  -- ^ Tipo caracter
 
   | GString
 
   -- Tipo para los Data type' as
   | GDataType
-    { typeName   ::  Text
-    -- , oftype :: [Type' e]
-    -- , fields :: [Type' e]
-    -- , procs  :: [Type' e]
+    { typeName ::  Text
+    -- , oftype :: [Type]
+    -- , fields :: [Type]
+    -- , procs  :: [Type]
     }
   | GAbstractType
-    { typeName   ::  Text
-    -- , oftype :: [Type' e]
-    -- , fields :: [Type' e]
-    -- , procs  :: [Type' e]
+    { typeName ::  Text
+    -- , oftype :: [Type]
+    -- , fields :: [Type]
+    -- , procs  :: [Type]
     }
-  | GPointer (Type' e)
+  | GPointer Type
   -- | Tipo para las funciones
   -- | GFunction
   --  { fParamType  :: [Type] -- ^ Los tipos de los parametros
@@ -82,13 +83,13 @@ data Type' e
 
   -- | Tipo para los arreglos
   | GArray
-    { size      :: e
-    , arrayType :: Type' e       -- ^ Tipo del arreglo
+    { size      :: Int32
+    , arrayType :: Type       -- ^ Tipo del arreglo
     }
   deriving (Eq, Ord)
 
 
-(=:=) :: Eq e => Type' e -> Type' e -> Bool
+(=:=) :: Type -> Type -> Bool
 a =:= b
   |  a == b
   || a == GAny
@@ -112,7 +113,7 @@ GTypeVar       a =:= GTypeVar       b = a == b
 _                =:= _                = False
 
 -- | Instancia 'Show' para los tipos.
-instance Show (Type' e) where
+instance Show Type where
   show t = "\ESC[0;32m" <> show' t <> "\ESC[m"
     where
       show' = \case
@@ -145,13 +146,13 @@ instance Show (Type' e) where
 
 
 -- | Retorna la dimensión del arreglo.
-getDimension :: Type' e -> Int
-getDimension (GArray _ t) = 1 + getDimension t
-getDimension _            = 0
+-- getDimension :: Type -> Int
+-- getDimension (GArray _ t) = 1 + getDimension t
+-- getDimension _            = 0
 
 
 -- | Verifica si el tipo es cuantificable (Tipo Enumerado).
--- isQuantifiable :: Type' e -> Bool
+-- isQuantifiable :: Type -> Bool
 -- isQuantifiable GInt     = True
 -- isQuantifiable GChar    = True
 -- isQuantifiable GBool    = True
