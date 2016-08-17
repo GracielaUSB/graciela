@@ -5,7 +5,7 @@ where
 --------------------------------------------------------------------------------
 import           Aborts
 import           AST.Instruction                        (Instruction(..),
-                                                         Instruction'(..), Guard) 
+                                                         Instruction'(..), Guard)
 import           AST.Expression                         (Expression(..))
 import           AST.Object                             (Object''(..), Object'(..))
 import           Limits
@@ -42,7 +42,7 @@ import           LLVM.General.AST.Type
 
 
 guard :: Guard -> Name -> LLVM ()
-guard (expr, inst) falseLabel = do  
+guard (expr, inst) falseLabel = do
   cond      <- expression expr
   trueLabel <- newLabel
   let condBr = CondBr { condition = cond
@@ -60,41 +60,41 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
   Conditional { cguards } -> do
     finalLabel <- newLabel
-    abortLabel <- newLabel 
-    makeGuards cguards finalLabel abortLabel 
+    abortLabel <- newLabel
+    makeGuards cguards finalLabel abortLabel
 
     let branch = Br { dest      = finalLabel
-                    , metadata' = [] 
+                    , metadata' = []
                     }
     setLabel abortLabel $ Do branch
     createTagIf finalLabel pos
-    where 
-      makeGuards [guard'] _ abortLabel = 
+    where
+      makeGuards [guard'] _ abortLabel =
         guard guard' abortLabel
 
       makeGuards (guard':xs) finalLabel abortLabel = do
         nextGuardLabel <- newLabel
         guard guard' nextGuardLabel
         let branch = Br { dest      = finalLabel
-                        , metadata' = [] 
+                        , metadata' = []
                         }
         setLabel nextGuardLabel $ Do branch
-        
+
         makeGuards xs finalLabel abortLabel
 
 
-  Block st decls insts -> do 
+  Block st decls insts -> do
     isTheFirstBlock <- use outerBlock
     outerBlock .= False
 
     mapM_ declaration decls
     mapM_ instruction insts
-    
-    
+
+
     when (isTheFirstBlock) $ do
         addBlock  (Do $ Ret Nothing [])
         outerBlock .= True
-    
+
 
   Write { ln, wexpr } -> do
     label <- newLabel
@@ -108,29 +108,29 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     let call = LLVM.Call Nothing CC.C [] fun arg [] []
     -- return a named instruction
     addInstructions $ Seq.singleton $ label := call
-    where 
-      fwrite True expType = Name $ case expType of 
+    where
+      fwrite True expType = Name $ case expType of
           T.GBool   -> writeLnBool
           T.GChar   -> writeLnChar
           T.GFloat  -> writeLnFloat
           T.GInt    -> writeLnInt
-          T.GString -> writeLnString 
+          T.GString -> writeLnString
           _         -> error "No se puede escribir algo q no sea basico :D"
       fwrite False expType = Name $ case expType of
           T.GBool   -> writeBool
           T.GChar   -> writeChar
           T.GFloat  -> writeFloat
           T.GInt    -> writeInt
-          T.GString -> writeString 
+          T.GString -> writeString
           _         -> error "No se puede escribir algo q no sea basico :D"
 
   Read { file, varTypes, vars } -> case file of
-    Nothing -> do
+    Nothing ->
       zipWithM_ readVarStdin varTypes vars
     Just file' -> undefined
 
-    where 
-      readVarStdin t var= do 
+    where
+      readVarStdin t var= do
         let type' = toLLVMType t
         let fread = Name $ case t of
               T.GChar   -> readCharStd
@@ -140,7 +140,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
         -- Build a call instruction to the function read
         let fun = Right . ConstantOperand $ C.GlobalReference type' fread
-        let call = LLVM.Call 
+        let call = LLVM.Call
                 { LLVM.tailCallKind       = Nothing
                 , LLVM.callingConvention  = CC.C
                 , LLVM.returnAttributes   = []
@@ -153,10 +153,10 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         -- Get the reference of the variable's memory
         objRef <- objectRef var
         -- Store the value saved at `label` in the variable memory
-        let store = LLVM.Store 
+        let store = LLVM.Store
                 { LLVM.volatile = False
                 , LLVM.address  = objRef
-                , LLVM.value    = LocalReference type' label 
+                , LLVM.value    = LocalReference type' label
                 , LLVM.maybeAtomicity = Nothing
                 , LLVM.alignment = 4
                 , LLVM.metadata  = []
@@ -267,9 +267,9 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 -- accToAlloca :: Declaration -> LLVM ()
 -- accToAlloca Declaration {declType, declLvals, declExprs} = do
-  
 
-  
+
+
 --   Id name -> do
 --     let name' = TE.unpack name
 --     dim <- typeToOperand name' t

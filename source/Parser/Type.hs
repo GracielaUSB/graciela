@@ -37,13 +37,13 @@ basicType = do
 
   case t of
     Nothing -> do
-      genCustomError ("El tipo `" <> unpack tname <> "` no existe.")
+      unsafeGenCustomError ("El tipo `" <> unpack tname <> "` no existe.")
       return GUndef
     Just t' ->
       if t' =:= GOneOf [GInt, GFloat, GBool, GChar]
         then return t'
         else do
-          genCustomError $
+          unsafeGenCustomError $
             "El tipo `" <> unpack tname <> "` no es un tipo basico."
           return GUndef
 
@@ -102,12 +102,12 @@ arraySize = do
         Value (IntV i) -> return (Just i)
         Value _ -> error "internal error: Type and Value mismatch"
         _       -> do
-          genCustomError
+          unsafeGenCustomError
             "El tamaño de una variable debe ser una constante, y no puede \
             \incluir cuantificaciones."
           pure Nothing
       _ -> do
-        genCustomError
+        unsafeGenCustomError
           "El tamaño de una variable debe ser una constante de tipo entero, \
           \sin cuantificaciones."
         pure Nothing

@@ -35,7 +35,7 @@ data Entry'' s
     , _varValue :: Maybe Expression }
   | Const
     { _constType  :: Type
-    , _constValue :: Expression }
+    , _constValue :: Value }
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
@@ -44,8 +44,8 @@ data Entry'' s
     , _funcParams :: [(Text,Type)]
     , _funcTable  :: s }
   | Procedure
-    { _procParams  :: [(Text,Type)]
-    , _procTable :: s }
+    { _procParams :: [(Text,Type)]
+    , _procTable  :: s }
   | AbstractTypeEntry
   | TypeEntry
   deriving (Eq)

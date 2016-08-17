@@ -6,16 +6,14 @@ module Parser.Definition
   , procParam
   , procedureDeclaration
   ) where
-
 -------------------------------------------------------------------------------
-import           AST.Expression
 import           AST.Definition
+import           AST.Expression
 import           AST.Instruction
-import           Type
 import           Entry
+import           Error              as PE
 import           Graciela
 import           Location
-import           Error       as PE
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Expression
@@ -25,19 +23,18 @@ import           Parser.Token
 import           Parser.Type
 import           SymbolTable
 import           Token
+import           Type
 -------------------------------------------------------------------------------
-import           Control.Monad      (void, when)
-import           Data.List          (partition)
-import           Data.Functor       (($>))
-import           Data.Monoid        ((<>))
 import           Control.Lens       (use, (%=), (.=))
-import qualified Data.Text          as T
+import           Control.Monad      (void, when)
+import           Data.Functor       (($>))
+import           Data.List          (partition)
 import           Data.Maybe         (catMaybes)
-import           Text.Megaparsec    ((<|>), many, notFollowedBy, sepBy,
-                                     getPosition, eitherP, try, lookAhead,
-                                     manyTill)
+import           Data.Monoid        ((<>))
+import qualified Data.Text          as T
+import           Text.Megaparsec    (eitherP, getPosition, lookAhead, many,
+                                     manyTill, notFollowedBy, sepBy, try, (<|>))
 -------------------------------------------------------------------------------
-
 
 listDefProc :: Graciela [Definition]
 listDefProc = many (function <|> procedure)
@@ -194,7 +191,7 @@ procParam = do
 
   case ptype of
     Just x | retType /= GUndef -> symbolTable %= insertSymbol id (Entry id loc (Argument In retType))
-    _  -> genCustomError ("Se debe especificar el comportamiento de la variable `"
+    _  -> unsafeGenCustomError ("Se debe especificar el comportamiento de la variable `"
                            <>T.unpack id<>"` (In, Out, InOut)")
   return (id, retType)
 

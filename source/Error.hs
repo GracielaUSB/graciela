@@ -12,6 +12,22 @@ import           Text.Megaparsec.Error
 import           Token
 import           Type                  (Type (..))
 --------------------------------------------------------------------------------
+import           Control.Lens          ((%=))
+import           Data.List             (intercalate)
+import           Data.List.NonEmpty    (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty     as NE
+import           Data.Set              (Set)
+import           Data.Sequence         ((|>))
+import qualified Data.Set              as Set
+import           Data.Text             (Text, pack)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
+                                        manyTill, lookAhead, (<|>), ShowToken,
+                                        parseErrorPretty, getPosition, try,
+                                        ShowErrorComponent,showErrorComponent)
+import           Text.Megaparsec        as MP (withRecovery)
+import           Text.Megaparsec.Error        (sourcePosStackPretty)
+import qualified Text.Megaparsec.Prim  as Prim (Token)
+--------------------------------------------------------------------------------
 
 data MyParseError
   = CustomError -- Mientras no mejoremos los errores jajaja
@@ -94,7 +110,7 @@ data Error
   | UnknownError
     { emsg :: String
     }
-  deriving ( Eq)
+  deriving (Show, Eq)
 
 instance ErrorComponent Error where
   representFail :: String -> Error
@@ -178,3 +194,35 @@ instance ShowErrorComponent Error where
 
 instance Ord Error where
   a <= b = True
+
+-- Modify the pretty print of errors
+prettyError :: ( Ord t
+               , ShowToken t
+               , ShowErrorComponent e )
+  => ParseError t e    -- ^ Parse error to render
+  -> String            -- ^ Result of rendering
+prettyError (ParseError pos us ps xs) =
+  sourcePosStackPretty pos <> ": " <> "\ESC[1;31m" <> "Error:" <> "\ESC[m\n" <>
+  if Set.null us && Set.null ps && Set.null xs
+    then "unknown parse error\n"
+    else concat
+      [ messageItemsPretty "\t Found unexpected: " us
+      , messageItemsPretty "\t instead of: "  ps
+      , unlines . fmap ("\t"<>) $ (showErrorComponent <$> Set.toAscList xs)
+      ]
+
+messageItemsPretty :: ShowErrorComponent a
+  => String            -- ^ Prefix to prepend
+  -> Set a             -- ^ Collection of messages
+  -> String            -- ^ Result of rendering
+messageItemsPretty prefix ts
+  | Set.null ts = ""
+  | otherwise =
+    let f = orList . NE.fromList . Set.toAscList . Set.map showErrorComponent
+    in prefix <> f ts <> "\n"
+
+
+orList :: NonEmpty String -> String
+orList (x:|[])  = x
+orList (x:|[y]) = x <> " or " <> y
+orList xs       = intercalate ", " (NE.init xs) <> ", or " <> NE.last xs

@@ -190,7 +190,7 @@ random = do
   --       return $ Instruction loc (Random o)
   --     -- If not, its an expression or a constant (or both).
   --     _ -> do
-  --       genCustomError
+  --       unsafeGenCustomError
   --         "No se puede asignar un numero random a una expresion constante"
   --       return $ BadInstruction loc
   --   -- If its a bad expression just return bad instruction
@@ -300,10 +300,10 @@ new  = do
         Var (GPointer t) _ ->
           return $ Instruction loc (New id)
         _              -> do
-          genCustomError "New solo recibe apuntadores"
+          unsafeGenCustomError "New solo recibe apuntadores"
           return $ BadInstruction loc
       Left _ -> do
-        genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
+        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
         return $ BadInstruction loc
 
 
@@ -323,10 +323,10 @@ free = do
         Var (GPointer t) _ ->
           return $ Instruction loc (Free id)
         _              -> do
-          genCustomError "Free solo recibe apuntadores"
+          unsafeGenCustomError "Free solo recibe apuntadores"
           return $ BadInstruction loc
       Left _ -> do
-        genCustomError ("La variable `" <> T.unpack id <> "` No existe.")
+        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
         return $ BadInstruction loc
 
 abort :: Graciela Instruction

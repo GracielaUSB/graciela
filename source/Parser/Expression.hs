@@ -11,8 +11,9 @@ import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           Entry                     (Entry' (..), Entry'' (..), info,
                                             varType)
-import qualified Error                     as PE
-import           Graciela
+import           Error                     (Error (..), prettyError)
+import           Graciela hiding (putError)
+import qualified Graciela as G (putError)
 import           Lexer
 import           Limits
 import           Location
@@ -30,7 +31,7 @@ import           Control.Lens              (makeLenses, use, (%=), (&~), (<&>),
                                             (^.))
 import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT, execStateT, evalStateT, get,
+import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put, runState)
 import           Data.Char                 (chr, ord)
 import           Data.Fixed                (mod')
@@ -71,6 +72,10 @@ instance Monoid Taint where
 type MetaExpr = (Expression, ProtoRange, Taint)
 
 type GracielaRange = StateT [ Text ] Graciela
+
+
+putError :: Location -> Error -> GracielaRange ()
+putError l err = lift $ G.putError l err
 
 
 expr :: GracielaRange Expression
@@ -156,7 +161,7 @@ variable = do
   case name `lookup` st of
 
     Left _ -> do
-      lift . syntaxError . (`PE.CustomError` loc) $
+      putError loc . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
@@ -190,17 +195,12 @@ variable = do
 
         pure (expr, protorange, taint)
 
-      Const { _constType } ->
+      Const { _constType, _constValue } ->
         let
           expr = Expression
             { E.loc
             , expType = _constType
-            , exp' = Obj
-              { theObj = Object
-                { O.loc
-                , objType = _constType
-                , obj' = Variable
-                  { O.name }}}}
+            , exp' = Value _constValue }
 
         in pure (expr, ProtoNothing, Taint False)
 
@@ -240,20 +240,20 @@ quantification = do
     Expression {} ->
       case protorange of
         ProtoVar ->
-          lift . syntaxError . (`PE.CustomError` rloc) $
+          putError rloc . UnknownError $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoNothing       ->
-          lift . syntaxError . (`PE.CustomError` rloc) $
+          putError rloc . UnknownError $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoLow         _ ->
-          lift . syntaxError $ (`PE.CustomError` rloc)
+          putError rloc . UnknownError $
             "Bad quantification range. No upper bound was given."
         ProtoHigh        _ ->
-          lift . syntaxError $ (`PE.CustomError` rloc)
+          putError rloc . UnknownError $
             "Bad quantification range. No lower bound was given."
         ProtoQRange qrange ->
           pure ()
@@ -267,7 +267,7 @@ quantification = do
   case body of
     Expression { expType = bodyType, E.loc = bloc } ->
       unless (bodyType =:= allowedBType) .
-        lift . syntaxError . (`PE.CustomError` bloc) $
+        putError bloc . UnknownError $
           "Bad quantification body. Body must be " <> show allowedBType <> "."
     _ -> pure ()
 
@@ -334,8 +334,7 @@ quantification = do
 
       case typeEntry of
         Nothing -> do
-          lift . syntaxError $
-            PE.CustomError ("type `" <> unpack tname <> "` does not exist" ) loc
+          putError loc . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
           pure (var, Nothing)
 
         Just (t,_) ->
@@ -349,9 +348,8 @@ quantification = do
                   , _varValue = Nothing }}
               pure (var, Just t)
             else do
-              lift . syntaxError $
-                PE.CustomError
-                  ("type `" <> unpack tname <> "` is not quantifiable" ) loc
+              putError loc . UnknownError $
+                "type `" <> unpack tname <> "` is not quantifiable"
               pure (var, Nothing)
 
 
@@ -392,6 +390,8 @@ ifExp = do
 
   match TokFi
 
+  lift (use errors) >>= traceShowM
+
   to <- getPosition
 
   let
@@ -428,8 +428,8 @@ ifExp = do
         Expression { E.loc } -> do
           -- 2. We have a good expression which isn't boolean, so we
           -- report the error and clear the previous guards
-          lift . lift . syntaxError $
-            PE.CustomError "bad left side in conditional expression" loc
+          lift . putError loc . UnknownError $
+            "bad left side in conditional expression"
           pure (Nothing, st, taint0)
 
         BadExpression { E.loc } ->
@@ -497,9 +497,8 @@ ifExp = do
 
                 else do
                   -- 6. The rhs type doesn't match previous lines
-                  lift . lift . syntaxError $ PE.CustomError
+                  lift . putError rloc . UnknownError $
                     "bad right side in conditional expression"
-                    rloc
                   put st { ifType = GUndef, ifBuilder = IfNothing }
 
 
@@ -589,15 +588,13 @@ subindex = do
               let Location (from, _) = E.loc e
               let loc = Location (from, to)
 
-              lift . syntaxError $
-                PE.CustomError "Cannot subindex non-array." loc
+              putError loc . UnknownError $ "Cannot subindex non-array."
 
               pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
         _ -> do
           let subloc = Location (from', to)
-          lift . syntaxError $
-            PE.CustomError "Bad subindex. Must be integer expression." subloc
+          putError subloc . UnknownError $ "Bad subindex. Must be integer expression."
           pure $ badSubindex to
 
     where
@@ -637,8 +634,7 @@ deref = do
       let Location (_, to) = E.loc e
       let loc = Location (from, to)
 
-      lift . syntaxError $
-        PE.CustomError "Cannot deref non-pointer." loc
+      putError loc . UnknownError $ "Cannot deref non-pointer."
 
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
@@ -651,10 +647,10 @@ unary unOp
   = case Op.unType unOp itype of
     Left expected -> do
       let loc = Location (from, to i)
-      lift . syntaxError $ PE.CustomError
-        ("Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
-          " expected an expression of type " <> expected <>
-          ", but received " <> show itype <> ".") loc
+      putError loc . UnknownError $
+        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
+        " expected an expression of type " <> expected <>
+        ", but received " <> show itype <> "."
       pure (BadExpression { E.loc }, ProtoNothing, taint)
     Right ret -> do
       let
@@ -684,10 +680,10 @@ binary binOp opLoc
 
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ PE.CustomError
+      putError loc . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           " expected two expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".") loc
+          ", but received " <> show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right ret ->
@@ -722,10 +718,10 @@ membership opLoc
   = case Op.binType Op.elem ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ PE.CustomError
+      putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
-          show (ltype, rtype) <> ".") loc
+          show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right GBool ->
@@ -749,10 +745,10 @@ comparison binOp opLoc
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        lift . syntaxError $ PE.CustomError
+        putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
             show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".") loc
+            ", but received " <> show (ltype, rtype) <> ".")
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
@@ -783,10 +779,10 @@ comparison binOp opLoc
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        lift . syntaxError $ PE.CustomError
+        putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
             show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".") loc
+            ", but received " <> show (ltype, rtype) <> ".")
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
@@ -822,10 +818,10 @@ pointRange opLoc
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ PE.CustomError
+      putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
-          show (ltype, rtype) <> ".") loc
+          show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right GBool ->
@@ -844,10 +840,10 @@ pointRange opLoc
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ PE.CustomError
+      putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ", but received " <>
-          show (ltype, rtype) <> ".") loc
+          show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right GBool ->
@@ -939,10 +935,10 @@ conjunction opLoc
 
     Left expected -> do
       let loc = Location (from l, to r)
-      lift . syntaxError $ PE.CustomError
-        ("Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".") loc
+      putError loc . UnknownError $
+        "Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
+        \ expressions of types " <> expected <> ", but received " <>
+        show (ltype, rtype) <> "."
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right _ -> error "internal error: Bad andOp type"
@@ -1060,9 +1056,10 @@ conjunction opLoc (l,_,_) (r,_,_) =
 --------------------------------------------------------------------------------
 testExpr :: Graciela Expression ->  String -> IO ()
 testExpr myparser strinput = do
-  let input = pack strinput
-  let Right ets = runParser lexer "" input
-  let init' = initialState &~ do
+  let
+    input = pack strinput
+    Right ets = runParser lexer "" input
+    init' = initialState &~ do
         symbolTable %= openScope (SourcePos "" (unsafePos 4) (unsafePos 10))
         symbolTable %= insertSymbol (pack "a") Entry
           { _entryName  = pack "a"
@@ -1082,15 +1079,22 @@ testExpr myparser strinput = do
           , _info       = Var
             { _varType  = GPointer GInt
             , _varValue = Nothing }}
-  let (r, s) = runState (runParserT myparser "" ets) init'
+        symbolTable %= insertSymbol (pack "pii") Entry
+          { _entryName  = pack "pii"
+          , _loc        = Location (SourcePos "" (unsafePos 4) (unsafePos 4), SourcePos "" (unsafePos 4) (unsafePos 20))
+          , _info       = Const
+            { _constType  = GFloat
+            , _constValue = FloatV 3.14 }}
+    (r, s) = runState (runParserT myparser "" ets) init'
+
   case r of
     Right r' -> do
       putStrLn . drawTree . toTree $ r'
       case r' of
         Expression { expType } -> print expType
         _ -> pure ()
-      mapM_ print (s ^. synErrorList)
-    Left _ -> mapM_ print (s ^. synErrorList)
+    _ -> pure ()
+  mapM_ (putStrLn . prettyError) (s ^. errors)
 
 testParser :: Show a => Graciela a -> String -> IO ()
 testParser myparser strinput = do

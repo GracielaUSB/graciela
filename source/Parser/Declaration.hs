@@ -47,7 +47,7 @@ type Constness = Bool
 declaration :: Graciela Declaration
 declaration = do
   from <- getPosition
-  isConst <- match TokVar $> False <|> match TokConst $> True
+  isConst <- match match TokConst $> True <|> TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
 
   mvals <- (if isConst then (Just <$>) else optional) assignment
@@ -61,7 +61,7 @@ declaration = do
 
   if isConst && t == GUndef
     then do
-      genCustomError $
+      unsafeGenCustomError $
         "Se intentó declarar constante de tipo `" <> show t <>
         "`, pero sólo se permiten constantes de tipos basicos."
       pure $ BadDeclaration location
@@ -90,7 +90,7 @@ declaration = do
                 , declType  = t
                 , declPairs = pairs }
           else do
-            genCustomError $
+            unsafeGenCustomError $
               "La cantidad de " <>
               (if isConst then "constantes" else "variables") <>
               " es distinta a la de expresiones"
@@ -118,12 +118,12 @@ checkType True t pairs
         symbolTable %= insertSymbol identifier entry
         pure $ pairs |> (identifier, expr)
       _       -> do
-        genCustomError $
+        unsafeGenCustomError $
           "Se intentó asignar una expresión que no constante a la \
           \constante `" <> unpack identifier <> "`"
         pure Seq.empty
     else do
-      genCustomError $
+      unsafeGenCustomError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
@@ -144,7 +144,7 @@ checkType False t pairs
       pure $ pairs |> (identifier, expr)
 
     else do
-      genCustomError $
+      unsafeGenCustomError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"

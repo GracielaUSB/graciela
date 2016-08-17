@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Graciela where
 --------------------------------------------------------------------------------
@@ -6,13 +7,14 @@ import           Error
 import           Location
 import           Parser.Prim
 import           SymbolTable
-import           Token
+import           Token (TokenPos)
 import           Type                   (Type (..))
 import           TypeError              as T
 --------------------------------------------------------------------------------
+import Control.Monad.Trans.Class (lift)
 import           Control.Lens           (makeLenses, use, (%=))
 import           Control.Monad.Identity (Identity)
-import           Control.Monad.State    (State)
+import           Control.Monad.State    (State, MonadState)
 import           Data.Foldable          (null, toList)
 import           Data.Function          (on)
 import qualified Data.List.NonEmpty     as NE
@@ -83,7 +85,7 @@ getType name = do
 putError :: Location -> Error -> Graciela ()
 putError (Location(from,to)) e = do
   let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
-  errors %= (|> err)
+  lift $ errors %= (|> err)
 
 {- Graciela 2.0-}
 
@@ -99,15 +101,8 @@ putError (Location(from,to)) e = do
 --   then "LISTA DE ERRORES VACIA"
 --   else unlines . map show . toList $ list
 
-
-syntaxError :: MyParseError -> Graciela ()
-syntaxError err =
-  synErrorList %= (|> err)
-
-
-
 -- Provisional
-genCustomError :: String -> Graciela ()
-genCustomError msg = do
+unsafeGenCustomError :: String -> Graciela ()
+unsafeGenCustomError msg = do
     pos <- getPosition
     synErrorList %= (|> CustomError msg  (Location (pos,pos)))

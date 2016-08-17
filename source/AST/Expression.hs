@@ -147,13 +147,19 @@ data Value
   | FloatV Double
   deriving (Eq, Ord)
 
+instance Show Value where
+  show = \case
+    BoolV  v -> show v
+    CharV  v -> [v]
+    IntV   v -> show v
+    FloatV v -> show v
+
+instance Treelike Value where
+  toTree = leaf . show
+
 
 data Expression'
   = Value { theValue :: Value }
-  --   BoolLit   { theBool :: Bool }
-  -- | CharLit   { theChar :: Char }
-  -- | FloatLit  { theFloat :: Double }
-  -- | IntLit    { theInt :: Integer }
   | StringLit { theString :: String  }
 
   | EmptySet
@@ -215,18 +221,6 @@ instance Treelike Expression where
         CharV  v -> "Char Value `"  <> show v <> "` " <> show loc
         IntV   v -> "Int Value `"   <> show v <> "` " <> show loc
         FloatV v -> "Float Value `" <> show v <> "` " <> show loc
-
-    -- BoolLit   { theBool   } -> leaf $
-    --   "Bool Literal `"   <> show theBool   <> "` " <> show loc
-    --
-    -- CharLit   { theChar   } -> leaf $
-    --   "Char Literal "    <> show theChar   <> " "  <> show loc
-    --
-    -- FloatLit  { theFloat  } -> leaf $
-    --   "Float Literal `"  <> show theFloat  <> "` " <> show loc
-    --
-    -- IntLit    { theInt    } -> leaf $
-    --   "Int Literal `"    <> show theInt    <> "` " <> show loc
 
     StringLit { theString } -> leaf $
       "String Literal `" <> show theString <> "` " <> show loc
@@ -329,25 +323,9 @@ prettyUnOp Pred   = "pred"
 prettyUnOp Succ   = "succ"
 
 
-instance Show Value where
-  show = \case
-    BoolV  v -> show v
-    CharV  v -> [v]
-    IntV   v -> show v
-    FloatV v -> show v
-
-
 instance Show Expression where
   show Expression { loc, expType, exp' } = case exp' of
     Value { theValue } -> show theValue
-
-    -- BoolLit   { theBool   } -> show theBool
-    --
-    -- CharLit   { theChar   } -> [theChar]
-    --
-    -- FloatLit  { theFloat  } -> show theFloat
-    --
-    -- IntLit    { theInt    } -> show theInt
 
     StringLit { theString } -> show theString
 
