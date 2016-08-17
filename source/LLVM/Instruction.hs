@@ -4,7 +4,8 @@ module LLVM.Instruction
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Instruction                        (Instruction(..), Instruction'(..)) 
+import           AST.Instruction                        (Instruction(..),
+                                                         Instruction'(..), Guard) 
 import           AST.Expression                         (Expression(..))
 import           AST.Object                             (Object''(..), Object'(..))
 import           Limits
@@ -13,14 +14,18 @@ import           LLVM.Expression                        (expression, objectRef)
 import           LLVM.Declaration                       (declaration)
 import           LLVM.Type
 import           SymbolTable
+import           Location
 import qualified Type                                    as T
 --------------------------------------------------------------------------------
-import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad.State
+import           Control.Lens                            (use, (%=), (.=), (-=))
 import           Data.Foldable                           (toList)
+import           Control.Monad                           (zipWithM_, when)
+import qualified Control.Monad                           as M (void)
+import           Data.Sequence                           as Seq (singleton, (|>),
+                                                          fromList, empty, viewr)
+import           Data.Sequence                           (ViewR((:>)))
 import qualified Data.Map                                as DM
 import           Data.Monoid                             ((<>))
-import           Data.Range.Range                        as RA
 import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST                       (BasicBlock(..))
@@ -29,35 +34,80 @@ import qualified LLVM.General.AST.Instruction           as LLVM (Instruction(..)
 import           LLVM.General.AST.Instruction           (Named(..),
                                                          Terminator(..),
                                                          FastMathFlags(..))
+import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate(..))
 import           LLVM.General.AST.Operand               (Operand(..), CallableOperand)
 import qualified LLVM.General.AST.CallingConvention     as CC (CallingConvention(C))
 import qualified LLVM.General.AST.Constant              as C  (Constant(..))
 import           LLVM.General.AST.Type
 
-block :: String -> Instruction -> LLVM BasicBlock
-block name Instruction {inst'} = case inst' of 
+
+guard :: Guard -> Name -> LLVM ()
+guard (expr, inst) falseLabel = do  
+  cond      <- expression expr
+  trueLabel <- newLabel
+  let condBr = CondBr { condition = cond
+                      , trueDest  = trueLabel
+                      , falseDest = falseLabel
+                      , metadata' = []
+                      }
+  setLabel trueLabel $ Do condBr
+  instruction inst
+
+
+
+instruction :: Instruction -> LLVM ()
+instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
+
+  Conditional { cguards } -> do
+    finalLabel <- newLabel
+    abortLabel <- newLabel 
+    makeGuards cguards finalLabel abortLabel 
+
+    let branch = Br { dest      = finalLabel
+                    , metadata' = [] 
+                    }
+    setLabel abortLabel $ Do branch
+    createTagIf finalLabel pos
+    where 
+      makeGuards [guard'] _ abortLabel = 
+        guard guard' abortLabel
+
+      makeGuards (guard':xs) finalLabel abortLabel = do
+        nextGuardLabel <- newLabel
+        guard guard' nextGuardLabel
+        let branch = Br { dest      = finalLabel
+                        , metadata' = [] 
+                        }
+        setLabel nextGuardLabel $ Do branch
+        
+        makeGuards xs finalLabel abortLabel
+
+
   Block st decls insts -> do 
-    decls' <- mapM declaration decls
-    insts' <- mapM instruction insts
-    let terminator = Do $ Ret Nothing []
-    return $ BasicBlock (Name name) (concat decls' <> concat insts') terminator
-  _                    -> error "Tratando de construir un block con una instrucion que no es un block"
+    isTheFirstBlock <- use outerBlock
+    outerBlock .= False
 
+    mapM_ declaration decls
+    mapM_ instruction insts
+    
+    
+    when (isTheFirstBlock) $ do
+        addBlock  (Do $ Ret Nothing [])
+        outerBlock .= True
+    
 
-instruction :: Instruction -> LLVM [Named LLVM.Instruction]
-instruction Instruction { inst' } = case inst'  of
   Write { ln, wexpr } -> do
-    label <- nextLabel
+    label <- newLabel
     -- Callable operand (is the Name of the function that will be called)
     let fun = Right . ConstantOperand $ C.GlobalReference voidType $ fwrite ln (expType wexpr)
     -- Build the operand of the expression
-    (operand, insts) <- expression wexpr
+    operand <- expression wexpr
     -- Build a LLVM argument :: (Operand, [ParameterAttribute])
     let arg = [(operand, [])]
     -- Build a call instruction
     let call = LLVM.Call Nothing CC.C [] fun arg [] []
     -- return a named instruction
-    return $ insts ++ [label := call]
+    addInstructions $ Seq.singleton $ label := call
     where 
       fwrite True expType = Name $ case expType of 
           T.GBool   -> writeLnBool
@@ -76,8 +126,7 @@ instruction Instruction { inst' } = case inst'  of
 
   Read { file, varTypes, vars } -> case file of
     Nothing -> do
-      reads' <- zipWithM readVarStdin varTypes vars
-      return $ concat reads'
+      zipWithM_ readVarStdin varTypes vars
     Just file' -> undefined
 
     where 
@@ -100,7 +149,7 @@ instruction Instruction { inst' } = case inst'  of
                 , LLVM.functionAttributes = []
                 , LLVM.metadata           = []}
 
-        label <- nextLabel
+        label <- newLabel
         -- Get the reference of the variable's memory
         objRef <- objectRef var
         -- Store the value saved at `label` in the variable memory
@@ -112,8 +161,8 @@ instruction Instruction { inst' } = case inst'  of
                 , LLVM.alignment = 4
                 , LLVM.metadata  = []
                 }
-        label' <- nextLabel
-        return $ [label := call, label' := store]
+        label' <- newLabel
+        addInstructions $ fromList [label := call, label' := store]
 
 
 

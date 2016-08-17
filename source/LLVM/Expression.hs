@@ -5,17 +5,14 @@ module LLVM.Expression
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Expression                          hiding
-                                                          (BinaryOperator (..))
 import           AST.Expression                          (Expression (..),
                                                           Object)
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
-import           Limits
 import           LLVM.State
-import           LLVM.Type                               (toLLVMType)
+import           LLVM.Type                               (boolType, toLLVMType)
 import           SymbolTable
 import           Type                                    as T
 --------------------------------------------------------------------------------
@@ -23,18 +20,23 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
+import           Data.Sequence                           as Seq (ViewR ((:>)),
+                                                                 empty,
+                                                                 fromList,
+                                                                 singleton,
+                                                                 viewr)
 import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat (Double))
-import qualified LLVM.General.AST.FloatingPointPredicate as FL
+import qualified LLVM.General.AST.FloatingPointPredicate as F (FloatingPointPredicate (..))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction (..),
                                                           Named (..),
                                                           Terminator (..))
-import qualified LLVM.General.AST.IntegerPredicate       as IL
+import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
 import           LLVM.General.AST.Name                   (Name (..))
 import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
@@ -42,146 +44,70 @@ import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
-expression :: Expression -> LLVM (Operand, [Named Instruction])
+object :: Object -> LLVM Operand
+object Object { objType, obj' } = case obj' of
+    Variable { name } -> do
+      label <- newLabel
+      let
+        -- Make a reference to the variable that will be loaded (e.g. %a)
+        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name)
+        -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
+        load = Load { volatile  = False
+                    , address   = addrToLoad
+                    , maybeAtomicity = Nothing
+                    , alignment = 4
+                    , metadata  = []
+                    }
+        -- `ref` is the reference to where the variable value was loaded (e.g. %12)
+        ref = LocalReference (toLLVMType objType) label
+
+      addInstructions $ Seq.fromList [label := load]
+
+      return ref
+
+    _ -> error "Aun no hay soporte para arreglos ni estructuras"
+
+
+-- Get the reference to the object. Used in read, random, assign ...
+objectRef :: Object -> LLVM Operand
+objectRef Object { objType, obj' } = case obj' of
+  Variable { name } -> return $ LocalReference type' $ Name (unpack name)
+
+  _ -> error "Aun no hay soporte para arreglos ni estructuras"
+
+  where
+    type' = toLLVMType objType
+
+
+expression :: Expression -> LLVM Operand
 expression Expression { expType, exp'} = case exp' of
-  Value val -> case val of
+  Value val -> pure $ case val of
     BoolV  theBool  ->
-      return (ConstantOperand $ C.Int 1 (if theBool then 1 else 0), [])
+      ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
     CharV  theChar  ->
-      return (ConstantOperand $ C.Int 8 . fromIntegral . ord $ theChar, [])
+      ConstantOperand $ C.Int 8 . fromIntegral . ord $ theChar
     IntV   theInt   ->
-      return (ConstantOperand $ C.Int 32 . fromIntegral $ theInt, [])
+      ConstantOperand $ C.Int 32 . fromIntegral $ theInt
     FloatV theFloat ->
-      return (ConstantOperand $ C.Float $ LLVM.Double theFloat, [])
+      ConstantOperand $ C.Float $ LLVM.Double theFloat
 
   -- StringLit theString -> return $ ConstantOperand $ C.Int 32 10
 
-  Binary { binOp, lexpr, rexpr } -> do
-    (lOperand, lInsts) <- expression lexpr
-    (rOperand, rInsts) <- expression rexpr
-
-    label <- nextLabel
-    let inst = case expType of
-          T.GInt   -> opInt  binOp lOperand rOperand
-          T.GBool  -> opBool binOp lOperand rOperand
-          T.GFloat -> opFloat binOp lOperand rOperand
-
-    let operand = LocalReference (toLLVMType expType) label
-
-    return (operand, lInsts <> rInsts <> [label := inst])
-
-    where
-      opInt :: Op.BinaryOperator -> Operand -> Operand -> Instruction
-      opInt op lOperand rOperand = case op of
-        -- Plus   -> callFunction intAdd lOperand rOperand
-        -- BMinus -> callFunction intSub lOperand rOperand
-        -- Times  -> callFunction intMul lOperand rOperand
-        Op.Plus   -> Add  { nsw      = False
-                          , nuw      = False
-                          , operand0 = lOperand
-                          , operand1 = rOperand
-                          , metadata = []
-                          }
-        Op.BMinus -> Sub  { nsw      = False
-                          , nuw      = False
-                          , operand0 = lOperand
-                          , operand1 = rOperand
-                          , metadata = []
-                          }
-        Op.Times  -> Mul  { nsw      = False
-                          , nuw      = False
-                          , operand0 = lOperand
-                          , operand1 = rOperand
-                          , metadata = []
-                          }
-        Op.Div    -> SDiv { exact = True
-                          , operand0 = lOperand
-                          , operand1 = rOperand
-                          , metadata = []
-                          }
-        Op.Mod    -> SRem { operand0 = lOperand
-                          , operand1 = rOperand
-                          , metadata = []
-                          }
-        -- Op.Power  -> undefined
-        Op.Min    -> callFunction minnumString lOperand rOperand
-        Op.Max    -> callFunction maxnumString  lOperand rOperand
-        _         -> error "opFloat"
-
-      opFloat :: Op.BinaryOperator -> Operand -> Operand -> Instruction
-      opFloat op lOperand rOperand = case op of
-        Op.Plus   -> FAdd { fastMathFlags = NoFastMathFlags
-                          , operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        Op.BMinus -> FSub { fastMathFlags = NoFastMathFlags
-                          , operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        Op.Times  -> FMul { fastMathFlags = NoFastMathFlags
-                          , operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        Op.Div   -> FDiv  { fastMathFlags = NoFastMathFlags
-                          , operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        Op.Power  -> callFunction powString     lOperand rOperand
-        Op.Min    -> callFunction minnumFstring lOperand rOperand
-        Op.Max    -> callFunction maxnumFstring lOperand rOperand
-        _         -> error "opFloat"
-
-      opBool :: Op.BinaryOperator -> Operand -> Operand -> Instruction
-      opBool op lOperand rOperand = case op of
-        Op.And     -> And { operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        Op.Or      -> Or  { operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-        _ -> error "opBool"
-        -- Op.Implies    ->undefined
-        -- Op.Consequent ->undefined
-        -- Op.BEQ        ->undefined
-        -- Op.BNE        ->undefined
-      -- LLVM offers a set of secure operations that know when an int operation reach an overflow
-      -- llvm.sadd.with.overflow.i32 (fun == intAdd)
-      -- llvm.ssub.with.overflow.i32 (fun == intSub)
-      -- llvm.smul.with.overflow.i32 (fun == intMul)
-      callFunction :: String -> Operand -> Operand -> Instruction
-      callFunction fun lOperand rOperand =
-        let
-          type' = StructureType False [i32, i1]
-          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
-        in Call { tailCallKind       = Nothing
-                , callingConvention  = CC.C
-                , returnAttributes   = []
-                , function           = funRef
-                , arguments          = [(lOperand,[]), (rOperand,[])]
-                , functionAttributes = []
-                , metadata           = []
-                }
-
-
+  Obj obj -> object obj
 
   Unary unOp inner -> do
-    (innerOperand, innerInsts) <- expression inner
+    innerOperand <- expression inner
 
-    label <- nextLabel
+    label <- newLabel
     let inst = case expType of
           T.GInt   -> opInt   unOp innerOperand
           T.GBool  -> opBool  unOp innerOperand
           T.GFloat -> opFloat unOp innerOperand
+          t        -> error $ "tipo " <> show t <> " no soportado"
 
     let operand = LocalReference (toLLVMType expType) label
-
-    return (operand, innerInsts <> [label := inst])
+    addInstructions $ fromList [label := inst]
+    return operand
 
     where
       opInt :: Op.UnaryOperator -> Operand -> Instruction
@@ -194,11 +120,16 @@ expression Expression { expType, exp'} = case exp' of
                           , operand1 = ConstantOperand $ C.Int 32 (-1)
                           , metadata = []
                           }
-        {-! Creo que esta no va :D-}
         Op.Succ   -> Add  { nsw      = False
                           , nuw      = False
                           , operand0 = innerOperand
-                          , operand1 = ConstantOperand $ C.Int 32 (1)
+                          , operand1 = ConstantOperand $ C.Int 32 1
+                          , metadata = []
+                          }
+        Op.Pred   -> Sub  { nsw      = False
+                          , nuw      = False
+                          , operand0 = innerOperand
+                          , operand1 = ConstantOperand $ C.Int 32 1
                           , metadata = []
                           }
 
@@ -213,12 +144,6 @@ expression Expression { expType, exp'} = case exp' of
                            }
         Op.Sqrt   -> callUnaryFunction sqrtString innerOperand
 
-        {-! Creo que esta tampoco va jaja-}
-        Op.Succ  -> FAdd  { fastMathFlags = NoFastMathFlags
-                          , operand0 = innerOperand
-                          , operand1 = ConstantOperand $ C.Int 32 (1)
-                          , metadata = []
-                          }
 
       opBool :: Op.UnaryOperator -> Operand -> Instruction
       opBool op innerOperand = case op of
@@ -241,42 +166,285 @@ expression Expression { expType, exp'} = case exp' of
                 }
 
 
-  Obj obj -> object obj
 
+  Binary { binOp, lexpr, rexpr } -> do
+    -- Operate both inner expression
+    lOperand <- expression lexpr
+    rOperand <- expression rexpr
+
+    -- Get the type of the left expr. Used at bool operator to know the type when comparing.
+    let Expression _ leftType _ = lexpr
+
+    inst <- case expType of
+          T.GInt   -> opInt   binOp lOperand rOperand
+          T.GBool  -> opBool  binOp lOperand rOperand leftType
+          T.GFloat -> opFloat binOp lOperand rOperand
+
+          t        -> error $ "tipo " <> show t <> " no soportado"
+
+    addInstructions inst
+
+    -- Get the last label used.
+    let _ :> (label := _ ) = viewr inst
+
+
+
+    let operand = LocalReference (toLLVMType expType) label
+    return operand
+
+    where
+      -- LLVM offers a set of secure operations that know when an int operation reach an overflow
+      -- llvm.sadd.with.overflow.i32 (fun == intAdd)
+      -- llvm.ssub.with.overflow.i32 (fun == intSub)
+      -- llvm.smul.with.overflow.i32 (fun == intMul)
+      callFunction fun lOperand rOperand =
+        let
+          type' = StructureType False [i32, i1]
+          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
+        in Call { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = funRef
+                , arguments          = [(lOperand,[]), (rOperand,[])]
+                , functionAttributes = []
+                , metadata           = []
+                }
+
+
+      opInt op lOperand rOperand = do
+        label <- newLabel
+        return $ case op of
+          Op.Plus   -> Seq.singleton $ label := Add
+                            { nsw      = False
+                            , nuw      = False
+                            , operand0 = lOperand
+                            , operand1 = rOperand
+                            , metadata = []
+                            }
+          Op.BMinus -> Seq.singleton $ label := Sub
+                            { nsw      = False
+                            , nuw      = False
+                            , operand0 = lOperand
+                            , operand1 = rOperand
+                            , metadata = []
+                            }
+          Op.Times  -> Seq.singleton $ label := Mul
+                            { nsw      = False
+                            , nuw      = False
+                            , operand0 = lOperand
+                            , operand1 = rOperand
+                            , metadata = []
+                            }
+          Op.Div    -> Seq.singleton $ label := SDiv
+                            { exact = True
+                            , operand0 = lOperand
+                            , operand1 = rOperand
+                            , metadata = []
+                            }
+          Op.Mod    -> Seq.singleton $ label := SRem
+                            { operand0 = lOperand
+                            , operand1 = rOperand
+                            , metadata = []
+                            }
+          Op.Min    ->
+            Seq.singleton $ label := callFunction minnumString lOperand rOperand
+
+          Op.Max    ->
+            Seq.singleton $ label := callFunction maxnumString  lOperand rOperand
+          _         -> error "opFloat"
+
+
+      opFloat op lOperand rOperand = do
+        label <- newLabel
+        return $ case op of
+          Op.Plus   -> Seq.singleton $ label := FAdd
+                            { fastMathFlags = NoFastMathFlags
+                            , operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+          Op.BMinus -> Seq.singleton $ label := FSub
+                            { fastMathFlags = NoFastMathFlags
+                            , operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+          Op.Times  -> Seq.singleton $ label := FMul
+                            { fastMathFlags = NoFastMathFlags
+                            , operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+          Op.Div   ->  Seq.singleton $ label := FDiv
+                            { fastMathFlags = NoFastMathFlags
+                            , operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+          Op.Power  ->
+            Seq.singleton $ label := callFunction powString     lOperand rOperand
+
+          Op.Min    ->
+            Seq.singleton $ label := callFunction minnumFstring lOperand rOperand
+
+          Op.Max    ->
+            Seq.singleton $ label := callFunction maxnumFstring lOperand rOperand
+          _         -> error "opFloat"
+
+
+      opBool op lOperand rOperand type' = do
+        label <- newLabel
+        case op of
+          Op.And     -> do
+            let inst = And  { operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.Or -> do
+            let inst = Or { operand0      = lOperand
+                          , operand1      = rOperand
+                          , metadata      = []
+                          }
+            return $ Seq.fromList [label := inst]
+          Op.BEQ -> do
+            let inst = ICmp { iPredicate = EQ
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.BNE -> do
+            let inst = ICmp { iPredicate = NE
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.AEQ -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.OEQ
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = EQ
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.ANE -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.ONE
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = NE
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+
+          Op.LT -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.OLT
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = SLT
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.LE -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.OLE
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = SLE
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.GT -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.OGT
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = SGT
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+          Op.GE -> do
+            let inst = if type' =:= GFloat
+                  then FCmp { fpPredicate = F.OGE
+                            , operand0    = lOperand
+                            , operand1    = rOperand
+                            , metadata    = []
+                            }
+                  else ICmp { iPredicate = SGE
+                            , operand0   = lOperand
+                            , operand1   = rOperand
+                            , metadata   = []
+                            }
+            return $ Seq.fromList [label := inst]
+
+          Op.Implies    -> do
+            -- p ==> q ≡ p ⋁ q ≡ q
+
+            -- Operate p ⋁ q and save the result at `label`
+            let orInst = Or { operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+            let result = LocalReference boolType label
+
+            -- Operate the t ≡ q, where t is the previous result and save it in label'
+            label' <- newLabel
+            let equal = ICmp { iPredicate = EQ
+                             , operand0   = result
+                             , operand1   = rOperand
+                             , metadata   = []
+                             }
+            return $ Seq.fromList [label := orInst, label' := equal]
+
+
+          Op.Consequent -> do
+            -- p <== q ≡ p ⋁ q ≡ p
+
+            -- Operate p ⋁ q and save the result at `label`
+            let orInst = Or { operand0      = lOperand
+                            , operand1      = rOperand
+                            , metadata      = []
+                            }
+            let result = LocalReference boolType label
+
+            -- Operate the t ≡ q, where t is the previous result and save it in label'
+            label' <- newLabel
+            let equal = ICmp { iPredicate = EQ
+                             , operand0   = lOperand
+                             , operand1   = result
+                             , metadata   = []
+                             }
+            return $ Seq.fromList [label := orInst, label' := equal]
 
   -- Dummy operand
-  _ -> return (ConstantOperand $ C.Int 32 10,[])
+  _ -> return $ ConstantOperand $ C.Int 32 10
 
 
-object :: Object -> LLVM (Operand, [Named Instruction])
-object Object { objType, obj' } = case obj' of
-    Variable { name } -> do
-      label <- nextLabel
-      let
-        -- Make a reference to the variable that will be loaded (e.g. %a)
-        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name)
-        -- Load the value in the variable address (e.g. %12 = load i32* %a, align 4)
-        load = Load { volatile  = False
-                    , address   = addrToLoad
-                    , maybeAtomicity = Nothing
-                    , alignment = 4
-                    , metadata  = []
-                    }
-        -- Ref is the label where the variable value was loaded (e.g. %12)
-        ref = LocalReference (toLLVMType objType) label
-      return (ref, [label := load])
 
-    _ -> error "Obj"
-
--- Get the reference to the object. Used in read, random, assign ...
-objectRef :: Object -> LLVM Operand
-objectRef Object { objType, obj' } = case obj' of
-  Variable { name } -> return $ LocalReference type' $ Name (unpack name)
-
-  _ -> error "Aun no hay soporte para arreglos ni estructuras"
-
-  where
-    type' = toLLVMType objType
 -- createExpression :: Expression -> LLVM Operand
 -- createExpression (Expression loc expType constant exp') = case exp' of
 

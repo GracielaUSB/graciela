@@ -13,8 +13,11 @@ import           LLVM.Expression
 import           LLVM.State
 import           LLVM.Type
 --------------------------------------------------------------------------------
+import           Control.Lens                            (use, (%=), (.=))
 import           Data.Text                               (Text,unpack)
 import           Data.Word
+import           Data.Sequence                           as Seq (empty)
+import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
 import qualified LLVM.General.AST                        as LLVM (Definition(..))
 import           LLVM.General.AST                        (Terminator(..),
@@ -33,36 +36,48 @@ import           LLVM.General.AST.Type                   (Type(StructureType))
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
 mainDefinition :: Instruction -> LLVM LLVM.Definition
 mainDefinition insts = do
-  basicBlock <- block "main" insts
+  instruction insts
+  blocks' <- use blocks
+  blocks .= Seq.empty
+  currentBlock .= Seq.empty
+  label <- newLabel
+  let terminator = Do $ Ret Nothing []
   return $ LLVM.GlobalDefinition $ functionDefaults
         { name        = Name "main"
         , parameters  = ([], False)
         , returnType  = voidType
-        , basicBlocks = [basicBlock]
+        , basicBlocks = toList blocks'
         }
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM LLVM.Definition
 definition Definition {defName, params, st, def'} = case def' of 
   FunctionDef {funcBody, retType} -> do 
-    (operand, insts) <- expression funcBody
+    operand <- expression funcBody
     let name = Name $ unpack defName
+    blocks' <- use blocks
+    blocks .= Seq.empty
+    currentBlock .= Seq.empty
     return $ LLVM.GlobalDefinition $ functionDefaults
         { name        = name
         , parameters  = (fmap toLLVMParameter params, False)
         , returnType  = toLLVMType retType
-        , basicBlocks = [BasicBlock name insts $ Do $ Ret (Just operand) []]
+        , basicBlocks = toList blocks'
         }
         
   ProcedureDef {procDecl, pre, procBody, post} -> do
-    pre'  <- expression pre
-    post  <- expression post
-    block <- instruction procBody 
+    pre'       <- expression pre
+    post       <- expression post
+    instruction procBody
+    blocks' <- use blocks
+    blocks .= Seq.empty
+    label <- newLabel
+    let terminator = Do $ Ret Nothing []
     return $ LLVM.GlobalDefinition $ functionDefaults
         { name        = Name (unpack defName)
         , parameters  = (fmap toLLVMParameter params, False)
         , returnType  = voidType
-        , basicBlocks = []
+        , basicBlocks = toList blocks'
         }
   where 
     toLLVMParameter (name, t) = Parameter (toLLVMType t) (Name (unpack name)) []
@@ -112,8 +127,10 @@ preDefinitions files = return [
   -- Random
     declareFunction randomInt [] intType
   -- Abort
-  -- , declareFunction abortString (createEmptyParameters [(Name "x", intType),
-  --   (Name "line", intType), (Name "column", intType)]) voidType
+  , declareFunction abortString [ parameter ("x", intType)
+                                , parameter ("line", intType)
+                                , parameter ("column", intType)] 
+                                voidType
   -- Min and max
   , declareFunction minnumString intParams2 intType
   , declareFunction maxnumString intParams2 intType

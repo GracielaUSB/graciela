@@ -23,7 +23,7 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.State                     (void, evalState)
 import           Data.Foldable                           (toList)
 import qualified Data.Map                                as DM
-import           Data.Maybe
+import           Data.Sequence                           (singleton, fromList)
 import           Data.Monoid                             ((<>))
 import           Data.Range.Range                        as RA
 import qualified Data.Text                               as T
@@ -73,9 +73,9 @@ programToLLVM files (Program name _ defs insts) = do
     -- and the main program, that will be a function called main... of course.
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
     program = do 
+      preDef      <- preDefinitions files
       definitions <- mapM definition defs
-      preDef <- preDefinitions files
-      main   <- mainDefinition insts
+      main        <- mainDefinition insts
       return $ preDef <> definitions <> [main]
 
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
