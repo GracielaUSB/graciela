@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Parser.Expression
   ( expression
@@ -12,8 +13,8 @@ import qualified AST.Object                as O (inner, loc, name)
 import           Entry                     (Entry' (..), Entry'' (..), info,
                                             varType)
 import           Error                     (Error (..), prettyError)
-import           Graciela hiding (putError)
-import qualified Graciela as G (putError)
+import           Graciela
+-- import qualified Graciela                  as G (putError)
 import           Lexer
 import           Limits
 import           Location
@@ -28,7 +29,7 @@ import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Applicative       (Alternative)
 import           Control.Lens              (makeLenses, use, (%=), (&~), (<&>),
-                                            (^.))
+                                            (^.), (.=))
 import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
@@ -42,14 +43,19 @@ import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lookup)
-import           Text.Megaparsec           (between, getPosition, runParser,
-                                            runParserT, sepBy, sepBy1, some,
-                                            try, (<|>))
+import           Text.Megaparsec           (between, eof, errorUnexpected,
+                                            getPosition, lookAhead, manyTill,
+                                            runParser, runParserT, sepBy,
+                                            sepBy1, some, try, withRecovery,
+                                            (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
 expression :: Graciela Expression
 expression = evalStateT expr []
+
+-- safeExpression :: Graciela Expression
+-- safeExpression = evalStateT (safeExpr) []
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -73,18 +79,34 @@ type MetaExpr = (Expression, ProtoRange, Taint)
 
 type GracielaRange = StateT [ Text ] Graciela
 
+-- putError :: Location -> Error -> GracielaRange ()
+-- putError l err = lift $ G.putError l err
 
-putError :: Location -> Error -> GracielaRange ()
-putError l err = lift $ G.putError l err
+
+-- safeExpr :: GracielaRange Expression
+-- safeExpr = (\(e,_,_) -> e) <$> safeMetaexpr
 
 
 expr :: GracielaRange Expression
 expr = (\(e,_,_) -> e) <$> metaexpr
 
 
+-- safeMetaexpr :: GracielaRange MetaExpr
+-- safeMetaexpr = withRecovery r metaexpr
+--   where
+--     r e = do
+--       ts <- lift $ use recSet
+--
+--       fromm' <- getPosition
+--       putError (Location (fromm',undefined)) (UnknownError $ "Unexpected " <> concatMap show (errorUnexpected e))
+--
+--       from <- getPosition
+--       noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
+--       to <- getPosition
+--       pure (BadExpression { E.loc = Location (from, to) }, ProtoNothing, Taint False)
+
 metaexpr :: GracielaRange MetaExpr
 metaexpr = makeExprParser term operator
-
 
 term :: GracielaRange MetaExpr
 term =  parens metaexpr
@@ -1085,22 +1107,27 @@ testExpr myparser strinput = do
           , _info       = Const
             { _constType  = GFloat
             , _constValue = FloatV 3.14 }}
-    (r, s) = runState (runParserT myparser "" ets) init'
+    (r, s) = runState (runParserT (runGraciela myparser) "" ets) init'
 
   case r of
-    Right r' -> do
-      putStrLn . drawTree . toTree $ r'
-      case r' of
-        Expression { expType } -> print expType
-        _ -> pure ()
-    _ -> pure ()
-  mapM_ (putStrLn . prettyError) (s ^. errors)
+    Right x -> putStrLn . drawTree . toTree $ x
+    Left x -> print x
+  print (s ^. errors)
 
-testParser :: Show a => Graciela a -> String -> IO ()
-testParser myparser strinput = do
-  let input = pack strinput
-  let Right ets = runParser lexer "" input
-  let (r,s) = runState (runParserT myparser "" ets) initialState
-  case r of
-    Right r' -> print r'
-    _ -> print "oops"
+  -- case r of
+  --   Right r' -> do
+  --     putStrLn . drawTree . toTree $ r'
+  --     case r' of
+  --       Expression { expType } -> print expType
+  --       _ -> pure ()
+  --   _ -> pure ()
+  -- mapM_ (putStrLn . prettyError) (s ^. errors)
+
+-- testParser :: Show a => Graciela a -> String -> IO ()
+-- testParser myparser strinput = do
+--   let input = pack strinput
+--   let Right ets = runParser lexer "" input
+--   let (r,s) = runState (runParserT myparser "" ets) initialState
+--   case r of
+--     Right r' -> print r'
+--     _ -> print "oops"

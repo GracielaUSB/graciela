@@ -1,5 +1,8 @@
-{-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Graciela where
 --------------------------------------------------------------------------------
@@ -7,39 +10,52 @@ import           Error
 import           Location
 import           Parser.Prim
 import           SymbolTable
-import           Token (TokenPos)
-import           Type                   (Type (..))
-import           TypeError              as T
+import           Token                     (Token, TokenPos)
+import           Type                      (Type (..))
+import           TypeError                 as T
 --------------------------------------------------------------------------------
-import Control.Monad.Trans.Class (lift)
-import           Control.Lens           (makeLenses, use, (%=))
-import           Control.Monad.Identity (Identity)
-import           Control.Monad.State    (State, MonadState)
-import           Data.Foldable          (null, toList)
-import           Data.Function          (on)
-import qualified Data.List.NonEmpty     as NE
-import           Data.Map               (Map)
-import qualified Data.Map               as Map (empty, fromList, insert, lookup,
-                                                member)
-import           Data.Monoid            ((<>))
-import           Data.Sequence          (Seq, (|>))
-import qualified Data.Sequence          as Seq (empty, null, sortBy)
-import qualified Data.Set               as Set (Set, empty, insert, singleton)
-import           Data.Text              (Text, pack)
-import           Text.Megaparsec        (ParseError (..), ParsecT,
-                                         ShowErrorComponent, ShowToken,
-                                         getPosition, parseErrorPretty)
+import           Control.Applicative       (Alternative)
+import           Control.Lens              (makeLenses, use, (%=))
+import           Control.Monad             (MonadPlus, void)
+import           Control.Monad.State       (MonadState, State)
+import           Control.Monad.Trans.Class (MonadTrans, lift)
+import           Data.Foldable             (null, toList)
+import           Data.Function             (on)
+import qualified Data.List.NonEmpty        as NE
+import           Data.Map                  (Map)
+import qualified Data.Map                  as Map (empty, fromList, insert,
+                                                   lookup, member)
+import           Data.Monoid               ((<>))
+import           Data.Sequence             (Seq, (|>))
+import qualified Data.Sequence             as Seq (empty, null, sortBy)
+import           Data.Set                  (Set)
+import qualified Data.Set                  as Set (empty, insert, singleton)
+import           Data.Text                 (Text, pack)
+import           Text.Megaparsec           (ParseError (..), ParsecT,
+                                            ShowErrorComponent, ShowToken,
+                                            getPosition, lookAhead, manyTill,
+                                            parseErrorPretty, withRecovery,
+                                            (<|>))
+import           Text.Megaparsec.Prim      (MonadParsec)
 --------------------------------------------------------------------------------
 
-type Graciela = ParsecT Error [TokenPos] (State GracielaState)
+-- type Graciela = ParsecT Error [TokenPos] (State GracielaState)
+
+newtype Graciela a =
+  Graciela
+    { runGraciela :: ParsecT Error [TokenPos] (State GracielaState) a }
+  deriving (Functor, Applicative, Monad, MonadState GracielaState, MonadParsec Error [TokenPos], MonadPlus, Alternative)
+
 
 data GracielaState = GracielaState
   { _synErrorList :: Seq MyParseError
   , _errors       :: Seq (ParseError TokenPos Error)
   , _symbolTable  :: SymbolTable
-  , _filesToRead  :: Set.Set String
+  , _filesToRead  :: Set String
   , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
   , _typesTable   :: Map Text (Type, SourcePos)
+
+  , _recSet       :: [Token]
   }
 
 makeLenses ''GracielaState
@@ -66,6 +82,8 @@ initialState = GracielaState
   , _filesToRead     = Set.empty
   , _currentProc     = Nothing
   , _typesTable      = initialTypes
+
+  , _recSet          = []
   }
 
 {- Graciela 2.0-}
@@ -82,10 +100,10 @@ getType name = do
     Nothing       -> return Nothing
 
 
-putError :: Location -> Error -> Graciela ()
-putError (Location(from,to)) e = do
-  let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
-  lift $ errors %= (|> err)
+-- putError :: Location -> Error -> Graciela ()
+-- putError (Location(from,to)) e = do
+--   let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
+--   errors %= (|> err)
 
 {- Graciela 2.0-}
 
@@ -103,6 +121,6 @@ putError (Location(from,to)) e = do
 
 -- Provisional
 unsafeGenCustomError :: String -> Graciela ()
-unsafeGenCustomError msg = do
+unsafeGenCustomError msg = Graciela $ do
     pos <- getPosition
     synErrorList %= (|> CustomError msg  (Location (pos,pos)))

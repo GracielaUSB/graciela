@@ -18,6 +18,7 @@ module Parser.Token
   , satisfy
   , match
   , oneOf
+  , noneOf
   , parens
   , percents
   , brackets
@@ -29,6 +30,9 @@ module Parser.Token
   , stringLit
   , integerLit
   , floatLit
+  , MonadGraciela
+  , safe
+  , putError
   ) where
 --------------------------------------------------------------------------------
 import           Token
@@ -41,10 +45,16 @@ import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        token, between, getPosition)
+                                        token, between, getPosition, manyTill, (<|>), lookAhead, eof, withRecovery)
 import           Data.Int              (Int32)
 import           Text.Megaparsec.Prim  (MonadParsec)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
+import Data.Sequence ((|>))
+import qualified Data.List.NonEmpty        as NE
+import Control.Lens (use, (%=))
+import Control.Monad (void)
+import Control.Monad.Trans.Class (MonadTrans, lift)
+import Data.Monoid ((<>))
 --------------------------------------------------------------------------------
 
 unex :: TokenPos -> (Set (ErrorItem TokenPos), Set a, Set b)
@@ -71,9 +81,19 @@ satisfy f = token test Nothing
         else Left . unex $ tp
 
 
-oneOf :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-      => [Token] -> m Token
+anyToken :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
+         => m Token
+anyToken = satisfy (const True)
+
+
+oneOf :: (Foldable f, MonadParsec e s m, Prim.Token s ~ TokenPos)
+      => f Token -> m Token
 oneOf ts = satisfy (`elem` ts)
+
+
+noneOf :: (Foldable f, MonadParsec e s m, Prim.Token s ~ TokenPos)
+      => f Token -> m Token
+noneOf ts = satisfy (`notElem` ts)
 
 
 parens :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
@@ -94,13 +114,6 @@ brackets = between (match TokLeftBracket) (match TokRightBracket)
 beginEnd :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
          => m a -> m a
 beginEnd = between (match TokBegin) (match TokEnd)
-
-
-anyToken :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-         => m Token
-anyToken = token test Nothing
-  where
-    test TokenPos {tok} = Right tok
 
 
 identifier :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
@@ -159,3 +172,52 @@ floatLit = token test Nothing
   where
     test    TokenPos {tok = TokFloat f} = Right f
     test tp@TokenPos {tok}              = Left . unex $ tp
+
+
+class MonadGraciela g where
+  safe :: g a -> g (Maybe a)
+  putError :: Location -> Error -> g ()
+  -- addToRecSet :: Token -> m ()
+
+instance MonadGraciela Graciela where
+  putError (Location (from, to)) e = Graciela $ do
+    let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
+    errors %= (|> err)
+
+  safe parser = withRecovery r (Just <$> parser)
+    where
+      r e = do
+        pos <- getPosition
+
+        putError
+          (Location (pos, undefined))
+          (UnknownError $ "Unexpected " <> concatMap show (errorUnexpected e))
+
+        ts <- use recSet
+        noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
+
+        pure Nothing
+
+  -- addToRecSet = algo
+
+instance (Monad m, MonadGraciela m, MonadTrans t) => MonadGraciela (t m) where
+  safe = safe
+  putError l e = putError l e
+
+
+-- safe :: (MonadTrans t, Monad (t Graciela))
+--      => t Graciela a
+--      -> t Graciela (Maybe a)
+-- safe parser = withRecovery r (Just <$> parser)
+--   where
+--     r e = do
+--       -- pos <- getPosition
+--
+--       -- putError
+--       --   (Location (pos, undefined))
+--       --   (UnknownError $ "Unexpected " <> concatMap show (errorUnexpected e))
+--
+--       -- ts <- use recSet
+--       -- noneOf [] `manyTill` (lookAhead (void $ oneOf []) <|> eof)
+--
+--       pure Nothing

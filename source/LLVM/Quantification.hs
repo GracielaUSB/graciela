@@ -14,7 +14,7 @@ import           SymbolTable
 import qualified Type                                    (Type (..))
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad.State
+import           Control.Monad.Trans.State
 import           Data.Foldable                           (toList)
 import qualified Data.Map                                as DM
 import           Data.Maybe

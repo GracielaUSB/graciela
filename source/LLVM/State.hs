@@ -11,8 +11,8 @@ import qualified Type                         as T
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
 import           Control.Monad                (when)
-import           Control.Monad.State
-import           Data.Char
+import           Control.Monad.State          (MonadState, State)
+-- import           Data.Char
 import           Data.Foldable                (toList)
 import           Data.Map                     (Map)
 import qualified Data.Map                     as Map
@@ -20,7 +20,7 @@ import           Data.Monoid                  ((<>))
 import           Data.Sequence                (Seq, (|>))
 import qualified Data.Sequence                as Seq
 import           Data.Text                    (Text, unpack)
-import           Data.Word
+-- import           Data.Word
 import           LLVM.General.AST             (BasicBlock (..))
 import qualified LLVM.General.AST             as LLVM (Definition (..))
 import           LLVM.General.AST.Instruction (Named (..), Terminator (..))

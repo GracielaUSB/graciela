@@ -4,54 +4,57 @@
 
 module Main where
 --------------------------------------------------------------------------------
-import           LLVM.Program
 import           AST.Program
 import           Graciela
 import           Lexer
+import           LLVM.Program
 import           Parser.Program
-import           Parser.Recovery        (prettyError)
+import           Parser.Recovery              (prettyError)
 import           SymbolTable
 import           Token
 import           Treelike
 import           Type
 import           TypeError
 --------------------------------------------------------------------------------
-import           Control.Monad          (unless, void, when, (>=>))
-import           Control.Monad.Except   (ExceptT, runExceptT)
+import           Control.Monad                (unless, void, when, (>=>))
+import           Control.Monad.Trans.Except   (ExceptT, runExceptT)
 import           Control.Monad.Identity (Identity, runIdentity)
-import           Control.Monad.State    (runState)
-import           Data.Foldable          (toList)
-import           Data.List              (nub)
-import           Data.Map.Strict        (showTree)
-import           Data.Maybe             (fromMaybe)
-import           Data.Monoid            ((<>))
-import qualified Data.Sequence          as Seq (null)
-import           Data.Set               (empty)
-import           Data.String.Utils      (replace)
-import           Data.Text              (Text, unpack)
-import           Data.Text.IO           (readFile)
+import           Control.Monad.Trans.State    (runState)
+import           Data.Foldable                (toList)
+import           Data.List                    (nub)
+import           Data.Map.Strict              (showTree)
+import           Data.Maybe                   (fromMaybe)
+import           Data.Monoid                  ((<>))
+import qualified Data.Sequence                as Seq (null)
+import           Data.Set                     (empty)
+import           Data.String.Utils            (replace)
+import           Data.Text                    (Text, unpack)
+import           Data.Text.IO                 (readFile)
 
-import           LLVM.General.Context   (withContext)
-import           LLVM.General.Module    (File (..), Module, withModuleFromAST,
-                                         writeLLVMAssemblyToFile,
-                                         writeObjectToFile)
-import           LLVM.General.Target    (withHostTargetMachine)
+import           LLVM.General.Context         (withContext)
+import           LLVM.General.Module          (File (..), Module,
+                                               withModuleFromAST,
+                                               writeLLVMAssemblyToFile,
+                                               writeObjectToFile)
+import           LLVM.General.Target          (withHostTargetMachine)
 
-import           Prelude                hiding (readFile)
+import           Prelude                      hiding (readFile)
 
-import           System.Console.GetOpt  (ArgDescr (..), ArgOrder (..),
-                                         OptDescr (..), getOpt, usageInfo)
-import           System.Directory       (doesFileExist)
-import           System.Environment     (getArgs)
-import           System.Exit            (ExitCode (..), die, exitSuccess)
-import           System.FilePath.Posix  (replaceExtension, takeExtension)
-import           System.Info            (os)
-import           System.IO              (hPutStr, stderr)
-import           System.Process         (readProcess, readProcessWithExitCode)
+import           System.Console.GetOpt        (ArgDescr (..), ArgOrder (..),
+                                               OptDescr (..), getOpt, usageInfo)
+import           System.Directory             (doesFileExist)
+import           System.Environment           (getArgs)
+import           System.Exit                  (ExitCode (..), die, exitSuccess)
+import           System.FilePath.Posix        (replaceExtension, takeExtension)
+import           System.Info                  (os)
+import           System.IO                    (hPutStr, stderr)
+import           System.Process               (readProcess,
+                                               readProcessWithExitCode)
 
-import           Text.Megaparsec        (ParsecT, runParser, runParserT,
-                                         sourceColumn, sourceLine, parseErrorPretty)
-import           Text.Megaparsec.Error  (ParseError, errorPos)
+import           Text.Megaparsec              (ParsecT, parseErrorPretty,
+                                               runParser, runParserT,
+                                               sourceColumn, sourceLine)
+import           Text.Megaparsec.Error        (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -130,7 +133,7 @@ main = do
   when (optVersion options) $ do
       putStrLn version
       exitSuccess
-  
+
   -- Print command options
   when (optHelp options) $ do
       putStr help
@@ -163,15 +166,15 @@ main = do
   let Right ets = runParser lexer fileName source
   let (r, state) = runState (runParserT program (unpack source) ets) initialState
 
-  case r of 
-    Right program -> do 
+  case r of
+    Right program -> do
         {-Print AST-}
         when (optAST options) $ putStrLn . drawTree . toTree $ program
         {-Print Symbol Table-}
-        when (optSTable options) $ do 
+        when (optSTable options) $ do
           putStrLn . drawTree . toTree . fst . _symbolTable $ state
           putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
-        
+
         {- Print Errors-}
         putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
         case (optErrors options) of
@@ -179,7 +182,7 @@ main = do
           _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
 
         {- If no errors -}
-        when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do 
+        when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do
           {- Generate LLVM AST -}
           newast <- programToLLVM (toList $ _filesToRead state) program
           {- And write it as IR on a ll file -}

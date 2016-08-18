@@ -161,7 +161,7 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   "\8658"       $> TokImplies)    -- ⇒
       <|> (symbol   "<=="         $> TokConsequent)
       <|> (symbol   "\8656"       $> TokConsequent) -- ⇐
-      
+
       <|> (symbol   "==="         $> TokBEQ)
       <|> (symbol   "\8801"       $> TokBEQ)   -- ≡
       <|> (symbol   "!=="         $> TokBNE)
@@ -175,7 +175,7 @@ token  =  (reserved "program"     $> TokProgram)
       <|> (symbol   "=="          $> TokAEQ)
       <|> (symbol   "!="          $> TokANE)
       <|> (symbol   "\8800"       $> TokANE)   -- ≠
-      
+
       <|> (symbol   "<="          $> TokLE)
       <|> (symbol   "\8804"       $> TokLE)   -- ≤
       <|> (symbol   ">="          $> TokGE)

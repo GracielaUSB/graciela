@@ -135,9 +135,8 @@ assign = do
 
   let len = length lvals == length exprs
 
-  unless len . syntaxError $ CustomError
+  unless len . putError (Location (from, to)) $ UnknownError
     "La cantidad de lvls es distinta a la de expresiones"
-    (Location (from, to))
 
   (correct, lvals') <- checkTypes (zip lvals exprs)
 
@@ -160,16 +159,15 @@ assign = do
             (c,objs) <- checkTypes xs
             return (c, o:objs)
           else do
-            syntaxError $ CustomError
-                ("No se puede asignar una expresion del tipo `" <>
-                  show t2 <> "` a una variable del tipo `" <>
-                  show t1 <> "`") loc1
+            putError loc1 . UnknownError $
+              "No se puede asignar una expresion del tipo `" <>
+              show t2 <> "` a una variable del tipo `" <>
+              show t1 <> "`"
             (c,objs) <- checkTypes xs
             return (False,objs)
       (Expression loc _ _, Expression {}) -> do
-        syntaxError $ CustomError
+        putError loc $ UnknownError
           "No se puede asignar un valor a una expresion"
-          loc
         (c,objs) <- checkTypes xs
         return (False, objs)
       _ -> checkTypes xs

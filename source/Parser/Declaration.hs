@@ -8,8 +8,9 @@ Copyright   : Graciela
 Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
 -}
-module Parser.Declaration (declaration) where
-
+module Parser.Declaration
+  ( declaration
+  ) where
 -------------------------------------------------------------------------------
 import           AST.Declaration                (Declaration (..))
 import           AST.Expression                 (Expression (..),
@@ -47,7 +48,7 @@ type Constness = Bool
 declaration :: Graciela Declaration
 declaration = do
   from <- getPosition
-  isConst <- match match TokConst $> True <|> TokVar $> False
+  isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
 
   mvals <- (if isConst then (Just <$>) else optional) assignment
@@ -107,14 +108,14 @@ checkType True t pairs
   ((identifier, location), expr@Expression { expType, exp' }) =
   if expType =:= t
     then case exp' of
-      Value _ -> do
+      Value v -> do
         let
           entry = Entry
             { _entryName  = identifier
             , _loc        = location
             , _info       = Const
               { _constType  = t
-              , _constValue = expr }}
+              , _constValue = v }}
         symbolTable %= insertSymbol identifier entry
         pure $ pairs |> (identifier, expr)
       _       -> do
