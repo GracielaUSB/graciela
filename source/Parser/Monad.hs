@@ -1,0 +1,267 @@
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+
+module Parser.Monad
+  ( MonadParser
+  , ParserT
+  , Parser
+  , floatLit
+  , boolLit
+  , integerLit
+  , stringLit
+  , charLit
+  , brackets
+  , percents
+  , beginEnd
+  , anyToken
+  , runParserT
+  , runParser
+  , identifier
+  , identifierAndLoc
+  , parens
+  ) where
+--------------------------------------------------------------------------------
+import           Error
+import           Location
+import           Parser.Prim               ()
+import           Parser.State              hiding (State)
+import qualified Parser.State              as Parser (State)
+import           Token                     (Token (..), TokenPos (..))
+--------------------------------------------------------------------------------
+import           Control.Applicative       (Alternative)
+import           Control.Lens              (use, (%=))
+import           Control.Monad             (MonadPlus, void)
+import           Control.Monad.Identity    (Identity (..))
+import           Control.Monad.State       (MonadState)
+import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.State (StateT (..), evalStateT)
+import           Data.Int                  (Int32)
+import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.List.NonEmpty        as NE (fromList)
+import           Data.Sequence             ((|>))
+import qualified Data.Set                  as Set (empty, singleton)
+import           Data.Text                 (Text)
+import           Text.Megaparsec           (ErrorItem (..), ParseError (..),
+                                            ParsecT, between, getPosition,
+                                            lookAhead, manyTill, withRecovery,
+                                            (<|>))
+import qualified Text.Megaparsec           as Mega (runParserT)
+import           Text.Megaparsec.Prim      (MonadParsec (..))
+--------------------------------------------------------------------------------
+
+newtype ParserT m a =
+  ParserT { unParserT :: ParsecT Error [TokenPos] (StateT Parser.State m) a }
+  deriving ( Functor, Applicative, Monad, MonadState Parser.State
+           , MonadParsec Error [TokenPos], MonadPlus, Alternative )
+
+type Parser = ParserT Identity
+--------------------------------------------------------------------------------
+
+runParserT :: Monad m
+           => ParserT m a
+           -> FilePath
+           -> [TokenPos]
+           -> Parser.State
+           -> m (Either (ParseError TokenPos Error) a, Parser.State)
+runParserT p fp input initState =
+  runStateT (Mega.runParserT (unParserT p) fp input) initState
+
+runParser :: Parser a
+          -> FilePath
+          -> [TokenPos]
+          -> Parser.State
+          -> (Either (ParseError TokenPos Error) a, Parser.State)
+runParser p fp input initState =
+  runIdentity (runParserT p fp input initState)
+
+class MonadParsec Error [TokenPos] p => MonadParser p where
+  putError :: Location -> Error -> p ()
+  safe :: p (Maybe a) -> p (Maybe a)
+  push :: Token -> p ()
+  pop :: p ()
+  satisfy :: (Token -> Bool) -> p Token
+
+instance Monad m => MonadParser (ParserT m) where
+  putError = pPutError
+  safe     = pSafe
+  push     = pPush
+  pop      = pPop
+  satisfy  = pSatisfy
+
+instance MonadParser g => MonadParser (StateT s g) where
+  putError l e = lift $ putError l e
+  safe p = StateT $ \s -> do
+    a' <- safe $ evalStateT p s
+    return (a', s)
+  push    = lift . push
+  pop     = lift pop
+  satisfy = lift . satisfy
+
+
+pPutError :: Monad m => Location -> Error -> ParserT m ()
+pPutError (Location (from, _)) e = ParserT $ do
+  let
+    err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
+  errors %= (|> err)
+pPutError _ _ = error "FIXME"
+
+pSafe :: (Monad m)
+      => ParserT m (Maybe a) -> ParserT m (Maybe a)
+pSafe = withRecovery r
+  where
+    r e = do
+      pos <- getPosition
+
+      putError
+        (Location (pos, undefined))
+        (UnexpectedToken (errorUnexpected e))
+
+      ts <- use recSet
+      void $ noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
+
+      pure Nothing
+
+pPush :: Monad m
+      => Token -> ParserT m ()
+pPush t = ParserT $ recSet %= (t:)
+
+pPop :: Monad m
+     => ParserT m ()
+pPop = ParserT $ recSet %= tail
+
+pSatisfy :: Monad m
+         => (Token -> Bool) -> ParserT m Token
+pSatisfy f = token test Nothing
+  where
+    test tp @ TokenPos { tok } =
+      if f tok
+        then Right tok
+        else Left . unex $ tp
+    unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
+--------------------------------------------------------------------------------
+
+match :: MonadParser m
+      => Token -> m Token
+match t = satisfy (== t)
+
+
+anyToken :: MonadParser m => m Token
+anyToken = satisfy (const True)
+
+
+oneOf :: (Foldable f, MonadParser m)
+      => f Token -> m Token
+oneOf ts = satisfy (`elem` ts)
+
+
+noneOf :: (Foldable f, MonadParser m)
+      => f Token -> m Token
+noneOf ts = satisfy (`notElem` ts)
+
+
+parens :: MonadParser m
+       => m (Maybe a) -> m (Maybe a)
+parens = (. safe) $ between
+  (match TokLeftPar  <* push TokRightPar)
+  (match TokRightPar <* pop)
+
+
+percents :: MonadParser m
+         => m (Maybe a) -> m (Maybe a)
+percents = (. safe) $ between
+  (match TokLeftPercent  <* push TokRightPercent)
+  (match TokRightPercent <* pop)
+
+
+brackets :: MonadParser m
+         => m (Maybe a) -> m (Maybe a)
+brackets = (. safe) $ between
+  (match TokLeftBracket  <* push TokRightBracket)
+  (match TokRightBracket <* pop)
+
+
+beginEnd :: MonadParser m
+         => m (Maybe a) -> m (Maybe a)
+beginEnd = (. safe) $ between
+  (match TokBegin <* push TokEnd)
+  (match TokEnd   <* pop)
+
+
+identifier :: MonadParser m
+           => m Text
+identifier = unTokId <$> satisfy ident
+  where
+    ident TokId {} = True
+    ident _        = False
+
+
+-- | Find an identifier and returns its name and location
+identifierAndLoc :: MonadParser m
+                 => m (Text, Location)
+identifierAndLoc = do
+  from <- getPosition
+  name <- identifier
+  to <- getPosition
+  pure (name, Location(from,to))
+
+
+boolLit :: MonadParser m
+        => m Bool
+boolLit = unTokBool <$> satisfy bool
+  where
+    bool TokBool {} = True
+    bool _          = False
+
+
+charLit :: MonadParser m
+        => m Char
+charLit = unTokChar <$> satisfy char
+  where
+    char TokChar {} = True
+    char _          = False
+
+
+stringLit :: MonadParser m
+          => m Text
+stringLit = unTokString <$> satisfy string
+  where
+    string TokString {} = True
+    string _            = False
+
+
+integerLit :: MonadParser m
+           => m Int32
+integerLit = unTokInteger <$> satisfy string
+  where
+    string TokInteger {} = True
+    string _             = False
+
+
+floatLit :: MonadParser m
+         => m Double
+floatLit = unTokFloat <$> satisfy float
+  where
+    float TokFloat {} = True
+    float _           = False
+-- --------------------------------------------------------------------------------
+-- insertType :: Text -> Type -> SourcePos -> Graciela ()
+-- insertType name t loc =
+--   typesTable %= Map.insert name (t, loc)
+--
+--
+-- getType :: Text -> Graciela (Maybe Type)
+-- getType name = do
+--   types <- use typesTable
+--   case Map.lookup name types of
+--     Just (t, loc) -> return $ Just t
+--     Nothing       -> return Nothing
+--
+-- --------------------------------------------------------------------------------
+-- unsafeGenCustomError :: String -> Graciela ()
+-- unsafeGenCustomError msg = ParserT $ do
+--     pos <- getPosition
+--     synErrorList %= (|> CustomError msg  (Location (pos,pos)))
