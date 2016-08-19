@@ -15,17 +15,18 @@ import           Type                  (Type (..))
 import           Control.Lens          ((%=))
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty     as NE
-import           Data.Set              (Set)
+import qualified Data.List.NonEmpty    as NE
 import           Data.Sequence         ((|>))
+import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        manyTill, lookAhead, (<|>), ShowToken,
-                                        parseErrorPretty, getPosition, try,
-                                        ShowErrorComponent,showErrorComponent)
-import           Text.Megaparsec        as MP (withRecovery)
-import           Text.Megaparsec.Error        (sourcePosStackPretty)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError (..),
+                                        ShowErrorComponent, ShowToken,
+                                        getPosition, lookAhead, manyTill,
+                                        parseErrorPretty, showErrorComponent,
+                                        try, (<|>))
+import           Text.Megaparsec       as MP (withRecovery)
+import           Text.Megaparsec.Error (sourcePosStackPretty)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 
@@ -106,6 +107,9 @@ data Error
     }
   | UndefinedType
     { tName :: Text
+    }
+  | UnexpectedToken
+    { uts :: Set (ErrorItem TokenPos)
     }
   | UnknownError
     { emsg :: String
@@ -189,6 +193,10 @@ instance ShowErrorComponent Error where
 
     UndefinedType { tName } ->
       "Undefined type `" <> unpack tName <> "`"
+
+    UnexpectedToken { uts } ->
+      concatMap (\x -> "Unexpected " <> show x) uts
+      -- "Unexpected " <> show uts
 
     UnknownError {emsg} -> emsg
 

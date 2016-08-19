@@ -1,8 +1,11 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
+
 
 module Graciela where
 --------------------------------------------------------------------------------
@@ -17,8 +20,11 @@ import           TypeError                 as T
 import           Control.Applicative       (Alternative)
 import           Control.Lens              (makeLenses, use, (%=))
 import           Control.Monad             (MonadPlus, void)
+import           Control.Monad.Identity    (Identity (..))
 import           Control.Monad.State       (MonadState, State)
 import           Control.Monad.Trans.Class (MonadTrans, lift)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import           Control.Monad.Trans.State (StateT)
 import           Data.Foldable             (null, toList)
 import           Data.Function             (on)
 import qualified Data.List.NonEmpty        as NE
@@ -36,15 +42,32 @@ import           Text.Megaparsec           (ParseError (..), ParsecT,
                                             getPosition, lookAhead, manyTill,
                                             parseErrorPretty, withRecovery,
                                             (<|>))
-import           Text.Megaparsec.Prim      (MonadParsec)
+import           Text.Megaparsec.Prim      (MonadParsec (..))
 --------------------------------------------------------------------------------
 
 -- type Graciela = ParsecT Error [TokenPos] (State GracielaState)
 
-newtype Graciela a =
-  Graciela
-    { runGraciela :: ParsecT Error [TokenPos] (State GracielaState) a }
-  deriving (Functor, Applicative, Monad, MonadState GracielaState, MonadParsec Error [TokenPos], MonadPlus, Alternative)
+newtype GracielaT m a =
+  GracielaT
+    { runGracielaT :: ParsecT Error [TokenPos] (StateT GracielaState m) a }
+  deriving ( Functor, Applicative, Monad, MonadState GracielaState
+           , MonadParsec Error [TokenPos], MonadPlus, Alternative )
+
+type Graciela = GracielaT Identity
+
+-- instance MonadParsec e s m => MonadParsec e s (MaybeT m) where
+--   failure us ps xs            = lift (failure us ps xs)
+--   label n        (MaybeT m)   = MaybeT $ label n m
+--   try                         = MaybeT . try . runMaybeT
+--   lookAhead      (MaybeT m)   = MaybeT $ lookAhead m
+--   notFollowedBy  (MaybeT m)   = MaybeT $ Just <$> notFollowedBy m
+--   withRecovery r (MaybeT m)   = MaybeT $
+--     withRecovery (runMaybeT . r) m
+--   eof                         = lift eof
+--   token test mt               = lift (token test mt)
+--   tokens e ts                 = lift $ tokens e ts
+--   getParserState              = lift getParserState
+--   updateParserState f         = lift $ updateParserState f
 
 
 data GracielaState = GracielaState
@@ -121,6 +144,6 @@ getType name = do
 
 -- Provisional
 unsafeGenCustomError :: String -> Graciela ()
-unsafeGenCustomError msg = Graciela $ do
+unsafeGenCustomError msg = GracielaT $ do
     pos <- getPosition
     synErrorList %= (|> CustomError msg  (Location (pos,pos)))

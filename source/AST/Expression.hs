@@ -204,8 +204,6 @@ data Expression
     , expType :: Type
     -- , constant :: Bool
     , exp'    :: Expression' }
-  | BadExpression
-    { loc :: Location }
   deriving (Eq)
 
 
@@ -272,9 +270,6 @@ instance Treelike Expression where
           Node "Guard"
             [ Node "If"   [toTree lhs]
             , Node "Then" [toTree rhs] ]
-
-  toTree BadExpression { loc } =
-    leaf $ "Bad Expression " <> show loc
 
 
 from :: Expression -> SourcePos
@@ -355,5 +350,3 @@ instance Show Expression where
       where
         showG (lhs, rhs) =
           show lhs <> " -> " <> show rhs <> "[]"
-
-  show BadExpression {} = ""

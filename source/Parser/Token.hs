@@ -33,33 +33,38 @@ module Parser.Token
   , MonadGraciela
   , safe
   , putError
+  , addToRecSet
+  , popRecSet
   ) where
 --------------------------------------------------------------------------------
-import           Token
-import           Location
 import           Error
 import           Graciela
+import           Location
+import           Token
 --------------------------------------------------------------------------------
-import           Data.Set              (Set)
-import qualified Data.Set              as Set
-import           Data.Text             (Text, pack)
-import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        token, between, getPosition, manyTill, (<|>), lookAhead, eof, withRecovery)
-import           Data.Int              (Int32)
-import           Text.Megaparsec.Prim  (MonadParsec)
-import qualified Text.Megaparsec.Prim  as Prim (Token)
-import Data.Sequence ((|>))
+import           Control.Lens              (use, (%=), (^.))
+import           Control.Monad             (mzero, void)
+import           Control.Monad.Trans.Class (MonadTrans, lift)
+import           Control.Monad.Trans.State (StateT (..), runStateT, runState, evalState, evalStateT)
+import           Data.Int                  (Int32)
+import           Data.List.NonEmpty        (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty        as NE
-import Control.Lens (use, (%=))
-import Control.Monad (void)
-import Control.Monad.Trans.Class (MonadTrans, lift)
-import Data.Monoid ((<>))
+import           Data.Monoid               ((<>))
+import           Data.Sequence             ((|>))
+import           Data.Set                  (Set)
+import qualified Data.Set                  as Set
+import           Data.Text                 (Text, pack)
+import           Text.Megaparsec           (ErrorItem (Tokens), ParseError (..),
+                                            between, eof, getPosition,
+                                            lookAhead, manyTill, token,
+                                            withRecovery, (<|>))
+import           Text.Megaparsec.Prim      (MonadParsec)
+import qualified Text.Megaparsec.Prim      as Prim (Token)
 --------------------------------------------------------------------------------
+import Debug.Trace
 
 unex :: TokenPos -> (Set (ErrorItem TokenPos), Set a, Set b)
 unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
-
 
 match :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
       => Token -> m Location
@@ -81,8 +86,7 @@ satisfy f = token test Nothing
         else Left . unex $ tp
 
 
-anyToken :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-         => m Token
+anyToken :: (MonadParsec e s m, Prim.Token s ~ TokenPos) => m Token
 anyToken = satisfy (const True)
 
 
@@ -106,9 +110,14 @@ percents :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
 percents = between (match TokLeftPercent) (match TokRightPercent)
 
 
-brackets :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
-         => m a -> m a
-brackets = between (match TokLeftBracket) (match TokRightBracket)
+brackets :: (MonadParsec e s m, Prim.Token s ~ TokenPos, MonadGraciela m)
+         => m (Maybe a) -> m (Maybe a)
+brackets = f . safe
+  where
+    f =
+      between
+        (match TokLeftBracket  <* addToRecSet TokRightBracket)
+        (match TokRightBracket <* popRecSet)
 
 
 beginEnd :: (MonadParsec e s m, Prim.Token s ~ TokenPos)
@@ -173,51 +182,50 @@ floatLit = token test Nothing
     test    TokenPos {tok = TokFloat f} = Right f
     test tp@TokenPos {tok}              = Left . unex $ tp
 
-
-class MonadGraciela g where
-  safe :: g a -> g (Maybe a)
+class Monad g => MonadGraciela g where
   putError :: Location -> Error -> g ()
-  -- addToRecSet :: Token -> m ()
+  safe :: g (Maybe a) -> g (Maybe a)
+  addToRecSet :: Token -> g ()
+  popRecSet :: g ()
 
-instance MonadGraciela Graciela where
-  putError (Location (from, to)) e = Graciela $ do
-    let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
-    errors %= (|> err)
+instance Monad m => MonadGraciela (GracielaT m) where
+  putError = gPutError
+  safe = gSafe
+  addToRecSet = gAddToRecSet
+  popRecSet = gPopRecSet
 
-  safe parser = withRecovery r (Just <$> parser)
-    where
-      r e = do
-        pos <- getPosition
+instance MonadGraciela g => MonadGraciela (StateT s g) where
+  putError l e = lift $ putError l e
+  safe p = StateT $ \s -> do
+    a' <- safe $ evalStateT p s
+    return (a', s)
+  addToRecSet t = lift $ addToRecSet t
+  popRecSet = lift popRecSet
 
-        putError
-          (Location (pos, undefined))
-          (UnknownError $ "Unexpected " <> concatMap show (errorUnexpected e))
+gPutError :: Monad m => Location -> Error -> GracielaT m ()
+gPutError (Location (from, to)) e = GracielaT $ do
+  let err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
+  errors %= (|> err)
 
-        ts <- use recSet
-        noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
+gSafe :: Monad m => GracielaT m (Maybe a) -> GracielaT m (Maybe a)
+gSafe = withRecovery r
+  where
+    r e = do
+      pos <- getPosition
 
-        pure Nothing
+      putError
+        (Location (pos, undefined))
+        (UnexpectedToken (errorUnexpected e))
 
-  -- addToRecSet = algo
+      ts <- use recSet
+      noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
 
-instance (Monad m, MonadGraciela m, MonadTrans t) => MonadGraciela (t m) where
-  safe = safe
-  putError l e = putError l e
+      pure Nothing
 
+gAddToRecSet :: Monad m => Token -> GracielaT m ()
+gAddToRecSet t = GracielaT $
+  recSet %= (t:)
 
--- safe :: (MonadTrans t, Monad (t Graciela))
---      => t Graciela a
---      -> t Graciela (Maybe a)
--- safe parser = withRecovery r (Just <$> parser)
---   where
---     r e = do
---       -- pos <- getPosition
---
---       -- putError
---       --   (Location (pos, undefined))
---       --   (UnknownError $ "Unexpected " <> concatMap show (errorUnexpected e))
---
---       -- ts <- use recSet
---       -- noneOf [] `manyTill` (lookAhead (void $ oneOf []) <|> eof)
---
---       pure Nothing
+gPopRecSet :: Monad m => GracielaT m ()
+gPopRecSet = GracielaT $
+  recSet %= tail
