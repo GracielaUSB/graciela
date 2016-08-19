@@ -16,7 +16,10 @@ import           LLVM.Type
 import           Control.Lens                            (use, (%=), (.=))
 import           Data.Text                               (Text,unpack)
 import           Data.Word
-import           Data.Sequence                           as Seq (empty)
+import           Data.Map                                (Map)
+import qualified Data.Map                                as Map
+import           Control.Monad                           (unless)
+import           Data.Sequence                           as Seq (empty,fromList)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
 import qualified LLVM.General.AST                        as LLVM (Definition(..))
@@ -30,11 +33,13 @@ import           LLVM.General.AST.Name                   (Name(..))
 import qualified LLVM.General.AST.Type                   as LLVM (Type)
 import           LLVM.General.AST.Type                   (double, ptr)
 import           LLVM.General.AST.ParameterAttribute     (ParameterAttribute(..))
-import           LLVM.General.AST.Type                   (Type(StructureType))
+import           LLVM.General.AST.Type                   (Type(..),i8)
+import           LLVM.General.AST.AddrSpace
+import           Debug.Trace
 --------------------------------------------------------------------------------
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
-mainDefinition :: Instruction -> LLVM LLVM.Definition
+mainDefinition :: Instruction -> LLVM ()
 mainDefinition insts = do
   instruction insts
   blocks' <- use blocks
@@ -42,7 +47,7 @@ mainDefinition insts = do
   currentBlock .= Seq.empty
   label <- newLabel
   let terminator = Do $ Ret Nothing []
-  return $ LLVM.GlobalDefinition $ functionDefaults
+  addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name "main"
         , parameters  = ([], False)
         , returnType  = voidType
@@ -50,7 +55,7 @@ mainDefinition insts = do
         }
 
 {- Translate a definition from Graciela AST to LLVM AST -}
-definition :: Definition -> LLVM LLVM.Definition
+definition :: Definition -> LLVM ()
 definition Definition {defName, params, st, def'} = case def' of 
   FunctionDef {funcBody, retType} -> do 
     operand <- expression funcBody
@@ -58,7 +63,7 @@ definition Definition {defName, params, st, def'} = case def' of
     blocks' <- use blocks
     blocks .= Seq.empty
     currentBlock .= Seq.empty
-    return $ LLVM.GlobalDefinition $ functionDefaults
+    addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
         , parameters  = (fmap toLLVMParameter params, False)
         , returnType  = toLLVMType retType
@@ -73,7 +78,7 @@ definition Definition {defName, params, st, def'} = case def' of
     blocks .= Seq.empty
     label <- newLabel
     let terminator = Do $ Ret Nothing []
-    return $ LLVM.GlobalDefinition $ functionDefaults
+    addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
         , parameters  = (fmap toLLVMParameter params, False)
         , returnType  = voidType
@@ -122,69 +127,83 @@ definition Definition {defName, params, st, def'} = case def' of
 --     addDefinition (TE.unpack name) args' (toType retType)
 
 
-preDefinitions :: [String] -> LLVM [LLVM.Definition]
-preDefinitions files = return [
-  -- Random
-    declareFunction randomInt [] intType
-  -- Abort
-  , declareFunction abortString [ parameter ("x", intType)
-                                , parameter ("line", intType)
-                                , parameter ("column", intType)] 
-                                voidType
-  -- Min and max
-  , declareFunction minnumString intParams2 intType
-  , declareFunction maxnumString intParams2 intType
-  
-  -- Bool Write and Writeln
-  , declareFunction writeLnBool boolParam voidType
-  , declareFunction writeBool   boolParam voidType
-  
-  -- Char Write and Writeln
-  , declareFunction writeLnChar charParam voidType
-  , declareFunction writeChar   charParam voidType
-  
-  -- Float Write and Writeln
-  , declareFunction writeLnFloat floatParam voidType
-  , declareFunction writeFloat   floatParam voidType
-  
-  -- Int Write and Writeln 
-  , declareFunction writeLnInt intParam voidType
-  , declareFunction writeInt   intParam voidType
-  
-  -- String Write and Writeln
-  , declareFunction writeLnString stringParam intType
-  , declareFunction writeString   stringParam intType
-  
-  -- Square Root and absolute value
-  , declareFunction sqrtString    floatParam floatType
-  , declareFunction fabsString    floatParam floatType
+defineType :: (Text, (T.Type, a)) -> LLVM ()
+defineType (name, (t, _)) = do 
+  let 
+    name' = Name (unpack name)
+    t'    = Just $ toLLVMType t
+    def   = LLVM.TypeDefinition name' t'
+  unless (t `elem` [T.GBool, T.GInt, T.GFloat, T.GChar]) $ do 
+    addDefinition def
 
-  , declareFunction minnumFstring  floatParams2 floatType
-  , declareFunction maxnumFstring  floatParams2 floatType
-  , declareFunction powString      floatParams2 floatType
+preDefinitions :: [String] -> LLVM ()
+preDefinitions files = do 
+  addDefinitions $ fromList [
+      -- Random
+        defineFunction randomInt [] intType
+      -- Abort
+      , defineFunction abortString [ parameter ("x", intType)
+                                    , parameter ("line", intType)
+                                    , parameter ("column", intType)] 
+                                    voidType
+      -- Min and max
+      , defineFunction minnumString intParams2 intType
+      , defineFunction maxnumString intParams2 intType
+      
+      -- Bool Write and Writeln
+      , defineFunction writeLnBool boolParam voidType
+      , defineFunction writeBool   boolParam voidType
+      
+      -- Char Write and Writeln
+      , defineFunction writeLnChar charParam voidType
+      , defineFunction writeChar   charParam voidType
+      
+      -- Float Write and Writeln
+      , defineFunction writeLnFloat floatParam voidType
+      , defineFunction writeFloat   floatParam voidType
+      
+      -- Int Write and Writeln 
+      , defineFunction writeLnInt intParam voidType
+      , defineFunction writeInt   intParam voidType
+      
+      -- String Write and Writeln
+      , defineFunction writeLnString stringParam voidType
+      , defineFunction writeString   stringParam voidType
+      
+      -- Square Root and absolute value
+      , defineFunction sqrtString    floatParam floatType
+      , defineFunction fabsString    floatParam floatType
+
+      , defineFunction minnumFstring  floatParams2 floatType
+      , defineFunction maxnumFstring  floatParams2 floatType
+      , defineFunction powString      floatParams2 floatType
 
 
-  , declareFunction intSub intParams2 overflow'
-  , declareFunction intMul intParams2 overflow'
-  , declareFunction intAdd intParams2 overflow'
+      , defineFunction intSub intParams2 overflow'
+      , defineFunction intMul intParams2 overflow'
+      , defineFunction intAdd intParams2 overflow'
 
-  -- Read 
-  , declareFunction readIntStd    [] intType
-  , declareFunction readCharStd   [] charType
-  , declareFunction readFloatStd  [] floatType
+      -- Read 
+      , defineFunction readIntStd    [] intType
+      , defineFunction readCharStd   [] charType
+      , defineFunction readFloatStd  [] floatType
 
-  , declareFunction openFileStr [Parameter (ptr pointerType) (Name "nombreArchivo") []] (ptr pointerType)
+      , defineFunction openFileStr [Parameter (ptr pointerType) (Name "nombreArchivo") []] (ptr pointerType)
 
-  -- mapM_ addFile files
+      -- Malloc
+      , defineFunction "_malloc" intParam (ptr pointerType)
+      , defineFunction "_free" [(parameter ("x", ptr pointerType))] voidType
+      -- mapM_ addFile files
 
-  -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr pointerType)]) intType
-  -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr pointerType)]) charType
-  -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr pointerType)]) floatType
-  -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
-  ]
+      -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr pointerType)]) intType
+      -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr pointerType)]) charType
+      -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr pointerType)]) floatType
+      -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
+      ]
 
   where 
-      declareFunction name params t = LLVM.GlobalDefinition $ functionDefaults
+
+      defineFunction name params t = LLVM.GlobalDefinition $ functionDefaults
         { name        = Name name
         , parameters  = (params, False)
         , returnType  = t

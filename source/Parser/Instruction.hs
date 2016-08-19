@@ -135,9 +135,9 @@ assign = do
 
   let len = length lvals == length exprs
 
-  unless len . syntaxError $ CustomError
+  unless len . putError (Location (from, to)) $ UnknownError $
     "La cantidad de lvls es distinta a la de expresiones"
-    (Location (from, to))
+    
 
   (correct, lvals') <- checkTypes (zip lvals exprs)
 
@@ -152,24 +152,21 @@ assign = do
     checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
     checkTypes [] = return (True,[])
     checkTypes (x:xs) = case x of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _)
-          -- | constant == False -> do
-          -> do
-        if t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) -> do
+        if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
           then do
             (c,objs) <- checkTypes xs
             return (c, o:objs)
           else do
-            syntaxError $ CustomError
+            putError loc1 $ UnknownError $
                 ("No se puede asignar una expresion del tipo `" <>
                   show t2 <> "` a una variable del tipo `" <>
-                  show t1 <> "`") loc1
+                  show t1 <> "`") 
             (c,objs) <- checkTypes xs
             return (False,objs)
       (Expression loc _ _, Expression {}) -> do
-        syntaxError $ CustomError
+        putError loc $ UnknownError $
           "No se puede asignar un valor a una expresion"
-          loc
         (c,objs) <- checkTypes xs
         return (False, objs)
       _ -> checkTypes xs
@@ -183,20 +180,20 @@ random = do
   to   <- getPosition
   let loc = Location (from,to)
   {- Checks if the expression can be assigned -}
-  -- case expr of
-  --   Expression { E.loc, expType, constant, exp' } -> case exp' of
-  --     -- Only int objects can be randomized (maybe char or float too?)
-  --     Obj o | correctType expType && not constant ->
-  --       return $ Instruction loc (Random o)
-  --     -- If not, its an expression or a constant (or both).
-  --     _ -> do
-  --       unsafeGenCustomError
-  --         "No se puede asignar un numero random a una expresion constante"
-  --       return $ BadInstruction loc
-  --   -- If its a bad expression just return bad instruction
-  --   _ -> return $ BadInstruction loc
+  case expr of
+    Expression { E.loc, expType, exp' } -> case exp' of
+      -- Only int objects can be randomized (maybe char or float too?)
+      Obj o | correctType expType ->
+        return $ Instruction loc (Random o)
+      -- If not, its an expression or a constant (or both).
+      _ -> do
+        putError loc $ UnknownError $
+          "No se puede asignar un numero random a una expresion constante"
+        return $ BadInstruction loc
+    -- If its a bad expression just return bad instruction
+    -- _ -> return $ BadInstruction loc
     -- FIXME: improving constant field of Objects
-  return $ BadInstruction loc
+  -- return $ BadInstruction loc
   where
     correctType = (=:= GOneOf [GInt{-, GFloat, GBool, GChar-}])
 
@@ -212,13 +209,12 @@ write' :: Bool -> Token -> Graciela Instruction
 write' ln writeToken = do
   from <- getPosition
   match writeToken
-  e <- between (match TokLeftPar) (match TokRightPar) expression
+  e <- parens $ (string <|> expression)`sepBy1` match TokComma
   to <- getPosition
   let loc = Location(from,to)
-  case e of
-    Expression {} ->
-      return $ Instruction loc (Write ln e) -- if ln == True -> writeln, else -> write
-    _ -> return $ BadInstruction loc
+  if False `elem` (fmap (\x -> case x of; Expression {} -> True; _ -> False) e)
+    then return $ BadInstruction loc
+    else return $ Instruction loc (Write ln e) -- if ln == True -> writeln, else -> write
 
 -- Parse the read instrucction
 reading :: Graciela Instruction
@@ -226,7 +222,7 @@ reading = do
   from  <- getPosition
   match TokRead
   match TokLeftPar
-  ids   <- expression `sepBy` match TokComma
+  ids   <- expression `sepBy1` match TokComma
   match TokRightPar
   res   <- mapM isWritable ids
   let types = fmap fst res
@@ -235,7 +231,10 @@ reading = do
   if GUndef `elem` types
     then do
       to <- getPosition
-      return $ BadInstruction (Location(from,to))
+      let location = Location(from,to)
+      when (null ids) $ putError location $ 
+          UnknownError "Read function most have at least one argument"
+      return $ BadInstruction location
     else do
       -- Read instruccion can be followed by the token `with` and a file name.
       -- In that case, save the file name in state's `fileToRead` and
@@ -244,8 +243,11 @@ reading = do
       id <- stringLit
       filesToRead %= Set.insert (T.unpack id)
       to <- getPosition
+      let location = Location(from,to)
+      when (null ids) $ putError location $ 
+          UnknownError "Read function most have at least one argument"
       return $ Instruction
-            { instLoc   = (Location(from,to))
+            { instLoc   = location
             , inst' = Read
                 { file     = Just id
                 , varTypes = types
@@ -253,8 +255,11 @@ reading = do
       <|> do
         -- If no token `with` is found, just return the instruction
         to <- getPosition
+        let location = Location(from,to)
+        when (null ids) $ putError location $ 
+          UnknownError "Read function most have at least one argument"
         return $ Instruction
-              { instLoc   = (Location(from,to))
+              { instLoc   = location
               , inst' = Read
                   { file     = Nothing
                   , varTypes = types
@@ -265,19 +270,19 @@ reading = do
       isWritable :: Expression -> Graciela (Type, Object)
       isWritable expr = case expr of
         Expression {E.loc, expType, exp'} ->
-          -- case exp' of
-          --   -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
-          --   Obj o | not constant -> if correctType expType
-          --     then return (expType, o)
-          --     else do
-          --       putError loc $ BadReadArgumentType expr expType
-          --       return (GUndef, BadObject loc)
-          --   -- If not, its an expression or a constant (or both).
-          --   _ -> do
-          --     putError loc $ BadReadArgument expr
-          --     return (GUndef, BadObject loc)
+          case exp' of
+            -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
+            Obj o -> if correctType expType
+              then return (expType, o)
+              else do
+                putError loc $ BadReadArgumentType expr expType
+                return (GUndef, BadObject loc)
+            -- If not, its an expression or a constant (or both).
+            _ -> do
+              putError loc $ BadReadArgument expr
+              return (GUndef, BadObject loc)
           -- FIXME: improving constant field of object
-            return (GUndef, BadObject loc)
+            -- return (GUndef, BadObject loc)
 
         -- If its a bad expression just return bad instruction
         BadExpression loc -> return (GUndef, BadObject loc)
@@ -288,22 +293,15 @@ new :: Graciela Instruction
 new  = do
     from <- getPosition
     match TokNew
-    match TokLeftPar
-    id <- identifier
-    match TokRightPar
+    id <- parens expression
     to <- getPosition
 
     let loc = Location(from,to)
-    st <- use symbolTable
-    case id `lookup` st of
-      Right entry -> case _info entry of
-        Var (GPointer t) _ ->
-          return $ Instruction loc (New id)
-        _              -> do
-          unsafeGenCustomError "New solo recibe apuntadores"
-          return $ BadInstruction loc
-      Left _ -> do
-        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
+    case id of
+      Expression _ (GPointer t) (Obj o) ->
+        return $ Instruction loc (New o t)
+      _     -> do
+        putError loc $ UnknownError "New can only recive pointers"
         return $ BadInstruction loc
 
 
@@ -311,22 +309,16 @@ free :: Graciela Instruction
 free = do
     from <- getPosition
     match TokFree
-    match TokLeftPar
-    id <- identifier
-    match TokRightPar
+    id <- parens expression
     to <- getPosition
 
     let loc = Location(from,to)
-    st <- use symbolTable
-    case id `lookup` st of
-      Right entry -> case _info entry of
-        Var (GPointer t) _ ->
-          return $ Instruction loc (Free id)
-        _              -> do
-          unsafeGenCustomError "Free solo recibe apuntadores"
-          return $ BadInstruction loc
-      Left _ -> do
-        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
+    case id of
+      Expression _ (GPointer t) (Obj o) ->
+        return $ Instruction loc (Free o t)
+      
+      _     -> do
+        putError loc $ UnknownError "New can only recive pointers"
         return $ BadInstruction loc
 
 abort :: Graciela Instruction
@@ -338,15 +330,26 @@ abort =
 {- Parse guards for both repetition and conditional -}
 guard :: Graciela Guard
 guard = do
-  from  <- getPosition
+  from <- getPosition
+  symbolTable %= openScope from
   cond  <- expression
   match TokArrow
-  symbolTable %= openScope from
-  inst  <- instruction
-  to    <- getPosition
+  decls       <- declarationBlock
+  actions     <- insts `sepBy` match TokSemicolon
+  assertions' <- many assertionInst
+  st          <- use symbolTable
+  let actions' = (concat actions) <> assertions'
+  to <- getPosition
   symbolTable %= closeScope to
-  return (cond,inst)
-
+  let loc = Location (from, to)
+  when (null actions) $ putError loc EmptyBlock
+  return (cond,decls,actions')
+  where
+    insts = do
+      a1   <- many assertionInst
+      inst <- instruction
+      a2   <- many assertionInst
+      return $ a1 <> [inst] <> a2
 
 conditional ::  Graciela Instruction
 conditional = do

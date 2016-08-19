@@ -12,21 +12,23 @@ import           LLVM.Type                               (intType)
 import           LLVM.State
 import           LLVM.Definition                         (preDefinitions,
                                                           definition,
+                                                          defineType,
                                                           mainDefinition)
 -- import           LLVM.Expression
 -- import           LLVM.Instruction
 -- import           LLVM.Quantification
 -- import           SymbolTable
--- import qualified Type                                    as T
+import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.State                     (void, evalState)
 import           Data.Foldable                           (toList)
-import qualified Data.Map                                as DM
+import           Data.Map                                (Map)
+import qualified Data.Map                                as Map
 import           Data.Sequence                           (singleton, fromList)
 import           Data.Monoid                             ((<>))
 import           Data.Range.Range                        as RA
-import qualified Data.Text                               as T
+import           Data.Text                               (Text, unpack)
 import           Data.Word
 import           LLVM.General.AST                        (Definition (..),
                                                           Module (..),
@@ -57,15 +59,15 @@ import           System.Process                          (callCommand, readProce
 -- addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
 
 
-programToLLVM :: [String] -> Program -> IO Module
-programToLLVM files (Program name _ defs insts) = do
+programToLLVM :: [String] -> Map Text (T.Type, a) -> Program -> IO Module
+programToLLVM files types (Program name _ defs insts structs) = do
   -- Eval the program with the LLVMState 
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
 
   return defaultModule
-    { moduleName         = T.unpack name
-    , moduleDefinitions  = definitions
+    { moduleName         = unpack name
+    , moduleDefinitions  = toList definitions
     , moduleTargetTriple = Just $ whichTarget version
     }
   where
@@ -73,10 +75,14 @@ programToLLVM files (Program name _ defs insts) = do
     -- and the main program, that will be a function called main... of course.
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
     program = do 
-      preDef      <- preDefinitions files
-      definitions <- mapM definition defs
-      main        <- mainDefinition insts
-      return $ preDef <> definitions <> [main]
+      
+      preDefinitions files
+      mapM_ definition defs
+      mapM_ defineType $ Map.toAscList types
+      mainDefinition insts
+      
+      use moduleDefs
+      -- return $ definitions
 
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
     whichTarget version = case os of

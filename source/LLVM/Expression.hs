@@ -10,7 +10,7 @@ import           AST.Expression                          (Expression (..),
                                                           Object, Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import           AST.Object                              (Object' (..),
+import           AST.Object                              as O (Object' (..),
                                                           Object'' (..))
 import           LLVM.State
 import           LLVM.Type                               (boolType, toLLVMType)
@@ -22,13 +22,16 @@ import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           as Seq (ViewR ((:>)),
-                                                                 empty,
+                                                                 empty, (|>),
                                                                  fromList,
                                                                  singleton,
                                                                  viewr)
 import           Data.Text                               (unpack)
 import           Data.Word
+import           LLVM.General.AST                        (Definition(..))
 import           LLVM.General.AST.Attribute
+import qualified LLVM.General.AST.Global                 as Global (Global(..),
+                                                              globalVariableDefaults)
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat (Double))
@@ -46,12 +49,12 @@ import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
-object Object { objType, obj' } = case obj' of
-    Variable { name } -> do
+object obj@Object { objType, obj' } = do
       label <- newLabel
-      let
-        -- Make a reference to the variable that will be loaded (e.g. %a)
-        addrToLoad = LocalReference (toLLVMType objType) $ Name (unpack name)
+      -- Make a reference to the variable that will be loaded (e.g. %a)
+      addrToLoad <- objectRef obj
+      
+      let 
         -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
         load = Load { volatile  = False
                     , address   = addrToLoad
@@ -66,18 +69,61 @@ object Object { objType, obj' } = case obj' of
 
       return ref
 
-    _ -> error "Aun no hay soporte para arreglos ni estructuras"
+    -- Index { inner, index } ->
+    --   index <- expression index
+
+    
 
 
 -- Get the reference to the object. Used in read, random, assign ...
 objectRef :: Object -> LLVM Operand
-objectRef Object { objType, obj' } = case obj' of
-  Variable { name } -> return $ LocalReference type' $ Name (unpack name)
+objectRef obj@Object { objType, obj' } = case obj' of
+  
+  Variable { name } -> 
+    return $ LocalReference (toLLVMType objType) $ Name (unpack name)
 
-  _ -> error "Aun no hay soporte para arreglos ni estructuras"
+  Index inner index -> do
+    ref <- objectRef inner
+    label <- newLabel
+    index <- expression index
+    let 
+      getelemPtr = GetElementPtr  
+            { inBounds = False
+            , address  = ref
+            , indices  = [ConstantOperand $ C.Int 32 0, index]
+            , metadata = []}
+
+    addInstruction $ label := getelemPtr
+    return $ LocalReference (toLLVMType objType) $ label
+
+  Deref inner -> do
+    ref   <- objectRef inner
+    label <- newLabel
+    let 
+      load = Load { volatile  = False
+                  , address   = ref
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = []
+                  }
+
+    addInstruction $ label := load    
+    return $ LocalReference (toLLVMType objType) $ label
+
+
+
+  _ -> error "Aun no hay soporte para estructuras"
 
   where
-    type' = toLLVMType objType
+    getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
+    getIndices (indices,ref) (Object _ _ (Index inner index)) = do
+      index' <- expression index
+      getIndices (index':indices,ref) inner
+
+    getIndices (indices,ref) obj = do
+      ref <- objectRef obj
+      return (reverse indices, Just ref)
+
 
 
 expression :: Expression -> LLVM Operand
@@ -92,7 +138,19 @@ expression Expression { expType, exp'} = case exp' of
     FloatV theFloat ->
       ConstantOperand $ C.Float $ LLVM.Double theFloat
 
-  -- StringLit theString -> return $ ConstantOperand $ C.Int 32 10
+  StringLit theString -> do 
+    let n  = fromIntegral $ length theString + 1
+    let t = ArrayType n i16
+    name <- newLabel
+    let def = GlobalDefinition $ Global.globalVariableDefaults
+                { Global.name        = name
+                , Global.isConstant  = True
+                , Global.type'       = t
+                , Global.initializer = Just $ 
+                    C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- theString ++ "\0"] 
+                }
+    moduleDefs %= (Seq.|> def)
+    return $ ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]
 
   Obj obj -> object obj
 
@@ -403,7 +461,7 @@ expression Expression { expType, exp'} = case exp' of
             return $ Seq.fromList [label := inst]
 
           Op.Implies    -> do
-            -- p ==> q ≡ p ⋁ q ≡ q
+            -- p ==> q ≡ (p ⋁ q ≡ q)
 
             -- Operate p ⋁ q and save the result at `label`
             let orInst = Or { operand0      = lOperand

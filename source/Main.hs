@@ -181,7 +181,10 @@ main = do
         {- If no errors -}
         when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do 
           {- Generate LLVM AST -}
-          newast <- programToLLVM (toList $ _filesToRead state) program
+          let 
+            files = toList $ _filesToRead state
+            types = _typesTable state
+          newast <- programToLLVM files types program
           {- And write it as IR on a ll file -}
           withContext $ \context ->
             liftError $ withModuleFromAST context newast $ \m ->

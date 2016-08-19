@@ -62,7 +62,7 @@ data Type
   | GDataType
     { typeName ::  Text
     -- , oftype :: [Type]
-    -- , fields :: [Type]
+    , fields :: [Type]
     -- , procs  :: [Type]
     }
   | GAbstractType
@@ -94,8 +94,8 @@ a =:= b
   |  a == b
   || a == GAny
   || b == GAny = True
-GOneOf        as =:= a                = a `elem` as
-a                =:= GOneOf        as = a `elem` as
+GOneOf        as =:= a                = True `elem` fmap (=:= a) as 
+a                =:= GOneOf        as = True `elem` fmap (=:= a) as 
 GDataType     {} =:= GDataType     {} = True
 GAbstractType {} =:= GAbstractType {} = True
 GDataType     {} =:= GAbstractType {} = True
@@ -103,6 +103,7 @@ GAbstractType {} =:= GDataType     {} = True
 -- GProcedure    {} =:= GProcedure    {} = True
 GArray       _ a =:= GArray       _ b = a =:= b
 -- GFunction    _ a =:= GFunction    _ b = a =:= b
+GPointer       a =:= GPointer       b = a =:= b
 GSet           a =:= GSet           b = a =:= b
 GMultiset      a =:= GMultiset      b = a =:= b
 GSeq           a =:= GSeq           b = a =:= b
@@ -114,7 +115,7 @@ _                =:= _                = False
 
 -- | Instancia 'Show' para los tipos.
 instance Show Type where
-  show t = "\ESC[0;32m" <> show' t <> "\ESC[m"
+  show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
     where
       show' = \case
         GUndef          -> "\ESC[0;31m" <> "undefined" <> "\ESC[0;32m"
@@ -124,10 +125,10 @@ instance Show Type where
         GChar           -> "char"
         -- GEmpty          -> "void"
         -- GError          -> "error"
-        GPointer      t -> "pointer of " <> show' t
+        GPointer     t  -> "pointer of " <> show' t
         -- GProcedure   _  -> "proc"
         -- GFunction  _ t  -> "func -> (" <> show' t <> ")"
-        GArray     _ t  -> "array of " <> show' t
+        GArray    s  t  -> "array[" <> show s <> "] of " <> show' t
         GSet      t     -> "conjunto de " <> show' t
         GMultiset t     -> "multiconjunto de " <> show' t
         GSeq      t     -> "secuencia de " <> show' t
@@ -136,13 +137,14 @@ instance Show Type where
         GTuple    ts    ->
           "tupla (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> "variable de tipo " <> unpack n
-        GDataType n     -> "type " <> unpack n
+        GDataType n f   -> "type " <> unpack n
         GAbstractType n -> "abstract " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
+        GString  -> "string"
 
 
 -- | Retorna la dimensión del arreglo.

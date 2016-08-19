@@ -151,7 +151,7 @@ instance ShowErrorComponent Error where
       " but only basic types can be read."
 
     EmptyBlock ->
-      "Instruction blocks can not be empty and must contain at least an instruccion"
+      "Instruction blocks must contain at least one instruccion"
 
     NoDoInvariant ->
       "Missing invariant of instruction `do`."

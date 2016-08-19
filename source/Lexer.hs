@@ -28,7 +28,6 @@ import qualified Text.Megaparsec.Lexer as L
 
 type Lexer = Parsec Dec Text
 
-
 sc :: Lexer ()
 sc = L.space (void spaceChar) lineComment blockComment
   where

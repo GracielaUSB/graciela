@@ -102,8 +102,9 @@ abstractDec = constant <|> variable
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
 dataType :: Graciela Struct
 dataType = do
-    from <- getPosition
+   
     match TokType
+    from <- getPosition
     id <- identifier
     withRecovery TokImplements
     abstractId <- identifier
@@ -121,8 +122,10 @@ dataType = do
 
     to <- getPosition
     symbolTable %= closeScope to
-    let loc = Location(from,to)
-    insertType id (GAbstractType id) from
+    let
+       loc = Location(from,to)
+       fields = concat . fmap getFields $ decls
+    insertType id (GDataType id fields) from
     symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
     return $ Struct
         { structName = id
@@ -134,3 +137,4 @@ dataType = do
          , repinv   = repinv
          , coupinv  = coupinv
          , procs    = procs}}
+

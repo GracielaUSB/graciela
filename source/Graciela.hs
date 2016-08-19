@@ -71,7 +71,8 @@ initialState = GracielaState
 {- Graciela 2.0-}
 
 insertType :: Text -> Type -> SourcePos -> Graciela ()
-insertType name t loc =
+insertType name t loc = do 
+  -- loc <- getPosition
   typesTable %= Map.insert name (t, loc)
 
 getType :: Text -> Graciela (Maybe Type)

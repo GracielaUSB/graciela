@@ -26,6 +26,14 @@ void _closeFile(int8_t* file) {
     fclose(f);
 }
 
+int8_t* _malloc(int size){
+  return malloc(size);
+}
+
+void _free(int8_t *mem){
+  free(mem);
+}
+
 int _readFileInt(int8_t* file) {
   FILE* f = (FILE*) file;
 

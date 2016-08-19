@@ -40,6 +40,7 @@ import           Prelude                        hiding (lookup)
 import           Text.Megaparsec                (getPosition, notFollowedBy,
                                                  optional, sepBy, sepBy1, try,
                                                  (<|>))
+import           Debug.Trace
 --------------------------------------------------------------------------------
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
@@ -47,7 +48,7 @@ type Constness = Bool
 declaration :: Graciela Declaration
 declaration = do
   from <- getPosition
-  isConst <- match match TokConst $> True <|> TokVar $> False
+  isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
 
   mvals <- (if isConst then (Just <$>) else optional) assignment
@@ -61,18 +62,19 @@ declaration = do
 
   if isConst && t == GUndef
     then do
-      unsafeGenCustomError $
+      putError location $ UnknownError $
         "Se intentó declarar constante de tipo `" <> show t <>
         "`, pero sólo se permiten constantes de tipos basicos."
       pure $ BadDeclaration location
     else case mvals of
       Nothing -> do
         forM_ ids $ \(id, loc) -> do
-          let
+          redefinition (id, loc)
+          let 
             entry = Entry
               { _entryName = id
-              , _loc       = location
-              , _info      = Var t Nothing }
+              , _loc       = loc
+              , _info      = Var t Nothing }          
           symbolTable %= insertSymbol id entry
         pure Declaration
           { declLoc  = location
@@ -90,7 +92,7 @@ declaration = do
                 , declType  = t
                 , declPairs = pairs }
           else do
-            unsafeGenCustomError $
+            putError location $ UnknownError $
               "La cantidad de " <>
               (if isConst then "constantes" else "variables") <>
               " es distinta a la de expresiones"
@@ -100,30 +102,33 @@ assignment :: Graciela [Expression]
 assignment = match TokAssign *> expression `sepBy1` match TokComma
 
 checkType :: Constness -> Type
-          -> Seq (Text, Expression) -> ((Text, Location), Expression)
+          -> Seq (Text, Expression) 
+          -> ((Text, Location), Expression)
           -> Graciela (Seq (Text, Expression))
 checkType _ _ _ (_, BadExpression {}) = pure Seq.empty
+
 checkType True t pairs
-  ((identifier, location), expr@Expression { expType, exp' }) =
+  ((identifier, location), expr@Expression { expType, exp' }) = do
+  redefinition (identifier,location)
   if expType =:= t
     then case exp' of
-      Value _ -> do
+      Value v -> do
         let
           entry = Entry
             { _entryName  = identifier
             , _loc        = location
             , _info       = Const
               { _constType  = t
-              , _constValue = expr }}
+              , _constValue = v }}
         symbolTable %= insertSymbol identifier entry
         pure $ pairs |> (identifier, expr)
       _       -> do
-        unsafeGenCustomError $
-          "Se intentó asignar una expresión que no constante a la \
+        putError location $ UnknownError $
+          "Se intentó asignar una expresión no constante a la \
           \constante `" <> unpack identifier <> "`"
         pure Seq.empty
     else do
-      unsafeGenCustomError $
+      putError location $ UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
@@ -133,6 +138,7 @@ checkType False t pairs
   ((identifier, location), expr@Expression { loc, expType, exp' }) =
   if expType =:= t
     then do
+      redefinition (identifier,location)
       let
         entry = Entry
           { _entryName  = identifier
@@ -144,8 +150,17 @@ checkType False t pairs
       pure $ pairs |> (identifier, expr)
 
     else do
-      unsafeGenCustomError $
+      putError location $ UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
       pure Seq.empty
+
+redefinition :: (Text, Location) -> Graciela ()
+redefinition (id, location) = do
+  st <- use symbolTable
+  let local = isLocal id st
+  traceM $ show local <> unpack id
+  when local $ 
+    putError location $ UnknownError $ 
+      "Redefinition of variable `" <> unpack id <> "`"

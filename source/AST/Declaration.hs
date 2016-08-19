@@ -32,6 +32,16 @@ data Declaration
     }
 
 
+getFields :: Declaration -> [Type]
+getFields Declaration {declType, declIds} =
+  toList . fmap (const declType) $ declIds
+
+getFields Initialization {declType, declPairs} =
+  toList . fmap (const declType) $ declPairs
+
+getFields BadDeclaration{} = [] 
+
+
 instance Treelike Declaration where
   toTree BadDeclaration { declLoc } =
     leaf ("BadDeclaration" <> show declLoc)

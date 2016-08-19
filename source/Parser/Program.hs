@@ -25,9 +25,12 @@ import           Text.Megaparsec     ((<|>),many, eof, getPosition)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-mainProgram :: Graciela Program
-mainProgram = do
+program :: Graciela Program
+program = do
   from <- getPosition
+  symbolTable %= openScope from
+  structs <- many (abstractDataType <|> dataType)
+    
   withRecovery TokProgram
   id <- safeIdentifier
   TokBegin `withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
@@ -37,16 +40,6 @@ mainProgram = do
   withRecovery TokEnd 
   eof
   to <- getPosition
-  return $ Program id (Location(from, to)) decls body
+  symbolTable %= closeScope to
+  return $ Program id (Location(from, to)) decls body structs
   
--- Program -> Abstract Program
--- Program -> MainProgram
-{- The program consists in a set of Abstract Data Types, Data Types and a main program -}
-program :: Graciela Program
-program = do
-  pos <- getPosition
-  symbolTable %= openScope pos
-  many (abstractDataType <|> dataType) -- Por ahora debe haber un programa
-  program' <- mainProgram              -- principal al final del archivo
-  symbolTable %= closeScope pos
-  return program'

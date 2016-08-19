@@ -23,7 +23,7 @@ import           Data.Text      (Text, unpack)
  -}
 
 
-type Guard = (Expression,Instruction)
+type Guard = (Expression,[Declaration],[Instruction])
 
 data Instruction'
   = Abort -- ^ Instruccion Abort.
@@ -45,11 +45,13 @@ data Instruction'
   --   }
 
   | New
-    { idName :: Text
+    { idName :: Object
+    , nType  :: Type
     }
 
   | Free
-    { idName :: Text
+    { idName    :: Object
+    , freeType  :: Type
     }
 
   | Assign
@@ -81,8 +83,8 @@ data Instruction'
   | Skip -- ^ Instruccion Skip.
 
   | Write
-    { ln    :: Bool
-    , wexpr :: Expression
+    { ln     ::  Bool
+    , wexprs :: [Expression]
     } -- ^ Escribir.
 
 
@@ -114,13 +116,15 @@ instance Treelike Instruction where
       Node ("If " <> show instLoc)
         (fmap guardToTree cguards)
 
-    New { idName } ->
+    New { idName, nType } ->
       Node ("New " <> show instLoc)
-        [leaf . unpack $ idName]
+        [toTree idName
+        ,leaf . show $ nType]
 
-    Free { idName } ->
+    Free { idName, freeType } ->
       Node ("Free " <> show instLoc)
-        [leaf . unpack $ idName]
+        [toTree idName
+        ,leaf . show $ freeType]
 
     Assign { lvals, exprs } ->
       Node "Assignments"
@@ -153,14 +157,15 @@ instance Treelike Instruction where
 
     Skip -> leaf $ "Skip " <> show instLoc
 
-    Write { ln, wexpr } ->
-      Node ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc)
-        [toTree wexpr]
+    Write { ln, wexprs } ->
+      Node ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc) $
+        toForest wexprs
 
     where
-      guardToTree (expr, inst) = Node "Guard"
+      guardToTree (expr, decls, inst) = Node "Guard"
         [ Node "Condition"   [toTree expr]
-        , Node "Instruction" [toTree inst]
+        , Node "Declarations" $ toForest decls
+        , Node "Instructions" $ toForest inst
         ]
       assignToTree ident expr = Node "(:=)"
         [ toTree ident

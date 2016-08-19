@@ -6,6 +6,7 @@ import           AST.Definition  (Definition)
 import qualified AST.Definition  as D
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
+import           AST.Struct      (Struct)
 import           Location
 import           SymbolTable
 import           Token
@@ -17,10 +18,11 @@ import           Data.Text       (Text, unpack)
 
 data Program
   = Program
-    { name  :: Text
-    , loc   :: Location
-    , defs  :: [Definition]
-    , insts :: Instruction
+    { name    :: Text
+    , loc     :: Location
+    , defs    :: [Definition]
+    , insts   :: Instruction
+    , structs :: [Struct]
     }
 
 instance Treelike Program where

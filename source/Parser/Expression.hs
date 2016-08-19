@@ -3,6 +3,7 @@
 
 module Parser.Expression
   ( expression
+  , string
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression            hiding (inner, loc)
@@ -48,6 +49,15 @@ import           Text.Megaparsec           (between, getPosition, runParser,
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
+string :: Graciela Expression
+string = do
+  from <- getPosition
+  str  <- stringLit
+  to   <- getPosition
+  let location = Location(from,to)
+  pure (Expression location GString StringLit{theString = unpack str})
+
+
 expression :: Graciela Expression
 expression = evalStateT expr []
 
@@ -84,7 +94,6 @@ expr = (\(e,_,_) -> e) <$> metaexpr
 
 metaexpr :: GracielaRange MetaExpr
 metaexpr = makeExprParser term operator
-
 
 term :: GracielaRange MetaExpr
 term =  parens metaexpr

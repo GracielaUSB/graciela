@@ -49,7 +49,7 @@ basicType = do
 
 
 type' :: Graciela Type
-type' = try arrayOf <|> try type'' <|> userDefined
+type' = try userDefined<|> try arrayOf <|> try type''
   where
     -- Try to parse an array type
     arrayOf = do
@@ -85,10 +85,17 @@ type' = try arrayOf <|> try type'' <|> userDefined
 
     -- TODO: Or if its a user defined Type
     userDefined = do
+      from <- getPosition
       id <- identifier
       match TokOf
-      t <- type'
-      return (GDataType id)
+      t     <- getType id
+      polymorphism <- type'
+      to <- getPosition
+      case t of
+        Nothing -> do
+          putError (Location(from,to)) (UndefinedType id)
+          return GUndef
+        Just t' -> return t'
 
 arraySize :: Graciela (Maybe Int32)
 arraySize = do

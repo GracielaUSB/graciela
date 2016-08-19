@@ -29,6 +29,7 @@ import           Data.Monoid                             ((<>))
 import           Data.Text                               (unpack)
 import           Data.Word
 import           LLVM.General.AST                       (BasicBlock(..))
+import           LLVM.General.AST.AddrSpace
 import           LLVM.General.AST.Name                  (Name(..))
 import qualified LLVM.General.AST.Instruction           as LLVM (Instruction(..))
 import           LLVM.General.AST.Instruction           (Named(..),
@@ -42,7 +43,8 @@ import           LLVM.General.AST.Type
 
 
 guard :: Guard -> Name -> LLVM ()
-guard (expr, inst) falseLabel = do
+
+guard (expr, decls, insts) falseLabel = do  
   cond      <- expression expr
   trueLabel <- newLabel
   let condBr = CondBr { condition = cond
@@ -51,12 +53,31 @@ guard (expr, inst) falseLabel = do
                       , metadata' = []
                       }
   setLabel trueLabel $ Do condBr
-  instruction inst
+  mapM_ declaration decls
+  mapM_ instruction insts
 
 
 
 instruction :: Instruction -> LLVM ()
 instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
+  Abort -> createTagAbort pos
+
+  Assign {lvals, exprs} -> zipWithM_ assign' lvals exprs
+    where
+      assign' lval expr = do
+        value <- expression expr
+        ref   <- objectRef lval
+        label <- newLabel
+        let store = LLVM.Store
+                { LLVM.volatile = False
+                , LLVM.address  = ref
+                , LLVM.value    = value
+                , LLVM.maybeAtomicity = Nothing
+                , LLVM.alignment = 4
+                , LLVM.metadata  = []
+                }
+        addInstruction (label := store)
+
 
   Conditional { cguards } -> do
     finalLabel <- newLabel
@@ -95,20 +116,121 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         addBlock  (Do $ Ret Nothing [])
         outerBlock .= True
 
+  Free { idName, freeType } -> do
+    labelLoad  <- newLabel
+    labelCast  <- newLabel
+    labelCall  <- newLabel
+    labelNull  <- newLabel
+    labelStore <- newLabel
+    ref        <- objectRef idName
+    let 
+      type' = toLLVMType (T.GPointer freeType)
 
-  Write { ln, wexpr } -> do
-    label <- newLabel
-    -- Callable operand (is the Name of the function that will be called)
-    let fun = Right . ConstantOperand $ C.GlobalReference voidType $ fwrite ln (expType wexpr)
-    -- Build the operand of the expression
-    operand <- expression wexpr
-    -- Build a LLVM argument :: (Operand, [ParameterAttribute])
-    let arg = [(operand, [])]
-    -- Build a call instruction
-    let call = LLVM.Call Nothing CC.C [] fun arg [] []
-    -- return a named instruction
-    addInstructions $ Seq.singleton $ label := call
+      
+      
+      load = LLVM.Load { LLVM.volatile  = False
+                       , LLVM.address   = ref
+                       , LLVM.maybeAtomicity = Nothing
+                       , LLVM.alignment = 4
+                       , LLVM.metadata  = [] }
+
+      ptr = LocalReference type' $ labelLoad
+
+      bitcast = LLVM.BitCast
+            { LLVM.operand0 = ptr
+            , LLVM.type'    = PointerType i8 (AddrSpace 0)
+            , LLVM.metadata = []
+            }
+      
+      ptr8bytes = LocalReference type' labelCast
+
+      fun = Right . ConstantOperand $ C.GlobalReference voidType $ Name "_free" 
+      
+      arg = [(ptr8bytes,[])]
+      
+      call = LLVM.Call
+                { LLVM.tailCallKind       = Nothing
+                , LLVM.callingConvention  = CC.C
+                , LLVM.returnAttributes   = []
+                , LLVM.function           = fun
+                , LLVM.arguments          = arg
+                , LLVM.functionAttributes = []
+                , LLVM.metadata           = []}
+
+      store = LLVM.Store
+                { LLVM.volatile = False
+                , LLVM.address  = ref
+                , LLVM.value    = ConstantOperand $ C.Null type'
+                , LLVM.maybeAtomicity = Nothing
+                , LLVM.alignment = 4
+                , LLVM.metadata  = []
+                } 
+      
+    
+    addInstructions . fromList $ [ labelLoad  := load
+                                 , labelCast  := bitcast
+                                 , labelCall  := call
+                                 , labelStore := store]
+
+  New { idName,nType } -> do
+    labelCall  <- newLabel
+    labelCast  <- newLabel
+    labelStore <- newLabel
+    ref <- objectRef idName
+    let 
+      type' = toLLVMType (T.GPointer nType)
+      
+      
+      fun = Right . ConstantOperand $ C.GlobalReference pointerType $ Name "_malloc" 
+      
+      arg = [(ConstantOperand $ C.Int 32 (sizeOf nType),[])]
+      
+      call = LLVM.Call
+                { LLVM.tailCallKind       = Nothing
+                , LLVM.callingConvention  = CC.C
+                , LLVM.returnAttributes   = []
+                , LLVM.function           = fun
+                , LLVM.arguments          = arg
+                , LLVM.functionAttributes = []
+                , LLVM.metadata           = []}
+
+      bitcast = LLVM.BitCast  
+            { LLVM.operand0 = LocalReference pointerType labelCall
+            , LLVM.type'    = type'
+            , LLVM.metadata = []
+            }
+
+      store = LLVM.Store
+                { LLVM.volatile = False
+                , LLVM.address  = ref
+                , LLVM.value    = LocalReference type' labelCast
+                , LLVM.maybeAtomicity = Nothing
+                , LLVM.alignment = 4
+                , LLVM.metadata  = []
+                }
+    
+    addInstructions . fromList $ [ labelCall := call
+                                 , labelCast := bitcast
+                                 , labelStore := store]
+
+
+  Write { ln, wexprs } -> do
+    mapM_ write wexprs
     where
+      write wexpr = do
+        label <- newLabel
+        -- Build the operand of the expression
+        operand <- expression wexpr
+        let
+        -- Callable operand (is the Name of the function that will be called)
+          fun = Right . ConstantOperand $ C.GlobalReference voidType $ fwrite ln (expType wexpr)
+        -- Build a LLVM argument :: (Operand, [ParameterAttribute])
+          arg = [(operand, [])]
+        -- Build a call instruction
+          call = LLVM.Call Nothing CC.C [] fun arg [] []
+        -- return a named instruction
+        addInstructions $ Seq.singleton $ label := call
+
       fwrite True expType = Name $ case expType of
           T.GBool   -> writeLnBool
           T.GChar   -> writeLnChar
@@ -127,7 +249,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Read { file, varTypes, vars } -> case file of
     Nothing ->
       zipWithM_ readVarStdin varTypes vars
-    Just file' -> undefined
+    Just file' -> error "No se puede con archivos"
 
     where
       readVarStdin t var= do
@@ -136,7 +258,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
               T.GChar   -> readCharStd
               T.GFloat  -> readFloatStd
               T.GInt    -> readIntStd
-              _         -> undefined
+              _         -> error ":D no se soporta este tipo: " <> show t
 
         -- Build a call instruction to the function read
         let fun = Right . ConstantOperand $ C.GlobalReference type' fread
@@ -164,7 +286,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         label' <- newLabel
         addInstructions $ fromList [label := call, label' := store]
 
-
+  e -> error "Esta instruccion no existe"
 
 
 -- createInstruction :: Instruction -> LLVM ()

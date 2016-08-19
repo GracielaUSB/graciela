@@ -7,6 +7,7 @@ module LLVM.Type
     , boolType
     , stringType
     , toLLVMType
+    , sizeOf
     )
 where
 --------------------------------------------------------------------------------
@@ -29,7 +30,7 @@ charType :: LLVM.Type
 charType = i8
 
 pointerType :: LLVM.Type
-pointerType = i32
+pointerType = i8
 
 voidType :: LLVM.Type
 voidType = LLVM.VoidType
@@ -42,8 +43,27 @@ stringType = LLVM.PointerType i16 (LLVM.AddrSpace 0)
 
 
 toLLVMType :: T.Type -> LLVM.Type
-toLLVMType T.GInt          = intType
-toLLVMType T.GFloat        = floatType
-toLLVMType T.GBool         = boolType
-toLLVMType T.GChar         = charType
-toLLVMType (T.GArray sz t) = LLVM.ArrayType (fromIntegral sz) (toLLVMType t)
+toLLVMType  T.GInt          = intType
+toLLVMType  T.GFloat        = floatType
+toLLVMType  T.GBool         = boolType
+toLLVMType  T.GChar         = charType
+toLLVMType (T.GPointer  t)  = LLVM.PointerType (toLLVMType t) (LLVM.AddrSpace 0)
+toLLVMType (T.GArray sz t)  = LLVM.ArrayType (fromIntegral sz)  (toLLVMType t)
+
+
+toLLVMType (GDataType _ ts) = LLVM.StructureType False (fmap toLLVMType ts)
+toLLVMType _                = error "Unsupported type"
+
+
+sizeOf :: T.Type -> Integer
+sizeOf T.GInt          = 4
+sizeOf T.GBool         = 4
+sizeOf T.GChar         = 4
+sizeOf T.GFloat        = 4
+sizeOf (T.GArray sz t) = (fromIntegral sz) * sizeOf t
+sizeOf (T.GPointer t)  = 4
+
+
+
+
+
