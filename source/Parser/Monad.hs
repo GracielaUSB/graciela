@@ -6,23 +6,36 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Parser.Monad
-  ( MonadParser
-  , ParserT
+  ( ParserT (..)
   , Parser
-  , floatLit
-  , boolLit
-  , integerLit
-  , stringLit
-  , charLit
-  , brackets
-  , percents
-  , beginEnd
-  , anyToken
+
+  , MonadParser (..)
+
+  , evalParserT
+  , execParserT
   , runParserT
+  , evalParser
+  , execParser
   , runParser
+
+  , match
+  , anyToken
+  , oneOf
+  , noneOf
+
+  , boolLit
+  , charLit
+  , integerLit
+  , floatLit
+  , stringLit
   , identifier
   , identifierAndLoc
+
   , parens
+  , brackets
+  , block
+  , percents
+  , beginEnd
   ) where
 --------------------------------------------------------------------------------
 import           Error
@@ -34,11 +47,14 @@ import           Token                     (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
 import           Control.Applicative       (Alternative)
 import           Control.Lens              (use, (%=))
-import           Control.Monad             (MonadPlus, void)
+import           Control.Monad             (MonadPlus, mzero, void)
 import           Control.Monad.Identity    (Identity (..))
 import           Control.Monad.State       (MonadState)
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT (..), evalStateT)
+import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import           Control.Monad.Trans.State (State, StateT (..), evalState,
+                                            evalStateT, execState, execStateT,
+                                            runState)
 import           Data.Int                  (Int32)
 import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.List.NonEmpty        as NE (fromList)
@@ -53,40 +69,101 @@ import qualified Text.Megaparsec           as Mega (runParserT)
 import           Text.Megaparsec.Prim      (MonadParsec (..))
 --------------------------------------------------------------------------------
 
-newtype ParserT m a =
-  ParserT { unParserT :: ParsecT Error [TokenPos] (StateT Parser.State m) a }
+newtype ParserT m a = ParserT
+  { unParserT :: ParsecT Error [TokenPos] (MaybeT (StateT Parser.State m)) a }
   deriving ( Functor, Applicative, Monad, MonadState Parser.State
            , MonadParsec Error [TokenPos], MonadPlus, Alternative )
 
 type Parser = ParserT Identity
 --------------------------------------------------------------------------------
 
-runParserT :: Monad m
-           => ParserT m a
+flatten :: Monad m
+        => ParserT m a
+        -> FilePath
+        -> [TokenPos]
+        -> StateT Parser.State m (Maybe a)
+flatten p fp input = do
+  x <- runMaybeT (Mega.runParserT (unParserT p) fp input)
+  pure $ case x of
+    Just (Right v) -> Just v
+    _              -> Nothing
+--------------------------------------------------------------------------------
+
+xParserT :: Monad m
+         => (StateT Parser.State m (Maybe a) -> Parser.State -> x)
+         -> ParserT m a
+         -> FilePath
+         -> [TokenPos]
+         -> Parser.State
+         -> x
+xParserT xStateT p fp input = xStateT (flatten p fp input)
+
+evalParserT :: Monad m
+            => ParserT m a
+            -> FilePath
+            -> [TokenPos]
+            -> Parser.State
+            -> m (Maybe a)
+evalParserT = xParserT evalStateT
+
+execParserT :: Monad m
+            => ParserT m a
+            -> FilePath
+            -> [TokenPos]
+            -> Parser.State
+            -> m Parser.State
+execParserT = xParserT execStateT
+
+runParserT  :: Monad m
+            => ParserT m a
+            -> FilePath
+            -> [TokenPos]
+            -> Parser.State
+            -> m (Maybe a, Parser.State)
+runParserT  = xParserT runStateT
+--------------------------------------------------------------------------------
+
+xParser :: (State Parser.State (Maybe a) -> Parser.State -> x)
+        -> Parser a
+        -> FilePath
+        -> [TokenPos]
+        -> Parser.State
+        -> x
+xParser xState p fp input = xState (flatten p fp input)
+
+evalParser :: Parser a
            -> FilePath
            -> [TokenPos]
            -> Parser.State
-           -> m (Either (ParseError TokenPos Error) a, Parser.State)
-runParserT p fp input initState =
-  runStateT (Mega.runParserT (unParserT p) fp input) initState
+           -> Maybe a
+evalParser = xParser evalState
 
-runParser :: Parser a
-          -> FilePath
-          -> [TokenPos]
-          -> Parser.State
-          -> (Either (ParseError TokenPos Error) a, Parser.State)
-runParser p fp input initState =
-  runIdentity (runParserT p fp input initState)
+execParser :: Parser a
+           -> FilePath
+           -> [TokenPos]
+           -> Parser.State
+           -> Parser.State
+execParser = xParser execState
+
+runParser  :: Parser a
+           -> FilePath
+           -> [TokenPos]
+           -> Parser.State
+           -> (Maybe a, Parser.State)
+runParser  = xParser runState
+--------------------------------------------------------------------------------
 
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: Location -> Error -> p ()
-  safe :: p (Maybe a) -> p (Maybe a)
+  reject :: p a
+  safe :: p a -> p a
   push :: Token -> p ()
   pop :: p ()
   satisfy :: (Token -> Bool) -> p Token
 
 instance Monad m => MonadParser (ParserT m) where
   putError = pPutError
+  reject   = pReject
   safe     = pSafe
   push     = pPush
   pop      = pPop
@@ -94,13 +171,13 @@ instance Monad m => MonadParser (ParserT m) where
 
 instance MonadParser g => MonadParser (StateT s g) where
   putError l e = lift $ putError l e
+  reject  = lift reject
   safe p = StateT $ \s -> do
     a' <- safe $ evalStateT p s
     return (a', s)
   push    = lift . push
   pop     = lift pop
   satisfy = lift . satisfy
-
 
 pPutError :: Monad m => Location -> Error -> ParserT m ()
 pPutError (Location (from, _)) e = ParserT $ do
@@ -109,8 +186,11 @@ pPutError (Location (from, _)) e = ParserT $ do
   errors %= (|> err)
 pPutError _ _ = error "FIXME"
 
+pReject :: Monad m => ParserT m a
+pReject = ParserT $ lift mzero
+
 pSafe :: (Monad m)
-      => ParserT m (Maybe a) -> ParserT m (Maybe a)
+      => ParserT m a -> ParserT m a
 pSafe = withRecovery r
   where
     r e = do
@@ -123,7 +203,7 @@ pSafe = withRecovery r
       ts <- use recSet
       void $ noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
 
-      pure Nothing
+      reject
 
 pPush :: Monad m
       => Token -> ParserT m ()
@@ -145,77 +225,31 @@ pSatisfy f = token test Nothing
 --------------------------------------------------------------------------------
 
 match :: MonadParser m
-      => Token -> m Token
-match t = satisfy (== t)
-
+      => Token -> m Location
+match t = do
+  from <- getPosition
+  void $ satisfy (== t)
+  to <- getPosition
+  pure $ Location (from, to)
 
 anyToken :: MonadParser m => m Token
 anyToken = satisfy (const True)
-
 
 oneOf :: (Foldable f, MonadParser m)
       => f Token -> m Token
 oneOf ts = satisfy (`elem` ts)
 
-
 noneOf :: (Foldable f, MonadParser m)
       => f Token -> m Token
 noneOf ts = satisfy (`notElem` ts)
 
-
-parens :: MonadParser m
-       => m (Maybe a) -> m (Maybe a)
-parens = (. safe) $ between
-  (match TokLeftPar  <* push TokRightPar)
-  (match TokRightPar <* pop)
-
-
-percents :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-percents = (. safe) $ between
-  (match TokLeftPercent  <* push TokRightPercent)
-  (match TokRightPercent <* pop)
-
-
-brackets :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-brackets = (. safe) $ between
-  (match TokLeftBracket  <* push TokRightBracket)
-  (match TokRightBracket <* pop)
-
-
-beginEnd :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-beginEnd = (. safe) $ between
-  (match TokBegin <* push TokEnd)
-  (match TokEnd   <* pop)
-
-
-identifier :: MonadParser m
-           => m Text
-identifier = unTokId <$> satisfy ident
-  where
-    ident TokId {} = True
-    ident _        = False
-
-
--- | Find an identifier and returns its name and location
-identifierAndLoc :: MonadParser m
-                 => m (Text, Location)
-identifierAndLoc = do
-  from <- getPosition
-  name <- identifier
-  to <- getPosition
-  pure (name, Location(from,to))
-
-
+--------------------------------------------------------------------------------
 boolLit :: MonadParser m
         => m Bool
 boolLit = unTokBool <$> satisfy bool
   where
     bool TokBool {} = True
     bool _          = False
-
 
 charLit :: MonadParser m
         => m Char
@@ -224,6 +258,19 @@ charLit = unTokChar <$> satisfy char
     char TokChar {} = True
     char _          = False
 
+integerLit :: MonadParser m
+           => m Int32
+integerLit = unTokInteger <$> satisfy string
+  where
+    string TokInteger {} = True
+    string _             = False
+
+floatLit :: MonadParser m
+         => m Double
+floatLit = unTokFloat <$> satisfy float
+  where
+    float TokFloat {} = True
+    float _           = False
 
 stringLit :: MonadParser m
           => m Text
@@ -232,22 +279,55 @@ stringLit = unTokString <$> satisfy string
     string TokString {} = True
     string _            = False
 
-
-integerLit :: MonadParser m
-           => m Int32
-integerLit = unTokInteger <$> satisfy string
+identifier :: MonadParser m
+           => m Text
+identifier = unTokId <$> satisfy ident
   where
-    string TokInteger {} = True
-    string _             = False
+    ident TokId {} = True
+    ident _        = False
 
+-- | Match an identifier and return both its name and location
+identifierAndLoc :: MonadParser m
+                 => m (Text, Location)
+identifierAndLoc = do
+  from <- getPosition
+  name <- identifier
+  to <- getPosition
+  pure (name, Location(from,to))
 
-floatLit :: MonadParser m
-         => m Double
-floatLit = unTokFloat <$> satisfy float
-  where
-    float TokFloat {} = True
-    float _           = False
--- --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+parens :: MonadParser m
+       => m a -> m a
+parens = (. safe) $ between
+  (match TokLeftPar  <* push TokRightPar)
+  (match TokRightPar <* pop)
+
+brackets :: MonadParser m
+         => m a -> m a
+brackets = (. safe) $ between
+  (match TokLeftBracket  <* push TokRightBracket)
+  (match TokRightBracket <* pop)
+
+block :: MonadParser m
+      => m a -> m a
+block = (. safe) $ between
+  (match TokOpenBlock  <* push TokCloseBlock)
+  (match TokCloseBlock <* pop)
+
+percents :: MonadParser m
+         => m a -> m a
+percents = (. safe) $ between
+  (match TokLeftPercent  <* push TokRightPercent)
+  (match TokRightPercent <* pop)
+
+beginEnd :: MonadParser m
+         => m a -> m a
+beginEnd = (. safe) $ between
+  (match TokBegin <* push TokEnd)
+  (match TokEnd   <* pop)
+
+--------------------------------------------------------------------------------
+
 -- insertType :: Text -> Type -> SourcePos -> Graciela ()
 -- insertType name t loc =
 --   typesTable %= Map.insert name (t, loc)
