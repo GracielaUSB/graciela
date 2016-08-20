@@ -141,23 +141,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     mapM_ instruction insts
 
   ProcedureCall {pname, args} -> do
-    args <- mapM (\(e,mode) -> do  
-              expr <- if mode == Out || mode == InOut 
-                  then do
-                    label <- newLabel
-                    ref   <- objectRef . E.theObj . exp' $ e
-                    let 
-                      type' = ptr . toLLVMType . expType $ e
-                      bitcast = LLVM.BitCast
-                          { LLVM.operand0 = ref
-                          , LLVM.type'    = type'
-                          , LLVM.metadata = []
-                          } 
-                    addInstruction $ label := bitcast
-                    return $ LocalReference type' label
-                  else expression e 
-              return (expr,[])
-              ) args
+    args <- mapM createArg args
     label <- newLabel
     let
       proc = Right . ConstantOperand $ C.GlobalReference voidType $ Name (unpack pname)
@@ -171,7 +155,26 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                 , LLVM.functionAttributes = []
                 , LLVM.metadata           = []}
     addInstruction $ label := call
-
+    where 
+      -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
+      -- If it is not an Out or InOut argument, then just pass a constant value
+      createArg (e,mode) = do  
+        expr <- if mode == Out || mode == InOut 
+            then do
+              label <- newLabel
+              ref   <- objectRef . E.theObj . exp' $ e
+              let 
+                type' = ptr . toLLVMType . expType $ e
+                bitcast = LLVM.BitCast
+                    { LLVM.operand0 = ref
+                    , LLVM.type'    = type'
+                    , LLVM.metadata = []
+                    } 
+              addInstruction $ label := bitcast
+              return $ LocalReference type' label
+            else expression e 
+        return (expr,[])
+              
   Free { idName, freeType } -> do
     labelLoad  <- newLabel
     labelCast  <- newLabel
