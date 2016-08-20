@@ -52,6 +52,7 @@ toLLVMType (T.GArray sz t)  = LLVM.ArrayType (fromIntegral sz)  (toLLVMType t)
 
 
 toLLVMType (GDataType _ ts) = LLVM.StructureType False (fmap toLLVMType ts)
+toLLVMType GAny             = error "GAny is not a valid type"
 toLLVMType _                = error "Unsupported type"
 
 

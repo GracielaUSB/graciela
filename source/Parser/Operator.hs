@@ -151,18 +151,29 @@ compOpType :: BinaryOpType
 compOpType GInt   GInt   = Right GBool
 compOpType GChar  GChar  = Right GBool
 compOpType GFloat GFloat = Right GBool
+compOpType (GPointer t1) (GPointer t2) = if t1 =:= t2 
+  then Right GBool
+  else Left $ show (GPointer t1,GPointer t1)
 compOpType _      _      = Left $
   show (GInt  , GInt  ) <> ", " <>
   show (GChar , GChar ) <> ", or " <>
   show (GFloat, GFloat)
+
+{- Add support to pointer to AEQ and ANE -}
+compOpType' :: BinaryOpType
+compOpType' (GPointer t1) (GPointer t2) = if t1 =:= t2 
+  then Right GBool
+  else Left $ show (GPointer t1,GPointer t1)
+compOpType' a b = compOpType a b
 
 lt, le, gt, ge, aeq, ane :: Bin
 lt  = Bin LT  compOpType $ comp (<)
 le  = Bin LE  compOpType $ comp (<=)
 gt  = Bin GT  compOpType $ comp (>)
 ge  = Bin GE  compOpType $ comp (>=)
-aeq = Bin AEQ compOpType $ comp (==)
-ane = Bin ANE compOpType $ comp (/=)
+
+aeq = Bin AEQ compOpType' $ comp (==)
+ane = Bin ANE compOpType' $ comp (/=)
 
 --------------------------------------------------------------------------------
 elemPre :: (Value -> Value -> Value)

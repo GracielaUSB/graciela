@@ -154,139 +154,118 @@ program main begin
     //     {post true post}
     // end
 
-    // proc readNum2 ()
-    // begin
-    //     var num : int;
-    //     read(num);
+    proc readNum2 ()
+    begin
+        var num : int;
+        read(num);
 
-    //     {pre num ≥ 0 pre}
-    //     |[
-    //         write(1)
-    //         // write("El resultado es: "); // No acepta strings
-    //         // writeln(fibonacci(num)) // No buscar las funciones
-    //     ]|
-    //     {post true post}
-    // end
-
-    // proc hola (in x : int) begin
-    
-    //     {pre true pre}
-    //     |[
-    //         write(1)
-    //     ]|
-    //     {post true post}
-    // end
-    
-
-    |[
-        var a,b,d := -1.0,2.0,4.3 : float;
-        var g := a+b+d : float;
-        var i := 12  : int;
-        var x,y,z    : int*;
-        var pedrito : boolean*;
-        var c := 'c' : char;
-        var arreglo  : array[10] of array[10] of array[10] of int*;
-        var bool     : boolean;
-        var dic      : Dicc of int;
-
-        // read(i);
-
-        writeln(2533,2533,"hola");
-        write("\thola\n","Chao");
-        new(arreglo[1][2][3]);
-        *arreglo[1][2][3] := 100;
-        new(x);
-        new(pedrito);
-        *pedrito := false;
-        writeln(*pedrito);
-        *x := i;
-        
-        y := x;
-        z := y;
-        writeln(*z == 1234); // true
-        free(x);
-        writeln(*arreglo[1][2][3] + 2);
+        {pre true pre}
         |[
-            writeln(12345);
-            |[
-                writeln(12)
-            ]|
-        ]|;
+            writeln("Entro! que alegria")
+            // write("El resultado es: "); // No acepta strings
+            // writeln(fibonacci(num)) // No buscar las funciones
+        ]|
+        {post true post}
+    end
 
-        // read(a);
-        if 1 >= 1-> 
-            var jamon := 11223344 : int;
-            writeln(jamon);
-            if true -> writeln(1) fi
-            
-        [] a < 1.0 -> 
-            // writeln(2)
-        fi;
+    proc hola (in x : int) begin
+    
+        {pre true pre}
+        |[
+            write(1)
+        ]|
+        {post true post}
+    end
+    
 
-        writeln(a < 10.0);
-        writeln(a > 10.0);
-        writeln(a <= 10.0);
-        writeln(a >= 10.0);
-        writeln(a != 10.0);
+   |[ var a,b,d := -1.0,2.0,4.3 : float
+    ; var g := a+b+d : float
+    ; var i := 12  : int
+    ; var x,y,z    : int*
+    ; var dd       : int**
+    ; var pedrito  : boolean*
+    ; var c1,c2    : boolean
+    ; var c := 'c' : char
+    ; var arreglo  : array[10] of array[10] of array[10] of int*
+    ; var bool     : boolean
+    ; var dic      : Dicc of int    
+    ; {a x == null a} new(x)  {a x != null a}
+    ; *x := 1
+    ; writeln(*x)
+    ; {a x != null a} free(x) {a x == null a}
+    ; read(i)
+    ; writeln(2533,2533,"hola")
+    ; write("x y z son iguales: ", x == z, "\n")
+    ; new(arreglo[1][2][3])
+    ; *arreglo[1][2][3] := 100
+    ; new(x)
+    ; new(pedrito)
+    ; *pedrito := false
+    ; free(pedrito)
+    ; writeln(pedrito == null)
+    ; new(dd)
+    ; new(*dd)
+    ; **dd := 3
+    ; *x := i
+    ; y := x
+    ; z := y
+    ; writeln(z != null /\ *z == i) // true
+    ; writeln(*arreglo[1][2][3] + 2)
+    ; |[
+          writeln(12345);
+          |[
+              writeln(12)
+          ]|
+     ]|
+    ; read(*x)
+      
+    ; 
+    {a *x > 0 a}
 
-        writeln(i < 10);
-        writeln(i > 10);
-        writeln(i <= 10);
-        writeln(i >= 10);
-        writeln(i != 10);
+    if *x > 10             -> a := 1.0      
+    [] 0 <= *x /\ *x <= 10 -> a := 10.0
+    fi
+              
+    {a    (*x > 10             ==> a == 1.0) 
+       /\ (0 <= *x /\ *x <= 10 ==> a == 10.0)
+    a}
 
-        writeln(false ==> true);
-        
-        writeln(i);
-        // read(a,b,c);
+    ; readNum2()
 
-        writeln(g);
-        writeln( ¬(true /\ false) );
-        writeln(a);
-        writeln(¬ (√(9.0+16.0) >= 5.0) );
-        writeln( -2 == 2147483647 );
-        new(x);
-        *x := 20;
-        writeln(*x);
-        *x := 10;
-        writeln(*x);
-        *x := 15;
-        writeln(*x);
-        free(x);
-        new(x);
-        *x,*x := 15, 10;
-        writeln(*x);
-        free(x)
+    ; writeln(a < 10.0)
+    ; writeln(a > 10.0)
+    ; writeln(a <= 10.0)
+    ; writeln(a >= 10.0)
+    ; writeln(a != 10.0)
 
-        // const   m := 10 : int;
-        // var   a : array[10] of array[10] of int;
+    ; writeln(i < 10)
+    ; writeln(i > 10)
+    ; writeln(i <= 10)
+    ; writeln(i >= 10)
+    ; writeln(i != 10)
 
-       
+    ; writeln(false ==> true)
+      
+    ; writeln(i)
+    //  ; read(a,b,c)
 
-        // {inv (%forall i : int | i > 0 /\ i < 10 | true %)  inv}
-        // {bound 1 bound}
-        // do 
-        //     true ->  
-        //         if a[1][2] > 1 ->
-        //              write(1) 
-        //         fi
-        // od;
-        // |[  a[x] := x;
-        //     {a a[x] < 10 /\ a[x] >= 0 a}
-        //     writeln(a[x]);
-        //     {a a[x] > 100 a}
-        //     x := x+1
-        //     {a x <= 10 a}
-        // ]|
-        // od;
-        // random(m);
-        
-        // // write("El random es: "); // No acepta strings
-        // writeln(1);
-        // writeln(1-1-1);
-        // // write("Numero de Fibonacci, ingrese un numero: "); // No acepta strings
-        // x,m := 1,20;
-        // readNum()
-        //read(a[1][1])
-    ]|
+    ; writeln(g)
+    ; writeln( ¬(true /\ false) )
+    ; writeln(a)
+    ; writeln(¬ (√(9.0+16.0) >= 5.0) )
+    ; writeln( -2 == 2147483647 )
+    ; new(x)
+    ; *x := 20
+    ; writeln(*x)
+    ; *x := 10
+    ; writeln(*x)
+    ; *x := 15
+    ; writeln(*x)
+    ; free(x)
+    ; new(x)
+    ; *x,*x := 15, 10
+    ; writeln(*x)
+    ; writeln( (3 max 4) min (10 max √2) )
+    ; free(x)  
+   ]|
 end

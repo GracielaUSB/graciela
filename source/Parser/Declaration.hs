@@ -160,7 +160,6 @@ redefinition :: (Text, Location) -> Graciela ()
 redefinition (id, location) = do
   st <- use symbolTable
   let local = isLocal id st
-  traceM $ show local <> unpack id
   when local $ 
     putError location $ UnknownError $ 
       "Redefinition of variable `" <> unpack id <> "`"

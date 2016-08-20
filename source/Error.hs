@@ -148,7 +148,8 @@ instance ShowErrorComponent Error where
 
     BadReadArgumentType { aExpr, aType } ->
       "The variable `" <> show aExpr <> "` has type " <> show aType <>
-      " but only basic types can be read."
+      "\n\tbut only variables of type "<> show GChar <>", "<> show GFloat <>
+      " or " <> show GInt <>" can be read."
 
     EmptyBlock ->
       "Instruction blocks must contain at least one instruccion"

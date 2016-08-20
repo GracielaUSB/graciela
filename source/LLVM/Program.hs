@@ -77,8 +77,9 @@ programToLLVM files types (Program name _ defs insts structs) = do
     program = do 
       
       preDefinitions files
-      mapM_ definition defs
       mapM_ defineType $ Map.toAscList types
+      mapM_ definition defs
+      
       mainDefinition insts
       
       use moduleDefs

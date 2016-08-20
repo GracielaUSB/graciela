@@ -100,6 +100,7 @@ term =  parens metaexpr
  -- <|> try call -- TODO: function calling, depends on ST design
     <|> variable
     <|> bool
+    <|> nullptr
     <|> basicLit integerLit       IntV          GInt
     <|> basicLit floatLit         FloatV        GFloat
     <|> basicLit charLit          CharV         GChar
@@ -125,6 +126,19 @@ term =  parens metaexpr
           else ProtoQRange EmptyRange
 
       pure (expr, range, Taint False)
+
+    nullptr :: GracielaRange MetaExpr
+    nullptr = do
+      from <- getPosition
+      match TokNull
+      to <- getPosition
+      let
+        expr = Expression
+          { E.loc   = Location (from, to)
+          , expType = GPointer GAny
+          , exp'    = NullPtr }
+        
+      pure (expr, ProtoNothing, Taint False)
 
     basicLit :: Graciela a -> (a -> Value) -> Type
              -> GracielaRange MetaExpr
@@ -659,7 +673,7 @@ unary unOp
       putError loc . UnknownError $
         "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
         " expected an expression of type " <> expected <>
-        ", but received " <> show itype <> "."
+        ",\n\tbut received " <> show itype <> "."
       pure (BadExpression { E.loc }, ProtoNothing, taint)
     Right ret -> do
       let
@@ -691,8 +705,8 @@ binary binOp opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-          " expected two expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".")
+          "\n\texpected two expressions of types " <> expected <>
+          ",\n\tbut received " <> show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
     Right ret ->
@@ -729,7 +743,7 @@ membership opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
@@ -756,8 +770,8 @@ comparison binOp opLoc
         let loc = Location (from l, to r)
         putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".")
+            show opLoc <> "\n\texpected two expressions of types " <> expected <>
+            ",\n\tbut received " <> show (ltype, rtype) <> ".")
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
@@ -790,8 +804,8 @@ comparison binOp opLoc
         let loc = Location (from l, to r)
         putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".")
+            show opLoc <> "\n\texpected two expressions of types " <> expected <>
+            ",\n\tbut received " <> show (ltype, rtype) <> ".")
         pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
       Right GBool ->
@@ -829,7 +843,7 @@ pointRange opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
@@ -851,7 +865,7 @@ pointRange opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 
@@ -946,7 +960,7 @@ conjunction opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         "Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
-        \ expressions of types " <> expected <> ", but received " <>
+        \ expressions of types " <> expected <> ",\n\tbut received " <>
         show (ltype, rtype) <> "."
       pure (BadExpression { E.loc }, ProtoNothing, Taint False)
 

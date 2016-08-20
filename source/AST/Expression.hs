@@ -159,7 +159,9 @@ instance Treelike Value where
 
 
 data Expression'
-  = Value { theValue :: Value }
+  = NullPtr
+  | Value { theValue :: Value }
+
   | StringLit { theString :: String  }
 
   | EmptySet
@@ -215,6 +217,7 @@ eSkip = Value . BoolV  $ True
 
 instance Treelike Expression where
   toTree Expression { loc, expType, exp' } = case exp' of
+    NullPtr -> leaf "Null Pointer"
     Value { theValue } -> leaf $
       case theValue of
         BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
@@ -325,6 +328,7 @@ prettyUnOp Succ   = "succ"
 
 instance Show Expression where
   show Expression { loc, expType, exp' } = case exp' of
+    NullPtr -> "null"
     Value { theValue } -> show theValue
 
     StringLit { theString } -> show theString

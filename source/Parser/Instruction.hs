@@ -91,9 +91,8 @@ block = do
   from <- getPosition
   symbolTable %= openScope from
   match TokOpenBlock
-
   decls       <- declarationBlock
-  actions     <- insts `sepBy` match TokSemicolon
+  actions     <- many insts
   assertions' <- many assertionInst
   st          <- use symbolTable
   let actions' = (concat actions) <> assertions'
@@ -120,6 +119,8 @@ block = do
       a1   <- many assertionInst
       inst <- instruction
       a2   <- many assertionInst
+      do (void $ lookAhead $ match TokCloseBlock)
+        <|> (void $ withRecovery TokSemicolon)
       return $ a1 <> [inst] <> a2
 
 
@@ -221,9 +222,7 @@ reading :: Graciela Instruction
 reading = do
   from  <- getPosition
   match TokRead
-  match TokLeftPar
-  ids   <- expression `sepBy1` match TokComma
-  match TokRightPar
+  ids   <- parens $ expression `sepBy1` match TokComma
   res   <- mapM isWritable ids
   let types = fmap fst res
   let objs  = fmap snd res
@@ -287,7 +286,7 @@ reading = do
         -- If its a bad expression just return bad instruction
         BadExpression loc -> return (GUndef, BadObject loc)
         where
-            correctType = (=:= GOneOf [GInt, GFloat, GBool, GChar])
+            correctType = (=:= GOneOf [GInt, GFloat, GChar])
 
 new :: Graciela Instruction
 new  = do
@@ -335,7 +334,7 @@ guard = do
   cond  <- expression
   match TokArrow
   decls       <- declarationBlock
-  actions     <- insts `sepBy` match TokSemicolon
+  actions     <- many insts
   assertions' <- many assertionInst
   st          <- use symbolTable
   let actions' = (concat actions) <> assertions'
@@ -349,6 +348,8 @@ guard = do
       a1   <- many assertionInst
       inst <- instruction
       a2   <- many assertionInst
+      do (void $ lookAhead $ match TokFi <|> match TokOd <|> match TokSepGuards)
+        <|> (void $ withRecovery TokSemicolon)
       return $ a1 <> [inst] <> a2
 
 conditional ::  Graciela Instruction
@@ -442,8 +443,8 @@ procedureCall = do
             else return $ BadInstruction loc
 
     _ -> do
-      {- If the procedure is not defined, maybe the current block is a procedure calling
-         itself, recursively. The information of a procedure that is beign defined is store
+      {- If the procedure is not defined, maybe the current procedure is calling
+         itself recursively. The information of a procedure that is beign defined is store
          temporaly at Graciela's currentSymbol -}
       currentProcedure <- use currentProc
       case currentProcedure of

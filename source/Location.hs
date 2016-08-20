@@ -35,3 +35,4 @@ instance Show Location where
         " -> col " <> show (unPos c1) <> "))"
       else "(" <> showPos' p0 <> " -> " <> showPos' p1 <> ")"
   show Rearranged = "()"
+  

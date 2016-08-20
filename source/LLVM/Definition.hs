@@ -7,11 +7,15 @@ where
 import           Aborts
 import qualified Type                                as T
 import           AST.Instruction                         (Instruction)
+import           AST.Declaration                         (Declaration)
 import           AST.Definition                          
-import           LLVM.Instruction
+import           AST.Expression                          (Expression(..))
+import           LLVM.Instruction                        (instruction)
+import           LLVM.Declaration                        (declaration)
 import           LLVM.Expression
 import           LLVM.State
 import           LLVM.Type
+import           Location
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Data.Text                               (Text,unpack)
@@ -42,10 +46,10 @@ import           Debug.Trace
 mainDefinition :: Instruction -> LLVM ()
 mainDefinition insts = do
   instruction insts
+  addBlock  (Do $ Ret Nothing [])
   blocks' <- use blocks
   blocks .= Seq.empty
   currentBlock .= Seq.empty
-  label <- newLabel
   let terminator = Do $ Ret Nothing []
   addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name "main"
@@ -71,13 +75,13 @@ definition Definition {defName, params, st, def'} = case def' of
         }
         
   ProcedureDef {procDecl, pre, procBody, post} -> do
-    pre'       <- expression pre
-    post       <- expression post
+    mapM_ declarationsOrRead procDecl
+    precondition pre
     instruction procBody
+    postcondition post
     blocks' <- use blocks
     blocks .= Seq.empty
-    label <- newLabel
-    let terminator = Do $ Ret Nothing []
+    currentBlock .= Seq.empty
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
         , parameters  = (fmap toLLVMParameter params, False)
@@ -87,7 +91,47 @@ definition Definition {defName, params, st, def'} = case def' of
   where 
     toLLVMParameter (name, t) = Parameter (toLLVMType t) (Name (unpack name)) []
 
+declarationsOrRead :: Either Declaration Instruction -> LLVM()
+declarationsOrRead (Left decl)   = declaration decl
+declarationsOrRead (Right read') = instruction read'
 
+precondition :: Expression -> LLVM ()
+precondition expr@ Expression {loc = Location(pos,_)} = do
+    -- Evaluate the condition expression
+    cond <- expression expr
+    -- Create both label 
+    trueLabel  <- newLabel
+    falseLabel <- newLabel
+    -- Create the conditional branch
+    let condBr = CondBr { condition = cond
+                        , trueDest  = trueLabel
+                        , falseDest = falseLabel
+                        , metadata' = []
+                        }
+    -- Set the false label to the abort
+    setLabel falseLabel $ Do condBr
+    -- And the true label to the next instructions
+    createTagPre trueLabel pos
+
+postcondition :: Expression -> LLVM ()
+postcondition expr@ Expression {loc = Location(pos,_)} = do
+    -- Evaluate the condition expression
+    cond <- expression expr
+    -- Create both label 
+    trueLabel  <- newLabel
+    falseLabel <- newLabel
+    -- Create the conditional branch
+    let condBr = CondBr { condition = cond
+                        , trueDest  = trueLabel
+                        , falseDest = falseLabel
+                        , metadata' = []
+                        }
+    -- Set the false label to the abort
+    setLabel falseLabel $ Do condBr
+    -- And the true label to the next instructions
+    createTagPost trueLabel pos
+    nextLabel <- newLabel
+    setLabel nextLabel $ Do $ Ret Nothing []
 
 
 -- createParameters :: [(Name, Type)] 

@@ -13,11 +13,14 @@ import qualified AST.Expression                          as Op (BinaryOperator (
 import           AST.Object                              as O (Object' (..),
                                                           Object'' (..))
 import           LLVM.State
-import           LLVM.Type                               (boolType, toLLVMType)
+import           LLVM.Type                               (boolType, toLLVMType
+                                                         ,intType, floatType)
+import           Location
 import           SymbolTable
 import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
+import           Control.Monad                           (when)
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
@@ -46,6 +49,7 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
+import Debug.Trace
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
@@ -77,9 +81,9 @@ object obj@Object { objType, obj' } = do
 
 -- Get the reference to the object. Used in read, random, assign ...
 objectRef :: Object -> LLVM Operand
-objectRef obj@Object { objType, obj' } = case obj' of
+objectRef obj@(Object loc objType obj') = case obj' of
   
-  Variable { name } -> 
+  Variable { name } ->
     return $ LocalReference (toLLVMType objType) $ Name (unpack name)
 
   Index inner index -> do
@@ -97,18 +101,55 @@ objectRef obj@Object { objType, obj' } = case obj' of
     return $ LocalReference (toLLVMType objType) $ label
 
   Deref inner -> do
-    ref   <- objectRef inner
-    label <- newLabel
+    ref        <- objectRef inner
+    labelLoad  <- newLabel
+    labelCast  <- newLabel
+    labelNull  <- newLabel
+    labelCond  <- newLabel
+    trueLabel  <- newLabel
+    falseLabel <- newLabel
     let 
+      Location (pos,_) = loc
+      type' = toLLVMType objType
       load = Load { volatile  = False
                   , address   = ref
                   , maybeAtomicity = Nothing
                   , alignment = 4
                   , metadata  = []
                   }
+      
+      {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
+         In that case, abort the program giving the source line of the bad access instead of letting
+         the OS ends the process
+      -}
+      cast = PtrToInt { operand0 = LocalReference type' labelLoad
+                      , type'    = intType
+                      , metadata = []
+                      }
+      null = PtrToInt { operand0 = ConstantOperand $ C.Null $ ptr type'
+                      , type'    = intType
+                      , metadata = []
+                      }
+      cond = ICmp { iPredicate = EQ
+                  , operand0   = LocalReference intType labelCast
+                  , operand1   = LocalReference intType labelNull
+                  , metadata   = []
+                  }
+      condBr = CondBr { condition = LocalReference boolType labelCond
+                      , trueDest  = trueLabel
+                      , falseDest = falseLabel
+                      , metadata' = []
+                      }
 
-    addInstruction $ label := load    
-    return $ LocalReference (toLLVMType objType) $ label
+    addInstructions $ Seq.fromList [ labelLoad := load
+                                   , labelCast := cast
+                                   , labelNull := null
+                                   , labelCond := cond]
+    
+    setLabel trueLabel $ Do condBr
+    createTagNullPtr falseLabel pos
+
+    return $ LocalReference type' $ labelLoad
 
 
 
@@ -138,10 +179,16 @@ expression Expression { expType, exp'} = case exp' of
     FloatV theFloat ->
       ConstantOperand $ C.Float $ LLVM.Double theFloat
 
+  NullPtr -> 
+    return $ ConstantOperand $ C.Null intType
+
   StringLit theString -> do 
+    -- Get the length of the string
     let n  = fromIntegral $ length theString + 1
+    -- Create an array type
     let t = ArrayType n i16
     name <- newLabel
+    -- Create a global definition for the string
     let def = GlobalDefinition $ Global.globalVariableDefaults
                 { Global.name        = name
                 , Global.isConstant  = True
@@ -149,6 +196,7 @@ expression Expression { expType, exp'} = case exp' of
                 , Global.initializer = Just $ 
                     C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- theString ++ "\0"] 
                 }
+    -- and add it to the module's definitions
     moduleDefs %= (Seq.|> def)
     return $ ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]
 
@@ -232,23 +280,16 @@ expression Expression { expType, exp'} = case exp' of
     rOperand <- expression rexpr
 
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
-    let Expression _ leftType _ = lexpr
 
-    inst <- case expType of
+    operand <- case expType of
           T.GInt   -> opInt   binOp lOperand rOperand
-          T.GBool  -> opBool  binOp lOperand rOperand leftType
+          T.GBool  -> opBool  binOp lOperand rOperand
           T.GFloat -> opFloat binOp lOperand rOperand
 
           t        -> error $ "tipo " <> show t <> " no soportado"
 
-    addInstructions inst
-
-    -- Get the last label used.
-    let _ :> (label := _ ) = viewr inst
-
-
-
-    let operand = LocalReference (toLLVMType expType) label
+    
+    
     return operand
 
     where
@@ -272,7 +313,7 @@ expression Expression { expType, exp'} = case exp' of
 
       opInt op lOperand rOperand = do
         label <- newLabel
-        return $ case op of
+        addInstructions $ case op of
           Op.Plus   -> Seq.singleton $ label := Add
                             { nsw      = False
                             , nuw      = False
@@ -311,11 +352,11 @@ expression Expression { expType, exp'} = case exp' of
           Op.Max    ->
             Seq.singleton $ label := callFunction maxnumString  lOperand rOperand
           _         -> error "opFloat"
-
+        return $ LocalReference intType label
 
       opFloat op lOperand rOperand = do
         label <- newLabel
-        return $ case op of
+        addInstructions $ case op of
           Op.Plus   -> Seq.singleton $ label := FAdd
                             { fastMathFlags = NoFastMathFlags
                             , operand0      = lOperand
@@ -349,39 +390,70 @@ expression Expression { expType, exp'} = case exp' of
           Op.Max    ->
             Seq.singleton $ label := callFunction maxnumFstring lOperand rOperand
           _         -> error "opFloat"
+        return $ LocalReference floatType label
 
-
-      opBool op lOperand rOperand type' = do
+      opBool op lOperand rOperand = do
         label <- newLabel
+        let Expression _ lType _ = lexpr
         case op of
           Op.And     -> do
             let inst = And  { operand0      = lOperand
                             , operand1      = rOperand
                             , metadata      = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.Or -> do
             let inst = Or { operand0      = lOperand
                           , operand1      = rOperand
                           , metadata      = []
                           }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.BEQ -> do
             let inst = ICmp { iPredicate = EQ
                             , operand0   = lOperand
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.BNE -> do
             let inst = ICmp { iPredicate = NE
                             , operand0   = lOperand
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
+
+          Op.AEQ | lType =:= GPointer GAny -> do
+            labelCast1 <- newLabel
+            labelCast2 <- newLabel
+            let 
+            {- Both pointer must be casted to integer to be compared -}
+              cast1 = PtrToInt 
+                        { operand0 = lOperand
+                        , type'    = intType
+                        , metadata = []
+                        }
+              ptr1 = LocalReference intType labelCast1
+
+              cast2 = PtrToInt 
+                        { operand0 = rOperand
+                        , type'    = intType
+                        , metadata = []
+                        }
+              ptr2 = LocalReference intType labelCast2
+
+              comp = ICmp { iPredicate = EQ
+                          , operand0   = ptr1
+                          , operand1   = ptr2
+                          , metadata   = []
+                          }
+
+            addInstructions $ Seq.fromList [ labelCast1 := cast1
+                                           , labelCast2 := cast2
+                                           , label  := comp]
+
           Op.AEQ -> do
-            let inst = if type' =:= GFloat
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.OEQ
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -392,9 +464,39 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
-          Op.ANE -> do
-            let inst = if type' =:= GFloat
+            addInstructions $ Seq.fromList [label := inst]
+
+          Op.ANE | lType =:= GPointer GAny -> do
+            labelCast1 <- newLabel
+            labelCast2 <- newLabel
+            let 
+              {- Both pointer must be casted to integer to be compared -}
+              cast1 = PtrToInt 
+                        { operand0 = lOperand
+                        , type'    = intType
+                        , metadata = []
+                        }
+              ptr1 = LocalReference intType labelCast1
+
+              cast2 = PtrToInt 
+                        { operand0 = rOperand
+                        , type'    = intType
+                        , metadata = []
+                        }
+              ptr2 = LocalReference intType labelCast2
+
+              comp = ICmp { iPredicate = NE
+                          , operand0   = ptr1
+                          , operand1   = ptr2
+                          , metadata   = []
+                          }
+
+            addInstructions $ Seq.fromList [ labelCast1 := cast1
+                                           , labelCast2 := cast2
+                                           , label  := comp]
+
+          Op.ANE | lType =:= GOneOf[GFloat, GInt, GChar] -> do
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.ONE
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -405,10 +507,10 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
 
           Op.LT -> do
-            let inst = if type' =:= GFloat
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.OLT
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -419,9 +521,9 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.LE -> do
-            let inst = if type' =:= GFloat
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.OLE
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -432,9 +534,9 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.GT -> do
-            let inst = if type' =:= GFloat
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.OGT
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -445,9 +547,9 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
           Op.GE -> do
-            let inst = if type' =:= GFloat
+            let inst = if lType =:= GFloat
                   then FCmp { fpPredicate = F.OGE
                             , operand0    = lOperand
                             , operand1    = rOperand
@@ -458,46 +560,45 @@ expression Expression { expType, exp'} = case exp' of
                             , operand1   = rOperand
                             , metadata   = []
                             }
-            return $ Seq.fromList [label := inst]
+            addInstructions $ Seq.fromList [label := inst]
 
           Op.Implies    -> do
             -- p ==> q ≡ (p ⋁ q ≡ q)
-
-            -- Operate p ⋁ q and save the result at `label`
+            label' <- newLabel
+            -- Operate p ⋁ q and save the result at label'
             let orInst = Or { operand0      = lOperand
                             , operand1      = rOperand
                             , metadata      = []
                             }
-            let result = LocalReference boolType label
+            let result = LocalReference boolType label'
 
-            -- Operate the t ≡ q, where t is the previous result and save it in label'
-            label' <- newLabel
+            -- Operate the t ≡ q, where t is the previous result and save it in label            
             let equal = ICmp { iPredicate = EQ
                              , operand0   = result
                              , operand1   = rOperand
                              , metadata   = []
                              }
-            return $ Seq.fromList [label := orInst, label' := equal]
+            addInstructions $ Seq.fromList [label' := orInst, label := equal]
 
 
           Op.Consequent -> do
             -- p <== q ≡ p ⋁ q ≡ p
-
-            -- Operate p ⋁ q and save the result at `label`
+            label' <- newLabel
+            -- Operate p ⋁ q and save the result at label'
             let orInst = Or { operand0      = lOperand
                             , operand1      = rOperand
                             , metadata      = []
                             }
-            let result = LocalReference boolType label
+            let result = LocalReference boolType label'
 
-            -- Operate the t ≡ q, where t is the previous result and save it in label'
-            label' <- newLabel
+            -- Operate the t ≡ q, where t is the previous result and save it in label
             let equal = ICmp { iPredicate = EQ
                              , operand0   = lOperand
                              , operand1   = result
                              , metadata   = []
                              }
-            return $ Seq.fromList [label := orInst, label' := equal]
+            addInstructions $ Seq.fromList [label' := orInst, label := equal]
+        return $ LocalReference boolType label
 
   -- Dummy operand
   _ -> return $ ConstantOperand $ C.Int 32 10
@@ -684,7 +785,7 @@ expression Expression { expType, exp'} = case exp' of
 -- --    final  <- newLabel
 -- --    none   <- newLabel
 -- --    lnames <- genExpGuards lguards none final
--- --    let rtype' = toType rtype
+-- --    let rtype = toType rtype
 -- --    setLabel none $ branch final
 -- --    setLabel final $ Do $ Unreachable []
 -- --    n <- addUnNamedInstruction rtype' $ Phi rtype' lnames []

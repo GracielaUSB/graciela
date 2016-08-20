@@ -33,7 +33,7 @@ import           Data.Text.IO           (readFile)
 
 import           LLVM.General.Context   (withContext)
 import           LLVM.General.Module    (File (..), Module, withModuleFromAST,
-                                         writeLLVMAssemblyToFile,
+                                         writeLLVMAssemblyToFile, moduleAST,
                                          writeObjectToFile)
 import           LLVM.General.Target    (withHostTargetMachine)
 
@@ -47,7 +47,7 @@ import           System.Exit            (ExitCode (..), die, exitSuccess)
 import           System.FilePath.Posix  (replaceExtension, takeExtension)
 import           System.Info            (os)
 import           System.IO              (hPutStr, stderr)
-import           System.Process         (readProcess, readProcessWithExitCode)
+import           System.Process         (readProcess, readProcessWithExitCode, callCommand)
 
 import           Text.Megaparsec        (ParsecT, runParser, runParserT,
                                          sourceColumn, sourceLine, parseErrorPretty)
@@ -70,6 +70,8 @@ data Options = Options
     , optExecName :: String
     , optAST      :: Bool
     , optSTable   :: Bool
+    , optOptimization :: String
+    , optAssembly :: Bool
     }
 
 defaultOptions   = Options
@@ -79,6 +81,8 @@ defaultOptions   = Options
     , optExecName = "a.out"
     , optAST      = False
     , optSTable   = False
+    , optOptimization = ""
+    , optAssembly = False
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -107,6 +111,17 @@ options =
     , Option ['a'] ["ast"]
         (NoArg (\opts -> opts { optAST = True }))
         "Imprime el AST por stdin"
+    , Option ['S'] ["assembly"]
+        (NoArg (\opts -> opts { optAssembly = True }))
+        "Generar codigo ensamblador"
+    , Option ['O'] []
+        (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "NIVEL")
+        "Niveles de optimizacion\n\
+         -O0 Sin optimizacion\n\
+         -O1 poca optimizacion\n\
+         -O2 optimizacion por defecto\n\
+         -O3 optimizacion agresiva"
+    
     ]
 
 opts :: IO (Options, [String])
@@ -150,7 +165,13 @@ main = do
       (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
   -- Get the name of the output file, given with flag -o
-  let execName = optExecName options
+  let execName = if optExecName options == "a.out"
+                  then if optAssembly options
+                    then "a.s"
+                    else "a.out"
+                  else if optAssembly options
+                    then optExecName options <> ".s"
+                    else optExecName options
 
   -- Set the IR file name. This file will be delete after finish the compilation
   let llName = if execName == "a.out"
@@ -185,6 +206,7 @@ main = do
             files = toList $ _filesToRead state
             types = _typesTable state
           newast <- programToLLVM files types program
+
           {- And write it as IR on a ll file -}
           withContext $ \context ->
             liftError $ withModuleFromAST context newast $ \m ->
@@ -192,20 +214,29 @@ main = do
 
     {- If an unrecoverable error occurs during Parsing, will be printed here-}
     Left e -> putStrLn $ prettyError e
+  
+  
+  let 
+    -- Level of clang optimization (-O0, -O1, -O2, -O3)
+    oplvl = optOptimization options
+    assembly = if optAssembly options then "-S" else ""
 
-  compileLL llName execName
+  compileLL llName execName oplvl assembly
 
 
-compileLL :: String -> String -> IO ()
-compileLL llName execName = void $ do
-    -- (exitCode, _out, _errs) <-
-      readProcessWithExitCode clang ["-o", execName, llName, lib] ""
+compileLL :: String -> String -> String -> String -> IO ()
+compileLL llName execName oplvl assembly = void $ do
+    (exitCode, _out, _errs) <-
+      readProcessWithExitCode clang [assembly, oplvl, "-o", execName, llName, lib] ""
+    putStr _out
+    putStr _errs 
 
-    -- case exitCode of
-    --     ExitSuccess ->
-    --         void $ readProcess "rm" [llName] ""
-    --     ExitFailure _ ->
-    --         die "clang error"
+    case exitCode of
+        ExitSuccess ->
+            -- void $ readProcess "rm" [llName] ""
+            return ()
+        ExitFailure _ -> do
+            die "clang error"
 
     where
         lib  = case os of
