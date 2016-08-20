@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -47,11 +49,10 @@ import           Token                     (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
 import           Control.Applicative       (Alternative)
 import           Control.Lens              (use, (%=))
-import           Control.Monad             (MonadPlus, mzero, void)
+import           Control.Monad             (MonadPlus, void)
 import           Control.Monad.Identity    (Identity (..))
 import           Control.Monad.State       (MonadState)
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import           Control.Monad.Trans.State (State, StateT (..), evalState,
                                             evalStateT, execState, execStateT,
                                             runState)
@@ -70,7 +71,7 @@ import           Text.Megaparsec.Prim      (MonadParsec (..))
 --------------------------------------------------------------------------------
 
 newtype ParserT m a = ParserT
-  { unParserT :: ParsecT Error [TokenPos] (MaybeT (StateT Parser.State m)) a }
+  { unParserT :: ParsecT Error [TokenPos] (StateT Parser.State m) a }
   deriving ( Functor, Applicative, Monad, MonadState Parser.State
            , MonadParsec Error [TokenPos], MonadPlus, Alternative )
 
@@ -78,20 +79,20 @@ type Parser = ParserT Identity
 --------------------------------------------------------------------------------
 
 flatten :: Monad m
-        => ParserT m a
+        => ParserT m (Maybe a)
         -> FilePath
         -> [TokenPos]
         -> StateT Parser.State m (Maybe a)
 flatten p fp input = do
-  x <- runMaybeT (Mega.runParserT (unParserT p) fp input)
+  x <- Mega.runParserT (unParserT p) fp input
   pure $ case x of
-    Just (Right v) -> Just v
+    Right (Just v) -> Just v
     _              -> Nothing
 --------------------------------------------------------------------------------
 
 xParserT :: Monad m
          => (StateT Parser.State m (Maybe a) -> Parser.State -> x)
-         -> ParserT m a
+         -> ParserT m (Maybe a)
          -> FilePath
          -> [TokenPos]
          -> Parser.State
@@ -99,7 +100,7 @@ xParserT :: Monad m
 xParserT xStateT p fp input = xStateT (flatten p fp input)
 
 evalParserT :: Monad m
-            => ParserT m a
+            => ParserT m (Maybe a)
             -> FilePath
             -> [TokenPos]
             -> Parser.State
@@ -107,7 +108,7 @@ evalParserT :: Monad m
 evalParserT = xParserT evalStateT
 
 execParserT :: Monad m
-            => ParserT m a
+            => ParserT m (Maybe a)
             -> FilePath
             -> [TokenPos]
             -> Parser.State
@@ -115,7 +116,7 @@ execParserT :: Monad m
 execParserT = xParserT execStateT
 
 runParserT  :: Monad m
-            => ParserT m a
+            => ParserT m (Maybe a)
             -> FilePath
             -> [TokenPos]
             -> Parser.State
@@ -124,28 +125,28 @@ runParserT  = xParserT runStateT
 --------------------------------------------------------------------------------
 
 xParser :: (State Parser.State (Maybe a) -> Parser.State -> x)
-        -> Parser a
+        -> Parser (Maybe a)
         -> FilePath
         -> [TokenPos]
         -> Parser.State
         -> x
 xParser xState p fp input = xState (flatten p fp input)
 
-evalParser :: Parser a
+evalParser :: Parser (Maybe a)
            -> FilePath
            -> [TokenPos]
            -> Parser.State
            -> Maybe a
 evalParser = xParser evalState
 
-execParser :: Parser a
+execParser :: Parser (Maybe a)
            -> FilePath
            -> [TokenPos]
            -> Parser.State
            -> Parser.State
 execParser = xParser execState
 
-runParser  :: Parser a
+runParser  :: Parser (Maybe a)
            -> FilePath
            -> [TokenPos]
            -> Parser.State
@@ -155,8 +156,8 @@ runParser  = xParser runState
 
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: Location -> Error -> p ()
-  reject :: p a
-  safe :: p a -> p a
+  reject :: p (Maybe a)
+  safe :: p (Maybe a) -> p (Maybe a)
   push :: Token -> p ()
   pop :: p ()
   satisfy :: (Token -> Bool) -> p Token
@@ -186,11 +187,11 @@ pPutError (Location (from, _)) e = ParserT $ do
   errors %= (|> err)
 pPutError _ _ = error "FIXME"
 
-pReject :: Monad m => ParserT m a
-pReject = ParserT $ lift mzero
+pReject :: Monad m => ParserT m (Maybe a)
+pReject = pure Nothing
 
 pSafe :: (Monad m)
-      => ParserT m a -> ParserT m a
+      => ParserT m (Maybe a) -> ParserT m (Maybe a)
 pSafe = withRecovery r
   where
     r e = do
@@ -297,31 +298,31 @@ identifierAndLoc = do
 
 --------------------------------------------------------------------------------
 parens :: MonadParser m
-       => m a -> m a
+       => m (Maybe a) -> m (Maybe a)
 parens = (. safe) $ between
   (match TokLeftPar  <* push TokRightPar)
   (match TokRightPar <* pop)
 
 brackets :: MonadParser m
-         => m a -> m a
+         => m (Maybe a) -> m (Maybe a)
 brackets = (. safe) $ between
   (match TokLeftBracket  <* push TokRightBracket)
   (match TokRightBracket <* pop)
 
 block :: MonadParser m
-      => m a -> m a
+      => m (Maybe a) -> m (Maybe a)
 block = (. safe) $ between
   (match TokOpenBlock  <* push TokCloseBlock)
   (match TokCloseBlock <* pop)
 
 percents :: MonadParser m
-         => m a -> m a
+         => m (Maybe a) -> m (Maybe a)
 percents = (. safe) $ between
   (match TokLeftPercent  <* push TokRightPercent)
   (match TokRightPercent <* pop)
 
 beginEnd :: MonadParser m
-         => m a -> m a
+         => m (Maybe a) -> m (Maybe a)
 beginEnd = (. safe) $ between
   (match TokBegin <* push TokEnd)
   (match TokEnd   <* pop)

@@ -43,7 +43,7 @@ instance Ord TokenPos where
   compare = compare `on` start
 
 instance ShowToken TokenPos where
-  showTokens = unwords . map show . toList
+  showTokens = unwords . fmap show . toList
 
 
 -- Tokens ------------------------------
@@ -171,7 +171,7 @@ data Token
   | TokChar       { unTokChar :: Char }
   | TokInteger    { unTokInteger :: Int32 }
   | TokBadInteger { unTokBadInteger :: Integer }
-  | TokFloat      { unTokFloatante :: Double}
+  | TokFloat      { unTokFloat :: Double}
   | TokString     { unTokString :: Text }
 
   | TokArray
