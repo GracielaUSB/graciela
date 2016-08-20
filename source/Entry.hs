@@ -44,7 +44,7 @@ data Entry'' s
     , _funcParams :: [(Text,Type)]
     , _funcTable  :: s }
   | Procedure
-    { _procParams :: [(Text,Type)]
+    { _procParams :: [(Text,Type,ArgMode)]
     , _procTable  :: s }
   | AbstractTypeEntry
   | TypeEntry

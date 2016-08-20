@@ -1,0 +1,283 @@
+	.section	__TEXT,__text,regular,pure_instructions
+	.macosx_version_min 10, 11
+	.section	__TEXT,__literal8,8byte_literals
+	.align	3
+LCPI0_0:
+	.quad	4616527388026811187     ## double 4.2999999999999998
+	.section	__TEXT,__text,regular,pure_instructions
+	.globl	_main
+	.align	4, 0x90
+_main:                                  ## @main
+	.cfi_startproc
+## BB#0:
+	pushq	%rbp
+Ltmp0:
+	.cfi_def_cfa_offset 16
+Ltmp1:
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+Ltmp2:
+	.cfi_def_cfa_register %rbp
+	subq	$8112, %rsp             ## imm = 0x1FB0
+	movl	$2533, %edi             ## imm = 0x9E5
+	movsd	LCPI0_0(%rip), %xmm0
+	movabsq	$2, %rax
+	cvtsi2sdq	%rax, %xmm1
+	movabsq	$-1, %rax
+	cvtsi2sdq	%rax, %xmm2
+	movsd	%xmm2, -8(%rbp)
+	movsd	%xmm1, -16(%rbp)
+	movsd	%xmm0, -24(%rbp)
+	movsd	-8(%rbp), %xmm0
+	addsd	-16(%rbp), %xmm0
+	addsd	-24(%rbp), %xmm0
+	movsd	%xmm0, -32(%rbp)
+	movl	$12, -36(%rbp)
+	movq	$0, -48(%rbp)
+	movq	$0, -56(%rbp)
+	movq	$0, -64(%rbp)
+	movq	$0, -72(%rbp)
+	movb	$99, -76(%rbp)
+	movb	$0, -8084(%rbp)
+	callq	__writeLnInt
+	movl	$2533, %edi             ## imm = 0x9E5
+	callq	__writeLnInt
+	leaq	___unnamed_1(%rip), %rdi
+	callq	__writeLnString
+	leaq	___unnamed_2(%rip), %rdi
+	callq	__writeString
+	leaq	___unnamed_3(%rip), %rdi
+	callq	__writeString
+	movl	$4, %edi
+	callq	__malloc
+	movl	$4, %edi
+	movq	%rax, -7096(%rbp)
+	movq	-7096(%rbp), %rax
+	movl	$100, (%rax)
+	callq	__malloc
+	movl	$4, %edi
+	movq	%rax, -48(%rbp)
+	callq	__malloc
+	movq	%rax, -72(%rbp)
+	movq	-72(%rbp), %rax
+	movb	$0, (%rax)
+	movq	-72(%rbp), %rax
+	movb	(%rax), %cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movl	-36(%rbp), %edi
+	movq	-48(%rbp), %rax
+	movl	%edi, (%rax)
+	movq	-48(%rbp), %rax
+	movq	%rax, -56(%rbp)
+	movq	-56(%rbp), %rax
+	movq	%rax, -64(%rbp)
+	movq	-64(%rbp), %rax
+	cmpl	$1234, (%rax)           ## imm = 0x4D2
+	sete	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movq	-48(%rbp), %rax
+	movq	%rax, %rdi
+	callq	__free
+	movq	$0, -48(%rbp)
+	movq	-7096(%rbp), %rax
+	movl	(%rax), %edx
+	addl	$2, %edx
+	movl	%edx, %edi
+	callq	__writeLnInt
+	movl	$12345, %edi            ## imm = 0x3039
+	callq	__writeLnInt
+	movl	$12, %edi
+	callq	__writeLnInt
+	movb	$1, %cl
+	testb	$1, %cl
+	jne	LBB0_1
+	jmp	LBB0_7
+LBB0_1:
+	movq	%rsp, %rax
+	addq	$-16, %rax
+	movq	%rax, %rsp
+	movl	$11223344, (%rax)       ## imm = 0xAB4130
+	cmpl	$1, (%rax)
+	movq	%rax, -8112(%rbp)       ## 8-byte Spill
+	je	LBB0_3
+## BB#2:
+	movl	$5, %edi
+	movl	$219, %esi
+	movl	$13, %edx
+	callq	__abort
+LBB0_3:
+	movq	-8112(%rbp), %rax       ## 8-byte Reload
+	movl	(%rax), %edi
+	callq	__writeLnInt
+	movb	$1, %cl
+	testb	$1, %cl
+	jne	LBB0_4
+	jmp	LBB0_5
+LBB0_4:
+	movl	$1, %edi
+	callq	__writeLnInt
+	jmp	LBB0_6
+LBB0_5:
+	movl	$1, %edi
+	movl	$221, %esi
+	movl	$13, %edx
+	callq	__abort
+LBB0_6:
+	jmp	LBB0_10
+LBB0_7:
+	movabsq	$1, %rax
+	cvtsi2sdq	%rax, %xmm0
+	ucomisd	-8(%rbp), %xmm0
+	jbe	LBB0_9
+## BB#8:
+	movl	$2, %edi
+	callq	__writeLnInt
+	jmp	LBB0_10
+LBB0_9:
+	movl	$1, %edi
+	movl	$217, %esi
+	movl	$9, %edx
+	callq	__abort
+LBB0_10:
+	movabsq	$10, %rax
+	cvtsi2sdq	%rax, %xmm0
+	ucomisd	-8(%rbp), %xmm0
+	seta	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movabsq	$10, %rax
+	cvtsi2sdq	%rax, %xmm0
+	movsd	-8(%rbp), %xmm1
+	ucomisd	%xmm0, %xmm1
+	seta	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movabsq	$10, %rax
+	cvtsi2sdq	%rax, %xmm0
+	ucomisd	-8(%rbp), %xmm0
+	setae	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movabsq	$10, %rax
+	cvtsi2sdq	%rax, %xmm0
+	movsd	-8(%rbp), %xmm1
+	ucomisd	%xmm0, %xmm1
+	setae	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movabsq	$10, %rax
+	cvtsi2sdq	%rax, %xmm0
+	movsd	-8(%rbp), %xmm1
+	ucomisd	%xmm0, %xmm1
+	setne	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	cmpl	$10, -36(%rbp)
+	setl	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	cmpl	$10, -36(%rbp)
+	setg	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	cmpl	$10, -36(%rbp)
+	setle	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	cmpl	$10, -36(%rbp)
+	setge	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	cmpl	$10, -36(%rbp)
+	setne	%cl
+	movzbl	%cl, %edi
+	callq	__writeLnBool
+	movl	$1, %edi
+	callq	__writeLnBool
+	movl	-36(%rbp), %edi
+	callq	__writeLnInt
+	movsd	-32(%rbp), %xmm0
+	callq	__writeLnDouble
+	movl	$1, %edi
+	callq	__writeLnBool
+	movsd	-8(%rbp), %xmm0
+	callq	__writeLnDouble
+	movl	$0, %edi
+	callq	__writeLnBool
+	movl	$0, %edi
+	callq	__writeLnBool
+	movl	$4, %edi
+	callq	__malloc
+	movq	%rax, -48(%rbp)
+	movq	-48(%rbp), %rax
+	movl	$20, (%rax)
+	movq	-48(%rbp), %rax
+	movl	(%rax), %edi
+	callq	__writeLnInt
+	movq	-48(%rbp), %rax
+	movl	$10, (%rax)
+	movq	-48(%rbp), %rax
+	movl	(%rax), %edi
+	callq	__writeLnInt
+	movq	-48(%rbp), %rax
+	movl	$15, (%rax)
+	movq	-48(%rbp), %rax
+	movl	(%rax), %edi
+	callq	__writeLnInt
+	movq	-48(%rbp), %rax
+	movq	%rax, %rdi
+	callq	__free
+	movl	$4, %edi
+	movq	$0, -48(%rbp)
+	callq	__malloc
+	movq	%rax, -48(%rbp)
+	movq	-48(%rbp), %rax
+	movl	$15, (%rax)
+	movq	-48(%rbp), %rax
+	movl	$10, (%rax)
+	movq	-48(%rbp), %rax
+	movl	(%rax), %edi
+	callq	__writeLnInt
+	movq	-48(%rbp), %rax
+	movq	%rax, %rdi
+	callq	__free
+	movq	$0, -48(%rbp)
+	movq	%rbp, %rsp
+	popq	%rbp
+	retq
+	.cfi_endproc
+
+	.section	__TEXT,__const
+	.globl	___unnamed_1            ## @0
+	.align	1
+___unnamed_1:
+	.short	104                     ## 0x68
+	.short	111                     ## 0x6f
+	.short	108                     ## 0x6c
+	.short	97                      ## 0x61
+	.short	0                       ## 0x0
+
+	.globl	___unnamed_2            ## @1
+	.align	1
+___unnamed_2:
+	.short	9                       ## 0x9
+	.short	104                     ## 0x68
+	.short	111                     ## 0x6f
+	.short	108                     ## 0x6c
+	.short	97                      ## 0x61
+	.short	10                      ## 0xa
+	.short	0                       ## 0x0
+
+	.globl	___unnamed_3            ## @2
+	.align	1
+___unnamed_3:
+	.short	67                      ## 0x43
+	.short	104                     ## 0x68
+	.short	97                      ## 0x61
+	.short	111                     ## 0x6f
+	.short	0                       ## 0x0
+
+
+.subsections_via_symbols

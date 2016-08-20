@@ -83,11 +83,11 @@ function  = do
           let def = Definition
                 { defLoc   = location
                 , defName  = id
-                , params   = params
                 , st       = st
                 , defBound = Nothing
                 , def'     = FunctionDef
                   { funcBody = body
+                  , fparams   = params
                   , retType  = retType }}
           return def
 
@@ -138,23 +138,24 @@ procedure = do
     let loc = Location(from,to)
     symbolTable %= closeScope to
     currentProc .= Nothing
+    let entry = Entry
+          { _entryName = id
+          , _loc       = loc
+          , _info      = Procedure
+            { _procParams = params
+            , _procTable  = st }}
+    symbolTable %= insertSymbol id entry
     if checkExp pre && checkExp pre && checkInst body && id /= errorId
       then do
-        let entry = Entry
-              { _entryName = id
-              , _loc       = loc
-              , _info      = Procedure
-                { _procParams = params
-                , _procTable  = st }}
-        symbolTable %= insertSymbol id entry
+
         let def = Definition
               { defLoc   = loc
               , defName  = id
-              , params   = params
               , st       = st
               , defBound = Nothing
               , def'     = ProcedureDef
                 { procDecl = decls
+                , params   = params
                 , pre      = pre
                 , procBody = body
                 , post     = post }}
@@ -177,7 +178,7 @@ paramMode =  match TokIn    $> Just In
          <|> return Nothing
 
 {- Parse a parameter and put it in the symbol table -}
-procParam :: Graciela (T.Text, Type)
+procParam :: Graciela (T.Text, Type, ArgMode)
 procParam = do
   from  <- getPosition
 
@@ -190,10 +191,15 @@ procParam = do
   let loc = Location(from,to)
 
   case ptype of
-    Just x | retType /= GUndef -> symbolTable %= insertSymbol id (Entry id loc (Argument In retType))
-    _  -> unsafeGenCustomError ("Se debe especificar el comportamiento de la variable `"
+    Just x | retType /= GUndef -> do 
+      symbolTable %= insertSymbol id (Entry id loc (Argument x retType))
+      return (id, retType, x)
+    _  -> do
+      putError loc $ UnknownError ("Se debe especificar el comportamiento de la variable `"
                            <>T.unpack id<>"` (In, Out, InOut)")
-  return (id, retType)
+      return (id, retType, In)
+
+  
 
 
 
@@ -229,10 +235,11 @@ procedureDeclaration = do
     let def = Definition
           { defLoc   = loc
           , defName  = id
-          , params   = params
+          
           , st       = st
           , defBound = Nothing
           , def'     = AbstractProcedureDef
-            { pre  = pre
-            , post = post }}
+            { pre    = pre
+            , post   = post
+            , params = params }}
     return def

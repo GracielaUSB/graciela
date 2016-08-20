@@ -217,7 +217,6 @@ main = do
   
   
   let 
-    -- Level of clang optimization (-O0, -O1, -O2, -O3)
     oplvl = optOptimization options
     assembly = if optAssembly options then "-S" else ""
 

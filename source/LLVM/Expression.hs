@@ -53,7 +53,14 @@ import Debug.Trace
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
-object obj@Object { objType, obj' } = do
+object obj@Object { objType, obj' } = case obj' of
+  -- If the variable is marked as In, mean it was passed to the 
+  -- procedure as a constant so doesn't need to be loaded
+  Variable { name, mode } | mode == Just In -> do
+     return $ LocalReference (toLLVMType objType) $ Name (unpack name)
+
+  -- If not marked as In, just load the content of the variable
+  _ -> do
       label <- newLabel
       -- Make a reference to the variable that will be loaded (e.g. %a)
       addrToLoad <- objectRef obj
@@ -79,11 +86,11 @@ object obj@Object { objType, obj' } = do
     
 
 
--- Get the reference to the object. Used in read, random, assign ...
+-- Get the reference to the object.
 objectRef :: Object -> LLVM Operand
 objectRef obj@(Object loc objType obj') = case obj' of
   
-  Variable { name } ->
+  Variable { name } -> 
     return $ LocalReference (toLLVMType objType) $ Name (unpack name)
 
   Index inner index -> do

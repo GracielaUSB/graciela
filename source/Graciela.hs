@@ -8,7 +8,7 @@ import           Location
 import           Parser.Prim
 import           SymbolTable
 import           Token (TokenPos)
-import           Type                   (Type (..))
+import           Type                   (Type (..), ArgMode)
 import           TypeError              as T
 --------------------------------------------------------------------------------
 import Control.Monad.Trans.Class (lift)
@@ -38,7 +38,7 @@ data GracielaState = GracielaState
   , _errors       :: Seq (ParseError TokenPos Error)
   , _symbolTable  :: SymbolTable
   , _filesToRead  :: Set.Set String
-  , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
+  , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type,ArgMode)])
   , _typesTable   :: Map Text (Type, SourcePos)
   }
 

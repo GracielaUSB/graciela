@@ -39,7 +39,7 @@ import           Token
 import           Type                   (ArgMode (..), Type (..), (=:=))
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (^.))
-import           Control.Monad          (foldM, unless, void, when)
+import           Control.Monad          (foldM, zipWithM, unless, void, when)
 import           Control.Monad.Identity (Identity)
 import qualified Data.List              as L (any)
 import           Data.Monoid            ((<>))
@@ -50,6 +50,7 @@ import           Prelude                hiding (lookup)
 import           Text.Megaparsec        (between, eitherP, endBy, getPosition,
                                          lookAhead, many, notFollowedBy, sepBy,
                                          sepBy1, try, (<|>))
+import     Debug.Trace
 -------------------------------------------------------------------------------
 
 instruction :: Graciela Instruction
@@ -153,7 +154,7 @@ assign = do
     checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
     checkTypes [] = return (True,[])
     checkTypes (x:xs) = case x of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) -> do
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) | notIn o -> do
         if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
           then do
             (c,objs) <- checkTypes xs
@@ -165,7 +166,13 @@ assign = do
                   show t1 <> "`") 
             (c,objs) <- checkTypes xs
             return (False,objs)
+      (Expression loc1 t1 (Obj o), Expression{}) -> do
+        putError loc1 $ UnknownError $
+          "The variable `" <> show o <> "` cannot be assigned because it has mode In"
+        (c,objs) <- checkTypes xs
+        return (False, objs)
       (Expression loc _ _, Expression {}) -> do
+
         putError loc $ UnknownError $
           "No se puede asignar un valor a una expresion"
         (c,objs) <- checkTypes xs
@@ -184,7 +191,7 @@ random = do
   case expr of
     Expression { E.loc, expType, exp' } -> case exp' of
       -- Only int objects can be randomized (maybe char or float too?)
-      Obj o | correctType expType ->
+      Obj o | correctType expType && notIn o ->
         return $ Instruction loc (Random o)
       -- If not, its an expression or a constant (or both).
       _ -> do
@@ -197,6 +204,7 @@ random = do
   -- return $ BadInstruction loc
   where
     correctType = (=:= GOneOf [GInt{-, GFloat, GBool, GChar-}])
+
 
 -- Parse `write` instruction
 write :: Graciela Instruction
@@ -271,7 +279,7 @@ reading = do
         Expression {E.loc, expType, exp'} ->
           case exp' of
             -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
-            Obj o -> if correctType expType
+            Obj o -> if correctType expType && notIn o
               then return (expType, o)
               else do
                 putError loc $ BadReadArgumentType expr expType
@@ -437,10 +445,8 @@ procedureCall = do
             then return $ Instruction loc (ProcedureCall id [])
         else do
           {- Now check the arguments types match with the procedure parameter's types-}
-          argumentsOk <- foldM (checkTypes id pos loc) False $ zip _procParams args
-          if argumentsOk
-            then return $ Instruction loc (ProcedureCall id args)
-            else return $ BadInstruction loc
+          args' <- zipWithM (checkTypes id pos loc) _procParams args
+          return $ Instruction loc (ProcedureCall id args')
 
     _ -> do
       {- If the procedure is not defined, maybe the current procedure is calling
@@ -467,22 +473,26 @@ procedureCall = do
             then return $ Instruction loc (ProcedureCall id [])
           else do
             {- Now check the arguments types match with the procedure parameter's types-}
-            argumentsOk <- foldM (checkTypes id pos loc) False $ zip types args
-            if argumentsOk
-              then return $ Instruction loc (ProcedureCall id args)
-              else return $ BadInstruction loc
+            args' <- zipWithM (checkTypes id pos loc) types args
+            return $ Instruction loc (ProcedureCall id args')
         {- If there is no procedure defined that matchs with the current call, then report the error-}
         Nothing -> do
           putError loc (UndefinedProcedure id)
           return $ BadInstruction loc
   where
-    checkTypes pName pPos loc ok ((name, pType), Expression {expType}) = do
+    checkTypes pName pPos loc (name, pType, mode) e@Expression {expType, exp'} = do
       if pType == expType
-        then return ok
+        then case exp' of
+          Obj obj | mode == Out || mode == InOut -> return (e,mode)
+          _       | mode == In -> return (e,mode)
+          _ -> do 
+            putError loc $ UnknownError $ "The parameter `" <> T.unpack name <> "` has mode " <>
+                 show mode <> "\n\tbut recived an expression instead of a variable"
+            return (e,mode)
         else do
           putError loc $ BadProcedureArgumentType name pName pPos pType expType
-          return False
-    checkTypes _ _ _ _ _ = return False
+          return (e,mode)
+    checkTypes _ _ _ _ e@BadExpression{} = return (e,In)
 
 
 skip :: Graciela Instruction

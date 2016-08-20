@@ -3,11 +3,12 @@
 module AST.Object
   ( Object' (..)
   , Object'' (..)
+  , notIn
   ) where
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
-import           Type        (Type)
+import           Type        (Type, ArgMode(..))
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
@@ -16,6 +17,7 @@ import           Data.Text   (Text, unpack)
 data Object'' e
   = Variable
     { name :: Text
+    , mode :: Maybe ArgMode
     }
   | Member
     { inner :: Object' e
@@ -44,6 +46,11 @@ data Object' e
     }
   deriving (Eq)
 
+notIn (Object _ _ Variable {mode}) = case mode of
+  Just In -> False
+  _ -> True
+notIn (Object _ _ o) = notIn (inner o)
+
 instance Show e => Show (Object' e) where
   show BadObject {} = ""
 
@@ -56,8 +63,9 @@ instance Show e => Show (Object' e) where
 instance Treelike e => Treelike (Object' e) where
   toTree Object { loc, objType, obj' } = case obj' of
 
-    Variable { name } ->
-      leaf $ "Variable `" <> unpack name <> "` " <> show loc
+    Variable { name, mode } ->
+      leaf $ "Variable "<> argmode <> " `" <> unpack name <> "` " <> show loc
+      where argmode = case mode of; Just x -> show x; _ -> ""
 
     Member { inner, field } ->
       Node ("Member " <> show loc)

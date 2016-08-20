@@ -129,7 +129,7 @@ end
 
 program main begin
 
-    // func fibonacci (n : int, x : array [n] of int) -> int
+    // func fibonacci (n : int*, x : array [10] of int) -> int
     // begin
     //     if n == 0  -> 0
     //     [] n == 1  -> 1
@@ -154,31 +154,32 @@ program main begin
     //     {post true post}
     // end
 
-    proc readNum2 ()
+    proc readNum2 (out i : int*)
     begin
-        var num : int;
-        read(num);
-
+        
         {pre true pre}
         |[
-            writeln("Entro! que alegria")
+            i := null;
+
+            // j[1] := 1;
+            writeln(" Entro! que alegria")
             // write("El resultado es: "); // No acepta strings
             // writeln(fibonacci(num)) // No buscar las funciones
         ]|
         {post true post}
     end
 
-    proc hola (in x : int) begin
+    // proc hola (in x : int) begin
     
-        {pre true pre}
-        |[
-            write(1)
-        ]|
-        {post true post}
-    end
+    //     {pre true pre}
+    //     |[
+    //         write(1)
+    //     ]|
+    //     {post true post}
+    // end
     
 
-   |[ var a,b,d := -1.0,2.0,4.3 : float
+   |[  var a,b,d := -1.0,2.0,4.3 : float
     ; var g := a+b+d : float
     ; var i := 12  : int
     ; var x,y,z    : int*
@@ -230,7 +231,6 @@ program main begin
        /\ (0 <= *x /\ *x <= 10 ==> a == 10.0)
     a}
 
-    ; readNum2()
 
     ; writeln(a < 10.0)
     ; writeln(a > 10.0)
@@ -267,5 +267,9 @@ program main begin
     ; writeln(*x)
     ; writeln( (3 max 4) min (10 max √2) )
     ; free(x)  
+    ; new(x)
+    ; writeln( x != null )
+    ; readNum2(x)
+    ; writeln( x == null )
    ]|
 end

@@ -60,8 +60,8 @@ mainDefinition insts = do
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
-definition Definition {defName, params, st, def'} = case def' of 
-  FunctionDef {funcBody, retType} -> do 
+definition Definition {defName, st, def'} = case def' of 
+  FunctionDef {funcBody, retType, fparams} -> do 
     operand <- expression funcBody
     let name = Name $ unpack defName
     blocks' <- use blocks
@@ -69,12 +69,12 @@ definition Definition {defName, params, st, def'} = case def' of
     currentBlock .= Seq.empty
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
-        , parameters  = (fmap toLLVMParameter params, False)
+        , parameters  = (fmap toLLVMParameter fparams, False)
         , returnType  = toLLVMType retType
         , basicBlocks = toList blocks'
         }
         
-  ProcedureDef {procDecl, pre, procBody, post} -> do
+  ProcedureDef {procDecl, params, pre, procBody, post} -> do
     mapM_ declarationsOrRead procDecl
     precondition pre
     instruction procBody
@@ -84,12 +84,16 @@ definition Definition {defName, params, st, def'} = case def' of
     currentBlock .= Seq.empty
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
-        , parameters  = (fmap toLLVMParameter params, False)
+        , parameters  = (fmap toLLVMParameter' params, False)
         , returnType  = voidType
         , basicBlocks = toList blocks'
         }
   where 
     toLLVMParameter (name, t) = Parameter (toLLVMType t) (Name (unpack name)) []
+    toLLVMParameter' (name, t, mode) | mode == T.In
+      = Parameter (toLLVMType t) (Name (unpack name)) []
+    toLLVMParameter' (name, t, mode)
+      = Parameter (ptr $ toLLVMType t) (Name (unpack name)) []
 
 declarationsOrRead :: Either Declaration Instruction -> LLVM()
 declarationsOrRead (Left decl)   = declaration decl

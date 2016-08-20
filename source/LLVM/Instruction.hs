@@ -7,6 +7,7 @@ import           Aborts
 import           AST.Instruction                        (Instruction(..),
                                                          Instruction'(..), Guard)
 import           AST.Expression                         (Expression(..))
+import qualified AST.Expression                         as E (Expression'(..))
 import           AST.Object                             (Object''(..), Object'(..))
 import           Limits
 import           LLVM.State
@@ -140,7 +141,23 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     mapM_ instruction insts
 
   ProcedureCall {pname, args} -> do
-    args <- mapM (\e -> (expression e >>= \x -> return (x,[]))) args
+    args <- mapM (\(e,mode) -> do  
+              expr <- if mode == Out || mode == InOut 
+                  then do
+                    label <- newLabel
+                    ref   <- objectRef . E.theObj . exp' $ e
+                    let 
+                      type' = ptr . toLLVMType . expType $ e
+                      bitcast = LLVM.BitCast
+                          { LLVM.operand0 = ref
+                          , LLVM.type'    = type'
+                          , LLVM.metadata = []
+                          } 
+                    addInstruction $ label := bitcast
+                    return $ LocalReference type' label
+                  else expression e 
+              return (expr,[])
+              ) args
     label <- newLabel
     let
       proc = Right . ConstantOperand $ C.GlobalReference voidType $ Name (unpack pname)

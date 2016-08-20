@@ -200,7 +200,8 @@ variable = do
                   { O.loc
                   , objType = _varType
                   , obj' = Variable
-                    { O.name }}}}
+                    { O.name = name
+                    , mode = Nothing}}}}
 
         rangevars <- get
 
@@ -227,7 +228,7 @@ variable = do
 
         in pure (expr, ProtoNothing, Taint False)
 
-      Argument { _argMode, _argType } | _argMode == In || _argMode == InOut ->
+      Argument { _argMode, _argType } ->
         let
           expr = Expression
             { E.loc
@@ -237,7 +238,8 @@ variable = do
                 { O.loc
                 , objType = _argType
                 , obj'    = Variable
-                  { O.name }}}}
+                  { O.name = name
+                  , mode   = Just _argMode }}}}
 
         in pure (expr, ProtoNothing, Taint False)
 
@@ -1070,7 +1072,8 @@ conjunction opLoc
               { O.loc = Rearranged
               , objType = expType
               , obj' = Variable
-                { O.name }}}}
+                { O.name = name
+                , mode = Nothing}}}}
 
 conjunction opLoc (l,_,_) (r,_,_) =
   let expr = BadExpression { E.loc = Location (from l, to r) }

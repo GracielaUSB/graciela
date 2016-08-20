@@ -61,7 +61,7 @@ data Instruction'
   | ProcedureCall
     { pname :: Text
     {-, astST :: SymbolTable-}
-    , args  :: [Expression]
+    , args  :: [(Expression,ArgMode)]
     }
 
   | Random
@@ -134,7 +134,7 @@ instance Treelike Instruction where
       Node ("Call Procedure `" <> unpack pname <> "` " <> show instLoc)
         [case args of
           [] -> leaf "No arguments"
-          _  -> Node "Arguments" (toForest args)
+          _  -> Node "Arguments" (fmap (\(x,m) -> Node (show m) [toTree x] ) args)
         ]
 
     Random { var } ->
