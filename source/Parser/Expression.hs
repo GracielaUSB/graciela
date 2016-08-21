@@ -54,6 +54,7 @@ data ProtoRange
   | ProtoLow     Expression   -- ^ A lower bound has been found
   | ProtoHigh    Expression   -- ^ An upper bound has been found
   | ProtoNothing              -- ^ No manner of range has been formed
+  deriving (Show)
 
 newtype Taint = Taint Bool -- A MetaExpr is `tainted` when it
                            -- contains a quantified (dummy)
@@ -872,63 +873,67 @@ conjunction opLoc
   = case Op.binType Op.and ltype rtype of
     Right GBool -> do
       varname <- gets head
+      traceShowM l
+      traceShowM r
       let
         loc = Location (from l, to r)
         taint = ltaint <> rtaint
-        (exp', range) = case (lexp', rexp') of
-          (Value v, Value w) -> (Value (Op.binFunc Op.and v w), ProtoNothing)
-          _ -> case (lproto, rproto) of
-            (ProtoVar, _) -> error "internal error: boolean ProtoVar"
-            (_, ProtoVar) -> error "internal error: boolean ProtoVar"
+        (exp', range) = case (lproto, rproto) of
+          (ProtoVar, _) -> error "internal error: boolean ProtoVar"
+          (_, ProtoVar) -> error "internal error: boolean ProtoVar"
 
-            (q @ (ProtoQRange EmptyRange), _) ->
-              (eSkip, q)
-            (_, q @ (ProtoQRange EmptyRange)) ->
-              (eSkip, q)
+          (q @ (ProtoQRange EmptyRange), _) ->
+            (eSkip, q)
+          (_, q @ (ProtoQRange EmptyRange)) ->
+            (eSkip, q)
 
-            (ProtoNothing, ProtoNothing) ->
-              let
-                expr = Binary
-                  { binOp = And
-                  , lexpr = l
-                  , rexpr = r }
-              in (expr, ProtoNothing)
+          (ProtoNothing, ProtoNothing) ->
+            case (lexp', rexp') of
+              (Value v, Value w) ->
+                (Value (Op.binFunc Op.and v w), ProtoNothing)
+              _ ->
+                let
+                  expr = Binary
+                    { binOp = And
+                    , lexpr = l
+                    , rexpr = r }
+                in (expr, ProtoNothing)
 
-            (ProtoNothing, proto) ->
-              (lexp', proto)
-            (proto, ProtoNothing) ->
-              (rexp', proto)
+          (ProtoNothing, proto) ->
+            (lexp', proto)
+          (proto, ProtoNothing) ->
+            (rexp', proto)
 
-            (ProtoLow low, ProtoHigh high) ->
-              (eSkip, ProtoQRange (ExpRange low high))
-            (ProtoHigh high, ProtoLow low) ->
-              (eSkip, ProtoQRange (ExpRange low high))
-            (ProtoLow  llow,  ProtoLow  rlow ) ->
-              (eSkip, ProtoLow  (joinProtos Max llow rlow))
-            (ProtoHigh lhigh, ProtoHigh rhigh) ->
-              (eSkip, ProtoHigh (joinProtos Min lhigh rhigh))
+          (ProtoLow low, ProtoHigh high) ->
+            (eSkip, ProtoQRange (ExpRange low high))
+          (ProtoHigh high, ProtoLow low) ->
+            (eSkip, ProtoQRange (ExpRange low high))
+          (ProtoLow  llow,  ProtoLow  rlow ) ->
+            (eSkip, ProtoLow  (joinProtos Max llow rlow))
+          (ProtoHigh lhigh, ProtoHigh rhigh) ->
+            (eSkip, ProtoHigh (joinProtos Min lhigh rhigh))
 
-            (ProtoQRange l @ ExpRange {}, ProtoQRange r @ ExpRange {}) ->
-              (eSkip, joinExpRanges l r)
+          (ProtoQRange l @ ExpRange {}, ProtoQRange r @ ExpRange {}) ->
+            (eSkip, joinExpRanges l r)
 
-            (ProtoQRange l @ ExpRange {}, r @ ProtoLow {}) ->
-              (eSkip, joinExpRangeProto l r)
-            (ProtoQRange l @ ExpRange {}, r @ ProtoHigh {}) ->
-              (eSkip, joinExpRangeProto l r)
-            (l @ ProtoLow {} , ProtoQRange r @ ExpRange {}) ->
-              (eSkip, joinExpRangeProto r l)
-            (l @ ProtoHigh {}, ProtoQRange r @ ExpRange {}) ->
-              (eSkip, joinExpRangeProto r l)
+          (ProtoQRange l @ ExpRange {}, r @ ProtoLow {}) ->
+            (eSkip, joinExpRangeProto l r)
+          (ProtoQRange l @ ExpRange {}, r @ ProtoHigh {}) ->
+            (eSkip, joinExpRangeProto l r)
+          (l @ ProtoLow {} , ProtoQRange r @ ExpRange {}) ->
+            (eSkip, joinExpRangeProto r l)
+          (l @ ProtoHigh {}, ProtoQRange r @ ExpRange {}) ->
+            (eSkip, joinExpRangeProto r l)
 
-            (point @ (ProtoQRange PointRange {}), proto) ->
-              (rebuild varname proto, point)
-            (proto, point @ (ProtoQRange PointRange {})) ->
-              (rebuild varname proto, point)
+          (point @ (ProtoQRange PointRange {}), proto) ->
+            (rebuild varname proto, point)
+          (proto, point @ (ProtoQRange PointRange {})) ->
+            (rebuild varname proto, point)
 
-            (set @ (ProtoQRange SetRange {}), proto) ->
-              (rebuild varname proto, set)
-            (proto, set @ (ProtoQRange SetRange {})) ->
-              (rebuild varname proto, set)
+          (set @ (ProtoQRange SetRange {}), proto) ->
+            (rebuild varname proto, set)
+          (proto, set @ (ProtoQRange SetRange {})) ->
+            (rebuild varname proto, set)
 
         expr =
           Expression
