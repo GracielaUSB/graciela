@@ -19,14 +19,15 @@ import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
-import           Data.Map              (Map)
-import qualified Data.Map              as Map (fromList)
+import           Data.Map.Strict       (Map)
+import qualified Data.Map.Strict       as Map (fromList)
 import           Data.Sequence         (Seq)
 import qualified Data.Sequence         as Seq (empty)
 import           Data.Set              (Set)
 import qualified Data.Set              as Set (empty)
 import           Data.Text             (Text, pack)
 import           Text.Megaparsec.Error (ParseError (..))
+import           Text.Megaparsec.Pos   (unsafePos)
 --------------------------------------------------------------------------------
 
 data State = State
@@ -35,18 +36,18 @@ data State = State
   , _symbolTable  :: SymbolTable
   , _filesToRead  :: Set String
   , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
-  , _typesTable   :: Map Text (Type, SourcePos)
+  , _typesTable   :: Map Text (Type, Location)
   , _recSet       :: [Token]
   }
 
 makeLenses ''State
 
 
-initialState :: State
-initialState = State
+initialState :: FilePath -> State
+initialState path = State
   { _synErrorList    = Seq.empty
   , _errors          = Seq.empty
-  , _symbolTable     = empty gracielaDef
+  , _symbolTable     = empty (SourcePos path (unsafePos 0) (unsafePos 0))
   , _filesToRead     = Set.empty
   , _currentProc     = Nothing
   , _typesTable      = initialTypes
@@ -54,9 +55,8 @@ initialState = State
   }
   where
     initialTypes = Map.fromList
-      [ (pack "int",    (GInt,   gracielaDef))
-      , (pack "float",  (GFloat, gracielaDef))
-      , (pack "boolean",(GBool,  gracielaDef))
-      , (pack "char",   (GChar,  gracielaDef))
+      [ (pack "int",    (GInt,   GracielaDef))
+      , (pack "float",  (GFloat, GracielaDef))
+      , (pack "boolean",(GBool,  GracielaDef))
+      , (pack "char",   (GChar,  GracielaDef))
       ]
-    gracielaDef = SourcePos "graciela.def" (unsafePos 1) (unsafePos 1)

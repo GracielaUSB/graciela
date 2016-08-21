@@ -5,15 +5,15 @@ module AST.Instruction where
 import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression, Object)
 import qualified AST.Expression  as E
-import           Type        (Type)
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
+import           Type            (Type)
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Monoid    ((<>))
-import           Data.Text      (Text, unpack)
+import           Data.Monoid     ((<>))
+import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
 {- |

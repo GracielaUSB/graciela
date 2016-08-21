@@ -7,7 +7,6 @@ module LLVM.Declaration
 import           Aborts
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression
-import           Limits
 import           LLVM.Expression
 import           LLVM.State
 import           LLVM.Type

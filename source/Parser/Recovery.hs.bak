@@ -15,28 +15,29 @@ module Parser.Recovery
   , prettyError
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression         (Expression(..))
-import           Parser.Expression      (expression)
-import           Parser.Token           (identifier, match, anyToken)
-import           Token
-import           Location
+import           AST.Expression        (Expression (..))
 import           Error
 import           Graciela
+import           Location
+import           Parser.Expression     (expression)
+import           Parser.Token          (anyToken, identifier, match)
+import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          ((%=))
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty     as NE
-import           Data.Set              (Set)
-import           Data.Sequence         ((|>))
-import qualified Data.Set              as Set
+import qualified Data.List.NonEmpty    as NE
+import           Data.Sequence                   ((|>))
+import           Data.Set                   (Set)
+import qualified Data.Set as Set
 import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        manyTill, lookAhead, (<|>), ShowToken,
-                                        parseErrorPretty, getPosition, try,
-                                        ShowErrorComponent,showErrorComponent)
-import           Text.Megaparsec        as MP (withRecovery)
-import           Text.Megaparsec.Error        (sourcePosStackPretty)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError (..),
+                                        ShowErrorComponent, ShowToken,
+                                        getPosition, lookAhead, manyTill,
+                                        parseErrorPretty, showErrorComponent,
+                                        try, (<|>))
+import           Text.Megaparsec       as MP (withRecovery)
+import           Text.Megaparsec.Error (sourcePosStackPretty)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 

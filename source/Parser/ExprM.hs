@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Megaparsec.Expr
+-- Module      :  Mega.Expr
 -- Copyright   :  © 2015–2016 Megaparsec contributors
 --                © 2007 Paolo Martini
 --                © 1999–2001 Daan Leijen

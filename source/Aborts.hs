@@ -13,13 +13,11 @@ import           LLVM.State
 import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
-import           Data.Sequence
+import qualified Data.Sequence                      as Seq (singleton)
 import           LLVM.General.AST
 import           LLVM.General.AST.Attribute
-import qualified LLVM.General.AST.CallingConvention      as CC
-import qualified LLVM.General.AST.Constant               as C
-import           Text.Megaparsec.Pos                     (SourcePos (..),
-                                                          unPos, unsafePos)
+import qualified LLVM.General.AST.CallingConvention as CC
+import qualified LLVM.General.AST.Constant          as C
 --------------------------------------------------------------------------------
 
 -- | String usado para terminar la ejecucion del programa
@@ -48,7 +46,7 @@ callAbort num pos = do
     let
       args = abortArgs x pos
       call = Call Nothing CC.C [] df args [] []
-    addInstructions $ singleton (label := call)
+    addInstructions $ Seq.singleton (label := call)
     return $ LocalReference voidType $ label
 
 -- | Etiqueta usada para el caso en que el selector no se cumpla

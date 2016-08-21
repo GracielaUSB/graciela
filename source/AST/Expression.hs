@@ -6,7 +6,7 @@ module AST.Expression
   , Conversion (..)
   , Expression (..)
   , Expression' (..)
-  , Object (..)
+  , Object
   , QRange (..)
   , QuantOperator (..)
   , UnaryOperator (..)
@@ -26,7 +26,6 @@ import           Data.Foldable (toList)
 import           Data.Int      (Int32)
 import           Data.Monoid   ((<>))
 import           Data.Sequence (Seq)
-import qualified Data.Sequence as Seq (Seq)
 import           Data.Text     (Text, unpack)
 import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
@@ -114,12 +113,24 @@ data QRange
   = ExpRange -- Both limits are included, i.e. low <= var <= high
     { low  :: Expression
     , high :: Expression }
-  | SetRange -- ^ Works for Multiset as well
+  -- | Works for Multiset as well
+  | SetRange
     { theSet :: Expression }
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
   deriving (Eq)
+
+instance Show QRange where
+  show = \case
+    ExpRange { low, high } ->
+      unwords [ "from", show low, "to", show high ]
+    SetRange { theSet } ->
+      unwords [ "in", show theSet ]
+    PointRange { thePoint } ->
+      unwords [ "at", show thePoint ]
+    EmptyRange ->
+      "Empty range"
 
 
 instance Treelike QRange where
@@ -176,7 +187,8 @@ data Expression'
     { unOp  :: UnaryOperator
     , inner :: Expression }
 
-  | FunctionCall -- ^ Llamada a funcion.
+  -- | Llamada a funcion.
+  | FunctionCall
     { fname :: Text
     -- , astST :: SymbolTable  -- ?
     , args  :: [Expression] }
@@ -193,7 +205,8 @@ data Expression'
     , qCond    :: Expression
     , qBody    :: Expression }
 
-  | EConditional -- ^ Expresión If.
+   -- | Expresión If.
+  | EConditional
     { eguards :: Seq (Expression, Expression) }
 
   deriving (Eq)
@@ -342,7 +355,24 @@ instance Show Expression where
     Conversion { toType, cExp } ->
       show toType <> "(" <> show cExp <> ")"
 
-    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> "quantifier"
+    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
+      unwords
+        [ "(%", op, var, ":", ty, "|"
+        , range, "|", cond, "|", body, "%)"]
+      where
+        op    = case qOp of
+          ForAll    -> "∀"
+          Exists    -> "∃"
+          Summation -> "∑"
+          Product   -> "∏"
+          Minimum   -> "min"
+          Maximum   -> "max"
+          Count     -> "#"
+        var   = unpack qVar
+        ty    = show qVarType
+        range = show qRange
+        cond  = show qCond
+        body  = show qBody
 
     EConditional { eguards } ->
       "if " <> (showG =<< toList eguards) <> "fi"

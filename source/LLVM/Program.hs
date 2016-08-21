@@ -23,10 +23,7 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (void)
 import           Control.Monad.Trans.State               (evalState)
 import           Data.Foldable                           (toList)
-import qualified Data.Map                                as DM
 import           Data.Monoid                             ((<>))
-import           Data.Range.Range                        as RA
-import           Data.Sequence                           (fromList, singleton)
 import qualified Data.Text                               as T
 import           Data.Word
 import           LLVM.General.AST                        (Definition (..),

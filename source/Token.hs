@@ -14,11 +14,9 @@ module Token
   ( Token (..)
   , TokenPos (..)
   , showPos
-  , showPos'
   )where
 --------------------------------------------------------------------------------
 import           Location
-import           Type
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
 import           Data.Int           (Int32)

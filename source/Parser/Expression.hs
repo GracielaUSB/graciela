@@ -41,19 +41,20 @@ import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
 import           Data.Char                 (chr, ord)
 import           Data.Fixed                (mod')
 import           Data.Functor              (($>))
-import qualified Data.Map                  as Map (lookup)
+import qualified Data.Map.Strict           as Map (lookup)
 import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton)
 import           Data.Text                 (Text, pack, unpack)
+import qualified Text.Megaparsec                      as Mega (runParser)
 import           Prelude                   hiding (Ordering (..), lookup)
 import           Text.Megaparsec           (between, eof, errorUnexpected,
                                             getPosition, lookAhead, manyTill,
                                             parseErrorPretty, sepBy, sepBy1,
                                             some, try, withRecovery, (<|>))
-import qualified Text.Megaparsec           as Mega (runParser)
 --------------------------------------------------------------------------------
 import           Debug.Trace
+import           Text.Megaparsec.Pos       (unsafePos)
 
 expression :: Parser (Maybe Expression)
 expression = evalStateT expr []
@@ -575,17 +576,17 @@ subindex = do
                 Just (expr, _, taint1) -> case expr of
                   Expression
                     { E.loc = Location (from, _)
-                    , expType = GArray { arrayType }
+                    , expType = GArray { innerType }
                     , exp' = Obj o } ->
                       let
                         taint = taint0 <> taint1
                         expr = Expression
                           { E.loc = Location (from, to)
-                          , expType = arrayType
+                          , expType = innerType
                           , exp' = Obj
                             { theObj = Object
                               { O.loc = Location (from, to)
-                              , objType = arrayType
+                              , objType = innerType
                               , obj' = Index
                                 { O.inner = o
                                 , index = sub }}}}

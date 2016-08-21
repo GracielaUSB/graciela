@@ -1,3 +1,15 @@
+{-|
+Module      : Language.Graciela.Parser.Monad
+Description : The parsing monad for Graciela
+Copyright   : © 2015-2016 Graciela USB
+Maintainer  : moises+graciela@ackerman.space
+Stability   : experimental
+Portability : POSIX
+
+This is a modified ParsecT monad with a custom state, operating on a
+stream of TokenPos.
+-}
+
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -6,9 +18,10 @@
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_HADDOCK show-extensions     #-}
 
 module Parser.Monad
-  ( ParserT (..)
+  ( ParserT
   , Parser
 
   , MonadParser (..)
@@ -53,105 +66,93 @@ import           Control.Monad             (MonadPlus, void)
 import           Control.Monad.Identity    (Identity (..))
 import           Control.Monad.State       (MonadState)
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (State, StateT (..), evalState,
-                                            evalStateT, execState, execStateT,
-                                            runState)
+import           Control.Monad.Trans.State (StateT (..), evalStateT)
 import           Data.Int                  (Int32)
 import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.List.NonEmpty        as NE (fromList)
 import           Data.Sequence             ((|>))
 import qualified Data.Set                  as Set (empty, singleton)
 import           Data.Text                 (Text)
+import qualified Text.Megaparsec                      as Mega (runParserT)
 import           Text.Megaparsec           (ErrorItem (..), ParseError (..),
                                             ParsecT, between, getPosition,
                                             lookAhead, manyTill, withRecovery,
                                             (<|>))
-import qualified Text.Megaparsec           as Mega (runParserT)
 import           Text.Megaparsec.Prim      (MonadParsec (..))
 --------------------------------------------------------------------------------
 
+-- | Graciela Parser monad transformer.
 newtype ParserT m a = ParserT
   { unParserT :: ParsecT Error [TokenPos] (StateT Parser.State m) a }
   deriving ( Functor, Applicative, Monad, MonadState Parser.State
            , MonadParsec Error [TokenPos], MonadPlus, Alternative )
 
+-- | Graciela Parser monad.
 type Parser = ParserT Identity
 --------------------------------------------------------------------------------
 
-flatten :: Monad m
-        => ParserT m (Maybe a)
-        -> FilePath
-        -> [TokenPos]
-        -> StateT Parser.State m (Maybe a)
-flatten p fp input = do
-  x <- Mega.runParserT (unParserT p) fp input
-  pure $ case x of
-    Right (Just v) -> Just v
-    _              -> Nothing
---------------------------------------------------------------------------------
-
-xParserT :: Monad m
-         => (StateT Parser.State m (Maybe a) -> Parser.State -> x)
-         -> ParserT m (Maybe a)
-         -> FilePath
-         -> [TokenPos]
-         -> Parser.State
-         -> x
-xParserT xStateT p fp input = xStateT (flatten p fp input)
-
-evalParserT :: Monad m
-            => ParserT m (Maybe a)
-            -> FilePath
-            -> [TokenPos]
-            -> Parser.State
-            -> m (Maybe a)
-evalParserT = xParserT evalStateT
-
-execParserT :: Monad m
-            => ParserT m (Maybe a)
-            -> FilePath
-            -> [TokenPos]
-            -> Parser.State
-            -> m Parser.State
-execParserT = xParserT execStateT
-
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, and return a tuple with the final value and state.
 runParserT  :: Monad m
             => ParserT m (Maybe a)
             -> FilePath
-            -> [TokenPos]
             -> Parser.State
+            -> [TokenPos]
             -> m (Maybe a, Parser.State)
-runParserT  = xParserT runStateT
+runParserT p fp s input = runStateT flatten s
+  where
+    flatten = do
+      x <- Mega.runParserT (unParserT p) fp input
+      pure $ case x of
+        Right (Just v) -> Just v
+        _              -> Nothing
+
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, discarding the final state.
+evalParserT :: Monad m
+            => ParserT m (Maybe a)
+            -> FilePath
+            -> Parser.State
+            -> [TokenPos]
+            -> m (Maybe a)
+evalParserT p fp s input = fst <$> runParserT p fp s input
+
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, discarding the final value.
+execParserT :: Monad m
+            => ParserT m (Maybe a)
+            -> FilePath
+            -> Parser.State
+            -> [TokenPos]
+            -> m Parser.State
+execParserT  p fp s input = snd <$> runParserT p fp s input
 --------------------------------------------------------------------------------
 
-xParser :: (State Parser.State (Maybe a) -> Parser.State -> x)
-        -> Parser (Maybe a)
-        -> FilePath
-        -> [TokenPos]
-        -> Parser.State
-        -> x
-xParser xState p fp input = xState (flatten p fp input)
-
-evalParser :: Parser (Maybe a)
-           -> FilePath
-           -> [TokenPos]
-           -> Parser.State
-           -> Maybe a
-evalParser = xParser evalState
-
-execParser :: Parser (Maybe a)
-           -> FilePath
-           -> [TokenPos]
-           -> Parser.State
-           -> Parser.State
-execParser = xParser execState
-
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, and return a tuple with the final value and state.
 runParser  :: Parser (Maybe a)
            -> FilePath
+           -> Parser.State
+           -> [TokenPos]
+           -> (Maybe a, Parser.State)
+runParser  p fp s input = runIdentity $ runParserT p fp s input
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, discarding the final state.
+evalParser :: Parser (Maybe a)
+           -> FilePath
+           -> Parser.State
+           -> [TokenPos]
+           -> Maybe a
+evalParser p fp s input = runIdentity $ evalParserT p fp s input
+
+-- | Evaluate a parser computation with the given filename, stream of tokens,
+-- and initial state, discarding the final value.
+execParser :: Parser (Maybe a)
+           -> FilePath
+           -> Parser.State
            -> [TokenPos]
            -> Parser.State
-           -> (Maybe a, Parser.State)
-runParser  = xParser runState
+execParser p fp s input = runIdentity $ execParserT p fp s input
 --------------------------------------------------------------------------------
 
 class MonadParsec Error [TokenPos] p => MonadParser p where

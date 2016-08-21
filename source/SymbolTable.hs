@@ -13,8 +13,11 @@ del compilador
 
 module SymbolTable
   ( Entry
+  , Entries
   , Scope (..)
+  , Scopes
   , SymbolTable
+  , Breadcrumb
   , closeScope
   , defocus
   , depth
@@ -43,8 +46,8 @@ import           Data.List       (sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Monoid     ((<>))
-import           Data.Sequence   (Seq, ViewL ((:<)), ViewR ((:>)),
-                                  (<|), (><), (|>))
+import           Data.Sequence   (Seq, ViewL ((:<)), ViewR ((:>)), (<|), (><),
+                                  (|>))
 import qualified Data.Sequence   as Seq
 import           Data.Text       (Text, unpack)
 import           Prelude         hiding (lookup)

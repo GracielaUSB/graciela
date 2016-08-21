@@ -1,43 +1,45 @@
-{-# LANGUAGE NamedFieldPuns, TupleSections #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections  #-}
 module LLVM.Instruction
 
 where
 --------------------------------------------------------------------------------
 import           Aborts
-import           AST.Instruction                        (Instruction(..),
-                                                         Instruction'(..), Guard)
-import           AST.Expression                         (Expression(..))
-import           AST.Object                             (Object''(..), Object'(..))
-import           Limits
+import           AST.Expression                     (Expression (..))
+import           AST.Instruction                    (Guard, Instruction (..),
+                                                     Instruction' (..))
+import           AST.Object                         (Object' (..),
+                                                     Object'' (..))
+import           LLVM.Declaration                   (declaration)
+import           LLVM.Expression                    (expression, objectRef)
 import           LLVM.State
-import           LLVM.Expression                        (expression, objectRef)
-import           LLVM.Declaration                       (declaration)
 import           LLVM.Type
-import           SymbolTable
 import           Location
-import qualified Type                                    as T
+import           SymbolTable
+import qualified Type                               as T
 --------------------------------------------------------------------------------
-import           Control.Lens                            (use, (%=), (.=), (-=))
-import           Data.Foldable                           (toList)
-import           Control.Monad                           (zipWithM_, when)
-import qualified Control.Monad                           as M (void)
-import           Data.Sequence                           as Seq (singleton, (|>),
-                                                          fromList, empty, viewr)
-import           Data.Sequence                           (ViewR((:>)))
-import qualified Data.Map                                as DM
-import           Data.Monoid                             ((<>))
-import           Data.Text                               (unpack)
+import           Control.Lens                       (use, (%=), (-=), (.=))
+import           Control.Monad                      (when, zipWithM_)
+import qualified Control.Monad                      as M (void)
+import           Data.Foldable                      (toList)
+import           Data.Monoid                        ((<>))
+import           Data.Sequence                      (ViewR ((:>)))
+import qualified Data.Sequence                      as Seq (empty, fromList,
+                                                            singleton, viewr,
+                                                            (|>))
+import           Data.Text                          (unpack)
 import           Data.Word
-import           LLVM.General.AST                       (BasicBlock(..))
-import           LLVM.General.AST.Name                  (Name(..))
-import qualified LLVM.General.AST.Instruction           as LLVM (Instruction(..))
-import           LLVM.General.AST.Instruction           (Named(..),
-                                                         Terminator(..),
-                                                         FastMathFlags(..))
-import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate(..))
-import           LLVM.General.AST.Operand               (Operand(..), CallableOperand)
-import qualified LLVM.General.AST.CallingConvention     as CC (CallingConvention(C))
-import qualified LLVM.General.AST.Constant              as C  (Constant(..))
+import           LLVM.General.AST                   (BasicBlock (..))
+import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
+import qualified LLVM.General.AST.Constant          as C (Constant (..))
+import           LLVM.General.AST.Instruction       (FastMathFlags (..),
+                                                     Named (..),
+                                                     Terminator (..))
+import qualified LLVM.General.AST.Instruction       as LLVM (Instruction (..))
+import           LLVM.General.AST.IntegerPredicate  (IntegerPredicate (..))
+import           LLVM.General.AST.Name              (Name (..))
+import           LLVM.General.AST.Operand           (CallableOperand,
+                                                     Operand (..))
 import           LLVM.General.AST.Type
 
 
@@ -162,7 +164,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                 , LLVM.metadata  = []
                 }
         label' <- newLabel
-        addInstructions $ fromList [label := call, label' := store]
+        addInstructions $ Seq.fromList [label := call, label' := store]
 
 
 
@@ -257,7 +259,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 --   Ran id t -> do
 --     vars <- use varsLoc
---     let (ty, i) = (toType t, fromJust $ DM.lookup (TE.unpack id) vars)
+--     let (ty, i) = (toType t, fromJust $ Map.lookup (TE.unpack id) vars)
 --     let df      = Right $ definedFunction floatType (Name randomInt)
 --     val <- caller ty df []
 --     store ty i val
@@ -332,7 +334,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 --   ArrCall name exps -> do
 --     ac' <- mapM createExpression exps
 --     map <- use varsLoc
---     let (i, id) = (fromJust $ DM.lookup id map, TE.unpack name)
+--     let (i, id) = (fromJust $ Map.lookup id map, TE.unpack name)
 --     ac'' <- opsToArrayIndex id ac'
 --     addUnNamedInstruction intType $ GetElementPtr True i [ac''] []
 
@@ -385,12 +387,12 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 --   store ty id' e'
 --   return ()
 
--- createArguments :: DM.Map TE.Text (Contents SymbolTable)
+-- createArguments :: Map.Map TE.Text (Contents SymbolTable)
 --                 -> [TE.Text] -> [AST] -> LLVM [Operand]
 -- createArguments _ [] [] = return []
 -- createArguments dicnp (nargp:nargps) (arg:args) = do
 --   lr <- createArguments dicnp nargps args
---   let argt = argTypeArg $ fromJust $ DM.lookup nargp dicnp
+--   let argt = argTypeArg $ fromJust $ Map.lookup nargp dicnp
 
 --   case argt of
 --     T.In -> do
@@ -398,7 +400,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 --       return $ arg':lr
 --     _    -> do
 --       dicn <- use varsLoc
---       return $ fromJust (DM.lookup (TE.unpack $
+--       return $ fromJust (Map.lookup (TE.unpack $
 --         fromJust $ AST.astToId arg) dicn) : lr
 
 

@@ -1,36 +1,37 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module LLVM.Definition
 
-where 
+where
 
 --------------------------------------------------------------------------------
 import           Aborts
-import qualified Type                                as T
-import           AST.Instruction                         (Instruction)
-import           AST.Definition                          
-import           LLVM.Instruction
+import           AST.Definition
+import           AST.Instruction                     (Instruction)
 import           LLVM.Expression
+import           LLVM.Instruction
 import           LLVM.State
 import           LLVM.Type
+import qualified Type                                as T
 --------------------------------------------------------------------------------
-import           Control.Lens                            (use, (%=), (.=))
-import           Data.Text                               (Text,unpack)
+import           Control.Lens                        (use, (%=), (.=))
+import           Data.Foldable                       (toList)
+import           Data.Monoid                         ((<>))
+import qualified Data.Sequence                       as Seq (empty)
+import           Data.Text                           (Text, unpack)
 import           Data.Word
-import           Data.Sequence                           as Seq (empty)
-import           Data.Foldable                           (toList)
-import           Data.Monoid                             ((<>))
-import qualified LLVM.General.AST                        as LLVM (Definition(..))
-import           LLVM.General.AST                        (Terminator(..),
-                                                          Parameter(..),
-                                                          BasicBlock(..),
-                                                          Named(..))
-import           LLVM.General.AST                        (functionDefaults)
-import           LLVM.General.AST.Global                 (Global(..), functionDefaults)
-import           LLVM.General.AST.Name                   (Name(..))
-import qualified LLVM.General.AST.Type                   as LLVM (Type)
-import           LLVM.General.AST.Type                   (double, ptr)
-import           LLVM.General.AST.ParameterAttribute     (ParameterAttribute(..))
-import           LLVM.General.AST.Type                   (Type(StructureType))
+import           LLVM.General.AST                    (BasicBlock (..),
+                                                      Named (..),
+                                                      Parameter (..),
+                                                      Terminator (..))
+import           LLVM.General.AST                    (functionDefaults)
+import qualified LLVM.General.AST                    as LLVM (Definition (..))
+import           LLVM.General.AST.Global             (Global (..),
+                                                      functionDefaults)
+import           LLVM.General.AST.Name               (Name (..))
+import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
+import           LLVM.General.AST.Type               (double, ptr)
+import           LLVM.General.AST.Type               (Type (StructureType))
+import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
@@ -51,8 +52,8 @@ mainDefinition insts = do
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM LLVM.Definition
-definition Definition {defName, params, st, def'} = case def' of 
-  FunctionDef {funcBody, retType} -> do 
+definition Definition {defName, params, st, def'} = case def' of
+  FunctionDef {funcBody, retType} -> do
     operand <- expression funcBody
     let name = Name $ unpack defName
     blocks' <- use blocks
@@ -64,7 +65,7 @@ definition Definition {defName, params, st, def'} = case def' of
         , returnType  = toLLVMType retType
         , basicBlocks = toList blocks'
         }
-        
+
   ProcedureDef {procDecl, pre, procBody, post} -> do
     pre'       <- expression pre
     post       <- expression post
@@ -79,17 +80,17 @@ definition Definition {defName, params, st, def'} = case def' of
         , returnType  = voidType
         , basicBlocks = toList blocks'
         }
-  where 
+  where
     toLLVMParameter (name, t) = Parameter (toLLVMType t) (Name (unpack name)) []
 
 
 
 
--- createParameters :: [(Name, Type)] 
---                  -> [[LLVM.ParameterAttribute]] 
+-- createParameters :: [(Name, Type)]
+--                  -> [[LLVM.ParameterAttribute]]
 --                  -> ([LLVM.Parameter], Bool)
 -- createParameters names attrs = (zipWith parameters' names attrs, False)
---   where 
+--   where
 --     parameters' (name, t) attr = LLVM.Parameter t name attr
 
 --     parameters' (name, t) = LLVM.Parameter t name []
@@ -109,7 +110,7 @@ definition Definition {defName, params, st, def'} = case def' of
 --     createState name' post
 --     addBasicBlock retTy
 --     addDefinition name' args' voidType
---     where 
+--     where
 --       parameters' params = [LLVM.Parameter t (Name id) [] | (id, t) <- convertParams params]
 
 --   FunctionDef { funcbody, retType } -> do
@@ -129,32 +130,32 @@ preDefinitions files = return [
   -- Abort
   , declareFunction abortString [ parameter ("x", intType)
                                 , parameter ("line", intType)
-                                , parameter ("column", intType)] 
+                                , parameter ("column", intType)]
                                 voidType
   -- Min and max
   , declareFunction minnumString intParams2 intType
   , declareFunction maxnumString intParams2 intType
-  
+
   -- Bool Write and Writeln
   , declareFunction writeLnBool boolParam voidType
   , declareFunction writeBool   boolParam voidType
-  
+
   -- Char Write and Writeln
   , declareFunction writeLnChar charParam voidType
   , declareFunction writeChar   charParam voidType
-  
+
   -- Float Write and Writeln
   , declareFunction writeLnFloat floatParam voidType
   , declareFunction writeFloat   floatParam voidType
-  
-  -- Int Write and Writeln 
+
+  -- Int Write and Writeln
   , declareFunction writeLnInt intParam voidType
   , declareFunction writeInt   intParam voidType
-  
+
   -- String Write and Writeln
   , declareFunction writeLnString stringParam intType
   , declareFunction writeString   stringParam intType
-  
+
   -- Square Root and absolute value
   , declareFunction sqrtString    floatParam floatType
   , declareFunction fabsString    floatParam floatType
@@ -168,7 +169,7 @@ preDefinitions files = return [
   , declareFunction intMul intParams2 overflow'
   , declareFunction intAdd intParams2 overflow'
 
-  -- Read 
+  -- Read
   , declareFunction readIntStd    [] intType
   , declareFunction readCharStd   [] charType
   , declareFunction readFloatStd  [] floatType
@@ -183,7 +184,7 @@ preDefinitions files = return [
   -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
   ]
 
-  where 
+  where
       declareFunction name params t = LLVM.GlobalDefinition $ functionDefaults
         { name        = Name name
         , parameters  = (params, False)

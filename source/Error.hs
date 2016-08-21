@@ -12,22 +12,11 @@ import           Text.Megaparsec.Error
 import           Token
 import           Type                  (Type (..))
 --------------------------------------------------------------------------------
-import           Control.Lens          ((%=))
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
-import           Data.Sequence         ((|>))
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
-import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError (..),
-                                        ShowErrorComponent, ShowToken,
-                                        getPosition, lookAhead, manyTill,
-                                        parseErrorPretty, showErrorComponent,
-                                        try, (<|>))
-import           Text.Megaparsec       as MP (withRecovery)
-import           Text.Megaparsec.Error (sourcePosStackPretty)
-import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 
 data MyParseError
@@ -137,14 +126,14 @@ instance ShowErrorComponent Error where
       "The function `" <> unpack fName <> "` returns " <> show fType <>
       " but has an expression of type " <> show eType
     BadProcNumberofArgs { pName, pPos, nParams, nArgs } ->
-      "The procedure `" <> unpack pName <> "` " <> showPos' pPos <>
+      "The procedure `" <> unpack pName <> "` " <> showPos pPos <>
       " was defined with " <> show nParams <>
       (if nParams == 1 then " parameter" else " parameters") <> ", but recived " <>
        show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
-      "` " <> showPos' pPos <> " has type " <> show pType <>
+      "` " <> showPos pPos <> " has type " <> show pType <>
       ", but recived a expression with type " <> show aType
 
     BadReadArgument { aExpr } ->

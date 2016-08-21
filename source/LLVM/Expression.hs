@@ -21,8 +21,8 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
-import           Data.Sequence                           as Seq (ViewR ((:>)),
-                                                                 empty,
+import           Data.Sequence                           (ViewR ((:>)))
+import qualified Data.Sequence                           as Seq (ViewR, empty,
                                                                  fromList,
                                                                  singleton,
                                                                  viewr)
@@ -107,7 +107,7 @@ expression Expression { expType, exp'} = case exp' of
           t        -> error $ "tipo " <> show t <> " no soportado"
 
     let operand = LocalReference (toLLVMType expType) label
-    addInstructions $ fromList [label := inst]
+    addInstructions $ Seq.singleton (label := inst)
     return operand
 
     where
@@ -186,7 +186,7 @@ expression Expression { expType, exp'} = case exp' of
     addInstructions inst
 
     -- Get the last label used.
-    let _ :> (label := _ ) = viewr inst
+    let _ :> (label := _ ) = Seq.viewr inst
 
 
 

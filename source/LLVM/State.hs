@@ -14,8 +14,8 @@ import           Control.Monad                (when)
 import           Control.Monad.State          (MonadState, State)
 -- import           Data.Char
 import           Data.Foldable                (toList)
-import           Data.Map                     (Map)
-import qualified Data.Map                     as Map
+import           Data.Map.Strict              (Map)
+import qualified Data.Map.Strict              as Map
 import           Data.Monoid                  ((<>))
 import           Data.Sequence                (Seq, (|>))
 import qualified Data.Sequence                as Seq
