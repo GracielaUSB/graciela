@@ -207,7 +207,8 @@ data Expression'
 
    -- | Expresión If.
   | EConditional
-    { eguards :: Seq (Expression, Expression) }
+    { eguards    :: Seq (Expression, Expression)
+    , trueBranch :: Maybe Expression }
 
   deriving (Eq)
 
@@ -274,9 +275,12 @@ instance Treelike Expression where
             _ -> Node "Conditions" [ toTree qCond ]
         , Node "Body" [ toTree qBody ] ]
 
-    EConditional { eguards } ->
-      Node ("Conditional Expression " <> show loc)
-        ( fmap g . toList $ eguards )
+    EConditional { eguards, trueBranch } ->
+      Node ("Conditional Expression " <> show loc) $
+        ( fmap g . toList $ eguards ) <>
+        case trueBranch of
+          Just t  -> [ Node "True branch" [toTree t]]
+          Nothing -> []
 
       where
         g (lhs, rhs) =
