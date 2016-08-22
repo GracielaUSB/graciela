@@ -187,6 +187,8 @@ pPutError (Location (from, _)) e = ParserT $ do
   errors %= (|> err)
 pPutError _ _ = error "FIXME"
 
+
+
 pSafe :: (Monad m)
       => ParserT m (Maybe a) -> ParserT m (Maybe a)
 pSafe = withRecovery r

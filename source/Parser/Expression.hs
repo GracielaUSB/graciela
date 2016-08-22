@@ -11,7 +11,8 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           Entry                     (Entry' (..), Entry'' (..), info)
+import           Entry                     (Entry' (..), Entry'' (..),
+                                            funcParams, funcType, info)
 import           Error                     (Error (..))
 import           Lexer
 import           Location
@@ -32,13 +33,14 @@ import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
 import           Data.Functor              (($>))
 import qualified Data.Map.Strict           as Map (lookup)
+import           Data.Maybe                (catMaybes)
 import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lex, lookup)
 import           Text.Megaparsec           (getPosition, parseErrorPretty,
-                                            sepBy1, some, (<|>))
+                                            sepBy, sepBy1, some, try, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 import           Text.Megaparsec.Pos       (unsafePos)
@@ -54,7 +56,7 @@ data ProtoRange
   | ProtoLow     Expression   -- ^ A lower bound has been found
   | ProtoHigh    Expression   -- ^ An upper bound has been found
   | ProtoNothing              -- ^ No manner of range has been formed
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype Taint = Taint Bool -- A MetaExpr is `tainted` when it
                            -- contains a quantified (dummy)
@@ -78,9 +80,10 @@ expr = pure . ((\(e,_,_) -> e) <$>) =<< metaexpr
 metaexpr :: ParserExp (Maybe MetaExpr)
 metaexpr = makeExprParser term operator
 
+
 term :: ParserExp (Maybe MetaExpr)
 term =  parens metaexpr
- -- <|> try call -- TODO: function calling, depends on ST design
+    <|> (try identifierAndLoc >>= call)
     <|> variable
     <|> bool
     <|> basicLit integerLit       IntV          GInt
@@ -211,7 +214,92 @@ variable = do
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
 
-      _ -> pure Nothing
+      _ -> do
+        putError loc . UnknownError $
+          "Variable `" <> unpack name <> "` not defined in this scope."
+
+        pure Nothing
+
+
+call :: (Text, Location) -> ParserExp (Maybe MetaExpr)
+call (name, Location (from,_)) = do
+  margs <- parens . (Just <$>) $
+    (push TokComma *> push TokRightPar *> metaexpr) `sepBy`
+    (pop *> pop *> match TokComma)
+  to <- getPosition
+
+  let loc = Location (from, to)
+
+  st <- lift (use symbolTable)
+  case name `lookup` st of
+    Left _ -> do
+      putError loc . UnknownError $
+        "Function `" <> unpack name <> "` has not been defined."
+      pure Nothing
+
+    Right entry -> case entry^.info of
+      Function {} -> case margs of
+        Nothing -> do
+          putError loc . UnknownError $
+            "Bad argument passed to function `" <> unpack name <> "`."
+          pure Nothing
+        Just args -> do
+          let
+            params    = entry^.info.funcParams
+            parLength = length params
+            argLength = length args
+          if parLength == argLength
+            then if Nothing `elem` args
+              then do
+                putError loc . UnknownError $
+                  "Bad argument passed to function `" <> unpack name <> "`."
+                pure Nothing
+              else do
+                let justargs = catMaybes args
+                case matchArgs $ zip justargs params of
+                  [] ->
+                    let
+                      expr = Expression
+                        { E.loc
+                        , expType = entry^.info.funcType
+                        , exp' = FunctionCall
+                          { fname = name
+                          , args  = (\(e,_,_) -> e) <$> justargs }}
+                      taint = foldr ((<>) . (\(_,_,t) -> t)) mempty justargs
+                    in pure . Just $ (expr, ProtoNothing, taint)
+                  msgs -> do
+                    mapM_ (uncurry putError) msgs
+                    pure Nothing
+            else do
+              putError loc . UnknownError $
+                "Function `" <> unpack name <> "` expected " <>
+                show parLength <> " argument" <>
+                case parLength of { 0 -> ""; n -> "s"} <>
+                " but " <> show argLength <> " were given."
+              pure Nothing
+
+      Procedure {} -> do
+        putError loc . UnknownError $
+          "Procedure `" <> unpack name <>
+          "` can not be called in an expression."
+        pure Nothing
+      _ -> do
+        putError loc . UnknownError $
+          "Function `" <> unpack name <> "` has not been defined."
+        pure Nothing
+
+  where
+    matchArgs = foldr matchArg []
+    matchArg ((Expression { E.loc, expType },_,_), (par, parType)) msgs =
+      if expType =:= parType
+        then msgs
+        else
+          let
+            err = UnknownError $
+              "Argument has type `" <> show expType <>
+              "` but an expression of type `" <> show parType <>
+              "` was expected."
+          in (loc, err) : msgs
 
 
 quantification :: ParserExp (Maybe MetaExpr)
@@ -225,7 +313,8 @@ quantification = do
   void $ match TokPipe
 
   modify (var:)
-  range <- metaexpr
+  range <- push TokPipe *> safe metaexpr <* pop
+  void $ match TokPipe
   modify tail
 
   case range of
@@ -252,9 +341,7 @@ quantification = do
         ProtoQRange qrange ->
           pure ()
 
-  void $ match TokPipe
-
-  body <- metaexpr
+  body <- push TokRightPercent *> safe metaexpr <* pop
 
   case body of
     Nothing -> pure ()
@@ -264,6 +351,7 @@ quantification = do
           "Bad quantification body. Body must be " <> show allowedBType <> "."
 
   void $ match TokRightPercent
+
   to <- getPosition
   lift $ symbolTable %= closeScope to
 
@@ -385,7 +473,7 @@ ifExp = do
   -- a state local to this level of abstraction.
   IfState { ifType, ifBuilder, ifTaint } <- execStateT guards initialIfState
 
-  void $ match TokFi
+  match TokFi
 
   to <- getPosition
 
