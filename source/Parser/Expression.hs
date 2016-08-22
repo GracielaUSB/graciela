@@ -229,6 +229,7 @@ quantification = do
   modify tail
 
   case range of
+    Nothing -> pure ()
     Just (cond, protorange, taint0) -> do
       let rloc = E.loc cond
       case protorange of
@@ -250,18 +251,17 @@ quantification = do
             "Bad quantification range. No lower bound was given."
         ProtoQRange qrange ->
           pure ()
-    Nothing -> pure ()
 
   void $ match TokPipe
 
   body <- metaexpr
 
   case body of
+    Nothing -> pure ()
     Just (Expression { expType = bodyType, E.loc = bloc }, _, taint1) ->
       unless (bodyType =:= allowedBType) .
         putError bloc . UnknownError $
           "Bad quantification body. Body must be " <> show allowedBType <> "."
-    Nothing -> pure ()
 
   void $ match TokRightPercent
   to <- getPosition
@@ -270,9 +270,13 @@ quantification = do
   case mvart of
     Nothing -> pure Nothing
     Just t -> case body of
+      Nothing -> pure Nothing
       Just (theBody @ Expression { expType = bodyType }, _, taint1) ->
         case range of
-          Just (cond, protorange, taint0) ->
+          Nothing -> pure Nothing
+          Just (cond, protorange, taint0) -> do
+            traceShowM "COND"
+            traceShowM cond
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing
@@ -292,8 +296,6 @@ quantification = do
                         , qBody    = theBody }}
                   in pure . Just $ (expr, ProtoNothing, taint)
               _ -> pure Nothing
-          Nothing -> pure Nothing
-      Nothing -> pure Nothing
 
   where
     numeric = GOneOf [ GChar, GInt, GFloat ]
@@ -415,6 +417,7 @@ ifExp = do
       -- and three things could have happened,
 
       case left of
+        Nothing -> pure (Nothing, st, Taint False)
         Just (l, _, taint0) ->
           case l of
             e @ Expression { expType = GBool, E.loc } ->
@@ -427,7 +430,6 @@ ifExp = do
               lift . putError loc . UnknownError $
                 "bad left side in conditional expression"
               pure (Nothing, st, taint0)
-        Nothing -> pure (Nothing, st, Taint False)
 
         -- badEXPRESSION { E.loc } ->
         -- -- 3. We have a bad expression, which means there was an error
@@ -539,13 +541,13 @@ operator =
   , {-Level 9-}
     [ InfixR (match TokAnd        <&> conjunction ) ]
   , {-Level 10-}
-    [ InfixR (match TokOr         <&> binary Op.or ) ]
+    [ InfixR (match TokOr         <&> binary' Op.or ) ]
   , {-Level 11-}
-    [ InfixR (match TokImplies    <&> binary Op.implies    )
-    , InfixL (match TokConsequent <&> binary Op.consequent ) ]
+    [ InfixR (match TokImplies    <&> binary' Op.implies    )
+    , InfixL (match TokConsequent <&> binary' Op.consequent ) ]
   , {-Level 12-}
-    [ InfixN (match TokBEQ        <&> binary Op.beq )
-    , InfixN (match TokBNE        <&> binary Op.bne ) ]
+    [ InfixN (match TokBEQ        <&> binary' Op.beq )
+    , InfixN (match TokBNE        <&> binary' Op.bne ) ]
   ]
 
 
@@ -674,6 +676,8 @@ unary _ _ _ = pure Nothing
 
 binary :: Op.Bin -> Location
        -> (Maybe MetaExpr) -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+binary _ _ Nothing _ = pure Nothing
+binary _ _ _ Nothing = pure Nothing
 binary binOp opLoc
   (Just (l @ Expression { expType = ltype, exp' = lexp }, _, ltaint))
   (Just (r @ Expression { expType = rtype, exp' = rexp }, _, rtaint))
@@ -706,7 +710,35 @@ binary binOp opLoc
 
       in pure . Just $ (expr, ProtoNothing, taint)
 
-binary _ _ _ _ = pure Nothing
+
+binary' :: Op.Bin' -> Location
+        -> (Maybe MetaExpr) -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+binary' _ _ Nothing _ = pure Nothing
+binary' _ _ _ Nothing = pure Nothing
+binary' binOp opLoc
+  (Just (l @ Expression { expType = ltype, exp' = lexp }, _, ltaint))
+  (Just (r @ Expression { expType = rtype, exp' = rexp }, _, rtaint))
+  = case Op.binType' binOp ltype rtype of
+
+    Left expected -> do
+      let loc = Location (from l, to r)
+      putError loc . UnknownError $
+        ("Operator `" <> show (Op.binSymbol' binOp) <> "` at " <> show opLoc <>
+          " expected two expressions of types " <> expected <>
+          ", but received " <> show (ltype, rtype) <> ".")
+      pure Nothing
+
+    Right ret ->
+      let
+        taint = ltaint <> rtaint
+
+        expr = Op.binFunc' binOp l r
+
+        range = if exp' expr == Value (BoolV False)
+          then ProtoQRange EmptyRange
+          else ProtoNothing
+
+      in pure . Just $ (expr, range, taint)
 
 
 membership :: Location
@@ -863,83 +895,68 @@ pointRange opLoc l r = binary Op.aeq opLoc l r
 
 
 conjunction :: Location
-            -> (Maybe MetaExpr) -> (Maybe MetaExpr)
+            -> Maybe MetaExpr -> Maybe MetaExpr
             -> ParserExp (Maybe MetaExpr)
 conjunction _ Nothing _ = pure Nothing
 conjunction _ _ Nothing = pure Nothing
 conjunction opLoc
+  l@(Just (Expression { expType = ltype }, ProtoNothing, ltaint))
+  r@(Just (Expression { expType = rtype }, ProtoNothing, rtaint))
+  = binary' Op.and opLoc l r
+conjunction opLoc
   (Just (l @ Expression { expType = ltype, exp' = lexp' }, lproto, ltaint))
   (Just (r @ Expression { expType = rtype, exp' = rexp' }, rproto, rtaint))
-  = case Op.binType Op.and ltype rtype of
+  = case Op.binType' Op.and ltype rtype of
     Right GBool -> do
       varname <- gets head
-      traceShowM l
-      traceShowM r
       let
-        loc = Location (from l, to r)
         taint = ltaint <> rtaint
-        (exp', range) = case (lproto, rproto) of
+        (conds, range) = case (lproto, rproto) of
           (ProtoVar, _) -> error "internal error: boolean ProtoVar"
           (_, ProtoVar) -> error "internal error: boolean ProtoVar"
 
           (q @ (ProtoQRange EmptyRange), _) ->
-            (eSkip, q)
+            ([wrap eSkip], q)
           (_, q @ (ProtoQRange EmptyRange)) ->
-            (eSkip, q)
-
-          (ProtoNothing, ProtoNothing) ->
-            case (lexp', rexp') of
-              (Value v, Value w) ->
-                (Value (Op.binFunc Op.and v w), ProtoNothing)
-              _ ->
-                let
-                  expr = Binary
-                    { binOp = And
-                    , lexpr = l
-                    , rexpr = r }
-                in (expr, ProtoNothing)
+            ([wrap eSkip], q)
 
           (ProtoNothing, proto) ->
-            (lexp', proto)
+            ([l, r], proto)
           (proto, ProtoNothing) ->
-            (rexp', proto)
+            ([l, r], proto)
 
           (ProtoLow low, ProtoHigh high) ->
-            (eSkip, ProtoQRange (ExpRange low high))
+            ([l, r], ProtoQRange (ExpRange low high))
           (ProtoHigh high, ProtoLow low) ->
-            (eSkip, ProtoQRange (ExpRange low high))
+            ([l, r], ProtoQRange (ExpRange low high))
           (ProtoLow  llow,  ProtoLow  rlow ) ->
-            (eSkip, ProtoLow  (joinProtos Max llow rlow))
+            ([l, r], ProtoLow  (joinProtos Max llow rlow))
           (ProtoHigh lhigh, ProtoHigh rhigh) ->
-            (eSkip, ProtoHigh (joinProtos Min lhigh rhigh))
+            ([l, r], ProtoHigh (joinProtos Min lhigh rhigh))
 
-          (ProtoQRange l @ ExpRange {}, ProtoQRange r @ ExpRange {}) ->
-            (eSkip, joinExpRanges l r)
+          (ProtoQRange lr @ ExpRange {}, ProtoQRange rr @ ExpRange {}) ->
+            ([l, r], joinExpRanges lr rr)
 
-          (ProtoQRange l @ ExpRange {}, r @ ProtoLow {}) ->
-            (eSkip, joinExpRangeProto l r)
-          (ProtoQRange l @ ExpRange {}, r @ ProtoHigh {}) ->
-            (eSkip, joinExpRangeProto l r)
-          (l @ ProtoLow {} , ProtoQRange r @ ExpRange {}) ->
-            (eSkip, joinExpRangeProto r l)
-          (l @ ProtoHigh {}, ProtoQRange r @ ExpRange {}) ->
-            (eSkip, joinExpRangeProto r l)
+          (ProtoQRange lr @ ExpRange {}, rr @ ProtoLow {}) ->
+            ([l, r], joinExpRangeProto lr rr)
+          (ProtoQRange lr @ ExpRange {}, rr @ ProtoHigh {}) ->
+            ([l, r], joinExpRangeProto lr rr)
+          (lr @ ProtoLow {} , ProtoQRange rr @ ExpRange {}) ->
+            ([l, r], joinExpRangeProto rr lr)
+          (lr @ ProtoHigh {}, ProtoQRange rr @ ExpRange {}) ->
+            ([l, r], joinExpRangeProto rr lr)
 
           (point @ (ProtoQRange PointRange {}), proto) ->
-            (rebuild varname proto, point)
+            ([wrap $ rebuild varname proto, l, r], point)
           (proto, point @ (ProtoQRange PointRange {})) ->
-            (rebuild varname proto, point)
+            ([wrap $ rebuild varname proto, l, r], point)
 
           (set @ (ProtoQRange SetRange {}), proto) ->
-            (rebuild varname proto, set)
+            ([wrap $ rebuild varname proto, l, r], set)
           (proto, set @ (ProtoQRange SetRange {})) ->
-            (rebuild varname proto, set)
+            ([wrap $ rebuild varname proto, l, r], set)
 
-        expr =
-          Expression
-            { E.loc
-            , expType = GBool
-            , exp' }
+        expr = foldr1 joinCond conds
 
       pure . Just $ (expr, range, taint)
 
@@ -954,8 +971,17 @@ conjunction opLoc
     Right _ -> error "internal error: Bad andOp type"
 
     where
+      loc = E.loc l <> E.loc r
+
+      wrap exp' = Expression
+        { E.loc
+        , expType = GBool
+        , exp' }
+
+      joinCond = Op.binFunc' Op.and
+
       joinProtos binOp l r = Expression
-        { E.loc    = Location (from l, to r)
+        { E.loc
         , expType  = expType l
         , exp'     = Binary binOp l r }
 

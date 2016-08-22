@@ -55,30 +55,32 @@ module Parser.Monad
 --------------------------------------------------------------------------------
 import           Error
 import           Location
-import           Parser.Prim               ()
-import           Parser.State              hiding (State)
-import qualified Parser.State              as Parser (State)
-import           Token                     (Token (..), TokenPos (..))
+import           Parser.Prim                ()
+import           Parser.State               hiding (State)
+import qualified Parser.State               as Parser (State)
+import           Token                      (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
-import           Control.Applicative       (Alternative)
-import           Control.Lens              (use, (%=))
-import           Control.Monad             (MonadPlus, void)
-import           Control.Monad.Identity    (Identity (..))
-import           Control.Monad.State       (MonadState)
-import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT (..), evalStateT)
-import           Data.Int                  (Int32)
-import           Data.List.NonEmpty        (NonEmpty (..))
-import qualified Data.List.NonEmpty        as NE (fromList)
-import           Data.Sequence             ((|>))
-import qualified Data.Set                  as Set (empty, singleton)
-import           Data.Text                 (Text)
-import qualified Text.Megaparsec                      as Mega (runParserT)
-import           Text.Megaparsec           (ErrorItem (..), ParseError (..),
-                                            ParsecT, between, getPosition,
-                                            lookAhead, manyTill, withRecovery,
-                                            (<|>))
-import           Text.Megaparsec.Prim      (MonadParsec (..))
+import           Control.Applicative        (Alternative)
+import           Control.Lens               (use, (%=))
+import           Control.Monad              (MonadPlus, void)
+import           Control.Monad.Identity     (Identity (..))
+import           Control.Monad.State        (MonadState)
+import           Control.Monad.Trans.Class  (lift)
+import           Control.Monad.Trans.Except (ExceptT (..), catchE, runExceptT,
+                                             throwE)
+import           Control.Monad.Trans.State  (StateT (..), evalStateT)
+import           Data.Int                   (Int32)
+import           Data.List.NonEmpty         (NonEmpty (..))
+import qualified Data.List.NonEmpty         as NE (fromList)
+import           Data.Sequence              ((|>))
+import qualified Data.Set                   as Set (empty, singleton)
+import           Data.Text                  (Text)
+import           Text.Megaparsec            (ErrorItem (..), ParseError (..),
+                                             ParsecT, between, getPosition,
+                                             lookAhead, manyTill, withRecovery,
+                                             (<|>))
+import qualified Text.Megaparsec            as Mega (runParserT)
+import           Text.Megaparsec.Prim       (MonadParsec (..))
 --------------------------------------------------------------------------------
 
 -- | Graciela Parser monad transformer.
@@ -157,7 +159,6 @@ execParser p fp s input = runIdentity $ execParserT p fp s input
 
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: Location -> Error -> p ()
-  reject :: p (Maybe a)
   safe :: p (Maybe a) -> p (Maybe a)
   push :: Token -> p ()
   pop :: p ()
@@ -165,7 +166,6 @@ class MonadParsec Error [TokenPos] p => MonadParser p where
 
 instance Monad m => MonadParser (ParserT m) where
   putError = pPutError
-  reject   = pReject
   safe     = pSafe
   push     = pPush
   pop      = pPop
@@ -173,7 +173,6 @@ instance Monad m => MonadParser (ParserT m) where
 
 instance MonadParser g => MonadParser (StateT s g) where
   putError l e = lift $ putError l e
-  reject  = lift reject
   safe p = StateT $ \s -> do
     a' <- safe $ evalStateT p s
     return (a', s)
@@ -187,9 +186,6 @@ pPutError (Location (from, _)) e = ParserT $ do
     err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
   errors %= (|> err)
 pPutError _ _ = error "FIXME"
-
-pReject :: Monad m => ParserT m (Maybe a)
-pReject = pure Nothing
 
 pSafe :: (Monad m)
       => ParserT m (Maybe a) -> ParserT m (Maybe a)
@@ -205,7 +201,7 @@ pSafe = withRecovery r
       ts <- use recSet
       void $ noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
 
-      reject
+      pure Nothing
 
 pPush :: Monad m
       => Token -> ParserT m ()

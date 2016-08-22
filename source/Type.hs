@@ -84,25 +84,8 @@ data Type
 
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool
-a =:= b
-  |  a == b
-  || a == GAny
-  || b == GAny = True
-GOneOf        as =:= a                = a `elem` as
-a                =:= GOneOf        as = a `elem` as
-GDataType     {} =:= GDataType     {} = True
-GAbstractType {} =:= GAbstractType {} = True
-GDataType     {} =:= GAbstractType {} = True
-GAbstractType {} =:= GDataType     {} = True
-GArray       _ a =:= GArray       _ b = a =:= b
-GSet           a =:= GSet           b = a =:= b
-GMultiset      a =:= GMultiset      b = a =:= b
-GSeq           a =:= GSeq           b = a =:= b
-GFunc      da ra =:= GFunc      db rb = da =:= db && ra =:= rb
-GRel       da ra =:= GRel       db rb = da =:= db && ra =:= rb
-GTuple        as =:= GTuple        bs = and $ zipWith (=:=) as bs
-GTypeVar       a =:= GTypeVar       b = a == b
-_                =:= _                = False
+a =:= b = (a <> b) /= GUndef
+
 
 -- | Graciela Types form a Monoid under the `more specific` operator,
 -- with the type @GAny@ as the identity.
@@ -119,15 +102,15 @@ instance Monoid Type where
     where
       as `merge` bs = nub [ a `mappend` b | a <- as, b <- bs ]
   GOneOf as   `mappend` a           = case a `matchIn` as of
-    []   -> GUndef
-    [c]  -> c
-    cs   -> GOneOf cs
+    []  -> GUndef
+    [c] -> c
+    cs  -> GOneOf cs
     where
       a `matchIn` as = nub [ a `mappend` b | b <- as ]
   a           `mappend` GOneOf as   = case a `matchIn` as of
-    []   -> GUndef
-    [c]  -> c
-    cs   -> GOneOf cs
+    []  -> GUndef
+    [c] -> c
+    cs  -> GOneOf cs
     where
       a `matchIn` as = nub [ a `mappend` b | b <- as ]
 

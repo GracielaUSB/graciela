@@ -20,7 +20,7 @@ module Location
   ) where
 --------------------------------------------------------------------------------
 import           Data.Monoid         ((<>))
-import           Text.Megaparsec.Pos (SourcePos (..), unPos)
+import           Text.Megaparsec.Pos (SourcePos (..), unPos, unsafePos)
 --------------------------------------------------------------------------------
 
 -- | This datatype stores information about the location of various
@@ -42,6 +42,21 @@ instance Show Location where
       else "(" <> showPos p0 <> " -> " <> showPos p1 <> ")"
   show Rearranged = "()"
   show GracielaDef = "In the Graciela Definition"
+
+instance Monoid Location where
+  mempty =
+    let
+      minB = unsafePos minBound
+      maxB = unsafePos maxBound
+      zero = SourcePos "" minB minB
+      inf  = SourcePos "" maxB maxB
+    in Location (zero, inf)
+  GracielaDef `mappend` _ = GracielaDef
+  _ `mappend` GracielaDef = GracielaDef
+  Rearranged `mappend` _  = Rearranged
+  _ `mappend` Rearranged  = Rearranged
+  Location (from0, to0) `mappend` Location (from1, to1) =
+    Location (from0 `min` from1, to0 `max` to1)
 
 -- | Shows a 'SourcePos' in a human-readable way.
 showPos :: SourcePos -> String
