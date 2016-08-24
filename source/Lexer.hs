@@ -320,6 +320,8 @@ token  =  reserved "program"    TokProgram
       <|> reserved "true"       (TokBool True)
       <|> reserved "false"      (TokBool False)
 
+      <|> reserved "null"       TokNull
+
       <|> charLit
       <|> try floatLit
       <|> intLit

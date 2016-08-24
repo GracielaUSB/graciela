@@ -203,6 +203,7 @@ data Token
 
   | TokNew
   | TokFree
+  | TokNull
   deriving (Eq, Ord)
 
 
@@ -367,4 +368,5 @@ instance Show Token where
 
     TokNew            -> "`new` - asignar una ubicación en el heap"
     TokFree           -> "`free` - liberar ubicación en el heap"
+    TokNull           -> "`null`"
     TokUnexpected t   -> show t

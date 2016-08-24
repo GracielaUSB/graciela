@@ -5,6 +5,7 @@
 
 module Parser.Expression
   ( expression
+  , string
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression            hiding (inner, loc)
@@ -48,6 +49,14 @@ import           Text.Megaparsec.Pos       (unsafePos)
 expression :: Parser (Maybe Expression)
 expression = evalStateT expr []
 
+string :: Parser (Maybe Expression)
+string = do
+  from <- getPosition
+  str  <- stringLit
+  to   <- getPosition
+  let location = Location(from,to)
+  pure . Just $ (Expression location GString StringLit{theString = unpack str})
+
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -86,6 +95,7 @@ term =  parens metaexpr
     <|> (try identifierAndLoc >>= call)
     <|> variable
     <|> bool
+    <|> nullptr
     <|> basicLit integerLit       IntV          GInt
     <|> basicLit floatLit         FloatV        GFloat
     <|> basicLit charLit          CharV         GChar
@@ -112,6 +122,19 @@ term =  parens metaexpr
           else ProtoQRange EmptyRange
 
       pure . Just $ (expr, range, Taint False)
+
+    nullptr :: ParserExp (Maybe MetaExpr)
+    nullptr = do
+      from <- getPosition
+      match TokNull
+      to <- getPosition
+      let
+        expr = Expression
+          { E.loc   = Location (from, to)
+          , expType = GPointer GAny
+          , exp'    = NullPtr }
+
+      pure . Just $ (expr, ProtoNothing, Taint False)
 
     basicLit :: Parser a -> (a -> Value) -> Type
              -> ParserExp (Maybe MetaExpr)
@@ -173,7 +196,8 @@ variable = do
                   { O.loc
                   , objType = _varType
                   , obj' = Variable
-                    { O.name }}}}
+                    { O.name = name
+                    , mode = Nothing}}}}
 
         rangevars <- get
 
@@ -200,7 +224,7 @@ variable = do
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
 
-      Argument { _argMode, _argType } | _argMode == In || _argMode == InOut ->
+      Argument { _argMode, _argType } ->
         let
           expr = Expression
             { E.loc
@@ -210,7 +234,8 @@ variable = do
                 { O.loc
                 , objType = _argType
                 , obj'    = Variable
-                  { O.name }}}}
+                  { O.name = name
+                  , mode   = Just _argMode }}}}
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
 
@@ -742,9 +767,8 @@ unary unOp
       putError loc . UnknownError $
         "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
         " expected an expression of type " <> expected <>
-        ", but received " <> show itype <> "."
+        ",\n\tbut received " <> show itype <> "."
       pure Nothing
-
     Right ret -> do
       let
         exp'' = case exp' of
@@ -775,8 +799,8 @@ binary binOp opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-          " expected two expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".")
+          "\n\texpected two expressions of types " <> expected <>
+          ",\n\tbut received " <> show (ltype, rtype) <> ".")
       pure Nothing
 
     Right ret ->
@@ -840,7 +864,7 @@ membership opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure Nothing
 
@@ -867,8 +891,8 @@ comparison binOp opLoc
         let loc = Location (from l, to r)
         putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".")
+            show opLoc <> "\n\texpected two expressions of types " <> expected <>
+            ",\n\tbut received " <> show (ltype, rtype) <> ".")
         pure Nothing
 
       Right GBool ->
@@ -902,8 +926,8 @@ comparison binOp opLoc
         let loc = Location (from l, to r)
         putError loc . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> " expected two expressions of types " <> expected <>
-            ", but received " <> show (ltype, rtype) <> ".")
+            show opLoc <> "\n\texpected two expressions of types " <> expected <>
+            ",\n\tbut received " <> show (ltype, rtype) <> ".")
         pure Nothing
 
       Right GBool ->
@@ -943,7 +967,7 @@ pointRange opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure Nothing
 
@@ -965,7 +989,7 @@ pointRange opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ", but received " <>
+          \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
       pure Nothing
 
@@ -1052,7 +1076,7 @@ conjunction opLoc
       let loc = Location (from l, to r)
       putError loc . UnknownError $
         "Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
-        \ expressions of types " <> expected <> ", but received " <>
+        \ expressions of types " <> expected <> ",\n\tbut received " <>
         show (ltype, rtype) <> "."
       pure Nothing
 
@@ -1184,7 +1208,8 @@ conjunction opLoc
               { O.loc = Rearranged
               , objType = expType
               , obj' = Variable
-                { O.name }}}}
+                { O.name = name
+                , mode = Nothing}}}}
 
 --------------------------------------------------------------------------------
 testExpr :: Parser (Maybe Expression) ->  String -> IO ()

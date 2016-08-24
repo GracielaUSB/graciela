@@ -30,110 +30,106 @@
 // end
 
 
-// type Dicc implements Diccionario (int,char)
-// begin
+type Dicc implements Diccionario (int,char)
+begin
 
-//     var   MAX := 10 : int;
-//     var   tam       : int;
-//     var   clave     : array [1] of int;
-//     var   valor     : array [2] of int;
+    var   MAX := 10 : int;
+    var   tam       : int;
+    var   clave     : array [1] of int;
+    var   valor     : array [2] of int;
 
-//     {repinv MAX > 0 ∧ // 0 ≤ tam ∧ tam ≤ MAX  ∧
-//         (%forall i : int | 0 ≤ i /\ i ≤ tam
-//           | (%forall j : int | 0 ≤ j /\ j ≤ tam // ∧ i ≢ j
-//               | clave[i] != clave[j]
-//             %)
-//         %)
-//     repinv}
+    {repinv MAX > 0 ∧ 0 ≤ tam ∧ tam ≤ MAX  //∧
+        // (%forall i : int | 0 ≤ i /\ i ≤ 10 | i > 10%)
+    repinv}
 
-//     {coupinv tam < MAX coupinv}
+    {coupinv tam < MAX coupinv}
 
-//     proc crear (in m : int, out d : int)
-//     begin
-//         {pre    0 < m              pre}
-//         |[
-//             MAX, tam := m, 0
-//         ]|
-//         {post MAX == m /\ tam ==0  post}
-//     end
+    proc crear (in m : int, out d : int)
+    begin
+        {pre    0 < m              pre}
+        |[
+            MAX, tam := m, 0
+        ]|
+        {post MAX == m /\ tam == 0  post}
+    end
 
-//     proc agregar (inout d : int , in c : int, in v : int)
-//     begin
-//         var x      : int;
-//         var oldTam : int;
-//         {pre tam < MAX /\ !(%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
-//         |[
-//             oldTam := tam;
-//             clave[tam], valor[tam], tam := c, v, tam + 1
-//         ]|
-//         {post tam == oldTam + 1 /\ (%exist i : int | 0 <= i /\ i < tam | clave[i] == c /\ valor[x] == v %) post}
-//     end
+    // proc agregar (inout d : int , in c : int, in v : int)
+    // begin
+    //     var x      : int;
+    //     var oldTam : int;
+    //     {pre tam < MAX /\ !(%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
+    //     |[
+    //         oldTam := tam;
+    //         clave[tam], valor[tam], tam := c, v, tam + 1
+    //     ]|
+    //     {post tam == oldTam + 1 /\ (%exist i : int | 0 <= i /\ i < tam | clave[i] == c /\ valor[x] == v %) post}
+    // end
 
-//     proc eliminar (inout d : int, in c : int)
-//     begin
-//         var x      : int;
-//         var oldTam : int;
+    // proc eliminar (inout d : int, in c : int)
+    // begin
+    //     var x      : int;
+    //     var oldTam : int;
 
-//         {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %)  pre}
-//         |[
-//             x := 4;
-//             oldTam := tam;
-//             {inv 0 <= x /\ x <= tam inv}
+    //     {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %)  pre}
+    //     |[
+    //         x := 4;
+    //         oldTam := tam;
+    //         {inv 0 <= x /\ x <= tam inv}
 
-//             {bound tam - x bound}
-//             do x < tam ->
-//                 if clave[x] == x -> x, d, tam := x+1, d, tam-1
-//                 [] clave[x] != x -> x := x+1
-//                 fi
-//             od
-//         ]|
-//         {post tam == oldTam - 1  post}
-//     end
+    //         {bound tam - x bound}
+    //         do x < tam ->
+    //             if clave[x] == x -> x, d, tam := x+1, d, tam-1
+    //             [] clave[x] != x -> x := x+1
+    //             fi
+    //         od
+    //     ]|
+    //     {post tam == oldTam - 1  post}
+    // end
 
-//     proc buscar( in d : int, in c : int , out v : int )
-//     begin
-//         var x : int;
-//         {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
-//        |[
-//             x := 0;
+    // proc buscar( in d : int, in c : int , out v : int )
+    // begin
+    //     var x : int;
+    //     {pre (%exist i : int | 0 <= i /\ i < tam | clave[i] == c %) pre}
+    //    |[
+    //         x := 0;
 
-//             {inv 0 <= x /\ x <= tam inv}
-//             {bound tam - x bound}
-//             do clave[x] != c -> |[
-//                 x := x + 1
-//             ]|
-//             od;
+    //         {inv 0 <= x /\ x <= tam inv}
+    //         {bound tam - x bound}
+    //         do clave[x] != c -> |[
+    //             x := x + 1
+    //         ]|
+    //         od;
 
-//             v := valor[x]
+    //         v := valor[x]
 
-//         ]|
-//         {post (%exist i : int | 0 <= i /\ i < tam | c == clave[x] /\ v == valor[x] %) post}
-//     end
+    //     ]|
+    //     {post (%exist i : int | 0 <= i /\ i < tam | c == clave[x] /\ v == valor[x] %) post}
+    // end
 
-//     proc existe (in d : int, in c : int, out e : boolean)
-//     begin
-//         var x : int;
-//         {pre true pre}
-//         |[
-//             x := 0;
-//             e := false;
+    // proc existe (in d : int, in c : int, out e : boolean)
+    // begin
+    //     var x : int;
+    //     {pre true pre}
+    //     |[
+    //         x := 0;
+    //         e := false;
 
-//             {inv 0 <= x /\ x < tam inv}
-//             {bound tam - x bound}
-//             do x < tam /\ e == false ->
-//                 if clave[x]  == c -> e := true
-//                 [] clave[x] != c -> x := x + 1
-//                 fi
-//             od
-//         ]|
-//         {post e == (%exist i : int | 0 <= i /\ i < tam | clave[i] == c%) post}
-//     end
-// end
+    //         {inv 0 <= x /\ x < tam inv}
+    //         {bound tam - x bound}
+    //         do x < tam /\ e == false ->
+    //             if clave[x]  == c -> e := true
+    //             [] clave[x] != c -> x := x + 1
+    //             fi
+    //         od
+    //     ]|
+    //     {post e == (%exist i : int | 0 <= i /\ i < tam | clave[i] == c%) post}
+    // end
+end
 
 
 program main begin
 
-    // func fibonacci (n : int, x : array [n] of int) -> int
+    // func fibonacci (n : int*, x : array [10] of int) -> int
     // begin
     //     if n == 0  -> 0
     //     [] n == 1  -> 1
@@ -145,29 +141,33 @@ program main begin
     // begin
     //     var num : int;
     //     read(num);
+    //     var h : int;
+    //     read(h);
 
     //     {pre num ≥ 0 pre}
     //     |[
     //         var i,j,k := 1,2,3 : int;
     //         // write("El resultado es: "); // No acepta strings
+    //         {a i > 1 a}
     //         writeln(1) // No buscar las funciones
     //     ]|
     //     {post true post}
     // end
 
-    // proc readNum2 ()
-    // begin
-    //     var num : int;
-    //     read(num);
+    proc readNum2 (out i : int*)
+    begin
+        
+        {pre true pre}
+        |[
+            i := null;
 
-    //     {pre num ≥ 0 pre}
-    //     |[
-    //         write(1)
-    //         // write("El resultado es: "); // No acepta strings
-    //         // writeln(fibonacci(num)) // No buscar las funciones
-    //     ]|
-    //     {post true post}
-    // end
+            // j[1] := 1;
+            writeln(" Entro! que alegria")
+            // write("El resultado es: "); // No acepta strings
+            // writeln(fibonacci(num)) // No buscar las funciones
+        ]|
+        {post true post}
+    end
 
     // proc hola (in x : int) begin
     
@@ -179,74 +179,97 @@ program main begin
     // end
     
 
-    |[
-        var a,b,c,d := -1.0,2.0,3.1,4.3 : float;
-        var g := a+b+c+d : float;
-        var i := 12  : int;
-        var c := 'c' : char;
-        var bool     : boolean;
-        |[
-            writeln(12345)
-        ]|;
-        read(a);
-        if a > 1.0 -> 
-            if a != 5.0 -> writeln(1.01234)
-            [] true   -> writeln(1234.01)
-            fi
-        [] a < 1.0  -> writeln(2)
-        fi;
+   |[  var a,b,d := -1.0,2.0,4.3 : float
+    ; var g := a+b+d : float
+    ; var i := 12  : int
+    ; var x,y,z    : int*
+    ; var dd       : int**
+    ; var pedrito  : boolean*
+    ; var c1,c2    : boolean
+    ; var c := 'c' : char
+    ; var arreglo  : array[10] of array[10] of array[10] of int*
+    ; var bool     : boolean
+    ; var dic      : Dicc of int    
+    ; {a x == null a} new(x)  {a x != null a}
+    ; *x := 1
+    ; writeln(*x)
+    ; {a x != null a} free(x) {a x == null a}
+    ; read(i)
+    ; writeln(2533,2533,"hola")
+    ; write("x y z son iguales: ", x == z, "\n")
+    ; new(arreglo[1][2][3])
+    ; *arreglo[1][2][3] := 100
+    ; new(x)
+    ; new(pedrito)
+    ; *pedrito := false
+    ; free(pedrito)
+    ; writeln(pedrito == null)
+    ; new(dd)
+    ; new(*dd)
+    ; **dd := 3
+    ; *x := i
+    ; y := x
+    ; z := y
+    ; writeln(z != null /\ *z == i) // true
+    ; writeln(*arreglo[1][2][3] + 2)
+    ; |[
+          writeln(12345);
+          |[
+              writeln(12)
+          ]|
+     ]|
+    ; read(*x)
+      
+    ; 
+    {a *x > 0 a}
 
-        writeln(a < 10.0);
-        writeln(a > 10.0);
-        writeln(a <= 10.0);
-        writeln(a >= 10.0);
-        writeln(a != 10.0);
+    if *x > 10             -> a := 1.0      
+    [] 0 <= *x /\ *x <= 10 -> a := 10.0
+    fi
+              
+    {a    (*x > 10             ==> a == 1.0) 
+       /\ (0 <= *x /\ *x <= 10 ==> a == 10.0)
+    a}
 
-        writeln(i < 10);
-        writeln(i > 10);
-        writeln(i <= 10);
-        writeln(i >= 10);
-        writeln(i != 10);
 
-        writeln(false ==> true);
-        
-        writeln(i);
+    ; writeln(a < 10.0)
+    ; writeln(a > 10.0)
+    ; writeln(a <= 10.0)
+    ; writeln(a >= 10.0)
+    ; writeln(a != 10.0)
 
-        writeln(g);
-        writeln(¬(true/\false));
-        writeln(a);
-        writeln(¬ (√(9.0+16.0) >= 5.0) );
-        write( -2 + 2147483647 )
+    ; writeln(i < 10)
+    ; writeln(i > 10)
+    ; writeln(i <= 10)
+    ; writeln(i >= 10)
+    ; writeln(i != 10)
 
-        // const   m := 10 : int;
-        // var   a : array[10] of array[10] of int;
+    ; writeln(false ==> true)
+      
+    ; writeln(i)
+    //  ; read(a,b,c)
 
-       
-
-        // {inv (%forall i : int | i > 0 /\ i < 10 | true %)  inv}
-        // {bound 1 bound}
-        // do 
-        //     true ->  
-        //         if a[1][2] > 1 ->
-        //              write(1) 
-        //         fi
-        // od;
-        // |[  a[x] := x;
-        //     {a a[x] < 10 /\ a[x] >= 0 a}
-        //     writeln(a[x]);
-        //     {a a[x] > 100 a}
-        //     x := x+1
-        //     {a x <= 10 a}
-        // ]|
-        // od;
-        // random(m);
-        
-        // // write("El random es: "); // No acepta strings
-        // writeln(1);
-        // writeln(1-1-1);
-        // // write("Numero de Fibonacci, ingrese un numero: "); // No acepta strings
-        // x,m := 1,20;
-        // readNum()
-        //read(a[1][1])
-    ]|
+    ; writeln(g)
+    ; writeln( ¬(true /\ false) )
+    ; writeln(a)
+    ; writeln(¬ (√(9.0+16.0) >= 5.0) )
+    ; writeln( -2 == 2147483647 )
+    ; new(x)
+    ; *x := 20
+    ; writeln(*x)
+    ; *x := 10
+    ; writeln(*x)
+    ; *x := 15
+    ; writeln(*x)
+    ; free(x)
+    ; new(x)
+    ; *x,*x := 15, 10
+    ; writeln(*x)
+    ; writeln( (3 max 4) min (10 max √2) )
+    ; free(x)  
+    ; new(x)
+    ; writeln( x != null )
+    ; readNum2(x)
+    ; writeln( x == null )
+   ]|
 end

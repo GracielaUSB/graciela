@@ -27,15 +27,16 @@ data Declaration
     { declLoc   :: Location
     , declType  :: Type
     , declPairs :: Seq (Text, Expression) }
-  | BadDeclaration
-    { declLoc :: Location
-    }
+
+getFields :: Declaration -> [Type]
+getFields Declaration {declType, declIds} =
+  toList . fmap (const declType) $ declIds
+
+getFields Initialization {declType, declPairs} =
+  toList . fmap (const declType) $ declPairs
 
 
 instance Treelike Declaration where
-  toTree BadDeclaration { declLoc } =
-    leaf ("BadDeclaration" <> show declLoc)
-
   toTree Declaration { declLoc, declType, declIds } =
     Node ("Declaration" <> show declLoc) $
       leaf ("Type " <> show declType) :

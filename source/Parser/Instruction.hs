@@ -26,33 +26,34 @@ import           AST.Instruction        (Guard, Instruction (..),
 import           AST.Object
 import           Entry
 import           Error                  as PE
-import           Graciela
 import           Location
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Expression
+import           Parser.Monad
 import           Parser.Recovery
-import           Parser.Token
+import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
 import           Type                   (ArgMode (..), Type (..), (=:=))
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (^.))
-import           Control.Monad          (foldM, unless, void, when)
+import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
 import qualified Data.List              as L (any)
 import           Data.Monoid            ((<>))
 import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as T (pack, unpack)
+import           Debug.Trace
 import           Prelude                hiding (lookup)
 import           Text.Megaparsec        (between, eitherP, endBy, getPosition,
                                          lookAhead, many, notFollowedBy, sepBy,
                                          sepBy1, try, (<|>))
 -------------------------------------------------------------------------------
 
-instruction :: Graciela Instruction
+instruction :: Parser (Maybe Instruction)
 instruction = try procedureCall
           <|> try assign
           <|> assertionInst
@@ -68,36 +69,88 @@ instruction = try procedureCall
           <|> writeln
           <|> block
 
-assertionInst :: Graciela Instruction
+
+assertionInst :: Parser (Maybe Instruction)
 assertionInst = do
   from <- getPosition
   expr <- assertion
   to   <- getPosition
-  return $ Instruction
-    { instLoc = Location(from,to)
-    , inst'   = Assertion expr
-    }
+  pure $ case expr of
+    Nothing -> Nothing
+    Just e -> Just Instruction
+      { instLoc = Location (from,to)
+      , inst'   = Assertion e
+      }
 
 
-declarationBlock :: Graciela [Declaration]
-declarationBlock =
-  declaration `endBy` match TokSemicolon
+declarationBlock :: Parser (Maybe [Declaration])
+declarationBlock = sequence <$> (declaration `endBy` match TokSemicolon)
 
-declarationOrRead :: Graciela [Either Declaration Instruction]
-declarationOrRead = eitherP declaration reading `endBy` match TokSemicolon
 
-block :: Graciela Instruction
+declarationOrRead :: Parser (Maybe [Either Declaration Instruction])
+declarationOrRead = sequence <$> (p `endBy` match TokSemicolon)
+  where
+    p = do
+      line <- eitherP declaration reading
+      pure $ case line of
+        Left  Nothing  -> Nothing
+        Left  (Just l) -> Just (Left l)
+        Right Nothing  -> Nothing
+        Right (Just l) -> Just (Right l)
+
+
+-- block :: Parser (Maybe Instruction)
+-- block = do
+--   from <- getPosition
+--   symbolTable %= openScope from
+--   match TokOpenBlock
+--   decls       <- declarationBlock
+--   actions     <- many insts
+--   assertions' <- many assertionInst
+--   st          <- use symbolTable
+--   let actions' = (concat actions) <> assertions'
+--   match TokCloseBlock
+--   to <- getPosition
+--   symbolTable %= closeScope to
+--
+--   let loc = Location (from, to)
+--
+--   if null actions
+--     then do
+--       putError loc EmptyBlock
+--       pure Nothing
+--   else if L.any (\x -> case x of; Nothing -> True; _ -> False) actions'
+--     then pure Nothing
+--   else pure $ case (decls, actions') of
+--     (Nothing, _) -> Nothing
+--     (_, Nothing) -> Nothing
+--     (Just ds, Just as) -> Just $ Instruction
+--             { instLoc = loc
+--             , inst'   = Block
+--               { blockST    = st
+--               , blockDecs  = ds
+--               , blockInsts = actions' }}
+--   where
+--     insts = do
+--       a1   <- many assertionInst
+--       inst <- instruction
+--       a2   <- many assertionInst
+--       do (void . lookAhead $ match TokCloseBlock)
+--         <|> (void $ match TokSemicolon)
+--       pure $ a1 <> [inst] <> a2
+
+
+block :: Parser (Maybe Instruction)
 block = do
   from <- getPosition
   symbolTable %= openScope from
   match TokOpenBlock
 
   decls       <- declarationBlock
-  actions     <- insts `sepBy` match TokSemicolon
-  assertions' <- many assertionInst
-  st          <- use symbolTable
-  let actions' = (concat actions) <> assertions'
-  withRecovery TokCloseBlock
+  actions     <- sequence <$> many instruction
+  st          <- use symbolTable -- ??
+
+  match TokCloseBlock
   to <- getPosition
   symbolTable %= closeScope to
 
@@ -106,74 +159,83 @@ block = do
   if null actions
     then do
       putError loc EmptyBlock
-      return $ BadInstruction loc
-  else if L.any (\x -> case x of; BadInstruction _ -> True; _ -> False) actions'
-    then return $ BadInstruction loc
-  else return $ Instruction
+      pure Nothing
+  else if L.any (\x -> case x of; Nothing -> True; _ -> False) actions'
+    then pure Nothing
+  else pure $ case (decls, actions') of
+    (Nothing, _) -> Nothing
+    (_, Nothing) -> Nothing
+    (Just ds, Just as) -> Just $ Instruction
             { instLoc = loc
             , inst'   = Block
               { blockST    = st
-              , blockDecs  = decls
-              , blockInsts = actions'}}
+              , blockDecs  = ds
+              , blockInsts = actions' }}
   where
     insts = do
       a1   <- many assertionInst
       inst <- instruction
       a2   <- many assertionInst
-      return $ a1 <> [inst] <> a2
+      do (void . lookAhead $ match TokCloseBlock)
+        <|> (void $ match TokSemicolon)
+      pure $ a1 <> [inst] <> a2
 
 
-assign :: Graciela Instruction
+assign :: Parser (Maybe Instruction)
 assign = do
   from <- getPosition
 
   lvals <- expression `sepBy1` match TokComma
-  withRecovery TokAssign
+  match TokAssign
   exprs <- expression `sepBy1` match TokComma
 
   to <- getPosition
 
   let len = length lvals == length exprs
 
-  unless len . putError (Location (from, to)) $ UnknownError
+  unless len . putError (Location (from, to)) . UnknownError $
     "La cantidad de lvls es distinta a la de expresiones"
+
 
   (correct, lvals') <- checkTypes (zip lvals exprs)
 
   if correct && len
-    then return $ Instruction (Location(from,to)) (Assign lvals' exprs)
-    else return $ BadInstruction (Location(from,from))
+    then pure $ Instruction (Location(from,to)) (Assign lvals' exprs)
+    else pure Nothing
 
   where
     {- Checks if the left expressions are valid lvals and
        if the assigned expression has the correct type
     -}
-    checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
-    checkTypes [] = return (True,[])
+    checkTypes :: [(Expression,Expression)] -> Parser (Bool,[Object])
+    checkTypes [] = pure (True,[])
     checkTypes (x:xs) = case x of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _)
-          -- | constant == False -> do
-          -> do
-        if t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) | notIn o -> do
+        if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
           then do
             (c,objs) <- checkTypes xs
-            return (c, o:objs)
+            pure (c, o:objs)
           else do
             putError loc1 . UnknownError $
               "No se puede asignar una expresion del tipo `" <>
               show t2 <> "` a una variable del tipo `" <>
               show t1 <> "`"
             (c,objs) <- checkTypes xs
-            return (False,objs)
+            pure (False,objs)
+      (Expression loc1 t1 (Obj o), Expression{}) -> do
+        putError loc1 . UnknownError $
+          "The variable `" <> show o <> "` cannot be assigned because it has mode In"
+        (c,objs) <- checkTypes xs
+        pure (False, objs)
       (Expression loc _ _, Expression {}) -> do
         putError loc $ UnknownError
           "No se puede asignar un valor a una expresion"
         (c,objs) <- checkTypes xs
-        return (False, objs)
+        pure (False, objs)
       _ -> checkTypes xs
 
 
-random :: Graciela Instruction
+random :: Parser (Maybe Instruction)
 random = do
   from <- getPosition
   match TokRandom
@@ -181,78 +243,85 @@ random = do
   to   <- getPosition
   let loc = Location (from,to)
   {- Checks if the expression can be assigned -}
-  -- case expr of
-  --   Expression { E.loc, expType, constant, exp' } -> case exp' of
-  --     -- Only int objects can be randomized (maybe char or float too?)
-  --     Obj o | correctType expType && not constant ->
-  --       return $ Instruction loc (Random o)
-  --     -- If not, its an expression or a constant (or both).
-  --     _ -> do
-  --       unsafeGenCustomError
-  --         "No se puede asignar un numero random a una expresion constante"
-  --       return $ BadInstruction loc
-  --   -- If its a bad expression just return bad instruction
-  --   _ -> return $ BadInstruction loc
+  case expr of
+    Expression { E.loc, expType, exp' } -> case exp' of
+      -- Only int objects can be randomized (maybe char or float too?)
+      Obj o | correctType expType && notIn o ->
+        pure $ Instruction loc (Random o)
+      -- If not, its an expression or a constant (or both).
+      _ -> do
+        putError loc . UnknownError $
+          "No se puede asignar un numero random a una expresion constante"
+        pure Nothing
+    -- If its a bad expression just pure bad instruction
+    -- _ -> pure Nothing
     -- FIXME: improving constant field of Objects
-  return $ BadInstruction loc
+  -- pure Nothing
   where
     correctType = (=:= GOneOf [GInt{-, GFloat, GBool, GChar-}])
 
+
 -- Parse `write` instruction
-write :: Graciela Instruction
+write :: Parser (Maybe Instruction)
 write = write' False TokWrite
 
 -- Parse `writeln` instruction
-writeln :: Graciela Instruction
+writeln :: Parser (Maybe Instruction)
 writeln = write' True TokWriteln
 
-write' :: Bool -> Token -> Graciela Instruction
+write' :: Bool -> Token -> Parser (Maybe Instruction)
 write' ln writeToken = do
   from <- getPosition
   match writeToken
-  e <- between (match TokLeftPar) (match TokRightPar) expression
+  e <- parens $ (string <|> expression)`sepBy1` match TokComma
   to <- getPosition
   let loc = Location(from,to)
-  case e of
-    Expression {} ->
-      return $ Instruction loc (Write ln e) -- if ln == True -> writeln, else -> write
-    _ -> return $ BadInstruction loc
+  if False `elem` (fmap (\x -> case x of; Expression {} -> True; _ -> False) e)
+    then pure Nothing
+    else pure $ Instruction loc (Write ln e) -- if ln == True -> writeln, else -> write
 
 -- Parse the read instrucction
-reading :: Graciela Instruction
+reading :: Parser (Maybe Instruction)
 reading = do
   from  <- getPosition
   match TokRead
-  match TokLeftPar
-  ids   <- expression `sepBy` match TokComma
-  match TokRightPar
+  ids   <- parens $ expression `sepBy1` match TokComma
   res   <- mapM isWritable ids
   let types = fmap fst res
   let objs  = fmap snd res
-  -- If any expression has type `GUndef`, return BadInstruction
+  -- If any expression has type `GUndef`, pure Nothing
   if GUndef `elem` types
     then do
       to <- getPosition
-      return $ BadInstruction (Location(from,to))
+      let location = Location(from,to)
+      when (null ids) . putError location $
+          UnknownError "Read function most have at least one argument"
+      pure Nothing
     else do
       -- Read instruccion can be followed by the token `with` and a file name.
       -- In that case, save the file name in state's `fileToRead` and
-      -- return the instruction
+      -- pure the instruction
       match TokWith
       id <- stringLit
       filesToRead %= Set.insert (T.unpack id)
       to <- getPosition
-      return $ Instruction
-            { instLoc   = (Location(from,to))
+      let location = Location(from,to)
+      when (null ids) . putError location $
+          UnknownError "Read function most have at least one argument"
+      pure $ Instruction
+            { instLoc   = location
             , inst' = Read
                 { file     = Just id
                 , varTypes = types
                 , vars     = objs}}
       <|> do
-        -- If no token `with` is found, just return the instruction
+        -- If no token `with` is found, just pure the instruction
         to <- getPosition
-        return $ Instruction
-              { instLoc   = (Location(from,to))
+        let location = Location(from,to)
+        when (null ids) . putError location $
+          UnknownError "Read function most have at least one argument"
+        pure $ Instruction
+              { instLoc   = location
               , inst' = Read
                   { file     = Nothing
                   , varTypes = types
@@ -260,127 +329,127 @@ reading = do
 
     where
       {- Checks the expression is a variable and if it has a basic type -}
-      isWritable :: Expression -> Graciela (Type, Object)
+      isWritable :: Expression -> Parser (Type, Object)
       isWritable expr = case expr of
         Expression {E.loc, expType, exp'} ->
-          -- case exp' of
-          --   -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
-          --   Obj o | not constant -> if correctType expType
-          --     then return (expType, o)
-          --     else do
-          --       putError loc $ BadReadArgumentType expr expType
-          --       return (GUndef, BadObject loc)
-          --   -- If not, its an expression or a constant (or both).
-          --   _ -> do
-          --     putError loc $ BadReadArgument expr
-          --     return (GUndef, BadObject loc)
+          case exp' of
+            -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
+            Obj o -> if correctType expType && notIn o
+              then pure (expType, o)
+              else do
+                putError loc $ BadReadArgumentType expr expType
+                pure (GUndef, Nothing)
+            -- If not, its an expression or a constant (or both).
+            _ -> do
+              putError loc $ BadReadArgument expr
+              pure (GUndef, Nothing)
           -- FIXME: improving constant field of object
-            return (GUndef, BadObject loc)
+            -- pure (GUndef, Nothing)
 
-        -- If its a bad expression just return bad instruction
-        BadExpression loc -> return (GUndef, BadObject loc)
+        -- If its a bad expression just pure bad instruction
+        Nothing -> pure (GUndef, Nothing)
         where
-            correctType = (=:= GOneOf [GInt, GFloat, GBool, GChar])
+            correctType = (=:= GOneOf [GInt, GFloat, GChar])
 
-new :: Graciela Instruction
+new :: Parser (Maybe Instruction)
 new  = do
     from <- getPosition
     match TokNew
-    match TokLeftPar
-    id <- identifier
-    match TokRightPar
+    id <- parens expression
     to <- getPosition
 
     let loc = Location(from,to)
-    st <- use symbolTable
-    case id `lookup` st of
-      Right entry -> case _info entry of
-        Var (GPointer t) _ ->
-          return $ Instruction loc (New id)
-        _              -> do
-          unsafeGenCustomError "New solo recibe apuntadores"
-          return $ BadInstruction loc
-      Left _ -> do
-        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
-        return $ BadInstruction loc
+    case id of
+      Expression _ (GPointer t) (Obj o) ->
+        pure $ Instruction loc (New o t)
+      _     -> do
+        putError loc $ UnknownError "New can only recive pointers"
+        pure Nothing
 
 
-free :: Graciela Instruction
+free :: Parser (Maybe Instruction)
 free = do
     from <- getPosition
     match TokFree
-    match TokLeftPar
-    id <- identifier
-    match TokRightPar
+    id <- parens expression
     to <- getPosition
 
     let loc = Location(from,to)
-    st <- use symbolTable
-    case id `lookup` st of
-      Right entry -> case _info entry of
-        Var (GPointer t) _ ->
-          return $ Instruction loc (Free id)
-        _              -> do
-          unsafeGenCustomError "Free solo recibe apuntadores"
-          return $ BadInstruction loc
-      Left _ -> do
-        unsafeGenCustomError ("La variable `" <> T.unpack id <> "` No existe.")
-        return $ BadInstruction loc
+    case id of
+      Expression _ (GPointer t) (Obj o) ->
+        pure $ Instruction loc (Free o t)
 
-abort :: Graciela Instruction
+      _     -> do
+        putError loc $ UnknownError "New can only recive pointers"
+        pure Nothing
+
+abort :: Parser (Maybe Instruction)
 abort =
     do pos <- getPosition
        match TokAbort
-       return $ Instruction (Location(pos,pos)) Abort
+       pure $ Instruction (Location(pos,pos)) Abort
 
 {- Parse guards for both repetition and conditional -}
-guard :: Graciela Guard
+guard :: Parser (Maybe Guard)
 guard = do
-  from  <- getPosition
+  from <- getPosition
+  symbolTable %= openScope from
   cond  <- expression
   match TokArrow
-  symbolTable %= openScope from
-  inst  <- instruction
-  to    <- getPosition
+  decls       <- declarationBlock
+  actions     <- many insts
+  assertions' <- many assertionInst
+  st          <- use symbolTable
+  let actions' = (concat actions) <> assertions'
+  to <- getPosition
   symbolTable %= closeScope to
-  return (cond,inst)
+  let loc = Location (from, to)
+  when (null actions) $ putError loc EmptyBlock
+  pure (cond,decls,actions')
+  where
+    insts = do
+      a1   <- many assertionInst
+      inst <- instruction
+      a2   <- many assertionInst
+      do (void . lookAhead $ match TokFi <|> match TokOd <|> match TokSepGuards)
+        <|> (void $ match TokSemicolon)
+      pure $ a1 <> [inst] <> a2
 
-
-conditional ::  Graciela Instruction
+conditional ::  Parser (Maybe Instruction)
 conditional = do
   from <- getPosition
   match TokIf
   gl <- guard `sepBy` match TokSepGuards
-  withRecovery TokFi
+  match TokFi
   to <- getPosition
-  return $ Instruction (Location(from,to)) (Conditional gl)
+  pure $ Instruction (Location(from,to)) (Conditional gl)
 
 
 {- Parse the instruction do .. od -}
-repetition :: Graciela Instruction
+repetition :: Parser (Maybe Instruction)
 repetition = do
     {- First case: Neither invariant nor bound -}
     from <- getPosition
     try $ match TokDo
     gl <- guard `sepBy` match TokSepGuards
-    withRecovery TokOd
+    match TokOd
     to <- getPosition
     let location = Location (from,to)
     putError location NoDoInvariant
     putError location NoDoBound
-    return $ BadInstruction location
+    pure Nothing
     <|> do
       {- Second case: No invariant -}
       from <- getPosition
       lookAhead $ match TokLeftBound
       bound
-      withRecovery TokDo
+      match TokDo
       guard `sepBy` match TokSepGuards
-      withRecovery TokOd
+      match TokOd
       to <- getPosition
       let location = Location (from,to)
       putError location NoDoBound
-      return $ BadInstruction location
+      pure Nothing
     <|> do
       {- Third case: An invariant is at the lookAhead.
          Parse normally and in case of not-}
@@ -388,11 +457,11 @@ repetition = do
       from   <- getPosition
       inv    <- safeAssertion invariant NoDoInvariant
       bound' <- safeAssertion bound NoDoBound
-      withRecovery TokDo
+      match TokDo
       gl <- guard `sepBy` match TokSepGuards
-      withRecovery TokOd
+      match TokOd
       to <- getPosition
-      return $ Instruction
+      pure $ Instruction
           { instLoc = Location(from,to)
           , inst'   = Repeat
             { rguards = gl
@@ -400,13 +469,13 @@ repetition = do
             , rbound  = bound'}}
 
 
-procedureCall :: Graciela Instruction
+procedureCall :: Parser (Maybe Instruction)
 procedureCall = do
   from <- getPosition
   id   <- identifier
   match TokLeftPar
   args <- expression `sepBy` match TokComma
-  withRecovery TokRightPar
+  match TokRightPar
   st   <- use symbolTable
 
   to   <- getPosition
@@ -426,24 +495,22 @@ procedureCall = do
                           , nParams = nParams
                           , nArgs   = nArgs
                           }
-            return $ BadInstruction loc
+            pure Nothing
         else if nArgs == 0 && nParams == 0
-            then return $ Instruction loc (ProcedureCall id [])
+            then pure $ Instruction loc (ProcedureCall id [])
         else do
           {- Now check the arguments types match with the procedure parameter's types-}
-          argumentsOk <- foldM (checkTypes id pos loc) False $ zip _procParams args
-          if argumentsOk
-            then return $ Instruction loc (ProcedureCall id args)
-            else return $ BadInstruction loc
+          args' <- zipWithM (checkTypes id pos loc) _procParams args
+          pure $ Instruction loc (ProcedureCall id args')
 
     _ -> do
-      {- If the procedure is not defined, maybe the current block is a procedure calling
-         itself, recursively. The information of a procedure that is beign defined is store
-         temporaly at Graciela's currentSymbol -}
+      {- If the procedure is not defined, maybe the current procedure is calling
+         itself recursively. The information of a procedure that is being defined is stored
+         temporarily at Parser's currentSymbol -}
       currentProcedure <- use currentProc
       case currentProcedure of
         {- If the current symbol match with the call, then check the arguments types
-           and return the proper AST -}
+           and pure the proper AST -}
         Just (name, pos, types) | name == id -> do
           let nArgs   = length args
           let nParams = length types
@@ -456,31 +523,35 @@ procedureCall = do
                             , nParams = nParams
                             , nArgs   = nArgs
                             }
-              return $ BadInstruction loc
+              pure Nothing
           else if nArgs == 0 && nParams == 0
-            then return $ Instruction loc (ProcedureCall id [])
+            then pure $ Instruction loc (ProcedureCall id [])
           else do
             {- Now check the arguments types match with the procedure parameter's types-}
-            argumentsOk <- foldM (checkTypes id pos loc) False $ zip types args
-            if argumentsOk
-              then return $ Instruction loc (ProcedureCall id args)
-              else return $ BadInstruction loc
+            args' <- zipWithM (checkTypes id pos loc) types args
+            pure $ Instruction loc (ProcedureCall id args')
         {- If there is no procedure defined that matchs with the current call, then report the error-}
         Nothing -> do
           putError loc (UndefinedProcedure id)
-          return $ BadInstruction loc
+          pure Nothing
   where
-    checkTypes pName pPos loc ok ((name, pType), Expression {expType}) = do
+    checkTypes pName pPos loc (name, pType, mode) Just e@Expression {expType, exp'} = do
       if pType == expType
-        then return ok
+        then case exp' of
+          Obj obj | mode == Out || mode == InOut -> pure (e,mode)
+          _       | mode == In -> pure (e,mode)
+          _ -> do
+            putError loc . UnknownError $ "The parameter `" <> T.unpack name <> "` has mode " <>
+                 show mode <> "\n\tbut recived an expression instead of a variable"
+            pure (e,mode)
         else do
           putError loc $ BadProcedureArgumentType name pName pPos pType expType
-          return False
-    checkTypes _ _ _ _ _ = return False
+          pure (e,mode)
+    checkTypes _ _ _ _ Nothing = pure (Nothing,In)
 
 
-skip :: Graciela Instruction
+skip :: Parser (Maybe Instruction)
 skip =
     do  pos <- getPosition
         match TokSkip
-        return $ Instruction (Location(pos,pos)) Skip
+        pure $ Instruction (Location(pos,pos)) Skip

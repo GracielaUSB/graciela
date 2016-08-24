@@ -48,9 +48,11 @@ module Parser.Monad
 
   , parens
   , brackets
-  , block
+  -- , block
   , percents
   , beginEnd
+
+  , unsafeGenCustomError
   ) where
 --------------------------------------------------------------------------------
 import           Error
@@ -59,6 +61,7 @@ import           Parser.Prim                ()
 import           Parser.State               hiding (State)
 import qualified Parser.State               as Parser (State)
 import           Token                      (Token (..), TokenPos (..))
+import           Type                       (Type)
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
 import           Control.Lens               (use, (%=))
@@ -72,6 +75,7 @@ import           Control.Monad.Trans.State  (StateT (..), evalStateT)
 import           Data.Int                   (Int32)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NE (fromList)
+import qualified Data.Map                   as Map (lookup)
 import           Data.Sequence              ((|>))
 import qualified Data.Set                   as Set (empty, singleton)
 import           Data.Text                  (Text)
@@ -159,26 +163,44 @@ execParser p fp s input = runIdentity $ execParserT p fp s input
 
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: Location -> Error -> p ()
-  safe :: p (Maybe a) -> p (Maybe a)
-  push :: Token -> p ()
-  pop :: p ()
+  getType :: Text -> p (Maybe Type)
+  followedBy :: p (Maybe a) -> p b -> p (Maybe a)
   satisfy :: (Token -> Bool) -> p Token
 
 instance Monad m => MonadParser (ParserT m) where
-  putError = pPutError
-  safe     = pSafe
-  push     = pPush
-  pop      = pPop
-  satisfy  = pSatisfy
+  putError   = pPutError
+  getType    = pGetType
+  followedBy = pFollowedBy
+  satisfy    = pSatisfy
 
 instance MonadParser g => MonadParser (StateT s g) where
-  putError l e = lift $ putError l e
-  safe p = StateT $ \s -> do
-    a' <- safe $ evalStateT p s
-    return (a', s)
-  push    = lift . push
-  pop     = lift pop
-  satisfy = lift . satisfy
+  putError l e   = lift $ putError l e
+  getType        = lift . getType
+
+
+  -- safe p = StateT $ \s -> do
+  --   a' <- safe $ evalStateT p s
+  --   return (a', s)
+
+  followedBy p (StateT r) = StateT $ \s ->
+    followedBy (runStateT p s) (r s)
+
+
+  -- followedBy (StateT p) (StateT r) = StateT $ \s ->
+  --   followedBy (f <$> p s) ()
+  --
+    where
+      f (Nothing, _) = Nothing
+      f (Just  a, b) = Just (a,b)
+
+
+
+  --
+  -- withRecovery r (L.StateT m) = L.StateT $ \s ->
+  --   withRecovery (\e -> L.runStateT (r e) s) (m s)
+
+
+  satisfy        = lift . satisfy
 
 pPutError :: Monad m => Location -> Error -> ParserT m ()
 pPutError (Location (from, _)) e = ParserT $ do
@@ -187,31 +209,28 @@ pPutError (Location (from, _)) e = ParserT $ do
   errors %= (|> err)
 pPutError _ _ = error "FIXME"
 
+pGetType :: (Monad m)
+         => Text -> ParserT m (Maybe Type)
+pGetType name = do
+  types <- use typesTable
+  case Map.lookup name types of
+    Just (t, loc) -> return $ Just t
+    Nothing       -> return Nothing
 
-
-pSafe :: (Monad m)
-      => ParserT m (Maybe a) -> ParserT m (Maybe a)
-pSafe = withRecovery r
+pFollowedBy :: (Monad m)
+            => ParserT m (Maybe a) -> ParserT m b -> ParserT m (Maybe a)
+pFollowedBy p follow = withRecovery recover p
   where
-    r e = do
+    recover e = do
       pos <- getPosition
 
       putError
         (Location (pos, undefined))
         (UnexpectedToken (errorUnexpected e))
 
-      ts <- use recSet
-      void $ noneOf ts `manyTill` (lookAhead (void $ oneOf ts) <|> eof)
+      void $ anyToken `manyTill` (void (lookAhead follow) <|> eof)
 
       pure Nothing
-
-pPush :: Monad m
-      => Token -> ParserT m ()
-pPush t = ParserT $ recSet %= (t:)
-
-pPop :: Monad m
-     => ParserT m ()
-pPop = ParserT $ recSet %= tail
 
 pSatisfy :: Monad m
          => (Token -> Bool) -> ParserT m Token
@@ -297,35 +316,41 @@ identifierAndLoc = do
 
 --------------------------------------------------------------------------------
 parens :: MonadParser m
-       => m (Maybe a) -> m (Maybe a)
-parens = (. safe) $ between
-  (match TokLeftPar  <* push TokRightPar)
-  (match TokRightPar <* pop)
+       => m a -> m a
+parens = between
+  (match TokLeftPar )
+  (match TokRightPar)
 
 brackets :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-brackets = (. safe) $ between
-  (match TokLeftBracket  <* push TokRightBracket)
-  (match TokRightBracket <* pop)
+         => m a -> m a
+brackets = between
+  (match TokLeftBracket )
+  (match TokRightBracket)
 
-block :: MonadParser m
-      => m (Maybe a) -> m (Maybe a)
-block = (. safe) $ between
-  (match TokOpenBlock  <* push TokCloseBlock)
-  (match TokCloseBlock <* pop)
+-- block :: MonadParser m
+--       => m a -> m a
+-- block = between
+--   (match TokOpenBlock )
+--   (match TokCloseBlock)
 
 percents :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-percents = (. safe) $ between
-  (match TokLeftPercent  <* push TokRightPercent)
-  (match TokRightPercent <* pop)
+         => m a -> m a
+percents = between
+  (match TokLeftPercent )
+  (match TokRightPercent)
 
 beginEnd :: MonadParser m
-         => m (Maybe a) -> m (Maybe a)
-beginEnd = (. safe) $ between
-  (match TokBegin <* push TokEnd)
-  (match TokEnd   <* pop)
+         => m a -> m a
+beginEnd = between
+  (match TokBegin)
+  (match TokEnd  )
 
+--------------------------------------------------------------------------------
+good :: Applicative f => a -> f (Maybe a)
+good = pure . Just
+
+bad :: Applicative f => f (Maybe a)
+bad = pure Nothing
 --------------------------------------------------------------------------------
 
 -- insertType :: Text -> Type -> SourcePos -> Graciela ()
@@ -340,8 +365,8 @@ beginEnd = (. safe) $ between
 --     Just (t, loc) -> return $ Just t
 --     Nothing       -> return Nothing
 --
--- --------------------------------------------------------------------------------
--- unsafeGenCustomError :: String -> Graciela ()
--- unsafeGenCustomError msg = ParserT $ do
---     pos <- getPosition
---     synErrorList %= (|> CustomError msg  (Location (pos,pos)))
+--------------------------------------------------------------------------------
+unsafeGenCustomError :: String -> Parser ()
+unsafeGenCustomError msg = do
+    pos <- getPosition
+    synErrorList %= (|> CustomError msg (Location (pos,pos)))

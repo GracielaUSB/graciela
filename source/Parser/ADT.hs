@@ -11,14 +11,13 @@ import           AST.Instruction
 import           AST.Struct
 import           Entry
 import           Error
-import           Graciela
 import           Location
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Definition
 import           Parser.Instruction
+import           Parser.Monad
 import           Parser.Recovery
-import           Parser.Token
 import           Parser.Type
 import           SymbolTable
 import           Token
@@ -37,7 +36,7 @@ import           Text.Megaparsec.Pos (SourcePos)
 
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
-abstractDataType :: Graciela Struct
+abstractDataType :: Parser (Maybe Struct)
 abstractDataType = do
     from <- getPosition
     match TokAbstract
@@ -61,7 +60,7 @@ abstractDataType = do
          , inv    = inv
          , procs  = procs}}
 
-abstractDec :: Graciela Declaration
+abstractDec :: Parser (Maybe Declaration)
 abstractDec = constant <|> variable
   where
     constant = do
@@ -100,10 +99,11 @@ abstractDec = constant <|> variable
 
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
-dataType :: Graciela Struct
+dataType :: Parser (Maybe Struct)
 dataType = do
-    from <- getPosition
+
     match TokType
+    from <- getPosition
     id <- identifier
     withRecovery TokImplements
     abstractId <- identifier
@@ -121,8 +121,10 @@ dataType = do
 
     to <- getPosition
     symbolTable %= closeScope to
-    let loc = Location(from,to)
-    insertType id (GAbstractType id) from
+    let
+       loc = Location(from,to)
+       fields = concat . fmap getFields $ decls
+    insertType id (GDataType id fields) from
     symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
     return $ Struct
         { structName = id

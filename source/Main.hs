@@ -8,13 +8,14 @@ import           AST.Program
 import           Lexer
 import           LLVM.Program
 import           Parser.Monad
+import           Parser.Program
+import           Parser.Recovery            (prettyError)
 import           SymbolTable
 import           Token
 import           Treelike
 import           Type
--- import           Parser.Program
--- import           Parser.Recovery            (prettyError)
 --------------------------------------------------------------------------------
+import           Control.Lens               ((^.))
 import           Control.Monad              (unless, void, when, (>=>))
 import           Control.Monad.Identity     (Identity, runIdentity)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT)
@@ -51,7 +52,6 @@ import           System.Process             (readProcess,
                                              readProcessWithExitCode)
 
 import           Text.Megaparsec            (ParsecT, parseErrorPretty,
-                                             runParser, runParserT,
                                              sourceColumn, sourceLine)
 import           Text.Megaparsec.Error      (ParseError, errorPos)
 --------------------------------------------------------------------------------
@@ -66,50 +66,66 @@ message :: String
 message = "uso: graciela [OPCIÓN]... [ARCHIVO]"
 
 data Options = Options
-  { optHelp     :: Bool
-  , optVersion  :: Bool
-  , optErrors   :: Maybe Int
-  , optExecName :: String
-  , optAST      :: Bool
-  , optSTable   :: Bool
-  }
+    { optHelp         :: Bool
+    , optVersion      :: Bool
+    , optErrors       :: Maybe Int
+    , optExecName     :: String
+    , optAST          :: Bool
+    , optSTable       :: Bool
+    , optOptimization :: String
+    , optAssembly     :: Bool
+    }
 
 defaultOptions   = Options
-  { optHelp     = False
-  , optVersion  = False
-  , optErrors   = Nothing
-  , optExecName = "a.out"
-  , optAST      = False
-  , optSTable   = False
-  }
+    { optHelp     = False
+    , optVersion  = False
+    , optErrors   = Nothing
+    , optExecName = "a.out"
+    , optAST      = False
+    , optSTable   = False
+    , optOptimization = ""
+    , optAssembly = False
+    }
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['?'] ["ayuda"]
-    (NoArg (\opts -> opts { optHelp = True }))
-    "Muestra este mensaje de ayuda"
-  , Option ['v'] ["version"]
-    (NoArg (\opts -> opts { optVersion = True }))
-    "Muestra la versión del compilador"
-  , Option ['e'] ["errores"]
-    (ReqArg (\ns opts -> case reads ns of
-      [(n,"")] -> opts { optErrors = Just n }
-      _        -> error "Valor inválido en el argumento de `errores`"
-    ) "ENTERO")
-    "Limita el número de errores mostrados"
-  , Option ['o'] ["nombre"]
-    (ReqArg (\fileName opts -> case fileName of
-      "" -> error "Valor inválido en el argumento de `-o`"
-      _  -> opts { optExecName = fileName }
-    ) "NOMBRE")
-    "Nombre del ejecutable"
-  , Option ['s'] ["symtable"]
-    (NoArg (\opts -> opts { optSTable = True }))
-    "Imprime la tabla de simbolos por stdin"
-  , Option ['a'] ["ast"]
-    (NoArg (\opts -> opts { optAST = True }))
-    "Imprime el AST por stdin"
-  ]
+    [ Option ['?'] ["ayuda"]
+        (NoArg (\opts -> opts { optHelp = True }))
+        "Muestra este mensaje de ayuda"
+    , Option ['v'] ["version"]
+        (NoArg (\opts -> opts { optVersion = True }))
+        "Muestra la versión del compilador"
+    , Option ['e'] ["errores"]
+        (ReqArg (\ns opts -> case reads ns of
+            [(n,"")] -> opts { optErrors = Just n }
+            _        -> error "Valor inválido en el argumento de `errores`"
+        ) "ENTERO")
+        "Limita el número de errores mostrados"
+    , Option ['o'] ["nombre"]
+        (ReqArg (\fileName opts -> case fileName of
+                    "" -> error "Valor inválido en el argumento de `-o`"
+                    _  -> opts { optExecName = fileName }
+                ) "NOMBRE")
+        "Nombre del ejecutable"
+    , Option ['s'] ["symtable"]
+        (NoArg (\opts -> opts { optSTable = True }))
+        "Imprime la tabla de simbolos por stdin"
+    , Option ['a'] ["ast"]
+        (NoArg (\opts -> opts { optAST = True }))
+        "Imprime el AST por stdin"
+    , Option ['S'] ["assembly"]
+        (NoArg (\opts -> opts { optAssembly = True }))
+        "Generar codigo ensamblador"
+    , Option ['O'] []
+        (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "NIVEL") $
+        unlines
+          [ "Niveles de optimizacion"
+          , "-O0 Sin optimizacion"
+          , "-O1 poca optimizacion"
+          , "-O2 optimizacion por defecto"
+          , "-O3 optimizacion agresiva"
+          ]
+    ]
 
 opts :: IO (Options, [String])
 opts = do
@@ -152,7 +168,13 @@ main = do
     (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
   -- Get the name of the output file, given with flag -o
-  let execName = optExecName options
+  let execName = if optExecName options == "a.out"
+                  then if optAssembly options
+                    then "a.s"
+                    else "a.out"
+                  else if optAssembly options
+                    then optExecName options <> ".s"
+                    else optExecName options
 
   -- Set the IR file name. This file will be delete after finish the compilation
   let
@@ -163,60 +185,67 @@ main = do
   -- Read the source file
   source <- readFile fileName
 
+  let tokens = lex fileName source
+  let (r, state) = runParser program fileName initialState tokens
+
+  case r of
+    Just program -> do
+        {-Print AST-}
+        when (optAST options) . putStrLn . drawTree . toTree $ program
+        {-Print Symbol Table-}
+        when (optSTable options) $ do
+          putStrLn . drawTree . toTree . fst . _symbolTable $ state
+          putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
+
+        {- Print Errors-}
+        putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
+        case (optErrors options) of
+          Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
+          _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
+
+        {- If no errors -}
+        when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do
+          {- Generate LLVM AST -}
+          let
+            files = toList $ _filesToRead state
+            types = _typesTable state
+          newast <- programToLLVM files types program
+
+          {- And write it as IR on a ll file -}
+          withContext $ \context ->
+            liftError . withModuleFromAST context newast $ \m ->
+              liftError $ writeLLVMAssemblyToFile (File llName ) m
+
+    {- If an unrecoverable error occurs during Parsing, will be printed here-}
+    Nothing -> mapM_ print (state ^. errors)
+
   let
-    ts = lex fileName source
+    oplvl = optOptimization options
+    assembly = if optAssembly options then "-S" else ""
 
-  print ts
-
-  --   (r, state) = runParser program fileName ts initialState
-  --
-  -- case r of
-  --   Right program -> do
-  --     {-Print AST-}
-  --     when (optAST options) . putStrLn . drawTree . toTree $ program
-  --     {-Print Symbol Table-}
-  --     when (optSTable options) $ do
-  --       putStrLn . drawTree . toTree . fst . _symbolTable $ state
-  --       putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
-  --
-  --     {- Print Errors-}
-  --     putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
-  --     case (optErrors options) of
-  --       Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
-  --       _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
-  --
-  --     {- If no errors -}
-  --     when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do
-  --       {- Generate LLVM AST -}
-  --       newast <- programToLLVM (toList $ _filesToRead state) program
-  --       {- And write it as IR on a ll file -}
-  --       withContext $ \context ->
-  --         liftError . withModuleFromAST context newast $ \m ->
-  --           liftError $ writeLLVMAssemblyToFile (File llName ) m
-  --
-  --   {- If an unrecoverable error occurs during Parsing, will be printed here-}
-  --   Left e -> putStrLn $ prettyError e
-  --
-  -- compileLL llName execName
+  compileLL llName execName oplvl assembly
 
 
--- compileLL :: String -> String -> IO ()
--- compileLL llName execName = void $
---   -- (exitCode, _out, _errs) <-
---   readProcessWithExitCode clang ["-o", execName, llName, lib] ""
---
---   -- case exitCode of
---   --   ExitSuccess ->
---   --     void $ readProcess "rm" [llName] ""
---   --   ExitFailure _ ->
---   --     die "clang error"
---
---   where
---     lib  = case os of
---       "darwin"  -> "/usr/local/lib/graciela-lib.so"
---       "linux"   -> "/usr/local/lib/graciela-lib.so"
---       "windows" -> undefined
---     clang = case os of
---       "darwin" -> "/usr/local/bin/clang-3.5"
---       "linux"  -> "clang-3.5"
---       "windows" -> undefined
+compileLL :: String -> String -> String -> String -> IO ()
+compileLL llName execName oplvl assembly = void $ do
+    (exitCode, _out, _errs) <-
+      readProcessWithExitCode clang [assembly, oplvl, "-o", execName, llName, lib] ""
+    putStr _out
+    putStr _errs
+
+    case exitCode of
+        ExitSuccess ->
+            -- void $ readProcess "rm" [llName] ""
+            return ()
+        ExitFailure _ -> do
+            die "clang error"
+
+    where
+        lib  = case os of
+            "darwin"  -> "/usr/local/lib/graciela-lib.so"
+            "linux"   -> "/usr/local/lib/graciela-lib.so"
+            "windows" -> undefined
+        clang = case os of
+            "darwin" -> "/usr/local/bin/clang-3.5"
+            "linux"  -> "clang-3.5"
+            "windows" -> undefined

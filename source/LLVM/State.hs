@@ -64,6 +64,15 @@ initialState = LLVMState
   , _outerBlock  = True
   }
 
+
+addDefinitions :: Seq LLVM.Definition -> LLVM ()
+addDefinitions defs =
+  moduleDefs %= (<> defs)
+
+addDefinition :: LLVM.Definition -> LLVM ()
+addDefinition defs =
+  moduleDefs %= (|> defs)
+
 addInstructions :: Insts -> LLVM ()
 addInstructions insts =
   currentBlock %= (<> insts)

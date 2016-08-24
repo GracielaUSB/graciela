@@ -59,12 +59,13 @@ data Type
   | GFloat  -- ^ Basic floating-point number type.
   | GBool   -- ^ Basic boolean type.
   | GChar   -- ^ Basic character type.
-  | GString -- ^ Basic String type.
+
+  | GString -- ^ Basic string type.
 
   | GDataType
     { typeName ::  Text
     -- , oftype :: [Type]
-    -- , fields :: [Type]
+    , fields   :: [Type]
     -- , procs  :: [Type]
     } -- ^ Type for user defined DTs.
   | GAbstractType
@@ -150,8 +151,8 @@ instance Monoid Type where
 
   GTypeVar a `mappend` GTypeVar b =
     if a == b then GTypeVar a else GUndef
-  GDataType a `mappend` GDataType b =
-    if a == b then GDataType a else GUndef
+  GDataType a fs `mappend` GDataType b _ =
+    if a == b then GDataType a fs else GUndef
   GAbstractType a `mappend` GAbstractType b =
     if a == b then GAbstractType a else GUndef
   GUnsafeName a `mappend` GUnsafeName b =
@@ -161,7 +162,7 @@ instance Monoid Type where
 
 
 instance Show Type where
-  show t = "\ESC[0;32m" <> show' t <> "\ESC[m"
+  show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
     where
       show' = \case
         GUndef          -> "\ESC[0;31m" <> "undefined" <> "\ESC[0;32m"
@@ -169,8 +170,9 @@ instance Show Type where
         GFloat          -> "double"
         GBool           -> "boolean"
         GChar           -> "char"
+        GString         -> "string"
         GPointer      t -> "pointer of " <> show' t
-        GArray     _ t  -> "array of " <> show' t
+        GArray     s t  -> "array[" <> show s <> "] of " <> show' t
         GSet      t     -> "conjunto de " <> show' t
         GMultiset t     -> "multiconjunto de " <> show' t
         GSeq      t     -> "secuencia de " <> show' t
@@ -179,7 +181,7 @@ instance Show Type where
         GTuple    ts    ->
           "tupla (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> "variable de tipo " <> unpack n
-        GDataType n     -> "type " <> unpack n
+        GDataType n f   -> "type " <> unpack n
         GAbstractType n -> "abstract " <> unpack n
 
         GAny            -> "any type"

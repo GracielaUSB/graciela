@@ -11,11 +11,12 @@ import           AST.Expression    (Expression (..), Expression' (Value),
                                     Value (..))
 import           Entry
 import           Error
-import           Graciela
 import           Location
 import           Parser.Expression (expression)
+import           Parser.Monad      (Parser, getType, identifier, integerLit,
+                                    match, parens, putError,
+                                    unsafeGenCustomError)
 import           Parser.Recovery
-import           Parser.Token      (identifier, integerLit, match, parens)
 import           SymbolTable       (lookup)
 import           Token
 import           Type
@@ -30,7 +31,7 @@ import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
                                     sepBy, try, (<|>))
 --------------------------------------------------------------------------------
 
-basicType :: Graciela Type
+basicType :: Parser (Maybe Type)
 basicType = do
   tname <- identifier
   t <- getType tname
@@ -38,18 +39,18 @@ basicType = do
   case t of
     Nothing -> do
       unsafeGenCustomError ("El tipo `" <> unpack tname <> "` no existe.")
-      return GUndef
+      pure . Just $ GUndef
     Just t' ->
       if t' =:= GOneOf [GInt, GFloat, GBool, GChar]
-        then return t'
+        then pure . Just $  t'
         else do
           unsafeGenCustomError $
             "El tipo `" <> unpack tname <> "` no es un tipo basico."
-          return GUndef
+          pure . Just $ GUndef
 
 
-type' :: Graciela Type
-type' = try arrayOf <|> try type'' <|> userDefined
+type' :: Parser (Maybe Type)
+type' = try userDefined <|> try arrayOf <|> try type''
   where
     -- Try to parse an array type
     arrayOf = do
@@ -59,11 +60,14 @@ type' = try arrayOf <|> try type'' <|> userDefined
       match TokRightBracket
       match TokOf
       t <- type'
-      pure $ if t == GUndef
-        then t
-        else case msize of
-          Just i  -> GArray i t
-          Nothing -> GUndef
+
+      pure $ case t of
+        Nothing -> Just GUndef
+        Just GUndef -> Just GUndef
+        Just t -> case msize of
+          Nothing -> Just GUndef
+          Just i -> Just $ GArray i t
+
     type'' = do
       -- If its not an array, then try with a basic type or a pointer
       from  <- getPosition
@@ -74,30 +78,37 @@ type' = try arrayOf <|> try type'' <|> userDefined
       case t of
         Nothing -> do
           putError loc (UndefinedType tname)
-          return GUndef
+          pure . Just $ GUndef
         Just t' -> isPointer t'
 
-    isPointer :: Type -> Graciela Type
+    isPointer :: Type -> Parser (Maybe Type)
     isPointer t = do
         match TokTimes
         isPointer (GPointer t)
-      <|> return t
+      <|> (pure . Just $ t)
 
     -- TODO: Or if its a user defined Type
     userDefined = do
+      from <- getPosition
       id <- identifier
       match TokOf
-      t <- type'
-      return (GDataType id)
+      t     <- getType id
+      polymorphism <- type'
+      to <- getPosition
+      case t of
+        Nothing -> do
+          putError (Location(from,to)) (UndefinedType id)
+          pure . Just $ GUndef
+        Just t' -> pure . Just $ t'
 
-arraySize :: Graciela (Maybe Int32)
+arraySize :: Parser (Maybe Int32)
 arraySize = do
   pos <- getPosition
   expr <- safeExpression
   case expr of
-    BadExpression { loc } ->
+    Nothing ->
       pure Nothing
-    Expression { expType, loc, exp' } -> case expType of
+    Just Expression { expType, loc, exp' } -> case expType of
       GInt -> case exp' of
         Value (IntV i) -> return (Just i)
         Value _ -> error "internal error: Type and Value mismatch"
@@ -112,18 +123,22 @@ arraySize = do
           \sin cuantificaciones."
         pure Nothing
 
-abstractType :: Graciela Type
-abstractType = type'
-        <|> do {match TokSet;      match TokOf; GSet      <$> typeVar }
-        <|> do {match TokMultiset; match TokOf; GMultiset <$> typeVar }
-        <|> do {match TokSeq;      match TokOf; GSeq      <$> typeVar }
-        <|> do {match TokFunc; ba <- typeVar; match TokArrow; bb <- typeVar; return $ GFunc ba bb}
-        <|> do {match TokRel;  ba <- typeVar; match TokBiArrow; bb <- typeVar; return $ GRel ba bb}
-        <|> GTuple <$> parens (typeVar `sepBy` match TokComma)
-        <|> typeVar
+abstractType :: Parser (Maybe Type)
+abstractType
+   =  type'
+  <|> do {match TokSet;      match TokOf; fmap GSet      <$> typeVar }
+  <|> do {match TokMultiset; match TokOf; fmap GMultiset <$> typeVar }
+  <|> do {match TokSeq;      match TokOf; fmap GSeq      <$> typeVar }
 
-typeVar :: Graciela Type
+  <|> do {match TokFunc; ba <- typeVar; match TokArrow;   bb <- typeVar; pure $ GFunc <$> ba <*> bb }
+  <|> do {match TokRel;  ba <- typeVar; match TokBiArrow; bb <- typeVar; pure $ GRel  <$> ba <*> bb }
+
+  <|> (fmap GTuple . sequence <$> parens (typeVar `sepBy` match TokComma))
+
+  <|> typeVar
+
+typeVar :: Parser (Maybe Type)
 typeVar = do
   id <- identifier
   notFollowedBy (match TokTimes)
-  return $ GTypeVar id -- polymorphism
+  return . Just $ GTypeVar id -- polymorphism

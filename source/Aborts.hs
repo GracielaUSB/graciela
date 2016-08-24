@@ -78,8 +78,8 @@ createTagPost next pos = do
 
 
 -- | Etiqueta usada para el caso en que la asercion no se cumpla
-createTagAsert :: Name -> SourcePos -> LLVM ()
-createTagAsert next pos = do
+createTagAssert :: Name -> SourcePos -> LLVM ()
+createTagAssert next pos = do
     callAbort 5 pos
     setLabel next $ Do $ Br next []
 
@@ -142,3 +142,9 @@ createTagRangeAbort :: Name -> SourcePos -> LLVM ()
 createTagRangeAbort next pos = do
     callAbort 14 pos
     setLabel next $ Do $ Unreachable []
+
+
+createTagNullPtr :: Name -> SourcePos -> LLVM ()
+createTagNullPtr next pos = do
+  callAbort 15 pos
+  setLabel next $ Do $ Unreachable []

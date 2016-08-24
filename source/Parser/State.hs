@@ -8,7 +8,6 @@ module Parser.State
   , filesToRead
   , currentProc
   , typesTable
-  , recSet
   , initialState
   ) where
 --------------------------------------------------------------------------------
@@ -37,7 +36,6 @@ data State = State
   , _filesToRead  :: Set String
   , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
   , _typesTable   :: Map Text (Type, Location)
-  , _recSet       :: [Token]
   }
 
 makeLenses ''State
@@ -51,7 +49,6 @@ initialState path = State
   , _filesToRead     = Set.empty
   , _currentProc     = Nothing
   , _typesTable      = initialTypes
-  , _recSet          = []
   }
   where
     initialTypes = Map.fromList

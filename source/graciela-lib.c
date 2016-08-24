@@ -26,6 +26,14 @@ void _closeFile(int8_t* file) {
     fclose(f);
 }
 
+int8_t* _malloc(int size){
+  return malloc(size);
+}
+
+void _free(int8_t *mem){
+  free(mem);
+}
+
 int _readFileInt(int8_t* file) {
   FILE* f = (FILE*) file;
 
@@ -314,6 +322,10 @@ void _abort(int x, int line, int column) {
 
         case 14:
             printf("\nABORT: En la línea %d, columna %d, Rango vacio.\n\n", line, column);
+            exit(0);
+
+        case 15:
+            printf("\nABORT: En la línea %d, columna %d, Acceso a un apuntador nulo.\n\n", line, column);
             exit(0);
 
     }
