@@ -11,7 +11,7 @@ import           AST.Expression                          (Expression (..),
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import           AST.Object                              as O (Object' (..),
-                                                          Object'' (..))
+                                                          Object'' (..), objMode)
 import           LLVM.State
 import           LLVM.Type                               (boolType, toLLVMType
                                                          ,intType, floatType)
@@ -56,8 +56,7 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the 
   -- procedure as a constant so doesn't need to be loaded
-  Variable { name, mode } | mode == Just In -> do
-     return $ LocalReference (toLLVMType objType) $ Name (unpack name)
+  Variable { name } | objMode obj == Just In -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
   _ -> do
@@ -80,8 +79,7 @@ object obj@Object { objType, obj' } = case obj' of
 
       return ref
 
-    -- Index { inner, index } ->
-    --   index <- expression index
+
 
     
 
@@ -175,7 +173,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
 
 
 expression :: Expression -> LLVM Operand
-expression Expression { expType, exp'} = case exp' of
+expression (Expression (Location(pos,_)) expType exp') = case exp' of
   Value val -> pure $ case val of
     BoolV  theBool  ->
       ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
@@ -304,6 +302,40 @@ expression Expression { expType, exp'} = case exp' of
       -- llvm.sadd.with.overflow.i32 (fun == intAdd)
       -- llvm.ssub.with.overflow.i32 (fun == intSub)
       -- llvm.smul.with.overflow.i32 (fun == intMul)
+       safeOperation label fun lOperand rOperand = do
+              labelAdd      <- newLabel
+              labelCond     <- newLabel
+              overflowLabel <- newLabel
+              normalLabel   <- newLabel
+              let
+                safeStruct = StructureType False [intType, boolType]
+                add = callFunction fun lOperand rOperand
+
+                result = ExtractValue  
+                    { aggregate = LocalReference safeStruct labelAdd
+                    , indices'  = [0]
+                    , metadata  = [] }
+
+                condition = ExtractValue  
+                    { aggregate = LocalReference safeStruct labelAdd
+                    , indices'  = [1]
+                    , metadata  = [] }
+  
+                condBr = CondBr 
+                      { condition = LocalReference boolType labelCond
+                      , trueDest  = overflowLabel
+                      , falseDest = normalLabel
+                      , metadata' = []
+                      }
+              
+              addInstructions $ Seq.fromList [ labelAdd  := add
+                                             , label     := result
+                                             , labelCond := condition]
+              
+              setLabel overflowLabel $ Do condBr
+              createTagOverflow normalLabel pos
+              return Seq.empty
+
       callFunction fun lOperand rOperand =
         let
           type' = StructureType False [i32, i1]
@@ -320,45 +352,33 @@ expression Expression { expType, exp'} = case exp' of
 
       opInt op lOperand rOperand = do
         label <- newLabel
-        addInstructions $ case op of
-          Op.Plus   -> Seq.singleton $ label := Add
-                            { nsw      = False
-                            , nuw      = False
-                            , operand0 = lOperand
-                            , operand1 = rOperand
-                            , metadata = []
-                            }
-          Op.BMinus -> Seq.singleton $ label := Sub
-                            { nsw      = False
-                            , nuw      = False
-                            , operand0 = lOperand
-                            , operand1 = rOperand
-                            , metadata = []
-                            }
-          Op.Times  -> Seq.singleton $ label := Mul
-                            { nsw      = False
-                            , nuw      = False
-                            , operand0 = lOperand
-                            , operand1 = rOperand
-                            , metadata = []
-                            }
-          Op.Div    -> Seq.singleton $ label := SDiv
+        insts <- case op of
+          Op.Plus   -> safeOperation label intAdd lOperand rOperand
+
+          Op.BMinus -> safeOperation label intSub lOperand rOperand
+
+          Op.Times  -> safeOperation label intMul lOperand rOperand
+
+          Op.Div    -> return $ Seq.singleton $ label := SDiv
                             { exact = True
                             , operand0 = lOperand
                             , operand1 = rOperand
                             , metadata = []
                             }
-          Op.Mod    -> Seq.singleton $ label := SRem
+          Op.Mod    -> return $ Seq.singleton $ label := SRem
                             { operand0 = lOperand
                             , operand1 = rOperand
                             , metadata = []
                             }
-          Op.Min    ->
+          Op.Min    -> return $
             Seq.singleton $ label := callFunction minnumString lOperand rOperand
 
-          Op.Max    ->
+          Op.Max    -> return $
             Seq.singleton $ label := callFunction maxnumString  lOperand rOperand
-          _         -> error "opFloat"
+          
+          _         -> error "opInt"
+
+        addInstructions insts
         return $ LocalReference intType label
 
       opFloat op lOperand rOperand = do

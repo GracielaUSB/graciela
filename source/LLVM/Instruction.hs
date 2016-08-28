@@ -14,7 +14,6 @@ import           LLVM.State
 import           LLVM.Expression                        (expression, objectRef)
 import           LLVM.Declaration                       (declaration)
 import           LLVM.Type
-import           SymbolTable
 import           Location
 import           Type                                    as T
 --------------------------------------------------------------------------------
@@ -54,8 +53,10 @@ guard (expr, decls, insts) falseLabel = do
                       , metadata' = []
                       }
   setLabel trueLabel $ Do condBr
+  openScope
   mapM_ declaration decls
   mapM_ instruction insts
+  closeScope
 
 
 
@@ -137,8 +138,10 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 
   Block st decls insts -> do
+    openScope
     mapM_ declaration decls
     mapM_ instruction insts
+    closeScope
 
   ProcedureCall {pname, args} -> do
     args <- mapM createArg args
@@ -157,10 +160,12 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     addInstruction $ label := call
     where 
       -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
-      -- If it is not an Out or InOut argument, then just pass a constant value
+      -- If it is not an Out or InOut argument, then just pass a constant value.
+      -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
       createArg (e,mode) = do  
-        expr <- if mode == Out || mode == InOut 
-            then do
+        expr <- if mode == In && (expType e =:= basicOrPointer)
+            then expression e 
+            else do
               label <- newLabel
               ref   <- objectRef . E.theObj . exp' $ e
               let 
@@ -172,9 +177,10 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                     } 
               addInstruction $ label := bitcast
               return $ LocalReference type' label
-            else expression e 
         return (expr,[])
-              
+      
+      basicOrPointer = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat, T.GPointer T.GAny]
+      
   Free { idName, freeType } -> do
     labelLoad  <- newLabel
     labelCast  <- newLabel

@@ -15,7 +15,7 @@ import           SymbolTable
 import           Type                         (Type(..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens                 (use, (%=), (.=))
-import           Control.Monad                (zipWithM_)
+import           Control.Monad                (zipWithM_,when)
 import           Data.Monoid                  ((<>))
 import           Data.Sequence                (Seq)
 import qualified Data.Sequence                as Seq (empty, fromList,
@@ -36,17 +36,16 @@ declaration BadDeclaration {} =
 
 declaration Declaration { declType, declIds } = do 
   mapM_ (alloc declType) declIds
-  mapM_ (defaultValue declType) declIds
 
 declaration Initialization { declType, declPairs } = do
-  mapM_ (alloc declType . fst) declPairs
-  mapM_ (store declType) declPairs
+  mapM_ (initialize declType) declPairs
 
 
 
 {- Allocate a variable -}
 alloc :: Type -> Text -> LLVM ()
 alloc gtype lval = do
+  name <- insertName $ unpack lval
   let
     alloc' = Alloca
       { allocatedType = toLLVMType gtype
@@ -54,39 +53,20 @@ alloc gtype lval = do
       , alignment     = 4
       , metadata      = []
       }
-  addInstruction $ Name (unpack lval) := alloc'
+  addInstruction $ Name name := alloc'
 
-{- Store an expression in a variable memory -}
-store :: Type -> (Text, Expression) -> LLVM ()
-store gtype (lval, expr) = do
-  value <- expression expr
-  let
-    store = Store
-      { volatile = False
-      , address  = LocalReference (toLLVMType gtype) (Name (unpack lval))
-      , value    = value
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = []
-      }
-  -- The store is an unamed instruction, so get the next instruction label
-  label <- newLabel
-  addInstruction (label := store)
-
-defaultValue :: Type -> Text -> LLVM ()
-defaultValue gtype lval 
-    | gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] = do
-  let
-    store = Store
-      { volatile = False
-      , address  = LocalReference (toLLVMType gtype) (Name (unpack lval))
-      , value    = value gtype
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = []
-      }
-  label <- newLabel
-  addInstruction (label := store)
+  when (gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
+      let
+        store = Store
+          { volatile = False
+          , address  = LocalReference (toLLVMType gtype) (Name name)
+          , value    = value gtype
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = []
+          }
+      label <- newLabel
+      addInstruction (label := store)
   where 
     value GBool          = ConstantOperand $ C.Int 1 0
     value GChar          = ConstantOperand $ C.Int 8 0
@@ -94,7 +74,32 @@ defaultValue gtype lval
     value GFloat         = ConstantOperand $ C.Float $ LLVM.Double 0
     value t@(GPointer _) = ConstantOperand $ C.Null (toLLVMType  t)
 
-defaultValue _ _ = return ()
+{- Store an expression in a variable memory -}
+initialize :: Type -> (Text, Expression) -> LLVM ()
+initialize gtype (lval, expr) = do
+  name <- insertName $ unpack lval
+  let
+    alloc' = Alloca
+      { allocatedType = toLLVMType gtype
+      , numElements   = Nothing
+      , alignment     = 4
+      , metadata      = []
+      }
+  addInstruction $ Name name := alloc'
+  value <- expression expr
+  let
+    store = Store
+      { volatile = False
+      , address  = address  = LocalReference (toLLVMType gtype) (Name name)
+      , value    = value
+      , maybeAtomicity = Nothing
+      , alignment = 4
+      , metadata  = []
+      }
+  -- The store is an unamed instruction, so get the next instruction label
+  label <- newLabel
+  addInstruction $ label := store
+
 
 
 
