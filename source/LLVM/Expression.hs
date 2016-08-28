@@ -21,6 +21,7 @@ import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (when)
+import qualified Data.ByteString                         as BS (unpack)
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
@@ -30,8 +31,8 @@ import           Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  singleton,
                                                                  viewr, (|>))
 import           Data.Text                               (unpack)
-import           Data.Word
-import           Debug.Trace
+import           Data.Text.Encoding                      (encodeUtf8)
+import           Data.Word                               ()
 import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
@@ -189,19 +190,24 @@ expression Expression { expType, exp'} = case exp' of
     return $ ConstantOperand $ C.Null intType
 
   StringLit theString -> do
+    let
+      -- Convert the string into an array of 8-bit chars
+      chars = BS.unpack . encodeUtf8 $ theString
     -- Get the length of the string
-    let n  = fromIntegral $ length theString + 1
+      n  = fromIntegral . succ . length $ chars
     -- Create an array type
-    let t = ArrayType n i16
+      t = ArrayType n i8
+
     name <- newLabel
     -- Create a global definition for the string
-    let def = GlobalDefinition $ Global.globalVariableDefaults
-                { Global.name        = name
-                , Global.isConstant  = True
-                , Global.type'       = t
-                , Global.initializer = Just $
-                    C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- theString ++ "\0"]
-                }
+    let
+      def = GlobalDefinition $ Global.globalVariableDefaults
+        { Global.name        = name
+        , Global.isConstant  = True
+        , Global.type'       = t
+        , Global.initializer = Just . C.Array i8 $
+          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
+        }
     -- and add it to the module's definitions
     moduleDefs %= (Seq.|> def)
     return $ ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]

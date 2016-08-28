@@ -29,12 +29,17 @@ import           Text.Megaparsec.Error (ParseError (..))
 import           Text.Megaparsec.Pos   (unsafePos)
 --------------------------------------------------------------------------------
 
+type RecursionAllowed = Bool
+
 data State = State
   { _synErrorList :: Seq MyParseError
   , _errors       :: Seq (ParseError TokenPos Error)
   , _symbolTable  :: SymbolTable
   , _filesToRead  :: Set String
-  , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type)])
+  , _currentProc  ::
+      Maybe (Text, SourcePos, Seq (Text, Type, ArgMode), RecursionAllowed)
+  , _currentFunc  ::
+      Maybe (Text, SourcePos, Seq (Text, Type), RecursionAllowed)
   , _typesTable   :: Map Text (Type, Location)
   }
 

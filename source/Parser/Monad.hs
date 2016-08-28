@@ -52,6 +52,16 @@ module Parser.Monad
   , percents
   , beginEnd
 
+  , some
+  , many
+
+  , endBy
+  , endBy1
+  , sepBy
+  , sepBy1
+  , sepEndBy
+  , sepEndBy1
+
   , unsafeGenCustomError
   ) where
 --------------------------------------------------------------------------------
@@ -76,7 +86,8 @@ import           Data.Int                   (Int32)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NE (fromList)
 import qualified Data.Map                   as Map (lookup)
-import           Data.Sequence              ((|>))
+import           Data.Sequence              (Seq, (<|), (|>))
+import qualified Data.Sequence              as Seq (empty, singleton)
 import qualified Data.Set                   as Set (empty, singleton)
 import           Data.Text                  (Text)
 import           Text.Megaparsec            (ErrorItem (..), ParseError (..),
@@ -166,41 +177,21 @@ class MonadParsec Error [TokenPos] p => MonadParser p where
   getType :: Text -> p (Maybe Type)
   followedBy :: p (Maybe a) -> p b -> p (Maybe a)
   satisfy :: (Token -> Bool) -> p Token
+  match' :: Token -> p Location
 
 instance Monad m => MonadParser (ParserT m) where
   putError   = pPutError
   getType    = pGetType
   followedBy = pFollowedBy
   satisfy    = pSatisfy
+  match'     = pMatch'
 
 instance MonadParser g => MonadParser (StateT s g) where
-  putError l e   = lift $ putError l e
-  getType        = lift . getType
-
-
-  -- safe p = StateT $ \s -> do
-  --   a' <- safe $ evalStateT p s
-  --   return (a', s)
-
-  followedBy p (StateT r) = StateT $ \s ->
-    followedBy (runStateT p s) (r s)
-
-
-  -- followedBy (StateT p) (StateT r) = StateT $ \s ->
-  --   followedBy (f <$> p s) ()
-  --
-    where
-      f (Nothing, _) = Nothing
-      f (Just  a, b) = Just (a,b)
-
-
-
-  --
-  -- withRecovery r (L.StateT m) = L.StateT $ \s ->
-  --   withRecovery (\e -> L.runStateT (r e) s) (m s)
-
-
-  satisfy        = lift . satisfy
+  putError l e        = lift $ putError l e
+  getType             = lift . getType
+  followedBy p follow = withRecovery (pRecover follow) p
+  satisfy             = lift . satisfy
+  match'              = lift . match'
 
 pPutError :: Monad m => Location -> Error -> ParserT m ()
 pPutError (Location (from, _)) e = ParserT $ do
@@ -219,18 +210,25 @@ pGetType name = do
 
 pFollowedBy :: (Monad m)
             => ParserT m (Maybe a) -> ParserT m b -> ParserT m (Maybe a)
-pFollowedBy p follow = withRecovery recover p
-  where
-    recover e = do
-      pos <- getPosition
+pFollowedBy p follow =
+  withRecovery (pRecover follow) (p <* lookAhead follow)
 
-      putError
-        (Location (pos, undefined))
-        (UnexpectedToken (errorUnexpected e))
 
-      void $ anyToken `manyTill` (void (lookAhead follow) <|> eof)
+pRecover :: (MonadParser m)
+         => m b
+         -> ParseError TokenPos Error
+         -> m (Maybe a)
+pRecover follow e = do
+  pos <- getPosition
 
-      pure Nothing
+  putError
+    (Location (pos, undefined))
+    (UnexpectedToken (errorUnexpected e))
+
+  void $ anyToken `manyTill` (void (lookAhead follow) <|> eof)
+
+  pure Nothing
+
 
 pSatisfy :: Monad m
          => (Token -> Bool) -> ParserT m Token
@@ -241,6 +239,21 @@ pSatisfy f = token test Nothing
         then Right tok
         else Left . unex $ tp
     unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
+
+
+pMatch' :: Monad m
+         => Token-> ParserT m Location
+pMatch' t = withRecovery recover (match t)
+  where
+    recover e = do
+      pos <- getPosition
+
+      let loc = Location (pos, pos)
+
+      putError loc $
+        UnexpectedToken (errorUnexpected e)
+
+      pure loc
 --------------------------------------------------------------------------------
 
 match :: MonadParser m
@@ -346,11 +359,62 @@ beginEnd = between
   (match TokEnd  )
 
 --------------------------------------------------------------------------------
-good :: Applicative f => a -> f (Maybe a)
-good = pure . Just
+-- | One or more.
+some :: Alternative m => m a -> m (Seq a)
+some v = some_v
+  where
+    many_v = some_v <|> pure Seq.empty
+    some_v = fmap (<|) v <*> many_v
+{-# INLINE some #-}
 
-bad :: Applicative f => f (Maybe a)
-bad = pure Nothing
+-- | Zero or more.
+many :: Alternative m => m a -> m (Seq a)
+many v = many_v
+  where
+    many_v = some_v <|> pure Seq.empty
+    some_v = fmap (<|) v <*> many_v
+{-# INLINE many #-}
+
+-- | @endBy p sep@ parses /zero/ or more occurrences of @p@, separated
+-- and ended by @sep@. Returns a sequence of values returned by @p@.
+--
+-- > cStatements = cStatement `endBy` semicolon
+endBy :: Alternative m => m a -> m sep -> m (Seq a)
+endBy p sep = many (p <* sep)
+{-# INLINE endBy #-}
+
+-- | @endBy1 p sep@ parses /one/ or more occurrences of @p@, separated
+-- and ended by @sep@. Returns a sequence of values returned by @p@.
+endBy1 :: Alternative m => m a -> m sep -> m (Seq a)
+endBy1 p sep = some (p <* sep)
+{-# INLINE endBy1 #-}
+
+-- | @sepBy p sep@ parses /zero/ or more occurrences of @p@, separated
+-- by @sep@. Returns a sequence of values returned by @p@.
+--
+-- > commaSep p = p `sepBy` comma
+sepBy :: Alternative m => m a -> m sep -> m (Seq a)
+sepBy p sep = sepBy1 p sep <|> pure Seq.empty
+{-# INLINE sepBy #-}
+
+-- | @sepBy1 p sep@ parses /one/ or more occurrences of @p@, separated
+-- by @sep@. Returns a sequence of values returned by @p@.
+sepBy1 :: Alternative m => m a -> m sep -> m (Seq a)
+sepBy1 p sep = (<|) <$> p <*> many (sep *> p)
+{-# INLINE sepBy1 #-}
+
+-- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
+-- separated and optionally ended by @sep@. Returns a sequence of values
+-- returned by @p@.
+sepEndBy :: Alternative m => m a -> m sep -> m (Seq a)
+sepEndBy p sep = sepEndBy1 p sep <|> pure Seq.empty
+{-# INLINE sepEndBy #-}
+
+-- | @sepEndBy1 p sep@ parses /one/ or more occurrences of @p@,
+-- separated and optionally ended by @sep@. Returns a list of values
+-- returned by @p@.
+sepEndBy1 :: Alternative m => m a -> m sep -> m (Seq a)
+sepEndBy1 p sep = (<|) <$> p <*> ((sep *> sepEndBy p sep) <|> pure Seq.empty)
 --------------------------------------------------------------------------------
 
 -- insertType :: Text -> Type -> SourcePos -> Graciela ()

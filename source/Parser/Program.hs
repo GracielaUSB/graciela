@@ -29,13 +29,13 @@ program = do
   symbolTable %= openScope from
   structs <- many (abstractDataType <|> dataType)
 
-  withRecovery TokProgram
+  match' TokProgram
   id <- safeIdentifier
   TokBegin `withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
 
   decls <- listDefProc
   body  <- block
-  withRecovery TokEnd
+  match' TokEnd
   eof
   to <- getPosition
   symbolTable %= closeScope to

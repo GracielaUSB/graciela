@@ -19,6 +19,7 @@ import           Parser.Expression
 import           Parser.Instruction
 import           Parser.Monad
 import           Parser.Recovery
+import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
@@ -31,27 +32,27 @@ import           Data.List          (partition)
 import           Data.Maybe         (catMaybes)
 import           Data.Monoid        ((<>))
 import qualified Data.Text          as T
-import           Text.Megaparsec    (eitherP, getPosition, lookAhead, many,
-                                     manyTill, notFollowedBy, sepBy, try, (<|>))
+import           Text.Megaparsec    (eitherP, getPosition, lookAhead, manyTill,
+                                     notFollowedBy, try, (<|>))
 -------------------------------------------------------------------------------
 
-listDefProc :: Graciela [Definition]
+listDefProc :: Parser (Maybe (Seq Definition))
 listDefProc = many (function <|> procedure)
 
 {- Parse a function. If something went wrong, it should return a bad definition -}
-function :: Graciela Definition
+function :: Parser (Maybe Definition)
 function  = do
   from <- getPosition
   match TokFunc
 
   id     <- identifier
   params <- parens $ functionParameters `sepBy` match TokComma
-  withRecovery TokArrow
+  match' TokArrow
   retType <- type'
   symbolTable %= openScope from
-  withRecovery TokBegin
+  match' TokBegin
   body <- expression
-  withRecovery TokEnd
+  match' TokEnd
   to  <- getPosition
   let location = Location (from, to)
   st  <- use symbolTable
@@ -92,11 +93,11 @@ function  = do
 
   where
 
-    functionParameters :: Graciela (T.Text, Type)
+    functionParameters :: Parser (T.Text, Type)
     functionParameters = do
         from <- getPosition
         id <- identifier
-        withRecovery TokColon
+        match' TokColon
         retType  <- type'
         to <- getPosition
         let loc = Location(from,to)
@@ -104,7 +105,7 @@ function  = do
         return (id, retType)
 
 {- Parse a procedure. If something went wrong, it should return a bad definition-}
-procedure :: Graciela Definition
+procedure :: Parser (Maybe Definition)
 procedure = do
     from <- getPosition
     -- Parse the procedure signature. it must not be followed by an Arrow (->).
@@ -115,7 +116,7 @@ procedure = do
     notFollowedBy $ match TokArrow
     currentProc .= Just (id, from, params)
     -- Parse the procedure's body
-    withRecovery TokBegin
+    match' TokBegin
     decls <- declarationOrRead
     pre  <- safeAssertion precondition  (NoProcPrecondition  id)
 
@@ -129,7 +130,7 @@ procedure = do
             return $ BadInstruction loc
 
     post <- safeAssertion postcondition (NoProcPostcondition id)
-    withRecovery TokEnd
+    match' TokEnd
 
     -- Get the actual symbol table and build the ast and the entry of the procedure
     st    <- use symbolTable
@@ -168,22 +169,25 @@ procedure = do
     checkInst e = case e of
       BadInstruction _ -> False
       _ -> True
+
+
 {- Gets the mode of the parameter. If fail then returns Nothing -}
-paramMode :: Graciela (Maybe ArgMode)
+paramMode :: Parser (Maybe ArgMode)
 paramMode =  match TokIn    $> Just In
          <|> match TokInOut $> Just InOut
          <|> match TokOut   $> Just Out
          <|> match TokRef   $> Just Ref
          <|> return Nothing
 
+
 {- Parse a parameter and put it in the symbol table -}
-procParam :: Graciela (T.Text, Type, ArgMode)
+procParam :: Parser (T.Text, Type, ArgMode)
 procParam = do
   from  <- getPosition
 
   ptype <- paramMode
   id    <- identifier
-  withRecovery TokColon
+  match' TokColon
   retType     <- type'
 
   to    <- getPosition
@@ -200,12 +204,10 @@ procParam = do
 
 
 
-
-
 -- ProcDecl -> 'proc' Id ':' '(' ListArgProc ')' Precondition Postcondition
 
 {- Parse declarations of procedures (only parameters, pre and post) in abstract types -}
-procedureDeclaration :: Graciela Definition
+procedureDeclaration :: Parser (Maybe Definition)
 procedureDeclaration = do
     from <- getPosition
 

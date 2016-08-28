@@ -35,12 +35,12 @@ import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
 import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
-import qualified Data.Sequence             as Seq (empty, fromList, null)
+import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)
 import           Debug.Trace
 import           Prelude                   hiding (lookup)
 import           Text.Megaparsec           (getPosition, notFollowedBy,
-                                            optional, sepBy, sepBy1, try, (<|>))
+                                            optional, try, (<|>))
 --------------------------------------------------------------------------------
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
@@ -55,7 +55,8 @@ declaration = do
   mvals <- (if isConst then (Just <$>) else optional) assignment
 
   match TokColon
-  t' <- if isConst then basicType else type'
+  -- t' <- if isConst then basicType else type'
+  t' <- type'
   to <- getPosition
 
   let
@@ -64,9 +65,9 @@ declaration = do
   case t' of
     Nothing -> pure Nothing
     Just t ->
-      if isConst && t == GUndef
+      if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
         then do
-          putError location $ UnknownError $
+          putError location . UnknownError $
             "Se intentó declarar constante de tipo `" <> show t <>
             "`, pero sólo se permiten constantes de tipos basicos."
           pure Nothing
@@ -84,7 +85,7 @@ declaration = do
             pure . Just $ Declaration
               { declLoc  = location
               , declType = t
-              , declIds  = fmap fst . Seq.fromList $ ids }
+              , declIds  = fst <$> ids }
 
           Just Nothing -> pure Nothing
             -- Values were either mandatory or optional, and were given, but
@@ -95,7 +96,7 @@ declaration = do
             -- anyways, without errors in any.
             if length ids == length exprs
               then do
-                pairs <- foldM (checkType isConst t) Seq.empty $ zip ids exprs
+                pairs <- foldM (checkType isConst t) Seq.empty $ Seq.zip ids exprs
                 pure $ if Seq.null pairs
                   then Nothing
                   else Just Initialization
@@ -103,14 +104,14 @@ declaration = do
                     , declType  = t
                     , declPairs = pairs }
               else do
-                putError location $ UnknownError $
+                putError location . UnknownError $
                   "La cantidad de " <>
                   (if isConst then "constantes" else "variables") <>
                   " es distinta a la de expresiones"
                 pure Nothing
 
 
-assignment :: Parser (Maybe [Expression])
+assignment :: Parser (Maybe (Seq Expression))
 assignment = sequence <$>
   (match TokAssign *> expression `sepBy1` match TokComma)
 
@@ -135,12 +136,12 @@ checkType True t pairs
         symbolTable %= insertSymbol identifier entry
         pure $ pairs |> (identifier, expr)
       _       -> do
-        putError location $ UnknownError $
+        putError location . UnknownError $
           "Se intentó asignar una expresión no constante a la \
           \constante `" <> unpack identifier <> "`"
         pure Seq.empty
     else do
-      putError location $ UnknownError $
+      putError location . UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
@@ -162,7 +163,7 @@ checkType False t pairs
       pure $ pairs |> (identifier, expr)
 
     else do
-      putError location $ UnknownError $
+      putError location . UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
@@ -172,6 +173,6 @@ redefinition :: (Text, Location) -> Parser ()
 redefinition (id, location) = do
   st <- use symbolTable
   let local = isLocal id st
-  when local $
-    putError location $ UnknownError $
+  when local .
+    putError location . UnknownError $
       "Redefinition of variable `" <> unpack id <> "`"

@@ -46,7 +46,7 @@ import           LLVM.General.AST.Type
 
 guard :: Guard -> Name -> LLVM ()
 
-guard (expr, decls, insts) falseLabel = do
+guard (expr, {-decls,-} insts) falseLabel = do
   cond      <- expression expr
   trueLabel <- newLabel
   let condBr = CondBr { condition = cond
@@ -55,7 +55,7 @@ guard (expr, decls, insts) falseLabel = do
                       , metadata' = []
                       }
   setLabel trueLabel $ Do condBr
-  mapM_ declaration decls
+  -- mapM_ declaration decls
   mapM_ instruction insts
 
 
@@ -82,9 +82,9 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     createTagAssert trueLabel pos
     {- setLabel and createTagAssert set the label of the next block -}
 
-  Assign {lvals, exprs} -> zipWithM_ assign' lvals exprs
+  Assign { assignPairs } -> mapM_ assign' assignPairs
     where
-      assign' lval expr = do
+      assign' (lval, expr) = do
         ref   <- objectRef lval
         label <- newLabel
         let type' = toLLVMType $ objType lval
@@ -111,11 +111,11 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         addInstruction (label := store)
 
 
-
+  -- TODO!
   Conditional { cguards } -> do
     finalLabel <- newLabel
     abortLabel <- newLabel
-    makeGuards cguards finalLabel abortLabel
+    makeGuards (toList cguards) finalLabel abortLabel
 
     let branch = Br { dest      = finalLabel
                     , metadata' = []
@@ -137,12 +137,12 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         makeGuards xs finalLabel abortLabel
 
 
-  Block st decls insts -> do
+  Block decls insts -> do
     mapM_ declaration decls
     mapM_ instruction insts
 
-  ProcedureCall {pname, args} -> do
-    args <- mapM createArg args
+  ProcedureCall { pname, pargs } -> do
+    args <- mapM createArg pargs
     label <- newLabel
     let
       proc = Right . ConstantOperand $ C.GlobalReference voidType $ Name (unpack pname)
@@ -152,7 +152,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                 , LLVM.callingConvention  = CC.C
                 , LLVM.returnAttributes   = []
                 , LLVM.function           = proc
-                , LLVM.arguments          = args
+                , LLVM.arguments          = toList args
                 , LLVM.functionAttributes = []
                 , LLVM.metadata           = []}
     addInstruction $ label := call
@@ -311,19 +311,21 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           T.GString -> writeString
           _         -> error "No se puede escribir algo q no sea basico :D"
 
-  Read { file, varTypes, vars } -> case file of
+  Read { file, vars } -> case file of
     Nothing ->
-      zipWithM_ readVarStdin varTypes vars
+      mapM_ readVarStdin vars
     Just file' -> error "No se puede con archivos"
 
     where
-      readVarStdin t var= do
-        let type' = toLLVMType t
-        let fread = Name $ case t of
-              T.GChar   -> readCharStd
-              T.GFloat  -> readFloatStd
-              T.GInt    -> readIntStd
-              _         -> error ":D no se soporta este tipo: " <> show t
+      readVarStdin var = do
+        let
+          t = objType var
+          type' = toLLVMType t
+          fread = Name $ case t of
+            T.GChar   -> readCharStd
+            T.GFloat  -> readFloatStd
+            T.GInt    -> readIntStd
+            _         -> error ":D no se soporta este tipo: " <> show t
 
         -- Call the C read function
         let fun = Right . ConstantOperand $ C.GlobalReference type' fread

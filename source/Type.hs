@@ -101,19 +101,19 @@ instance Monoid Type where
     [c] -> c
     cs  -> GOneOf cs
     where
-      as `merge` bs = nub [ a `mappend` b | a <- as, b <- bs ]
+      as `merge` bs = nub [ c | a <- as, b <- bs, let c = a `mappend` b, c /= GUndef ]
   GOneOf as   `mappend` a           = case a `matchIn` as of
     []  -> GUndef
     [c] -> c
     cs  -> GOneOf cs
     where
-      a `matchIn` as = nub [ a `mappend` b | b <- as ]
+      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
   a           `mappend` GOneOf as   = case a `matchIn` as of
     []  -> GUndef
     [c] -> c
     cs  -> GOneOf cs
     where
-      a `matchIn` as = nub [ a `mappend` b | b <- as ]
+      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
 
   GUndef      `mappend` a           = GUndef
   a           `mappend` GUndef      = a
@@ -130,9 +130,13 @@ instance Monoid Type where
   GPointer a  `mappend` GPointer b  = case a `mappend` b of
     GUndef -> GUndef
     c      -> GPointer c
-  GArray s a  `mappend` GArray t b  = case a `mappend` b of
-    GUndef -> GUndef
-    c      -> GArray (s `min` t) c
+
+  GArray s a  `mappend` GArray t b
+    | s /= t = GUndef
+    | s == t = case a `mappend` b of
+      GUndef -> GUndef
+      c      -> GArray (s `min` t) c
+
   GFunc a c   `mappend` GFunc b d   = case (a `mappend` b, c `mappend` d) of
     (GUndef, _) -> GUndef
     (_, GUndef) -> GUndef

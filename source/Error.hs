@@ -185,7 +185,7 @@ instance ShowErrorComponent Error where
       "Undefined type `" <> unpack tName <> "`"
 
     UnexpectedToken { uts } ->
-      concatMap (\x -> "Unexpected " <> show x) uts
+      (\x -> "Unexpected " <> show x) `concatMap` uts
       -- "Unexpected " <> show uts
 
     UnknownError {emsg} -> emsg

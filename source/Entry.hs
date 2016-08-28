@@ -18,6 +18,7 @@ import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
 import           Data.Monoid    ((<>))
+import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -43,10 +44,10 @@ data Entry'' s
     , _argType :: Type }
   | Function
     { _funcType   :: Type
-    , _funcParams :: [(Text,Type)]
+    , _funcParams :: Seq (Text,Type)
     , _funcTable  :: s }
   | Procedure
-    { _procParams :: [(Text,Type,ArgMode)]
+    { _procParams :: Seq (Text,Type,ArgMode)
     , _procTable  :: s }
   | AbstractTypeEntry
   | TypeEntry

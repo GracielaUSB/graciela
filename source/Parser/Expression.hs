@@ -5,7 +5,6 @@
 
 module Parser.Expression
   ( expression
-  , string
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression            hiding (inner, loc)
@@ -37,26 +36,17 @@ import qualified Data.Map.Strict           as Map (lookup)
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
-import qualified Data.Sequence             as Seq (empty, singleton)
+import qualified Data.Sequence             as Seq (empty, singleton, zip)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lex, lookup)
-import           Text.Megaparsec           (getPosition, parseErrorPretty,
-                                            sepBy, sepBy1, some, try, (<|>))
+import           Text.Megaparsec           (getPosition, parseErrorPretty, try,
+                                            (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 import           Text.Megaparsec.Pos       (unsafePos)
 
 expression :: Parser (Maybe Expression)
 expression = evalStateT expr []
-
-string :: Parser (Maybe Expression)
-string = do
-  from <- getPosition
-  str  <- stringLit
-  to   <- getPosition
-  let location = Location(from,to)
-  pure . Just $ (Expression location GString StringLit{theString = unpack str})
-
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -101,6 +91,7 @@ term =  parens metaexpr
     <|> basicLit charLit          CharV         GChar
     <|> setLit   TokEmptySet      EmptySet      GSet
     <|> setLit   TokEmptyMultiset EmptyMultiset GMultiset
+    <|> string
     <|> quantification
     <|> ifExp
 
@@ -163,6 +154,19 @@ term =  parens metaexpr
           { E.loc    = Location (from, to)
           , expType  = t GAny
           , exp'     = e }
+
+      pure . Just $ (expr, ProtoNothing, Taint False)
+
+    string = do
+      from <- getPosition
+      text <- stringLit
+      to   <- getPosition
+
+      let
+        expr = Expression
+          { E.loc   = Location (from, to)
+          , expType = GString
+          , exp'    = StringLit text }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 
@@ -248,9 +252,7 @@ variable = do
 
 call :: (Text, Location) -> ParserExp (Maybe MetaExpr)
 call (name, Location (from,_)) = do
-  margs <- parens . (Just <$>) $
-    (push TokComma *> push TokRightPar *> metaexpr) `sepBy`
-    (pop *> pop *> match TokComma)
+  margs <- parens . (Just <$>) $ metaexpr `sepBy` match TokComma
   to <- getPosition
 
   let loc = Location (from, to)
@@ -274,14 +276,13 @@ call (name, Location (from,_)) = do
             parLength = length params
             argLength = length args
           if parLength == argLength
-            then if Nothing `elem` args
-              then do
+            then case sequence args of
+              Nothing -> do
                 putError loc . UnknownError $
                   "Bad argument passed to function `" <> unpack name <> "`."
                 pure Nothing
-              else do
-                let justargs = catMaybes args
-                case matchArgs $ zip justargs params of
+              Just justargs ->
+                case matchArgs $ Seq.zip justargs params of
                   [] ->
                     let
                       expr = Expression
@@ -289,7 +290,7 @@ call (name, Location (from,_)) = do
                         , expType = entry^.info.funcType
                         , exp' = FunctionCall
                           { fname = name
-                          , args  = (\(e,_,_) -> e) <$> justargs }}
+                          , fargs = (\(e,_,_) -> e) <$> justargs }}
                       taint = foldr ((<>) . (\(_,_,t) -> t)) mempty justargs
                     in pure . Just $ (expr, ProtoNothing, taint)
                   msgs -> do
@@ -338,7 +339,7 @@ quantification = do
   void $ match TokPipe
 
   modify (var:)
-  range <- push TokPipe *> safe metaexpr <* pop
+  range <- {-safe-} metaexpr
   void $ match TokPipe
   modify tail
 
@@ -366,7 +367,7 @@ quantification = do
         ProtoQRange qrange ->
           pure ()
 
-  body <- push TokRightPercent *> safe metaexpr <* pop
+  body <- {-safe-} metaexpr
 
   case body of
     Nothing -> pure ()

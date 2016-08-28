@@ -151,7 +151,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "<->"        TokBiArrow
       <|> symbol   "\8596"      TokBiArrow -- ↔
 
-      <|> reserved "with"       TokWith
+      <|> reserved "from"       TokFrom
 
       -- V2.0
       <|> reserved "type"       TokType

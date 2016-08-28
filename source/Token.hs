@@ -58,7 +58,7 @@ data Token
   | TokInOut
   | TokRef
 
-  | TokWith
+  | TokFrom
 
   | TokVar
   | TokConst
@@ -221,7 +221,7 @@ instance Show Token where
     TokInOut          -> "`inout` - Parámetro de Entrada y Salida"
     TokRef            -> "`ref` - Parámetro por Referencia"
 
-    TokWith           -> "`with` - Indicador de Archivo de Entrada"
+    TokFrom           -> "`with` - Indicador de Archivo de Entrada"
 
     TokVar            -> "`var` - Definidor de Variables"
     TokConst          -> "`const` - Definidor de Constantes"
@@ -334,7 +334,7 @@ instance Show Token where
     (TokInteger    n) -> "`" <> show n <> "` - Entero"
     (TokBadInteger n) -> "`" <> show n <> "` - Entero fuera del rango permitido`"
     (TokFloat      n) -> " `" <> show n <> "` - Flotante"
-    (TokString     e) -> "" <> show e <> " - Cadena de Caracteres"
+    (TokString     s) -> "" <> show s <> " - Cadena de Caracteres"
 
     TokArray          -> "`array` - Tipo Arreglo"
 

@@ -173,12 +173,12 @@ data Expression'
   = NullPtr
   | Value { theValue :: Value }
 
-  | StringLit { theString :: String  }
+  | StringLit { theString :: Text }
 
   | EmptySet
   | EmptyMultiset
 
-  | Obj       { theObj :: Object }
+  | Obj { theObj :: Object }
 
   | Binary
     { binOp :: BinaryOperator
@@ -193,7 +193,7 @@ data Expression'
   | FunctionCall
     { fname :: Text
     -- , astST :: SymbolTable  -- ?
-    , args  :: [Expression] }
+    , fargs :: Seq Expression }
 
   | Conversion
     { toType :: Conversion
@@ -218,7 +218,6 @@ data Expression
   = Expression
     { loc     :: Location
     , expType :: Type
-    -- , constant :: Bool
     , exp'    :: Expression' }
   deriving (Eq)
 
@@ -259,9 +258,9 @@ instance Treelike Expression where
       Node (show unOp <> " " <> show loc)
         [ toTree inner ]
 
-    FunctionCall { fname, {-astST,-} args } ->
+    FunctionCall { fname, {-astST,-} fargs } ->
       Node ("Call Func " <> unpack fname <> " " <> show loc)
-        [ Node "Arguments" (toForest args) ]
+        [ Node "Arguments" (toForest fargs) ]
 
     Conversion { toType, cExp } ->
       Node (show toType <> " " <> show loc)
@@ -280,7 +279,7 @@ instance Treelike Expression where
 
     EConditional { eguards, trueBranch } ->
       Node ("Conditional Expression " <> show loc) $
-        ( fmap g . toList $ eguards ) <>
+        toList (g <$> eguards) <>
         case trueBranch of
           Just t  -> [ Node "True branch" [toTree t]]
           Nothing -> []
@@ -357,8 +356,8 @@ instance Show Expression where
     Unary { unOp, inner } ->
       prettyUnOp unOp <> show inner
 
-    FunctionCall { fname, {-astST,-} args } ->
-      unpack fname <> "(" <> (show =<< args) <> ")"
+    FunctionCall { fname, {-astST,-} fargs } ->
+      unpack fname <> "(" <> (show =<< toList fargs) <> ")"
 
     Conversion { toType, cExp } ->
       show toType <> "(" <> show cExp <> ")"
@@ -383,7 +382,7 @@ instance Show Expression where
         body  = show qBody
 
     EConditional { eguards } ->
-      "if " <> (showG =<< toList eguards) <> "fi"
+      "if " <> (showG =<< toList eguards) <> " fi"
 
       where
         showG (lhs, rhs) =

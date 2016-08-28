@@ -49,7 +49,7 @@ bound = between (match TokLeftBound) (match TokRightBound) bound'
 
 
 assert :: Token -> Token -> Parser (Maybe Expression)
-assert open close = between (match open) (match close) assert'
+assert open close = between (match open) (match' close) assert'
   where
     assert' = do
       expr <- withRecovery recover expression

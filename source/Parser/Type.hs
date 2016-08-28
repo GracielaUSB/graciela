@@ -1,8 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Parser.Type
-    ( basicType
-    , type'
+    ( type'
     , abstractType
     , typeVar
     ) where
@@ -30,24 +29,6 @@ import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
                                     sepBy, try, (<|>))
 --------------------------------------------------------------------------------
-
-basicType :: Parser (Maybe Type)
-basicType = do
-  tname <- identifier
-  t <- getType tname
-
-  case t of
-    Nothing -> do
-      unsafeGenCustomError ("El tipo `" <> unpack tname <> "` no existe.")
-      pure . Just $ GUndef
-    Just t' ->
-      if t' =:= GOneOf [GInt, GFloat, GBool, GChar]
-        then pure . Just $  t'
-        else do
-          unsafeGenCustomError $
-            "El tipo `" <> unpack tname <> "` no es un tipo basico."
-          pure . Just $ GUndef
-
 
 type' :: Parser (Maybe Type)
 type' = try userDefined <|> try arrayOf <|> try type''
