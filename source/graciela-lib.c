@@ -8,6 +8,10 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "wchar.h"
 #include "locale.h"
 #include "string.h"
+typedef struct _A {
+  int a;
+  int b;
+} A;
 
 int8_t* _openFile(char* nombreArchivo) {
     FILE* file;
@@ -15,7 +19,7 @@ int8_t* _openFile(char* nombreArchivo) {
     file = fopen(nombreArchivo, "r");
     if(file == NULL)
     {
-      printf ("%s %s", "Error abriendo el archivo: ", nombreArchivo);
+      fprintf (stderr,"%s %s", "Error abriendo el archivo: ", nombreArchivo);
       exit(EXIT_FAILURE);
     }
     return (int8_t *) file;
@@ -27,7 +31,7 @@ void _closeFile(int8_t* file) {
 }
 
 int8_t* _malloc(int size){
-  return malloc(size);
+  return calloc(1,size);
 }
 
 void _free(int8_t *mem){
@@ -80,12 +84,12 @@ double _readFileDouble(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura");
+    fprintf (stderr,"%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo double");
+    fprintf (stderr,"%s\n", "Error: El valor obtenido después de la lectura no es del tipo double");
     exit(EXIT_FAILURE);
   }
 

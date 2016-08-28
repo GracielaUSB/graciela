@@ -48,7 +48,7 @@ begin
         |[
             write("hola")
         ]|
-        {post m == 0  post}
+        {post m == 0 \/ m != 0  post}
     end
 
     // proc agregar (inout d : int , in c : int, in v : int)
