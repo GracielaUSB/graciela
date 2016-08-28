@@ -6,6 +6,7 @@ module LLVM.State where
 --------------------------------------------------------------------------------
 
 import           SymbolTable
+import           AST.Struct
 import qualified Type                         as T
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
@@ -17,7 +18,7 @@ import           Data.Foldable                (toList)
 import           Data.Map                     (Map)
 import qualified Data.Map                     as Map
 import           Data.Monoid                  ((<>))
-import           Data.Sequence                (Seq, (|>))
+import           Data.Sequence                (Seq, (|>),ViewR((:>)), viewr)
 import qualified Data.Sequence                as Seq
 import           Data.Text                    (Text, unpack)
 import           Data.Word
@@ -40,10 +41,11 @@ data LLVMState
     , _currentBlock :: Seq (Named LLVM.Instruction)     -- Lista de instrucciones en el bloque básico actual
     , _blocks       :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
     , _moduleDefs   :: Seq LLVM.Definition
-    , _varsLoc      :: Map String Operand
+    , _symTable     :: [Map String String]
+    , _nameCount    :: Int
+    , _structs      :: Map Text Struct
     , _arrsDim      :: Map String [Operand]
-    , _outerBlock   :: Bool
-    } deriving (Show)
+    }
 
 makeLenses ''LLVMState
 
@@ -59,11 +61,58 @@ initialState = LLVMState
   , _currentBlock = Seq.empty
   , _blocks       = Seq.empty
   , _moduleDefs   = Seq.empty
-  , _varsLoc      = Map.empty
+  , _symTable     = []
+  , _nameCount    = 0
+  , _structs      = Map.empty
   , _arrsDim      = Map.empty
-  , _outerBlock  = True
   }
 
+{- Symbol Table -}
+-- When opening a new scope, llvm wont know which variable is beign called.
+-- To prevent a confusion, lets call every declared variable with an unique name+identifier
+-- (e.g. %a1 %a2)
+-- existsVariable :: String -> LLVM Bool
+-- existsVariable name = do
+--   st <- use symTable
+--   existsVariable name st
+--   where
+--     existsVariable' name (vars:xs) = case name `Map.lookup` vars of
+--       Just _  -> return True
+--       Nothing -> existsVariable xs
+
+
+getVariableName :: String -> LLVM String
+getVariableName name = do
+  st <- use symTable
+  return $ getVariableName' st
+  where
+    getVariableName' [] = error $ "variable no definida " <> name
+    getVariableName' (vars:xs) = case name `Map.lookup` vars of
+      Just currentName -> currentName
+      Nothing -> getVariableName' xs 
+
+openScope :: LLVM ()
+openScope = symTable %= (Map.empty :)
+
+closeScope :: LLVM ()
+closeScope = do
+  t <- tail <$> use symTable
+  when (null t) (nameCount .= 0)
+  symTable .= t
+
+
+insertName :: String -> LLVM String
+insertName name = do 
+  (vars:xs) <- use symTable
+  id <- use nameCount
+  let 
+    newName = name <> "-" <> show id
+    newMap = Map.insert name newName vars
+  nameCount += 1
+  symTable .= (newMap:xs)
+  return newName
+
+-----------------------------------------------
 
 addDefinitions :: Seq LLVM.Definition -> LLVM ()
 addDefinitions defs =

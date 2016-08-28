@@ -19,6 +19,7 @@ module Parser.Instruction
   ) where
 -------------------------------------------------------------------------------
 import           AST.Declaration        (Declaration)
+import           AST.Definition         (Definition(..), Definition'(..))
 import           AST.Expression         (Expression (..), Object (..))
 import           AST.Expression         as E
 import           AST.Instruction        (Guard, Instruction (..),
@@ -43,6 +44,8 @@ import           Control.Monad          (foldM, zipWithM, unless, void, when)
 import           Control.Monad.Identity (Identity)
 import qualified Data.List              as L (any)
 import           Data.Monoid            ((<>))
+import           Data.Maybe             (fromJust)
+import           Data.Map               as Map (lookup)
 import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as T (pack, unpack)
@@ -154,7 +157,7 @@ assign = do
     checkTypes :: [(Expression,Expression)] -> Graciela (Bool,[Object])
     checkTypes [] = return (True,[])
     checkTypes (x:xs) = case x of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) | notIn o -> do
+      (Expression loc1 t1 (Obj o), Expression loc2 t2 _) | objMode o /= Just In -> do
         if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
           then do
             (c,objs) <- checkTypes xs
@@ -191,7 +194,7 @@ random = do
   case expr of
     Expression { E.loc, expType, exp' } -> case exp' of
       -- Only int objects can be randomized (maybe char or float too?)
-      Obj o | correctType expType && notIn o ->
+      Obj o | objMode o /= Just In && correctType expType ->
         return $ Instruction loc (Random o)
       -- If not, its an expression or a constant (or both).
       _ -> do
@@ -279,11 +282,15 @@ reading = do
         Expression {E.loc, expType, exp'} ->
           case exp' of
             -- Only objects can be assigned, only if is not a constant an is int (maybe char or float?)
-            Obj o -> if correctType expType && notIn o
+            Obj o | objMode o /= Just In -> if correctType expType 
               then return (expType, o)
               else do
                 putError loc $ BadReadArgumentType expr expType
                 return (GUndef, BadObject loc)
+            Obj o -> do
+              putError loc $ UnknownError $ "The argument `" <> show o <> "` has mode " <>
+                  show (fromJust $ objMode o) <> " and cannot be read"
+              return (GUndef, BadObject loc)
             -- If not, its an expression or a constant (or both).
             _ -> do
               putError loc $ BadReadArgument expr
@@ -421,16 +428,16 @@ procedureCall = do
   match TokLeftPar
   args <- expression `sepBy` match TokComma
   withRecovery TokRightPar
-  st   <- use symbolTable
+  defs   <- use definitions
 
   to   <- getPosition
   let loc = Location (from,to)
 
-  case id `lookup` st of
+  case id `Map.lookup` defs of
     {- Check if the called procedure if defined in the symbol table-}
-    Right (Entry _ (Location (pos,_)) (Procedure {_procParams})) -> do
+    Just (Definition (Location(pos,_)) _ _ _ ProcedureDef {params}) -> do
         let nArgs   = length args
-        let nParams = length _procParams
+        let nParams = length params
         {- Check if the call recived enough arguments-}
         if nArgs /= nParams
           then do
@@ -445,7 +452,7 @@ procedureCall = do
             then return $ Instruction loc (ProcedureCall id [])
         else do
           {- Now check the arguments types match with the procedure parameter's types-}
-          args' <- zipWithM (checkTypes id pos loc) _procParams args
+          args' <- zipWithM (checkTypes id pos loc) params args
           return $ Instruction loc (ProcedureCall id args')
 
     _ -> do
@@ -476,15 +483,27 @@ procedureCall = do
             args' <- zipWithM (checkTypes id pos loc) types args
             return $ Instruction loc (ProcedureCall id args')
         {- If there is no procedure defined that matchs with the current call, then report the error-}
-        Nothing -> do
+        _ -> do
           putError loc (UndefinedProcedure id)
           return $ BadInstruction loc
   where
     checkTypes pName pPos loc (name, pType, mode) e@Expression {expType, exp'} = do
       if pType == expType
         then case exp' of
-          Obj obj | mode == Out || mode == InOut -> return (e,mode)
-          _       | mode == In -> return (e,mode)
+          -- An object In cannot be passed as Out or InOut argument
+          Obj obj | objMode obj /= Just In && (mode == Out || mode == InOut) -> return (e,mode)
+          -- An object Out cannot be passed as In argument
+          Obj obj | mode == In && objMode obj /= Just Out -> return (e,mode)
+          -- Else, error
+          Obj obj | objMode obj /= Nothing   -> do
+            putError loc $ UnknownError $
+                 "The parameter `" <> T.unpack name <> "` of the procedure `" <>
+                 T.unpack pName <> "` " <> showPos' pPos <> "\n\thas mode " <>
+                 show mode <> " but recived a variable with mode " <>
+                 show (fromJust $ objMode obj) <> " as argument"
+            return (e,mode)
+          _       | mode == In               -> return (e,mode)
+
           _ -> do 
             putError loc $ UnknownError $ "The parameter `" <> T.unpack name <> "` has mode " <>
                  show mode <> "\n\tbut recived an expression instead of a variable"

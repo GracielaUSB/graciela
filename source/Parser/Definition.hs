@@ -30,6 +30,7 @@ import           Control.Monad      (void, when)
 import           Data.Functor       (($>))
 import           Data.List          (partition)
 import           Data.Maybe         (catMaybes)
+import           Data.Map           as Map (insert)
 import           Data.Monoid        ((<>))
 import qualified Data.Text          as T
 import           Text.Megaparsec    (eitherP, getPosition, lookAhead, many,
@@ -71,15 +72,6 @@ function  = do
                 , eType = expType body}
           return $ BadDefinition location
         else do
-          let entry = Entry
-                { _entryName = id
-                , _loc       = location
-                , _info      = Function
-                  { _funcType   = retType
-                  , _funcParams = params
-                  , _funcTable  = st }}
-          symbolTable %= insertSymbol id entry
-
           let def = Definition
                 { defLoc   = location
                 , defName  = id
@@ -89,7 +81,9 @@ function  = do
                   { funcBody = body
                   , fparams   = params
                   , retType  = retType }}
+          definitions %= Map.insert id def
           return def
+
 
   where
 
@@ -138,13 +132,8 @@ procedure = do
     let loc = Location(from,to)
     symbolTable %= closeScope to
     currentProc .= Nothing
-    let entry = Entry
-          { _entryName = id
-          , _loc       = loc
-          , _info      = Procedure
-            { _procParams = params
-            , _procTable  = st }}
-    symbolTable %= insertSymbol id entry
+
+    
     if checkExp pre && checkExp pre && checkInst body && id /= errorId
       then do
 
@@ -159,6 +148,7 @@ procedure = do
                 , pre      = pre
                 , procBody = body
                 , post     = post }}
+        definitions %= Map.insert id def
         return def
       else
         return $ BadDefinition loc
@@ -191,7 +181,7 @@ procParam = do
   let loc = Location(from,to)
 
   case ptype of
-    Just x | retType /= GUndef -> do 
+    Just x -> do 
       symbolTable %= insertSymbol id (Entry id loc (Argument x retType))
       return (id, retType, x)
     _  -> do
@@ -224,13 +214,7 @@ procedureDeclaration = do
     let loc = Location (from,to)
 
     symbolTable %= closeScope to
-    let entry = Entry
-            { _entryName = id
-            , _loc       = loc
-            , _info      = Procedure
-              { _procParams = params
-              , _procTable  = st }}
-    symbolTable %= insertSymbol id entry
+
 
     let def = Definition
           { defLoc   = loc

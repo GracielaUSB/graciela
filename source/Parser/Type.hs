@@ -4,11 +4,15 @@ module Parser.Type
     ( basicType
     , type'
     , abstractType
+    , typeVarDeclaration
     , typeVar
     ) where
 --------------------------------------------------------------------------------
+import           AST.Declaration
+import           AST.Definition    (Definition(..))
 import           AST.Expression    (Expression (..), Expression' (Value),
                                     Value (..))
+import           AST.Struct
 import           Entry
 import           Error
 import           Graciela
@@ -20,14 +24,17 @@ import           SymbolTable       (lookup)
 import           Token
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Lens      (use)
+import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
+import           Data.Map          as Map (insert, elems, lookup)
+import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
-                                    sepBy, try, (<|>))
+                                    sepBy, try, (<|>), optional)
+import         Debug.Trace
 --------------------------------------------------------------------------------
 
 basicType :: Graciela Type
@@ -49,8 +56,11 @@ basicType = do
 
 
 type' :: Graciela Type
-type' = try userDefined<|> try arrayOf <|> try type''
+type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
   where
+    parenType = do 
+      t <- parens type'
+      isPointer t
     -- Try to parse an array type
     arrayOf = do
       match TokArray
@@ -76,26 +86,92 @@ type' = try userDefined<|> try arrayOf <|> try type''
           putError loc (UndefinedType tname)
           return GUndef
         Just t' -> isPointer t'
-
-    isPointer :: Type -> Graciela Type
-    isPointer t = do
-        match TokTimes
-        isPointer (GPointer t)
-      <|> return t
-
     -- TODO: Or if its a user defined Type
     userDefined = do
       from <- getPosition
-      id <- identifier
-      match TokOf
-      t     <- getType id
-      polymorphism <- type'
-      to <- getPosition
+      id <- lookAhead identifier
+      t  <- getStruct id
+
       case t of
         Nothing -> do
-          putError (Location(from,to)) (UndefinedType id)
-          return GUndef
-        Just t' -> return t'
+          current <- use currentStruct 
+          case current of 
+            Just (name, t) -> if name == id 
+                then do
+                  ok <- checkType name t from
+                  if ok
+                    then do 
+                      return $ GDataType name t
+                    else return GUndef
+                else do
+                  notFollowedBy identifier
+                  return GUndef
+            Nothing -> do
+              notFollowedBy identifier
+              return GUndef
+
+        Just ast@Struct {structName, structTypes, structDecls, structProcs} -> do
+          ok <- checkType structName structTypes from
+          full <- use fullDataTypes
+          if ok
+            then do
+              case structName `Map.lookup` full of
+                Nothing -> do
+                  fullDataTypes %= Map.insert structName ast
+                  mapM (\x -> definitions %= insert (defName x) x) structProcs
+                  return $ GDataType structName structTypes
+                Just x -> return $ GDataType structName structTypes
+            else return GUndef
+    
+    checkType name types from = do
+      identifier
+      polymorphism <- do 
+          list <- optional $ match TokOf >> 
+                       (type' >>= return . (:[]) ) <|> 
+                       (parens $ type' `sepBy` match TokComma)
+          return . concat $ list
+
+      to <- getPosition
+      let
+        loc = Location (from,to)
+        plen = length polymorphism
+        slen = length types
+        show' [a] = show a
+        show' l   = intercalate "," (fmap show l)
+     
+      if slen == plen 
+        then return True
+
+      else if slen == 0
+        then do 
+          putError loc $ UnknownError $ "Type `" <> unpack name <> 
+              "` does not expect " <> show' polymorphism <> " as argument"
+          return False
+
+      else if slen > plen
+        then do 
+          putError loc $ UnknownError $ "Type `" <> unpack name <> 
+             "` expected " <> show slen <> " types " <> show' types <>
+             "\n\tbut recived only " <> show plen
+          return False
+
+      else do
+          putError loc $ UnknownError $ "Type `" <> unpack name <> 
+               "` expected only " <> show slen <> " types as arguments " <> 
+               show' types <> "\n\tbut recived " <> show plen <> " " <>
+               show' polymorphism
+          return False
+         
+          
+
+
+
+
+isPointer :: Type -> Graciela Type
+isPointer t = do
+    match TokTimes
+    isPointer (GPointer t)
+  <|> return t
 
 arraySize :: Graciela (Maybe Int32)
 arraySize = do
@@ -129,8 +205,29 @@ abstractType = type'
         <|> GTuple <$> parens (typeVar `sepBy` match TokComma)
         <|> typeVar
 
+
+typeVarDeclaration  :: Graciela Type
+typeVarDeclaration = do 
+  tname <- lookAhead identifier
+  t     <- getType tname
+  case t of
+    Nothing -> do
+      identifier
+      notFollowedBy (match TokTimes)
+      typesVars %= (tname:)
+      return $ GTypeVar tname
+    Just _ -> do 
+      notFollowedBy identifier
+      return $ GUndef
+
 typeVar :: Graciela Type
 typeVar = do
-  id <- identifier
-  notFollowedBy (match TokTimes)
-  return $ GTypeVar id -- polymorphism
+  tname <- lookAhead identifier
+  tvars <- use typesVars
+  if tname `elem` tvars
+    then do 
+      identifier
+      isPointer $ GTypeVar tname
+    else do 
+      notFollowedBy identifier
+      return $ GUndef

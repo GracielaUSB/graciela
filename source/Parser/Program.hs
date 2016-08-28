@@ -19,7 +19,8 @@ import           Token
 import           Type
 -------------------------------------------------------------------------------
 import qualified Control.Monad       as M
-import           Control.Lens        ((%=))
+import qualified Data.Map            as Map
+import           Control.Lens        ((%=),use)
 import qualified Data.Text           as T
 import           Text.Megaparsec     ((<|>),many, eof, getPosition)
 -------------------------------------------------------------------------------
@@ -29,11 +30,12 @@ program :: Graciela Program
 program = do
   from <- getPosition
   symbolTable %= openScope from
-  structs <- many (abstractDataType <|> dataType)
+  many (abstractDataType <|> dataType)
+  
     
   withRecovery TokProgram
   id <- safeIdentifier
-  TokBegin `withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
+  match TokBegin --`withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
 
   decls <- listDefProc
   body  <- block
@@ -41,5 +43,5 @@ program = do
   eof
   to <- getPosition
   symbolTable %= closeScope to
-  return $ Program id (Location(from, to)) decls body structs
+  Program id (Location(from, to)) decls body <$> use fullDataTypes
   

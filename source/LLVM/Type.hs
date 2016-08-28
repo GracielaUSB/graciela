@@ -15,6 +15,8 @@ import           AST.Expression             (Expression)
 import           Type                       as T (Type (..))
 --------------------------------------------------------------------------------
 import           Data.Word                  (Word32, Word64)
+import           Data.Text                  (unpack)
+import           LLVM.General.AST.Name                   (Name(..))
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST.Type      (double, i1, i16, i32, i8)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
@@ -51,9 +53,9 @@ toLLVMType (T.GPointer  t)  = LLVM.PointerType (toLLVMType t) (LLVM.AddrSpace 0)
 toLLVMType (T.GArray sz t)  = LLVM.ArrayType (fromIntegral sz)  (toLLVMType t)
 
 
-toLLVMType (GDataType _ ts) = LLVM.StructureType False (fmap toLLVMType ts)
+toLLVMType (GDataType name ts) = LLVM.NamedTypeReference $ Name (unpack name)
 toLLVMType GAny             = error "GAny is not a valid type"
-toLLVMType _                = error "Unsupported type"
+toLLVMType t                = LLVM.ArrayType (fromIntegral 123)   i32
 
 
 sizeOf :: T.Type -> Integer

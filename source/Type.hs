@@ -62,13 +62,7 @@ data Type
   | GDataType
     { typeName ::  Text
     -- , oftype :: [Type]
-    , fields :: [Type]
-    -- , procs  :: [Type]
-    }
-  | GAbstractType
-    { typeName ::  Text
-    -- , oftype :: [Type]
-    -- , fields :: [Type]
+    , types :: [Type]
     -- , procs  :: [Type]
     }
   | GPointer Type
@@ -97,9 +91,6 @@ a =:= b
 GOneOf        as =:= a                = True `elem` fmap (=:= a) as 
 a                =:= GOneOf        as = True `elem` fmap (=:= a) as 
 GDataType     {} =:= GDataType     {} = True
-GAbstractType {} =:= GAbstractType {} = True
-GDataType     {} =:= GAbstractType {} = True
-GAbstractType {} =:= GDataType     {} = True
 -- GProcedure    {} =:= GProcedure    {} = True
 GArray       _ a =:= GArray       _ b = a =:= b
 -- GFunction    _ a =:= GFunction    _ b = a =:= b
@@ -125,20 +116,19 @@ instance Show Type where
         GChar           -> "char"
         -- GEmpty          -> "void"
         -- GError          -> "error"
-        GPointer     t  -> "pointer of " <> show' t
+        GPointer     t  -> "pointer to " <> show' t
         -- GProcedure   _  -> "proc"
         -- GFunction  _ t  -> "func -> (" <> show' t <> ")"
         GArray    s  t  -> "array[" <> show s <> "] of " <> show' t
-        GSet      t     -> "conjunto de " <> show' t
-        GMultiset t     -> "multiconjunto de " <> show' t
-        GSeq      t     -> "secuencia de " <> show' t
-        GFunc     ta tb -> "función " <> show' ta <> "->" <> show' tb
-        GRel      ta tb -> "relación " <> show' ta <> "->" <> show' tb
+        GSet      t     -> "set of " <> show' t
+        GMultiset t     -> "multiset of " <> show' t
+        GSeq      t     -> "sequence of " <> show' t
+        GFunc     ta tb -> "function " <> show' ta <> " -> " <> show' tb
+        GRel      ta tb -> "relation " <> show' ta <> " -> " <> show' tb
         GTuple    ts    ->
-          "tupla (" <> (unwords . fmap show' $ ts) <> ")"
-        GTypeVar  n     -> "variable de tipo " <> unpack n
-        GDataType n f   -> "type " <> unpack n
-        GAbstractType n -> "abstract " <> unpack n
+          "tuple (" <> (unwords . fmap show' $ ts) <> ")"
+        GTypeVar  n     -> unpack n
+        GDataType n f   -> "data type " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

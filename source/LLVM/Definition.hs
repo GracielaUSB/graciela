@@ -5,7 +5,8 @@ where
 
 --------------------------------------------------------------------------------
 import           Aborts
-import qualified Type                                as T
+import qualified Type                                    as T
+import           Type                                    ((=:=))
 import           AST.Instruction                         (Instruction)
 import           AST.Declaration                         (Declaration)
 import           AST.Definition                          
@@ -62,19 +63,25 @@ mainDefinition insts = do
 definition :: Definition -> LLVM ()
 definition Definition {defName, st, def'} = case def' of 
   FunctionDef {funcBody, retType, fparams} -> do 
+    openScope
+    params' <- mapM toLLVMParameter fparams
     operand <- expression funcBody
     let name = Name $ unpack defName
     blocks' <- use blocks
     blocks .= Seq.empty
     currentBlock .= Seq.empty
+    closeScope
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
-        , parameters  = (fmap toLLVMParameter fparams, False)
+        , parameters  = (params', False)
         , returnType  = toLLVMType retType
         , basicBlocks = toList blocks'
         }
+
         
   ProcedureDef {procDecl, params, pre, procBody, post} -> do
+    openScope
+    params' <- mapM toLLVMParameter' params
     mapM_ declarationsOrRead procDecl
     precondition pre
     instruction procBody
@@ -82,18 +89,27 @@ definition Definition {defName, st, def'} = case def' of
     blocks' <- use blocks
     blocks .= Seq.empty
     currentBlock .= Seq.empty
+    closeScope
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
-        , parameters  = (fmap toLLVMParameter' params, False)
+        , parameters  = (params', False)
         , returnType  = voidType
         , basicBlocks = toList blocks'
         }
+    
   where 
-    toLLVMParameter (name, t) = Parameter (toLLVMType t) (Name (unpack name)) []
-    toLLVMParameter' (name, t, mode) | mode == T.In
-      = Parameter (toLLVMType t) (Name (unpack name)) []
-    toLLVMParameter' (name, t, mode)
-      = Parameter (ptr $ toLLVMType t) (Name (unpack name)) []
+    toLLVMParameter (name, t) = do 
+      name' <- insertName $ unpack name
+      return $ Parameter (toLLVMType t) (Name name') []
+
+    toLLVMParameter' (name, t, mode) | mode == T.In && 
+          t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat, T.GPointer T.GAny] = do
+      name' <- insertName $ unpack name
+      return $ Parameter (toLLVMType t) (Name name') []
+
+    toLLVMParameter' (name, t, mode) = do 
+      name' <- insertName $ unpack name
+      return $ Parameter (ptr $ toLLVMType t) (Name name') []
 
 declarationsOrRead :: Either Declaration Instruction -> LLVM()
 declarationsOrRead (Left decl)   = declaration decl
@@ -175,14 +191,6 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 --     addDefinition (TE.unpack name) args' (toType retType)
 
 
-defineType :: (Text, (T.Type, a)) -> LLVM ()
-defineType (name, (t, _)) = do 
-  let 
-    name' = Name (unpack name)
-    t'    = Just $ toLLVMType t
-    def   = LLVM.TypeDefinition name' t'
-  unless (t `elem` [T.GBool, T.GInt, T.GFloat, T.GChar]) $ do 
-    addDefinition def
 
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do 

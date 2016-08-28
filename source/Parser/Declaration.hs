@@ -8,7 +8,12 @@ Copyright   : Graciela
 Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
 -}
-module Parser.Declaration (declaration) where
+module Parser.Declaration 
+  ( declaration
+  , polymorphicDeclaration
+  , abstractDeclaration
+  ) 
+  where
 
 -------------------------------------------------------------------------------
 import           AST.Declaration                (Declaration (..))
@@ -45,8 +50,15 @@ import           Debug.Trace
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
 -- la tabla de simbolos.
-declaration :: Graciela Declaration
-declaration = do
+
+declaration = declaration' type'
+
+polymorphicDeclaration = declaration' (try typeVar <|> type')
+
+abstractDeclaration = declaration' abstractType
+
+declaration' :: Graciela Type -> Graciela Declaration
+declaration' type' = do
   from <- getPosition
   isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma

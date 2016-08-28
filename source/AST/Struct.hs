@@ -22,43 +22,41 @@ import           Data.Text       (Text, unpack)
 
 data Struct'
   = AbstractDataType
-    { atypes :: [Text]
-    , decls  :: [Declaration]
-    , inv    ::  Expression
-    , procs  :: [Definition]
+    { inv    ::  Expression
     }
   | DataType
     { abstract ::  Text
-    , types    :: [Type]
-    , decls    :: [Declaration]
     , repinv   ::  Expression
     , coupinv  ::  Expression
-    , procs    :: [Definition]
     }
 
 data Struct
   = Struct
-    { structName ::  Text
-    , structLoc  ::  Location
-    , struct'    ::  Struct'
+    { structName  :: Text
+    , structTypes :: [Type]
+    , structDecls :: [(Int,Declaration)]
+    , structProcs :: [Definition]
+    , structLoc   :: Location
+    , structSt    :: SymbolTable
+    , struct'     :: Struct'
     }
 
 instance Treelike Struct where
-  toTree Struct { structLoc, structName, struct' }
+  toTree Struct { structLoc, structDecls, structProcs, structTypes, structName, struct' }
     = case struct' of
 
-      AbstractDataType { atypes, decls, inv, procs } ->
-        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show atypes) <> ") " <> show structLoc)
-          [ Node "Declarations" $ fmap toTree decls
+      AbstractDataType { inv } ->
+        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
+          [ Node "Declarations" $ fmap (toTree . snd) structDecls
           , Node "Invariant" [toTree inv]
-          , Node "Procedures" $ fmap toTree procs
+          , Node "Procedures" $ fmap toTree structProcs
           ]
-      DataType { abstract, types, decls, repinv, coupinv, procs } ->
-        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show types) <>
+      DataType { abstract, repinv, coupinv } ->
+        Node ("Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
-          [ Node "Declarations" $ fmap toTree decls
+          [ Node "Declarations" $ fmap (toTree . snd) structDecls
           , Node "Representation Invariant" [toTree repinv]
           , Node "Coupling Invariant" [toTree coupinv]
-          , Node "Procedures" $ fmap toTree procs
+          , Node "Procedures" $ fmap toTree structProcs
           ]
     where

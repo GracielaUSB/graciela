@@ -7,13 +7,14 @@ import           Aborts
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
+
 import           LLVM.Type                               (intType)
 -- import           Limits
 import           LLVM.State
 import           LLVM.Definition                         (preDefinitions,
                                                           definition,
-                                                          defineType,
                                                           mainDefinition)
+import           LLVM.Struct                             (defineStruct)
 -- import           LLVM.Expression
 -- import           LLVM.Instruction
 -- import           LLVM.Quantification
@@ -77,7 +78,9 @@ programToLLVM files types (Program name _ defs insts structs) = do
     program = do 
       
       preDefinitions files
-      mapM_ defineType $ Map.toAscList types
+
+      -- mapM_ defineType $ Map.toAscList types
+      mapM_ defineStruct structs
       mapM_ definition defs
       
       mainDefinition insts
@@ -88,7 +91,7 @@ programToLLVM files types (Program name _ defs insts structs) = do
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
     whichTarget version = case os of
       "darwin"  -> arch <> "-apple-macosx" <> version -- With Mac, version needs to end with "0",
-                                                           -- example: 11.10.3 -> 11.10.0
+                                                      -- example: 11.10.3 -> 11.10.0
       "linux"   -> arch <> "-unknown-linux-gnu"
       "windows" -> undefined
     -- As mentioned above, Macs need a version ended with .0

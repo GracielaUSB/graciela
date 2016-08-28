@@ -174,9 +174,7 @@ main = do
                     else optExecName options
 
   -- Set the IR file name. This file will be delete after finish the compilation
-  let llName = if execName == "a.out"
-      then "a.ll"
-      else execName <> ".ll"
+  let llName = "a.ll"
 
   -- Read the source file
   source <- readFile fileName

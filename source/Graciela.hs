@@ -4,6 +4,9 @@
 module Graciela where
 --------------------------------------------------------------------------------
 import           Error
+import           AST.Declaration
+import           AST.Definition
+import           AST.Struct
 import           Location
 import           Parser.Prim
 import           SymbolTable
@@ -34,12 +37,17 @@ import           Text.Megaparsec        (ParseError (..), ParsecT,
 type Graciela = ParsecT Error [TokenPos] (State GracielaState)
 
 data GracielaState = GracielaState
-  { _synErrorList :: Seq MyParseError
-  , _errors       :: Seq (ParseError TokenPos Error)
-  , _symbolTable  :: SymbolTable
-  , _filesToRead  :: Set.Set String
-  , _currentProc  :: Maybe (Text, SourcePos, [(Text,Type,ArgMode)])
-  , _typesTable   :: Map Text (Type, SourcePos)
+  { _synErrorList  :: Seq MyParseError
+  , _errors        :: Seq (ParseError TokenPos Error)
+  , _symbolTable   :: SymbolTable
+  , _filesToRead   :: Set.Set String
+  , _definitions   :: Map Text Definition
+  , _currentProc   :: Maybe (Text, SourcePos, [(Text,Type,ArgMode)])
+  , _typesTable    :: Map Text (Type, SourcePos)
+  , _typesVars     :: [Text]
+  , _dataTypes     :: Map Text Struct
+  , _fullDataTypes :: Map Text Struct
+  , _currentStruct :: Maybe (Text, [Type])
   }
 
 makeLenses ''GracielaState
@@ -57,15 +65,19 @@ initialTypes = Map.fromList
   , (pack "char",   (GChar,  gracielaDef))
   ]
 
-
 initialState :: GracielaState
 initialState = GracielaState
   { _synErrorList    = Seq.empty
   , _errors          = Seq.empty
   , _symbolTable     = empty gracielaDef
   , _filesToRead     = Set.empty
+  , _definitions     = Map.empty
   , _currentProc     = Nothing
   , _typesTable      = initialTypes
+  , _typesVars       = []
+  , _dataTypes       = Map.empty
+  , _fullDataTypes   = Map.empty
+  , _currentStruct   = Nothing
   }
 
 {- Graciela 2.0-}
@@ -82,6 +94,12 @@ getType name = do
     Just (t, loc) -> return $ Just t
     Nothing       -> return Nothing
 
+getStruct :: Text -> Graciela (Maybe Struct)
+getStruct name = do
+  structs <- use dataTypes
+  case name `Map.lookup` structs of
+    Just struct -> return $ Just struct
+    Nothing     -> return Nothing
 
 putError :: Location -> Error -> Graciela ()
 putError (Location(from,to)) e = do

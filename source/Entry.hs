@@ -39,15 +39,7 @@ data Entry'' s
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
-  | Function
-    { _funcType   :: Type
-    , _funcParams :: [(Text,Type)]
-    , _funcTable  :: s }
-  | Procedure
-    { _procParams :: [(Text,Type,ArgMode)]
-    , _procTable  :: s }
-  | AbstractTypeEntry
-  | TypeEntry
+
   deriving (Eq)
 
 makeLenses ''Entry''
@@ -81,16 +73,3 @@ instance Treelike (Entry' s) where
       Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ "Type: " <> show _argType
         , leaf $ "Mode: " <> show _argMode ]
-
-    Function { _funcType, _funcParams, _funcTable } ->
-      Node ("Function `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $ show _funcType ]
-
-    Procedure { _procParams, _procTable } ->
-      leaf ("Procedure `" <> unpack _entryName <> "` " <> show _loc)
-
-    AbstractTypeEntry {} ->
-      leaf ("Abstract Data Type `" <> unpack _entryName <> "` " <> show _loc)
-
-    TypeEntry {} ->
-      leaf ("Data Type `" <> unpack _entryName <> "` " <> show _loc)

@@ -3,7 +3,7 @@
 module AST.Object
   ( Object' (..)
   , Object'' (..)
-  , notIn
+  , objMode
   ) where
 --------------------------------------------------------------------------------
 import           Location
@@ -46,10 +46,8 @@ data Object' e
     }
   deriving (Eq)
 
-notIn (Object _ _ Variable {mode}) = case mode of
-  Just In -> False
-  _ -> True
-notIn (Object _ _ o) = notIn (inner o)
+objMode (Object _ _ Variable {mode}) = mode
+objMode (Object _ _ o) = objMode (inner o)
 
 instance Show e => Show (Object' e) where
   show BadObject {} = ""

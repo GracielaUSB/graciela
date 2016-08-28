@@ -13,6 +13,7 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Monoid     ((<>))
+import           Data.Map        (Map)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -22,12 +23,13 @@ data Program
     , loc     :: Location
     , defs    :: [Definition]
     , insts   :: Instruction
-    , structs :: [Struct]
+    , structs :: Map Text Struct
     }
 
 instance Treelike Program where
-  toTree Program { name, loc, defs, insts } =
+  toTree Program { name, loc, defs, insts, structs } =
     Node ("Program " <> unpack name <> " " <> show loc)
-      [ Node "Definitions" (toForest defs)
+      [ Node "Structs" (toForest structs)
+      , Node "Definitions" (toForest defs)
       , toTree insts
       ]
