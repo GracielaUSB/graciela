@@ -47,8 +47,7 @@ safeAssertion p e = try p <|> recover
   where
     recover = do
       pos <- getPosition
-      let location = Location(pos,pos)
-      putError location e
+      putError pos e
       return Nothing
 
 {- Parse an expression. If fail then report an error and return bad expression -}

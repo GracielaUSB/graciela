@@ -35,10 +35,10 @@ bound = between (match TokLeftBound) (match TokRightBound) bound'
       expr <- withRecovery recover expression
       case expr of
         Nothing -> pure Nothing
-        Just Expression { loc, expType }
+        Just Expression { loc = Location (from, _) , expType }
           | expType =:= GInt -> pure expr
           | otherwise -> do
-            putError loc $ BadBoundType expType
+            putError from $ BadBoundType expType
             pure Nothing
 
     recover :: ParseError TokenPos Error -> Parser (Maybe a)
@@ -55,10 +55,10 @@ assert open close = between (match open) (match' close) assert'
       expr <- withRecovery recover expression
       case expr of
         Nothing -> pure Nothing
-        Just Expression { loc, expType }
+        Just Expression { loc = Location (from, _), expType }
           | expType =:= GBool -> pure expr
           | otherwise -> do
-            putError loc $ BadAssertType expType
+            putError from $ BadAssertType expType
             pure Nothing
 
     recover :: ParseError TokenPos Error -> Parser (Maybe a)

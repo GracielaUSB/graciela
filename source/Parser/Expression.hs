@@ -7,12 +7,12 @@ module Parser.Expression
   ( expression
   ) where
 --------------------------------------------------------------------------------
+import           AST.Definition
 import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           Entry                     (Entry' (..), Entry'' (..),
-                                            funcParams, funcType, info)
+import           Entry                     (Entry' (..), Entry'' (..), info)
 import           Error                     (Error (..))
 import           Lexer
 import           Location
@@ -27,7 +27,7 @@ import           Treelike
 import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens              (use, (%=), (&~), (<&>), (^.))
-import           Control.Monad             (unless, void, (>=>))
+import           Control.Monad             (foldM, unless, void, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
@@ -39,8 +39,8 @@ import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton, zip)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lex, lookup)
-import           Text.Megaparsec           (getPosition, parseErrorPretty, try,
-                                            (<|>))
+import           Text.Megaparsec           (between, getPosition,
+                                            parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 import           Text.Megaparsec.Pos       (unsafePos)
@@ -184,7 +184,7 @@ variable = do
   case name `lookup` st of
 
     Left _ -> do
-      putError loc . UnknownError $
+      putError from . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
       pure Nothing
@@ -244,88 +244,116 @@ variable = do
         in pure . Just $ (expr, ProtoNothing, Taint False)
 
       _ -> do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Variable `" <> unpack name <> "` not defined in this scope."
 
         pure Nothing
 
 
 call :: (Text, Location) -> ParserExp (Maybe MetaExpr)
-call (name, Location (from,_)) = do
-  margs <- parens . (Just <$>) $ metaexpr `sepBy` match TokComma
-  to <- getPosition
+call (funcName, Location (from,_)) = do
 
+  args <- between (match TokLeftPar) (match' TokRightPar) $
+    metaexpr `sepBy` match TokComma
+
+  to <- getPosition
   let loc = Location (from, to)
 
-  st <- lift (use symbolTable)
-  case name `lookup` st of
-    Left _ -> do
-      putError loc . UnknownError $
-        "Function `" <> unpack name <> "` has not been defined."
+  defs <- lift (use definitions)
+  case funcName `Map.lookup` defs of
+    Just Definition { defLoc, def' = FunctionDef { funcParams, funcRetType }} -> do
+      let
+        nArgs   = length args
+        nParams = length funcParams
+        Location (pos, _) = defLoc
+      if nArgs == nParams
+        then do
+          args' <- foldM (checkType funcName pos)
+            (Just (Seq.empty, Taint False))
+            (Seq.zip args funcParams)
+          pure $ case args' of
+            Nothing -> Nothing
+            Just (fargs, taint) ->
+              let
+                expr = Expression
+                  { E.loc
+                  , expType = funcRetType
+                  , exp' = FunctionCall
+                    { fname = funcName
+                    , fargs }}
+              in Just (expr, ProtoNothing, taint)
+
+        else do
+          putError from BadFuncNumberOfArgs
+            { fName = funcName
+            , fPos  = pos
+            , nParams
+            , nArgs }
+          pure Nothing
+
+    Just Definition { defLoc, def' = ProcedureDef {} } -> do
+      putError from . UnknownError $
+        "Cannot call procedure `" <> unpack funcName <> "`, defined at " <>
+        show defLoc <> " as an expression; a function was expected."
       pure Nothing
 
-    Right entry -> case entry^.info of
-      Function {} -> case margs of
-        Nothing -> do
-          putError loc . UnknownError $
-            "Bad argument passed to function `" <> unpack name <> "`."
-          pure Nothing
-        Just args -> do
-          let
-            params    = entry^.info.funcParams
-            parLength = length params
-            argLength = length args
-          if parLength == argLength
-            then case sequence args of
-              Nothing -> do
-                putError loc . UnknownError $
-                  "Bad argument passed to function `" <> unpack name <> "`."
-                pure Nothing
-              Just justargs ->
-                case matchArgs $ Seq.zip justargs params of
-                  [] ->
+    Nothing -> do
+      -- If the function is not defined, it's possible that we're
+      -- dealing with a recursive call. The information of a function
+      -- that is being defined is stored temporarily at the
+      -- Parser.State `currentFunc`.
+      currentFunction <- lift (use currentFunc)
+      case currentFunction of
+        Just (name, pos, retType, types, recursionAllowed)
+          | name == funcName && recursionAllowed -> do
+            let
+              nArgs = length args
+              nParams = length types
+
+            if nArgs == nParams
+              then do
+                args' <- foldM (checkType funcName pos)
+                  (Just (Seq.empty, Taint False))
+                  (Seq.zip args types)
+                pure $ case args' of
+                  Nothing -> Nothing
+                  Just (fargs, taint) ->
                     let
                       expr = Expression
                         { E.loc
-                        , expType = entry^.info.funcType
+                        , expType = retType
                         , exp' = FunctionCall
-                          { fname = name
-                          , fargs = (\(e,_,_) -> e) <$> justargs }}
-                      taint = foldr ((<>) . (\(_,_,t) -> t)) mempty justargs
-                    in pure . Just $ (expr, ProtoNothing, taint)
-                  msgs -> do
-                    mapM_ (uncurry putError) msgs
-                    pure Nothing
-            else do
-              putError loc . UnknownError $
-                "Function `" <> unpack name <> "` expected " <>
-                show parLength <> " argument" <>
-                case parLength of { 0 -> ""; n -> "s"} <>
-                " but " <> show argLength <> " were given."
-              pure Nothing
-
-      Procedure {} -> do
-        putError loc . UnknownError $
-          "Procedure `" <> unpack name <>
-          "` can not be called in an expression."
-        pure Nothing
-      _ -> do
-        putError loc . UnknownError $
-          "Function `" <> unpack name <> "` has not been defined."
-        pure Nothing
+                          { fname = funcName
+                          , fargs }}
+                    in Just (expr, ProtoNothing, taint)
+              else do
+                putError from BadFuncNumberOfArgs
+                  { fName = funcName
+                  , fPos  = pos
+                  , nParams
+                  , nArgs }
+                pure Nothing
+          | name == funcName && not recursionAllowed -> do
+            putError from . UnknownError $
+              "Function `" <> unpack funcName <> "` cannot call itself \
+              \recursively because no Bound and Invariant were given for it."
+            pure Nothing
+        _ -> do
+          putError from $ UndefinedFunction funcName
+          pure Nothing
 
   where
-    matchArgs = foldr matchArg []
-    matchArg ((Expression { E.loc, expType },_,_), (par, parType)) msgs =
-      if expType =:= parType
-        then msgs
-        else
-          let
-            err = UnknownError $
-              "Argument has type `" <> show expType <>
-              "` but an expression of type `" <> show parType <>
-              "` was expected."
-          in (loc, err) : msgs
+    checkType _ _ _ (Nothing, _) = pure Nothing
+    checkType fName fPos acc
+      (Just (e@Expression { E.loc, expType, exp' }, _, taint), (name, pType)) = do
+        let Location (from, _) = loc
+        if pType == expType
+          then pure $ add e taint <$> acc
+          else do
+            putError from $
+              BadFunctionArgumentType name fName fPos pType expType
+            pure Nothing
+    add e taint1 (es, taint0) = (es |> e, taint0 <> taint1)
 
 
 quantification :: ParserExp (Maybe MetaExpr)
@@ -346,23 +374,25 @@ quantification = do
   case range of
     Nothing -> pure ()
     Just (cond, protorange, taint0) -> do
-      let rloc = E.loc cond
+      let
+        Location (rfrom, _) = E.loc cond
+
       case protorange of
         ProtoVar ->
-          putError rloc . UnknownError $
+          putError rfrom . UnknownError $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoNothing       ->
-          putError rloc . UnknownError $
+          putError rfrom . UnknownError $
             "Bad quantification range. Range must be a boolean expression \
             \in Conjunctive Normal Form where the variable `" <> unpack var <>
             "` is bounded."
         ProtoLow         _ ->
-          putError rloc . UnknownError $
+          putError rfrom . UnknownError $
             "Bad quantification range. No upper bound was given."
         ProtoHigh        _ ->
-          putError rloc . UnknownError $
+          putError rfrom . UnknownError $
             "Bad quantification range. No lower bound was given."
         ProtoQRange qrange ->
           pure ()
@@ -371,9 +401,9 @@ quantification = do
 
   case body of
     Nothing -> pure ()
-    Just (Expression { expType = bodyType, E.loc = bloc }, _, taint1) ->
+    Just (Expression { expType = bodyType, E.loc = Location (bfrom, _) }, _, taint1) ->
       unless (bodyType =:= allowedBType) .
-        putError bloc . UnknownError $
+        putError bfrom . UnknownError $
           "Bad quantification body. Body must be " <> show allowedBType <> "."
 
   void $ match TokRightPercent
@@ -439,7 +469,7 @@ quantification = do
 
       case typeEntry of
         Nothing -> do
-          putError loc . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
+          putError from . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
           pure (var, Nothing)
 
         Just (t,_) ->
@@ -453,7 +483,7 @@ quantification = do
                   , _varValue = Nothing }}
               pure (var, Just t)
             else do
-              putError loc . UnknownError $
+              putError from . UnknownError $
                 "type `" <> unpack tname <> "` is not quantifiable"
               pure (var, Nothing)
 
@@ -538,10 +568,10 @@ ifExp = do
             -- 1. We have a good boolean expression, which is ideal
               pure (Just e, st, taint0)
 
-            Expression { E.loc } -> do
+            Expression { E.loc = Location (from, _) } -> do
               -- 2. We have a good expression which isn't boolean, so we
               -- report the error and clear the previous guards
-              lift . putError loc . UnknownError $
+              lift . putError from . UnknownError $
                 "bad left side in conditional expression"
               pure (Nothing, st, taint0)
 
@@ -574,11 +604,11 @@ ifExp = do
                 --   -- an error deep in it which we can only propagate
                 --   put st { ifType = GUndef, ifBuilder = IfNothing }
 
-                Expression { E.loc = rloc, expType } ->
+                Expression { E.loc = Location (rfrom,_), expType } ->
                   case expType <> ifType of
                     GUndef -> do
                       -- 2. The rhs type doesn't match previous lines
-                      lift . putError rloc . UnknownError $
+                      lift . putError rfrom . UnknownError $
                         "bad right side in conditional expression"
                       put st { ifType = GUndef, ifBuilder = IfNothing }
 
@@ -706,16 +736,16 @@ subindex = do
                   --   in pure (badexpression { E.loc }, ProtoNothing, Taint False)
 
                   e -> do
-                    let Location (from, _) = E.loc e
-                    let loc = Location (from, to)
+                    let
+                      Location (from, _) = E.loc e
+                      loc = Location (from, to)
 
-                    putError loc . UnknownError $ "Cannot subindex non-array."
+                    putError from . UnknownError $ "Cannot subindex non-array."
 
                     pure Nothing
 
             _ -> do --FIXME
-              let subloc = Location (from', to)
-              putError subloc . UnknownError $
+              putError from' . UnknownError $
                 "Bad subindex. Must be integer expression."
               pure (\_ -> pure Nothing)
 
@@ -750,22 +780,23 @@ deref = do
 
 
       e -> do
-        let Location (_, to) = E.loc e
-        let loc = Location (from, to)
+        let
+          Location (_, to) = E.loc e
+          loc = Location (from, to)
 
-        putError loc . UnknownError $ "Cannot deref non-pointer."
+        putError from . UnknownError $ "Cannot deref non-pointer."
 
         pure Nothing
 
 unary :: Op.Un -> Location
-      -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+      -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 unary unOp
   opLoc @ (Location (from,_))
   (Just (i @ Expression { expType = itype, exp' }, _, taint))
   = case Op.unType unOp itype of
     Left expected -> do
       let loc = Location (from, to i)
-      putError loc . UnknownError $
+      putError from . UnknownError $
         "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
         " expected an expression of type " <> expected <>
         ",\n\tbut received " <> show itype <> "."
@@ -788,7 +819,7 @@ unary _ _ _ = pure Nothing
 
 
 binary :: Op.Bin -> Location
-       -> (Maybe MetaExpr) -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+       -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 binary _ _ Nothing _ = pure Nothing
 binary _ _ _ Nothing = pure Nothing
 binary binOp opLoc
@@ -798,7 +829,7 @@ binary binOp opLoc
 
     Left expected -> do
       let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           "\n\texpected two expressions of types " <> expected <>
           ",\n\tbut received " <> show (ltype, rtype) <> ".")
@@ -825,7 +856,7 @@ binary binOp opLoc
 
 
 binary' :: Op.Bin' -> Location
-        -> (Maybe MetaExpr) -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+        -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 binary' _ _ Nothing _ = pure Nothing
 binary' _ _ _ Nothing = pure Nothing
 binary' binOp opLoc
@@ -834,8 +865,7 @@ binary' binOp opLoc
   = case Op.binType' binOp ltype rtype of
 
     Left expected -> do
-      let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         ("Operator `" <> show (Op.binSymbol' binOp) <> "` at " <> show opLoc <>
           " expected two expressions of types " <> expected <>
           ", but received " <> show (ltype, rtype) <> ".")
@@ -855,7 +885,7 @@ binary' binOp opLoc
 
 
 membership :: Location
-           -> (Maybe MetaExpr) -> (Maybe MetaExpr)
+           -> Maybe MetaExpr -> Maybe MetaExpr
            -> ParserExp (Maybe MetaExpr)
 membership opLoc
   (Just (l @ Expression { expType = ltype }, ProtoVar, ltaint))
@@ -863,7 +893,7 @@ membership opLoc
   = case Op.binType Op.elem ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
@@ -883,14 +913,14 @@ membership opLoc l r = binary Op.elem opLoc l r
 
 
 comparison :: Op.Bin -> Location
-           -> (Maybe MetaExpr) -> (Maybe MetaExpr) -> ParserExp (Maybe MetaExpr)
+           -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype }, _, Taint False))
   (Just (r @ Expression { expType = rtype }, ProtoVar, _))
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        putError loc . UnknownError $
+        putError (from l) . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
             show opLoc <> "\n\texpected two expressions of types " <> expected <>
             ",\n\tbut received " <> show (ltype, rtype) <> ".")
@@ -925,7 +955,7 @@ comparison binOp opLoc
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
-        putError loc . UnknownError $
+        putError (from l) . UnknownError $
           ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
             show opLoc <> "\n\texpected two expressions of types " <> expected <>
             ",\n\tbut received " <> show (ltype, rtype) <> ".")
@@ -958,7 +988,7 @@ comparison binOp opLoc l r = binary binOp opLoc l r
 
 
 pointRange :: Location
-           -> (Maybe MetaExpr) -> (Maybe MetaExpr)
+           -> Maybe MetaExpr -> Maybe MetaExpr
            -> ParserExp (Maybe MetaExpr)
 pointRange opLoc
   (Just (l @ Expression { expType = ltype }, ProtoVar, ltaint))
@@ -966,7 +996,7 @@ pointRange opLoc
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
@@ -988,7 +1018,7 @@ pointRange opLoc
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
           \ expressions of types " <> expected <> ",\n\tbut received " <>
           show (ltype, rtype) <> ".")
@@ -1075,7 +1105,7 @@ conjunction opLoc
 
     Left expected -> do
       let loc = Location (from l, to r)
-      putError loc . UnknownError $
+      putError (from l) . UnknownError $
         "Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
         \ expressions of types " <> expected <> ",\n\tbut received " <>
         show (ltype, rtype) <> "."

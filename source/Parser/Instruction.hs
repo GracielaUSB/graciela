@@ -18,6 +18,7 @@ module Parser.Instruction
   ) where
 -------------------------------------------------------------------------------
 import           AST.Declaration        (Declaration)
+import           AST.Definition
 import           AST.Expression         (Expression (..), Expression' (..),
                                          Object (..))
 import qualified AST.Expression         as E (loc)
@@ -28,7 +29,8 @@ import qualified AST.Object             as O (loc)
 import           Entry
 import           Error
 import           Location
-import           Parser.Assertion
+import           Parser.Assertion       hiding (bound)
+import qualified Parser.Assertion       as A (bound)
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
@@ -45,6 +47,7 @@ import           Control.Monad.Identity (Identity)
 import           Data.Foldable          (asum)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (any)
+import qualified Data.Map               as Map (lookup)
 import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, singleton, zip)
@@ -120,7 +123,7 @@ block = do
 
   if null actions
     then do
-      putError loc EmptyBlock
+      putError from EmptyBlock
       pure Nothing
   else pure $ case (asum <$> sequence actions, decls) of
     (Nothing, _) -> Nothing
@@ -160,7 +163,7 @@ assign = do
           { instLoc = Location (from, to)
           , inst'   = Assign assignPairs }
     else do
-      putError (Location (from, to)) . UnknownError $
+      putError from . UnknownError $
         "The number of lvals does not match the number of rvals."
       pure Nothing
 
@@ -174,23 +177,23 @@ assign = do
     checkType _   (Nothing, _) = pure Nothing
     checkType _   (_, Nothing) = pure Nothing
     checkType acc (Just l, Just r) = case (l,r) of
-      (Expression loc1 t1 (Obj o), Expression loc2 t2 _)
+      (Expression (Location (from1,_)) t1 (Obj o), Expression _ t2 _)
         | notIn o ->
           if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
             then pure $ (|> (o, r)) <$> acc
             else do
-              putError loc1 . UnknownError $
+              putError from1 . UnknownError $
                 "Can't assign an expression of type `" <>
                 show t2 <> "` to a variable of type `" <>
                 show t1 <> "`."
               pure Nothing
         | otherwise -> do
-          putError loc1 . UnknownError $
+          putError from1 . UnknownError $
             "The variable `" <> show o <> "` cannot be the target of an \
             \assignment because it has mode `In`."
           pure Nothing
-      (Expression loc _ _, Expression {}) -> do
-        putError loc $ UnknownError
+      (Expression (Location (from,_)) _ _, Expression {}) -> do
+        putError from $ UnknownError
           "An expression cannot be the target of an assignment."
         pure Nothing
 
@@ -212,16 +215,16 @@ random = do
         | expType =:= randomizable && notIn o ->
           pure . Just $ Instruction loc (Random o)
         | expType =:= randomizable && not (notIn o) -> do
-          putError loc . UnknownError $
+          putError from . UnknownError $
             "Cannot assign random value to an `In` mode variable."
           pure Nothing
         | not (expType =:= randomizable) -> do
-          putError loc . UnknownError $
+          putError from . UnknownError $
             "Cannot assign random value to a variable of type `" <>
             show expType <> "`."
           pure Nothing
       _ -> do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Cannot assign random value to an expression."
         pure Nothing
   where
@@ -253,11 +256,11 @@ write = do
 
   where
     write' _   Nothing = pure Nothing
-    write' acc (Just e@Expression { E.loc, expType })
+    write' acc (Just e@Expression { E.loc = Location (from, _), expType })
       | expType =:= writable =
         pure $ (|> e) <$> acc
       | otherwise = do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Cannot write expression of type `" <> show expType <> "`."
         pure Nothing
 
@@ -285,7 +288,7 @@ reading = do
     Nothing -> pure Nothing
     Just vars -> if null vars
       then do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "At least one object must be read in a read instruction."
         pure Nothing
       else do
@@ -301,23 +304,23 @@ reading = do
     fileFrom = match TokFrom *> stringLit
 
     read' _   Nothing = pure Nothing
-    read' acc (Just Expression { exp' = Obj o @ Object { O.loc, objType } })
+    read' acc (Just Expression { exp' = Obj o @ Object { O.loc = Location (from, _), objType } })
       | objType =:= readable && notIn o =
         pure $ (|> o) <$> acc
       | notIn o = do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Cannot read object of type `" <> show objType <> "`."
         pure Nothing
       | objType =:= readable = do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Cannot read an `In` mode object."
         pure Nothing
       | otherwise = do
-        putError loc . UnknownError $
+        putError from . UnknownError $
           "Cannot read an `In` mode object of type `" <> show objType <> "`."
         pure Nothing
-    read' acc (Just Expression { E.loc }) = do
-      putError loc . UnknownError $
+    read' acc (Just Expression { E.loc = Location (from, _) }) = do
+      putError from . UnknownError $
         "Cannot a value read into an expression."
       pure Nothing
 
@@ -346,7 +349,7 @@ newOrFree tok inst name = do
       Expression { expType = GPointer t, exp' = Obj o } ->
         pure . Just $ Instruction loc (inst o t)
       _ -> do
-        putError loc . UnknownError $ name <> " can only recive pointers."
+        putError from . UnknownError $ name <> " can only recive pointers."
         pure Nothing
 
 
@@ -384,7 +387,7 @@ guard = do
 
   if null actions
     then do
-      putError loc EmptyBlock
+      putError from EmptyBlock
       pure Nothing
     else pure $ (,) <$> cond <*> (asum <$> sequence actions)
 
@@ -404,7 +407,7 @@ conditional = do
 
   if null gs
     then do
-      putError loc $ UnknownError "Conditional expression without guards."
+      putError from $ UnknownError "Conditional expression without guards."
       pure Nothing
     else pure $ case sequence gs of
       Nothing  -> Nothing
@@ -419,7 +422,7 @@ repetition = do
   from <- getPosition
 
   inv <- assertion' invariant NoDoInvariant
-  bnd <- assertion' bound     NoDoBound
+  bnd <- assertion' A.bound   NoDoBound
 
   match TokDo
   gs <- guard `sepBy` match TokSepGuards
@@ -430,7 +433,7 @@ repetition = do
 
   if null gs
     then do
-      putError loc $ UnknownError "Repeat expression without guards."
+      putError from $ UnknownError "Repeat expression without guards."
       pure Nothing
     else pure $ repeat' loc <$> sequence gs <*> inv <*> bnd
 
@@ -439,8 +442,7 @@ repetition = do
       where
         recover = do
           pos <- getPosition
-          let loc = Location (pos, pos)
-          putError loc e
+          putError pos e
           pure Nothing
 
     repeat' instLoc rguards rinv rbound = Instruction
@@ -450,87 +452,6 @@ repetition = do
         , rinv
         , rbound }}
 
---
--- procedureCall :: Parser (Maybe Instruction)
--- procedureCall = do
---   -- from <- getPosition
---   -- id   <- identifier
---   -- match TokLeftPar
---   -- args <- expression `sepBy` match TokComma
---   -- match' TokRightPar
---   -- st   <- use symbolTable
---   --
---   -- to   <- getPosition
---   -- let loc = Location (from,to)
---
---   case id `lookup` st of
---     {- Check if the called procedure if defined in the symbol table-}
---     Right (Entry _ (Location (pos,_)) (Procedure {_procParams})) -> do
---         -- let nArgs   = length args
---         -- let nParams = length _procParams
---         {- Check if the call recived enough arguments-}
---         if nArgs /= nParams
---           -- then do
---           --   putError loc BadProcNumberofArgs {
---           --                   pName   = id
---           --                 , pPos    = pos
---           --                 , nParams = nParams
---           --                 , nArgs   = nArgs
---           --                 }
---           --   pure Nothing
---         -- else if nArgs == 0 && nParams == 0
---             -- then pure $ Instruction loc (ProcedureCall id [])
---         else do
---           {- Now check the arguments types match with the procedure parameter's types-}
---           -- args' <- zipWithM (checkTypes id pos loc) _procParams args
---           -- pure $ Instruction loc (ProcedureCall id args')
---
---     _ -> do
---       {- If the procedure is not defined, maybe the current procedure is calling
---          itself recursively. The information of a procedure that is being defined is stored
---          temporarily at Parser's currentSymbol -}
---       currentProcedure <- use currentProc
---       case currentProcedure of
---         {- If the current symbol match with the call, then check the arguments types
---            and pure the proper AST -}
---         Just (name, pos, types) | name == id -> do
---           let nArgs   = length args
---           let nParams = length types
---           {- Check if the call recived enough arguments-}
---           if nArgs /= nParams
---             then do
---               putError loc BadProcNumberofArgs {
---                               pName   = id
---                             , pPos    = pos
---                             , nParams = nParams
---                             , nArgs   = nArgs
---                             }
---               pure Nothing
---           else if nArgs == 0 && nParams == 0
---             then pure $ Instruction loc (ProcedureCall id Seq.empty)
---           else do
---             {- Now check the arguments types match with the procedure parameter's types-}
---             args' <- zipWithM (checkTypes id pos loc) types args
---             pure $ Instruction loc (ProcedureCall id args')
---         {- If there is no procedure defined that matchs with the current call, then report the error-}
---         Nothing -> do
---           -- putError loc (UndefinedProcedure id)
---           -- pure Nothing
---   where
---     -- checkTypes pName pPos loc (name, pType, mode) Just e@Expression {expType, exp'} = do
---     --   -- if pType == expType
---     --     -- then case exp' of
---     --       -- Obj obj | mode == Out || mode == InOut -> pure (e,mode)
---     --       -- _       | mode == In -> pure (e,mode)
---     --       -- _ -> do
---     --         -- putError loc . UnknownError $ "The parameter `" <> T.unpack name <> "` has mode " <>
---     --             --  show mode <> "\n\tbut recived an expression instead of a variable"
---     --         -- pure (e,mode)
---     --     else do
---     --       -- putError loc $ BadProcedureArgumentType name pName pPos pType expType
---     --       -- pure (e,mode)
---     -- -- checkTypes _ _ _ _ Nothing = pure (Nothing,In)
-
 
 -- | Parse procedure calls.
 procedureCall = do
@@ -538,22 +459,23 @@ procedureCall = do
   procName <- identifier
 
   args <- between (match TokLeftPar) (match' TokRightPar) $
-    (expression `sepBy` match TokComma)
+    expression `sepBy` match TokComma
 
   to <- getPosition
   let loc = Location (from, to)
 
-  st <- use symbolTable
+  defs <- use definitions
 
-  case procName `lookup` st of
-    Right Entry { _loc, _info = Procedure { _procParams}} -> do
+  case procName `Map.lookup` defs of
+
+    Just Definition { defLoc, def' = ProcedureDef { procParams }} -> do
       let
         nArgs   = length args
-        nParams = length _procParams
-        Location (pos, _) = _loc
+        nParams = length procParams
+        Location (pos, _) = defLoc
       if nArgs == nParams
         then do
-          args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args _procParams)
+          args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args procParams)
           pure $ case args' of
             Nothing -> Nothing
             Just args'' -> Just Instruction
@@ -562,29 +484,24 @@ procedureCall = do
                 { pname = procName
                 , pargs = args'' }}
         else do
-          putError loc BadProcNumberofArgs
+          putError from BadProcNumberOfArgs
             { pName = procName
-            , pPos = pos
+            , pPos  = pos
             , nParams
             , nArgs }
           pure Nothing
 
-    Right (Entry { _loc, _info = Function {}}) -> do
-      putError loc . UnknownError $
-        "Cannot call function `" <> T.unpack procName <>
-        "` as an instruction; a procedure was expected."
+    Just Definition { defLoc, def' = FunctionDef {} } -> do
+      putError from . UnknownError $
+        "Cannot call function `" <> T.unpack procName <> "`, defined at " <>
+        show defLoc <> "` as an instruction; a procedure was expected."
       pure Nothing
 
-    Right _ -> do
-      putError loc . UnknownError $
-        "Identifier `" <> T.unpack procName <> "` is not a procedure."
-      pure Nothing
-
-    Left _ -> do
+    Nothing -> do
       -- If the procedure is not defined, it's possible that we're
       -- dealing with a recursive call. The information of a procedure
       -- that is being defined is stored temporarily at the
-      -- Parser.State `currentSymbol`.
+      -- Parser.State `currentProc`.
       currentProcedure <- use currentProc
       case currentProcedure of
         Just (name, pos, types, recursionAllowed)
@@ -598,36 +515,31 @@ procedureCall = do
                 args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args types)
                 pure $ case args' of
                   Nothing -> Nothing
-                  Just args'' -> Just Instruction
+                  Just pargs -> Just Instruction
                     { instLoc = loc
                     , inst' = ProcedureCall
                       { pname = procName
-                      , pargs = args'' }}
+                      , pargs }}
               else do
-                putError loc BadProcNumberofArgs
+                putError from BadProcNumberOfArgs
                   { pName = procName
                   , pPos  = pos
                   , nParams
                   , nArgs }
                 pure Nothing
           | name == procName && not recursionAllowed -> do
-            putError loc . UnknownError $
+            putError from . UnknownError $
               "Procedure `" <> T.unpack procName <> "` cannot call itself \
               \recursively because no Bound and Invariant were given for it."
             pure Nothing
         _ -> do
-          putError loc $ UndefinedProcedure procName
+          putError from $ UndefinedProcedure procName
           pure Nothing
 
-
-
   where
-    -- checkType :: Maybe (Seq (Expression, ArgMode))
-    --           -> (Maybe Expression, (Text, Type, ArgMode))
-    --           -> Parser (Maybe (Seq (Expression, ArgMode)))
     checkType _ _ _ (Nothing, _) = pure Nothing
     checkType pName pPos acc
-      (Just e@Expression { E.loc, expType, exp'}, (name, pType, mode)) = do
+      (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) = do
         if pType == expType
           then case exp' of
             Obj {}
@@ -637,13 +549,13 @@ procedureCall = do
               | mode == In ->
                 pure $ (|> (e, mode)) <$> acc
             _ -> do
-              putError loc . UnknownError $
+              putError from . UnknownError $
                 "The parameter `" <> T.unpack name <> "` has mode " <>
                 show mode <> "\n\tbut recived an expression instead \
                 \of a variable"
               pure Nothing
           else do
-            putError loc $
+            putError from $
               BadProcedureArgumentType name pName pPos pType expType
             pure Nothing
 

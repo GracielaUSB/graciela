@@ -30,7 +30,7 @@ import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
                                     sepBy, try, (<|>))
 --------------------------------------------------------------------------------
 
-type' :: Parser (Maybe Type)
+type' :: Parser Type
 type' = try userDefined <|> try arrayOf <|> try type''
   where
     -- Try to parse an array type
@@ -43,30 +43,28 @@ type' = try userDefined <|> try arrayOf <|> try type''
       t <- type'
 
       pure $ case t of
-        Nothing -> Just GUndef
-        Just GUndef -> Just GUndef
-        Just t -> case msize of
-          Nothing -> Just GUndef
-          Just i -> Just $ GArray i t
+        GUndef -> GUndef
+        t -> case msize of
+          Nothing -> GUndef
+          Just i -> GArray i t
 
     type'' = do
       -- If its not an array, then try with a basic type or a pointer
       from  <- getPosition
       tname <- identifier
       to    <- getPosition
-      let loc = Location(from,to)
       t     <- getType tname
       case t of
         Nothing -> do
-          putError loc (UndefinedType tname)
-          pure . Just $ GUndef
+          putError from (UndefinedType tname)
+          pure GUndef
         Just t' -> isPointer t'
 
-    isPointer :: Type -> Parser (Maybe Type)
+    isPointer :: Type -> Parser Type
     isPointer t = do
         match TokTimes
         isPointer (GPointer t)
-      <|> (pure . Just $ t)
+      <|> pure t
 
     -- TODO: Or if its a user defined Type
     userDefined = do
@@ -78,9 +76,9 @@ type' = try userDefined <|> try arrayOf <|> try type''
       to <- getPosition
       case t of
         Nothing -> do
-          putError (Location(from,to)) (UndefinedType id)
-          pure . Just $ GUndef
-        Just t' -> pure . Just $ t'
+          putError from (UndefinedType id)
+          pure GUndef
+        Just t' -> pure t'
 
 arraySize :: Parser (Maybe Int32)
 arraySize = do
@@ -104,22 +102,22 @@ arraySize = do
           \sin cuantificaciones."
         pure Nothing
 
-abstractType :: Parser (Maybe Type)
+abstractType :: Parser Type
 abstractType
    =  type'
-  <|> do {match TokSet;      match TokOf; fmap GSet      <$> typeVar }
-  <|> do {match TokMultiset; match TokOf; fmap GMultiset <$> typeVar }
-  <|> do {match TokSeq;      match TokOf; fmap GSeq      <$> typeVar }
+  <|> do {match TokSet;      match TokOf; GSet      <$> typeVar }
+  <|> do {match TokMultiset; match TokOf; GMultiset <$> typeVar }
+  <|> do {match TokSeq;      match TokOf; GSeq      <$> typeVar }
 
-  <|> do {match TokFunc; ba <- typeVar; match TokArrow;   bb <- typeVar; pure $ GFunc <$> ba <*> bb }
-  <|> do {match TokRel;  ba <- typeVar; match TokBiArrow; bb <- typeVar; pure $ GRel  <$> ba <*> bb }
+  <|> do {match TokFunc; ba <- typeVar; match TokArrow;   bb <- typeVar; pure $ GFunc ba bb }
+  <|> do {match TokRel;  ba <- typeVar; match TokBiArrow; bb <- typeVar; pure $ GRel  ba bb }
 
-  <|> (fmap GTuple . sequence <$> parens (typeVar `sepBy` match TokComma))
+  <|> (GTuple <$> parens (typeVar `sepBy` match TokComma))
 
   <|> typeVar
 
-typeVar :: Parser (Maybe Type)
+typeVar :: Parser Type
 typeVar = do
-  id <- identifier
+  name <- identifier
   notFollowedBy (match TokTimes)
-  return . Just $ GTypeVar id -- polymorphism
+  pure $ GTypeVar name -- polymorphism

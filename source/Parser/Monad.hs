@@ -44,6 +44,7 @@ module Parser.Monad
   , floatLit
   , stringLit
   , identifier
+  , safeIdentifier
   , identifierAndLoc
 
   , parens
@@ -172,19 +173,26 @@ execParser :: Parser (Maybe a)
 execParser p fp s input = runIdentity $ execParserT p fp s input
 --------------------------------------------------------------------------------
 
+infixl 3 <!>
+infixl 3 <!!>
+
 class MonadParsec Error [TokenPos] p => MonadParser p where
-  putError :: Location -> Error -> p ()
+  putError :: SourcePos -> Error -> p ()
   getType :: Text -> p (Maybe Type)
   followedBy :: p (Maybe a) -> p b -> p (Maybe a)
   satisfy :: (Token -> Bool) -> p Token
   match' :: Token -> p Location
+  (<!>) :: p (Maybe a) ->  (SourcePos, Error) -> p (Maybe a)
+  a <!> (p, e) = a <|> (putError p e *> pure Nothing)
+  (<!!>) :: p a -> (SourcePos, Error) -> p (Maybe a)
+  a <!!> b  = Just <$> a <!> b
 
 instance Monad m => MonadParser (ParserT m) where
-  putError   = pPutError
-  getType    = pGetType
-  followedBy = pFollowedBy
-  satisfy    = pSatisfy
-  match'     = pMatch'
+  putError     = pPutError
+  getType      = pGetType
+  followedBy   = pFollowedBy
+  satisfy      = pSatisfy
+  match'       = pMatch'
 
 instance MonadParser g => MonadParser (StateT s g) where
   putError l e        = lift $ putError l e
@@ -193,12 +201,11 @@ instance MonadParser g => MonadParser (StateT s g) where
   satisfy             = lift . satisfy
   match'              = lift . match'
 
-pPutError :: Monad m => Location -> Error -> ParserT m ()
-pPutError (Location (from, _)) e = ParserT $ do
+pPutError :: Monad m => SourcePos -> Error -> ParserT m ()
+pPutError from e = ParserT $ do
   let
     err = ParseError (NE.fromList [from]) Set.empty Set.empty (Set.singleton e)
   errors %= (|> err)
-pPutError _ _ = error "FIXME"
 
 pGetType :: (Monad m)
          => Text -> ParserT m (Maybe Type)
@@ -221,9 +228,7 @@ pRecover :: (MonadParser m)
 pRecover follow e = do
   pos <- getPosition
 
-  putError
-    (Location (pos, undefined))
-    (UnexpectedToken (errorUnexpected e))
+  putError pos . UnexpectedToken $ errorUnexpected e
 
   void $ anyToken `manyTill` (void (lookAhead follow) <|> eof)
 
@@ -250,8 +255,7 @@ pMatch' t = withRecovery recover (match t)
 
       let loc = Location (pos, pos)
 
-      putError loc $
-        UnexpectedToken (errorUnexpected e)
+      putError pos . UnexpectedToken $ errorUnexpected e
 
       pure loc
 --------------------------------------------------------------------------------
@@ -317,6 +321,18 @@ identifier = unTokId <$> satisfy ident
   where
     ident TokId {} = True
     ident _        = False
+
+safeIdentifier :: MonadParser m
+               => m (Maybe Text)
+safeIdentifier = withRecovery recover (Just <$> identifier)
+  where
+    recover e = do
+      pos <- getPosition
+
+      putError pos . UnknownError $
+        "An identifier was expected but none was given."
+
+      pure Nothing
 
 -- | Match an identifier and return both its name and location
 identifierAndLoc :: MonadParser m

@@ -56,59 +56,56 @@ declaration = do
 
   match TokColon
   -- t' <- if isConst then basicType else type'
-  t' <- type'
+  t <- type'
   to <- getPosition
 
   let
     location = Location (from, to)
 
-  case t' of
-    Nothing -> pure Nothing
-    Just t ->
-      if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
-        then do
-          putError location . UnknownError $
-            "Se intentó declarar constante de tipo `" <> show t <>
-            "`, pero sólo se permiten constantes de tipos basicos."
-          pure Nothing
-        else case mvals of
-          Nothing -> do
-            -- Values were optional, and were not given
-            forM_ ids $ \(id, loc) -> do
-              redefinition (id, loc)
-              let
-                entry = Entry
-                  { _entryName = id
-                  , _loc       = loc
-                  , _info      = Var t Nothing }
-              symbolTable %= insertSymbol id entry
-            pure . Just $ Declaration
-              { declLoc  = location
-              , declType = t
-              , declIds  = fst <$> ids }
+  if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
+    then do
+      putError from . UnknownError $
+        "Se intentó declarar constante de tipo `" <> show t <>
+        "`, pero sólo se permiten constantes de tipos basicos."
+      pure Nothing
+    else case mvals of
+      Nothing -> do
+        -- Values were optional, and were not given
+        forM_ ids $ \(id, loc) -> do
+          redefinition (id, loc)
+          let
+            entry = Entry
+              { _entryName = id
+              , _loc       = loc
+              , _info      = Var t Nothing }
+          symbolTable %= insertSymbol id entry
+        pure . Just $ Declaration
+          { declLoc  = location
+          , declType = t
+          , declIds  = fst <$> ids }
 
-          Just Nothing -> pure Nothing
-            -- Values were either mandatory or optional, and were given, but
-            -- had errors. No more errors are given.
+      Just Nothing -> pure Nothing
+        -- Values were either mandatory or optional, and were given, but
+        -- had errors. No more errors are given.
 
-          Just (Just exprs) ->
-            -- Values were either mandatory or optional, but were given
-            -- anyways, without errors in any.
-            if length ids == length exprs
-              then do
-                pairs <- foldM (checkType isConst t) Seq.empty $ Seq.zip ids exprs
-                pure $ if Seq.null pairs
-                  then Nothing
-                  else Just Initialization
-                    { declLoc   = location
-                    , declType  = t
-                    , declPairs = pairs }
-              else do
-                putError location . UnknownError $
-                  "La cantidad de " <>
-                  (if isConst then "constantes" else "variables") <>
-                  " es distinta a la de expresiones"
-                pure Nothing
+      Just (Just exprs) ->
+        -- Values were either mandatory or optional, but were given
+        -- anyways, without errors in any.
+        if length ids == length exprs
+          then do
+            pairs <- foldM (checkType isConst t) Seq.empty $ Seq.zip ids exprs
+            pure $ if Seq.null pairs
+              then Nothing
+              else Just Initialization
+                { declLoc   = location
+                , declType  = t
+                , declPairs = pairs }
+          else do
+            putError from . UnknownError $
+              "La cantidad de " <>
+              (if isConst then "constantes" else "variables") <>
+              " es distinta a la de expresiones"
+            pure Nothing
 
 
 assignment :: Parser (Maybe (Seq Expression))
@@ -123,6 +120,9 @@ checkType :: Constness -> Type
 checkType True t pairs
   ((identifier, location), expr@Expression { expType, exp' }) = do
   redefinition (identifier,location)
+
+  let Location (from, _) = location
+
   if expType =:= t
     then case exp' of
       Value v -> do
@@ -136,12 +136,12 @@ checkType True t pairs
         symbolTable %= insertSymbol identifier entry
         pure $ pairs |> (identifier, expr)
       _       -> do
-        putError location . UnknownError $
+        putError from . UnknownError $
           "Se intentó asignar una expresión no constante a la \
           \constante `" <> unpack identifier <> "`"
         pure Seq.empty
     else do
-      putError location . UnknownError $
+      putError from . UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
@@ -149,7 +149,9 @@ checkType True t pairs
 
 checkType False t pairs
   ((identifier, location), expr@Expression { loc, expType, exp' }) =
-  if expType =:= t
+
+  let Location (from, _) = location
+  in if expType =:= t
     then do
       redefinition (identifier,location)
       let
@@ -163,16 +165,16 @@ checkType False t pairs
       pure $ pairs |> (identifier, expr)
 
     else do
-      putError location . UnknownError $
+      putError from . UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
         "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
         show t <> "`"
       pure Seq.empty
 
 redefinition :: (Text, Location) -> Parser ()
-redefinition (id, location) = do
+redefinition (id, Location (from, _)) = do
   st <- use symbolTable
   let local = isLocal id st
   when local .
-    putError location . UnknownError $
+    putError from . UnknownError $
       "Redefinition of variable `" <> unpack id <> "`"

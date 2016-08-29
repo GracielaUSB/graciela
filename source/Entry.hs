@@ -7,8 +7,6 @@ module Entry
   -- , Value (..)
   , info
   , varType
-  , funcParams
-  , funcType
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
@@ -42,15 +40,13 @@ data Entry'' s
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
-  | Function
-    { _funcType   :: Type
-    , _funcParams :: Seq (Text,Type)
-    , _funcTable  :: s }
-  | Procedure
-    { _procParams :: Seq (Text,Type,ArgMode)
-    , _procTable  :: s }
-  | AbstractTypeEntry
-  | TypeEntry
+  -- | Function
+  --   { _funcType   :: Type
+  --   , _funcParams :: Seq (Text, Type) }
+  -- | Procedure
+  --   { _procParams :: Seq (Text, Type, ArgMode) }
+  -- | AbstractTypeEntry
+  -- | TypeEntry
   deriving (Eq)
 
 makeLenses ''Entry''
@@ -85,15 +81,15 @@ instance Treelike (Entry' s) where
         [ leaf $ "Type: " <> show _argType
         , leaf $ "Mode: " <> show _argMode ]
 
-    Function { _funcType, _funcParams, _funcTable } ->
-      Node ("Function `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $ show _funcType ]
-
-    Procedure { _procParams, _procTable } ->
-      leaf ("Procedure `" <> unpack _entryName <> "` " <> show _loc)
-
-    AbstractTypeEntry {} ->
-      leaf ("Abstract Data Type `" <> unpack _entryName <> "` " <> show _loc)
-
-    TypeEntry {} ->
-      leaf ("Data Type `" <> unpack _entryName <> "` " <> show _loc)
+    -- Function { _funcType, _funcParams } ->
+    --   Node ("Function `" <> unpack _entryName <> "` " <> show _loc)
+    --     [ leaf $ show _funcType ]
+    --
+    -- Procedure { _procParams } ->
+    --   leaf ("Procedure `" <> unpack _entryName <> "` " <> show _loc)
+    --
+    -- AbstractTypeEntry {} ->
+    --   leaf ("Abstract Data Type `" <> unpack _entryName <> "` " <> show _loc)
+    --
+    -- TypeEntry {} ->
+    --   leaf ("Data Type `" <> unpack _entryName <> "` " <> show _loc)

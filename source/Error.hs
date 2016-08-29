@@ -41,11 +41,24 @@ data Error
     , fType :: Type
     , eType :: Type
     }
-  | BadProcNumberofArgs
+  | BadFuncNumberOfArgs
+    { fName   :: Text
+    , fPos    :: SourcePos
+    , nParams :: Int
+    , nArgs   :: Int
+    }
+  | BadProcNumberOfArgs
     { pName   :: Text
     , pPos    :: SourcePos
     , nParams :: Int
     , nArgs   :: Int
+    }
+  | BadFunctionArgumentType
+    { paramName :: Text
+    , fName     :: Text
+    , fPos      :: SourcePos
+    , pType     :: Type
+    , aType     :: Type
     }
   | BadProcedureArgumentType
     { paramName :: Text
@@ -88,6 +101,9 @@ data Error
   | NotInScope
     { sName :: Text
     }
+  | UndefinedFunction
+    { fName :: Text
+    }
   | UndefinedProcedure
     { pName :: Text
     }
@@ -125,16 +141,26 @@ instance ShowErrorComponent Error where
     BadFuncExpressionType { fName, fType, eType } ->
       "The function `" <> unpack fName <> "` returns " <> show fType <>
       " but has an expression of type " <> show eType
-    BadProcNumberofArgs { pName, pPos, nParams, nArgs } ->
+    BadFuncNumberOfArgs { fName, fPos, nParams, nArgs } ->
+      "The function `" <> unpack fName <> "` " <> showPos fPos <>
+      " was defined with " <> show nParams <>
+      (if nParams == 1 then " parameter" else " parameters") <> ", but received " <>
+      show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+    BadProcNumberOfArgs { pName, pPos, nParams, nArgs } ->
       "The procedure `" <> unpack pName <> "` " <> showPos pPos <>
       " was defined with " <> show nParams <>
-      (if nParams == 1 then " parameter" else " parameters") <> ", but recived " <>
-       show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+      (if nParams == 1 then " parameter" else " parameters") <> ", but received " <>
+      show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+
+    BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
+      "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack fName <>
+      "` " <> showPos fPos <> " has type `" <> show pType <>
+      "`, but recived a expression with type `" <> show aType <> "`."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
-      "` " <> showPos pPos <> " has type " <> show pType <>
-      ", but recived a expression with type " <> show aType
+      "` " <> showPos pPos <> " has type `" <> show pType <>
+      "`, but recived a expression with type `" <> show aType <> "`."
 
     BadReadArgument { aExpr } ->
       "The expression `" <> show aExpr <> "` is a constant expression."
@@ -174,6 +200,9 @@ instance ShowErrorComponent Error where
 
     NotInScope { sName } ->
       "Not in the scope: `" <> unpack sName <> "`"
+
+    UndefinedFunction { fName } ->
+      "Undefined function named `" <> unpack fName <> "`."
 
     UndefinedProcedure { pName } ->
       "Undefined procedure named `" <> unpack pName <> "`."
