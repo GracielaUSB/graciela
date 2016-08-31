@@ -6,9 +6,9 @@ abstract Diccionario (t0,t1) begin
     var conoc : set of t0;
     var tabla : func t0 -> t1;
 
-    {inv true inv}
+    {inv MAX > 0 inv}
 
-    proc crear (out m : int)
+    proc crear (out d : Diccinario, out j : Diccionario in m : int)
         {pre  0 <  m  pre}
         {post 1 == m post}
 
@@ -30,8 +30,7 @@ abstract Diccionario (t0,t1) begin
         {post e == c > 2 post}*/
 end
 
-
-type Dicc implements Diccionario (int,int)
+type Dicc (a,b) implements Diccionario (int,int)
 begin
     var   MAX := 10 : int;
     var   tam       : int;
@@ -42,14 +41,13 @@ begin
 
     {coupinv false coupinv}
 
-    proc crear (in m : int, out d : Dicc)
-    begin
-        {pre    0 < m              pre}
-        |[
-            write("hola")
-        ]|
-        {post m == 0 \/ m != 0  post}
-    end
+    proc crear (out d : Dicc, in m : int)
+      {pre  0 < m            pre}
+      {post m == 0 \/ m != 0 pre}
+      |[
+          write("hola")
+      ]|
+        
 
     // proc agregar (inout d : int , in c : int, in v : int)
     // begin

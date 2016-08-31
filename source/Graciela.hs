@@ -14,7 +14,7 @@ import           Token (TokenPos)
 import           Type                   (Type (..), ArgMode)
 import           TypeError              as T
 --------------------------------------------------------------------------------
-import Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.Class (lift)
 import           Control.Lens           (makeLenses, use, (%=))
 import           Control.Monad.Identity (Identity)
 import           Control.Monad.State    (State, MonadState)

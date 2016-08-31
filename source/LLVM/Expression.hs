@@ -169,6 +169,44 @@ objectRef obj@(Object loc objType obj') = case obj' of
       return (reverse indices, Just ref)
 
 
+-- LLVM offers a set of secure operations that know when an int operation reach an overflow
+-- llvm.sadd.with.overflow.i32 (fun == intAdd)
+-- llvm.ssub.with.overflow.i32 (fun == intSub)
+-- llvm.smul.with.overflow.i32 (fun == intMul)
+safeOperation label fun lOperand rOperand = do
+        labelAdd      <- newLabel
+        labelCond     <- newLabel
+        overflowLabel <- newLabel
+        normalLabel   <- newLabel
+        let
+          safeStruct = StructureType False [intType, boolType]
+          add = callFunction fun lOperand rOperand
+
+          result = ExtractValue  
+              { aggregate = LocalReference safeStruct labelAdd
+              , indices'  = [0]
+              , metadata  = [] }
+
+          condition = ExtractValue  
+              { aggregate = LocalReference safeStruct labelAdd
+              , indices'  = [1]
+              , metadata  = [] }
+
+          condBr = CondBr 
+                { condition = LocalReference boolType labelCond
+                , trueDest  = overflowLabel
+                , falseDest = normalLabel
+                , metadata' = []
+                }
+        
+        addInstructions $ Seq.fromList [ labelAdd  := add
+                                       , label     := result
+                                       , labelCond := condition]
+        
+        setLabel overflowLabel $ Do condBr
+        createTagOverflow normalLabel pos
+        return Seq.empty
+
 
 expression :: Expression -> LLVM Operand
 expression (Expression (Location(pos,_)) expType exp') = case exp' of
@@ -208,7 +246,6 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
   Unary unOp inner -> do
     innerOperand <- expression inner
 
-    label <- newLabel
     let inst = case expType of
           T.GInt   -> opInt   unOp innerOperand
           T.GBool  -> opBool  unOp innerOperand
@@ -216,32 +253,36 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
           t        -> error $ "tipo " <> show t <> " no soportado"
 
     let operand = LocalReference (toLLVMType expType) label
-    addInstructions $ fromList [label := inst]
+    
     return operand
 
     where
-      opInt :: Op.UnaryOperator -> Operand -> Instruction
-      opInt op innerOperand = case op of
-        Op.Abs    -> undefined
+      opInt :: Op.UnaryOperator -> Operand -> LLVM Operand
+      opInt op innerOperand = do
+        label <- newLabel
+        insts <- case op of
+          Op.Abs    -> undefined
 
-        Op.UMinus -> Mul  { nsw      = False
-                          , nuw      = False
-                          , operand0 = innerOperand
-                          , operand1 = ConstantOperand $ C.Int 32 (-1)
-                          , metadata = []
-                          }
-        Op.Succ   -> Add  { nsw      = False
-                          , nuw      = False
-                          , operand0 = innerOperand
-                          , operand1 = ConstantOperand $ C.Int 32 1
-                          , metadata = []
-                          }
-        Op.Pred   -> Sub  { nsw      = False
-                          , nuw      = False
-                          , operand0 = innerOperand
-                          , operand1 = ConstantOperand $ C.Int 32 1
-                          , metadata = []
-                          }
+          Op.UMinus -> 
+            let 
+              minusOne = ConstantOperand $ C.Int 32 (-1)
+            in
+              Seq.singleton $ safeOperation label intMul innerOperand minusOne
+
+          Op.Succ   -> 
+            let 
+              one = ConstantOperand $ C.Int 32 (1)
+            in
+              Seq.singleton $ safeOperation label intAdd innerOperand one
+
+          Op.Pred   -> 
+            let 
+              one = ConstantOperand $ C.Int 32 (1)
+            in
+              Seq.singleton $ safeOperation label intSub innerOperand one
+        
+        addInstructions insts
+        return $ LocalReference intType label
 
       opFloat :: Op.UnaryOperator -> Operand -> Instruction
       opFloat op innerOperand = case op of
@@ -275,8 +316,6 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
                 , metadata           = []
                 }
 
-
-
   Binary { binOp, lexpr, rexpr } -> do
     -- Operate both inner expression
     lOperand <- expression lexpr
@@ -296,44 +335,6 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
     return operand
 
     where
-      -- LLVM offers a set of secure operations that know when an int operation reach an overflow
-      -- llvm.sadd.with.overflow.i32 (fun == intAdd)
-      -- llvm.ssub.with.overflow.i32 (fun == intSub)
-      -- llvm.smul.with.overflow.i32 (fun == intMul)
-      safeOperation label fun lOperand rOperand = do
-              labelAdd      <- newLabel
-              labelCond     <- newLabel
-              overflowLabel <- newLabel
-              normalLabel   <- newLabel
-              let
-                safeStruct = StructureType False [intType, boolType]
-                add = callFunction fun lOperand rOperand
-
-                result = ExtractValue  
-                    { aggregate = LocalReference safeStruct labelAdd
-                    , indices'  = [0]
-                    , metadata  = [] }
-
-                condition = ExtractValue  
-                    { aggregate = LocalReference safeStruct labelAdd
-                    , indices'  = [1]
-                    , metadata  = [] }
-  
-                condBr = CondBr 
-                      { condition = LocalReference boolType labelCond
-                      , trueDest  = overflowLabel
-                      , falseDest = normalLabel
-                      , metadata' = []
-                      }
-              
-              addInstructions $ Seq.fromList [ labelAdd  := add
-                                             , label     := result
-                                             , labelCond := condition]
-              
-              setLabel overflowLabel $ Do condBr
-              createTagOverflow normalLabel pos
-              return Seq.empty
-
       callFunction fun lOperand rOperand =
         let
           type' = StructureType False [i32, i1]

@@ -19,16 +19,6 @@ import           Data.Monoid    ((<>))
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
 
--- data Value = I Integer | C Char | F Double {-| S String-} | B Bool | None
---   deriving (Eq)
-
--- instance Show Value where
---   show (I i) = show i
---   show (C c) = show c
---   show (F f) = show f
---   show (B b) = show b
---   show None  = "None"
-
 data Entry'' s
   = Var
     { _varType  :: Type

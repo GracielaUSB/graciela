@@ -109,10 +109,12 @@ procedure = do
     params <- parens $ procParam `sepBy` match TokComma
     notFollowedBy $ match TokArrow
     currentProc .= Just (id, from, params)
+    
+
     -- Parse the procedure's body
-    withRecovery TokBegin
     decls <- declarationOrRead
-    pre  <- safeAssertion precondition  (NoProcPrecondition  id)
+    pre   <- safeAssertion precondition  (NoProcPrecondition  id)
+    post  <- safeAssertion postcondition (NoProcPostcondition id)
 
     bodyFrom <- getPosition
     body <- try block
@@ -123,8 +125,7 @@ procedure = do
             try $ anyToken `manyTill` lookAhead (match TokLeftPost)
             return $ BadInstruction loc
 
-    post <- safeAssertion postcondition (NoProcPostcondition id)
-    withRecovery TokEnd
+    
 
     -- Get the actual symbol table and build the ast and the entry of the procedure
     st    <- use symbolTable
@@ -175,7 +176,7 @@ procParam = do
   ptype <- paramMode
   id    <- identifier
   withRecovery TokColon
-  retType     <- type'
+  t <- type'
 
   to    <- getPosition
   let loc = Location(from,to)
@@ -198,32 +199,32 @@ procParam = do
 {- Parse declarations of procedures (only parameters, pre and post) in abstract types -}
 procedureDeclaration :: Graciela Definition
 procedureDeclaration = do
-    from <- getPosition
+  from <- getPosition
 
-    match TokProc
-    id <- identifier
-    symbolTable %= openScope from
-    params <- parens $ procParam `sepBy` match TokComma
+  match TokProc
+  id <- identifier
+  symbolTable %= openScope from
+  params <- parens $ procParam `sepBy` match TokComma
 
-    notFollowedBy $ match TokArrow
-    pre  <- precondition
-    post <- postcondition
-    st   <- use symbolTable
+  notFollowedBy $ match TokArrow
+  pre  <- precondition
+  post <- postcondition
+  st   <- use symbolTable
 
-    to   <- getPosition
-    let loc = Location (from,to)
+  to   <- getPosition
+  let loc = Location (from,to)
 
-    symbolTable %= closeScope to
+  symbolTable %= closeScope to
 
 
-    let def = Definition
-          { defLoc   = loc
-          , defName  = id
-          
-          , st       = st
-          , defBound = Nothing
-          , def'     = AbstractProcedureDef
-            { pre    = pre
-            , post   = post
-            , params = params }}
-    return def
+  let def = Definition
+        { defLoc   = loc
+        , defName  = id
+        
+        , st       = st
+        , defBound = Nothing
+        , def'     = AbstractProcedureDef
+          { pre    = pre
+          , post   = post
+          , params = params }}
+  return def

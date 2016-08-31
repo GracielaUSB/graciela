@@ -16,3 +16,4 @@ cabal.config
 *.c
 *.s
 *.swp
+*.DS_Store

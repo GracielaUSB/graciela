@@ -76,7 +76,6 @@ programToLLVM files types (Program name _ defs insts structs) = do
     -- and the main program, that will be a function called main... of course.
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
     program = do 
-      
       preDefinitions files
 
       -- mapM_ defineType $ Map.toAscList types

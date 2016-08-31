@@ -86,6 +86,7 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
           putError loc (UndefinedType tname)
           return GUndef
         Just t' -> isPointer t'
+        
     -- TODO: Or if its a user defined Type
     userDefined = do
       from <- getPosition
@@ -133,11 +134,11 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
 
       to <- getPosition
       let
-        loc = Location (from,to)
+        loc  = Location (from,to)
         plen = length polymorphism
         slen = length types
         show' [a] = show a
-        show' l   = intercalate "," (fmap show l)
+        show'  l  = intercalate "," (fmap show l)
      
       if slen == plen 
         then return True
@@ -171,7 +172,7 @@ isPointer :: Type -> Graciela Type
 isPointer t = do
     match TokTimes
     isPointer (GPointer t)
-  <|> return t
+  <|> pure t
 
 arraySize :: Graciela (Maybe Int32)
 arraySize = do
