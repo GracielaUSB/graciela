@@ -13,6 +13,7 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Monoid     ((<>))
+import           Data.Sequence   (Seq)
 import           Data.Map        (Map)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
@@ -21,7 +22,7 @@ data Program
   = Program
     { name    :: Text
     , loc     :: Location
-    , defs    :: [Definition]
+    , defs    :: Seq Definition
     , insts   :: Instruction
     , structs :: Map Text Struct
     }

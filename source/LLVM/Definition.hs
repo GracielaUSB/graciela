@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module LLVM.Definition
 
-where 
+where
 
 --------------------------------------------------------------------------------
 import           Aborts
@@ -14,33 +14,39 @@ import           AST.Expression                          (Expression(..))
 import           LLVM.Instruction                        (instruction)
 import           LLVM.Declaration                        (declaration)
 import           LLVM.Expression
+import           LLVM.Instruction                    (instruction)
+import           LLVM.Instruction
 import           LLVM.State
 import           LLVM.Type
 import           Location
+import qualified Type                                as T
 --------------------------------------------------------------------------------
-import           Control.Lens                            (use, (%=), (.=))
-import           Data.Text                               (Text,unpack)
+import           Control.Lens                        (use, (%=), (.=))
+import           Control.Monad                       (unless)
+import           Data.Foldable                       (toList)
+import           Data.Map                            (Map)
+import qualified Data.Map                            as Map
+import           Data.Monoid                         ((<>))
+import           Data.Monoid                         ((<>))
+import           Data.Sequence                       as Seq (empty, fromList)
+import qualified Data.Sequence                       as Seq (empty)
+import           Data.Text                           (Text, unpack)
 import           Data.Word
-import           Data.Map                                (Map)
-import qualified Data.Map                                as Map
-import           Control.Monad                           (unless)
-import           Data.Sequence                           as Seq (empty,fromList)
-import           Data.Foldable                           (toList)
-import           Data.Monoid                             ((<>))
-import qualified LLVM.General.AST                        as LLVM (Definition(..))
-import           LLVM.General.AST                        (Terminator(..),
-                                                          Parameter(..),
-                                                          BasicBlock(..),
-                                                          Named(..))
-import           LLVM.General.AST                        (functionDefaults)
-import           LLVM.General.AST.Global                 (Global(..), functionDefaults)
-import           LLVM.General.AST.Name                   (Name(..))
-import qualified LLVM.General.AST.Type                   as LLVM (Type)
-import           LLVM.General.AST.Type                   (double, ptr)
-import           LLVM.General.AST.ParameterAttribute     (ParameterAttribute(..))
-import           LLVM.General.AST.Type                   (Type(..),i8)
-import           LLVM.General.AST.AddrSpace
 import           Debug.Trace
+import           LLVM.General.AST                    (BasicBlock (..),
+                                                      Named (..),
+                                                      Parameter (..),
+                                                      Terminator (..))
+import           LLVM.General.AST                    (functionDefaults)
+import qualified LLVM.General.AST                    as LLVM (Definition (..))
+import           LLVM.General.AST.AddrSpace
+import           LLVM.General.AST.Global             (Global (..),
+                                                      functionDefaults)
+import           LLVM.General.AST.Name               (Name (..))
+import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
+import           LLVM.General.AST.Type               (double, ptr)
+import           LLVM.General.AST.Type               (Type (..), i8)
+import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
@@ -61,10 +67,10 @@ mainDefinition insts = do
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
-definition Definition {defName, st, def'} = case def' of 
-  FunctionDef {funcBody, retType, fparams} -> do 
+definition Definition {defName, pre, post, def'} = case def' of 
+  FunctionDef {funcBody, funcRetType, funcParams} -> do 
     openScope
-    params' <- mapM toLLVMParameter fparams
+    params <- mapM toLLVMParameter $ toList funcParams
     operand <- expression funcBody
     let name = Name $ unpack defName
     blocks' <- use blocks
@@ -73,15 +79,14 @@ definition Definition {defName, st, def'} = case def' of
     closeScope
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
-        , parameters  = (params', False)
-        , returnType  = toLLVMType retType
+        , parameters  = (params, False)
+        , returnType  = toLLVMType funcRetType
         , basicBlocks = toList blocks'
         }
 
-        
-  ProcedureDef {procDecl, params, pre, procBody, post} -> do
+  ProcedureDef {procDecl, procParams, procBody} -> do
     openScope
-    params' <- mapM toLLVMParameter' params
+    params <- mapM toLLVMParameter' $ toList procParams
     mapM_ declarationsOrRead procDecl
     precondition pre
     instruction procBody
@@ -92,7 +97,7 @@ definition Definition {defName, st, def'} = case def' of
     closeScope
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
-        , parameters  = (params', False)
+        , parameters  = (params, False)
         , returnType  = voidType
         , basicBlocks = toList blocks'
         }
@@ -111,6 +116,7 @@ definition Definition {defName, st, def'} = case def' of
       name' <- insertName $ unpack name
       return $ Parameter (ptr $ toLLVMType t) (Name name') []
 
+
 declarationsOrRead :: Either Declaration Instruction -> LLVM()
 declarationsOrRead (Left decl)   = declaration decl
 declarationsOrRead (Right read') = instruction read'
@@ -119,7 +125,7 @@ precondition :: Expression -> LLVM ()
 precondition expr@ Expression {loc = Location(pos,_)} = do
     -- Evaluate the condition expression
     cond <- expression expr
-    -- Create both label 
+    -- Create both label
     trueLabel  <- newLabel
     falseLabel <- newLabel
     -- Create the conditional branch
@@ -137,7 +143,7 @@ postcondition :: Expression -> LLVM ()
 postcondition expr@ Expression {loc = Location(pos,_)} = do
     -- Evaluate the condition expression
     cond <- expression expr
-    -- Create both label 
+    -- Create both label
     trueLabel  <- newLabel
     falseLabel <- newLabel
     -- Create the conditional branch
@@ -154,11 +160,11 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
     setLabel nextLabel $ Do $ Ret Nothing []
 
 
--- createParameters :: [(Name, Type)] 
---                  -> [[LLVM.ParameterAttribute]] 
+-- createParameters :: [(Name, Type)]
+--                  -> [[LLVM.ParameterAttribute]]
 --                  -> ([LLVM.Parameter], Bool)
 -- createParameters names attrs = (zipWith parameters' names attrs, False)
---   where 
+--   where
 --     parameters' (name, t) attr = LLVM.Parameter t name attr
 
 --     parameters' (name, t) = LLVM.Parameter t name []
@@ -178,7 +184,7 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 --     createState name' post
 --     addBasicBlock retTy
 --     addDefinition name' args' voidType
---     where 
+--     where
 --       parameters' params = [LLVM.Parameter t (Name id) [] | (id, t) <- convertParams params]
 
 --   FunctionDef { funcbody, retType } -> do
@@ -191,41 +197,40 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 --     addDefinition (TE.unpack name) args' (toType retType)
 
 
-
 preDefinitions :: [String] -> LLVM ()
-preDefinitions files = do 
+preDefinitions files = do
   addDefinitions $ fromList [
       -- Random
         defineFunction randomInt [] intType
       -- Abort
       , defineFunction abortString [ parameter ("x", intType)
                                     , parameter ("line", intType)
-                                    , parameter ("column", intType)] 
+                                    , parameter ("column", intType)]
                                     voidType
       -- Min and max
       , defineFunction minnumString intParams2 intType
       , defineFunction maxnumString intParams2 intType
-      
+
       -- Bool Write and Writeln
       , defineFunction writeLnBool boolParam voidType
       , defineFunction writeBool   boolParam voidType
-      
+
       -- Char Write and Writeln
       , defineFunction writeLnChar charParam voidType
       , defineFunction writeChar   charParam voidType
-      
+
       -- Float Write and Writeln
       , defineFunction writeLnFloat floatParam voidType
       , defineFunction writeFloat   floatParam voidType
-      
-      -- Int Write and Writeln 
+
+      -- Int Write and Writeln
       , defineFunction writeLnInt intParam voidType
       , defineFunction writeInt   intParam voidType
-      
+
       -- String Write and Writeln
       , defineFunction writeLnString stringParam voidType
       , defineFunction writeString   stringParam voidType
-      
+
       -- Square Root and absolute value
       , defineFunction sqrtString    floatParam floatType
       , defineFunction fabsString    floatParam floatType
@@ -239,7 +244,7 @@ preDefinitions files = do
       , defineFunction intMul intParams2 overflow'
       , defineFunction intAdd intParams2 overflow'
 
-      -- Read 
+      -- Read
       , defineFunction readIntStd    [] intType
       , defineFunction readCharStd   [] charType
       , defineFunction readFloatStd  [] floatType
@@ -257,7 +262,7 @@ preDefinitions files = do
       -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
       ]
 
-  where 
+  where
 
       defineFunction name params t = LLVM.GlobalDefinition $ functionDefaults
         { name        = Name name

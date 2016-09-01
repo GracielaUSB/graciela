@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts#-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Parser.Program
   ( program
@@ -7,14 +7,13 @@ module Parser.Program
 
 -------------------------------------------------------------------------------
 import           AST.Program
-import           Graciela
+import           Location           (Location (..))
 import           Parser.ADT
+import           Parser.Definition
 import           Parser.Instruction (block)
-import           Parser.Recovery
-import           Parser.Definition   
-import           Parser.Token
-import           SymbolTable         (openScope, closeScope)
-import           Location            (Location(..))
+import           Parser.Monad
+import           Parser.State
+import           SymbolTable        (closeScope, openScope)
 import           Token
 import           Type
 -------------------------------------------------------------------------------
@@ -22,26 +21,27 @@ import qualified Control.Monad       as M
 import qualified Data.Map            as Map
 import           Control.Lens        ((%=),use)
 import qualified Data.Text           as T
-import           Text.Megaparsec     ((<|>),many, eof, getPosition)
+import           Text.Megaparsec     ((<|>), eof, getPosition)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-program :: Graciela Program
+program :: Parser (Maybe Program)
 program = do
   from <- getPosition
   symbolTable %= openScope from
   many (abstractDataType <|> dataType)
-  
-    
-  withRecovery TokProgram
-  id <- safeIdentifier
-  match TokBegin --`withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
+  match' TokProgram
+  name' <- safeIdentifier
+  match TokBegin
 
-  decls <- listDefProc
-  body  <- block
-  withRecovery TokEnd 
+  decls' <- listDefProc
+  body'  <- block
+  match' TokEnd
   eof
   to <- getPosition
   symbolTable %= closeScope to
-  Program id (Location(from, to)) decls body <$> use fullDataTypes
-  
+
+  case (name', decls', body') of
+    (Just name, Just decls, Just body) -> 
+      Just <$> (Program name (Location(from, to)) decls body <$> use fullDataTypes)
+    _ -> pure Nothing

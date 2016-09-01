@@ -34,7 +34,8 @@ defineStruct Struct {structName, structDecls, structProcs} = do
   let 
     name  = Name . unpack $ structName
 
-    type' = Just $ StructureType False $ fmap (toLLVMType . declType . snd) structDecls
+    type' = Just $ StructureType False $ 
+            fmap (toLLVMType . declType . snd)  . toList $ structDecls
 
   moduleDefs %= (|> TypeDefinition name type' )
   mapM_ definition structProcs

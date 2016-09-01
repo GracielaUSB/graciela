@@ -4,11 +4,12 @@ module AST.Object
   ( Object' (..)
   , Object'' (..)
   , objMode
+  , notIn
   ) where
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
-import           Type        (Type, ArgMode(..))
+import           Type        (ArgMode (..), Type)
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
@@ -41,17 +42,14 @@ data Object' e
     , objType :: Type
     , obj'    :: Object'' e
     }
-  | BadObject
-    { loc :: Location
-    }
   deriving (Eq)
 
 objMode (Object _ _ Variable {mode}) = mode
 objMode (Object _ _ o) = objMode (inner o)
 
-instance Show e => Show (Object' e) where
-  show BadObject {} = ""
+notIn obj = objMode obj /= Just In
 
+instance Show e => Show (Object' e) where
   show Object { loc, objType, obj' } = case obj' of
     Variable {name} -> unpack name
     Member {inner,field} -> show inner <> "." <> unpack field
@@ -81,6 +79,3 @@ instance Treelike e => Treelike (Object' e) where
       Node ("Deref " <> show loc)
         [ toTree inner
         ]
-
-  toTree BadObject { loc } =
-    leaf $ "Bad Object " <> show loc

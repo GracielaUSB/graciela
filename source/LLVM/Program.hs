@@ -10,11 +10,11 @@ import           AST.Program
 
 import           LLVM.Type                               (intType)
 -- import           Limits
-import           LLVM.State
-import           LLVM.Definition                         (preDefinitions,
-                                                          definition,
-                                                          mainDefinition)
+import           LLVM.Definition                         (definition,
+                                                          mainDefinition,
+                                                          preDefinitions)
 import           LLVM.Struct                             (defineStruct)
+import           LLVM.State
 -- import           LLVM.Expression
 -- import           LLVM.Instruction
 -- import           LLVM.Quantification
@@ -22,24 +22,25 @@ import           LLVM.Struct                             (defineStruct)
 import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad.State                     (void, evalState)
+import           Control.Monad                           (void)
+import           Control.Monad.Trans.State               (evalState)
 import           Data.Foldable                           (toList)
 import           Data.Map                                (Map)
 import qualified Data.Map                                as Map
-import           Data.Sequence                           (singleton, fromList)
 import           Data.Monoid                             ((<>))
-import           Data.Range.Range                        as RA
+import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
 import           Data.Word
 import           LLVM.General.AST                        (Definition (..),
                                                           Module (..),
                                                           Parameter (..),
                                                           defaultModule)
-import           LLVM.General.AST.Global                 (Global(..),functionDefaults)
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
+import           LLVM.General.AST.Global                 (Global (..),
+                                                          functionDefaults)
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction,
                                                           Named (..),
@@ -50,7 +51,8 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           System.Info                             (arch, os)
-import           System.Process                          (callCommand, readProcess)
+import           System.Process                          (callCommand,
+                                                          readProcess)
 --------------------------------------------------------------------------------
 
 
@@ -62,7 +64,7 @@ import           System.Process                          (callCommand, readProce
 
 programToLLVM :: [String] -> Map Text (T.Type, a) -> Program -> IO Module
 programToLLVM files types (Program name _ defs insts structs) = do
-  -- Eval the program with the LLVMState 
+  -- Eval the program with the LLVMState
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
 
@@ -75,15 +77,16 @@ programToLLVM files types (Program name _ defs insts structs) = do
     -- merge all predefined definitions (e.g read, write), user functions/procedures
     -- and the main program, that will be a function called main... of course.
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
+
     program = do 
       preDefinitions files
-
+      
       -- mapM_ defineType $ Map.toAscList types
       mapM_ defineStruct structs
       mapM_ definition defs
-      
+
       mainDefinition insts
-      
+
       use moduleDefs
       -- return $ definitions
 
@@ -103,7 +106,7 @@ programToLLVM files types (Program name _ defs insts structs) = do
       "darwin" -> do
         crop <$> (readProcess "/usr/bin/sw_vers" ["-productVersion"] [])
       _        -> return ""
-    
+
 
 
 -- openFile :: String -> LLVM Operand

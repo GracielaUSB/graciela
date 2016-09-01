@@ -16,6 +16,8 @@ import           Treelike
 
 --------------------------------------------------------------------------------
 import           Data.List       (intercalate)
+import           Data.Foldable   (toList)
+import           Data.Sequence   (Seq)
 import           Data.Monoid     ((<>))
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
@@ -34,8 +36,8 @@ data Struct
   = Struct
     { structName  :: Text
     , structTypes :: [Type]
-    , structDecls :: [(Int,Declaration)]
-    , structProcs :: [Definition]
+    , structDecls :: Seq (Int,Declaration)
+    , structProcs :: Seq Definition
     , structLoc   :: Location
     , structSt    :: SymbolTable
     , struct'     :: Struct'
@@ -47,16 +49,16 @@ instance Treelike Struct where
 
       AbstractDataType { inv } ->
         Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
-          [ Node "Declarations" $ fmap (toTree . snd) structDecls
+          [ Node "Declarations" $ fmap (toTree . snd) . toList $ structDecls
           , Node "Invariant" [toTree inv]
-          , Node "Procedures" $ fmap toTree structProcs
+          , Node "Procedures" $ fmap toTree . toList $ structProcs
           ]
       DataType { abstract, repinv, coupinv } ->
         Node ("Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
-          [ Node "Declarations" $ fmap (toTree . snd) structDecls
+          [ Node "Declarations" $ fmap (toTree . snd) . toList $ structDecls
           , Node "Representation Invariant" [toTree repinv]
           , Node "Coupling Invariant" [toTree coupinv]
-          , Node "Procedures" $ fmap toTree structProcs
+          , Node "Procedures" $ fmap toTree . toList $ structProcs
           ]
     where

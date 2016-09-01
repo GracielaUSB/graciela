@@ -12,21 +12,11 @@ import           Text.Megaparsec.Error
 import           Token
 import           Type                  (Type (..))
 --------------------------------------------------------------------------------
-import           Control.Lens          ((%=))
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty     as NE
+import qualified Data.List.NonEmpty    as NE
 import           Data.Set              (Set)
-import           Data.Sequence         ((|>))
 import qualified Data.Set              as Set
-import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        manyTill, lookAhead, (<|>), ShowToken,
-                                        parseErrorPretty, getPosition, try,
-                                        ShowErrorComponent,showErrorComponent)
-import           Text.Megaparsec        as MP (withRecovery)
-import           Text.Megaparsec.Error        (sourcePosStackPretty)
-import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 
 data MyParseError
@@ -51,11 +41,24 @@ data Error
     , fType :: Type
     , eType :: Type
     }
-  | BadProcNumberofArgs
+  | BadFuncNumberOfArgs
+    { fName   :: Text
+    , fPos    :: SourcePos
+    , nParams :: Int
+    , nArgs   :: Int
+    }
+  | BadProcNumberOfArgs
     { pName   :: Text
     , pPos    :: SourcePos
     , nParams :: Int
     , nArgs   :: Int
+    }
+  | BadFunctionArgumentType
+    { paramName :: Text
+    , fName     :: Text
+    , fPos      :: SourcePos
+    , pType     :: Type
+    , aType     :: Type
     }
   | BadProcedureArgumentType
     { paramName :: Text
@@ -98,6 +101,9 @@ data Error
   | NotInScope
     { sName :: Text
     }
+  | UndefinedFunction
+    { fName :: Text
+    }
   | UndefinedProcedure
     { pName :: Text
     }
@@ -106,6 +112,9 @@ data Error
     }
   | UndefinedType
     { tName :: Text
+    }
+  | UnexpectedToken
+    { uts :: Set (ErrorItem TokenPos)
     }
   | UnknownError
     { emsg :: String
@@ -132,16 +141,26 @@ instance ShowErrorComponent Error where
     BadFuncExpressionType { fName, fType, eType } ->
       "The function `" <> unpack fName <> "` returns " <> show fType <>
       " but has an expression of type " <> show eType
-    BadProcNumberofArgs { pName, pPos, nParams, nArgs } ->
-      "The procedure `" <> unpack pName <> "` " <> showPos' pPos <>
+    BadFuncNumberOfArgs { fName, fPos, nParams, nArgs } ->
+      "The function `" <> unpack fName <> "` " <> showPos fPos <>
       " was defined with " <> show nParams <>
-      (if nParams == 1 then " parameter" else " parameters") <> ", but recived " <>
-       show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+      (if nParams == 1 then " parameter" else " parameters") <> ", but received " <>
+      show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+    BadProcNumberOfArgs { pName, pPos, nParams, nArgs } ->
+      "The procedure `" <> unpack pName <> "` " <> showPos pPos <>
+      " was defined with " <> show nParams <>
+      (if nParams == 1 then " parameter" else " parameters") <> ", but received " <>
+      show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
+
+    BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
+      "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack fName <>
+      "` " <> showPos fPos <> " has type `" <> show pType <>
+      "`, but recived a expression with type `" <> show aType <> "`."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
-      "` " <> showPos' pPos <> " has type " <> show pType <>
-      ", but recived a expression with type " <> show aType
+      "` " <> showPos pPos <> " has type `" <> show pType <>
+      "`, but recived a expression with type `" <> show aType <> "`."
 
     BadReadArgument { aExpr } ->
       "The expression `" <> show aExpr <> "` is a constant expression."
@@ -182,6 +201,9 @@ instance ShowErrorComponent Error where
     NotInScope { sName } ->
       "Not in the scope: `" <> unpack sName <> "`"
 
+    UndefinedFunction { fName } ->
+      "Undefined function named `" <> unpack fName <> "`."
+
     UndefinedProcedure { pName } ->
       "Undefined procedure named `" <> unpack pName <> "`."
 
@@ -190,6 +212,10 @@ instance ShowErrorComponent Error where
 
     UndefinedType { tName } ->
       "Undefined type `" <> unpack tName <> "`"
+
+    UnexpectedToken { uts } ->
+      (\x -> "Unexpected " <> show x) `concatMap` uts
+      -- "Unexpected " <> show uts
 
     UnknownError {emsg} -> emsg
 

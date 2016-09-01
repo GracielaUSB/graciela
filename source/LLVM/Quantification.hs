@@ -7,16 +7,15 @@ import           AST.Expression                          (BinaryOperator (Plus, 
                                                           QuantOperator (..))
 
 import           Limits
-import           LLVM.State
 import           LLVM.Expression
 import           LLVM.Instruction
+import           LLVM.State
 import           SymbolTable
 import qualified Type                                    (Type (..))
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad.State
+import           Control.Monad.Trans.State
 import           Data.Foldable                           (toList)
-import qualified Data.Map                                as DM
 import           Data.Maybe
 import           Data.Range.Range                        as RA
 import qualified Data.Text                               as TE

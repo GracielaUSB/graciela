@@ -6,7 +6,7 @@ module AST.Expression
   , Conversion (..)
   , Expression (..)
   , Expression' (..)
-  , Object (..)
+  , Object
   , QRange (..)
   , QuantOperator (..)
   , UnaryOperator (..)
@@ -26,7 +26,6 @@ import           Data.Foldable (toList)
 import           Data.Int      (Int32)
 import           Data.Monoid   ((<>))
 import           Data.Sequence (Seq)
-import qualified Data.Sequence as Seq (Seq)
 import           Data.Text     (Text, unpack)
 import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
@@ -114,12 +113,24 @@ data QRange
   = ExpRange -- Both limits are included, i.e. low <= var <= high
     { low  :: Expression
     , high :: Expression }
-  | SetRange -- ^ Works for Multiset as well
+  -- | Works for Multiset as well
+  | SetRange
     { theSet :: Expression }
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
   deriving (Eq)
+
+instance Show QRange where
+  show = \case
+    ExpRange { low, high } ->
+      unwords [ "from", show low, "to", show high ]
+    SetRange { theSet } ->
+      unwords [ "in", show theSet ]
+    PointRange { thePoint } ->
+      unwords [ "at", show thePoint ]
+    EmptyRange ->
+      "Empty range"
 
 
 instance Treelike QRange where
@@ -162,12 +173,12 @@ data Expression'
   = NullPtr
   | Value { theValue :: Value }
 
-  | StringLit { theString :: String  }
+  | StringLit { theString :: Text }
 
   | EmptySet
   | EmptyMultiset
 
-  | Obj       { theObj :: Object }
+  | Obj { theObj :: Object }
 
   | Binary
     { binOp :: BinaryOperator
@@ -178,10 +189,11 @@ data Expression'
     { unOp  :: UnaryOperator
     , inner :: Expression }
 
-  | FunctionCall -- ^ Llamada a funcion.
+  -- | Llamada a funcion.
+  | FunctionCall
     { fname :: Text
     -- , astST :: SymbolTable  -- ?
-    , args  :: [Expression] }
+    , fargs :: Seq Expression }
 
   | Conversion
     { toType :: Conversion
@@ -195,8 +207,10 @@ data Expression'
     , qCond    :: Expression
     , qBody    :: Expression }
 
-  | EConditional -- ^ Expresión If.
-    { eguards :: Seq (Expression, Expression) }
+   -- | Expresión If.
+  | EConditional
+    { eguards    :: Seq (Expression, Expression)
+    , trueBranch :: Maybe Expression }
 
   deriving (Eq)
 
@@ -204,10 +218,7 @@ data Expression
   = Expression
     { loc     :: Location
     , expType :: Type
-    -- , constant :: Bool
     , exp'    :: Expression' }
-  | BadExpression
-    { loc :: Location }
   deriving (Eq)
 
 
@@ -247,9 +258,9 @@ instance Treelike Expression where
       Node (show unOp <> " " <> show loc)
         [ toTree inner ]
 
-    FunctionCall { fname, {-astST,-} args } ->
+    FunctionCall { fname, {-astST,-} fargs } ->
       Node ("Call Func " <> unpack fname <> " " <> show loc)
-        [ Node "Arguments" (toForest args) ]
+        [ Node "Arguments" (toForest fargs) ]
 
     Conversion { toType, cExp } ->
       Node (show toType <> " " <> show loc)
@@ -266,18 +277,18 @@ instance Treelike Expression where
             _ -> Node "Conditions" [ toTree qCond ]
         , Node "Body" [ toTree qBody ] ]
 
-    EConditional { eguards } ->
-      Node ("Conditional Expression " <> show loc)
-        ( fmap g . toList $ eguards )
+    EConditional { eguards, trueBranch } ->
+      Node ("Conditional Expression " <> show loc) $
+        toList (g <$> eguards) <>
+        case trueBranch of
+          Just t  -> [ Node "True branch" [toTree t]]
+          Nothing -> []
 
       where
         g (lhs, rhs) =
           Node "Guard"
             [ Node "If"   [toTree lhs]
             , Node "Then" [toTree rhs] ]
-
-  toTree BadExpression { loc } =
-    leaf $ "Bad Expression " <> show loc
 
 
 from :: Expression -> SourcePos
@@ -345,19 +356,34 @@ instance Show Expression where
     Unary { unOp, inner } ->
       prettyUnOp unOp <> show inner
 
-    FunctionCall { fname, {-astST,-} args } ->
-      unpack fname <> "(" <> (show =<< args) <> ")"
+    FunctionCall { fname, {-astST,-} fargs } ->
+      unpack fname <> "(" <> (show =<< toList fargs) <> ")"
 
     Conversion { toType, cExp } ->
       show toType <> "(" <> show cExp <> ")"
 
-    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> "quantifier"
+    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
+      unwords
+        [ "(%", op, var, ":", ty, "|"
+        , range, "|", cond, "|", body, "%)"]
+      where
+        op    = case qOp of
+          ForAll    -> "∀"
+          Exists    -> "∃"
+          Summation -> "∑"
+          Product   -> "∏"
+          Minimum   -> "min"
+          Maximum   -> "max"
+          Count     -> "#"
+        var   = unpack qVar
+        ty    = show qVarType
+        range = show qRange
+        cond  = show qCond
+        body  = show qBody
 
     EConditional { eguards } ->
-      "if " <> (showG =<< toList eguards) <> "fi"
+      "if " <> (showG =<< toList eguards) <> " fi"
 
       where
         showG (lhs, rhs) =
           show lhs <> " -> " <> show rhs <> "[]"
-
-  show BadExpression {} = ""

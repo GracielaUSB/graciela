@@ -2,69 +2,76 @@
 module Parser.Assertion
   ( assertion
   , bound
-  , coupInvariant
+  , precond
+  , postcond
   , invariant
-  , postcondition
-  , precondition
-  , repInvariant
+  , repInv
+  , coupInv
   ) where
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 import           AST.Expression
-import           Type
-import           Graciela
+import           Error              as PE
 import           Location
-import           Error       as PE
 import           Parser.Declaration
 import           Parser.Expression
+import           Parser.Monad
 import           Parser.Recovery
-import           Parser.Token
+import           Parser.State
 import           Parser.Type
 import           Token
--------------------------------------------------------------------------------
-import           Control.Monad       (unless, void)
-import           Text.Megaparsec     (between)
--------------------------------------------------------------------------------
+import           Type
+--------------------------------------------------------------------------------
+import           Control.Lens       ((%=))
+import           Control.Monad      (unless, void)
+import           Data.Sequence      ((|>))
+import           Text.Megaparsec    (ParseError, between, lookAhead, manyTill,
+                                     withRecovery)
+--------------------------------------------------------------------------------
 
-
-bound :: Graciela Expression
+bound :: Parser (Maybe Expression)
 bound = between (match TokLeftBound) (match TokRightBound) bound'
   where
     bound' = do
-      expr <- safeExpression
+      expr <- withRecovery recover expression
       case expr of
-        Expression { expType } | expType =:= GInt -> return expr
-        Expression { loc, expType } -> do
-          putError loc $ BadBoundType expType
-          return $ BadExpression loc
-        badexpr@(BadExpression _) ->
-          return badexpr
+        Nothing -> pure Nothing
+        Just Expression { loc = Location (from, _) , expType }
+          | expType =:= GInt -> pure expr
+          | otherwise -> do
+            putError from $ BadBoundType expType
+            pure Nothing
 
-assert ::  Graciela Expression
-assert  = do
-  expr <- safeExpression
-  case expr of
-    Expression { expType } | expType =:= GBool -> return expr
-    Expression { loc, expType } -> do
-      putError loc $ BadAssertType expType
-      return $ BadExpression loc
-    badexpr@(BadExpression _) ->
-      return badexpr
+    recover :: ParseError TokenPos Error -> Parser (Maybe a)
+    recover err = do
+      errors %= (|> err)
+      void . manyTill anyToken . lookAhead . match $ TokRightBound
+      pure Nothing
 
 
-precondition :: Graciela Expression
-precondition = between (match TokLeftPre) (withRecovery TokRightPre ) assert
+assert :: Token -> Token -> Parser (Maybe Expression)
+assert open close = between (match open) (match' close) assert'
+  where
+    assert' = do
+      expr <- withRecovery recover expression
+      case expr of
+        Nothing -> pure Nothing
+        Just Expression { loc = Location (from, _), expType }
+          | expType =:= GBool -> pure expr
+          | otherwise -> do
+            putError from $ BadAssertType expType
+            pure Nothing
 
-postcondition :: Graciela Expression
-postcondition = between (match TokLeftPost) (withRecovery TokRightPost ) assert
+    recover :: ParseError TokenPos Error -> Parser (Maybe a)
+    recover err = do
+      errors %= (|> err)
+      void . manyTill anyToken . lookAhead . match $ close
+      pure Nothing
 
-assertion :: Graciela Expression
-assertion = between (match TokLeftA) (withRecovery TokRightA ) assert
 
-invariant :: Graciela Expression
-invariant = between (match TokLeftInv) (withRecovery TokRightInv ) assert
-
-repInvariant :: Graciela Expression
-repInvariant = between (match TokLeftRep) (withRecovery TokRightRep ) assert
-
-coupInvariant :: Graciela Expression
-coupInvariant = between (match TokLeftAcopl) (withRecovery TokRightAcopl ) assert
+precond, postcond, assertion, invariant, repInv, coupInv :: Parser (Maybe Expression)
+precond   = assert TokLeftPre   TokRightPre
+postcond  = assert TokLeftPost  TokRightPost
+assertion = assert TokLeftA     TokRightA
+invariant = assert TokLeftInv   TokRightInv
+repInv    = assert TokLeftRep   TokRightRep
+coupInv   = assert TokLeftAcopl TokRightAcopl

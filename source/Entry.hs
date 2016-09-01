@@ -10,12 +10,13 @@ module Entry
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
-import           Type
 import           Location
 import           Treelike
+import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
 import           Data.Monoid    ((<>))
+import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
 

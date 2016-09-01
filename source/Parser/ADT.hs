@@ -12,14 +12,14 @@ import           AST.Instruction
 import           AST.Struct
 import           Entry
 import           Error
-import           Graciela
 import           Location
 import           Parser.Assertion
 import           Parser.Declaration
 import           Parser.Definition
 import           Parser.Instruction
-import           Parser.Recovery
-import           Parser.Token
+import           Parser.Monad
+import           Parser.State
+
 import           Parser.Type
 import           SymbolTable
 import           Token
@@ -27,129 +27,167 @@ import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens        (use, (%=), (.=))
 import           Data.List           (intercalate)
+import           Data.Foldable       (toList)
 import           Control.Monad       (void, when)
 import           Data.Monoid         ((<>))
 import           Data.Maybe          (catMaybes)
 import qualified Data.Map            as Map
-import qualified Data.Sequence       as Seq (fromList)
+import qualified Data.Sequence       as Seq (fromList, zip)
 import           Data.Text           (Text, unpack, pack)
-import           Text.Megaparsec     (Dec, ParseError, between, choice, endBy,
-                                      getPosition, lookAhead, many, manyTill,
-                                      notFollowedBy, sepBy, try, (<|>), optional)
+import           Text.Megaparsec     (getPosition, optional, (<|>))
 import           Text.Megaparsec.Pos (SourcePos)
 import Debug.Trace
 -------------------------------------------------------------------------------
 
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
-abstractDataType :: Graciela ()
+
+abstractDataType :: Parser ()
 abstractDataType = do
     from <- getPosition
     match TokAbstract
-    abstractId <- identifier
-    atypes <- parens (typeVarDeclaration `sepBy` match TokComma)
-    currentStruct .= Just (abstractId, atypes)
+    abstractName' <- safeIdentifier
+    atypes <- do 
+        t <- optional . parens $ (typeVarDeclaration `sepBy` match TokComma)
+        case t of
+          Just s -> pure $ toList s 
+          _ -> pure []
 
-    withRecovery TokBegin
+
+    when (abstractName' == Nothing) $ fail ""
+
+    let Just abstractName = abstractName'
+    currentStruct .= Just (abstractName, atypes)
+
+    match' TokBegin
     
     symbolTable %= openScope from
-    decls <- abstractDeclaration `endBy` match TokSemicolon
-    inv   <- safeAssertion invariant (NoAbstractInvariant abstractId)
-    procs <- many procedureDeclaration
+    decls' <- sequence <$> abstractDeclaration `endBy` match TokSemicolon
+    inv'   <- invariant
+    procs' <- sequence <$> many procedureDeclaration
     
 
-    withRecovery TokEnd
+    match' TokEnd
     
     to    <- getPosition
     symbolTable %= closeScope to
     let loc = Location (from,to)
 
     st <- use symbolTable
-    let struct = Struct
-            { structName  = abstractId
-            , structDecls = zip [0..] decls
-            , structProcs = procs
-            , structLoc   = loc
-            , structSt    = st
-            , structTypes = atypes
-            , struct'     = AbstractDataType inv 
-            }
 
+    case (decls', inv', procs') of
+      (Just decls, Just inv, Just procs) -> do
+        
+        let struct = Struct
+                { structName  = abstractName
+                , structDecls = Seq.zip (Seq.fromList [0..]) decls
+                , structProcs = procs
+                , structLoc   = loc
+                , structSt    = st
+                , structTypes = atypes
+                , struct'     = AbstractDataType inv 
+                }
+        dataTypes %= Map.insert abstractName struct
+      _ -> pure ()
     typesVars .= []
     currentStruct .= Nothing
-    
-    dataTypes %= Map.insert abstractId struct
-
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
-dataType :: Graciela ()
+dataType :: Parser ()
 dataType = do
     from <- getPosition
     match TokType
-    id <- identifier
-    types <- return . concat =<< (optional . parens $ typeVarDeclaration `sepBy` match TokComma)
-    withRecovery TokImplements
-    abstractId <- identifier
-    absTypes <- return . concat =<< (optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma)
-    currentStruct .= Just (id, types)
+    name' <- safeIdentifier
+    types <- do 
+        t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
+        case t of
+          Just s -> pure $ toList s 
+          _ -> pure []
+    match' TokImplements
+    abstractName' <- safeIdentifier
+    absTypes <- do 
+        t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
+        case t of
+          Just s -> pure $ toList s 
+          _ -> pure []
+
+    when (name' == Nothing) $ fail ""
+    let Just name = name';
+    currentStruct .= Just (name, types)
     symbolTable %= openScope from
 
-    abstractAST <- getStruct abstractId
+    
 
-    case abstractAST of 
-      Nothing -> do
-        fail $ "Abstract Type `" <> show abstractId <> "` does not exists."
+    match' TokBegin
+    
+    symbolTable %= openScope from
+    decls'   <- sequence <$> polymorphicDeclaration `endBy` (match TokSemicolon)
+    repinv'  <- repInv
+    coupinv' <- coupInv
+    procs'   <- sequence <$> many procedure
 
-      Just Struct {structTypes, structDecls, structProcs} -> do 
-        let 
-          lenNeeded = length structTypes
-          lenActual = length absTypes
-        when (lenNeeded /= lenActual) $ do
-          putError (Location(from,from)) $ UnknownError $ 
-            "Type `" <> unpack id <> "` is implementing `" <> unpack abstractId <> 
-            "` with only " <> show lenActual <> " types (" <> 
-            intercalate "," (fmap show absTypes) <> ")\n\tbut expected " <> 
-            show lenNeeded <> " types (" <> intercalate "," (fmap show structTypes) <> ")"
+    match' TokEnd
+    to <- getPosition
+    case abstractName' of 
+      Just abstractName -> do 
+        abstractAST <- getStruct abstractName    
+        case abstractAST  of 
+          Nothing -> putError from $ UnknownError $
+                        "Abstract Type `" <> show abstractName <> 
+                        "` does not exists."
 
-        withRecovery TokBegin
-        
-        symbolTable %= openScope from
-        decls   <- polymorphicDeclaration `endBy` (match TokSemicolon)
-        repinv  <- safeAssertion repInvariant  (NoTypeRepInv  id)
-        coupinv <- safeAssertion coupInvariant (NoTypeCoupInv id)
-        procs   <- many procedure
+          Just Struct {structTypes,structDecls,structProcs} -> do 
 
-        withRecovery TokEnd
-        to <- getPosition
+            case (procs', decls', repinv', coupinv') of 
+            
+              (Just procs, Just decls, Just repinv, Just coupinv) -> do
+            
+                let
+                  lenNeeded = length structTypes
+                  lenActual = length absTypes
+                  loc       = Location(from,to)
+                  fields    = concat . fmap getFields $ decls
+                  checkProc = \proc -> do
+                      let 
+                        name = defName proc
+                        Location(pos,_) = defLoc proc 
+                      if foldr ((||) . (\x -> (defName x) == name)) False procs
+                        then return ()
+                        else putError pos $ UnknownError $
+                              "The procedure named `" <> unpack name <> "` " <> 
+                              showPos pos <> " in the Type `" <> 
+                              unpack abstractName <>
+                              "`\n\tneeds to be implemented inside Type `" <> 
+                              unpack name <> "`" 
 
-        let
-          loc    = Location(from,to)
-          fields = concat . fmap getFields $ decls
-          checkProc = \proc -> do
-              let 
-                name = defName proc
-                Location(pos,_) = defLoc proc 
-              if foldr ((||) . (\x -> (defName x) == name)) False procs
-                then return ()
-                else putError loc $ UnknownError $
-                      "The procedure named `" <> unpack name <> "` " <> 
-                      showPos' pos <> " in the Type `" <> unpack abstractId <>
-                      "`\n\tneeds to be implemented inside Type `" <> unpack id <> "`" 
-        mapM_ checkProc structProcs
-        
-        symbolTable %= closeScope to
+                when (lenNeeded /= lenActual) $ do
+                  putError from $ UnknownError $ 
+                    "Type `" <> unpack name <> "` is implementing `" <> 
+                    unpack abstractName <> "` with only " <> show lenActual <> 
+                    " types (" <> intercalate "," (fmap show absTypes) <> 
+                    ")\n\tbut expected " <> show lenNeeded <> " types (" <>
+                    intercalate "," (fmap show structTypes) <> ")"
 
-        let struct =  Struct
-                { structName  = id
-                , structDecls = zip [0..] (fmap snd structDecls <> decls)
-                , structProcs = procs                
-                , structLoc   = loc
-                , structTypes = types
-                , struct'     = DataType
-                 { abstract = abstractId
-                 , repinv
-                 , coupinv}}
-        dataTypes %= Map.insert id struct
-        typesVars .= []
-        currentStruct .= Nothing
+                mapM_ checkProc structProcs
+                
+                symbolTable %= closeScope to
 
+                let struct =  Struct
+                        { structName  = name
+                        , structDecls = Seq.zip (Seq.fromList [0..]) 
+                                            (fmap snd structDecls <> decls)
+                        , structProcs = procs                
+                        , structLoc   = loc
+                        , structTypes = types
+                        , struct'     = DataType
+                         { abstract = abstractName
+                         , repinv
+                         , coupinv}}
+                dataTypes %= Map.insert name struct
+                typesVars .= []
+                currentStruct .= Nothing
+              _ -> pure ()
+          _ -> pure ()
+      _ -> pure ()
+ 
+    

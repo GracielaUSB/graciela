@@ -18,12 +18,12 @@ import           Data.Word                  (Word32, Word64)
 import           Data.Text                  (unpack)
 import           LLVM.General.AST.Name                   (Name(..))
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
-import           LLVM.General.AST.Type      (double, i1, i16, i32, i8)
+import           LLVM.General.AST.Type      (float, i1, i16, i32, i8)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
 --------------------------------------------------------------------------------
 
 floatType :: LLVM.Type
-floatType = double
+floatType = float
 
 intType :: LLVM.Type
 intType = i32

@@ -7,12 +7,11 @@ module LLVM.Declaration
 import           Aborts
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression
-import           Limits
 import           LLVM.Expression
 import           LLVM.State
 import           LLVM.Type
 import           SymbolTable
-import           Type                         (Type(..), (=:=))
+import           Type                         (Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens                 (use, (%=), (.=))
 import           Control.Monad                (zipWithM_, when)
@@ -22,19 +21,16 @@ import qualified Data.Sequence                as Seq (empty, fromList,
                                                       singleton)
 import           Data.Text                    (Text, unpack)
 import           Data.Word
+import           Debug.Trace
+import qualified LLVM.General.AST.Constant    as C (Constant (..))
 import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
 import           LLVM.General.AST.Instruction (Instruction (..), Named ((:=)))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
-import qualified LLVM.General.AST.Constant    as C  (Constant(..))
-import Debug.Trace
 --------------------------------------------------------------------------------
 
 declaration :: Declaration -> LLVM ()
-declaration BadDeclaration {} =
-  error "internal error: converting BadDeclaration to LLVM"
-
-declaration Declaration { declType, declIds } = do 
+declaration Declaration { declType, declIds } = do
   mapM_ (alloc declType) declIds
 
 declaration Initialization { declType, declPairs } = do
@@ -103,10 +99,25 @@ initialize gtype (lval, expr) = do
   addInstruction $ label := store
 
 
+defaultValue :: Type -> Text -> LLVM ()
+defaultValue gtype lval
+    | gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] = do
+  let
+    store = Store
+      { volatile = False
+      , address  = LocalReference (toLLVMType gtype) (Name (unpack lval))
+      , value    = value gtype
+      , maybeAtomicity = Nothing
+      , alignment = 4
+      , metadata  = []
+      }
+  label <- newLabel
+  addInstruction (label := store)
+  where
+    value GBool          = ConstantOperand $ C.Int 1 0
+    value GChar          = ConstantOperand $ C.Int 8 0
+    value GInt           = ConstantOperand $ C.Int 32 0
+    value GFloat         = ConstantOperand . C.Float $ LLVM.Double 0
+    value t@(GPointer _) = ConstantOperand $ C.Null (toLLVMType  t)
 
-
-
-
-
-
-
+defaultValue _ _ = return ()

@@ -5,15 +5,17 @@ module AST.Instruction where
 import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression, Object)
 import qualified AST.Expression  as E
-import           Type        (Type)
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
 import           Type
 --------------------------------------------------------------------------------
-import           Data.Monoid    ((<>))
-import           Data.Text      (Text, unpack)
+import           Data.Foldable   (toList)
+import           Data.Monoid     ((<>))
+import           Data.Sequence   (Seq)
+import qualified Data.Sequence   as Seq (zipWith)
+import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
 {- |
@@ -22,8 +24,7 @@ import           Data.Text      (Text, unpack)
   respectivamente, del nodo en el texto del programa.
  -}
 
-
-type Guard = (Expression,[Declaration],[Instruction])
+type Guard = (Expression, Seq Declaration, Seq Instruction)
 
 data Instruction'
   = Abort -- ^ Instruccion Abort.
@@ -31,18 +32,13 @@ data Instruction'
     { expr :: Expression
     }
   | Block
-    { blockST    ::  SymbolTable
-    , blockDecs  :: [Declaration]
-    , blockInsts :: [Instruction]
+    { blockDecs  :: Seq Declaration
+    , blockInsts :: Seq Instruction
     }
 
   | Conditional
-    { cguards :: [Guard]
+    { cguards :: Seq Guard
     }  -- ^ Instruccion If.
-
-  -- | DecArray
-  --   { dimension :: [Expression]
-  --   }
 
   | New
     { idName :: Object
@@ -50,18 +46,20 @@ data Instruction'
     }
 
   | Free
-    { idName    :: Object
-    , freeType  :: Type
+    { idName   :: Object
+    , freeType :: Type
     }
 
   | Assign
-    { lvals :: [Object]
-    , exprs :: [Expression]
+    { assignPairs :: Seq (Object, Expression)
+    --
+    -- lvals :: Seq Object
+    -- , exprs :: Seq Expression
     }
   | ProcedureCall
     { pname :: Text
     {-, astST :: SymbolTable-}
-    , args  :: [(Expression,ArgMode)]
+    , pargs :: Seq (Expression, ArgMode)
     }
 
   | Random
@@ -69,13 +67,12 @@ data Instruction'
     }
 
   | Read
-    { file     :: Maybe Text
-    , varTypes :: [Type]
-    , vars     :: [Object]
+    { file :: Maybe Text
+    , vars :: Seq Object
     }
 
   | Repeat
-    { rguards :: [Guard]
+    { rguards :: Seq Guard
     , rinv    :: Expression
     , rbound  :: Expression
     } -- ^ Instruccion Do.
@@ -84,7 +81,7 @@ data Instruction'
 
   | Write
     { ln     ::  Bool
-    , wexprs :: [Expression]
+    , wexprs :: Seq Expression
     } -- ^ Escribir.
 
 
@@ -93,10 +90,6 @@ data Instruction
     { instLoc :: Location
     , inst'   :: Instruction'
     }
-  | BadInstruction
-    { instLoc :: Location
-    }
-
 
 instance Treelike Instruction where
   toTree Instruction { instLoc, {-astType,-} inst' } = case inst' of
@@ -106,7 +99,7 @@ instance Treelike Instruction where
     Assertion { expr } ->
       Node "Assertion" [toTree expr]
 
-    Block { blockST, blockDecs, blockInsts } ->
+    Block { blockDecs, blockInsts } ->
       Node ("Scope " <> show instLoc)
         [ Node "Declarations" (toForest blockDecs)
         , Node "Actions"      (toForest blockInsts)
@@ -114,7 +107,7 @@ instance Treelike Instruction where
 
     Conditional { cguards } ->
       Node ("If " <> show instLoc)
-        (fmap guardToTree cguards)
+        (toList $ guardToTree <$> cguards)
 
     New { idName, nType } ->
       Node ("New " <> show instLoc)
@@ -126,24 +119,25 @@ instance Treelike Instruction where
         [toTree idName
         ,leaf . show $ freeType]
 
-    Assign { lvals, exprs } ->
+    Assign { assignPairs } ->
       Node "Assignments"
-        (zipWith assignToTree lvals exprs)
+        (toList $ assignToTree <$> assignPairs)
 
-    ProcedureCall { pname, {-ast,-} args} ->
+    ProcedureCall { pname, {-ast,-} pargs} ->
       Node ("Call Procedure `" <> unpack pname <> "` " <> show instLoc)
-        [case args of
-          [] -> leaf "No arguments"
-          _  -> Node "Arguments" (fmap (\(x,m) -> Node (show m) [toTree x] ) args)
+        [ if null pargs
+          then leaf "No arguments"
+          else Node "Arguments"
+            (toList $ (\(x, m) -> Node (show m) [toTree x] ) <$> pargs)
         ]
 
     Random { var } ->
       Node ("Random " <> show instLoc)
         [toTree var]
 
-    Read file varTypes vars ->
+    Read file vars ->
       Node ("Read" <> hasFile <> " " <> show instLoc)
-        (fmap toTree vars)
+        (toList $ toTree <$> vars)
       where
         hasFile = case file of
           Nothing -> ""
@@ -153,7 +147,7 @@ instance Treelike Instruction where
       Node ("Do " <> show instLoc) $
         [ Node "Invariant" [toTree rinv]
         , Node "Bound"     [toTree rbound]
-        ] <> fmap guardToTree rguards
+        ] <> toList (guardToTree <$> rguards)
 
     Skip -> leaf $ "Skip " <> show instLoc
 
@@ -167,11 +161,7 @@ instance Treelike Instruction where
         , Node "Declarations" $ toForest decls
         , Node "Instructions" $ toForest inst
         ]
-      assignToTree ident expr = Node "(:=)"
+      assignToTree (ident, expr) = Node "(:=)"
         [ toTree ident
         , toTree expr
         ]
-
-
-  toTree BadInstruction { instLoc } =
-    leaf $ "No instruction " <> show instLoc

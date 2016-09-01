@@ -12,33 +12,35 @@ import qualified AST.Expression                          as Op (BinaryOperator (
                                                                 UnaryOperator (..))
 import           AST.Object                              as O (Object' (..),
                                                           Object'' (..), objMode)
+
 import           LLVM.State
-import           LLVM.Type                               (boolType, toLLVMType
-                                                         ,intType, floatType)
+import           LLVM.Type                               (boolType, floatType,
+                                                          intType, toLLVMType)
 import           Location
 import           SymbolTable
 import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (when)
+import qualified Data.ByteString                         as BS (unpack)
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           as Seq (ViewR ((:>)),
-                                                                 empty, (|>),
+                                                                 empty,
                                                                  fromList,
                                                                  singleton,
-                                                                 viewr)
+                                                                 viewr, (|>))
 import           Data.Text                               (unpack)
-import           Data.Word
-import           LLVM.General.AST                        (Definition(..))
+import           Data.Text.Encoding                      (encodeUtf8)
+import           Data.Word                               ()
+import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
-import qualified LLVM.General.AST.Global                 as Global (Global(..),
-                                                              globalVariableDefaults)
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
 import qualified LLVM.General.AST.Float                  as LLVM (SomeFloat (Double))
 import qualified LLVM.General.AST.FloatingPointPredicate as F (FloatingPointPredicate (..))
+import qualified LLVM.General.AST.Global                 as Global (Global (..), globalVariableDefaults)
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction (..),
                                                           Named (..),
@@ -49,12 +51,11 @@ import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
-import Debug.Trace
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
-  -- If the variable is marked as In, mean it was passed to the 
+  -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
   Variable { name } | objMode obj == Just In -> objectRef obj
 
@@ -63,8 +64,8 @@ object obj@Object { objType, obj' } = case obj' of
       label <- newLabel
       -- Make a reference to the variable that will be loaded (e.g. %a)
       addrToLoad <- objectRef obj
-      
-      let 
+
+      let
         -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
         load = Load { volatile  = False
                     , address   = addrToLoad
@@ -78,7 +79,7 @@ object obj@Object { objType, obj' } = case obj' of
       addInstructions $ Seq.fromList [label := load]
 
       return ref
-    
+
 
 
 -- Get the reference to the object.
@@ -93,8 +94,8 @@ objectRef obj@(Object loc objType obj') = case obj' of
     ref <- objectRef inner
     label <- newLabel
     index <- expression index
-    let 
-      getelemPtr = GetElementPtr  
+    let
+      getelemPtr = GetElementPtr
             { inBounds = False
             , address  = ref
             , indices  = [ConstantOperand $ C.Int 32 0, index]
@@ -111,7 +112,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
     labelCond  <- newLabel
     trueLabel  <- newLabel
     falseLabel <- newLabel
-    let 
+    let
       Location (pos,_) = loc
       type' = toLLVMType objType
       load = Load { volatile  = False
@@ -120,7 +121,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
                   , alignment = 4
                   , metadata  = []
                   }
-      
+
       {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
          In that case, abort the program giving the source line of the bad access instead of letting
          the OS ends the process
@@ -148,7 +149,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
                                    , labelCast := cast
                                    , labelNull := null
                                    , labelCond := cond]
-    
+
     setLabel trueLabel $ Do condBr
     createTagNullPtr falseLabel pos
 
@@ -173,7 +174,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
 -- llvm.sadd.with.overflow.i32 (fun == intAdd)
 -- llvm.ssub.with.overflow.i32 (fun == intSub)
 -- llvm.smul.with.overflow.i32 (fun == intMul)
-safeOperation label fun lOperand rOperand = do
+safeOperation label fun lOperand rOperand pos = do
         labelAdd      <- newLabel
         labelCond     <- newLabel
         overflowLabel <- newLabel
@@ -207,6 +208,31 @@ safeOperation label fun lOperand rOperand = do
         createTagOverflow normalLabel pos
         return Seq.empty
 
+callUnaryFunction :: String -> Operand -> Instruction
+callUnaryFunction fun innerOperand =
+  let
+    funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
+  in Call { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = funRef
+          , arguments          = [(innerOperand,[])]
+          , functionAttributes = []
+          , metadata           = []
+          }
+
+callFunction fun lOperand rOperand =
+  let
+    type' = StructureType False [i32, i1]
+    funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
+  in Call { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = funRef
+          , arguments          = [(lOperand,[]), (rOperand,[])]
+          , functionAttributes = []
+          , metadata           = []
+          }
 
 expression :: Expression -> LLVM Operand
 expression (Expression (Location(pos,_)) expType exp') = case exp' of
@@ -220,23 +246,28 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
     FloatV theFloat ->
       ConstantOperand $ C.Float $ LLVM.Double theFloat
 
-  NullPtr -> 
+  NullPtr ->
     return $ ConstantOperand $ C.Null intType
 
-  StringLit theString -> do 
+  StringLit theString -> do
+    let
+      -- Convert the string into an array of 8-bit chars
+      chars = BS.unpack . encodeUtf8 $ theString
     -- Get the length of the string
-    let n  = fromIntegral $ length theString + 1
+      n  = fromIntegral . succ . length $ chars
     -- Create an array type
-    let t = ArrayType n i16
+      t = ArrayType n i8
+
     name <- newLabel
     -- Create a global definition for the string
-    let def = GlobalDefinition $ Global.globalVariableDefaults
-                { Global.name        = name
-                , Global.isConstant  = True
-                , Global.type'       = t
-                , Global.initializer = Just $ 
-                    C.Array i16 [C.Int 16 (toInteger (ord c)) | c <- theString ++ "\0"] 
-                }
+    let
+      def = GlobalDefinition $ Global.globalVariableDefaults
+        { Global.name        = name
+        , Global.isConstant  = True
+        , Global.type'       = t
+        , Global.initializer = Just . C.Array i8 $
+          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
+        }
     -- and add it to the module's definitions
     moduleDefs %= (Seq.|> def)
     return $ ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]
@@ -246,75 +277,68 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
   Unary unOp inner -> do
     innerOperand <- expression inner
 
-    let inst = case expType of
+    operand <- case expType of
           T.GInt   -> opInt   unOp innerOperand
           T.GBool  -> opBool  unOp innerOperand
           T.GFloat -> opFloat unOp innerOperand
           t        -> error $ "tipo " <> show t <> " no soportado"
 
-    let operand = LocalReference (toLLVMType expType) label
-    
     return operand
 
     where
       opInt :: Op.UnaryOperator -> Operand -> LLVM Operand
       opInt op innerOperand = do
         label <- newLabel
+        let 
+          minusOne = ConstantOperand $ C.Int 32 (-1)
+          one = ConstantOperand $ C.Int 32 (1)
         insts <- case op of
-          Op.Abs    -> undefined
+            Op.Abs    -> undefined
 
-          Op.UMinus -> 
-            let 
-              minusOne = ConstantOperand $ C.Int 32 (-1)
-            in
-              Seq.singleton $ safeOperation label intMul innerOperand minusOne
+            Op.UMinus -> 
+                safeOperation label intMul innerOperand minusOne pos
 
-          Op.Succ   -> 
-            let 
-              one = ConstantOperand $ C.Int 32 (1)
-            in
-              Seq.singleton $ safeOperation label intAdd innerOperand one
+            Op.Succ   -> 
+                safeOperation label intAdd innerOperand one pos
 
-          Op.Pred   -> 
-            let 
-              one = ConstantOperand $ C.Int 32 (1)
-            in
-              Seq.singleton $ safeOperation label intSub innerOperand one
+            Op.Pred   -> 
+                safeOperation label intSub innerOperand one pos
         
         addInstructions insts
         return $ LocalReference intType label
 
-      opFloat :: Op.UnaryOperator -> Operand -> Instruction
-      opFloat op innerOperand = case op of
-        Op.Abs    -> callUnaryFunction fabsString innerOperand
+      opFloat :: Op.UnaryOperator -> Operand -> LLVM Operand
+      opFloat op innerOperand = do
+        label <- newLabel
+        let 
+          insts = case op of
+            Op.Abs    -> Seq.singleton $
+              label := callUnaryFunction fabsString innerOperand
 
-        Op.UMinus -> FMul  { fastMathFlags = NoFastMathFlags
-                           , operand0 = innerOperand
-                           , operand1 = ConstantOperand $ C.Float $ LLVM.Double (-1.0)
-                           , metadata = []
-                           }
-        Op.Sqrt   -> callUnaryFunction sqrtString innerOperand
+            Op.UMinus -> Seq.singleton $ label := FMul  
+                    { fastMathFlags = NoFastMathFlags
+                    , operand0 = innerOperand
+                    , operand1 = ConstantOperand $ C.Float $ LLVM.Double (-1.0)
+                    , metadata = []}
 
+            Op.Sqrt   -> Seq.singleton $
+              label := callUnaryFunction sqrtString innerOperand
 
-      opBool :: Op.UnaryOperator -> Operand -> Instruction
-      opBool op innerOperand = case op of
-        Op.Not -> Xor { operand0 = innerOperand
-                      , operand1 = ConstantOperand $ C.Int 1 (-1)
-                      , metadata = []
-                      }
+        addInstructions insts
+        return $ LocalReference floatType label
 
-      callUnaryFunction :: String -> Operand -> Instruction
-      callUnaryFunction fun innerOperand =
-        let
-          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
-        in Call { tailCallKind       = Nothing
-                , callingConvention  = CC.C
-                , returnAttributes   = []
-                , function           = funRef
-                , arguments          = [(innerOperand,[])]
-                , functionAttributes = []
-                , metadata           = []
+      opBool :: Op.UnaryOperator -> Operand -> LLVM Operand
+      opBool op innerOperand = do
+        label <- newLabel
+        let 
+          insts =  case op of 
+            Op.Not -> Seq.singleton $ label := Xor 
+                { operand0 = innerOperand
+                , operand1 = ConstantOperand $ C.Int 1 (-1)
+                , metadata = []
                 }
+        addInstructions insts
+        return $ LocalReference boolType label
 
   Binary { binOp, lexpr, rexpr } -> do
     -- Operate both inner expression
@@ -330,33 +354,22 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
 
           t        -> error $ "tipo " <> show t <> " no soportado"
 
-    
-    
+
+
     return operand
 
     where
-      callFunction fun lOperand rOperand =
-        let
-          type' = StructureType False [i32, i1]
-          funRef = Right . ConstantOperand $ C.GlobalReference i32 $ Name fun
-        in Call { tailCallKind       = Nothing
-                , callingConvention  = CC.C
-                , returnAttributes   = []
-                , function           = funRef
-                , arguments          = [(lOperand,[]), (rOperand,[])]
-                , functionAttributes = []
-                , metadata           = []
-                }
-
-
       opInt op lOperand rOperand = do
         label <- newLabel
         insts <- case op of
-          Op.Plus   -> safeOperation label intAdd lOperand rOperand
+          Op.Plus   -> 
+            safeOperation label intAdd lOperand rOperand pos
 
-          Op.BMinus -> safeOperation label intSub lOperand rOperand
+          Op.BMinus -> 
+            safeOperation label intSub lOperand rOperand pos
 
-          Op.Times  -> safeOperation label intMul lOperand rOperand
+          Op.Times  -> 
+            safeOperation label intMul lOperand rOperand pos
 
           Op.Div    -> return $ Seq.singleton $ label := SDiv
                             { exact = True
@@ -370,10 +383,12 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
                             , metadata = []
                             }
           Op.Min    -> return $
-            Seq.singleton $ label := callFunction minnumString lOperand rOperand
+            Seq.singleton $ 
+              label := callFunction minnumString lOperand rOperand
 
           Op.Max    -> return $
-            Seq.singleton $ label := callFunction maxnumString  lOperand rOperand
+            Seq.singleton $ 
+              label := callFunction maxnumString  lOperand rOperand
           _         -> error "opInt"
 
         addInstructions insts
@@ -407,13 +422,16 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
                             , metadata      = []
                             }
           Op.Power  ->
-            Seq.singleton $ label := callFunction powString     lOperand rOperand
+            Seq.singleton $ 
+              label := callFunction powString lOperand rOperand
 
           Op.Min    ->
-            Seq.singleton $ label := callFunction minnumFstring lOperand rOperand
+            Seq.singleton $ 
+              label := callFunction minnumFstring lOperand rOperand
 
           Op.Max    ->
-            Seq.singleton $ label := callFunction maxnumFstring lOperand rOperand
+            Seq.singleton $ 
+              label := callFunction maxnumFstring lOperand rOperand
           _         -> error "opFloat"
         return $ LocalReference floatType label
 
@@ -451,16 +469,16 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
           Op.AEQ | lType =:= GPointer GAny -> do
             labelCast1 <- newLabel
             labelCast2 <- newLabel
-            let 
+            let
             {- Both pointer must be casted to integer to be compared -}
-              cast1 = PtrToInt 
+              cast1 = PtrToInt
                         { operand0 = lOperand
                         , type'    = intType
                         , metadata = []
                         }
               ptr1 = LocalReference intType labelCast1
 
-              cast2 = PtrToInt 
+              cast2 = PtrToInt
                         { operand0 = rOperand
                         , type'    = intType
                         , metadata = []
@@ -494,16 +512,16 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
           Op.ANE | lType =:= GPointer GAny -> do
             labelCast1 <- newLabel
             labelCast2 <- newLabel
-            let 
+            let
               {- Both pointer must be casted to integer to be compared -}
-              cast1 = PtrToInt 
+              cast1 = PtrToInt
                         { operand0 = lOperand
                         , type'    = intType
                         , metadata = []
                         }
               ptr1 = LocalReference intType labelCast1
 
-              cast2 = PtrToInt 
+              cast2 = PtrToInt
                         { operand0 = rOperand
                         , type'    = intType
                         , metadata = []
@@ -597,7 +615,7 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
                             }
             let result = LocalReference boolType label'
 
-            -- Operate the t ≡ q, where t is the previous result and save it in label            
+            -- Operate the t ≡ q, where t is the previous result and save it in label
             let equal = ICmp { iPredicate = EQ
                              , operand0   = result
                              , operand1   = rOperand

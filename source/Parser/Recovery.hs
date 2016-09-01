@@ -6,90 +6,85 @@
 {-# LANGUAGE TypeFamilies      #-}
 
 module Parser.Recovery
-  ( errorId
-  , safeAssertion
+  ( safeAssertion
   , safeExpression
   , safeIdentifier
-  , Parser.Recovery.withRecovery
+  -- , Parser.Recovery.withRecovery
   , withRecoveryFollowedBy
-  , prettyError
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression         (Expression(..))
-import           Parser.Expression      (expression)
-import           Parser.Token           (identifier, match, anyToken)
-import           Token
-import           Location
+import           AST.Expression        (Expression (..))
 import           Error
-import           Graciela
+import           Location
+import           Parser.Expression     (expression)
+import           Parser.Monad          (Parser, anyToken, identifier, match,
+                                        putError, unsafeGenCustomError)
+import           Parser.State
+import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          ((%=))
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty     as NE
-import           Data.Set              (Set)
+import qualified Data.List.NonEmpty    as NE
 import           Data.Sequence         ((|>))
+import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Text             (Text, pack)
-import           Text.Megaparsec       (ErrorItem (Tokens), ParseError(..),
-                                        manyTill, lookAhead, (<|>), ShowToken,
-                                        parseErrorPretty, getPosition, try,
-                                        ShowErrorComponent,showErrorComponent)
-import           Text.Megaparsec        as MP (withRecovery)
-import           Text.Megaparsec.Error        (sourcePosStackPretty)
+import           Text.Megaparsec       (ErrorItem (Tokens), ParseError (..),
+                                        ShowErrorComponent, ShowToken,
+                                        getPosition, lookAhead, manyTill,
+                                        parseErrorPretty, showErrorComponent,
+                                        try, (<|>))
+import           Text.Megaparsec       as MP (withRecovery)
+import           Text.Megaparsec.Error (sourcePosStackPretty)
 import qualified Text.Megaparsec.Prim  as Prim (Token)
 --------------------------------------------------------------------------------
 
-{- Use when an identifier parse fails. Its an ilegal id in graciela -}
-errorId :: Text
-errorId = pack "0#Error"
-
 {- Try the assertion p. if fail then report Error e and return bad expression-}
-safeAssertion :: Graciela Expression -> Error -> Graciela Expression
+safeAssertion :: Parser (Maybe Expression) -> Error -> Parser (Maybe Expression)
 safeAssertion p e = try p <|> recover
   where
     recover = do
       pos <- getPosition
-      let location = Location(pos,pos)
-      putError location e
-      return $ BadExpression location
+      putError pos e
+      return Nothing
 
 {- Parse an expression. If fail then report an error and return bad expression -}
-safeExpression :: Graciela Expression
+safeExpression :: Parser (Maybe Expression)
 safeExpression = MP.withRecovery recover expression
   where
     recover err = do
-      let from :| [_] = errorPos err
-      to <- getPosition
+      -- let from :| [_] = errorPos err
+      -- to <- getPosition
       errors %= (|> err)
-      let loc = Location (from, to)
-      return $ BadExpression loc
+      -- let loc = Location (from, to)
+      return Nothing
 
-{- Parse an identifier. If fail then report an error and return `errorId` -}
-safeIdentifier :: Graciela Text
-safeIdentifier = MP.withRecovery recover identifier
+{- Parse an identifier. If fail then report an error and return `Nothing` -}
+safeIdentifier :: Parser (Maybe Text)
+safeIdentifier = MP.withRecovery recover (Just <$> identifier)
   where
     recover err = do
       unsafeGenCustomError (parseErrorPretty err)
-      return errorId
+      return Nothing
 
 {- Try parse the token. If fail then report an error -}
-withRecovery :: Token -> Graciela Location
-withRecovery token = MP.withRecovery (recover [token]) (match token)
-  where
-    recover expected err = do
-        let from :| _ = errorPos err
-        to <- getPosition
-        -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
-        let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos from to t)
-        let err' = err { errorExpected = f expected }
-        -- Print (put it in the error list)
-        errors %= (|> err')
-        return $ Location (from, to)
+-- withRecovery :: Token -> Parser (Maybe Location)
+-- withRecovery token = MP.withRecovery (recover [token]) (Just <$> match token)
+--   where
+--     recover expected err = do
+--       let from :| _ = errorPos err
+--       to <- getPosition
+--       -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
+--       let f = Set.singleton . Tokens . NE.fromList . fmap (\t -> TokenPos from to t)
+--       let err' = err { errorExpected = f expected }
+--       -- Print (put it in the error list)
+--       errors %= (|> err')
+--       return Nothing
 
 {- Try parse the token. If fail then report an error and start a panic mode until follow is found -}
-withRecoveryFollowedBy :: Token -> Graciela Token -> Graciela Location
-withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (match token)
+withRecoveryFollowedBy :: Token -> Parser (Maybe Token) -> Parser (Maybe Location)
+withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (Just <$> match token)
   where
     recover expected follow err = do
         let from :| [_] = errorPos err
@@ -101,4 +96,4 @@ withRecoveryFollowedBy token follow = MP.withRecovery (recover [token] follow) (
         let err' = err { errorExpected = f expected }
         -- Print (put it in the error list)
         errors %= (|> err')
-        return $ Location (from, to)
+        return Nothing

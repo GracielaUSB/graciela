@@ -1,25 +1,35 @@
+{-|
+Module      : Language.Graciela.Treelike
+Description : Displays arborescent constructs
+Copyright   : © 2015-2016 Graciela USB
+Maintainer  : moises+graciela@ackerman.space
+Stability   : experimental
+Portability : POSIX
+
+Provides a typeclass for datatypes which can behave and can be shown
+as Trees. The method 'toTree' converts an instance of the class to a
+Tree of String nodes.
+-}
+
 module Treelike
-    ( Tree(..)
-    , Treelike
+    ( Tree (..)
+    , Treelike (..)
     , drawTree
     , leaf
-    , posRoot
-    , toForest
-    , toTree
     ) where
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
+import           Data.Monoid   ((<>))
 import           Data.Tree     (Forest, Tree (..), drawTree)
 --------------------------------------------------------------------------------
 
+-- | The class of Tree-like datatypes, i.e., types which can be
+-- shown as Trees.
 class Treelike a where
-    toTree   :: a -> Tree String
-    toForest :: (Foldable f, Functor f) => f a -> Forest String
-    toForest = toList . fmap toTree
+  toTree   :: a -> Tree String
+  toForest :: (Foldable f, Functor f) => f a -> Forest String
+  toForest = toList . fmap toTree
 
-posRoot  :: (Int, Int) -> Tree String -> Tree String
-posRoot pos tree =
-    tree {rootLabel = show pos ++ rootLabel tree}
-
+-- | A helper function for constructing nodes without children.
 leaf :: String -> Tree String
 leaf s = Node s []

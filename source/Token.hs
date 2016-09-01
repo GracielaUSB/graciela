@@ -14,11 +14,9 @@ module Token
   ( Token (..)
   , TokenPos (..)
   , showPos
-  , showPos'
   )where
 --------------------------------------------------------------------------------
 import           Location
-import           Type
 --------------------------------------------------------------------------------
 import           Data.Function      (on)
 import           Data.Int           (Int32)
@@ -43,7 +41,7 @@ instance Ord TokenPos where
   compare = compare `on` start
 
 instance ShowToken TokenPos where
-  showTokens = unwords . map show . toList
+  showTokens = unwords . fmap show . toList
 
 
 -- Tokens ------------------------------
@@ -60,7 +58,7 @@ data Token
   | TokInOut
   | TokRef
 
-  | TokWith
+  | TokFrom
 
   | TokVar
   | TokConst
@@ -171,7 +169,7 @@ data Token
   | TokChar       { unTokChar :: Char }
   | TokInteger    { unTokInteger :: Int32 }
   | TokBadInteger { unTokBadInteger :: Integer }
-  | TokFloat      { unTokFloatante :: Double}
+  | TokFloat      { unTokFloat :: Double}
   | TokString     { unTokString :: Text }
 
   | TokArray
@@ -223,7 +221,7 @@ instance Show Token where
     TokInOut          -> "`inout` - Parámetro de Entrada y Salida"
     TokRef            -> "`ref` - Parámetro por Referencia"
 
-    TokWith           -> "`with` - Indicador de Archivo de Entrada"
+    TokFrom           -> "`with` - Indicador de Archivo de Entrada"
 
     TokVar            -> "`var` - Definidor de Variables"
     TokConst          -> "`const` - Definidor de Constantes"
@@ -336,7 +334,7 @@ instance Show Token where
     (TokInteger    n) -> "`" <> show n <> "` - Entero"
     (TokBadInteger n) -> "`" <> show n <> "` - Entero fuera del rango permitido`"
     (TokFloat      n) -> " `" <> show n <> "` - Flotante"
-    (TokString     e) -> "" <> show e <> " - Cadena de Caracteres"
+    (TokString     s) -> "" <> show s <> " - Cadena de Caracteres"
 
     TokArray          -> "`array` - Tipo Arreglo"
 

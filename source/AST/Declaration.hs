@@ -4,16 +4,16 @@ module AST.Declaration where
 --------------------------------------------------------------------------------
 import           AST.Expression (Expression, Object)
 import qualified AST.Expression as E
-import           Type
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
+import           Type
 --------------------------------------------------------------------------------
+import           Data.Foldable  (toList)
 import           Data.Monoid    ((<>))
+import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
-import Data.Sequence (Seq)
-import Data.Foldable (toList)
 --------------------------------------------------------------------------------
 
 data Declaration
@@ -27,10 +27,6 @@ data Declaration
     { declLoc   :: Location
     , declType  :: Type
     , declPairs :: Seq (Text, Expression) }
-  | BadDeclaration
-    { declLoc :: Location
-    }
-
 
 getFields :: Declaration -> [Type]
 getFields Declaration {declType, declIds} =
@@ -39,13 +35,8 @@ getFields Declaration {declType, declIds} =
 getFields Initialization {declType, declPairs} =
   toList . fmap (const declType) $ declPairs
 
-getFields BadDeclaration{} = [] 
-
 
 instance Treelike Declaration where
-  toTree BadDeclaration { declLoc } =
-    leaf ("BadDeclaration" <> show declLoc)
-
   toTree Declaration { declLoc, declType, declIds } =
     Node ("Declaration" <> show declLoc) $
       leaf ("Type " <> show declType) :

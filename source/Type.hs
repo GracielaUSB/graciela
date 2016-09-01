@@ -1,10 +1,12 @@
 {-|
-Module      : Type
-Description : Tipos del lenguaje
-Copyright   : Graciela
+Module      : Language.Graciela.Type
+Description : Graciela typesystem
+Copyright   : © 2015-2016 Graciela USB
+Maintainer  : moises+graciela@ackerman.space
+Stability   : experimental
+Portability : POSIX
 
-Modulo donde se encuentra todo lo referente a los tipos provisto en el lenguaje,
-como tambien los utilizados de forma interna en el compilador.
+Implements the Graciela typesystem.
 -}
 
 {-# LANGUAGE LambdaCase #-}
@@ -16,19 +18,20 @@ module Type
   ) where
 --------------------------------------------------------------------------------
 import           Data.Int    (Int32)
+import           Data.List   (nub)
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)
 --------------------------------------------------------------------------------
 
--- | Es el tipos para los argumentos.
+-- | The mode in which an argument is passed to a graciela procedure.
 data ArgMode
-  = In    -- ^ Argumento de entrada
-  | Out   -- ^ Argumento de salida
-  | InOut -- ^ Argumento de entrada/salida
-  | Ref   -- ^ Argumento pasado por referencia
+  = In    -- ^ Input argument.
+  | Out   -- ^ Output argument.
+  | InOut -- ^ Input/Output argument.
+  | Ref   -- ^ Pass-by-reference argument.
   deriving (Eq)
 
--- | Instancia 'Show' para los tipos de argumentos
+-- | 'Show' instance for Argument modes.
 instance Show ArgMode where
   show = \case
     In    -> "In"
@@ -36,75 +39,123 @@ instance Show ArgMode where
     InOut -> "In/Out"
     Ref   -> "Ref"
 
--- | Son los tipos utilizados en el compilador.
+-- | Graciela Types. Special types for polymorphism are also included.
 data Type
-  = GUndef              -- ^ Tipo indefinido ( graciela 2.0 )
-  | GSet      Type      -- ^ Tipo conjunto ( graciela 2.0 )
-  | GMultiset Type      -- ^ Tipo multiconjunto ( graciela 2.0 )
-  | GSeq      Type      -- ^ Tipo secuencia ( graciela 2.0 )
-  | GFunc     Type Type -- ^ Tipo func para TDAs ( graciela 2.0 )
-  | GRel      Type Type -- ^ Tipo relación ( graciela 2.0 )
-  | GTuple   [Type]     -- ^ Tipo n-upla ( graciela 2.0 )
-  | GTypeVar  Text      -- ^ Variable de tipo ( graciela 2.0 )
+  = GUndef              -- ^ Undefined type, for error propagation.
+  | GSet      Type      -- ^ Set type.
+  | GMultiset Type      -- ^ Multiset (bag) type.
+  | GSeq      Type      -- ^ Sequence (ordered set) type.
+  | GFunc     Type Type -- ^ Func type, for abstract functions.
+  | GRel      Type Type -- ^ Relation type.
+  | GTuple   [Type]     -- ^ N-tuple type.
+  | GTypeVar  Text      -- ^ A named type variable.
 
-  | GAny              -- Tipo arbitrario para polimorfismo ( graciela 2.0 )
-  | GOneOf     [Type] -- Tipo arbitrario limitado para polimorfismo ( graciela 2.0 )
-  | GUnsafeName Text  -- Tipo para
+  | GAny                -- ^ Any type, for full polymorphism.
+  | GOneOf     [Type]   -- ^ Any type within a collection, for
+                        -- restricted polymorphism
+  | GUnsafeName Text    -- ^ A named type, only used for error messages.
 
-  | GInt   -- ^ Tipo entero
-  | GFloat -- ^ Tipo flotante
-  | GBool  -- ^ Tipo boleano
-  | GChar  -- ^ Tipo caracter
+  | GInt    -- ^ Basic integer type.
+  | GFloat  -- ^ Basic floating-point number type.
+  | GBool   -- ^ Basic boolean type.
+  | GChar   -- ^ Basic character type.
 
-  | GString
+  | GString -- ^ Basic string type.
 
-  -- Tipo para los Data type' as
   | GDataType
     { typeName ::  Text
     -- , oftype :: [Type]
     , types :: [Type]
     -- , procs  :: [Type]
-    }
-  | GPointer Type
-  -- | Tipo para las funciones
-  -- | GFunction
-  --  { fParamType  :: [Type] -- ^ Los tipos de los parametros
-  --  , fReturnType ::  Type   -- ^ El tipo de retorno
-  --  }
-  -- | GProcedure [Type] -- ^ Tipo para los procedimientos
-  -- | GError            -- ^ Tipo usado para propagar los errores
-  -- | GEmpty            -- ^ Tipo usado cuando la ver. de tipos es correcta
+    } -- ^ Type for user defined ADTs.
+  | GPointer Type -- ^ Pointer type.
 
-  -- | Tipo para los arreglos
   | GArray
     { size      :: Int32
-    , arrayType :: Type       -- ^ Tipo del arreglo
-    }
+    , innerType :: Type
+    } -- ^ Sized array type.
   deriving (Eq, Ord)
 
 
+-- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool
-a =:= b
-  |  a == b
-  || a == GAny
-  || b == GAny = True
-GOneOf        as =:= a                = True `elem` fmap (=:= a) as 
-a                =:= GOneOf        as = True `elem` fmap (=:= a) as 
-GDataType     {} =:= GDataType     {} = True
--- GProcedure    {} =:= GProcedure    {} = True
-GArray       _ a =:= GArray       _ b = a =:= b
--- GFunction    _ a =:= GFunction    _ b = a =:= b
-GPointer       a =:= GPointer       b = a =:= b
-GSet           a =:= GSet           b = a =:= b
-GMultiset      a =:= GMultiset      b = a =:= b
-GSeq           a =:= GSeq           b = a =:= b
-GFunc      da ra =:= GFunc      db rb = da =:= db && ra =:= rb
-GRel       da ra =:= GRel       db rb = da =:= db && ra =:= rb
-GTuple        as =:= GTuple        bs = and $ zipWith (=:=) as bs
-GTypeVar       a =:= GTypeVar       b = a == b
-_                =:= _                = False
+a =:= b = (a <> b) /= GUndef
 
--- | Instancia 'Show' para los tipos.
+
+-- | Graciela Types form a Monoid under the `more specific` operator,
+-- with the type @GAny@ as the identity.
+instance Monoid Type where
+  mempty = GAny
+  a `mappend` b | a == b = a
+  GAny        `mappend` a           = a
+  a           `mappend` GAny        = a
+
+  GOneOf as   `mappend` GOneOf bs   = case as `merge` bs of
+    []  -> GUndef
+    [c] -> c
+    cs  -> GOneOf cs
+    where
+      as `merge` bs = nub [ c | a <- as, b <- bs, let c = a `mappend` b, c /= GUndef ]
+  GOneOf as   `mappend` a           = case a `matchIn` as of
+    []  -> GUndef
+    [c] -> c
+    cs  -> GOneOf cs
+    where
+      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
+  a           `mappend` GOneOf as   = case a `matchIn` as of
+    []  -> GUndef
+    [c] -> c
+    cs  -> GOneOf cs
+    where
+      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
+
+  GUndef      `mappend` a           = GUndef
+  a           `mappend` GUndef      = a
+
+  GSet a      `mappend` GSet b      = case a `mappend` b of
+    GUndef -> GUndef
+    c      -> GSet c
+  GMultiset a `mappend` GMultiset b = case a `mappend` b of
+    GUndef -> GUndef
+    c      -> GMultiset c
+  GSeq a      `mappend` GSeq b      = case a `mappend` b of
+    GUndef -> GUndef
+    c      -> GSeq c
+  GPointer a  `mappend` GPointer b  = case a `mappend` b of
+    GUndef -> GUndef
+    c      -> GPointer c
+
+  GArray s a  `mappend` GArray t b
+    | s /= t = GUndef
+    | s == t = case a `mappend` b of
+      GUndef -> GUndef
+      c      -> GArray (s `min` t) c
+
+  GFunc a c   `mappend` GFunc b d   = case (a `mappend` b, c `mappend` d) of
+    (GUndef, _) -> GUndef
+    (_, GUndef) -> GUndef
+    (e, f)      -> GFunc e f
+  GRel a c    `mappend` GRel b d    = case (a `mappend` b, c `mappend` d) of
+    (GUndef, _) -> GUndef
+    (_, GUndef) -> GUndef
+    (e, f)      -> GRel e f
+
+  GTuple as   `mappend` GTuple bs   = if length as == length bs
+    then let cs = zipWith mappend as bs
+      in if GUndef `elem` cs
+        then GUndef
+        else GTuple cs
+    else GUndef
+
+  GTypeVar a `mappend` GTypeVar b =
+    if a == b then GTypeVar a else GUndef
+  GDataType a fs `mappend` GDataType b _ =
+    if a == b then GDataType a fs else GUndef
+  GUnsafeName a `mappend` GUnsafeName b =
+    if a == b then GUnsafeName a else GUndef
+
+  _ `mappend` _ = GUndef
+
 instance Show Type where
   show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
     where
@@ -114,17 +165,15 @@ instance Show Type where
         GFloat          -> "double"
         GBool           -> "boolean"
         GChar           -> "char"
-        -- GEmpty          -> "void"
-        -- GError          -> "error"
+        GString         -> "string"
         GPointer     t  -> "pointer to " <> show' t
-        -- GProcedure   _  -> "proc"
-        -- GFunction  _ t  -> "func -> (" <> show' t <> ")"
         GArray    s  t  -> "array[" <> show s <> "] of " <> show' t
         GSet      t     -> "set of " <> show' t
         GMultiset t     -> "multiset of " <> show' t
         GSeq      t     -> "sequence of " <> show' t
         GFunc     ta tb -> "function " <> show' ta <> " -> " <> show' tb
         GRel      ta tb -> "relation " <> show' ta <> " -> " <> show' tb
+        
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> unpack n
@@ -134,19 +183,3 @@ instance Show Type where
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
-        GString  -> "string"
-
-
--- | Retorna la dimensión del arreglo.
--- getDimension :: Type -> Int
--- getDimension (GArray _ t) = 1 + getDimension t
--- getDimension _            = 0
-
-
--- | Verifica si el tipo es cuantificable (Tipo Enumerado).
--- isQuantifiable :: Type -> Bool
--- isQuantifiable GInt     = True
--- isQuantifiable GChar    = True
--- isQuantifiable GBool    = True
--- isQuantifiable GFloat   = False
--- isQuantifiable _        = False

@@ -2,85 +2,77 @@
 
 module AST.Definition where
 --------------------------------------------------------------------------------
-import           AST.Declaration  (Declaration)
+import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression)
 import qualified AST.Expression  as E
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           Type        (Type, ArgMode)
 import           Location
 import           SymbolTable
 import           Treelike
+import           Type            (ArgMode, Type)
 --------------------------------------------------------------------------------
+import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))
+import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Definition'
   = FunctionDef
-    { funcBody :: Expression
-    , retType  :: Type
-    , fparams   :: [(Text, Type)]
-    }
+    { funcBody    :: Expression
+    , funcParams  :: Seq (Text, Type)
+    , funcRetType :: Type }
   | ProcedureDef
-    { procDecl :: [Either Declaration Instruction]
-    , params   :: [(Text, Type, ArgMode)]
-    , pre      :: Expression
-    , procBody :: Instruction
-    , post     :: Expression
-    }
+    { procDecl   :: Seq (Either Declaration Instruction)
+    , procBody   :: Instruction
+    , procParams :: Seq (Text, Type, ArgMode) }
   | AbstractProcedureDef
-    { pre      :: Expression
-    , post     :: Expression
-    , params   :: [(Text, Type, ArgMode)]
-    }
+    { abstParams :: Seq (Text, Type, ArgMode) }
 
 data Definition
   = Definition
-    { defLoc   :: Location
-    , defName  :: Text
-    , st       :: SymbolTable
-    , defBound :: Maybe Expression
-    , def'     :: Definition'
-    }
-  | BadDefinition
-    { defLoc :: Location
-    }
+    { defLoc  :: Location
+    , defName :: Text
+    , pre     :: Expression
+    , post    :: Expression
+    , bound   :: Maybe Expression
+    , def'    :: Definition' }
+
 
 instance Treelike Definition where
-  toTree BadDefinition {defLoc} = leaf $ "Bad Definition " <> show defLoc
-  toTree Definition { defLoc, defName, {-st,-} defBound, def' }
+  toTree Definition { defLoc, defName, pre, post, bound, def' }
     = case def' of
-      FunctionDef { funcBody, retType, fparams } ->
-        Node ("Function " <> unpack defName <> " -> " <> show retType <> " " <> show defLoc)
-          [ Node "Parameters" (showFPs fparams)
+      FunctionDef { funcBody, funcRetType, funcParams } ->
+        Node ("Function " <> unpack defName <> " -> " <> show funcRetType <> " " <> show defLoc)
+          [ Node "Parameters" (showFPs funcParams)
           , boundNode
           , Node "Body" [toTree funcBody]
           ]
 
-      ProcedureDef { procDecl, pre, procBody, post, params } ->
+      ProcedureDef { procDecl, procBody, procParams } ->
         Node ("Procedure " <> unpack defName <> " " <> show defLoc)
-          [ Node "Parameters" (showPs params)
+          [ Node "Parameters" (showPs procParams)
           , Node "Declarations" $
-              fmap (\x -> case x of; Left a -> toTree a; Right b -> toTree b) procDecl
+              (\x -> case x of; Left a -> toTree a; Right b -> toTree b) <$> toList procDecl
           , Node "Precondition" [toTree pre]
           , boundNode
           , Node "Body" [toTree procBody]
           , Node "Postcondition" [toTree post]
           ]
 
-      AbstractProcedureDef { pre, post, params} ->
+      AbstractProcedureDef {abstParams} ->
         Node ("Abstarct Procedure " <> unpack defName <> " " <> show defLoc)
-          [ Node "Parameters" (showPs params)
+          [ Node "Parameters" (showPs abstParams)
           , Node "Precondition" [toTree pre]
           , Node "Postcondition" [toTree post]
           ]
 
     where
-      showPs :: [(Text, Type, ArgMode)] -> [Tree String]
-      showPs = fmap (\(n,t,m) -> leaf (show m <> " " <> unpack n <> " : " <> show t))
-      showFPs :: [(Text, Type)] -> [Tree String]
-      showFPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t))
-      boundNode = case defBound of
+      showPs :: Seq (Text, Type, ArgMode) -> [Tree String]
+      showPs = fmap (\(n,t,m) -> leaf (show m <> " " <> unpack n <> " : " <> show t)) . toList
+      showFPs :: Seq (Text, Type) -> [Tree String]
+      showFPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t)) . toList
+      boundNode = case bound of
         Just b -> Node "Bound" [toTree b]
         Nothing -> leaf "Not bounded"
