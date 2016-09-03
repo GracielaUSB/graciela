@@ -5,17 +5,18 @@ module AST.Definition where
 import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression)
 import qualified AST.Expression  as E
-import           AST.Instruction (Instruction)
+import           AST.Instruction (Instruction(..), Instruction'(..))
 import qualified AST.Instruction as I
 import           Location
 import           SymbolTable
 import           Treelike
-import           Type            (ArgMode, Type)
+import           Type            (ArgMode(..), Type(..))
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))
 import           Data.Sequence   (Seq)
-import           Data.Text       (Text, unpack)
+import           Data.Sequence   as Seq (zip)
+import           Data.Text       (Text, unpack, pack)
 --------------------------------------------------------------------------------
 
 data Definition'
@@ -76,3 +77,4 @@ instance Treelike Definition where
       boundNode = case bound of
         Just b -> Node "Bound" [toTree b]
         Nothing -> leaf "Not bounded"
+

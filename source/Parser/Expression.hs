@@ -77,12 +77,13 @@ expr = pure . ((\(e,_,_) -> e) <$>) =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
-metaexpr = makeExprParser term operator
+metaexpr = do 
+  makeExprParser term operator
 
 
 term :: ParserExp (Maybe MetaExpr)
 term =  parens metaexpr
-    <|> (try identifierAndLoc >>= call)
+    <|> try (identifierAndLoc >>= call)
     <|> variable
     <|> bool
     <|> nullptr
@@ -180,7 +181,7 @@ variable = do
   st <- lift (use symbolTable)
 
   let loc = Location (from, to)
-
+  
   case name `lookup` st of
 
     Left _ -> do
@@ -252,10 +253,9 @@ variable = do
 
 call :: (Text, Location) -> ParserExp (Maybe MetaExpr)
 call (funcName, Location (from,_)) = do
-
-  args <- between (match TokLeftPar) (match' TokRightPar) $
-    metaexpr `sepBy` match TokComma
-
+  (match TokLeftPar)
+  args <- metaexpr `sepBy` match TokComma
+  (match TokRightPar)
   to <- getPosition
   let loc = Location (from, to)
 

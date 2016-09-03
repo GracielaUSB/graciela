@@ -17,6 +17,7 @@ import           Treelike
 --------------------------------------------------------------------------------
 import           Data.List       (intercalate)
 import           Data.Foldable   (toList)
+import           Data.Map        (Map)
 import           Data.Sequence   (Seq)
 import           Data.Monoid     ((<>))
 import           Data.Text       (Text, unpack)
@@ -27,9 +28,10 @@ data Struct'
     { inv    ::  Expression
     }
   | DataType
-    { abstract ::  Text
-    , repinv   ::  Expression
-    , coupinv  ::  Expression
+    { abstract      ::  Text
+    , abstractTypes ::  Map Type Type
+    , repinv        ::  Expression
+    , coupinv       ::  Expression
     }
 
 data Struct

@@ -264,10 +264,13 @@ pMatch' t = withRecovery recover (match t)
   where
     recover e = do
       pos <- getPosition
+      -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
+      let 
+        from :| _ = errorPos e
+        expected  = Set.singleton . Tokens . NE.fromList $ [TokenPos from from t]
+        loc       = Location (pos, pos)
 
-      let loc = Location (pos, pos)
-
-      putError pos . UnexpectedToken $ errorUnexpected e
+      errors %= (|> e { errorExpected = expected } )
 
       pure loc
 --------------------------------------------------------------------------------

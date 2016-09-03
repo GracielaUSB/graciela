@@ -54,24 +54,23 @@ program hola begin
 	
 
 
-    proc hola ( in k : int, out j : int) begin
-    	var p : int*;
-    	var i, j, k := -1+2, 2, 1: int;
-    	const z := 1 : int;
+ //    proc hola ( in k : int, out j : int) begin
+ //    	var p : int*;
+ //    	var i, j, k := -1+2, 2, 1: int;
+ //    	const z := 1 : int;
 
-        {pre (% sigma i : int | 0 <= i /\ i <= 10 | 1.0 %) == 10.0 pre}
-        |[
-		    write(1);
-		    writeln(1);
-		    chao(k,k);
-		    {}
-		    // read(z,j,p)
-        ]|
-        {post true post}
-    end
+ //        {pre (% sigma i : int | 0 <= i /\ i <= 10 | 1.0 %) == 10.0 pre}
+ //        |[
+	// 	    write(1);
+	// 	    writeln(1);
+	// 	    chao(k,k)
+	// 	    // read(z,j,p)
+ //        ]|
+ //        {post true post}
+ //    end
     
 |[
-	var a := 1 : int;
+	var a  : int;
 	read(a);
 	if a > 1 -> 
 		|[
@@ -87,3 +86,28 @@ program hola begin
 
 end
 
+
+
+/*
+        	{inv true inv}
+		    {bound i bound}
+		    do true ->
+		    	if true  -> 
+		    		{inv true inv}
+		    		{bound i bound}
+		    		do i ->
+		    			if true -> 
+				    		if true -> writeln(1) 
+				    		[] false -> read(i)
+				    		fi
+				    	[] false -> 
+				    		|[
+				    			var i,j,k := 'c', 'b', 'h': char;
+				    			write(i)
+				    		]|
+				    	fi
+		    		od
+		    	[] false -> write(2)
+		    	fi
+		    od;*/
+		    // hola();

@@ -273,10 +273,11 @@ reading = do
   from <- getPosition
 
   match TokRead
-
+  traceM "chao :)"
   ids <- parens $ expression `sepBy` match TokComma
+  traceM "hola :)"
   file <- optional fileFrom
-
+  
   to <- getPosition
   let loc = Location (from, to)
 
@@ -317,9 +318,9 @@ reading = do
         putError from . UnknownError $
           "Cannot read an `In` mode object of type `" <> show objType <> "`."
         pure Nothing
-    read' acc (Just Expression { E.loc = Location (from, _) }) = do
+    read' acc (Just expr@Expression { E.loc = Location (from, _) }) = do
       putError from . UnknownError $
-        "Cannot a value read into an expression."
+        "Cannot read expression `" <> show expr <> "`."
       pure Nothing
 
     readable = GOneOf [GInt, GFloat, GChar]

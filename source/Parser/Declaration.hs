@@ -102,7 +102,9 @@ declaration' allowedTypes = do
           , declType = t
           , declIds  = fst <$> ids }
 
-      Just Nothing -> pure Nothing
+      Just Nothing -> do
+        putError from . UnknownError $ "Unknown 1"
+        pure Nothing
         -- Values were either mandatory or optional, and were given, but
         -- had errors. No more errors are given.
 

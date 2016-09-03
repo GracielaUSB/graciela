@@ -185,38 +185,46 @@ main = do
   source <- readFile fileName
 
   let tokens = lex fileName source
-  let (r, state) = runParser program fileName initialState tokens
+  let (r, state) = runParser program fileName (initialState fileName) tokens
+
+
+
 
   case r of
     Just program -> do
-        {-Print AST-}
-        when (optAST options) . putStrLn . drawTree . toTree $ program
-        {-Print Symbol Table-}
-        when (optSTable options) $ do
-          putStrLn . drawTree . toTree . fst . _symbolTable $ state
-          putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
+      {-Print AST-}
+      when (optAST options) . putStrLn . drawTree . toTree $ program
+      {-Print Symbol Table-}
+      when (optSTable options) $ do
+        putStrLn . drawTree . toTree . fst . _symbolTable $ state
+        putStrLn . drawTree . Node "Types" . fmap (leaf . show) . toList . _typesTable $ state
 
-        {- Print Errors-}
-        putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
-        case (optErrors options) of
-          Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
-          _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
+      {- Print Errors-}
+      putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
+      case (optErrors options) of
+        Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
+        _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
 
-        {- If no errors -}
-        when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do
-          {- Generate LLVM AST -}
-          let
-            files = toList $ _filesToRead state
-            types = _typesTable state
-          newast <- programToLLVM files types program
+      {- If no errors -}
+      when (Seq.null (_errors state) && Seq.null (_synErrorList state)) $ do
+        {- Generate LLVM AST -}
+        let
+          files = toList $ _filesToRead state
+          types = _typesTable state
+        newast <- programToLLVM files types program
 
-          {- And write it as IR on a ll file -}
-          withContext $ \context ->
-            liftError . withModuleFromAST context newast $ \m ->
-              liftError $ writeLLVMAssemblyToFile (File llName ) m
+        {- And write it as IR on a ll file -}
+        withContext $ \context ->
+          liftError . withModuleFromAST context newast $ \m ->
+            liftError $ writeLLVMAssemblyToFile (File llName ) m
 
     {- If an unrecoverable error occurs during Parsing, will be printed here-}
-    Nothing -> mapM_ print (state ^. errors)
+    Nothing -> do
+      {- Print Errors-}
+      putStr . unlines . toList . fmap ((++"\n").show) . _synErrorList $ state
+      case (optErrors options) of
+        Just n -> hPutStr stderr . unlines . take n . toList . fmap  prettyError . _errors $ state
+        _      -> hPutStr stderr . unlines . toList . fmap  prettyError . _errors $ state
 
   let
     oplvl = optOptimization options

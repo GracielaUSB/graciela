@@ -28,11 +28,11 @@ import           Type
 import           Control.Lens        (use, (%=), (.=))
 import           Data.List           (intercalate)
 import           Data.Foldable       (toList)
-import           Control.Monad       (void, when)
+import           Control.Monad       (void, when, foldM)
 import           Data.Monoid         ((<>))
 import           Data.Maybe          (catMaybes)
 import qualified Data.Map            as Map
-import qualified Data.Sequence       as Seq (fromList, zip)
+import qualified Data.Sequence       as Seq (fromList, zip, zipWith)
 import           Data.Text           (Text, unpack, pack)
 import           Text.Megaparsec     (getPosition, optional, (<|>))
 import           Text.Megaparsec.Pos (SourcePos)
@@ -136,7 +136,7 @@ dataType = do
                         "Abstract Type `" <> show abstractName <> 
                         "` does not exists."
 
-          Just Struct {structTypes,structDecls,structProcs} -> do 
+          Just Struct {structTypes,structDecls,structProcs, struct'} -> do 
 
             case (procs', decls', repinv', coupinv') of 
             
@@ -147,18 +147,7 @@ dataType = do
                   lenActual = length absTypes
                   loc       = Location(from,to)
                   fields    = concat . fmap getFields $ decls
-                  checkProc = \proc -> do
-                      let 
-                        name = defName proc
-                        Location(pos,_) = defLoc proc 
-                      if foldr ((||) . (\x -> (defName x) == name)) False procs
-                        then return ()
-                        else putError pos $ UnknownError $
-                              "The procedure named `" <> unpack name <> "` " <> 
-                              showPos pos <> " in the Type `" <> 
-                              unpack abstractName <>
-                              "`\n\tneeds to be implemented inside Type `" <> 
-                              unpack name <> "`" 
+                  abstractTypes = Map.fromList $ zip absTypes structTypes
 
                 when (lenNeeded /= lenActual) $ do
                   putError from $ UnknownError $ 
@@ -168,26 +157,67 @@ dataType = do
                     ")\n\tbut expected " <> show lenNeeded <> " types (" <>
                     intercalate "," (fmap show structTypes) <> ")"
 
-                mapM_ checkProc structProcs
+                mapM_ (checkProc procs abstractName) structProcs
                 
+                st <- use symbolTable
                 symbolTable %= closeScope to
 
-                let struct =  Struct
+
+
+                let 
+                  struct = Struct
                         { structName  = name
                         , structDecls = Seq.zip (Seq.fromList [0..]) 
                                             (fmap snd structDecls <> decls)
+                        , structSt    = st
                         , structProcs = procs                
                         , structLoc   = loc
                         , structTypes = types
                         , struct'     = DataType
                          { abstract = abstractName
-                         , repinv
-                         , coupinv}}
+                         , abstractTypes
+                         , repinv   
+                         , coupinv }}
                 dataTypes %= Map.insert name struct
                 typesVars .= []
                 currentStruct .= Nothing
               _ -> pure ()
-          _ -> pure ()
       _ -> pure ()
  
-    
+  where
+    checkProc procs abstractName proc= do
+      let 
+        name = defName proc
+        Location(pos,_) = defLoc proc 
+      ok <- or <$> mapM (\x -> proc =-= x) procs
+      if ok
+        then return ()
+        else putError pos $ UnknownError $
+              "The procedure named `" <> unpack name <> "` " <> 
+              showPos pos <> " in the Type `" <> 
+              unpack abstractName <>
+              "`\n\tneeds to be implemented inside Type `" <> 
+              unpack name <> "`" 
+
+    (=-=) :: Definition -> Definition -> Parser Bool
+    def1 =-= def2
+      | defName def1 /= defName def2 = pure False  
+      | otherwise = do
+          let 
+            Location(pos1,_) = defLoc def1
+            Location(pos2,_) = defLoc def2 
+          when (checkParams (def' def1) (def' def2)) $ 
+            putError pos1 . UnknownError $ 
+                "The prodecure `" <> unpack (defName def1) <> 
+                " does not match with the one defined at " <> 
+                showPos pos2
+          pure True
+          
+
+    checkParams (AbstractProcedureDef  params1) (ProcedureDef _ _ params2) = 
+      and $ Seq.zipWith (\a b -> a == b) params1 params2
+
+    checkParams _ _ = False
+
+
+
