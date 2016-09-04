@@ -158,24 +158,33 @@ void _writeChar(int x) {
 }
 
 
-void _writeString(short *x) {
-
+void _writeString(char *x) {
     int i=0;
     setlocale(LC_CTYPE, "");
 
-    while (!(x[i] == 0)) {
-
-        if ((x[i] == 92) && (x[i+1] == 110)) {
-          printf("\n");
-          i++;
-        } else
-          printf("%lc",x[i]);
-
-        i++;
-    };
-
+    printf ("%s", x);
     return;
 }
+
+
+// void _writeString(short *x) {
+//
+//     int i=0;
+//     setlocale(LC_CTYPE, "");
+//
+//     while (!(x[i] == 0)) {
+//
+//         if ((x[i] == 92) && (x[i+1] == 110)) {
+//           printf("\n");
+//           i++;
+//         } else
+//           printf("%lc",x[i]);
+//
+//         i++;
+//     };
+//
+//     return;
+// }
 
 
 void _writeLnInt(int x) {
@@ -213,8 +222,7 @@ void _writeLnChar(int x) {
 }
 
 
-void _writeLnString(short *x) {
-
+void _writeLnString(char *x) {
     _writeString(x);
     printf("\n");
     return;
@@ -330,6 +338,3 @@ void _abort(int x, int line, int column) {
 
     }
 }
-
-
-

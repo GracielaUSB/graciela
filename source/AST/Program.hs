@@ -12,7 +12,9 @@ import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
+import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))
+import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -20,9 +22,9 @@ data Program
   = Program
     { name    :: Text
     , loc     :: Location
-    , defs    :: [Definition]
+    , defs    :: Seq Definition
     , insts   :: Instruction
-    , structs :: [Struct]
+    , structs :: Seq Struct
     }
 
 instance Treelike Program where

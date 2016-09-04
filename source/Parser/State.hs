@@ -1,8 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Parser.State
-  ( State
-  , synErrorList
+  ( State (..)
   , errors
   , symbolTable
   , filesToRead
@@ -35,8 +34,9 @@ import           Text.Megaparsec.Pos   (unsafePos)
 type RecursionAllowed = Bool
 
 data State = State
-  { _synErrorList :: Seq MyParseError
-  , _errors       :: Seq (ParseError TokenPos Error)
+  { _errors :: Seq (ParseError TokenPos Error)
+  --  _synErrorList :: Seq MyParseError
+  -- , _errors       :: Seq (ParseError TokenPos Error)
   , _symbolTable  :: SymbolTable
   , _definitions  :: Map Text Definition
   , _filesToRead  :: Set String
@@ -52,8 +52,7 @@ makeLenses ''State
 
 initialState :: FilePath -> State
 initialState path = State
-  { _synErrorList = Seq.empty
-  , _errors       = Seq.empty
+  { _errors       = Seq.empty
   , _symbolTable  = empty (SourcePos path (unsafePos 0) (unsafePos 0))
   , _definitions  = Map.empty
   , _filesToRead  = Set.empty

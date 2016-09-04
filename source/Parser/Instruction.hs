@@ -34,7 +34,7 @@ import qualified Parser.Assertion       as A (bound)
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
-import           Parser.Recovery
+-- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           SymbolTable
@@ -60,6 +60,7 @@ import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
+import           Debug.Trace
 
 instruction :: Parser (Maybe Instruction)
 instruction = try procedureCall
@@ -110,6 +111,7 @@ block :: Parser (Maybe Instruction)
 block = do
   from <- getPosition
   symbolTable %= openScope from
+
   match TokOpenBlock
 
   decls       <- declarationBlock
@@ -245,6 +247,7 @@ write = do
   let loc = Location (from,to)
 
   mexprs <- foldM write' (Just Seq.empty) exprs
+
 
   pure $ case mexprs of
     Nothing     -> Nothing

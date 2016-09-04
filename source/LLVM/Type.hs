@@ -39,7 +39,7 @@ boolType :: LLVM.Type
 boolType   = i1
 
 stringType :: LLVM.Type
-stringType = LLVM.PointerType i16 (LLVM.AddrSpace 0)
+stringType = LLVM.PointerType i8 (LLVM.AddrSpace 0)
 
 
 toLLVMType :: T.Type -> LLVM.Type
@@ -63,8 +63,3 @@ sizeOf T.GChar         = 4
 sizeOf T.GFloat        = 4
 sizeOf (T.GArray sz t) = (fromIntegral sz) * sizeOf t
 sizeOf (T.GPointer t)  = 4
-
-
-
-
-

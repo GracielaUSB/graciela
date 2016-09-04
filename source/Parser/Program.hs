@@ -4,39 +4,54 @@ module Parser.Program
   ( program
   ) where
 
-
 -------------------------------------------------------------------------------
 import           AST.Program
 import           Location           (Location (..))
-import           Parser.ADT
 import           Parser.Definition
 import           Parser.Instruction (block)
-import           Parser.Recovery
+import           Parser.Monad
+import           Parser.State
 import           SymbolTable        (closeScope, openScope)
 import           Token
 import           Type
+-- import           Parser.ADT -- Not yet
 -------------------------------------------------------------------------------
 import           Control.Lens       ((%=))
-import qualified Control.Monad      as M
-import qualified Data.Text          as T
-import           Text.Megaparsec    (eof, getPosition, many, (<|>))
+import           Data.Either
+import qualified Data.Sequence      as Seq (empty)
+import           Text.Megaparsec    (eof, getPosition, (<|>))
 -------------------------------------------------------------------------------
+import           Debug.Trace
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
-program :: Graciela Program
+program :: Parser (Maybe Program)
 program = do
   from <- getPosition
-  symbolTable %= openScope from
-  structs <- many (abstractDataType <|> dataType)
-
   match' TokProgram
-  id <- safeIdentifier
-  TokBegin `withRecoveryFollowedBy` oneOf [TokProc, TokFunc, TokOpenBlock]
+  name' <- safeIdentifier
+  match' TokBegin
 
-  decls <- listDefProc
-  body  <- block
+  getPosition >>= \x -> symbolTable %= openScope x
+
+  decls' <- listDefProc
+    -- (1) listDefProc should also include type definitions
+
+  main' <- mainRoutine
+
+  _moreDecls <- listDefProc
+    -- These aren't compiled since they can't be reached, but they're
+    -- still checked so the user knows.
+
   match' TokEnd
   eof
   to <- getPosition
   symbolTable %= closeScope to
-  return $ Program id (Location(from, to)) decls body structs
+
+  let structs = Seq.empty -- Should be parsed in (1)
+  case (name', decls', main') of
+    (Just name, Just decls, Just main) ->
+      pure . Just $ Program name (Location (from, to)) decls main structs
+    _ -> pure Nothing
+
+  where
+    mainRoutine = match TokMain *> block

@@ -131,6 +131,7 @@ unexpected = lexeme $ TokUnexpected <$> anyChar
 
 token :: Lexer TokenPos
 token  =  reserved "program"    TokProgram
+      <|> reserved "main"       TokMain
       <|> reserved "begin"      TokBegin
       <|> reserved "end"        TokEnd
       <|> reserved "func"       TokFunc

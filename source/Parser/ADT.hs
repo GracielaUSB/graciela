@@ -17,20 +17,21 @@ import           Parser.Declaration
 import           Parser.Definition
 import           Parser.Instruction
 import           Parser.Monad
-import           Parser.Recovery
+-- import           Parser.Rhecovery
+import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
 import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens        (use, (%=), (.=))
-import           Control.Monad       (void)
+import           Control.Monad       (forM_, void)
 import           Data.Maybe          (catMaybes)
-import qualified Data.Sequence       as Seq (fromList)
+import qualified Data.Sequence       as Seq (empty, fromList)
 import           Data.Text           (Text)
-import           Text.Megaparsec     (Dec, ParseError, between, choice, endBy,
-                                      getPosition, lookAhead, many, manyTill,
-                                      notFollowedBy, sepBy, try, (<|>))
+import           Text.Megaparsec     (Dec, ParseError, between, choice,
+                                      getPosition, lookAhead, manyTill,
+                                      notFollowedBy, try, (<|>))
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
@@ -42,16 +43,17 @@ abstractDataType = do
     match TokAbstract
     abstractId <- identifier
     atypes <- parens (identifier `sepBy` match TokComma)
-    withRecovery TokBegin
+    match' TokBegin
     symbolTable %= openScope from
     decls <- abstractDec `endBy` match TokSemicolon
     inv   <- safeAssertion invariant (NoAbstractInvariant abstractId)
-    procs <- many procedureDeclaration
-    withRecovery TokEnd
+    -- procs <- many abstractProcedure
+    let procs = Seq.empty
+    match' TokEnd
     to    <- getPosition
     let loc = Location (from,to)
     symbolTable %= closeScope to
-    return $ Struct
+    pure Struct
         { structName = abstractId
         , structLoc  = loc
         , struct'    = AbstractDataType
@@ -67,15 +69,15 @@ abstractDec = constant <|> variable
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
-      withRecovery TokColon
+      match' TokColon
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
       mapM_ (\(id,loc) -> do
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing){- TODO-})
             ) ids
-      let ids' = map (\(id,_) -> id) ids
-      return $ Declaration
+      let ids' = fst <$> ids
+      pure Declaration
         { declLoc  = location
         , declType = t
         , declIds  = Seq.fromList ids' }
@@ -84,15 +86,15 @@ abstractDec = constant <|> variable
       from <- getPosition
       match TokVar
       ids <- identifierAndLoc `sepBy` match TokComma
-      withRecovery TokColon
+      match' TokColon
       t  <- abstractType
       to <- getPosition
       let location = Location (from,to)
       mapM_ (\(id,loc) -> do
                 symbolTable %= insertSymbol id (Entry id loc (Var t Nothing))
             ) ids
-      let ids' = map (\(id,_) -> id) ids
-      return $ Declaration
+      let ids' = fst <$> ids
+      pure Declaration
         { declLoc  = location
         , declType = t
         , declIds  = Seq.fromList ids' }
@@ -105,28 +107,28 @@ dataType = do
     match TokType
     from <- getPosition
     id <- identifier
-    withRecovery TokImplements
+    match' TokImplements
     abstractId <- identifier
     types <- parens $ (try typeVar <|> basicType) `sepBy` match TokComma
     symbolTable %= openScope from
 
-    withRecovery TokBegin
+    match' TokBegin
     decls   <- declaration `endBy` (match TokSemicolon)
 
-    repinv  <- safeAssertion repInvariant  (NoTypeRepInv  id)
-    coupinv <- safeAssertion coupInvariant (NoTypeCoupInv id)
+    repinv  <- safeAssertion repInv  (NoTypeRepInv  id)
+    coupinv <- safeAssertion coupInv (NoTypeCoupInv id)
 
     procs   <- many procedure
-    withRecovery TokEnd
+    match' TokEnd
 
     to <- getPosition
     symbolTable %= closeScope to
     let
        loc = Location(from,to)
-       fields = concat . fmap getFields $ decls
+       fields = getFields =<< decls
     insertType id (GDataType id fields) from
-    symbolTable %= insertSymbol id (Entry id loc (TypeEntry))
-    return $ Struct
+    symbolTable %= insertSymbol id (Entry id loc TypeEntry)
+    pure Struct
         { structName = id
         , structLoc  = loc
         , struct'    = DataType

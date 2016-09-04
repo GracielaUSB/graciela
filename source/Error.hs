@@ -19,15 +19,14 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
 
-data MyParseError
-  = CustomError -- Mientras no mejoremos los errores jajaja
-    { msg    :: String
-    , mpeloc :: Location
-    }
+-- data MyParseError
+--   = CustomError -- Mientras no mejoremos los errores jajaja
+--     { msg    :: String
+--     , mpeloc :: Location
+--     }
 
-instance Show MyParseError where
-  show (CustomError msg loc) = show loc <> "  " <> msg
-
+-- instance Show MyParseError where
+--   show (CustomError msg loc) = show loc <> "  " <> msg
 
 data Error
   = BadAssertType

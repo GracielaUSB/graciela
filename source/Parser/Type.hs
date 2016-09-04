@@ -13,9 +13,8 @@ import           Error
 import           Location
 import           Parser.Expression (expression)
 import           Parser.Monad      (Parser, getType, identifier, integerLit,
-                                    match, parens, putError,
-                                    unsafeGenCustomError)
-import           Parser.Recovery
+                                    match, match', parens, putError)
+-- import           Parser.Rhecovery
 import           SymbolTable       (lookup)
 import           Token
 import           Type
@@ -26,8 +25,8 @@ import           Data.Int          (Int32)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack)
 import           Prelude           hiding (lookup)
-import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
-                                    sepBy, try, (<|>))
+import           Text.Megaparsec   (between, getPosition, lookAhead,
+                                    notFollowedBy, sepBy, try, (<|>))
 --------------------------------------------------------------------------------
 
 type' :: Parser Type
@@ -83,7 +82,7 @@ type' = try userDefined <|> try arrayOf <|> try type''
 arraySize :: Parser (Maybe Int32)
 arraySize = do
   pos <- getPosition
-  expr <- safeExpression
+  expr <- between (match TokLeftBracket) (match' TokRightBracket) expression
   case expr of
     Nothing ->
       pure Nothing
@@ -92,12 +91,12 @@ arraySize = do
         Value (IntV i) -> return (Just i)
         Value _ -> error "internal error: Type and Value mismatch"
         _       -> do
-          unsafeGenCustomError
+          putError pos . UnknownError $
             "El tamaño de una variable debe ser una constante, y no puede \
             \incluir cuantificaciones."
           pure Nothing
       _ -> do
-        unsafeGenCustomError
+        putError pos . UnknownError $
           "El tamaño de una variable debe ser una constante de tipo entero, \
           \sin cuantificaciones."
         pure Nothing

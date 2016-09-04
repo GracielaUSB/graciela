@@ -1,18 +1,19 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TupleSections  #-}
-module LLVM.Instruction
+{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE TupleSections    #-}
 
-where
+module LLVM.Instruction where
 --------------------------------------------------------------------------------
-import           Aborts
 import           AST.Expression                     (Expression (..))
 import qualified AST.Expression                     as E (Expression' (..))
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import           AST.Object                         (Object' (..),
                                                      Object'' (..))
+import           LLVM.Aborts
 import           LLVM.Declaration
 import           LLVM.Expression
+import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           Location
@@ -49,12 +50,16 @@ guard :: Guard -> Name -> LLVM ()
 guard (expr, {-decls,-} insts) falseLabel = do
   cond      <- expression expr
   trueLabel <- newLabel
-  let condBr = CondBr { condition = cond
-                      , trueDest  = trueLabel
-                      , falseDest = falseLabel
-                      , metadata' = []
-                      }
-  setLabel trueLabel $ Do condBr
+
+  terminate' CondBr
+    { condition = cond
+    , trueDest  = trueLabel
+    , falseDest = falseLabel
+    , metadata' = []
+    }
+
+  (trueLabel #)
+
   -- mapM_ declaration decls
   mapM_ instruction insts
 
@@ -71,14 +76,15 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     trueLabel  <- newLabel
     falseLabel <- newLabel
     -- Create the conditional branch
-    let condBr = CondBr { condition = cond
-                        , trueDest  = trueLabel
-                        , falseDest = falseLabel
-                        , metadata' = []
-                        }
+    terminate' CondBr
+      { condition = cond
+      , trueDest  = trueLabel
+      , falseDest = falseLabel
+      , metadata' = []
+      }
     -- Set the false label to the abort
-    setLabel falseLabel $ Do condBr
     -- And the true label to the next instructions
+    (falseLabel #)
     createTagAssert trueLabel pos
     {- setLabel and createTagAssert set the label of the next block -}
 
@@ -117,10 +123,12 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     abortLabel <- newLabel
     makeGuards (toList cguards) finalLabel abortLabel
 
-    let branch = Br { dest      = finalLabel
-                    , metadata' = []
-                    }
-    setLabel abortLabel $ Do branch
+    terminate' Br
+      { dest      = finalLabel
+      , metadata' = [] }
+
+    (abortLabel #)
+
     createTagIf finalLabel pos
     where
       makeGuards [guard'] _ abortLabel =
@@ -129,10 +137,11 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       makeGuards (guard':xs) finalLabel abortLabel = do
         nextGuardLabel <- newLabel
         guard guard' nextGuardLabel
-        let branch = Br { dest      = finalLabel
-                        , metadata' = []
-                        }
-        setLabel nextGuardLabel $ Do branch
+        terminate' Br
+          { dest      = finalLabel
+          , metadata' = [] }
+
+        (nextGuardLabel #)
 
         makeGuards xs finalLabel abortLabel
 
@@ -145,7 +154,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     args <- mapM createArg pargs
     label <- newLabel
     let
-      proc = Right . ConstantOperand $ C.GlobalReference voidType $ Name (unpack pname)
+      proc = Right . ConstantOperand . C.GlobalReference voidType $ Name (unpack pname)
 
       call = LLVM.Call
                 { LLVM.tailCallKind       = Nothing
@@ -204,7 +213,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
       ptr8bytes = LocalReference type' labelCast
 
-      fun = Right . ConstantOperand $ C.GlobalReference voidType $ Name "_free"
+      fun = Right . ConstantOperand . C.GlobalReference voidType $ Name "_free"
 
       arg = [(ptr8bytes,[])]
 
@@ -241,7 +250,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       type' = toLLVMType (T.GPointer nType)
 
       -- Call C malloc
-      fun  = Right . ConstantOperand $ C.GlobalReference pointerType $ Name "_malloc"
+      fun  = Right . ConstantOperand . C.GlobalReference pointerType $ Name "_malloc"
       arg  = [(ConstantOperand $ C.Int 32 (sizeOf nType),[])]
       call = LLVM.Call
                 { LLVM.tailCallKind       = Nothing
@@ -273,7 +282,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                                      , labelStore := store]
 
 
-  Write { ln, wexprs } -> do
+  Write { ln, wexprs } ->
     mapM_ write wexprs
     where
       write wexpr = do
@@ -282,7 +291,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         operand <- expression wexpr
         let
         -- Call the correct C write function
-          fun = Right . ConstantOperand $ C.GlobalReference voidType $ fwrite ln (expType wexpr)
+          fun = Right . ConstantOperand . C.GlobalReference voidType $ fwrite ln (expType wexpr)
           arg = [(operand, [])]
           call =  LLVM.Call
                 { LLVM.tailCallKind       = Nothing

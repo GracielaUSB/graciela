@@ -39,7 +39,7 @@ import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton, zip)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lex, lookup)
-import           Text.Megaparsec           (between, getPosition,
+import           Text.Megaparsec           (between, getPosition, lookAhead,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -82,8 +82,7 @@ metaexpr = makeExprParser term operator
 
 term :: ParserExp (Maybe MetaExpr)
 term =  parens metaexpr
-    <|> (try identifierAndLoc >>= call)
-    <|> variable
+    <|> callOrVariable
     <|> bool
     <|> nullptr
     <|> basicLit integerLit       IntV          GInt
@@ -171,12 +170,17 @@ term =  parens metaexpr
       pure . Just $ (expr, ProtoNothing, Taint False)
 
 
-variable :: ParserExp (Maybe MetaExpr)
-variable = do
-  from <- getPosition
-  name <- identifier
-  to <- getPosition
+callOrVariable :: ParserExp (Maybe MetaExpr)
+callOrVariable = do
+  (name, loc) <- identifierAndLoc
+  tok <- lookAhead anyToken
+  case tok of
+    TokLeftPar -> call name loc
+    _ -> variable name loc
 
+
+variable :: Text -> Location -> ParserExp (Maybe MetaExpr)
+variable name (Location (from, to)) = do
   st <- lift (use symbolTable)
 
   let loc = Location (from, to)
@@ -190,7 +194,6 @@ variable = do
       pure Nothing
 
     Right entry -> case entry^.info of
-
       Var { _varType } -> do
         let expr = Expression
               { E.loc
@@ -243,15 +246,9 @@ variable = do
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
 
-      _ -> do
-        putError from . UnknownError $
-          "Variable `" <> unpack name <> "` not defined in this scope."
 
-        pure Nothing
-
-
-call :: (Text, Location) -> ParserExp (Maybe MetaExpr)
-call (funcName, Location (from,_)) = do
+call :: Text -> Location -> ParserExp (Maybe MetaExpr)
+call funcName (Location (from,_)) = do
 
   args <- between (match TokLeftPar) (match' TokRightPar) $
     metaexpr `sepBy` match TokComma
@@ -355,6 +352,7 @@ call (funcName, Location (from,_)) = do
             pure Nothing
     add e taint1 (es, taint0) = (es |> e, taint0 <> taint1)
 
+call _ _ = error "internal error: Function call from impossible location."
 
 quantification :: ParserExp (Maybe MetaExpr)
 quantification = do
@@ -419,8 +417,6 @@ quantification = do
         case range of
           Nothing -> pure Nothing
           Just (cond, protorange, taint0) -> do
-            traceShowM "COND"
-            traceShowM cond
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing
@@ -698,11 +694,11 @@ operator =
 subindex :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 subindex = do
   from' <- getPosition
-  subind <- brackets metaexpr
+  subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
   to <- getPosition
 
   case subind of
-    Nothing -> pure (\_ -> pure Nothing) -- FIXME
+    Nothing -> pure (\_ -> pure Nothing)
     Just (sub, _, taint0) ->
       case sub of
         -- badexpression {} -> pure $ badSubindex to

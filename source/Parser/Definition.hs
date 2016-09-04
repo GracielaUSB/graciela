@@ -1,8 +1,9 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Parser.Definition
-  (
-
+  ( procedure
+  , function
+  , listDefProc
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -10,27 +11,31 @@ import           AST.Expression
 import           Entry
 import           Error
 import           Location
-import           Parser.Assertion   hiding (bound)
-import qualified Parser.Assertion   as A (bound)
+import           Parser.Assertion    hiding (bound)
+import qualified Parser.Assertion    as A (bound)
 import           Parser.Expression
 import           Parser.Instruction
 import           Parser.Monad
 import           Parser.State
 import           Parser.Type
-import           SymbolTable
+import           SymbolTable         hiding (empty)
+import qualified SymbolTable         as ST (empty)
 import           Token
 import           Type
 --------------------------------------------------------------------------------
-import           Control.Lens       (use, (%=), (.=))
-import           Control.Monad      (join, liftM5)
-import           Data.Functor       (($>))
-import qualified Data.Map           as Map (insert)
-import           Data.Maybe         (isJust)
-import           Data.Semigroup     ((<>))
-import           Data.Sequence      (Seq)
-import           Data.Text          (Text, unpack)
-import           Text.Megaparsec    (lookAhead)
-import           Text.Megaparsec    (between, getPosition, optional, (<|>))
+import           Control.Applicative (empty)
+import           Control.Lens        (use, (%=), (.=))
+import           Control.Monad       (join, liftM5)
+import           Data.Functor        (void, ($>))
+import qualified Data.Map            as Map (insert)
+import           Data.Maybe          (isJust)
+import           Data.Semigroup      ((<>))
+import           Data.Sequence       (Seq)
+import qualified Data.Sequence       as Seq (empty)
+import           Data.Text           (Text, unpack)
+import           Text.Megaparsec     (between, eof, errorUnexpected,
+                                      getPosition, lookAhead, manyTill,
+                                      optional, withRecovery, (<|>))
 --------------------------------------------------------------------------------
 
 listDefProc :: Parser (Maybe (Seq Definition))
@@ -45,8 +50,7 @@ function = do
   match TokFunc
 
   funcName' <- safeIdentifier
-  funcParams'   <- between (match TokLeftPar) (match' TokRightPar) $
-    sequence <$> funcParam `sepBy` match TokComma
+  funcParams' <- parens doFuncParams
 
   match' TokArrow
   funcRetType <- type'
@@ -72,9 +76,7 @@ function = do
   to <- getPosition
   symbolTable %= closeScope to
 
-  let
-    loc = Location (from, to)
-
+  let loc = Location (from, to)
 
   case (funcName', funcParams', pre', post', funcBody') of
     (Just funcName, Just funcParams, Just pre, Just post, Just funcBody) ->
@@ -103,34 +105,40 @@ function = do
     _ -> pure Nothing
 
   where
-    funcParam :: Parser (Maybe (Text, Type))
-    funcParam = p `followedBy` oneOf [TokComma, TokRightPar]
-      where
-        p = do
-          from <- getPosition
+    doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
+                <|> sequence <$> p `sepBy` match TokComma
 
-          parName' <- safeIdentifier
-          match' TokColon
-          t <- type'
+    p = funcParam `followedBy` oneOf [TokRightPar, TokComma]
 
-          to <- getPosition
-          let loc = Location (from, to)
+    funcParam = do
+      pos <- getPosition
+      noParam pos <|> yesParam pos
 
-          st <- use symbolTable
+    noParam pos = do
+      lookAhead (oneOf [TokRightPar, TokComma])
+      putError pos . UnknownError $ "A parameter was expected."
+      pure Nothing
 
-          case parName' of
-            Nothing -> pure Nothing
-            Just parName ->
-              case parName `local` st of
-                Right Entry { _loc } -> do
-                  putError from . UnknownError $
-                    "Redefinition of parameter `" <> unpack parName <>
-                    "`, original definition was at " <> show _loc <> "."
-                  pure Nothing
-                Left _ -> do
-                  symbolTable %= insertSymbol parName
-                    (Entry parName loc (Argument In t))
-                  pure . Just $ (parName, t)
+    yesParam from = do
+      parName <- identifier
+      match' TokColon
+      t <- type'
+
+      to <- getPosition
+      let loc = Location (from, to)
+
+      st <- use symbolTable
+
+      case parName `local` st of
+        Right Entry { _loc } -> do
+          putError from . UnknownError $
+            "Redefinition of parameter `" <> unpack parName <>
+            "`, original definition was at " <> show _loc <> "."
+          pure Nothing
+        Left _ -> do
+          symbolTable %= insertSymbol parName
+            (Entry parName loc (Argument In t))
+          pure . Just $ (parName, t)
 
 
 procedure :: Parser (Maybe Definition)
@@ -142,8 +150,7 @@ procedure = do
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
-  params' <- between (match TokLeftPar) (match' TokRightPar) $
-    sequence <$> procParam `sepBy` match TokComma
+  params' <- parens doProcParams
 
   decls' <- declarationOrRead
 
@@ -186,37 +193,48 @@ procedure = do
     _ -> pure Nothing
 
   where
+    doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
+                <|> sequence <$> p `sepBy` match TokComma
+
+    p = procParam `followedBy` oneOf [TokRightPar, TokComma]
+
     procParam :: Parser (Maybe (Text, Type, ArgMode))
-    procParam = p `followedBy` oneOf [TokComma, TokRightPar]
-      where
-        p = do
-          from <- getPosition
-          mode' <- paramMode <!!>
-            (from, UnknownError "A parameter mode must be specified.")
+    procParam = do
+      pos <- getPosition
+      noParam pos <|> yesParam pos
 
-          parName' <- safeIdentifier
-          match' TokColon
-          t <- type'
+    noParam pos = do
+      lookAhead (oneOf [TokRightPar, TokComma])
+      putError pos . UnknownError $ "A parameter was expected."
+      pure Nothing
 
-          to <- getPosition
-          let loc = Location (from, to)
+    yesParam from = do
+      mode' <- paramMode <!!>
+        (from, UnknownError "A parameter mode must be specified.")
 
-          st <- use symbolTable
+      parName' <- safeIdentifier
+      match' TokColon
+      t <- type'
 
-          case (parName', mode') of
-            (Nothing,_) -> pure Nothing
-            (_,Nothing) -> pure Nothing
-            (Just parName, Just mode) ->
-              case parName `local` st of
-                Right Entry { _loc } -> do
-                  putError from . UnknownError $
-                    "Redefinition of parameter `" <> unpack parName <>
-                    "`, original definition was at " <> show _loc <> "."
-                  pure Nothing
-                Left _ -> do
-                  symbolTable %= insertSymbol parName
-                    (Entry parName loc (Argument mode t))
-                  pure . Just $ (parName, t, mode)
+      to <- getPosition
+      let loc = Location (from, to)
+
+      st <- use symbolTable
+
+      case (parName', mode') of
+        (Nothing,_) -> pure Nothing
+        (_,Nothing) -> pure Nothing
+        (Just parName, Just mode) ->
+          case parName `local` st of
+            Right Entry { _loc } -> do
+              putError from . UnknownError $
+                "Redefinition of parameter `" <> unpack parName <>
+                "`, original definition was at " <> show _loc <> "."
+              pure Nothing
+            Left _ -> do
+              symbolTable %= insertSymbol parName
+                (Entry parName loc (Argument mode t))
+              pure . Just $ (parName, t, mode)
 
     paramMode =  match TokIn    $> In
              <|> match TokInOut $> InOut
