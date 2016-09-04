@@ -236,20 +236,26 @@ write = do
   from <- getPosition
 
   ln <- match TokWrite $> False <|> match TokWriteln $> True
-  exprs <- parens $ expression `sepBy1` match TokComma
+  exprs <- parens $ expression `sepBy` match TokComma
 
   to <- getPosition
   let loc = Location (from,to)
-
   mexprs <- foldM write' (Just Seq.empty) exprs
 
   pure $ case mexprs of
-    Nothing     -> Nothing
+    Nothing  | null exprs -> Just Instruction
+      { instLoc = loc
+      , inst'   = Write
+        { ln -- if `ln` then `writeln`, else `write`
+        , wexprs = Seq.empty }}
+
     Just wexprs -> Just Instruction
       { instLoc = loc
       , inst'   = Write
         { ln -- if `ln` then `writeln`, else `write`
         , wexprs }}
+
+    _ -> Nothing
 
   where
     write' _   Nothing = pure Nothing
@@ -273,9 +279,7 @@ reading = do
   from <- getPosition
 
   match TokRead
-  traceM "chao :)"
   ids <- parens $ expression `sepBy` match TokComma
-  traceM "hola :)"
   file <- optional fileFrom
   
   to <- getPosition

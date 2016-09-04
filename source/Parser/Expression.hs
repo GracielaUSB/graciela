@@ -42,11 +42,11 @@ import           Prelude                   hiding (Ordering (..), lex, lookup)
 import           Text.Megaparsec           (between, getPosition,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 import           Text.Megaparsec.Pos       (unsafePos)
 
 expression :: Parser (Maybe Expression)
-expression = evalStateT expr []
+expression = do 
+  evalStateT expr []
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -419,8 +419,6 @@ quantification = do
         case range of
           Nothing -> pure Nothing
           Just (cond, protorange, taint0) -> do
-            traceShowM "COND"
-            traceShowM cond
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing

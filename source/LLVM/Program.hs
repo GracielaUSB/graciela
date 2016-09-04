@@ -63,7 +63,7 @@ import           System.Process                          (callCommand,
 
 
 programToLLVM :: [String] -> Map Text (T.Type, a) -> Program -> IO Module
-programToLLVM files types (Program name _ defs insts structs) = do
+programToLLVM files types (Program name _ defs insts _ fullStructs) = do
   -- Eval the program with the LLVMState
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
@@ -82,7 +82,7 @@ programToLLVM files types (Program name _ defs insts structs) = do
       preDefinitions files
       
       -- mapM_ defineType $ Map.toAscList types
-      mapM_ defineStruct structs
+      mapM_ defineStruct fullStructs
       mapM_ definition defs
 
       mainDefinition insts

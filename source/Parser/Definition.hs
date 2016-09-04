@@ -35,16 +35,17 @@ import           Text.Megaparsec    (lookAhead)
 import           Text.Megaparsec    (between, getPosition, optional, (<|>))
 --------------------------------------------------------------------------------
 
+import Debug.Trace
+
 listDefProc :: Parser (Maybe (Seq Definition))
 listDefProc = sequence <$> many (function <|> procedure)
 
 function :: Parser (Maybe Definition)
 function = do
   lookAhead $ match TokFunc
-
-  from <- getPosition
-
-  match TokFunc
+  
+  Location(_,from) <- match TokFunc
+  symbolTable %= openScope from
 
   funcName' <- safeIdentifier
   funcParams'   <- between (match TokLeftPar) (match' TokRightPar) $
@@ -65,7 +66,7 @@ function = do
     (Just funcName, Just params) ->
       Just (funcName, from, funcRetType, params, isJust bnd)
 
-  symbolTable %= openScope from
+  
 
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
 
@@ -138,22 +139,21 @@ function = do
 
 procedure :: Parser (Maybe Definition)
 procedure = do
-
   lookAhead $ match TokProc
 
-  from <- getPosition
-  match TokProc
+  Location(_,from) <- match TokProc
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
   params' <- between (match TokLeftPar) (match' TokRightPar) $
     sequence <$> procParam `sepBy` match TokComma
 
-  decls' <- declarationOrRead
-
-  pre'  <- precond
-  post' <- postcond
-  bnd   <- join <$> optional A.bound
+  decls'  <- declarationOrRead
+  prePos  <- getPosition
+  pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
+  postPos <- getPosition
+  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
+  bnd     <- join <$> optional A.bound
 
   currentProc .= case (procName', params') of
     (Just procName, Just params) -> Just (procName, from, params, isJust bnd)
@@ -165,6 +165,7 @@ procedure = do
     (from, UnknownError "Procedure lacks a body; block expected.")
 
   to <- getPosition
+  symbolTable %= closeScope to
   symbolTable %= closeScope to
   currentProc .= Nothing
 
@@ -207,8 +208,6 @@ procParam = p `followedBy` oneOf [TokComma, TokRightPar]
       st <- use symbolTable
 
       case (parName', mode') of
-        (Nothing,_) -> pure Nothing
-        (_,Nothing) -> pure Nothing
         (Just parName, Just mode) ->
           case parName `local` st of
             Right Entry { _loc } -> do
@@ -220,6 +219,7 @@ procParam = p `followedBy` oneOf [TokComma, TokRightPar]
               symbolTable %= insertSymbol parName
                 (Entry parName loc (Argument mode t))
               pure . Just $ (parName, t, mode)
+        _ -> pure Nothing
 
     paramMode =  match TokIn    $> In
              <|> match TokInOut $> InOut
@@ -230,16 +230,19 @@ procedureDeclaration :: Parser (Maybe Definition)
 procedureDeclaration = do
   lookAhead $ match TokProc
 
-  from <- getPosition
+  
 
-  match TokProc
+  Location(_,from) <- match TokProc
+
   procName' <- safeIdentifier
   symbolTable %= openScope from
   params' <- between (match TokLeftPar) (match' TokRightPar) $
     sequence <$> procParam `sepBy` match TokComma
 
-  pre'  <- precond
-  post' <- postcond
+  prePos <- getPosition
+  pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
+  postPos <- getPosition
+  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
 
   to   <- getPosition
   let loc = Location (from,to)

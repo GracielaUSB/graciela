@@ -50,6 +50,8 @@ import           LLVM.General.AST.Name                   (Name (..))
 import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
+import           System.Endian                           (getSystemEndianness,
+                                                          Endianness(..))
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
@@ -57,7 +59,7 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { name } | objMode obj == Just In -> objectRef obj
+  Variable { name, mode } | mode == Just In -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
   _ -> do
@@ -250,27 +252,25 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
     return $ ConstantOperand $ C.Null intType
 
   StringLit theString -> do
+    name <- newLabel
     let
       -- Convert the string into an array of 8-bit chars
       chars = BS.unpack . encodeUtf8 $ theString
-    -- Get the length of the string
-      n  = fromIntegral . succ . length $ chars
-    -- Create an array type
+      -- Get the length of the string
+      n  = fromIntegral . length $ chars
+      -- Create an array type
       t = ArrayType n i8
-
-    name <- newLabel
-    -- Create a global definition for the string
-    let
+      -- Create a global definition for the string
       def = GlobalDefinition $ Global.globalVariableDefaults
         { Global.name        = name
         , Global.isConstant  = True
         , Global.type'       = t
         , Global.initializer = Just . C.Array i8 $
-          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
+          [ C.Int 8 (toInteger c) | c <- chars ]
         }
     -- and add it to the module's definitions
     moduleDefs %= (Seq.|> def)
-    return $ ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]
+    return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i8 name) [C.Int 64 0, C.Int 64 0]
 
   Obj obj -> object obj
 

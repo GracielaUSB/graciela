@@ -154,8 +154,8 @@ instance ShowErrorComponent Error where
 
     BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack fName <>
-      "` " <> showPos fPos <> " has type `" <> show pType <>
-      "`, but recived a expression with type `" <> show aType <> "`."
+      "` " <> showPos fPos <> " has type " <> show pType <>
+      ", but recived a expression with type " <> show aType <> "."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>

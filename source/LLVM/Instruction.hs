@@ -181,7 +181,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
               return $ LocalReference type' label
         return (expr,[])
 
-      basicOrPointer = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat, T.GPointer T.GAny]
+      basicOrPointer = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
               
   Free { idName, freeType } -> do
     labelLoad  <- newLabel

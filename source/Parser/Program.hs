@@ -32,12 +32,14 @@ program = do
 
   symbolTable %= openScope from
   many (abstractDataType <|> dataType)
+  
   match TokProgram
   name' <- safeIdentifier
   match TokBegin
-
+  
   decls' <- listDefProc
   body'  <- block
+  
   match' TokEnd
 
   eof
@@ -46,7 +48,10 @@ program = do
 
   case (name', decls', body') of
     (Just name, Just decls, Just body) -> do
-      x  <- (Program name (Location(from, to)) decls body <$> use fullDataTypes)
-      pure $ Just x 
+      dts  <- use dataTypes
+      fdts <- use fullDataTypes
+
+      let prog  = (Program name (Location(from, to)) decls body dts fdts)
+      pure $ Just prog
     _ -> pure Nothing
 

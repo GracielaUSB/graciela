@@ -90,20 +90,20 @@ declaration' allowedTypes = do
       Nothing -> do
         -- Values were optional, and were not given
         forM_ ids $ \(id, loc) -> do
-          redefinition (id, loc)
-          let
-            entry = Entry
-              { _entryName = id
-              , _loc       = loc
-              , _info      = Var t Nothing }
-          symbolTable %= insertSymbol id entry
+          redef <- redefinition (id, loc)
+          unless redef  $ do
+            let
+              entry = Entry
+                  { _entryName = id
+                  , _loc       = loc
+                  , _info      = Var t Nothing }
+            symbolTable %= insertSymbol id entry
         pure . Just $ Declaration
           { declLoc  = location
           , declType = t
           , declIds  = fst <$> ids }
 
       Just Nothing -> do
-        putError from . UnknownError $ "Unknown 1"
         pure Nothing
         -- Values were either mandatory or optional, and were given, but
         -- had errors. No more errors are given.
@@ -139,27 +139,31 @@ checkType :: Constness -> Type
           -> Parser (Seq (Text, Expression))
 checkType True t pairs
   ((identifier, location), expr@Expression { expType, exp' }) = do
-  redefinition (identifier,location)
+  
 
   let Location (from, _) = location
-
+  redef <- redefinition (identifier,location)
+      
   if expType =:= t
-    then case exp' of
-      Value v -> do
-        let
-          entry = Entry
-            { _entryName  = identifier
-            , _loc        = location
-            , _info       = Const
-              { _constType  = t
-              , _constValue = v }}
-        symbolTable %= insertSymbol identifier entry
-        pure $ pairs |> (identifier, expr)
-      _       -> do
-        putError from . UnknownError $
-          "Se intentó asignar una expresión no constante a la \
-          \constante `" <> unpack identifier <> "`"
-        pure Seq.empty
+    then  if redef 
+      then pure pairs
+      else case exp' of
+        Value v -> do
+          let
+            entry = Entry
+              { _entryName  = identifier
+              , _loc        = location
+              , _info       = Const
+                { _constType  = t
+                , _constValue = v }}
+          symbolTable %= insertSymbol identifier entry
+          pure $ pairs |> (identifier, expr)
+        _       -> do
+          putError from . UnknownError $
+            "Se intentó asignar una expresión no constante a la \
+            \constante `" <> unpack identifier <> "`"
+          pure Seq.empty
+
     else do
       putError from . UnknownError $
         "Se intentó asignar una expresión de tipo `" <> show expType <>
@@ -173,16 +177,19 @@ checkType False t pairs
   let Location (from, _) = location
   in if expType =:= t
     then do
-      redefinition (identifier,location)
-      let
-        entry = Entry
-          { _entryName  = identifier
-          , _loc        = location
-          , _info       = Var
-            { _varType  = t
-            , _varValue = Just expr }}
-      symbolTable %= insertSymbol identifier entry
-      pure $ pairs |> (identifier, expr)
+      redef <- redefinition (identifier,location)
+      if redef
+        then pure pairs
+        else do
+          let
+            entry = Entry
+              { _entryName  = identifier
+              , _loc        = location
+              , _info       = Var
+                { _varType  = t
+                , _varValue = Just expr }}
+          symbolTable %= insertSymbol identifier entry
+          pure $ pairs |> (identifier, expr)
 
     else do
       putError from . UnknownError $
@@ -191,10 +198,13 @@ checkType False t pairs
         show t <> "`"
       pure Seq.empty
 
-redefinition :: (Text, Location) -> Parser ()
+redefinition :: (Text, Location) -> Parser Bool
 redefinition (id, Location (from, _)) = do
   st <- use symbolTable
   let local = isLocal id st
-  when local .
-    putError from . UnknownError $
-      "Redefinition of variable `" <> unpack id <> "`"
+  if local 
+    then do 
+      putError from . UnknownError $
+         "Redefinition of variable `" <> unpack id <> "`"
+      pure True
+    else pure False

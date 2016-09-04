@@ -49,7 +49,7 @@ data State = State
       Maybe (Text, SourcePos, Seq (Text, Type, ArgMode), RecursionAllowed)
   , _currentFunc  ::
       Maybe (Text, SourcePos, Type, Seq (Text, Type), RecursionAllowed)
-  , _currentStruct :: Maybe (Text, [Type])
+  , _currentStruct :: Maybe (Text, Maybe Text, [Type])
   , _typesTable    :: Map Text (Type, Location)
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct

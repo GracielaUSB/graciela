@@ -187,11 +187,9 @@ main = do
   let tokens = lex fileName source
   let (r, state) = runParser program fileName (initialState fileName) tokens
 
-
-
-
   case r of
     Just program -> do
+      
       {-Print AST-}
       when (optAST options) . putStrLn . drawTree . toTree $ program
       {-Print Symbol Table-}

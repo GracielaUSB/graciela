@@ -29,7 +29,7 @@ import           Type
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
-import           Data.Map          as Map (insert, elems, lookup)
+import           Data.Map          as Map (insert, elems, lookup, null)
 import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack)
@@ -93,13 +93,10 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
         Nothing -> do
           current <- use currentStruct 
           case current of 
-            Just (name, t) -> if name == id 
+            Just (name, _, t) -> if name == id 
                 then do
-                  ok <- checkType name t from
-                  if ok
-                    then do 
-                      return $ GDataType name t
-                    else return GUndef
+                  identifier
+                  return $ GDataType name t
                 else do
                   notFollowedBy identifier
                   return GUndef
@@ -110,28 +107,28 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
         Just ast@Struct {structName, structTypes, structDecls, structProcs} -> do
           ok <- checkType structName structTypes from
           full <- use fullDataTypes
+          
           if ok
             then do
               case structName `Map.lookup` full of
                 Nothing -> do
                   fullDataTypes %= Map.insert structName ast
-                  mapM (\x -> definitions %= insert (defName x) x) structProcs
+                  
+                  -- mapM (\x -> definitions %= insert (defName x) x) structProcs
                   return $ GDataType structName structTypes
                 Just x -> return $ GDataType structName structTypes
             else return GUndef
     
     checkType name types from = do
       identifier
-      polymorphism <- do 
-          list <- optional $ match TokOf >> 
-                       (type' >>= return . (:[]) ) <|> 
-                       (parens $ type' `sepBy` match TokComma)
-          return . concat $ list
+      polymorphism <- return . concat =<< 
+          (optional . parens $ type' `sepBy` match TokComma)
+
       let
         plen = length polymorphism
         slen = length types
-        show' [a] = show a
-        show'  l  = intercalate "," (fmap show l)
+        show' []  = ""
+        show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
      
       if slen == plen 
         then return True
@@ -146,7 +143,7 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
         then do 
           putError from $ UnknownError $ "Type `" <> unpack name <> 
              "` expected " <> show slen <> " types " <> show' types <>
-             "\n\tbut recived only " <> show plen
+             "\n\tbut recived " <> show plen <> " " <> show' polymorphism
           return False
 
       else do

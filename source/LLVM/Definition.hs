@@ -86,15 +86,20 @@ definition Definition {defName, pre, post, def'} = case def' of
 
   ProcedureDef {procDecl, procParams, procBody} -> do
     openScope
+    
     params <- mapM toLLVMParameter' $ toList procParams
+    
     mapM_ declarationsOrRead procDecl
     precondition pre
     instruction procBody
     postcondition post
+
     blocks' <- use blocks
     blocks .= Seq.empty
     currentBlock .= Seq.empty
+
     closeScope
+    
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
         , parameters  = (params, False)
@@ -108,7 +113,7 @@ definition Definition {defName, pre, post, def'} = case def' of
       return $ Parameter (toLLVMType t) (Name name') []
 
     toLLVMParameter' (name, t, mode) | mode == T.In && 
-          t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat, T.GPointer T.GAny] = do
+          t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat] = do
       name' <- insertName $ unpack name
       return $ Parameter (toLLVMType t) (Name name') []
 

@@ -28,7 +28,7 @@ import           Type
 import           Control.Lens        (use, (%=), (.=))
 import           Data.List           (intercalate)
 import           Data.Foldable       (toList)
-import           Control.Monad       (void, when, foldM)
+import           Control.Monad       (void, when, foldM, zipWithM, unless)
 import           Data.Monoid         ((<>))
 import           Data.Maybe          (catMaybes)
 import qualified Data.Map            as Map
@@ -57,7 +57,7 @@ abstractDataType = do
     when (abstractName' == Nothing) $ fail ""
 
     let Just abstractName = abstractName'
-    currentStruct .= Just (abstractName, atypes)
+    currentStruct .= Just (abstractName, Nothing, atypes)
 
     match' TokBegin
     
@@ -80,7 +80,7 @@ abstractDataType = do
         
         let struct = Struct
                 { structName  = abstractName
-                , structDecls = Seq.zip (Seq.fromList [0..]) decls
+                , structDecls = Seq.fromList . zip [0..] . toList $ decls
                 , structProcs = procs
                 , structLoc   = loc
                 , structSt    = st
@@ -99,7 +99,7 @@ dataType = do
     match TokType
     name' <- safeIdentifier
     types <- do 
-        t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
+        t <- optional . parens $ typeVarDeclaration `sepBy` match TokComma
         case t of
           Just s -> pure $ toList s 
           _ -> pure []
@@ -113,7 +113,7 @@ dataType = do
 
     when (name' == Nothing) $ fail ""
     let Just name = name';
-    currentStruct .= Just (name, types)
+    currentStruct .= Just (name, abstractName', types)
     symbolTable %= openScope from
 
     
@@ -130,7 +130,7 @@ dataType = do
     to <- getPosition
     case abstractName' of 
       Just abstractName -> do 
-        abstractAST <- getStruct abstractName    
+        abstractAST <- getStruct abstractName
         case abstractAST  of 
           Nothing -> putError from $ UnknownError $
                         "Abstract Type `" <> show abstractName <> 
@@ -162,13 +162,11 @@ dataType = do
                 st <- use symbolTable
                 symbolTable %= closeScope to
 
-
-
                 let 
                   struct = Struct
                         { structName  = name
-                        , structDecls = Seq.zip (Seq.fromList [0..]) 
-                                            (fmap snd structDecls <> decls)
+                        , structDecls = Seq.fromList . zip [0..] . toList $
+                                            fmap snd structDecls <> decls
                         , structSt    = st
                         , structProcs = procs                
                         , structLoc   = loc
@@ -194,7 +192,7 @@ dataType = do
         then return ()
         else putError pos $ UnknownError $
               "The procedure named `" <> unpack name <> "` " <> 
-              showPos pos <> " in the Type `" <> 
+              showPos pos <> "` in the Type `" <> 
               unpack abstractName <>
               "`\n\tneeds to be implemented inside Type `" <> 
               unpack name <> "`" 
@@ -206,18 +204,32 @@ dataType = do
           let 
             Location(pos1,_) = defLoc def1
             Location(pos2,_) = defLoc def2 
-          when (checkParams (def' def1) (def' def2)) $ 
-            putError pos1 . UnknownError $ 
+            params1 = toList . abstParams . def' $ def1
+            params2 = toList . procParams . def' $ def2
+          ok <- and <$> zipWithM checkParams params1 params2
+          unless ( ok ) $ putError pos2 . UnknownError $ 
                 "The prodecure `" <> unpack (defName def1) <> 
-                " does not match with the one defined at " <> 
-                showPos pos2
+                "` does not match with the one defined at " <> 
+                showPos pos1
           pure True
-          
+            
+    checkParams :: (Text,Type,ArgMode) -> (Text,Type,ArgMode) -> Parser Bool
+    checkParams (name1, t1, mode1) (name2, t2, mode2) = do
+      if name1 /= name2
+        then pure False
+      else if mode1 /= mode2
+        then pure False
+      else if not (t1 =:= t2)
+        then do
+          currStruct <- use currentStruct
+          case (currStruct, t1, t2) of
+            (Just (dt, Just adt, _), GDataType n1 _, GDataType n2 _)
+              | adt == n1 && dt == n2 -> pure True
+            _ -> pure False
+        else pure True
+      
 
-    checkParams (AbstractProcedureDef  params1) (ProcedureDef _ _ params2) = 
-      and $ Seq.zipWith (\a b -> a == b) params1 params2
-
-    checkParams _ _ = False
+    checkParams _ _ = pure False
 
 
 

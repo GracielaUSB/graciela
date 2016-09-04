@@ -8,26 +8,26 @@ abstract Diccionario (t0,t1) begin
 
     {inv MAX > 0 inv}
 
-    proc crear (out d : Diccinario, out j : Diccionario in m : int)
+    proc crear (out d : Diccionario, in m : int)
         {pre  0 <  m  pre}
         {post 1 == m post}
 
 // No funciona
-    /*proc agregar (inout d : int, in c : int, in v : int)
+    proc agregar (inout d : Diccionario, in c : int, in v : int)
         {pre  true pre}
         {post true post}
 
-    proc eliminar (inout d : int, in c : int)
-        {pre  c     == conoc pre}
-        {post conoc == conoc - c ∧ tabla == tabla - c post}
+    // proc eliminar (inout d : int, in c : int)
+    //     {pre  c     == conoc pre}
+    //     {post conoc == conoc - c ∧ tabla == tabla - c post}
 
-    proc buscar (in d : int, in c: int, out v : int)
-        {pre  c == conoc  pre}
-        {post v == c     post}
+    // proc buscar (in d : int, in c: int, out v : int)
+    //     {pre  c == conoc  pre}
+    //     {post v == c     post}
 
-    proc existe (in d : int, in c : int, out e : boolean)
-        {pre  true       pre}
-        {post e == c > 2 post}*/
+    // proc existe (in d : int, in c : int, out e : boolean)
+    //     {pre  true       pre}
+    //     {post e == c > 2 post}
 end
 
 type Dicc (a,b) implements Diccionario (int,int)
@@ -43,23 +43,28 @@ begin
 
     proc crear (out d : Dicc, in m : int)
       {pre  0 < m            pre}
-      {post m == 0 \/ m != 0 pre}
+      {post m == 0 \/ m != 0 post}
       |[
           write("hola")
       ]|
         
 
-    // proc agregar (inout d : int , in c : int, in v : int)
-    // begin
-    //     var x      : int;
-    //     var oldTam : int;
-    //     {pre tam < MAX ∧ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %) pre}
-    //     |[
-    //         oldTam := tam;
-    //         clave[tam], valor[tam], tam := c, v, tam + 1
-    //     ]|
-    //     {post tam == oldTam + 1 ∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) post}
-    // end
+    proc agregar (inout d : Dicc, in c : int, in v : int)
+
+        var x      : int;
+        var oldTam : int;
+        var tam, MAX : int;
+        var   clave     : array [1] of int;
+        var   valor     : array [2] of int;
+
+        {pre  tam < MAX /*\/ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %)*/ pre}
+        {post tam == oldTam + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
+        
+        |[
+            oldTam := tam;
+            clave[tam], valor[tam], tam := c, v, tam + 1
+        ]|
+        
 
     // proc eliminar (inout d : int, in c : int)
     // begin
@@ -165,50 +170,57 @@ program main begin
     //     {post true post}
     // end
 
-    proc hola2 (out i : int, in t : array[10] of int) begin
-      {pre true pre}
-      |[
-        i := 10;
-        |[
-          var i := 100: int;
-          if i > 1 ->
-            var i := 1000 + t[1] : int;
+    // proc hola2 (out i : int, in t : array[10] of int)
 
-            writeln(i, "hola")
-          fi;
-          writeln(i)
-        ]|;
-        writeln(i)
-      ]|
-      {post true post}
-    end
-    
-    // proc hola (out x : int) begin
     //   {pre true pre}
+    //   {post true post}
+    //   {bound 1 bound}
+    //   |[
+    //     i := 10;
+    //     |[
+    //       var i := 100: int;
+    //       if i > 1 ->
+    //         var i := 1000 + t[1] : int;
+
+    //         writeln(i, "hola")
+    //       fi;
+    //       writeln(i)
+    //     ]|;
+    //     writeln(i);
+
+    //     // hola2(i,t)
+    //   ]|
+    
+    // proc hola (inout x : int)
+
+    //   {pre x == 0 pre}
+    //   {post x == 11 post}
     //   |[
     //       read(x)
     //       {a x >= 10 a}
     //       ; x := 10
     //   ]|
-    //   {post true post}
-    // end
+      
     
 
-   |[ var a,b,d := -1.0,2.0,4.3 : float
-    ; var g := a+b+d : float
-    ; var i := 12  : int
-    ; var x,y,z    : int*
-    ; var dd       : int**
-    ; var pedrito  : boolean*
-    ; var c1,c2    : boolean
-    ; var c := 'c' : char
-    ; var arreglo  :  array[10] of array[10] of array[10] of int*  // array of pointer
-    ; var arreglo1 : (array[10] of array[10] of array[10] of int)* // pointer to array
-    ; var bool     : boolean
-    ; var dic      : Dicc
-    ; var t        : array[10] of int
-    ; crear(1,dic)
-    ; hola2(i,t)
+    |[ 
+       var a,b,d := -1.0,2.0,4.3 : float
+    // ; var g := a+b+d : float
+    // ; var i := 12  : int
+    // ; var x,y,z    : int*
+    // ; var dd       : int**
+    // ; var pedrito  : boolean*
+    // ; var c1,c2    : boolean
+    // ; var c := 'c' : char
+    // ; var arreglo  :  array[10] of array[10] of array[10] of int*  // array of pointer
+    // ; var arreglo1 : (array[10] of array[10] of array[10] of int)* // pointer to array
+    // ; var bool     : boolean
+    ; var dicc     : Dicc (int,int)
+
+    // ; var t        : array[10] of int
+    // // ; crear(dic,1)
+    // ; hola(i)
+    // ; hola2(i,t)
     // ; {a x == null a} new(x)  {a x != null a}
     // ; a := 1.0
     // ; writeln(*x)
@@ -295,9 +307,8 @@ program main begin
     // ; t[1] := 1000
     // ; hola2(*x,t)
     // ; writeln( *x )
-    // // ; *x := 0
     // ; write(2/(*x))
     // ; free(x)
-    ; write("hola")
+    ; write(1)
    ]|
 end
