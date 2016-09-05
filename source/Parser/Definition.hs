@@ -24,7 +24,7 @@ import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=), (.=))
-import           Control.Monad      (join, liftM5)
+import           Control.Monad      (join, liftM5, when)
 import           Data.Functor       (($>))
 import qualified Data.Map           as Map (insert)
 import           Data.Maybe         (isJust)
@@ -185,7 +185,11 @@ procedure = do
             { procDecl = decls
             , procBody = body
             , procParams = params }}
-      definitions %= Map.insert procName def
+      
+      -- Struct does not add thier procs to the table
+      dt <- use currentStruct
+      when (dt == Nothing) $ definitions %= Map.insert procName def
+
       pure $ Just def
     _ -> pure Nothing
 

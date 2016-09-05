@@ -66,6 +66,7 @@ object obj@Object { objType, obj' } = case obj' of
       label <- newLabel
       -- Make a reference to the variable that will be loaded (e.g. %a)
       addrToLoad <- objectRef obj
+      t <- toLLVMType objType
 
       let
         -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
@@ -76,7 +77,7 @@ object obj@Object { objType, obj' } = case obj' of
                     , metadata  = []
                     }
         -- `ref` is the reference to where the variable value was loaded (e.g. %12)
-        ref = LocalReference (toLLVMType objType) label
+        ref = LocalReference t label
 
       addInstructions $ Seq.fromList [label := load]
 
@@ -86,90 +87,91 @@ object obj@Object { objType, obj' } = case obj' of
 
 -- Get the reference to the object.
 objectRef :: Object -> LLVM Operand
-objectRef obj@(Object loc objType obj') = case obj' of
+objectRef obj@(Object loc objType obj') = do
+  objType' <- toLLVMType objType
+  case obj' of
   
-  Variable { name } -> do 
-    name' <- getVariableName $ unpack name
-    return $ LocalReference (toLLVMType objType) $ Name name'
+    Variable { name } -> do 
+      name' <- getVariableName $ unpack name
+      return $ LocalReference objType' $ Name name'
 
-  Index inner index -> do
-    ref <- objectRef inner
-    label <- newLabel
-    index <- expression index
-    let
-      getelemPtr = GetElementPtr
-            { inBounds = False
-            , address  = ref
-            , indices  = [ConstantOperand $ C.Int 32 0, index]
-            , metadata = []}
+    Index inner index -> do
+      ref <- objectRef inner
+      label <- newLabel
+      index <- expression index
+      let
+        getelemPtr = GetElementPtr
+              { inBounds = False
+              , address  = ref
+              , indices  = [ConstantOperand $ C.Int 32 0, index]
+              , metadata = []}
 
-    addInstruction $ label := getelemPtr
-    return $ LocalReference (toLLVMType objType) $ label
+      addInstruction $ label := getelemPtr
+      return $ LocalReference objType' $ label
 
-  Deref inner -> do
-    ref        <- objectRef inner
-    labelLoad  <- newLabel
-    labelCast  <- newLabel
-    labelNull  <- newLabel
-    labelCond  <- newLabel
-    trueLabel  <- newLabel
-    falseLabel <- newLabel
-    let
-      Location (pos,_) = loc
-      type' = toLLVMType objType
-      load = Load { volatile  = False
-                  , address   = ref
-                  , maybeAtomicity = Nothing
-                  , alignment = 4
-                  , metadata  = []
-                  }
+    Deref inner -> do
+      ref        <- objectRef inner
+      labelLoad  <- newLabel
+      labelCast  <- newLabel
+      labelNull  <- newLabel
+      labelCond  <- newLabel
+      trueLabel  <- newLabel
+      falseLabel <- newLabel
+      let
+        Location (pos,_) = loc
+        load = Load { volatile  = False
+                    , address   = ref
+                    , maybeAtomicity = Nothing
+                    , alignment = 4
+                    , metadata  = []
+                    }
 
-      {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
-         In that case, abort the program giving the source line of the bad access instead of letting
-         the OS ends the process
-      -}
-      cast = PtrToInt { operand0 = LocalReference type' labelLoad
-                      , type'    = intType
-                      , metadata = []
-                      }
-      null = PtrToInt { operand0 = ConstantOperand $ C.Null $ ptr type'
-                      , type'    = intType
-                      , metadata = []
-                      }
-      cond = ICmp { iPredicate = EQ
-                  , operand0   = LocalReference intType labelCast
-                  , operand1   = LocalReference intType labelNull
-                  , metadata   = []
-                  }
-      condBr = CondBr { condition = LocalReference boolType labelCond
-                      , trueDest  = trueLabel
-                      , falseDest = falseLabel
-                      , metadata' = []
-                      }
+        {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
+           In that case, abort the program giving the source line of the bad access instead of letting
+           the OS ends the process
+        -}
+        cast = PtrToInt { operand0 = LocalReference objType' labelLoad
+                        , type'    = intType
+                        , metadata = []
+                        }
+        null = PtrToInt { operand0 = ConstantOperand $ C.Null $ ptr objType'
+                        , type'    = intType
+                        , metadata = []
+                        }
+        cond = ICmp { iPredicate = EQ
+                    , operand0   = LocalReference intType labelCast
+                    , operand1   = LocalReference intType labelNull
+                    , metadata   = []
+                    }
+        condBr = CondBr { condition = LocalReference boolType labelCond
+                        , trueDest  = trueLabel
+                        , falseDest = falseLabel
+                        , metadata' = []
+                        }
 
-    addInstructions $ Seq.fromList [ labelLoad := load
-                                   , labelCast := cast
-                                   , labelNull := null
-                                   , labelCond := cond]
+      addInstructions $ Seq.fromList [ labelLoad := load
+                                     , labelCast := cast
+                                     , labelNull := null
+                                     , labelCond := cond]
 
-    setLabel trueLabel $ Do condBr
-    createTagNullPtr falseLabel pos
+      setLabel trueLabel $ Do condBr
+      createTagNullPtr falseLabel pos
 
-    return $ LocalReference type' $ labelLoad
-
+      return $ LocalReference objType' $ labelLoad
 
 
-  _ -> error "Aun no hay soporte para estructuras"
 
-  where
-    getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
-    getIndices (indices,ref) (Object _ _ (Index inner index)) = do
-      index' <- expression index
-      getIndices (index':indices,ref) inner
+    _ -> error "Aun no hay soporte para estructuras"
 
-    getIndices (indices,ref) obj = do
-      ref <- objectRef obj
-      return (reverse indices, Just ref)
+    where
+      getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
+      getIndices (indices,ref) (Object _ _ (Index inner index)) = do
+        index' <- expression index
+        getIndices (index':indices,ref) inner
+
+      getIndices (indices,ref) obj = do
+        ref <- objectRef obj
+        return (reverse indices, Just ref)
 
 
 -- LLVM offers a set of secure operations that know when an int operation reach an overflow

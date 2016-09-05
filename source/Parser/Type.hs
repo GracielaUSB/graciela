@@ -32,7 +32,7 @@ import           Data.Int          (Int32)
 import           Data.Map          as Map (insert, elems, lookup, null)
 import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
-import           Data.Text         (Text, unpack)
+import           Data.Text         (Text, unpack, pack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
                                     sepBy, try, (<|>), optional)
@@ -105,53 +105,63 @@ type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
               return GUndef
 
         Just ast@Struct {structName, structTypes, structDecls, structProcs} -> do
-          ok <- checkType structName structTypes from
-          full <- use fullDataTypes
           
+          identifier
+          fullTypes <- concat <$> (optional . parens $ type' `sepBy` match TokComma)
+
+          let
+            plen = length fullTypes
+            slen = length structTypes
+            show' []  = ""
+            show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
+         
+          ok <- if slen == plen 
+            then pure True
+
+            else do 
+              if slen == 0
+                then do 
+                    putError from $ UnknownError $ "Type `" <> unpack structName <> 
+                        "` does not expect " <> show' fullTypes <> " as argument"
+
+              else if slen > plen
+                then do 
+                  putError from $ UnknownError $ "Type `" <> unpack structName <> 
+                     "` expected " <> show slen <> " types " <> show' structTypes <>
+                     "\n\tbut recived " <> show plen <> " " <> show' fullTypes
+
+              else do
+                  putError from $ UnknownError $ "Type `" <> unpack structName <> 
+                       "` expected only " <> show slen <> " types as arguments " <> 
+                       show' structTypes <> "\n\tbut recived " <> show plen <> " " <>
+                       show' fullTypes
+
+              pure False
+          
+          full <- use fullDataTypes
+          let 
+            t = GFullDataType structName fullTypes
           if ok
             then do
               case structName `Map.lookup` full of
+              
                 Nothing -> do
-                  fullDataTypes %= Map.insert structName ast
-                  
-                  -- mapM (\x -> definitions %= insert (defName x) x) structProcs
-                  return $ GDataType structName structTypes
-                Just x -> return $ GDataType structName structTypes
+                  -- Set an unique name to the DT (e.g. Dicc (int,char) -> Dicc-i-i)
+                  let name = llvmName structName fullTypes
+                  -- Same as above but with the procedures
+                  procs <-  mapM (\x -> do 
+                                    pure x {defName = defName x <> pack "-" <> name}
+                                 )  structProcs 
+
+                  fullDataTypes %= Map.insert name 
+                    ast { structName = name, structTypes = fullTypes, structProcs = procs }
+                  return $ t
+
+                Just x -> return t
+
             else return GUndef
-    
-    checkType name types from = do
-      identifier
-      polymorphism <- return . concat =<< 
-          (optional . parens $ type' `sepBy` match TokComma)
 
-      let
-        plen = length polymorphism
-        slen = length types
-        show' []  = ""
-        show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
-     
-      if slen == plen 
-        then return True
-
-      else if slen == 0
-        then do 
-          putError from $ UnknownError $ "Type `" <> unpack name <> 
-              "` does not expect " <> show' polymorphism <> " as argument"
-          return False
-
-      else if slen > plen
-        then do 
-          putError from $ UnknownError $ "Type `" <> unpack name <> 
-             "` expected " <> show slen <> " types " <> show' types <>
-             "\n\tbut recived " <> show plen <> " " <> show' polymorphism
-          return False
-
-      else do
-          putError from $ UnknownError $ "Type `" <> unpack name <> 
-               "` expected only " <> show slen <> " types as arguments " <> 
-               show' types <> "\n\tbut recived " <> show plen <> " " <>
-               show' polymorphism
-          return False
+      
 
 isPointer :: Type -> Parser Type
 isPointer t = do

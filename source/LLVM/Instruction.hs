@@ -89,7 +89,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       assign' (lval, expr) = do
         ref   <- objectRef lval
         label <- newLabel
-        let type' = toLLVMType $ objType lval
+        type' <- toLLVMType $ objType lval
 
         store <- if expType expr == GPointer GAny
           then return LLVM.Store
@@ -170,8 +170,9 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
             else do
               label <- newLabel
               ref   <- objectRef . E.theObj . exp' $ e
+              type' <- ptr <$> (toLLVMType . expType $ e)
               let
-                type' = ptr . toLLVMType . expType $ e
+                
                 bitcast = LLVM.BitCast
                     { LLVM.operand0 = ref
                     , LLVM.type'    = type'
@@ -190,11 +191,9 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     labelNull  <- newLabel
     labelStore <- newLabel
     ref        <- objectRef idName
+    type' <- toLLVMType (T.GPointer freeType)
+    
     let
-      type' = toLLVMType (T.GPointer freeType)
-
-
-
       load = LLVM.Load { LLVM.volatile  = False
                        , LLVM.address   = ref
                        , LLVM.maybeAtomicity = Nothing
@@ -244,8 +243,9 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     labelCast  <- newLabel
     labelStore <- newLabel
     ref        <- objectRef idName -- The variable that is being mallocated
+    type'      <- toLLVMType (T.GPointer nType)
     let
-      type' = toLLVMType (T.GPointer nType)
+      
 
       -- Call C malloc
       fun  = Right . ConstantOperand $ C.GlobalReference pointerType $ Name "_malloc"
@@ -327,7 +327,7 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       readVarStdin var = do
         let
           t = objType var
-          type' = toLLVMType t
+          
           fread = Name $ case t of
             T.GChar   -> readCharStd
             T.GFloat  -> readFloatStd
@@ -335,8 +335,10 @@ instruction Instruction {instLoc=Location(pos, _), inst'} = case inst' of
             _         -> error ":D no se soporta este tipo: " <> show t
 
         -- Call the C read function
-        let fun = Right . ConstantOperand $ C.GlobalReference type' fread
-        let call = LLVM.Call
+        type' <- toLLVMType t
+        let
+          fun = Right . ConstantOperand $ C.GlobalReference type' fread
+          call = LLVM.Call
                 { LLVM.tailCallKind       = Nothing
                 , LLVM.callingConvention  = CC.C
                 , LLVM.returnAttributes   = []

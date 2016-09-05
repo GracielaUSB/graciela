@@ -24,6 +24,7 @@ import           AST.Expression         (Expression (..), Expression'(..),
 import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
+import           AST.Struct             (Struct(..))
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           Entry
@@ -39,23 +40,22 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
-import           Type                   (ArgMode (..), Type (..), (=:=))
+import           Type                   (ArgMode (..), Type (..), (=:=), llvmName)
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (^.))
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
-import           Data.Foldable          (asum)
+import           Data.Foldable          (asum,toList)
 import           Data.Functor           (($>))
-import qualified Data.List              as L (any)
+import qualified Data.List              as L (any, find)
 import qualified Data.Map               as Map (lookup)
 import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, singleton, zip)
 import qualified Data.Set               as Set
-import           Data.Text              (Text)
-import qualified Data.Text              as T (pack, unpack)
+import           Data.Text              (Text, pack, unpack, takeWhile)
 import           Debug.Trace
-import           Prelude                hiding (lookup)
+import           Prelude                hiding (lookup, takeWhile)
 import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
@@ -297,7 +297,7 @@ reading = do
       else do
         case file of
           Nothing -> pure ()
-          Just fileName -> filesToRead %= Set.insert (T.unpack fileName)
+          Just fileName -> filesToRead %= Set.insert (unpack fileName)
         pure $ Just Instruction
           { instLoc = loc
           , inst'   = Read
@@ -477,6 +477,7 @@ procedureCall = do
         nArgs   = length args
         nParams = length procParams
         Location (pos, _) = defLoc
+      traceM "ENTRO AQUI :/?"
       if nArgs == nParams
         then do
           args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args procParams)
@@ -497,7 +498,7 @@ procedureCall = do
 
     Just Definition { defLoc, def' = FunctionDef {} } -> do
       putError from . UnknownError $
-        "Cannot call function `" <> T.unpack procName <> "`, defined at " <>
+        "Cannot call function `" <> unpack procName <> "`, defined at " <>
         show defLoc <> "` as an instruction; a procedure was expected."
       pure Nothing
 
@@ -513,7 +514,7 @@ procedureCall = do
             let
               nArgs = length args
               nParams = length types
-
+            traceM "ENTRO AQUI :("
             if nArgs == nParams
               then do
                 args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args types)
@@ -533,18 +534,70 @@ procedureCall = do
                 pure Nothing
           | name == procName && not recursionAllowed -> do
             putError from . UnknownError $
-              "Procedure `" <> T.unpack procName <> "` cannot call itself \
+              "Procedure `" <> unpack procName <> "` cannot call itself \
               \recursively because no Bound and Invariant were given for it."
             pure Nothing
         _ -> do
-          putError from $ UndefinedProcedure procName
-          pure Nothing
+          traceM "ENTRO AQUI :D"
+          t <- hasDTType . toList $ args
+          case t of 
+
+            GUndef -> do
+              putError from $ UndefinedProcedure procName
+              pure Nothing
+
+            GFullDataType n t -> do
+              fdts <- use fullDataTypes
+              let dtName = llvmName n t
+              case dtName `Map.lookup` fdts of
+                Just Struct{structProcs} -> do
+                  let 
+                    procName' = procName <> pack "-" <> dtName
+                    procAst' = L.find (\x -> defName x == procName') structProcs 
+                  traceM (unpack procName')
+                  case procAst' of
+                    Just procAst -> do
+                      let 
+                        Location(from,_) = defLoc procAst
+                        ProcedureDef{procParams} = def' procAst
+                      
+                      args' <- foldM (checkType procName from) 
+                        (Just Seq.empty) (Seq.zip args procParams)
+
+                      pure $ case args' of
+                        Nothing -> Nothing
+                        Just args'' -> Just Instruction
+                          { instLoc = loc
+                          , inst' = ProcedureCall
+                            { pname = procName'
+                            , pargs = args'' }}
+                    
+                    Nothing -> do
+                      putError from $ UnknownError $ 
+                        "Data Type `" <> unpack (takeWhile (\c -> c /= '-') dtName) <>
+                        "` does not have a procedure called `" <> unpack procName <> "`"
+                      return Nothing
+
+                _ -> error "No deberia estar aqui :D (:"
+
 
   where
+    hasDTType [] = pure GUndef
+    hasDTType (Nothing:xs) = hasDTType xs
+    hasDTType (Just x:xs) = case expType x of 
+      fdt@GFullDataType{} -> pure fdt
+      dt@GDataType{} -> do
+        let Location(from,_) = E.loc x
+        putError from $ UnknownError $ 
+          "Expression `" <> show x <> "` has an incomplete type " <> show dt
+        pure GUndef
+      _ -> hasDTType xs
+
+
     checkType _ _ _ (Nothing, _) = pure Nothing
     checkType pName pPos acc
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) = do
-        if pType == expType
+        if pType =:= expType
           then case exp' of
             Obj {}
               | mode `elem` [Out, InOut] ->
@@ -554,7 +607,7 @@ procedureCall = do
                 pure $ (|> (e, mode)) <$> acc
             _ -> do
               putError from . UnknownError $
-                "The parameter `" <> T.unpack name <> "` has mode " <>
+                "The parameter `" <> unpack name <> "` has mode " <>
                 show mode <> "\n\tbut recived an expression instead \
                 \of a variable"
               pure Nothing

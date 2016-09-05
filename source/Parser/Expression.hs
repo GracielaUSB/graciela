@@ -220,6 +220,34 @@ variable = do
 
         pure . Just $ (expr, protorange, taint)
 
+      SelfVar { _selfType } -> do
+        let expr = Expression
+              { E.loc
+              , expType = _selfType
+              , exp' = Obj
+                { theObj = Object
+                  { O.loc
+                  , objType = _selfType
+                  , obj' = Variable
+                    { O.name = name
+                    , mode = Nothing}}}}
+
+        rangevars <- get
+
+        let protorange = case rangevars of
+              [] -> ProtoNothing
+              _  -> if name == head rangevars
+                then ProtoVar
+                else ProtoNothing
+
+        let taint = case rangevars of
+              [] -> Taint False
+              _  -> if name `elem` rangevars
+                then Taint True
+                else Taint False
+
+        pure . Just $ (expr, protorange, taint)
+
       Const { _constType, _constValue } ->
         let
           expr = Expression

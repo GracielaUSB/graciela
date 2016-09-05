@@ -77,10 +77,13 @@ definition Definition {defName, pre, post, def'} = case def' of
     blocks .= Seq.empty
     currentBlock .= Seq.empty
     closeScope
+
+    returnType <- toLLVMType funcRetType
+
     addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name        = name
+        { name
         , parameters  = (params, False)
-        , returnType  = toLLVMType funcRetType
+        , returnType
         , basicBlocks = toList blocks'
         }
 
@@ -110,16 +113,19 @@ definition Definition {defName, pre, post, def'} = case def' of
   where 
     toLLVMParameter (name, t) = do 
       name' <- insertName $ unpack name
-      return $ Parameter (toLLVMType t) (Name name') []
+      t'    <- toLLVMType t
+      return $ Parameter t' (Name name') []
 
     toLLVMParameter' (name, t, mode) | mode == T.In && 
           t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat] = do
       name' <- insertName $ unpack name
-      return $ Parameter (toLLVMType t) (Name name') []
+      t'    <- toLLVMType t
+      return $ Parameter t' (Name name') []
 
     toLLVMParameter' (name, t, mode) = do 
       name' <- insertName $ unpack name
-      return $ Parameter (ptr $ toLLVMType t) (Name name') []
+      t'    <- toLLVMType t
+      return $ Parameter (ptr t') (Name name') []
 
 
 declarationsOrRead :: Either Declaration Instruction -> LLVM()

@@ -30,12 +30,16 @@ import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 --------------------------------------------------------------------------------
 
 defineStruct :: Struct -> LLVM ()
-defineStruct Struct {structName, structDecls, structProcs} = do 
-  let 
-    name  = Name . unpack $ structName
+defineStruct ast@Struct {structName, structDecls, structProcs} = do 
+  
+  currentStruct .= Just ast
 
-    type' = Just $ StructureType False $ 
-            fmap (toLLVMType . declType . snd)  . toList $ structDecls
+  type' <- Just . StructureType False <$> 
+           mapM (toLLVMType . declType . snd) (toList $ structDecls)
 
-  moduleDefs %= (|> TypeDefinition name type' )
+  let name  = Name . unpack $ structName 
+
+  moduleDefs %= (|> TypeDefinition name type')
   mapM_ definition structProcs
+
+  currentStruct .= Nothing

@@ -52,19 +52,19 @@ type Constness = Bool
 
 -- Only regular types
 declaration :: Parser (Maybe Declaration)
-declaration = declaration' type'
+declaration = declaration' type' False
 
 -- Accept polymorphic types
 polymorphicDeclaration :: Parser (Maybe Declaration)
-polymorphicDeclaration = declaration' (try typeVar <|> type') 
+polymorphicDeclaration = declaration' (try typeVar <|> type') True
 
 
 -- Accept both, polymorphic and abstract types (set, function, ...)
 abstractDeclaration :: Parser (Maybe Declaration)
-abstractDeclaration = declaration' abstractType
+abstractDeclaration = declaration' abstractType True
 
-declaration' :: Parser Type -> Parser (Maybe Declaration)
-declaration' allowedTypes = do
+declaration' :: Parser Type -> Bool -> Parser (Maybe Declaration)
+declaration' allowedTypes isStruct = do
 
   from <- getPosition
   isConst <- match TokConst $> True <|> match TokVar $> False
@@ -92,11 +92,16 @@ declaration' allowedTypes = do
         forM_ ids $ \(id, loc) -> do
           redef <- redefinition (id, loc)
           unless redef  $ do
+            struct <- use currentStruct
             let
+              info = if isStruct
+                then SelfVar t Nothing
+                else Var t Nothing
+
               entry = Entry
                   { _entryName = id
                   , _loc       = loc
-                  , _info      = Var t Nothing }
+                  , _info      = info }
             symbolTable %= insertSymbol id entry
         pure . Just $ Declaration
           { declLoc  = location

@@ -15,12 +15,16 @@ module Type
   ( ArgMode (..)
   , Type (..)
   , (=:=)
+  , llvmName
   ) where
 --------------------------------------------------------------------------------
 import           Data.Int    (Int32)
-import           Data.List   (nub)
+import           Data.List   (nub, intercalate)
 import           Data.Monoid ((<>))
-import           Data.Text   (Text, unpack)
+import           Data.Text   (Text, unpack, pack, takeWhile)
+import           Prelude     hiding (takeWhile)
+
+import Debug.Trace
 --------------------------------------------------------------------------------
 
 -- | The mode in which an argument is passed to a graciela procedure.
@@ -62,12 +66,12 @@ data Type
 
   | GString -- ^ Basic string type.
 
+  | GFullDataType
+    { typeName ::  Text
+    , types  :: [Type]}
   | GDataType
     { typeName ::  Text
-    -- , oftype :: [Type]
-    , types :: [Type]
-    -- , procs  :: [Type]
-    } -- ^ Type for user defined ADTs.
+    , types  :: [Type]}
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -149,8 +153,19 @@ instance Monoid Type where
 
   GTypeVar a `mappend` GTypeVar b =
     if a == b then GTypeVar a else GUndef
+  
+  GFullDataType a fs `mappend` GFullDataType b _ =
+    if a == b then GFullDataType a fs else GUndef
+  
   GDataType a fs `mappend` GDataType b _ =
-    if a == b then GDataType a fs else GUndef
+    if a == b then GFullDataType a fs else GUndef
+
+  GDataType a fs `mappend` GFullDataType b _ =
+    if traceId (unpack a) == traceId  (unpack (takeWhile (\c -> c /= '-') b)) then GFullDataType b fs else GUndef    
+
+  GFullDataType a fs `mappend` GDataType b _ =
+    if traceId (unpack (takeWhile (\c -> c /= '-') a)) == traceId (unpack b) then GFullDataType a fs else GUndef    
+
   GUnsafeName a `mappend` GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
 
@@ -177,9 +192,20 @@ instance Show Type where
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> unpack n
+        GFullDataType n f   -> "data type " <> unpack n
         GDataType n f   -> "data type " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
+
+llvmName name types = name <> (pack . ('-' :) . intercalate "-" . fmap show') types
+  where 
+    show' GBool  = "b"
+    show' GChar  = "c"
+    show' GInt   = "i"
+    show' GFloat = "f"
+    show' t      = show t
+
+

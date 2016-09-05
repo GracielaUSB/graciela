@@ -1,19 +1,22 @@
 module LLVM.Type
-    ( floatType
-    , intType
-    , charType
-    , pointerType
-    , voidType
-    , boolType
-    , stringType
-    , toLLVMType
-    , sizeOf
-    )
+  ( floatType
+  , intType
+  , charType
+  , pointerType
+  , voidType
+  , boolType
+  , stringType
+  , toLLVMType
+  , sizeOf
+  )
 where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
-import           Type                       as T (Type (..))
+import           AST.Struct                 (Struct(..))
+import           LLVM.State
+import           Type                       as T (Type (..), llvmName)
 --------------------------------------------------------------------------------
+import           Control.Lens               (use)
 import           Data.Word                  (Word32, Word64)
 import           Data.Text                  (unpack)
 import           LLVM.General.AST.Name                   (Name(..))
@@ -44,18 +47,35 @@ stringType :: LLVM.Type
 stringType = LLVM.PointerType i8 (LLVM.AddrSpace 0)
 
 
-toLLVMType :: T.Type -> LLVM.Type
-toLLVMType  T.GInt          = intType
-toLLVMType  T.GFloat        = floatType
-toLLVMType  T.GBool         = boolType
-toLLVMType  T.GChar         = charType
-toLLVMType (T.GPointer  t)  = LLVM.PointerType (toLLVMType t) (LLVM.AddrSpace 0)
-toLLVMType (T.GArray sz t)  = LLVM.ArrayType (fromIntegral sz)  (toLLVMType t)
+toLLVMType :: T.Type -> LLVM LLVM.Type
+toLLVMType  T.GInt         = pure $ intType
+toLLVMType  T.GFloat       = pure $ floatType
+toLLVMType  T.GBool        = pure $ boolType
+toLLVMType  T.GChar        = pure $ charType
+toLLVMType (T.GPointer  t) = do
+  inner <- toLLVMType t
+  pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
+
+toLLVMType (T.GArray sz t) = do 
+  inner <- toLLVMType t
+  pure $ LLVM.ArrayType (fromIntegral sz)  inner
 
 
-toLLVMType (GDataType name ts) = LLVM.NamedTypeReference $ Name (unpack name)
-toLLVMType GAny             = error "GAny is not a valid type"
-toLLVMType t                = LLVM.ArrayType (fromIntegral 123)   i32
+toLLVMType (GFullDataType n t) = 
+  pure $ LLVM.NamedTypeReference $ Name (unpack $ llvmName n t)
+
+toLLVMType (GDataType name _) = do
+  maybeStruct <- use currentStruct
+  case maybeStruct of
+    Nothing -> error "Esto no deberia ocurrir :D"
+    Just struct -> do
+      let types = structTypes struct
+      pure $ LLVM.NamedTypeReference $ Name (unpack $ llvmName name types)
+
+toLLVMType GAny            = error "GAny is not a valid type"
+
+-- Unsupported Types
+toLLVMType t               = pure $ LLVM.ArrayType (fromIntegral 123)   i32
 
 
 sizeOf :: T.Type -> Integer

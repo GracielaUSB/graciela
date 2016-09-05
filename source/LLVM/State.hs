@@ -35,16 +35,16 @@ type Insts = Seq Inst
 
 data LLVMState
   = LLVMState
-    { _insCount     :: Word                        -- Cantidad de instrucciones sin nombre
-    , _condName     :: Name
-    , _blockName    :: Name                        -- Cantidad de bloques básicos en el programa
-    , _currentBlock :: Seq (Named LLVM.Instruction)     -- Lista de instrucciones en el bloque básico actual
-    , _blocks       :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
-    , _moduleDefs   :: Seq LLVM.Definition
-    , _symTable     :: [Map String String]
-    , _nameCount    :: Int
-    , _structs      :: Map Text Struct
-    , _arrsDim      :: Map String [Operand]
+    { _insCount      :: Word                        -- Cantidad de instrucciones sin nombre
+    , _condName      :: Name
+    , _blockName     :: Name                        -- Cantidad de bloques básicos en el programa
+    , _currentBlock  :: Seq (Named LLVM.Instruction)-- Lista de instrucciones en el bloque básico actual
+    , _blocks        :: Seq BasicBlock              -- Lista de bloques básicos en la definición actual
+    , _moduleDefs    :: Seq LLVM.Definition
+    , _symTable      :: [Map String String]
+    , _nameCount     :: Int
+    , _structs       :: Map Text Struct
+    , _currentStruct :: Maybe Struct
     }
 
 makeLenses ''LLVMState
@@ -55,31 +55,22 @@ newtype LLVM a = LLVM { unLLVM :: State LLVMState a }
 
 initialState :: LLVMState
 initialState = LLVMState
-  { _insCount     = 1
-  , _condName     = UnName 0
-  , _blockName    = UnName 0
-  , _currentBlock = Seq.empty
-  , _blocks       = Seq.empty
-  , _moduleDefs   = Seq.empty
-  , _symTable     = []
-  , _nameCount    = 0
-  , _structs      = Map.empty
-  , _arrsDim      = Map.empty
+  { _insCount      = 1
+  , _condName      = UnName 0
+  , _blockName     = UnName 0
+  , _currentBlock  = Seq.empty
+  , _blocks        = Seq.empty
+  , _moduleDefs    = Seq.empty
+  , _symTable      = []
+  , _nameCount     = 0
+  , _structs       = Map.empty
+  , _currentStruct = Nothing 
   }
 
 {- Symbol Table -}
--- When opening a new scope, llvm wont know which variable is beign called.
--- To prevent a confusion, lets call every declared variable with an unique name+identifier
--- (e.g. %a1 %a2)
--- existsVariable :: String -> LLVM Bool
--- existsVariable name = do
---   st <- use symTable
---   existsVariable name st
---   where
---     existsVariable' name (vars:xs) = case name `Map.lookup` vars of
---       Just _  -> return True
---       Nothing -> existsVariable xs
-
+-- When opening a new scope, llvm wont know which variable is beign called if more than 1 variable have the same name.
+-- To prevent this confusion, lets call every declared variable with an unique name + identifier
+-- (e.g. a -> %a1 and %a2)
 
 getVariableName :: String -> LLVM String
 getVariableName name = do

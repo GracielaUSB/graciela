@@ -13,7 +13,7 @@ abstract Diccionario (t0,t1) begin
         {post 1 == m post}
 
 // No funciona
-    proc agregar (inout d : Diccionario, in c : int, in v : int)
+    proc agregar (in d : Diccionario, in c : int, in v : int)
         {pre  true pre}
         {post true post}
 
@@ -51,17 +51,19 @@ begin
 
     proc agregar (inout d : Dicc, in c : int, in v : int)
 
-        var x      : int;
-        var oldTam : int;
-        var tam, MAX : int;
-        var   clave     : array [1] of int;
-        var   valor     : array [2] of int;
+        var x       : int;
+        var tam'    : int;
+
+        var tam, MAX  : int;
+        var clave     : array [1] of int;
+        var valor     : array [2] of int;
 
         {pre  tam < MAX /*\/ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %)*/ pre}
-        {post tam == oldTam + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
+        {post tam == tam' + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
         
         |[
-            oldTam := tam;
+            d := d;
+            tam' := tam;
             clave[tam], valor[tam], tam := c, v, tam + 1
         ]|
         
@@ -216,6 +218,12 @@ program main begin
     // ; var arreglo1 : (array[10] of array[10] of array[10] of int)* // pointer to array
     // ; var bool     : boolean
     ; var dicc     : Dicc (int,int)
+    ; var jil     : Dicc (char,int)
+    ; agregar(dicc,1,1)
+    ; agregar(jil,1,1)
+    ; agregar(jil,1,1)
+    ; agregar(jil,1,1)
+    ; agregar(jil,1,1)
 
     // ; var t        : array[10] of int
     // // ; crear(dic,1)

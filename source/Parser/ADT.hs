@@ -113,21 +113,31 @@ dataType = do
 
     when (name' == Nothing) $ fail ""
     let Just name = name';
-    currentStruct .= Just (name, abstractName', types)
-    symbolTable %= openScope from
-
-    
+    currentStruct .= Just (name, abstractName', types)   
 
     match' TokBegin
     
     symbolTable %= openScope from
+    symbolTable %= openScope from
     decls'   <- sequence <$> polymorphicDeclaration `endBy` (match TokSemicolon)
     repinv'  <- repInv
     coupinv' <- coupInv
+
+    close <- getPosition
+    symbolTable %= closeScope close
+
+    procsPos <- getPosition
+    symbolTable %= openScope procsPos
+    
+
     procs'   <- sequence <$> many procedure
 
     match' TokEnd
     to <- getPosition
+    st <- use symbolTable
+    symbolTable %= closeScope to
+    symbolTable %= closeScope to
+    symbolTable %= closeScope to
     case abstractName' of 
       Just abstractName -> do 
         abstractAST <- getStruct abstractName
@@ -158,9 +168,6 @@ dataType = do
                     intercalate "," (fmap show structTypes) <> ")"
 
                 mapM_ (checkProc procs abstractName) structProcs
-                
-                st <- use symbolTable
-                symbolTable %= closeScope to
 
                 let 
                   struct = Struct
