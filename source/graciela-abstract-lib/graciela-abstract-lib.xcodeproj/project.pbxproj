@@ -1,0 +1,340 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		076A84401D694EFB003854BA /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 076A843F1D694EFB003854BA /* main.c */; };
+		079B2F141D6D653C00231F16 /* graciela-abstract-lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 079B2F131D6D653C00231F16 /* graciela-abstract-lib.cpp */; };
+		07BD220E1D694F7900BD2783 /* graciela-abstract-lib.h in Sources */ = {isa = PBXBuildFile; fileRef = 076A84461D694F0F003854BA /* graciela-abstract-lib.h */; };
+		07F294A61D7545A200CE98E2 /* graciela-abstract-lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 079B2F131D6D653C00231F16 /* graciela-abstract-lib.cpp */; };
+		07F294A91D75566500CE98E2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 07F294A81D75566500CE98E2 /* main.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		076A843A1D694EFB003854BA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		07F2949D1D75459100CE98E2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		076A843C1D694EFB003854BA /* graciela-abstract-lib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "graciela-abstract-lib"; sourceTree = BUILT_PRODUCTS_DIR; };
+		076A843F1D694EFB003854BA /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		076A84461D694F0F003854BA /* graciela-abstract-lib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "graciela-abstract-lib.h"; sourceTree = "<group>"; };
+		0774FA741D7607000074E3E1 /* catch.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = catch.hpp; path = "graciela-abstract-lib/catch.hpp"; sourceTree = SOURCE_ROOT; };
+		079B2F131D6D653C00231F16 /* graciela-abstract-lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "graciela-abstract-lib.cpp"; sourceTree = "<group>"; };
+		07F2949F1D75459100CE98E2 /* TestSuite */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestSuite; sourceTree = BUILT_PRODUCTS_DIR; };
+		07F294A81D75566500CE98E2 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = "graciela-abstract-lib/main.cpp"; sourceTree = SOURCE_ROOT; };
+		07F294AA1D755C2C00CE98E2 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		076A84391D694EFB003854BA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07F2949C1D75459100CE98E2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		076A84331D694EFB003854BA = {
+			isa = PBXGroup;
+			children = (
+				076A843E1D694EFB003854BA /* graciela-abstract-lib */,
+				07F294A01D75459100CE98E2 /* TestSuite */,
+				076A843D1D694EFB003854BA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		076A843D1D694EFB003854BA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				076A843C1D694EFB003854BA /* graciela-abstract-lib */,
+				07F2949F1D75459100CE98E2 /* TestSuite */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		076A843E1D694EFB003854BA /* graciela-abstract-lib */ = {
+			isa = PBXGroup;
+			children = (
+				076A84461D694F0F003854BA /* graciela-abstract-lib.h */,
+				079B2F131D6D653C00231F16 /* graciela-abstract-lib.cpp */,
+				07F294AA1D755C2C00CE98E2 /* README */,
+				076A843F1D694EFB003854BA /* main.c */,
+			);
+			path = "graciela-abstract-lib";
+			sourceTree = "<group>";
+		};
+		07F294A01D75459100CE98E2 /* TestSuite */ = {
+			isa = PBXGroup;
+			children = (
+				0774FA741D7607000074E3E1 /* catch.hpp */,
+				07F294A81D75566500CE98E2 /* main.cpp */,
+			);
+			path = TestSuite;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		076A843B1D694EFB003854BA /* graciela-abstract-lib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 076A84431D694EFB003854BA /* Build configuration list for PBXNativeTarget "graciela-abstract-lib" */;
+			buildPhases = (
+				076A84381D694EFB003854BA /* Sources */,
+				076A84391D694EFB003854BA /* Frameworks */,
+				076A843A1D694EFB003854BA /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "graciela-abstract-lib";
+			productName = "graciela-abstract-lib";
+			productReference = 076A843C1D694EFB003854BA /* graciela-abstract-lib */;
+			productType = "com.apple.product-type.tool";
+		};
+		07F2949E1D75459100CE98E2 /* TestSuite */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 07F294A31D75459100CE98E2 /* Build configuration list for PBXNativeTarget "TestSuite" */;
+			buildPhases = (
+				07F2949B1D75459100CE98E2 /* Sources */,
+				07F2949C1D75459100CE98E2 /* Frameworks */,
+				07F2949D1D75459100CE98E2 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TestSuite;
+			productName = TestSuite;
+			productReference = 07F2949F1D75459100CE98E2 /* TestSuite */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		076A84341D694EFB003854BA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0710;
+				ORGANIZATIONNAME = ARSC;
+				TargetAttributes = {
+					076A843B1D694EFB003854BA = {
+						CreatedOnToolsVersion = 7.1.1;
+					};
+					07F2949E1D75459100CE98E2 = {
+						CreatedOnToolsVersion = 7.1.1;
+					};
+				};
+			};
+			buildConfigurationList = 076A84371D694EFB003854BA /* Build configuration list for PBXProject "graciela-abstract-lib" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 076A84331D694EFB003854BA;
+			productRefGroup = 076A843D1D694EFB003854BA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				076A843B1D694EFB003854BA /* graciela-abstract-lib */,
+				07F2949E1D75459100CE98E2 /* TestSuite */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		076A84381D694EFB003854BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				079B2F141D6D653C00231F16 /* graciela-abstract-lib.cpp in Sources */,
+				076A84401D694EFB003854BA /* main.c in Sources */,
+				07BD220E1D694F7900BD2783 /* graciela-abstract-lib.h in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		07F2949B1D75459100CE98E2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				07F294A61D7545A200CE98E2 /* graciela-abstract-lib.cpp in Sources */,
+				07F294A91D75566500CE98E2 /* main.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		076A84411D694EFB003854BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		076A84421D694EFB003854BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		076A84441D694EFB003854BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		076A84451D694EFB003854BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		07F294A41D75459100CE98E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		07F294A51D75459100CE98E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		076A84371D694EFB003854BA /* Build configuration list for PBXProject "graciela-abstract-lib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				076A84411D694EFB003854BA /* Debug */,
+				076A84421D694EFB003854BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		076A84431D694EFB003854BA /* Build configuration list for PBXNativeTarget "graciela-abstract-lib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				076A84441D694EFB003854BA /* Debug */,
+				076A84451D694EFB003854BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		07F294A31D75459100CE98E2 /* Build configuration list for PBXNativeTarget "TestSuite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07F294A41D75459100CE98E2 /* Debug */,
+				07F294A51D75459100CE98E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 076A84341D694EFB003854BA /* Project object */;
+}

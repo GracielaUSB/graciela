@@ -52,20 +52,21 @@ alloc gtype lval = do
     , metadata      = [] }
 
   when (gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
-    defaultValue <- value gtype
-    addInstruction $ Do Store
-      { volatile = False
-      , address  = LocalReference t (Name name)
-      , value    = defaultValue
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = [] }
-  where
-    value t = case t of
-      GBool    -> pure . ConstantOperand $ C.Int 1 0
-      GChar    -> pure . ConstantOperand $ C.Int 8 0
-      GInt     -> pure . ConstantOperand $ C.Int 32 0
-      GFloat   -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      defaultValue <- value gtype
+      addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t (Name name)
+          , value    = defaultValue
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = []
+          }
+  where 
+    value t = case t of 
+      GBool    -> pure $ ConstantOperand $ C.Int 1 0
+      GChar    -> pure $ ConstantOperand $ C.Int 8 0
+      GInt     -> pure $ ConstantOperand $ C.Int 32 0
+      GFloat   -> pure $ ConstantOperand $ C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 

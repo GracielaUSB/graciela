@@ -15,7 +15,6 @@ program Hola begin
 //   proc agregar (in d : Diccionario, in c : int, in v : int)
 //     {pre  true pre}
 //     {post true post}
-
 // end
 
 // type Dicc (a,b) implements Diccionario (int,int)
@@ -119,28 +118,27 @@ program Hola begin
 //     //   ]|
 
   
-//     // proc hola (inout x : int)
+    proc hola (inout x : int)
 
-//     //   {pre x == 0 pre}
-//     //   {post x == 11 post}
-//     //   |[
-//     //       read(x)
-//     //       {a x >= 10 a}
-//     //       ; x := 10
-//     //   ]|
+      {pre x == 0 pre}
+      {post x == 11 post}
+      |[
+          read(x)
+
+          { x >= 10 }
+
+          ; x := 10
+      ]|
     
   
   main
   |[ var i,j,k : int;
-    |[
-      var i,j,k : char;
-      write(i) 
-    ]|;
-    {a i != i a}
-    |[
-      var i,j,k : boolean;
-      write(i) 
-    ]|
-  ; write(i)
+     var p : int*;
+     if p == null -> write("es null")
+     [] otherwise -> write("no es null")
+     fi;
+     write("∑´´œœåß∂ƒ");
+     hola(i)
+    ;write(i)
   ]|
 end
