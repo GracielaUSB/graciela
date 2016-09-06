@@ -15,7 +15,7 @@ import           Location
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
-import           Parser.Recovery
+-- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           Token

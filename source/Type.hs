@@ -161,10 +161,10 @@ instance Monoid Type where
     if a == b then GFullDataType a fs else GUndef
 
   GDataType a fs `mappend` GFullDataType b _ =
-    if traceId (unpack a) == traceId  (unpack (takeWhile (\c -> c /= '-') b)) then GFullDataType b fs else GUndef    
+    if a == takeWhile (\c -> c /= '-') b then GFullDataType b fs else GUndef    
 
   GFullDataType a fs `mappend` GDataType b _ =
-    if traceId (unpack (takeWhile (\c -> c /= '-') a)) == traceId (unpack b) then GFullDataType a fs else GUndef    
+    if takeWhile (\c -> c /= '-') a == b then GFullDataType a fs else GUndef    
 
   GUnsafeName a `mappend` GUnsafeName b =
     if a == b then GUnsafeName a else GUndef

@@ -24,7 +24,7 @@ import           Error
 import           Location
 import           Parser.Expression
 import           Parser.Monad
-import           Parser.Recovery
+-- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           SymbolTable
@@ -69,14 +69,12 @@ declaration' allowedTypes isStruct = do
   from <- getPosition
   isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
-
   mvals <- (if isConst then (Just <$>) else optional) assignment
 
   match TokColon
   t <- if isConst then type' else allowedTypes
 
   to <- getPosition
-
   let
     location = Location (from, to)
 

@@ -4,10 +4,11 @@ module LLVM.Declaration
   ( declaration
   ) where
 --------------------------------------------------------------------------------
-import           Aborts
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression
+import           LLVM.Aborts
 import           LLVM.Expression
+import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           SymbolTable

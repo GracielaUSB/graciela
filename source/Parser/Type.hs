@@ -18,10 +18,8 @@ import           Error
 import           Location
 import           Parser.Expression (expression)
 import           Parser.Monad      (Parser, getType, identifier, integerLit,
-                                    match, parens, putError, getStruct,
-                                    unsafeGenCustomError)
+                                    match, parens, putError, getStruct, match')
 import           Parser.State
-import           Parser.Recovery
 import           SymbolTable       (lookup)
 import           Token
 import           Type
@@ -35,7 +33,7 @@ import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack, pack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
-                                    sepBy, try, (<|>), optional)
+                                    sepBy, try, (<|>), optional, between)
 import         Debug.Trace
 --------------------------------------------------------------------------------
 
@@ -52,17 +50,16 @@ basicType = do
 
 
 type' :: Parser Type
-type' = parenType <|> try userDefined<|> try arrayOf <|> try type''
+type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
   where
     parenType = do 
       t <- parens type'
       isPointer t
     -- Try to parse an array type
     arrayOf = do
+
       match TokArray
-      match TokLeftBracket
       msize <- arraySize
-      match TokRightBracket
       match TokOf
       t <- type'
 
@@ -172,7 +169,7 @@ isPointer t = do
 arraySize :: Parser (Maybe Int32)
 arraySize = do
   pos <- getPosition
-  expr <- safeExpression
+  expr <- between (match TokLeftBracket) (match' TokRightBracket) expression
   case expr of
     Nothing ->
       pure Nothing
@@ -181,12 +178,12 @@ arraySize = do
         Value (IntV i) -> return (Just i)
         Value _ -> error "internal error: Type and Value mismatch"
         _       -> do
-          unsafeGenCustomError
+          putError pos . UnknownError $
             "El tamaño de una variable debe ser una constante, y no puede \
             \incluir cuantificaciones."
           pure Nothing
       _ -> do
-        unsafeGenCustomError
+        putError pos . UnknownError $
           "El tamaño de una variable debe ser una constante de tipo entero, \
           \sin cuantificaciones."
         pure Nothing

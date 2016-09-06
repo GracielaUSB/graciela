@@ -19,7 +19,6 @@ import           Parser.Definition
 import           Parser.Instruction
 import           Parser.Monad
 import           Parser.State
-
 import           Parser.Type
 import           SymbolTable
 import           Token
@@ -71,7 +70,7 @@ abstractDataType = do
     
     to    <- getPosition
     symbolTable %= closeScope to
-    let loc = Location (from,to)
+    let loc = Location (from,to)   
 
     st <- use symbolTable
 
@@ -95,6 +94,7 @@ abstractDataType = do
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
 dataType :: Parser ()
 dataType = do
+
     from <- getPosition
     match TokType
     name' <- safeIdentifier
@@ -119,10 +119,9 @@ dataType = do
     
     symbolTable %= openScope from
     symbolTable %= openScope from
-    decls'   <- sequence <$> polymorphicDeclaration `endBy` (match TokSemicolon)
+    decls'   <- sequence <$> (polymorphicDeclaration `endBy` match TokSemicolon)
     repinv'  <- repInv
     coupinv' <- coupInv
-
     close <- getPosition
     symbolTable %= closeScope close
 
@@ -138,6 +137,7 @@ dataType = do
     symbolTable %= closeScope to
     symbolTable %= closeScope to
     symbolTable %= closeScope to
+
     case abstractName' of 
       Just abstractName -> do 
         abstractAST <- getStruct abstractName
@@ -237,6 +237,3 @@ dataType = do
       
 
     checkParams _ _ = pure False
-
-
-

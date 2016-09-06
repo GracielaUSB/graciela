@@ -1,10 +1,12 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE PostfixOperators         #-}
+{-# LANGUAGE TupleSections            #-}
 
 module LLVM.Expression
 
 where
 --------------------------------------------------------------------------------
-import           Aborts
 import           AST.Expression                          (Expression (..),
                                                           Expression' (..),
                                                           Object, Value (..))
@@ -13,15 +15,18 @@ import qualified AST.Expression                          as Op (BinaryOperator (
 import           AST.Object                              as O (Object' (..),
                                                           Object'' (..), objMode)
 
+import           LLVM.Aborts
+import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, toLLVMType)
 import           Location
 import           SymbolTable
+import           Treelike                                (drawTree, toTree)
 import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad                           (when)
+import           Control.Monad                           (foldM, when)
 import qualified Data.ByteString                         as BS (unpack)
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
@@ -54,12 +59,14 @@ import           System.Endian                           (getSystemEndianness,
                                                           Endianness(..))
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
+import           Debug.Trace
 
 object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { name, mode } | mode == Just In -> objectRef obj
+  Variable { mode } | mode == Just In -> objectRef obj
+
 
   -- If not marked as In, just load the content of the variable
   _ -> do
@@ -154,12 +161,12 @@ objectRef obj@(Object loc objType obj') = do
                                      , labelNull := null
                                      , labelCond := cond]
 
-      setLabel trueLabel $ Do condBr
+      terminate' condBr
+
+      (trueLabel #)
       createTagNullPtr falseLabel pos
 
       return $ LocalReference objType' $ labelLoad
-
-
 
     _ -> error "Aun no hay soporte para estructuras"
 
@@ -208,7 +215,9 @@ safeOperation label fun lOperand rOperand pos = do
                                        , label     := result
                                        , labelCond := condition]
         
-        setLabel overflowLabel $ Do condBr
+        terminate' condBr
+
+        (overflowLabel #)
         createTagOverflow normalLabel pos
         return Seq.empty
 
@@ -239,19 +248,19 @@ callFunction fun lOperand rOperand =
           }
 
 expression :: Expression -> LLVM Operand
-expression (Expression (Location(pos,_)) expType exp') = case exp' of
+expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
   Value val -> pure $ case val of
     BoolV  theBool  ->
       ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
     CharV  theChar  ->
-      ConstantOperand $ C.Int 8 . fromIntegral . ord $ theChar
+      ConstantOperand . C.Int 8 . fromIntegral . ord $ theChar
     IntV   theInt   ->
-      ConstantOperand $ C.Int 32 . fromIntegral $ theInt
+      ConstantOperand . C.Int 32 . fromIntegral $ theInt
     FloatV theFloat ->
-      ConstantOperand $ C.Float $ LLVM.Double theFloat
+      ConstantOperand . C.Float $ LLVM.Double theFloat
 
   NullPtr ->
-    return $ ConstantOperand $ C.Null intType
+    return . ConstantOperand $ C.Null intType
 
   StringLit theString -> do
     name <- newLabel
@@ -286,6 +295,7 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
           t        -> error $ "tipo " <> show t <> " no soportado"
 
     return operand
+
 
     where
       opInt :: Op.UnaryOperator -> Operand -> LLVM Operand
@@ -342,23 +352,34 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
         addInstructions insts
         return $ LocalReference boolType label
 
+      callUnaryFunction :: String -> Operand -> Instruction
+      callUnaryFunction fun innerOperand =
+        let
+          funRef = Right . ConstantOperand . C.GlobalReference i32 $ Name fun
+        in Call { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = funRef
+                , arguments          = [(innerOperand,[])]
+                , functionAttributes = []
+                , metadata           = []
+                }
+
   Binary { binOp, lexpr, rexpr } -> do
-    -- Operate both inner expression
+    -- Evaluate both expressions
     lOperand <- expression lexpr
     rOperand <- expression rexpr
 
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
+    let
+      op = case expType of
+        T.GInt   -> opInt
+        T.GBool  -> opBool
+        T.GFloat -> opFloat
+        t        -> error $
+          "internal error: type " <> show t <> " not supported"
 
-    operand <- case expType of
-          T.GInt   -> opInt   binOp lOperand rOperand
-          T.GBool  -> opBool  binOp lOperand rOperand
-          T.GFloat -> opFloat binOp lOperand rOperand
-
-          t        -> error $ "tipo " <> show t <> " no soportado"
-
-
-
-    return operand
+    op binOp lOperand rOperand
 
     where
       opInt op lOperand rOperand = do
@@ -472,7 +493,7 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
             labelCast1 <- newLabel
             labelCast2 <- newLabel
             let
-            {- Both pointer must be casted to integer to be compared -}
+            {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
                         , type'    = intType
@@ -515,7 +536,7 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
             labelCast1 <- newLabel
             labelCast2 <- newLabel
             let
-              {- Both pointer must be casted to integer to be compared -}
+              {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
                         , type'    = intType
@@ -627,7 +648,7 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
 
 
           Op.Consequent -> do
-            -- p <== q ≡ p ⋁ q ≡ p
+            -- p <== q ≡ (p ⋁ q ≡ p)
             label' <- newLabel
             -- Operate p ⋁ q and save the result at label'
             let orInst = Or { operand0      = lOperand
@@ -645,8 +666,108 @@ expression (Expression (Location(pos,_)) expType exp') = case exp' of
             addInstructions $ Seq.fromList [label' := orInst, label := equal]
         return $ LocalReference boolType label
 
+  EConditional { eguards, trueBranch } -> do
+    entry  <- newLabel
+    finish <- newLabel
+
+    terminate' Br
+      { dest      = entry
+      , metadata' = [] }
+
+    (defaultLabel, phiPairs) <- foldM (guard finish) (entry, []) eguards
+
+    (defaultLabel #)
+    result <- newLabel
+    
+    eType <- toLLVMType expType
+
+    case trueBranch of
+      Nothing -> do
+        let
+          ifAbort = ConstantOperand $ C.Int 32 1
+          Location (from, _to) = loc
+          line = ConstantOperand . C.Int 32 . fromIntegral . unPos . sourceLine $ from
+          col  = ConstantOperand . C.Int 32 . fromIntegral . unPos . sourceColumn $ from
+          arguments = [(ifAbort, []), (line, []), (col, [])]
+          abortOp = Right . ConstantOperand . C.GlobalReference intType $ Name abortString
+        addInstruction $ Do Call
+          { tailCallKind        = Nothing            -- :: Maybe TailCallKind
+          , callingConvention   = CC.C               -- :: CallingConvention
+          , returnAttributes    = []                 -- :: [ParameterAttribute]
+          , function            = abortOp            -- :: CallableOperand
+          , arguments           = [(ifAbort,[]), (line,[]), (col,[])] -- :: [(Operand, [ParameterAttribute])]
+          , functionAttributes  = []                 -- :: [Either GroupID FunctionAttribute]
+          , metadata            = [] }               -- :: InstructionMetadata }
+        terminate' $ Unreachable []
+
+        (finish #)
+        addInstruction $ result := Phi
+          { type'          = eType
+          , incomingValues = phiPairs
+          , metadata       = [] }
+
+        pure $ LocalReference (eType) result
+
+      Just  e -> do
+        val <- expression e
+        terminate' Br
+          { dest      = finish
+          , metadata' = [] }
+
+        (finish #)
+        addInstruction $ result := Phi
+          { type'          = eType
+          , incomingValues = (val, defaultLabel) : phiPairs
+          , metadata       = [] }
+
+        pure $ LocalReference eType result
+
+    where
+      guard finish (label, pairs) (left, right) = do
+        yes <- newLabel
+        no  <- newLabel
+
+        (label #)
+        condition <- expression left
+        terminate' CondBr
+          { condition
+          , trueDest  = yes
+          , falseDest = no
+          , metadata' = []
+          }
+
+        (yes #)
+        val <- expression right
+        terminate' Br
+          { dest      = finish
+          , metadata' = [] }
+
+        pure (no, (val, yes) : pairs)
+
+  FunctionCall { fname, fargs } -> do
+    arguments <- toList . fmap (,[]) <$> mapM expression fargs
+    callType <- toLLVMType expType
+    let
+      function = Right . ConstantOperand . C.GlobalReference callType . Name
+               . unpack $ fname
+
+    label <- newLabel
+    addInstruction $ label := Call
+      { tailCallKind       = Nothing
+      , callingConvention  = CC.C
+      , returnAttributes   = []
+      , function
+      , arguments
+      , functionAttributes = []
+      , metadata           = [] }
+
+    pure $ LocalReference callType label
+
   -- Dummy operand
-  _ -> return $ ConstantOperand $ C.Int 32 10
+  _ -> do
+    traceM . drawTree . toTree $ e
+    traceM "I don't know how to generate code for:"
+    return . ConstantOperand $ C.Int 32 10
 
 
 

@@ -54,7 +54,9 @@ executable graciela
     -- ghc-options: -O3 -fllvm 
             -- -keep-llvm-files
     -- LANGUAGE extensions used by modules in this package.
-    other-extensions:    GeneralizedNewtypeDeriving
+    other-extensions:
+        GeneralizedNewtypeDeriving
+      , PostfixOperators
 
     -- Other library packages from which modules are imported.
     build-depends:
