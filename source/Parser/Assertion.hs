@@ -71,7 +71,7 @@ assert open close = between (match open) (match' close) assert'
 precond, postcond, assertion, invariant, repInv, coupInv :: Parser (Maybe Expression)
 precond   = assert TokLeftPre   TokRightPre
 postcond  = assert TokLeftPost  TokRightPost
-assertion = assert TokLeftA     TokRightA
+assertion = assert TokLeftBrace TokRightBrace {-TokLeftA-} {-TokRightA-}
 invariant = assert TokLeftInv   TokRightInv
 repInv    = assert TokLeftRep   TokRightRep
 coupInv   = assert TokLeftAcopl TokRightAcopl

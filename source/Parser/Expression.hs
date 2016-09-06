@@ -188,6 +188,8 @@ variable name (Location (from, to)) = do
   case name `lookup` st of
 
     Left _ -> do
+      traceM "!"
+
       putError from . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
@@ -1237,72 +1239,3 @@ conjunction opLoc
               , obj' = Variable
                 { O.name = name
                 , mode = Nothing}}}}
-
---------------------------------------------------------------------------------
-testExpr :: Parser (Maybe Expression) ->  String -> IO ()
-testExpr myparser strinput = do
-  let
-    input = pack strinput
-    ts = lex "" input
-    init' = initialState "" &~ do
-      symbolTable %= openScope (SourcePos "" (unsafePos 4) (unsafePos 10))
-      symbolTable %= insertSymbol (pack "a") Entry
-        { _entryName  = pack "a"
-        , _loc        = Location (SourcePos "" (unsafePos 2) (unsafePos 2), SourcePos "" (unsafePos 2) (unsafePos 20))
-        , _info       = Var
-          { _varType  = GInt
-          , _varValue = Nothing }}
-      symbolTable %= insertSymbol (pack "b") Entry
-        { _entryName  = pack "b"
-        , _loc        = Location (SourcePos "" (unsafePos 3) (unsafePos 3), SourcePos "" (unsafePos 3) (unsafePos 20))
-        , _info       = Var
-          { _varType  = GInt
-          , _varValue = Nothing }}
-      symbolTable %= insertSymbol (pack "c") Entry
-        { _entryName  = pack "c"
-        , _loc        = Location (SourcePos "" (unsafePos 4) (unsafePos 4), SourcePos "" (unsafePos 4) (unsafePos 20))
-        , _info       = Var
-          { _varType  = GPointer GInt
-          , _varValue = Nothing }}
-      symbolTable %= insertSymbol (pack "d") Entry
-        { _entryName  = pack "d"
-        , _loc        = Location (SourcePos "" (unsafePos 4) (unsafePos 4), SourcePos "" (unsafePos 4) (unsafePos 20))
-        , _info       = Var
-          { _varType  = GArray 10 (GArray 10 GInt)
-          , _varValue = Nothing }}
-      symbolTable %= insertSymbol (pack "pii") Entry
-        { _entryName  = pack "pii"
-        , _loc        = Location (SourcePos "" (unsafePos 4) (unsafePos 4), SourcePos "" (unsafePos 4) (unsafePos 20))
-        , _info       = Const
-          { _constType  = GFloat
-          , _constValue = FloatV 3.14 }}
-
-    (r, s) = runParser myparser "" init' ts
-
-  case r of
-    Just x -> do
-      putStrLn . drawTree . toTree $ x
-      print $ expType x
-    _ -> mapM_ (putStrLn . parseErrorPretty) (s ^. errors)
-  -- case r of
-  --   Right xx -> putStrLn . drawTree . toTree $ xx
-  --   Left xx -> mapM_ (putStrLn . parseErrorPretty) (s ^. errors)
-
-
-  -- case r of
-  --   Right r' -> do
-  --     putStrLn . drawTree . toTree $ r'
-  --     case r' of
-  --       Expression { expType } -> print expType
-  --       _ -> pure ()
-  --   _ -> pure ()
-  -- mapM_ (putStrLn . prettyError) (s ^. errors)
-
--- testParser :: Show a => Parser a -> String -> IO ()
--- testParser myparser strinput = do
---   let input = pack strinput
---   let Right ets = runParser lexer "" input
---   let (r,s) = runState (runParserT myparser "" ets) initialState
---   case r of
---     Right r' -> print r'
---     _ -> print "oops"

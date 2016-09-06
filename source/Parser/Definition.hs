@@ -50,6 +50,9 @@ function = do
   match TokFunc
 
   funcName' <- safeIdentifier
+
+  symbolTable %= openScope from
+
   funcParams' <- parens doFuncParams
 
   match' TokArrow
@@ -67,7 +70,6 @@ function = do
     (Just funcName, Just params) ->
       Just (funcName, from, funcRetType, params, isJust bnd)
 
-  symbolTable %= openScope from
 
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
 
@@ -169,7 +171,8 @@ procedure = do
     (from, UnknownError "Procedure lacks a body; block expected.")
 
   to <- getPosition
-  symbolTable %= closeScope to
+  symbolTable %= closeScope to -- body
+  symbolTable %= closeScope to -- params
   currentProc .= Nothing
 
   let
@@ -247,7 +250,7 @@ procedure = do
 --
 --   match TokProc
 --   id <- identifier
---   symbolTable %= openScope from
+--   symbolTable %= openSScope from
 --   params <- parens $ procParam `sepBy` match TokComma
 --
 --   notFollowedBy $ match TokArrow
@@ -258,7 +261,7 @@ procedure = do
 --   to   <- getPosition
 --   let loc = Location (from,to)
 --
---   symbolTable %= closeScope to
+--   symbolTable %= closeSScope to
 --   let
 --     entry = Entry
 --       { _entryName = id

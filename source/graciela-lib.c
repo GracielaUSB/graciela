@@ -246,15 +246,15 @@ typedef enum
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
-  printf ("WARNING: at line %d, column %d\n.", line, column);
+  printf ("WARNING: at line %d, column %d\n:", line, column);
   switch (reason) {
     case PRE:
-      printf ("\tThe precondition was falsified.\n"); break;
+      printf ("\tthe precondition was falsified.\n"); break;
     case FORALL:
-      printf ("\tThe universal quantification was falsified.\n"); break;
+      printf ("\tthe universal quantification was falsified.\n"); break;
     case EXISTENTIAL:
-      printf ("\tThe existential quantification was falsified.\n"); break;
+      printf ("\tthe existential quantification was falsified.\n"); break;
     default:
-      printf ("\tUnknown reason.\n"); break;
+      printf ("\tunknown reason.\n"); break;
   }
 }

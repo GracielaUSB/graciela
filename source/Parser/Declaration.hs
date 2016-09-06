@@ -94,7 +94,7 @@ declaration = do
         if length ids == length exprs
           then do
             pairs <- foldM (checkType isConst t) Seq.empty $ Seq.zip ids exprs
-            pure $ if Seq.null pairs
+            pure $ if null pairs
               then Nothing
               else Just Initialization
                 { declLoc   = location

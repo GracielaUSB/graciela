@@ -153,7 +153,7 @@ instance Treelike Instruction where
 
     Write { ln, wexprs } ->
       Node ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc) $
-        toForest wexprs
+        (fmap writeExp . toList $ wexprs)
 
     where
       guardToTree (expr, {-decls,-} inst) = Node "Guard"
@@ -165,3 +165,6 @@ instance Treelike Instruction where
         [ toTree ident
         , toTree expr
         ]
+      writeExp e = Node "wexp"
+        [ Node "type" [leaf . show . E.expType $ e]
+        , Node "tree" [toTree e]]

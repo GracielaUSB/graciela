@@ -63,8 +63,8 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { name, mode } | mode == Just In -> do
-     return . LocalReference (toLLVMType objType) $ Name (unpack name)
+  Variable { name, mode } | mode == Just In ->
+    return . LocalReference (toLLVMType objType) $ Name (unpack name)
 
   -- If not marked as In, just load the content of the variable
   _ -> do

@@ -73,7 +73,7 @@ initialState path = State
     symbols =
       [ ("otherwise", Const GBool (BoolV True)) ]
 
-    st0 = empty $ SourcePos path (unsafePos 0) (unsafePos 0)
+    st0 = emptyGlobal
 
     _symbolTable = foldl' auxInsert st0 symbols
 

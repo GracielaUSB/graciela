@@ -78,7 +78,7 @@ newLabel label = do
   case label `Map.lookup` ns of
     Nothing -> do
       nameSupply %= Map.insert label 1
-      pure . Name $ label <> "$" <> show 0
+      pure . Name $ label <> "#" <> show 0
     Just i  -> do
       nameSupply %= Map.insert label (succ i)
       pure . Name $ label <> "#" <> show i

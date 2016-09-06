@@ -90,7 +90,7 @@ programToLLVM files types (Program name _ defs insts structs) = do
     whichTarget version = case os of
       "darwin"  -> arch <> "-apple-macosx" <> version -- With Mac, version needs to end with "0",
                                                            -- example: 11.10.3 -> 11.10.0
-      "linux"   -> arch <> "-unknown-linux-gnu"
+      "linux"   -> arch <> "-pc-linux-gnu"
       "windows" -> undefined
     -- As mentioned above, Macs need a version ended with .0
     crop str = if last str == '.'

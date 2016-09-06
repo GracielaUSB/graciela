@@ -1,0 +1,18 @@
+program miprograma begin
+
+main
+  ⟦ var k, w : int
+  ; read (w)
+  ; write (if w == 3 -> "tres" [] otherwise -> "quenumeroejese?" fi)
+
+  ; k := if w > 0 -> 3
+         [] w > -100 -> 8
+         [] w > -200 -> 5
+         fi
+  ; ⟦ var k : char
+    ; read (k)
+    ; write (k)
+    ⟧
+  ; write(k)
+  ⟧
+end

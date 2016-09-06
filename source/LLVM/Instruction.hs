@@ -144,9 +144,20 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 
   Block decls insts -> do
+    block <- newLabel "blockEntry"
+    exit <- newLabel "blockExit"
+    terminate' Br
+      { dest      = block
+      , metadata' = [] }
+
+    (block #)
     mapM_ declaration decls
     mapM_ instruction insts
+    terminate' Br
+      { dest      = exit
+      , metadata' = [] }
 
+    (exit #)
 
   ProcedureCall { pname, pargs } -> do
     args <- mapM createArg pargs

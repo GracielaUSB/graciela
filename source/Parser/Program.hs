@@ -30,8 +30,7 @@ program = do
   match' TokProgram
   name' <- safeIdentifier
   match' TokBegin
-
-  getPosition >>= \x -> symbolTable %= openScope x
+  symbolTable %= openScope from -- Open the program scope
 
   decls' <- listDefProc
     -- (1) listDefProc should also include type definitions
@@ -45,7 +44,7 @@ program = do
   match' TokEnd
   eof
   to <- getPosition
-  symbolTable %= closeScope to
+  symbolTable %= closeScope to -- Close the program scope
 
   let structs = Seq.empty -- Should be parsed in (1)
   case (name', decls', main') of

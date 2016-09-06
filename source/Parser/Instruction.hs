@@ -39,18 +39,19 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
+import           Treelike
 import           Type                   (ArgMode (..), Type (..), (=:=))
 -------------------------------------------------------------------------------
-import           Control.Lens           (use, (%=), (^.))
+import           Control.Lens           (use, (%=), (+=), (^.))
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
-import           Data.Foldable          (asum)
+import           Data.Foldable          (asum, toList)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (any)
 import qualified Data.Map               as Map (lookup)
 import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (<|), (|>))
-import qualified Data.Sequence          as Seq (empty, singleton, zip)
+import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
 import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as T (pack, unpack)
@@ -60,12 +61,14 @@ import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
+import           System.IO.Unsafe
+
 
 instruction :: Parser (Maybe Instruction)
 instruction
    =  try procedureCall
   <|> try assign
-  <|> assertionInst
+  -- <|> assertionInst
   <|> abort
   <|> conditional
   <|> free
@@ -109,16 +112,17 @@ declarationOrRead = sequence <$> (p `endBy` match TokSemicolon)
 
 block :: Parser (Maybe Instruction)
 block = do
-  from <- getPosition
-  symbolTable %= openScope from
 
+  from <- getPosition
   match TokOpenBlock
+  symbolTable %= openScope from
 
   decls       <- declarationBlock
   actions     <- many (assertedInst $ match TokCloseBlock)
 
   match' TokCloseBlock
   to <- getPosition
+
   symbolTable %= closeScope to
 
   let loc = Location (from, to)
@@ -140,10 +144,10 @@ block = do
 assertedInst :: Parser follow -> Parser (Maybe (Seq Instruction))
 assertedInst follow = do
   a1   <- many assertionInst
-  inst <- Seq.singleton <$> instruction
+  inst <- (if null a1 then (Just <$>) else optional) instruction
   a2   <- many assertionInst
   void (lookAhead follow) <|> void (match' TokSemicolon)
-  pure . sequence $ a1 <> inst <> a2
+  pure . sequence $ a1 <> (Seq.fromList . toList $ inst) <> a2
 
 
 assign :: Parser (Maybe Instruction)
@@ -241,7 +245,7 @@ write = do
   from <- getPosition
 
   ln <- match TokWrite $> False <|> match TokWriteln $> True
-  exprs <- parens $ expression `sepBy1` match TokComma
+  exprs <- parens $ expression `sepBy` match TokComma
 
   to <- getPosition
   let loc = Location (from,to)
@@ -375,7 +379,7 @@ abort = do
 guard :: Parser (Maybe Guard)
 guard = do
   from <- getPosition
-  {- whyyy? symbolTable %= openScope from -}
+  {- whyyy? symbolTable %= openSScope from -}
 
   cond <- expression
   match TokArrow
@@ -386,7 +390,7 @@ guard = do
   to <- getPosition
   let loc = Location (from, to)
 
-  {- whyyy? symbolTable %= closeScope to -}
+  {- whyyy? symbolTable %= closeSScope to -}
 
   if null actions
     then do
