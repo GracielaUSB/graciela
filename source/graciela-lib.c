@@ -193,7 +193,7 @@ double _minF(double x, double y) {
 
 typedef enum
   { IF
-  , MANUAL
+  , AMANUAL
   , POST
   , ASSERT
   , INVARIANT
@@ -207,11 +207,11 @@ typedef enum
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
-  printf ("ABORT: at line %d, column %d", line, column);
+  printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
     case IF:
       printf (":\n\tno true branch found in conditional.\n"); break;
-    case MANUAL:
+    case AMANUAL:
       printf (".\n"); break;
     case POST:
       printf (":\n\tthe postcondition was falsified.\n"); break;
@@ -240,21 +240,24 @@ void _abort (abort_t reason, int line, int column) {
 }
 
 typedef enum
-  { PRE
+  { WManual
+  , PRE
   , FORALL
   , EXISTENTIAL
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
-  printf ("WARNING: at line %d, column %d\n:", line, column);
+  printf ("\x1B[0;35mWARNING:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
+    case WManual:
+      printf (".\n"); break;
     case PRE:
-      printf ("\tthe precondition was falsified.\n"); break;
+      printf (":\n\tthe precondition was falsified.\n"); break;
     case FORALL:
-      printf ("\tthe universal quantification was falsified.\n"); break;
+      printf (":\n\tthe universal quantification was falsified.\n"); break;
     case EXISTENTIAL:
-      printf ("\tthe existential quantification was falsified.\n"); break;
+      printf (":\n\tthe existential quantification was falsified.\n"); break;
     default:
-      printf ("\tunknown reason.\n"); break;
+      printf (":\n\tunknown reason.\n"); break;
   }
 }

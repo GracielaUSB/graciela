@@ -67,7 +67,7 @@ waCall func i pos = addInstruction $ Do Call
 -- | Enum type for the different abort conditions.
 data Abort
   = If                 -- ^ A conditional had no true guard.
-  | Manual             -- ^ An `abort` instruction was manually called.
+  | AManual            -- ^ An `abort` instruction was manually called.
   | Post               -- ^ A postcondition failed.
   | Assert             -- ^ An assertion failed.
   | Invariant          -- ^ An invariant failed.
@@ -89,7 +89,8 @@ abort reason pos = do
 
 -- | Enum type for the different warning conditions.
 data Warning
-  = Pre         -- ^ A precondition failed.
+  = WManual     -- ^ A `warn` instruction was manually called.
+  | Pre         -- ^ A precondition failed.
   | Forall      -- ^ A universal quantifier returned false.
   | Existential -- ^ An existential quantifier returned false.
   deriving (Eq, Ord, Show, Enum)

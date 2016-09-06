@@ -11,8 +11,9 @@ import           AST.Instruction                    (Guard, Instruction (..),
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         (Object' (..),
                                                      Object'' (..))
-import           LLVM.Abort                         (abort)
-import qualified LLVM.Abort                         as Abort (Abort (Assert, If, Invariant, Manual, NegativeBound, NondecreasingBound))
+import           LLVM.Abort                         (abort, warn)
+import qualified LLVM.Abort                         as Abort (Abort (AManual, Assert, If, Invariant, NegativeBound, NondecreasingBound))
+import qualified LLVM.Abort                         as Warning (Warning (WManual))
 import           LLVM.Declaration
 import           LLVM.Expression
 import           LLVM.Monad
@@ -75,8 +76,11 @@ guard finish checkLabel (expr, insts) = do
 instruction :: G.Instruction -> LLVM ()
 instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Abort -> do
-    abort Abort.Manual pos
+    abort Abort.AManual pos
     newLabel "unreachable" >>= (#)
+
+  Warn -> do
+    warn Warning.WManual pos
 
   Assertion expr -> do
     -- Evaluate the condition expression
@@ -363,17 +367,17 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     checkGte0 <- newLabel "doCheckGte0"
     n         <- newLabel "doN"
 
+    terminate' Br
+      { dest      = begin
+      , metadata' = [] }
+
+    (begin #)
     addInstruction $ n := Alloca
       { allocatedType = intType
       , numElements   = Nothing
       , alignment     = 4
       , metadata      = [] }
 
-    terminate' Br
-      { dest      = begin
-      , metadata' = [] }
-
-    (begin #)
     boundVal0 <- expression rbound
     terminate' Br
       { dest      = checkGte0

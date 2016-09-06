@@ -70,6 +70,7 @@ instruction
   <|> try assign
   -- <|> assertionInst
   <|> abort
+  <|> warn
   <|> conditional
   <|> free
   <|> new
@@ -373,6 +374,16 @@ abort = do
   match TokAbort
   to <- getPosition
   pure . Just $ Instruction (Location (from, to)) Abort
+
+
+warn :: Parser (Maybe Instruction)
+warn = do
+  lookAhead $ match TokWarn
+
+  from <- getPosition
+  match TokWarn
+  to <- getPosition
+  pure . Just $ Instruction (Location (from, to)) Warn
 
 
 -- | Parse guards for both repetition and conditional

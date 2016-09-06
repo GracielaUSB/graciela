@@ -13,6 +13,5 @@ cabal.config
 *.ll
 *.bc
 *.out
-*.c
 *.s
 *.swp
