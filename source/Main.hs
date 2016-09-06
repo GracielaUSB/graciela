@@ -9,11 +9,11 @@ import           Parser.Monad
 import           Parser.Program
 -- import           Parser.Rhecovery            (prettyError)
 import           Error
+import           Error
 import           Parser.State
 import           SymbolTable
 import           Token
 import           Treelike
-import           Error
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
@@ -28,7 +28,6 @@ import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import qualified Data.Sequence              as Seq (null)
 import           Data.Set                   (empty)
-import           Data.String.Utils          (replace)
 import           Data.Text                  (Text, unpack)
 import           Data.Text.IO               (readFile)
 
