@@ -12,6 +12,7 @@ import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
+import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Map        (Map, elems)
@@ -20,11 +21,11 @@ import           Data.Text       (Text, unpack)
 
 data Program
   = Program
-    { name    :: Text
-    , loc     :: Location
-    , defs    :: Seq Definition
-    , insts   :: Instruction
-    , structs :: Map Text Struct
+    { name        :: Text
+    , loc         :: Location
+    , defs        :: Seq Definition
+    , insts       :: Instruction
+    , structs     :: Map Text Struct
     , fullStructs :: Map Text Struct
     }
 

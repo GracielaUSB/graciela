@@ -1,25 +1,22 @@
-{-# LANGUAGE NamedFieldPuns #-}
-module LLVM.Definition
+{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE PostfixOperators #-}
 
-where
-
+module LLVM.Definition where
 --------------------------------------------------------------------------------
-import           Aborts
-import qualified Type                                    as T
-import           Type                                    ((=:=))
-import           AST.Instruction                         (Instruction)
-import           AST.Declaration                         (Declaration)
-import           AST.Definition                          
-import           AST.Expression                          (Expression(..))
-import           LLVM.Instruction                        (instruction)
-import           LLVM.Declaration                        (declaration)
+import           AST.Declaration                     (Declaration)
+import           AST.Definition
+import           AST.Expression                      (Expression (..))
+import           AST.Instruction                     (Instruction)
+import           LLVM.Aborts
+import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
-import           LLVM.Instruction                    (instruction)
 import           LLVM.Instruction
+import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           Location
 import qualified Type                                as T
+import           Type                                ((=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
 import           Control.Monad                       (unless)
@@ -27,27 +24,26 @@ import           Data.Foldable                       (toList)
 import           Data.Map                            (Map)
 import qualified Data.Map                            as Map
 import           Data.Monoid                         ((<>))
-import           Data.Monoid                         ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
 import           Data.Text                           (Text, unpack)
 import           Data.Word
-import           Debug.Trace
 import           LLVM.General.AST                    (BasicBlock (..),
                                                       Named (..),
                                                       Parameter (..),
-                                                      Terminator (..))
-import           LLVM.General.AST                    (functionDefaults)
+                                                      Terminator (..),
+                                                      functionDefaults)
 import qualified LLVM.General.AST                    as LLVM (Definition (..))
 import           LLVM.General.AST.AddrSpace
 import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Name               (Name (..))
 import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
-import           LLVM.General.AST.Type               (double, ptr)
-import           LLVM.General.AST.Type               (Type (..), i8)
+import           LLVM.General.AST.Type               (Type (..), double, i8,
+                                                      ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
+import           Debug.Trace
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
 mainDefinition :: Instruction -> LLVM ()
@@ -67,31 +63,42 @@ mainDefinition insts = do
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
-definition Definition {defName, pre, post, def'} = case def' of 
-  FunctionDef {funcBody, funcRetType, funcParams} -> do 
+definition Definition { defName, def', pre, post } = case def' of
+  FunctionDef { funcBody, funcRetType, funcParams } -> do
+
+    -- TODO! pre and postcondition
     openScope
-    params <- mapM toLLVMParameter $ toList funcParams
-    operand <- expression funcBody
+    
+    params <- mapM toLLVMParameter . toList $ funcParams
+    
+    returnOperand <- Just <$> expression funcBody
+
+    result <- newLabel
+    addBlock $ Do Ret
+      { returnOperand
+      , metadata' = [] }
+
     let name = Name $ unpack defName
     blocks' <- use blocks
     blocks .= Seq.empty
     currentBlock .= Seq.empty
-    closeScope
+    
 
     returnType <- toLLVMType funcRetType
 
     addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name
-        , parameters  = (params, False)
-        , returnType
-        , basicBlocks = toList blocks'
-        }
+      { name        = name
+      , parameters  = (params,False)
+      , returnType  = returnType
+      , basicBlocks = toList blocks'
+      }
+    closeScope
 
   ProcedureDef {procDecl, procParams, procBody} -> do
     openScope
     
-    params <- mapM toLLVMParameter' $ toList procParams
-    
+    params <- mapM toLLVMParameter' . toList $ procParams
+
     mapM_ declarationsOrRead procDecl
     precondition pre
     instruction procBody
@@ -101,14 +108,16 @@ definition Definition {defName, pre, post, def'} = case def' of
     blocks .= Seq.empty
     currentBlock .= Seq.empty
 
-    closeScope
+    
+    
     
     addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name (unpack defName)
-        , parameters  = (params, False)
+        , parameters  = (params,False)
         , returnType  = voidType
         , basicBlocks = toList blocks'
         }
+    closeScope
     
   where 
     toLLVMParameter (name, t) = do 
@@ -140,13 +149,13 @@ precondition expr@ Expression {loc = Location(pos,_)} = do
     trueLabel  <- newLabel
     falseLabel <- newLabel
     -- Create the conditional branch
-    let condBr = CondBr { condition = cond
-                        , trueDest  = trueLabel
-                        , falseDest = falseLabel
-                        , metadata' = []
-                        }
+    terminate' CondBr
+      { condition = cond
+      , trueDest  = trueLabel
+      , falseDest = falseLabel
+      , metadata' = [] }
     -- Set the false label to the abort
-    setLabel falseLabel $ Do condBr
+    (falseLabel #)
     -- And the true label to the next instructions
     createTagPre trueLabel pos
 
@@ -158,17 +167,19 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
     trueLabel  <- newLabel
     falseLabel <- newLabel
     -- Create the conditional branch
-    let condBr = CondBr { condition = cond
-                        , trueDest  = trueLabel
-                        , falseDest = falseLabel
-                        , metadata' = []
-                        }
+    terminate' CondBr
+      { condition = cond
+      , trueDest  = trueLabel
+      , falseDest = falseLabel
+      , metadata' = [] }
     -- Set the false label to the abort
-    setLabel falseLabel $ Do condBr
+    (falseLabel #)
     -- And the true label to the next instructions
     createTagPost trueLabel pos
     nextLabel <- newLabel
-    setLabel nextLabel $ Do $ Ret Nothing []
+    terminate' $ Ret Nothing []
+
+    (nextLabel #)
 
 
 -- createParameters :: [(Name, Type)]

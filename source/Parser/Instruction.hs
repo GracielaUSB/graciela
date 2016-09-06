@@ -35,7 +35,7 @@ import qualified Parser.Assertion       as A (bound)
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
-import           Parser.Recovery
+-- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           SymbolTable
@@ -60,6 +60,7 @@ import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
+import           Debug.Trace
 
 instruction :: Parser (Maybe Instruction)
 instruction = try procedureCall
@@ -107,8 +108,11 @@ declarationOrRead = sequence <$> (p `endBy` match TokSemicolon)
 block :: Parser (Maybe Instruction)
 block = do
   from <- getPosition
-  symbolTable %= openScope from
+  
+
   match TokOpenBlock
+  traceM "hola"
+  symbolTable %= openScope from
 
   decls       <- declarationBlock
   actions     <- many (assertedInst $ match TokCloseBlock)
@@ -118,7 +122,7 @@ block = do
   symbolTable %= closeScope to
 
   let loc = Location (from, to)
-
+  traceM "hola"
   if null actions
     then do
       putError from EmptyBlock
@@ -241,6 +245,7 @@ write = do
   to <- getPosition
   let loc = Location (from,to)
   mexprs <- foldM write' (Just Seq.empty) exprs
+
 
   pure $ case mexprs of
     Nothing  | null exprs -> Just Instruction
@@ -477,7 +482,6 @@ procedureCall = do
         nArgs   = length args
         nParams = length procParams
         Location (pos, _) = defLoc
-      traceM "ENTRO AQUI :/?"
       if nArgs == nParams
         then do
           args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args procParams)
@@ -514,7 +518,6 @@ procedureCall = do
             let
               nArgs = length args
               nParams = length types
-            traceM "ENTRO AQUI :("
             if nArgs == nParams
               then do
                 args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args types)
@@ -538,7 +541,6 @@ procedureCall = do
               \recursively because no Bound and Invariant were given for it."
             pure Nothing
         _ -> do
-          traceM "ENTRO AQUI :D"
           t <- hasDTType . toList $ args
           case t of 
 
@@ -554,7 +556,6 @@ procedureCall = do
                   let 
                     procName' = procName <> pack "-" <> dtName
                     procAst' = L.find (\x -> defName x == procName') structProcs 
-                  traceM (unpack procName')
                   case procAst' of
                     Just procAst -> do
                       let 

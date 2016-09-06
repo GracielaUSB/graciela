@@ -13,7 +13,8 @@ where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
 import           AST.Struct                 (Struct(..))
-import           LLVM.State
+import           LLVM.Monad
+import           LLVM.State                 (currentStruct)
 import           Type                       as T (Type (..), llvmName)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
@@ -85,8 +86,3 @@ sizeOf T.GChar         = 4
 sizeOf T.GFloat        = 8
 sizeOf (T.GArray sz t) = (fromIntegral sz) * sizeOf t
 sizeOf (T.GPointer t)  = 4
-
-
-
-
-

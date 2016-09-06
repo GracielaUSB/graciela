@@ -48,6 +48,7 @@ instance ShowToken TokenPos where
 -- | Representa a todos las palabras reservadas en el lenguaje
 data Token
   = TokProgram
+  | TokMain
   | TokBegin
   | TokEnd
 
@@ -211,6 +212,7 @@ data Token
 instance Show Token where
   show = \case
     TokProgram        -> "`program` - Inicio del Programa"
+    TokMain           -> "`main` - Bloque principal"
     TokBegin          -> "`begin` - Inicio de Procedimiento o Función"
     TokEnd            -> "`end` - Fin de Procedimiento o Función"
 

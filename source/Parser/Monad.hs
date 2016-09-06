@@ -37,6 +37,7 @@ module Parser.Monad
   , anyToken
   , oneOf
   , noneOf
+  , followedBy
 
   , boolLit
   , charLit
@@ -62,8 +63,6 @@ module Parser.Monad
   , sepBy1
   , sepEndBy
   , sepEndBy1
-
-  , unsafeGenCustomError
   ) where
 --------------------------------------------------------------------------------
 import           Error
@@ -181,7 +180,6 @@ class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: SourcePos -> Error -> p ()
   getType :: Text -> p (Maybe Type)
   getStruct :: Text -> p(Maybe Struct)
-  followedBy :: p (Maybe a) -> p b -> p (Maybe a)
   satisfy :: (Token -> Bool) -> p Token
   match' :: Token -> p Location
   (<!>) :: p (Maybe a) ->  (SourcePos, Error) -> p (Maybe a)
@@ -193,7 +191,6 @@ instance Monad m => MonadParser (ParserT m) where
   putError     = pPutError
   getType      = pGetType
   getStruct    = pGetStruct
-  followedBy   = pFollowedBy
   satisfy      = pSatisfy
   match'       = pMatch'
 
@@ -201,7 +198,6 @@ instance MonadParser g => MonadParser (StateT s g) where
   putError l e        = lift $ putError l e
   getType             = lift . getType
   getStruct           = lift . getStruct
-  followedBy p follow = withRecovery (pRecover follow) p
   satisfy             = lift . satisfy
   match'              = lift . match'
 
@@ -227,10 +223,10 @@ pGetStruct name = do
     Just struct -> return $ Just struct
     Nothing     -> return Nothing
 
-pFollowedBy :: (Monad m)
-            => ParserT m (Maybe a) -> ParserT m b -> ParserT m (Maybe a)
-pFollowedBy p follow =
-  withRecovery (pRecover follow) (p <* lookAhead follow)
+-- pFollowedBy :: (Monad m)
+--             => ParserT m (Maybe a) -> ParserT m b -> ParserT m (Maybe a)
+-- pFollowedBy p follow =
+--   withRecovery (pRecover follow) (p <* lookAhead follow)
 
 
 pRecover :: (MonadParser m)
@@ -246,7 +242,6 @@ pRecover follow e = do
 
   pure Nothing
 
-
 pSatisfy :: Monad m
          => (Token -> Bool) -> ParserT m Token
 pSatisfy f = token test Nothing
@@ -256,7 +251,6 @@ pSatisfy f = token test Nothing
         then Right tok
         else Left . unex $ tp
     unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
-
 
 pMatch' :: Monad m
          => Token-> ParserT m Location
@@ -294,7 +288,12 @@ noneOf :: (Foldable f, MonadParser m)
       => f Token -> m Token
 noneOf ts = satisfy (`notElem` ts)
 
+followedBy :: (MonadParser m)
+            => m (Maybe a) -> m b -> m (Maybe a)
+followedBy p follow =
+  withRecovery (pRecover follow) (p <* lookAhead follow)
 --------------------------------------------------------------------------------
+
 boolLit :: MonadParser m
         => m Bool
 boolLit = unTokBool <$> satisfy bool
@@ -357,19 +356,19 @@ identifierAndLoc = do
   name <- identifier
   to <- getPosition
   pure (name, Location(from,to))
-
 --------------------------------------------------------------------------------
+
 parens :: MonadParser m
        => m a -> m a
 parens = between
-  (match TokLeftPar )
-  (match TokRightPar)
+  (match  TokLeftPar )
+  (match' TokRightPar)
 
 brackets :: MonadParser m
          => m a -> m a
 brackets = between
-  (match TokLeftBracket )
-  (match TokRightBracket)
+  (match  TokLeftBracket )
+  (match' TokRightBracket)
 
 -- block :: MonadParser m
 --       => m a -> m a
@@ -380,16 +379,16 @@ brackets = between
 percents :: MonadParser m
          => m a -> m a
 percents = between
-  (match TokLeftPercent )
-  (match TokRightPercent)
+  (match  TokLeftPercent )
+  (match' TokRightPercent)
 
 beginEnd :: MonadParser m
          => m a -> m a
 beginEnd = between
-  (match TokBegin)
-  (match TokEnd  )
-
+  (match  TokBegin)
+  (match' TokEnd  )
 --------------------------------------------------------------------------------
+
 -- | One or more.
 some :: Alternative m => m a -> m (Seq a)
 some v = some_v
@@ -460,8 +459,3 @@ sepEndBy1 p sep = (<|) <$> p <*> ((sep *> sepEndBy p sep) <|> pure Seq.empty)
 --     Just (t, loc) -> return $ Just t
 --     Nothing       -> return Nothing
 --
---------------------------------------------------------------------------------
-unsafeGenCustomError :: String -> Parser ()
-unsafeGenCustomError msg = do
-    pos <- getPosition
-    synErrorList %= (|> CustomError msg (Location (pos,pos)))

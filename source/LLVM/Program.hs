@@ -3,22 +3,20 @@
 module LLVM.Program where
 
 --------------------------------------------------------------------------------
-import           Aborts
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
-
-import           LLVM.Type                               (intType)
--- import           Limits
+import           LLVM.Aborts
+import           LLVM.Definition                         (definition,
+                                                          mainDefinition,
+                                                          preDefinitions)
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
                                                           preDefinitions)
 import           LLVM.Struct                             (defineStruct)
+import           LLVM.Monad
 import           LLVM.State
--- import           LLVM.Expression
--- import           LLVM.Instruction
--- import           LLVM.Quantification
--- import           SymbolTable
+import           LLVM.Type                               (intType)
 import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))

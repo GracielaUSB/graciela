@@ -40,12 +40,12 @@ instance Treelike Declaration where
   toTree Declaration { declLoc, declType, declIds } =
     Node ("Declaration" <> show declLoc) $
       leaf ("Type " <> show declType) :
-      (map (leaf . unpack) . toList $ declIds)
+      (fmap (leaf . unpack) . toList $ declIds)
 
   toTree Initialization { declLoc, declType, declPairs } =
      Node ("Declaration with Initialization" <> show declLoc) $
       leaf ("Type " <> show declType) :
-      (map pair . toList $ declPairs)
+      (fmap pair . toList $ declPairs)
 
     where
       pair (identifier, expr) =

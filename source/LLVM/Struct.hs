@@ -7,6 +7,7 @@ import           AST.Struct
 import           AST.Declaration
 import           LLVM.Definition
 import           LLVM.Type
+import           LLVM.Monad
 import           LLVM.State
 import qualified Type                         as T
 --------------------------------------------------------------------------------
