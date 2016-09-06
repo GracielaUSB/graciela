@@ -52,17 +52,13 @@ import qualified Data.Sequence   as Seq
 import           Data.Text       (Text, unpack)
 import           Prelude         hiding (lookup)
 --------------------------------------------------------------------------------
--- Symbol Table Entry ------------------
-type Entry = Entry' SymbolTable
-
 type Entries = Map Text Entry
 
 -- Symbol Table Scope ------------------
 data Scope = Scope
   { sLoc      :: Location
   , sEntries  :: Entries
-  , sChildren :: Scopes
-  }
+  , sChildren :: Scopes }
 
 type Scopes = Seq Scope
 

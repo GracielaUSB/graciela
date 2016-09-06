@@ -6,7 +6,7 @@ module LLVM.Declaration
 --------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression
-import           LLVM.Aborts
+import           LLVM.Abort
 import           LLVM.Expression
 import           LLVM.Monad
 import           LLVM.State
@@ -25,7 +25,7 @@ import           Data.Word
 import           Debug.Trace
 import qualified LLVM.General.AST.Constant    as C (Constant (..))
 import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
-import           LLVM.General.AST.Instruction (Instruction (..), Named ((:=)))
+import           LLVM.General.AST.Instruction (Instruction (..), Named (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 --------------------------------------------------------------------------------
@@ -57,18 +57,14 @@ alloc gtype lval = do
 store :: Type -> (Text, Expression) -> LLVM ()
 store gtype (lval, expr) = do
   value <- expression expr
-  let
-    store = Store
-      { volatile = False
-      , address  = LocalReference (toLLVMType gtype) (Name (unpack lval))
-      , value    = value
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = []
-      }
-  -- The store is an unamed instruction, so get the next instruction label
-  label <- newLabel
-  addInstruction (label := store)
+  addInstruction $ Do Store
+    { volatile = False
+    , address  = LocalReference (toLLVMType gtype) (Name (unpack lval))
+    , value    = value
+    , maybeAtomicity = Nothing
+    , alignment = 4
+    , metadata  = []
+    }
 
 defaultValue :: Type -> Text -> LLVM ()
 defaultValue gtype lval
@@ -82,8 +78,7 @@ defaultValue gtype lval
       , alignment = 4
       , metadata  = []
       }
-  label <- newLabel
-  addInstruction (label := store)
+  addInstruction (Do store)
   where
     value GBool          = ConstantOperand $ C.Int 1 0
     value GChar          = ConstantOperand $ C.Int 8 0

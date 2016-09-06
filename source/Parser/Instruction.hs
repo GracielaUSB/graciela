@@ -60,22 +60,22 @@ import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
-import           Debug.Trace
 
 instruction :: Parser (Maybe Instruction)
-instruction = try procedureCall
-          <|> try assign
-          <|> assertionInst
-          <|> abort
-          <|> conditional
-          <|> free
-          <|> new
-          <|> random
-          <|> reading
-          <|> repetition
-          <|> skip
-          <|> write -- includes write and writeln
-          <|> block
+instruction
+   =  try procedureCall
+  <|> try assign
+  <|> assertionInst
+  <|> abort
+  <|> conditional
+  <|> free
+  <|> new
+  <|> random
+  <|> reading
+  <|> repetition
+  <|> skip
+  <|> write -- includes write and writeln
+  <|> block
 
 
 assertionInst :: Parser (Maybe Instruction)

@@ -16,7 +16,7 @@ import           Type                       as T (Type (..))
 --------------------------------------------------------------------------------
 import           Data.Word                  (Word32, Word64)
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
-import           LLVM.General.AST.Type      (double, i1, i16, i32, i8)
+import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
 --------------------------------------------------------------------------------
 
@@ -47,12 +47,13 @@ toLLVMType  T.GInt          = intType
 toLLVMType  T.GFloat        = floatType
 toLLVMType  T.GBool         = boolType
 toLLVMType  T.GChar         = charType
+toLLVMType GString          = ptr i8
 toLLVMType (T.GPointer  t)  = LLVM.PointerType (toLLVMType t) (LLVM.AddrSpace 0)
 toLLVMType (T.GArray sz t)  = LLVM.ArrayType (fromIntegral sz)  (toLLVMType t)
 
-
 toLLVMType (GDataType _ ts) = LLVM.StructureType False (fmap toLLVMType ts)
 toLLVMType GAny             = error "GAny is not a valid type"
+
 toLLVMType _                = error "Unsupported type"
 
 

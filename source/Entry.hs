@@ -2,8 +2,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Entry
-  ( Entry' (..)
-  , Entry'' (..)
+  ( Entry (..)
+  , Entry' (..)
   -- , Value (..)
   , info
   , varType
@@ -30,7 +30,7 @@ import           Data.Text      (Text, unpack)
 --   show (B b) = show b
 --   show None  = "None"
 
-data Entry'' s
+data Entry'
   = Var
     { _varType  :: Type
     , _varValue :: Maybe Expression }
@@ -40,28 +40,21 @@ data Entry'' s
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
-  -- | Function
-  --   { _funcType   :: Type
-  --   , _funcParams :: Seq (Text, Type) }
-  -- | Procedure
-  --   { _procParams :: Seq (Text, Type, ArgMode) }
-  -- | AbstractTypeEntry
-  -- | TypeEntry
   deriving (Eq)
-
-makeLenses ''Entry''
-
-
-data Entry' s
-  = Entry
-    { _entryName :: Text
-    , _loc       :: Location
-    , _info      :: Entry'' s }
 
 makeLenses ''Entry'
 
 
-instance Treelike (Entry' s) where
+data Entry
+  = Entry
+    { _entryName :: Text
+    , _loc       :: Location
+    , _info      :: Entry' }
+
+makeLenses ''Entry
+
+
+instance Treelike Entry where
   toTree Entry { _entryName, _loc, _info } = case _info of
 
     Var { _varType, _varValue } ->

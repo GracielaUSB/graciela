@@ -12,7 +12,7 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           Entry                     (Entry' (..), Entry'' (..), info)
+import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
 import           Location

@@ -4,8 +4,8 @@
 module LLVM.State
   ( State (..)
   , initialState
-  , insCount
-  , condName
+  , nameSupply
+  -- , condName
   , blockName
   , currentBlock
   , blocks
@@ -17,7 +17,7 @@ module LLVM.State
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Map.Strict              (Map)
-import qualified Data.Map.Strict              as Map
+import qualified Data.Map.Strict              as Map (empty)
 import           Data.Sequence                (Seq)
 import qualified Data.Sequence                as Seq
 import           LLVM.General.AST             (BasicBlock (..))
@@ -30,8 +30,10 @@ import           LLVM.General.AST.Operand     (Operand (..))
 
 data State
   = State
-    { _insCount     :: Word                         -- Cantidad de instrucciones sin nombre
-    , _condName     :: Name
+    {
+      -- _insCount     :: Word                         -- Cantidad de instrucciones sin nombre
+      _nameSupply   :: Map String Word
+    -- , _condName     :: Name
     , _blockName    :: Maybe Name                   -- Cantidad de bloques básicos en el programa
     , _currentBlock :: Seq (Named LLVM.Instruction) -- Lista de instrucciones en el bloque básico actual
     , _blocks       :: Seq BasicBlock               -- Lista de bloques básicos en la definición actual
@@ -45,9 +47,9 @@ makeLenses ''State
 
 initialState :: State
 initialState = State
-  { _insCount     = 1
-  , _condName     = UnName 0
-  , _blockName    = Just $ UnName 0
+  { _nameSupply   = Map.empty
+  -- , _condName     = UnName 0
+  , _blockName    = Nothing
   , _currentBlock = Seq.empty
   , _blocks       = Seq.empty
   , _moduleDefs   = Seq.empty

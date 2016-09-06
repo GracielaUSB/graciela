@@ -6,7 +6,7 @@ module LLVM.Program where
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
-import           LLVM.Aborts
+import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
                                                           preDefinitions)

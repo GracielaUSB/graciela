@@ -14,7 +14,8 @@ import qualified AST.Expression                          as Op (BinaryOperator (
                                                                 UnaryOperator (..))
 import           AST.Object                              as O (Object' (..),
                                                                Object'' (..))
-import           LLVM.Aborts
+import           LLVM.Abort                              (abort)
+import qualified LLVM.Abort                              as Abort (Abort (If, NullPointerAccess))
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
@@ -67,7 +68,7 @@ object obj@Object { objType, obj' } = case obj' of
 
   -- If not marked as In, just load the content of the variable
   _ -> do
-      label <- newLabel
+      label <- newLabel "var"
       -- Make a reference to the variable that will be loaded (e.g. %a)
       addrToLoad <- objectRef obj
 
@@ -90,8 +91,6 @@ object obj@Object { objType, obj' } = case obj' of
     --   index <- expression index
 
 
-
-
 -- Get the reference to the object.
 objectRef :: Object -> LLVM Operand
 objectRef obj@(Object loc objType obj') = case obj' of
@@ -101,7 +100,7 @@ objectRef obj@(Object loc objType obj') = case obj' of
 
   Index inner index -> do
     ref <- objectRef inner
-    label <- newLabel
+    label <- newLabel "idx"
     index <- expression index
     let
       getelemPtr = GetElementPtr
@@ -115,12 +114,12 @@ objectRef obj@(Object loc objType obj') = case obj' of
 
   Deref inner -> do
     ref        <- objectRef inner
-    labelLoad  <- newLabel
-    labelCast  <- newLabel
-    labelNull  <- newLabel
-    labelCond  <- newLabel
-    trueLabel  <- newLabel
-    falseLabel <- newLabel
+    labelLoad  <- newLabel "derefLoad"
+    labelCast  <- newLabel "derefCast"
+    labelNull  <- newLabel "derefNull"
+    labelCond  <- newLabel "derefCond"
+    trueLabel  <- newLabel "derefNullTrue"
+    falseLabel <- newLabel "derefNullFalse"
     let
       Location (pos,_) = loc
       type' = toLLVMType objType
@@ -162,10 +161,11 @@ objectRef obj@(Object loc objType obj') = case obj' of
     terminate' condBr
 
     (trueLabel #)
-    createTagNullPtr falseLabel pos
+    abort Abort.NullPointerAccess pos
+
+    (falseLabel #)
 
     return . LocalReference type' $ labelLoad
-
 
 
   _ -> error "Aun no hay soporte para estructuras"
@@ -206,7 +206,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
     -- Create an array type
       t = ArrayType n i8
 
-    name <- newLabel
+    name <- newLabel "strGlobalDef"
     -- Create a global definition for the string
     let
       def = GlobalDefinition $ Global.globalVariableDefaults
@@ -218,14 +218,14 @@ expression e@Expression { expType, exp', loc } = case exp' of
         }
     -- and add it to the module's definitions
     moduleDefs %= (Seq.|> def)
-    return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i16 name) [C.Int 64 0, C.Int 64 0]
+    return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i8 name) [C.Int 64 0, C.Int 64 0]
 
   Obj obj -> object obj
 
   Unary unOp inner -> do
     innerOperand <- expression inner
 
-    label <- newLabel
+    label <- newLabel "unaryResult"
     let inst = case expType of
           T.GInt   -> opInt   unOp innerOperand
           T.GBool  -> opBool  unOp innerOperand
@@ -281,7 +281,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
       callUnaryFunction :: String -> Operand -> Instruction
       callUnaryFunction fun innerOperand =
         let
-          funRef = Right . ConstantOperand . C.GlobalReference i32 $ Name fun
+          funRef = callable i32 fun
         in Call { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
@@ -315,7 +315,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
       callFunction fun lOperand rOperand =
         let
           type' = StructureType False [i32, i1]
-          funRef = Right . ConstantOperand . C.GlobalReference i32 $ Name fun
+          funRef = callable i32 fun
         in Call { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
@@ -326,7 +326,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
                 }
 
       opInt op lOperand rOperand = do
-        label <- newLabel
+        label <- newLabel "intBinaryResult"
         addInstructions $ case op of
           Op.Plus   -> Seq.singleton $ label := Add
                             { nsw      = False
@@ -369,7 +369,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
         return $ LocalReference intType label
 
       opFloat op lOperand rOperand = do
-        label <- newLabel
+        label <- newLabel "floatBinaryResult"
         addInstructions $ case op of
           Op.Plus   -> Seq.singleton $ label := FAdd
                             { fastMathFlags = NoFastMathFlags
@@ -407,7 +407,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
         return $ LocalReference floatType label
 
       opBool op lOperand rOperand = do
-        label <- newLabel
+        label <- newLabel "boolBinaryResult"
         let Expression _ lType _ = lexpr
         case op of
           Op.And     -> do
@@ -438,8 +438,8 @@ expression e@Expression { expType, exp', loc } = case exp' of
             addInstructions $ Seq.fromList [label := inst]
 
           Op.AEQ | lType =:= GPointer GAny -> do
-            labelCast1 <- newLabel
-            labelCast2 <- newLabel
+            labelCast1 <- newLabel "pointerEq0"
+            labelCast2 <- newLabel "pointerEq1"
             let
             {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
@@ -481,8 +481,8 @@ expression e@Expression { expType, exp', loc } = case exp' of
             addInstructions $ Seq.fromList [label := inst]
 
           Op.ANE | lType =:= GPointer GAny -> do
-            labelCast1 <- newLabel
-            labelCast2 <- newLabel
+            labelCast1 <- newLabel "pointerNe0"
+            labelCast2 <- newLabel "pointerNe1"
             let
               {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
@@ -578,7 +578,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
 
           Op.Implies    -> do
             -- p ==> q ≡ (p ⋁ q ≡ q)
-            label' <- newLabel
+            label' <- newLabel "impliesResult"
             -- Operate p ⋁ q and save the result at label'
             let orInst = Or { operand0      = lOperand
                             , operand1      = rOperand
@@ -597,7 +597,7 @@ expression e@Expression { expType, exp', loc } = case exp' of
 
           Op.Consequent -> do
             -- p <== q ≡ (p ⋁ q ≡ p)
-            label' <- newLabel
+            label' <- newLabel "conseqResult"
             -- Operate p ⋁ q and save the result at label'
             let orInst = Or { operand0      = lOperand
                             , operand1      = rOperand
@@ -615,8 +615,8 @@ expression e@Expression { expType, exp', loc } = case exp' of
         return $ LocalReference boolType label
 
   EConditional { eguards, trueBranch } -> do
-    entry  <- newLabel
-    finish <- newLabel
+    entry  <- newLabel "ifExpEntry"
+    finish <- newLabel "ifExpFinish"
 
     terminate' Br
       { dest      = entry
@@ -625,61 +625,49 @@ expression e@Expression { expType, exp', loc } = case exp' of
     (defaultLabel, phiPairs) <- foldM (guard finish) (entry, []) eguards
 
     (defaultLabel #)
-    result <- newLabel
-    case trueBranch of
+    result <- newLabel "ifResult"
+    extraPair <- case trueBranch of
       Nothing -> do
-        let
-          ifAbort = ConstantOperand $ C.Int 32 1
-          Location (from, _to) = loc
-          line = ConstantOperand . C.Int 32 . fromIntegral . unPos . sourceLine $ from
-          col  = ConstantOperand . C.Int 32 . fromIntegral . unPos . sourceColumn $ from
-          arguments = [(ifAbort, []), (line, []), (col, [])]
-          abortOp = Right . ConstantOperand . C.GlobalReference intType $ Name abortString
-        addInstruction $ Do Call
-          { tailCallKind        = Nothing            -- :: Maybe TailCallKind
-          , callingConvention   = CC.C               -- :: CallingConvention
-          , returnAttributes    = []                 -- :: [ParameterAttribute]
-          , function            = abortOp            -- :: CallableOperand
-          , arguments           = [(ifAbort,[]), (line,[]), (col,[])] -- :: [(Operand, [ParameterAttribute])]
-          , functionAttributes  = []                 -- :: [Either GroupID FunctionAttribute]
-          , metadata            = [] }               -- :: InstructionMetadata }
-        terminate' $ Unreachable []
-
-        (finish #)
-        addInstruction $ result := Phi
-          { type'          = toLLVMType expType
-          , incomingValues = phiPairs
-          , metadata       = [] }
-
-        pure $ LocalReference (toLLVMType expType) result
+        let Location (from, _to) = loc
+        abort Abort.If from
+        pure []
 
       Just  e -> do
         val <- expression e
         terminate' Br
           { dest      = finish
           , metadata' = [] }
+        pure [(val, defaultLabel)]
 
-        (finish #)
-        addInstruction $ result := Phi
-          { type'          = toLLVMType expType
-          , incomingValues = (val, defaultLabel) : phiPairs
-          , metadata       = [] }
+    (finish #)
+    addInstruction $ result := Phi
+      { type'          = toLLVMType expType
+      , incomingValues = extraPair <> phiPairs
+      , metadata       = [] }
 
-        pure $ LocalReference (toLLVMType expType) result
+    pure $ LocalReference (toLLVMType expType) result
 
     where
-      guard finish (label, pairs) (left, right) = do
-        yes <- newLabel
-        no  <- newLabel
+      guard finish (checkLabel, pairs) (left, right) = do
+        -- Each guard starts with a label for the left side (checkLabel).
+        -- A conditional break is generated depending on the value of the
+        -- condition. The trueDest is the finish label, where all guards
+        -- lead to and the final value is assigned. The falseDest is the
+        -- next guard, or, in the case of the last guard, the abort or default
+        -- value. The foldM takes care of chaining the falseDests, as well
+        -- as accumulating the (value, originLabel) pairs for the Phi node.
 
-        (label #)
+        (checkLabel #)
+
+        yes <- newLabel "ifExpGuardYes"
+        no  <- newLabel "ifExpGuardNo"
+
         condition <- expression left
         terminate' CondBr
           { condition
           , trueDest  = yes
           , falseDest = no
-          , metadata' = []
-          }
+          , metadata' = [] }
 
         (yes #)
         val <- expression right
@@ -694,10 +682,9 @@ expression e@Expression { expType, exp', loc } = case exp' of
 
     let
       callType = toLLVMType expType
-      function = Right . ConstantOperand . C.GlobalReference callType . Name
-               . unpack $ fname
+      function = callable callType $ unpack fname
 
-    label <- newLabel
+    label <- newLabel "funcResult"
     addInstruction $ label := Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C

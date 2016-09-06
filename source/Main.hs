@@ -3,12 +3,11 @@
 module Main where
 --------------------------------------------------------------------------------
 import           AST.Program
+import           Error
 import           Lexer
 import           LLVM.Program
 import           Parser.Monad
 import           Parser.Program
--- import           Parser.Rhecovery            (prettyError)
-import           Error
 import           Parser.State
 import           SymbolTable
 import           Token
@@ -27,7 +26,6 @@ import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import qualified Data.Sequence              as Seq (null)
 import           Data.Set                   (empty)
-import           Data.String.Utils          (replace)
 import           Data.Text                  (Text, unpack)
 import           Data.Text.IO               (readFile)
 
@@ -244,7 +242,7 @@ compileLL llName execName oplvl assembly = void $ do
   (exitCode, _out, _errs) <- readProcessWithExitCode clang
     [assembly, oplvl, "-o", execName, llName, lib] ""
   putStr _out
-  -- putStr _errs
+  putStr _errs
 
   void $ readProcess "rm" [llName] ""
 

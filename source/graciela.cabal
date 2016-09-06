@@ -67,7 +67,7 @@ executable graciela
         , llvm-general      >= 3.5  && < 3.6
         , llvm-general-pure >= 3.5  && < 3.6
         , lens              >= 4.14 && < 4.15
-        , MissingH          >= 1.4  && < 1.5
+        -- , MissingH          >= 1.4  && < 1.5
         , mtl               >= 2.2  && < 2.3
         , megaparsec        >= 5.0  && < 5.1
         , text              >= 1.2  && < 1.3
