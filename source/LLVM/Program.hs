@@ -6,16 +6,16 @@ module LLVM.Program where
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
-import           LLVM.Aborts
+import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
                                                           preDefinitions)
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
                                                           preDefinitions)
-import           LLVM.Struct                             (defineStruct)
 import           LLVM.Monad
 import           LLVM.State
+import           LLVM.Struct                             (defineStruct)
 import           LLVM.Type                               (intType)
 import           Type                                    as T
 --------------------------------------------------------------------------------
@@ -76,9 +76,9 @@ programToLLVM files types (Program name _ defs insts _ fullStructs) = do
     -- and the main program, that will be a function called main... of course.
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
 
-    program = do 
+    program = do
       preDefinitions files
-      
+
       -- mapM_ defineType $ Map.toAscList types
       mapM_ defineStruct fullStructs
       mapM_ definition defs
@@ -91,8 +91,8 @@ programToLLVM files types (Program name _ defs insts _ fullStructs) = do
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
     whichTarget version = case os of
       "darwin"  -> arch <> "-apple-macosx" <> version -- With Mac, version needs to end with "0",
-                                                      -- example: 11.10.3 -> 11.10.0
-      "linux"   -> arch <> "-unknown-linux-gnu"
+                                                           -- example: 11.10.3 -> 11.10.0
+      "linux"   -> arch <> "-pc-linux-gnu"
       "windows" -> undefined
     -- As mentioned above, Macs need a version ended with .0
     crop str = if last str == '.'

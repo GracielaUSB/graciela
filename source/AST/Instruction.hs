@@ -28,6 +28,7 @@ type Guard = (Expression, Seq Declaration, Seq Instruction)
 
 data Instruction'
   = Abort -- ^ Instruccion Abort.
+  | Warn -- ^ Instruccion Warn.
   | Assertion
     { expr :: Expression
     }
@@ -95,6 +96,8 @@ instance Treelike Instruction where
   toTree Instruction { instLoc, {-astType,-} inst' } = case inst' of
     Abort ->
       leaf $ "Abort " <> show instLoc
+    Warn ->
+      leaf $ "Warn " <> show instLoc
 
     Assertion { expr } ->
       Node "Assertion" [toTree expr]
@@ -152,8 +155,9 @@ instance Treelike Instruction where
     Skip -> leaf $ "Skip " <> show instLoc
 
     Write { ln, wexprs } ->
-      Node ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc) $
-        toForest wexprs
+      Node
+        ("Write" <> (if ln then "Ln" else "") <> " " <> show instLoc)
+        (fmap writeExp . toList $ wexprs)
 
     where
       guardToTree (expr, decls, inst) = Node "Guard"
@@ -165,3 +169,6 @@ instance Treelike Instruction where
         [ toTree ident
         , toTree expr
         ]
+      writeExp e = Node "wexp"
+        [ Node "type" [leaf . show . E.expType $ e]
+        , Node "tree" [toTree e]]

@@ -22,6 +22,7 @@ module SymbolTable
   , defocus
   , depth
   , empty
+  , emptyGlobal
   , focus
   , goDownFirst
   , goDownLast
@@ -52,17 +53,13 @@ import qualified Data.Sequence   as Seq
 import           Data.Text       (Text, unpack)
 import           Prelude         hiding (lookup)
 --------------------------------------------------------------------------------
--- Symbol Table Entry ------------------
-type Entry = Entry' SymbolTable
-
 type Entries = Map Text Entry
 
 -- Symbol Table Scope ------------------
 data Scope = Scope
   { sLoc      :: Location
   , sEntries  :: Entries
-  , sChildren :: Scopes
-  }
+  , sChildren :: Scopes }
 
 type Scopes = Seq Scope
 
@@ -107,6 +104,15 @@ empty' pos
     }
 
 
+emptyGlobal' :: Scope
+emptyGlobal'
+  = Scope
+    { sLoc      = GracielaDef
+    , sEntries  = Map.empty
+    , sChildren = Seq.empty
+    }
+
+
 -- Symbol Table ------------------------
 data Breadcrumb
   = Breadcrumb
@@ -123,11 +129,13 @@ type SymbolTable = (Scope, [Breadcrumb])
 empty :: SourcePos -> SymbolTable
 empty = focus . empty'
 
+emptyGlobal :: SymbolTable
+emptyGlobal = focus emptyGlobal'
 
 ---- Moving around -----------
 goDownFirst :: SymbolTable -> Either Text SymbolTable
 goDownFirst (Scope { sLoc, sEntries, sChildren }, bs)
-  | Seq.null sChildren = Left "No embedded scopes."
+  | null sChildren = Left "No embedded scopes."
   | otherwise =
     Right (x, Breadcrumb (sLoc, sEntries) Seq.empty xs : bs)
   where
@@ -136,7 +144,7 @@ goDownFirst (Scope { sLoc, sEntries, sChildren }, bs)
 
 goDownLast :: SymbolTable -> Either Text SymbolTable
 goDownLast (Scope { sLoc, sEntries, sChildren }, bs)
-  | Seq.null sChildren = Left "No embedded scopes."
+  | null sChildren = Left "No embedded scopes."
   | otherwise =
     Right (x, Breadcrumb (sLoc, sEntries) xs Seq.empty : bs)
   where
@@ -147,7 +155,7 @@ goNext :: SymbolTable -> Either Text SymbolTable
 goNext (_, []) =
     Left "Root scope has no siblings."
 goNext (s, Breadcrumb { bScope, bLeft, bRight } : bs)
-  | Seq.null bRight = Left "Already at last scope."
+  | null bRight = Left "Already at last scope."
   | otherwise = Right (r, Breadcrumb bScope (bLeft |> s) bRight' : bs)
   where
     r :< bRight' = Seq.viewl bRight
@@ -157,7 +165,7 @@ goPrevious :: SymbolTable -> Either Text SymbolTable
 goPrevious (_, []) =
   Left "Root scope has no siblings."
 goPrevious (s, Breadcrumb { bScope, bLeft, bRight } : bs)
-  | Seq.null bRight = Left "Already at first scope."
+  | null bRight = Left "Already at first scope."
   | otherwise = Right (l, Breadcrumb bScope bLeft' (s <| bRight) : bs)
     where
       bLeft' :> l = Seq.viewr bLeft

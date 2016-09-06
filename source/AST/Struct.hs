@@ -2,37 +2,35 @@
 
 module AST.Struct where
 --------------------------------------------------------------------------------
-import           AST.Declaration  (Declaration)
+import           AST.Declaration (Declaration)
 import           AST.Definition  (Definition)
 import qualified AST.Definition  as D
 import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           Type        (Type)
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
+import           Type            (Type)
 
 --------------------------------------------------------------------------------
-import           Data.List       (intercalate)
 import           Data.Foldable   (toList)
+import           Data.List       (intercalate)
 import           Data.Map        (Map)
-import           Data.Sequence   (Seq)
 import           Data.Monoid     ((<>))
+import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Struct'
   = AbstractDataType
-    { inv    ::  Expression
-    }
+    { inv ::  Expression }
   | DataType
     { abstract      ::  Text
     , abstractTypes ::  Map Type Type
     , repinv        ::  Expression
-    , coupinv       ::  Expression
-    }
+    , coupinv       ::  Expression }
 
 data Struct
   = Struct
@@ -42,8 +40,7 @@ data Struct
     , structProcs :: Seq Definition
     , structLoc   :: Location
     , structSt    :: SymbolTable
-    , struct'     :: Struct'
-    }
+    , struct'     :: Struct' }
 
 instance Treelike Struct where
   toTree Struct { structLoc, structDecls, structProcs, structTypes, structName, struct' }

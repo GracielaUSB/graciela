@@ -12,17 +12,17 @@ module LLVM.Type
 where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
-import           AST.Struct                 (Struct(..))
+import           AST.Struct                 (Struct (..))
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct)
 import           Type                       as T (Type (..), llvmName)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
-import           Data.Word                  (Word32, Word64)
 import           Data.Text                  (unpack)
-import           LLVM.General.AST.Name                   (Name(..))
+import           Data.Word                  (Word32, Word64)
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
-import           LLVM.General.AST.Type      (double, i1, i16, i32, i8)
+import           LLVM.General.AST.Name      (Name (..))
+import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
 --------------------------------------------------------------------------------
 
@@ -49,21 +49,22 @@ stringType = LLVM.PointerType i8 (LLVM.AddrSpace 0)
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
-toLLVMType  T.GInt         = pure $ intType
-toLLVMType  T.GFloat       = pure $ floatType
-toLLVMType  T.GBool        = pure $ boolType
-toLLVMType  T.GChar        = pure $ charType
+toLLVMType  T.GInt         = pure intType
+toLLVMType  T.GFloat       = pure floatType
+toLLVMType  T.GBool        = pure boolType
+toLLVMType  T.GChar        = pure charType
+toLLVMType  GString        = pure $ ptr i8
 toLLVMType (T.GPointer  t) = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
 
-toLLVMType (T.GArray sz t) = do 
+toLLVMType (T.GArray sz t) = do
   inner <- toLLVMType t
   pure $ LLVM.ArrayType (fromIntegral sz)  inner
 
 
-toLLVMType (GFullDataType n t) = 
-  pure $ LLVM.NamedTypeReference $ Name (unpack $ llvmName n t)
+toLLVMType (GFullDataType n t) =
+  pure . LLVM.NamedTypeReference . Name . unpack $ llvmName n t
 
 toLLVMType (GDataType name _) = do
   maybeStruct <- use currentStruct
@@ -71,13 +72,12 @@ toLLVMType (GDataType name _) = do
     Nothing -> error "Esto no deberia ocurrir :D"
     Just struct -> do
       let types = structTypes struct
-      pure $ LLVM.NamedTypeReference $ Name (unpack $ llvmName name types)
+      pure . LLVM.NamedTypeReference . Name . unpack $ llvmName name types
 
 toLLVMType GAny            = error "GAny is not a valid type"
 
 -- Unsupported Types
-toLLVMType t               = pure $ LLVM.ArrayType (fromIntegral 123)   i32
-
+toLLVMType t               = pure $ LLVM.ArrayType 123 i32
 
 sizeOf :: T.Type -> Integer
 sizeOf T.GInt          = 4

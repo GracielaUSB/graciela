@@ -150,6 +150,7 @@ data Token
   | TokSepGuards
 
   | TokAbort
+  | TokWarn
   | TokSkip
 
   | TokRandom
@@ -314,6 +315,7 @@ instance Show Token where
     TokSepGuards      -> "`[]` - Separador de Guardias"
 
     TokAbort          -> "`abort` - Abortador de Programa"
+    TokWarn           -> "`warn` - Emisión de advertencias"
     TokSkip           -> "`skip` - Instrucción de Salto"
 
     TokRandom         -> "`random` - Random"

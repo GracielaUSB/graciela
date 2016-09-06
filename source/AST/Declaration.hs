@@ -21,7 +21,6 @@ data Declaration
     { declLoc  :: Location
     , declType :: Type
     , declIds  :: Seq Text
-    -- , declExprs :: [Expression]
     }
   | Initialization
     { declLoc   :: Location

@@ -307,6 +307,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "od"         TokOd
 
       <|> reserved "abort"      TokAbort
+      <|> reserved "warn"       TokWarn
       <|> reserved "skip"       TokSkip
 
       <|> reserved "random"     TokRandom

@@ -46,10 +46,10 @@ abstractDataType = do
     from <- getPosition
     match TokAbstract
     abstractName' <- safeIdentifier
-    atypes <- do 
+    atypes <- do
         t <- optional . parens $ (typeVarDeclaration `sepBy` match TokComma)
         case t of
-          Just s -> pure $ toList s 
+          Just s -> pure $ toList s
           _ -> pure []
 
 
@@ -59,24 +59,24 @@ abstractDataType = do
     currentStruct .= Just (abstractName, Nothing, atypes)
 
     match' TokBegin
-    
+
     symbolTable %= openScope from
     decls' <- sequence <$> abstractDeclaration `endBy` match TokSemicolon
     inv'   <- invariant
     procs' <- sequence <$> many procedureDeclaration
-    
+
 
     match' TokEnd
-    
+
     to    <- getPosition
     symbolTable %= closeScope to
-    let loc = Location (from,to)   
+    let loc = Location (from,to)
 
     st <- use symbolTable
 
     case (decls', inv', procs') of
       (Just decls, Just inv, Just procs) -> do
-        
+
         let struct = Struct
                 { structName  = abstractName
                 , structDecls = Seq.fromList . zip [0..] . toList $ decls
@@ -84,7 +84,7 @@ abstractDataType = do
                 , structLoc   = loc
                 , structSt    = st
                 , structTypes = atypes
-                , struct'     = AbstractDataType inv 
+                , struct'     = AbstractDataType inv
                 }
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
@@ -98,25 +98,25 @@ dataType = do
     from <- getPosition
     match TokType
     name' <- safeIdentifier
-    types <- do 
+    types <- do
         t <- optional . parens $ typeVarDeclaration `sepBy` match TokComma
         case t of
-          Just s -> pure $ toList s 
+          Just s -> pure $ toList s
           _ -> pure []
     match' TokImplements
     abstractName' <- safeIdentifier
-    absTypes <- do 
+    absTypes <- do
         t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
         case t of
-          Just s -> pure $ toList s 
+          Just s -> pure $ toList s
           _ -> pure []
 
     when (name' == Nothing) $ fail ""
     let Just name = name';
-    currentStruct .= Just (name, abstractName', types)   
+    currentStruct .= Just (name, abstractName', types)
 
     match' TokBegin
-    
+
     symbolTable %= openScope from
     symbolTable %= openScope from
     decls'   <- sequence <$> (polymorphicDeclaration `endBy` match TokSemicolon)
@@ -127,7 +127,7 @@ dataType = do
 
     procsPos <- getPosition
     symbolTable %= openScope procsPos
-    
+
 
     procs'   <- sequence <$> many procedure
 
@@ -138,20 +138,20 @@ dataType = do
     symbolTable %= closeScope to
     symbolTable %= closeScope to
 
-    case abstractName' of 
-      Just abstractName -> do 
+    case abstractName' of
+      Just abstractName -> do
         abstractAST <- getStruct abstractName
-        case abstractAST  of 
+        case abstractAST  of
           Nothing -> putError from $ UnknownError $
-                        "Abstract Type `" <> show abstractName <> 
+                        "Abstract Type `" <> show abstractName <>
                         "` does not exists."
 
-          Just Struct {structTypes,structDecls,structProcs, struct'} -> do 
+          Just Struct {structTypes,structDecls,structProcs, struct'} -> do
 
-            case (procs', decls', repinv', coupinv') of 
-            
+            case (procs', decls', repinv', coupinv') of
+
               (Just procs, Just decls, Just repinv, Just coupinv) -> do
-            
+
                 let
                   lenNeeded = length structTypes
                   lenActual = length absTypes
@@ -160,66 +160,66 @@ dataType = do
                   abstractTypes = Map.fromList $ zip absTypes structTypes
 
                 when (lenNeeded /= lenActual) $ do
-                  putError from $ UnknownError $ 
-                    "Type `" <> unpack name <> "` is implementing `" <> 
-                    unpack abstractName <> "` with only " <> show lenActual <> 
-                    " types (" <> intercalate "," (fmap show absTypes) <> 
+                  putError from $ UnknownError $
+                    "Type `" <> unpack name <> "` is implementing `" <>
+                    unpack abstractName <> "` with only " <> show lenActual <>
+                    " types (" <> intercalate "," (fmap show absTypes) <>
                     ")\n\tbut expected " <> show lenNeeded <> " types (" <>
                     intercalate "," (fmap show structTypes) <> ")"
 
                 mapM_ (checkProc procs abstractName) structProcs
 
-                let 
+                let
                   struct = Struct
                         { structName  = name
                         , structDecls = Seq.fromList . zip [0..] . toList $
                                             fmap snd structDecls <> decls
                         , structSt    = st
-                        , structProcs = procs                
+                        , structProcs = procs
                         , structLoc   = loc
                         , structTypes = types
                         , struct'     = DataType
                          { abstract = abstractName
                          , abstractTypes
-                         , repinv   
+                         , repinv
                          , coupinv }}
                 dataTypes %= Map.insert name struct
                 typesVars .= []
                 currentStruct .= Nothing
               _ -> pure ()
       _ -> pure ()
- 
+
   where
     checkProc procs abstractName proc= do
-      let 
+      let
         name = defName proc
-        Location(pos,_) = defLoc proc 
+        Location(pos,_) = defLoc proc
       ok <- or <$> mapM (\x -> proc =-= x) procs
       if ok
         then return ()
         else putError pos $ UnknownError $
-              "The procedure named `" <> unpack name <> "` " <> 
-              showPos pos <> "` in the Type `" <> 
+              "The procedure named `" <> unpack name <> "` " <>
+              showPos pos <> "` in the Type `" <>
               unpack abstractName <>
-              "`\n\tneeds to be implemented inside Type `" <> 
-              unpack name <> "`" 
+              "`\n\tneeds to be implemented inside Type `" <>
+              unpack name <> "`"
 
     (=-=) :: Definition -> Definition -> Parser Bool
     def1 =-= def2
-      | defName def1 /= defName def2 = pure False  
+      | defName def1 /= defName def2 = pure False
       | otherwise = do
-          let 
+          let
             Location(pos1,_) = defLoc def1
-            Location(pos2,_) = defLoc def2 
+            Location(pos2,_) = defLoc def2
             params1 = toList . abstParams . def' $ def1
             params2 = toList . procParams . def' $ def2
           ok <- and <$> zipWithM checkParams params1 params2
-          unless ( ok ) $ putError pos2 . UnknownError $ 
-                "The prodecure `" <> unpack (defName def1) <> 
-                "` does not match with the one defined at " <> 
+          unless ( ok ) $ putError pos2 . UnknownError $
+                "The prodecure `" <> unpack (defName def1) <>
+                "` does not match with the one defined at " <>
                 showPos pos1
           pure True
-            
+
     checkParams :: (Text,Type,ArgMode) -> (Text,Type,ArgMode) -> Parser Bool
     checkParams (name1, t1, mode1) (name2, t2, mode2) = do
       if name1 /= name2
@@ -234,6 +234,3 @@ dataType = do
               | adt == n1 && dt == n2 -> pure True
             _ -> pure False
         else pure True
-      
-
-    checkParams _ _ = pure False

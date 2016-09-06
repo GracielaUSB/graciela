@@ -1,7 +1,7 @@
 module LLVM.Quantification where
 
 --------------------------------------------------------------------------------
-import           LLVM.Aborts
+import           LLVM.Abort
 import           AST.Expression                          (BinaryOperator (Plus, Times),
                                                           Expression,
                                                           QuantOperator (..))

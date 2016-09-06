@@ -18,15 +18,15 @@ module Parser.Instruction
   ) where
 -------------------------------------------------------------------------------
 import           AST.Declaration        (Declaration)
-import           AST.Definition         (Definition(..), Definition'(..))
-import           AST.Expression         (Expression (..), Expression'(..),
+import           AST.Definition         (Definition (..), Definition' (..))
+import           AST.Expression         (Expression (..), Expression' (..),
                                          Object (..))
 import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
-import           AST.Struct             (Struct(..))
 import           AST.Object
 import qualified AST.Object             as O (loc)
+import           AST.Struct             (Struct (..))
 import           Entry
 import           Error
 import           Location
@@ -40,42 +40,46 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
-import           Type                   (ArgMode (..), Type (..), (=:=), llvmName)
+import           Treelike
+import           Type                   (ArgMode (..), Type (..), llvmName,
+                                         (=:=))
 -------------------------------------------------------------------------------
-import           Control.Lens           (use, (%=), (^.))
+import           Control.Lens           (use, (%=), (+=), (^.))
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
-import           Data.Foldable          (asum,toList)
+import           Data.Foldable          (asum, toList)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (any, find)
 import qualified Data.Map               as Map (lookup)
 import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (<|), (|>))
-import qualified Data.Sequence          as Seq (empty, singleton, zip)
+import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
 import qualified Data.Set               as Set
-import           Data.Text              (Text, pack, unpack, takeWhile)
+import           Data.Text              (Text, pack, takeWhile, unpack)
 import           Debug.Trace
 import           Prelude                hiding (lookup, takeWhile)
 import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
-import           Debug.Trace
+import           System.IO.Unsafe
+
 
 instruction :: Parser (Maybe Instruction)
-instruction = try procedureCall
-          <|> try assign
-          <|> assertionInst
-          <|> abort
-          <|> conditional
-          <|> free
-          <|> new
-          <|> random
-          <|> reading
-          <|> repetition
-          <|> skip
-          <|> write -- includes write and writeln
-          <|> block
+instruction
+   =  try procedureCall
+  <|> try assign
+  <|> abort
+  <|> warn
+  <|> conditional
+  <|> free
+  <|> new
+  <|> random
+  <|> reading
+  <|> repetition
+  <|> skip
+  <|> write -- includes write and writeln
+  <|> block
 
 
 assertionInst :: Parser (Maybe Instruction)
@@ -108,10 +112,7 @@ declarationOrRead = sequence <$> (p `endBy` match TokSemicolon)
 block :: Parser (Maybe Instruction)
 block = do
   from <- getPosition
-  
-
   match TokOpenBlock
-  traceM "hola"
   symbolTable %= openScope from
 
   decls       <- declarationBlock
@@ -119,10 +120,10 @@ block = do
 
   match' TokCloseBlock
   to <- getPosition
+
   symbolTable %= closeScope to
 
   let loc = Location (from, to)
-  traceM "hola"
   if null actions
     then do
       putError from EmptyBlock
@@ -140,10 +141,10 @@ block = do
 assertedInst :: Parser follow -> Parser (Maybe (Seq Instruction))
 assertedInst follow = do
   a1   <- many assertionInst
-  inst <- Seq.singleton <$> instruction
+  inst <- (if null a1 then (Just <$>) else optional) instruction
   a2   <- many assertionInst
   void (lookAhead follow) <|> void (match' TokSemicolon)
-  pure . sequence $ a1 <> inst <> a2
+  pure . sequence $ a1 <> (Seq.fromList . toList $ inst) <> a2
 
 
 assign :: Parser (Maybe Instruction)
@@ -286,7 +287,7 @@ reading = do
   match TokRead
   ids <- parens $ expression `sepBy` match TokComma
   file <- optional fileFrom
-  
+
   to <- getPosition
   let loc = Location (from, to)
 
@@ -376,14 +377,25 @@ abort = do
   pure . Just $ Instruction (Location (from, to)) Abort
 
 
+warn :: Parser (Maybe Instruction)
+warn = do
+  lookAhead $ match TokWarn
+
+  from <- getPosition
+  match TokWarn
+  to <- getPosition
+  pure . Just $ Instruction (Location (from, to)) Warn
+
+
 -- | Parse guards for both repetition and conditional
 guard :: Parser (Maybe Guard)
 guard = do
   from <- getPosition
-  symbolTable %= openScope from
 
   cond <- expression
   match TokArrow
+
+  symbolTable %= openScope from
 
   decls   <- declarationBlock
   actions <- many . assertedInst $ oneOf [TokFi, TokOd, TokSepGuards]
@@ -397,7 +409,7 @@ guard = do
     then do
       putError from EmptyBlock
       pure Nothing
-    else pure $ (\x y z -> (x,y,z)) <$> cond <*> decls <*> (asum <$> sequence actions) 
+    else pure $ (\x y z -> (x,y,z)) <$> cond <*> decls <*> (asum <$> sequence actions)
 
 
 conditional ::  Parser (Maybe Instruction)
@@ -469,7 +481,7 @@ procedureCall = do
   procName <- identifier
   args <- between (match TokLeftPar) (match' TokRightPar) $
     expression `sepBy` match TokComma
-  
+
   to <- getPosition
   let loc = Location (from, to)
 
@@ -542,7 +554,7 @@ procedureCall = do
             pure Nothing
         _ -> do
           t <- hasDTType . toList $ args
-          case t of 
+          case t of
 
             GUndef -> do
               putError from $ UndefinedProcedure procName
@@ -553,16 +565,16 @@ procedureCall = do
               let dtName = llvmName n t
               case dtName `Map.lookup` fdts of
                 Just Struct{structProcs} -> do
-                  let 
+                  let
                     procName' = procName <> pack "-" <> dtName
-                    procAst' = L.find (\x -> defName x == procName') structProcs 
+                    procAst' = L.find (\x -> defName x == procName') structProcs
                   case procAst' of
                     Just procAst -> do
-                      let 
+                      let
                         Location(from,_) = defLoc procAst
                         ProcedureDef{procParams} = def' procAst
-                      
-                      args' <- foldM (checkType procName from) 
+
+                      args' <- foldM (checkType procName from)
                         (Just Seq.empty) (Seq.zip args procParams)
 
                       pure $ case args' of
@@ -572,11 +584,12 @@ procedureCall = do
                           , inst' = ProcedureCall
                             { pname = procName'
                             , pargs = args'' }}
-                    
+
                     Nothing -> do
-                      putError from $ UnknownError $ 
-                        "Data Type `" <> unpack (takeWhile (\c -> c /= '-') dtName) <>
-                        "` does not have a procedure called `" <> unpack procName <> "`"
+                      putError from . UnknownError $
+                        "Data Type `" <> unpack (takeWhile (/= '-') dtName) <>
+                        "` does not have a procedure called `" <>
+                        unpack procName <> "`"
                       return Nothing
 
                 _ -> error "No deberia estar aqui :D (:"
@@ -585,11 +598,11 @@ procedureCall = do
   where
     hasDTType [] = pure GUndef
     hasDTType (Nothing:xs) = hasDTType xs
-    hasDTType (Just x:xs) = case expType x of 
+    hasDTType (Just x:xs) = case expType x of
       fdt@GFullDataType{} -> pure fdt
       dt@GDataType{} -> do
         let Location(from,_) = E.loc x
-        putError from $ UnknownError $ 
+        putError from . UnknownError $
           "Expression `" <> show x <> "` has an incomplete type " <> show dt
         pure GUndef
       _ -> hasDTType xs
@@ -597,7 +610,7 @@ procedureCall = do
 
     checkType _ _ _ (Nothing, _) = pure Nothing
     checkType pName pPos acc
-      (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) = do
+      (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
         if pType =:= expType
           then case exp' of
             Obj {}

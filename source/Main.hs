@@ -1,15 +1,15 @@
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 --------------------------------------------------------------------------------
 import           AST.Program
+import           Error
+import           Error
 import           Lexer
 import           LLVM.Program
 import           Parser.Monad
 import           Parser.Program
--- import           Parser.Rhecovery            (prettyError)
-import           Error
-import           Error
 import           Parser.State
 import           SymbolTable
 import           Token
@@ -70,7 +70,7 @@ data Options = Options
     { optHelp         :: Bool
     , optVersion      :: Bool
     , optErrors       :: Maybe Int
-    , optExecName     :: String
+    , optOutName      :: Maybe String
     , optAST          :: Bool
     , optSTable       :: Bool
     , optOptimization :: String
@@ -82,7 +82,7 @@ defaultOptions   = Options
     { optHelp     = False
     , optVersion  = False
     , optErrors   = Nothing
-    , optExecName = "a.out"
+    , optOutName = Nothing
     , optAST      = False
     , optSTable   = False
     , optOptimization = ""
@@ -107,7 +107,7 @@ options =
     , Option ['o'] ["nombre"]
         (ReqArg (\fileName opts -> case fileName of
                     "" -> error "Valor inválido en el argumento de `-o`"
-                    _  -> opts { optExecName = fileName }
+                    _  -> opts { optOutName = Just fileName }
                 ) "NOMBRE")
         "Nombre del ejecutable"
     , Option ['s'] ["symtable"]
@@ -173,17 +173,6 @@ main = do
   unless (takeExtension fileName == ".gcl")
     (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
 
-  let
-  -- Get the name of the output file, given with flag -o
-    execName
-      | optExecName options == "a.out" =
-        if optAssembly options then "a.s" else "a.out"
-      | optAssembly options = optExecName options <> ".s"
-      | otherwise = optExecName options
-
-  -- Set the IR file name. This file will be delete after finish the compilation
-  let llName = "a.ll"
-
   -- Read the source file
   source <- readFile fileName
 
@@ -193,7 +182,7 @@ main = do
 
   if null (state ^. errors)
     then case r of
-      Just program -> do
+      Just program@Program { name } -> do
 
         {-Print AST-}
         when (optAST options) . putStrLn . drawTree . toTree $ program
@@ -209,17 +198,44 @@ main = do
           types = _typesTable state
         newast <- programToLLVM files types program
 
+        let
+          lltName = case optOutName options of
+            Nothing -> "a.t.ll"
+            Just n -> n <> ".t.ll"
+
         {- And write it as IR on a ll file -}
         withContext $ \context ->
-          liftError . withModuleFromAST context newast $ \m ->
-            liftError $ writeLLVMAssemblyToFile (File llName ) m
+          liftError . withModuleFromAST context newast $ \m -> liftError $
+            writeLLVMAssemblyToFile (File lltName) m
 
         let
-          oplvl = optOptimization options
-          assembly = if optAssembly options then "-S" else ""
+          assembly
+            | optLLVM options     = ["-S", "-emit-llvm"]
+            | optAssembly options = ["-S"]
+            | otherwise           = []
+          outName = case optOutName options of
+            Just outName' -> outName'
+            Nothing
+              | optLLVM options     -> unpack name <> ".ll"
+              | optAssembly options -> unpack name <> ".s"
+              | otherwise           -> unpack name
+          args = [optOptimization options]
+              <> assembly
+              <> [lltName]
+              <> ["-o", outName]
+              <> [lib | not $ optLLVM options || optAssembly options]
+        (exitCode, _out, _errs) <- readProcessWithExitCode clang args ""
 
-        unless (optLLVM options) $
-          compileLL llName execName oplvl assembly
+        putStr _out
+        hPutStr stderr _errs
+
+        void $ readProcess "rm" [lltName] ""
+
+        case exitCode of
+          ExitSuccess ->
+            pure ()
+          ExitFailure _ ->
+            die "clang error"
 
       Nothing -> error
         "internal error: No AST was generated but no errors \
@@ -231,33 +247,14 @@ main = do
       hPutStr stderr . unlines . mTake (optErrors options) . toList $
         prettyError <$> state ^. errors
 
-
   where
     mTake Nothing  xs = xs
     mTake (Just n) xs = take n xs
-
-
-compileLL :: String -> String -> String -> String -> IO ()
-compileLL llName execName oplvl assembly = void $ do
-  (exitCode, _out, _errs) <- readProcessWithExitCode clang
-    [assembly, oplvl, "-o", execName, llName, lib] ""
-  putStr _out
-  -- putStr _errs
-
-  -- void $ readProcess "rm" [llName] ""
-
-  case exitCode of
-    ExitSuccess ->
-      pure ()
-    ExitFailure _ ->
-      die "clang error"
-
-  where
-      lib  = case os of
-          "darwin"  -> "/usr/local/lib/graciela-lib.so"
-          "linux"   -> "/usr/local/lib/graciela-lib.so"
-          "windows" -> undefined
-      clang = case os of
-          "darwin" -> "/usr/local/bin/clang-3.5"
-          "linux"  -> "clang-3.5"
-          "windows" -> undefined
+    lib  = case os of
+      "darwin"  -> "/usr/local/lib/graciela-lib.so"
+      "linux"   -> "/usr/local/lib/graciela-lib.so"
+      "windows" -> undefined
+    clang = case os of
+      "darwin" -> "/usr/local/bin/clang-3.5"
+      "linux"  -> "clang-3.5"
+      "windows" -> undefined

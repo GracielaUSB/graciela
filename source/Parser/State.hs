@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Parser.State
   ( State (..)
@@ -16,8 +18,10 @@ module Parser.State
   , initialState
   ) where
 --------------------------------------------------------------------------------
-import           AST.Definition        (Definition)
-import           AST.Struct            (Struct)
+import           AST.Definition
+import           AST.Expression        (Value (BoolV))
+import           AST.Struct
+import           Entry
 import           Error
 import           Location
 import           SymbolTable
@@ -25,6 +29,7 @@ import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
+import           Data.Foldable         (foldl')
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict       as Map (empty, fromList)
 import           Data.Sequence         (Seq)
@@ -39,9 +44,7 @@ import           Text.Megaparsec.Pos   (unsafePos)
 type RecursionAllowed = Bool
 
 data State = State
-  { _errors :: Seq (ParseError TokenPos Error)
-  --  _synErrorList :: Seq MyParseError
-  -- , _errors       :: Seq (ParseError TokenPos Error)
+  { _errors       :: Seq (ParseError TokenPos Error)
   , _symbolTable  :: SymbolTable
   , _definitions  :: Map Text Definition
   , _filesToRead  :: Set String
@@ -54,16 +57,16 @@ data State = State
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text Struct
-  
+
   }
 
 makeLenses ''State
 
 
 initialState :: FilePath -> State
-initialState path = State
+initialState path  = State
   { _errors        = Seq.empty
-  , _symbolTable   = empty (SourcePos path (unsafePos 0) (unsafePos 0))
+  , _symbolTable
   , _definitions   = Map.empty
   , _filesToRead   = Set.empty
   , _currentProc   = Nothing
@@ -82,3 +85,11 @@ initialState path = State
       , (pack "boolean",(GBool,  GracielaDef))
       , (pack "char",   (GChar,  GracielaDef))
       ]
+    symbols =
+      [ ("otherwise", Const GBool (BoolV True)) ]
+
+    st0 = emptyGlobal
+
+    _symbolTable = foldl' auxInsert st0 symbols
+
+    auxInsert st (k, e') = insertSymbol k (Entry k GracielaDef e') st

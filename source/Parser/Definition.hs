@@ -25,22 +25,20 @@ import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens       (use, (%=), (.=))
-import           Control.Monad      (join, liftM5, when)
-import           Data.Functor       (void, ($>))
-import qualified Data.Map           as Map (insert)
-import           Data.Maybe         (isJust)
-import           Data.Semigroup     ((<>))
-import           Data.Sequence      (Seq)
+import           Control.Lens        (use, (%=), (.=))
+import           Control.Monad       (join, liftM5, when)
+import           Data.Functor        (void, ($>))
+import qualified Data.Map            as Map (insert)
+import           Data.Maybe          (isJust, isNothing)
+import           Data.Semigroup      ((<>))
+import           Data.Sequence       (Seq)
 import qualified Data.Sequence       as Seq (empty)
-import           Data.Text          (Text, unpack)
-import           Text.Megaparsec    (lookAhead)
+import           Data.Text           (Text, unpack)
 import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
                                       optional, withRecovery, (<|>))
 --------------------------------------------------------------------------------
-
-import Debug.Trace
+import           Debug.Trace
 
 listDefProc :: Parser (Maybe (Seq Definition))
 listDefProc = sequence <$> many (function <|> procedure)
@@ -48,11 +46,14 @@ listDefProc = sequence <$> many (function <|> procedure)
 function :: Parser (Maybe Definition)
 function = do
   lookAhead $ match TokFunc
-  
+
   Location(_,from) <- match TokFunc
   symbolTable %= openScope from
 
   funcName' <- safeIdentifier
+
+  symbolTable %= openScope from
+
   funcParams' <- parens doFuncParams
 
   match' TokArrow
@@ -70,7 +71,6 @@ function = do
     (Just funcName, Just params) ->
       Just (funcName, from, funcRetType, params, isJust bnd)
 
-  
 
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
 
@@ -172,8 +172,8 @@ procedure = do
     (from, UnknownError "Procedure lacks a body; block expected.")
 
   to <- getPosition
-  symbolTable %= closeScope to
-  symbolTable %= closeScope to
+  symbolTable %= closeScope to -- body
+  symbolTable %= closeScope to -- params
   currentProc .= Nothing
 
   let
@@ -192,10 +192,10 @@ procedure = do
             { procDecl = decls
             , procBody = body
             , procParams = params }}
-      
+
       -- Struct does not add thier procs to the table
       dt <- use currentStruct
-      when (dt == Nothing) $ definitions %= Map.insert procName def
+      when (isNothing Nothing) $ definitions %= Map.insert procName def
 
       pure $ Just def
     _ -> pure Nothing
@@ -279,4 +279,3 @@ procedureDeclaration = do
 
       pure $ Just def
     _ -> pure Nothing
-

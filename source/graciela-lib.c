@@ -10,20 +10,20 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "string.h"
 
 int8_t* _openFile(char* nombreArchivo) {
-    FILE* file;
+  FILE* file;
 
-    file = fopen(nombreArchivo, "r");
-    if(file == NULL)
-    {
-      printf ("%s %s", "Error abriendo el archivo: ", nombreArchivo);
-      exit(EXIT_FAILURE);
-    }
-    return (int8_t *) file;
+  file = fopen(nombreArchivo, "r");
+  if(file == NULL)
+  {
+    printf ("%s %s", "Error abriendo el archivo: ", nombreArchivo);
+    exit(EXIT_FAILURE);
+  }
+  return (int8_t *) file;
 }
 
 void _closeFile(int8_t* file) {
-    FILE* f = (FILE*) file;
-    fclose(f);
+  FILE* f = (FILE*) file;
+  fclose(f);
 }
 
 int8_t* _malloc(int size){
@@ -42,7 +42,7 @@ int _readFileInt(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura");
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
@@ -61,7 +61,7 @@ char _readFileChar(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura");
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
@@ -80,7 +80,7 @@ double _readFileDouble(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar ejecturar una lectura");
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
@@ -93,262 +93,171 @@ double _readFileDouble(int8_t* file) {
 }
 
 int _readIntStd () {
-    int  n;
-    char c;
+  int  n;
+  char c;
 
-    scanf("%d", &n);
-    scanf("%c", &c);
-    return n;
+  scanf("%d", &n);
+  scanf("%c", &c);
+  return n;
 }
 
 
 char _readCharStd () {
+  char n;
+  char c;
 
-    char n;
-    char c;
-
-    scanf("%c", &n);
-    scanf("%c", &c);
-    return n;
+  scanf("%c", &n);
+  scanf("%c", &c);
+  return n;
 }
 
 
 double _readDoubleStd () {
-    double n;
-    char   c;
+  double n;
+  char   c;
 
-    scanf("%lf", &n);
-    scanf("%c" , &c);
-    return n;
+  scanf("%lf", &n);
+  scanf("%c" , &c);
+  return n;
 }
 
 
 void _writeInt(int x) {
-
-    printf("%d", x);
-    return;
+  printf("%d", x);
+  return;
 }
 
 
 void _writeDouble(double x) {
-
-    printf("%f", x);
-    return;
+  printf("%f", x);
+  return;
 }
 
 
 void _writeBool(int x) {
-
-    if (x == 0)
-    	printf("%s", "false");
-    else
-    	printf("%s", "true");
-
-    return;
+  if (x == 0)
+    printf("false");
+  else
+    printf("true");
+  return;
 }
 
 
 void _writeChar(int x) {
+  setlocale(LC_CTYPE, "");
 
-    setlocale(LC_CTYPE, "");
-    wint_t ch = x;
-
-    printf("%lc", x);
-    return;
+  printf("%lc", x);
+  return;
 }
 
 
 void _writeString(char *x) {
-    int i=0;
-    setlocale(LC_CTYPE, "");
+  int i=0;
+  setlocale(LC_CTYPE, "");
 
-    printf ("%s", x);
-    return;
+  printf ("%s", x);
+  return;
 }
 
 
-// void _writeString(short *x) {
-//
-//     int i=0;
-//     setlocale(LC_CTYPE, "");
-//
-//     while (!(x[i] == 0)) {
-//
-//         if ((x[i] == 92) && (x[i+1] == 110)) {
-//           printf("\n");
-//           i++;
-//         } else
-//           printf("%lc",x[i]);
-//
-//         i++;
-//     };
-//
-//     return;
-// }
-
-
-void _writeLnInt(int x) {
-
-    printf("%d\n", x);
-    return;
-}
-
-
-void _writeLnDouble(double x) {
-
-    printf("%f\n", x);
-    return;
-}
-
-
-void _writeLnBool(int x) {
-
-    if (x == 1)
-      printf("%s\n", "true");
-    else
-      printf("%s\n", "false");
-
-    return;
-}
-
-
-void _writeLnChar(int x) {
-
-    setlocale(LC_CTYPE, "");
-    wint_t ch = x;
-
-    printf("%lc\n", x);
-    return;
-}
-
-
-void _writeLnString(char *x) {
-    _writeString(x);
-    printf("\n");
-    return;
+void _ln() {
+  printf("\n");
+  return;
 }
 
 
 int _random() {
-
-	return rand();
+  return rand();
 }
 
 
 int _max(int x, int y) {
-
-    if (x < y)
-        return y;
-    else
-        return x;
+  return x > y ? x : y;
 }
 
 
 double _maxF(double x, double y) {
-
-    if (x < y)
-        return y;
-    else
-        return x;
+  return x > y ? x : y;
 }
 
 
 int _min(int x, int y) {
-
-    if (x < y)
-        return x;
-    else
-        return y;
+  return x < y ? x : y;
 }
 
 
 double _minF(double x, double y) {
-
-    if (x < y)
-        return x;
-    else
-        return y;
+  return x < y ? x : y;
 }
 
-void _abort(int x, int line, int column) {
 
-  switch (x) {
+typedef enum
+  { IF
+  , AMANUAL
+  , POST
+  , ASSERT
+  , INVARIANT
+  , NONDECREASING_BOUND
+  , NEGATIVE_BOUND
+  , DIVISION_BY_ZERO
+  , OVERFLOW
+  , UNDERFLOW
+  , EMPTY_RANGE
+  , NULL_POINTER_ACCESS
+  } abort_t;
 
-    case 1:
-      printf("\n\x1B[0;31mABORT:%c[m",0x1B);
-      printf(" En la línea %d, columna %d, El valor suministrado no cumple ninguna de las guardias. \n\n", line, column);
-      exit(0);
+void _abort (abort_t reason, int line, int column) {
+  printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
+  switch (reason) {
+    case IF:
+      printf (":\n\tno true branch found in conditional.\n"); break;
+    case AMANUAL:
+      printf (".\n"); break;
+    case POST:
+      printf (":\n\tthe postcondition was falsified.\n"); break;
+    case ASSERT:
+      printf (":\n\tthe assertion was falsified.\n"); break;
+    case INVARIANT:
+      printf (":\n\tthe invariant was falsified.\n"); break;
+    case NONDECREASING_BOUND:
+      printf (":\n\tthe bound didn't decrease.\n"); break;
+    case NEGATIVE_BOUND:
+      printf (":\n\tthe bound became negative.\n"); break;
+    case DIVISION_BY_ZERO:
+      printf (":\n\ta division by zero was attempted.\n"); break;
+    case OVERFLOW:
+      printf (":\n\ta value overflowed.\n"); break;
+    case UNDERFLOW:
+      printf (":\n\ta value underflowed.\n"); break;
+    case EMPTY_RANGE:
+      printf (":\n\tthe quantifier's range was empty.\n"); break;
+    case NULL_POINTER_ACCESS:
+      printf (":\n\ta null pointer was dereferenced.\n"); break;
+    default:
+      printf (":\n\tunknown reason.\n"); break;
+  }
+  exit (1);
+}
 
-    case 2:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d.  \n\n", line, column);
-      exit(0);
+typedef enum
+  { WManual
+  , PRE
+  , FORALL
+  , EXISTENTIAL
+  } warning_t;
 
-    case 3:
-      printf("\n%c[0;35mWARNING:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, La Precondición no se satisface. \n", line, column);
-      break;
-
-    case 4:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, La Postcondición no se satisface. \n\n", line, column);
-      exit(0);
-
-    case 5:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, La Aserción no se satisface. \n\n", line, column);
-      exit(0);
-
-    case 6:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, La Invariante no se satisface. \n\n", line, column);
-      exit(0);
-
-    case 7:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, La Cota no decremento. \n\n", line, column);
-      exit(0);
-
-    case 8:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, El resultado de la función de cota no puede ser negativa. \n\n", line, column);
-      exit(0);
-
-    case 9:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, Divisón por cero.\n\n", line, column);
-      exit(0);
-
-    case 10:
-      printf("\n%c[0;35mWARNING:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, El Cuantificador Universal no se satisface.\n", line, column);
-      break;
-
-    case 11:
-      printf("\n%c[0;35mWARNING:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, El Cuantificador Existencial no se satisface.\n", line, column);
-      break;
-
-    case 12:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, Overflow.\n\n", line, column);
-      exit(0);
-
-    case 13:
-      // printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      // printf(" En la línea %d, columna %d, Rango vacio.\n", line, column);
-      // exit(0);
-      break;
-
-    case 14:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, Rango vacio.\n\n", line, column);
-      exit(0);
-
-    case 15:
-      printf("\n%c[0;31mABORT:%c[m",0x1B,0x1B);
-      printf(" En la línea %d, columna %d, Acceso a un apuntador nulo.\n\n", line, column);
-      exit(0);
-
-    }
+void _warn (warning_t reason, int line, int column) {
+  printf ("\x1B[0;35mWARNING:\x1B[m at line %d, column %d", line, column);
+  switch (reason) {
+    case WManual:
+      printf (".\n"); break;
+    case PRE:
+      printf (":\n\tthe precondition was falsified.\n"); break;
+    case FORALL:
+      printf (":\n\tthe universal quantification was falsified.\n"); break;
+    case EXISTENTIAL:
+      printf (":\n\tthe existential quantification was falsified.\n"); break;
+    default:
+      printf (":\n\tunknown reason.\n"); break;
+  }
 }
