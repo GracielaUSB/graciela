@@ -12,8 +12,8 @@ import           AST.Expression                          (Expression (..),
                                                           Object, Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import           AST.Object                              as O (Object' (..),
-                                                               Object'' (..))
+import           AST.Object                              (Object' (..),
+                                                          Object'' (..))
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (If, NullPointerAccess, Overflow))
 import           LLVM.Monad
@@ -258,27 +258,27 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     return . ConstantOperand $ C.Null i8
 
   StringLit theString -> do
-      let
-        -- Convert the string into an array of 8-bit chars
-        chars = BS.unpack . encodeUtf8 $ theString
-      -- Get the length of the string
-        n  = fromIntegral . succ . length $ chars
-      -- Create an array type
-        t = ArrayType n i8
+    let
+      -- Convert the string into an array of 8-bit chars
+      chars = BS.unpack . encodeUtf8 $ theString
+    -- Get the length of the string
+      n  = fromIntegral . succ . length $ chars
+    -- Create an array type
+      t = ArrayType n i8
 
-      name <- newLabel "strGlobalDef"
-      -- Create a global definition for the string
-      let
-        def = GlobalDefinition $ Global.globalVariableDefaults
-          { Global.name        = name
-          , Global.isConstant  = True
-          , Global.type'       = t
-          , Global.initializer = Just . C.Array i8 $
-            [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
-          }
-      -- and add it to the module's definitions
-      moduleDefs %= (Seq.|> def)
-      return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i8 name) [C.Int 64 0, C.Int 64 0]
+    name <- newLabel "strGlobalDef"
+    -- Create a global definition for the string
+    let
+      def = GlobalDefinition $ Global.globalVariableDefaults
+        { Global.name        = name
+        , Global.isConstant  = True
+        , Global.type'       = t
+        , Global.initializer = Just . C.Array i8 $
+          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
+        }
+    -- and add it to the module's definitions
+    moduleDefs %= (Seq.|> def)
+    return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i8 name) [C.Int 64 0, C.Int 64 0]
 
   Obj obj -> object obj
 

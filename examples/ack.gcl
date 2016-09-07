@@ -1,12 +1,27 @@
 program miprograma begin
 
+proc name (in a: int, inout b : int, out c : int*)
+  {pre true pre}
+  {post true post}
+  ⟦ writeln(a, b, *c)
+  ; b, *c := 2, 3
+  ⟧
+
 main
-  ⟦ var i := 0 : int
-  ; const maxx := 100 : int
-  ; {inv true inv}
-    {bound maxx - i bound}
-    do i < maxx -> writeln ("a⛹lg¤€⟦o")
-                 ; i := i + 1
-    od
+  ⟦ var i, j : int
+  ; var k : int*
+  ; var p : int*
+  ; if p == null -> writeln("es null")
+    [] otherwise -> writeln("no es null")
+    fi
+  ; writeln("ajkdasld$()*!@)#")
+  ; writeln(i)
+
+  ; new (k)
+  ; read (i,j,*k)
+  ; writeln(i,j,*k)
+  ; name (i,j,k)
+  ; writeln(i,j,*k)
+  //; free (k)
   ⟧
 end

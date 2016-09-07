@@ -188,7 +188,6 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Free { idName, freeType } -> do
     labelLoad  <- newLabel "freeLoad"
     labelCast  <- newLabel "freeCast"
-    labelCall  <- newLabel "freeCall"
     labelNull  <- newLabel "freeNull"
     ref        <- objectRef idName
     type' <- toLLVMType (T.GPointer freeType)
@@ -205,7 +204,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , type'    = PointerType i8 (AddrSpace 0)
       , metadata = [] }
 
-    addInstruction $ labelCall := Call
+    addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
