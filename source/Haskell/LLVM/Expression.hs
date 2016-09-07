@@ -27,17 +27,17 @@ import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (foldM, when)
-import qualified Data.ByteString                         as BS (unpack)
+import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Monoid                             ((<>))
-import           Data.Sequence                           as Seq (ViewR ((:>)),
+import           Data.Sequence                           ((|>))
+import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  empty,
                                                                  fromList,
                                                                  singleton,
-                                                                 viewr, (|>))
+                                                                 viewr)
 import           Data.Text                               (unpack)
-import           Data.Text.Encoding                      (encodeUtf8)
 import           Data.Word                               ()
 import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
@@ -257,28 +257,8 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
   NullPtr ->
     return . ConstantOperand $ C.Null i8
 
-  StringLit theString -> do
-    let
-      -- Convert the string into an array of 8-bit chars
-      chars = BS.unpack . encodeUtf8 $ theString
-    -- Get the length of the string
-      n  = fromIntegral . succ . length $ chars
-    -- Create an array type
-      t = ArrayType n i8
-
-    name <- newLabel "strGlobalDef"
-    -- Create a global definition for the string
-    let
-      def = GlobalDefinition $ Global.globalVariableDefaults
-        { Global.name        = name
-        , Global.isConstant  = True
-        , Global.type'       = t
-        , Global.initializer = Just . C.Array i8 $
-          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
-        }
-    -- and add it to the module's definitions
-    moduleDefs %= (Seq.|> def)
-    return . ConstantOperand $ C.GetElementPtr True (C.GlobalReference i8 name) [C.Int 64 0, C.Int 64 0]
+  StringLit { theStringId } ->
+    (! theStringId) <$> use stringOps
 
   Obj obj -> object obj
 

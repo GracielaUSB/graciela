@@ -27,7 +27,7 @@ import           Type
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
-import           Data.Map          as Map (insert, elems, lookup, null)
+import           Data.Map.Strict         as Map (insert, elems, lookup, null)
 import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack, pack)

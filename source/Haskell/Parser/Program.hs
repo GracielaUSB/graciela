@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns   #-}
 
 module Parser.Program
   ( program
@@ -18,7 +19,7 @@ import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M
-import qualified Data.Map           as Map
+import qualified Data.Map.Strict    as Map
 
 import           Data.Either
 import qualified Data.Sequence      as Seq (empty)
@@ -39,7 +40,7 @@ program = do
   symbolTable %= openScope from -- Open the program scope
   many (abstractDataType <|> dataType)
 
-  decls' <- listDefProc
+  defs' <- listDefProc
     -- (1) listDefProc should also include type definitions
 
   main' <- mainRoutine
@@ -54,15 +55,21 @@ program = do
   to <- getPosition
   symbolTable %= closeScope to
 
-  case (name', decls', main') of
-    (Just name, Just decls, Just main) -> do
-
-      dts  <- use dataTypes
-      fdts <- use fullDataTypes
-      pure . Just $ Program name (Location (from, to)) decls main dts fdts
+  case (name', defs', main') of
+    (Just name, Just defs, Just main) -> do
+      dts     <- use dataTypes
+      fdts    <- use fullDataTypes
+      strings <- use stringIds
+      pure $ Just Program
+        { name
+        , loc         = Location (from, to)
+        , defs
+        , insts       = main
+        , structs     = dts
+        , fullStructs = fdts
+        , strings }
 
     _ -> pure Nothing
-
 
   where
     mainRoutine = match' TokMain *> block

@@ -25,8 +25,8 @@ import qualified Type                                as T
 import           Control.Lens                        (use, (%=), (.=))
 import           Control.Monad                       (unless)
 import           Data.Foldable                       (toList)
-import           Data.Map                            (Map)
-import qualified Data.Map                            as Map
+import           Data.Map.Strict                           (Map)
+import qualified Data.Map.Strict                           as Map
 import           Data.Monoid                         ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)

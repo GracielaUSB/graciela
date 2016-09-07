@@ -17,7 +17,7 @@ import           Type            (Type)
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
-import           Data.Map        (Map)
+import           Data.Map.Strict       (Map)
 import           Data.Monoid     ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)

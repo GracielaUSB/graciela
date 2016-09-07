@@ -26,13 +26,13 @@ import           Token
 import           Treelike
 import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%=), (&~), (<&>), (^.))
+import           Control.Lens              (use, (%%=), (%=), (&~), (<&>), (^.))
 import           Control.Monad             (foldM, unless, void, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
 import           Data.Functor              (($>))
-import qualified Data.Map.Strict           as Map (lookup)
+import qualified Data.Map.Strict           as Map (insert, lookup, size)
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
@@ -45,7 +45,7 @@ import           Text.Megaparsec           (between, getPosition, lookAhead,
 import           Text.Megaparsec.Pos       (unsafePos)
 
 expression :: Parser (Maybe Expression)
-expression = do
+expression =
   evalStateT expr []
 
 data ProtoRange
@@ -77,7 +77,7 @@ expr = pure . ((\(e,_,_) -> e) <$>) =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
-metaexpr = do
+metaexpr =
   makeExprParser term operator
 
 
@@ -162,11 +162,15 @@ term =  parens metaexpr
       text <- stringLit
       to   <- getPosition
 
+      strId <- lift $ stringIds %%= \m -> case text `Map.lookup` m of
+        Just i  -> (i, m)
+        Nothing -> let i = Map.size m in (i, Map.insert text i m)
+
       let
         expr = Expression
           { E.loc   = Location (from, to)
           , expType = GString
-          , exp'    = StringLit text }
+          , exp'    = StringLit strId }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 

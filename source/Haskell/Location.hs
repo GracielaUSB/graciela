@@ -15,14 +15,13 @@ position of Graciela internal constructs.
 module Location
   ( Location (..)
   , SourcePos (..)
-  , Pos (..)
+  , Pos
   , showPos
   , unPos
   ) where
 --------------------------------------------------------------------------------
 import           Data.Monoid         ((<>))
-import           Text.Megaparsec.Pos (Pos (..), SourcePos (..), unPos,
-                                      unsafePos)
+import           Text.Megaparsec.Pos (Pos, SourcePos (..), unPos, unsafePos)
 --------------------------------------------------------------------------------
 
 -- | This datatype stores information about the location of various

@@ -67,71 +67,67 @@ message :: String
 message = "uso: graciela [OPCIÓN]... [ARCHIVO]"
 
 data Options = Options
-    { optHelp         :: Bool
-    , optVersion      :: Bool
-    , optErrors       :: Maybe Int
-    , optOutName      :: Maybe String
-    , optAST          :: Bool
-    , optSTable       :: Bool
-    , optOptimization :: String
-    , optAssembly     :: Bool
-    , optLLVM         :: Bool
-    }
+  { optHelp         :: Bool
+  , optVersion      :: Bool
+  , optErrors       :: Maybe Int
+  , optOutName      :: Maybe String
+  , optAST          :: Bool
+  , optSTable       :: Bool
+  , optOptimization :: String
+  , optAssembly     :: Bool
+  , optLLVM         :: Bool }
 
-defaultOptions   = Options
-    { optHelp     = False
-    , optVersion  = False
-    , optErrors   = Nothing
-    , optOutName = Nothing
-    , optAST      = False
-    , optSTable   = False
-    , optOptimization = ""
-    , optAssembly = False
-    , optLLVM     = False
-    }
+defaultOptions      = Options
+  { optHelp         = False
+  , optVersion      = False
+  , optErrors       = Nothing
+  , optOutName      = Nothing
+  , optAST          = False
+  , optSTable       = False
+  , optOptimization = ""
+  , optAssembly     = False
+  , optLLVM         = False }
 
 options :: [OptDescr (Options -> Options)]
 options =
-    [ Option ['?', 'h'] ["ayuda"]
-        (NoArg (\opts -> opts { optHelp = True }))
-        "Muestra este mensaje de ayuda"
-    , Option ['v'] ["version"]
-        (NoArg (\opts -> opts { optVersion = True }))
-        "Muestra la versión del compilador"
-    , Option ['e'] ["errores"]
-        (ReqArg (\ns opts -> case reads ns of
-            [(n,"")] -> opts { optErrors = Just n }
-            _        -> error "Valor inválido en el argumento de `errores`"
-        ) "ENTERO")
-        "Limita el número de errores mostrados"
-    , Option ['o'] ["nombre"]
-        (ReqArg (\fileName opts -> case fileName of
-                    "" -> error "Valor inválido en el argumento de `-o`"
-                    _  -> opts { optOutName = Just fileName }
-                ) "NOMBRE")
-        "Nombre del ejecutable"
-    , Option ['s'] ["symtable"]
-        (NoArg (\opts -> opts { optSTable = True }))
-        "Imprime la tabla de simbolos por stdin"
-    , Option ['a'] ["ast"]
-        (NoArg (\opts -> opts { optAST = True }))
-        "Imprime el AST por stdin"
-    , Option ['S'] ["assembly"]
-        (NoArg (\opts -> opts { optAssembly = True }))
-        "Generar codigo ensamblador"
-    , Option ['L'] ["llvm"]
-        (NoArg (\opts -> opts { optLLVM = True }))
-        "Generar codigo intermedio LLVM"
-    , Option ['O'] []
-        (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "NIVEL") $
-        unlines
-          [ "Niveles de optimizacion"
-          , "-O0 Sin optimizacion"
-          , "-O1 poca optimizacion"
-          , "-O2 optimizacion por defecto"
-          , "-O3 optimizacion agresiva"
-          ]
-    ]
+  [ Option ['?', 'h'] ["ayuda"]
+    (NoArg (\opts -> opts { optHelp = True }))
+    "Muestra este mensaje de ayuda"
+  , Option ['v'] ["version"]
+    (NoArg (\opts -> opts { optVersion = True }))
+    "Muestra la versión del compilador"
+  , Option ['e'] ["errores"]
+    (ReqArg (\ns opts -> case reads ns of
+      [(n,"")] -> opts { optErrors = Just n }
+      _        -> error "Valor inválido en el argumento de `errores`"
+    ) "ENTERO")
+    "Limita el número de errores mostrados"
+  , Option ['o'] ["nombre"]
+    (ReqArg (\fileName opts -> case fileName of
+      "" -> error "Valor inválido en el argumento de `-o`"
+      _  -> opts { optOutName = Just fileName }
+    ) "NOMBRE")
+    "Nombre del ejecutable"
+  , Option ['s'] ["symtable"]
+    (NoArg (\opts -> opts { optSTable = True }))
+    "Imprime la tabla de simbolos por stdin"
+  , Option ['a'] ["ast"]
+    (NoArg (\opts -> opts { optAST = True }))
+    "Imprime el AST por stdin"
+  , Option ['S'] ["assembly"]
+    (NoArg (\opts -> opts { optAssembly = True }))
+    "Generar codigo ensamblador"
+  , Option ['L'] ["llvm"]
+    (NoArg (\opts -> opts { optLLVM = True }))
+    "Generar codigo intermedio LLVM"
+  , Option ['O'] ["optimization"]
+    (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "NIVEL")
+      "Niveles de optimizacion\n\
+      \-O0 Sin optimizacion\n\
+      \-O1 poca optimizacion\n\
+      \-O2 optimizacion por defecto\n\
+      \-O3 optimizacion agresiva"
+  ]
 
 opts :: IO (Options, [String])
 opts = do
@@ -194,8 +190,9 @@ main = do
 
         {- Generate LLVM AST -}
         let
-          files = toList $ _filesToRead state
-          types = _typesTable state
+          files = toList $ state ^. filesToRead
+          types = state ^. typesTable
+
         newast <- programToLLVM files types program
 
         let
@@ -224,10 +221,10 @@ main = do
               <> [lltName]
               <> ["-o", outName]
               <> [lib | not $ optLLVM options || optAssembly options]
-        (exitCode, _out, _errs) <- readProcessWithExitCode clang args ""
+        (exitCode, out, errs) <- readProcessWithExitCode clang args ""
 
-        putStr _out
-        hPutStr stderr _errs
+        putStr out
+        hPutStr stderr errs
 
         void $ readProcess "rm" [lltName] ""
 

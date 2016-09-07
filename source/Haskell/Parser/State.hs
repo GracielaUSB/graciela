@@ -16,6 +16,7 @@ module Parser.State
   , dataTypes
   , fullDataTypes
   , initialState
+  , stringIds
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -57,7 +58,7 @@ data State = State
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text Struct
-
+  , _stringIds       :: Map Text Int
   }
 
 makeLenses ''State
@@ -76,6 +77,7 @@ initialState path  = State
   , _dataTypes     = Map.empty
   , _fullDataTypes = Map.empty
   , _currentStruct = Nothing
+  , _stringIds       = Map.empty
   }
 
   where

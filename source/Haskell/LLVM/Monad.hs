@@ -2,34 +2,34 @@
 
 module LLVM.Monad where
 --------------------------------------------------------------------------------
-import           LLVM.State                   hiding (State)
-import qualified LLVM.State                   as LLVM (State)
+import           LLVM.State                       hiding (State)
+import qualified LLVM.State                       as LLVM (State)
 --------------------------------------------------------------------------------
-import           Control.Lens                 (use, (%=), (+=), (.=), (<<+=))
-import           Control.Monad                (when)
-import           Control.Monad.State          (MonadState, State)
-import           Data.Foldable                (toList)
-import           Data.Map                     (Map)
-import qualified Data.Map                     as Map (empty, insert, lookup)
-import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  ((<>))
-import           Data.Sequence                (Seq, (|>))
-import qualified Data.Sequence                as Seq
-import           LLVM.General.AST             (BasicBlock (..))
-import qualified LLVM.General.AST             as LLVM (Definition (..))
-import           LLVM.General.AST.Constant    (Constant (GlobalReference))
-import           LLVM.General.AST.Instruction (Named (..), Terminator (..))
-import qualified LLVM.General.AST.Instruction as LLVM (Instruction (..))
-import           LLVM.General.AST.Name        (Name (..))
-import           LLVM.General.AST.Operand     (Operand (ConstantOperand))
-import           LLVM.General.AST.Type        (Type)
+import           Control.Lens                     (use, (%=), (+=), (.=))
+import           Control.Monad                    (when)
+import           Control.Monad.State.Class        (MonadState)
+import           Control.Monad.Trans.State.Strict (State)
+import           Data.Foldable                    (toList)
+import qualified Data.Map.Strict                  as Map (empty, insert, lookup)
+import           Data.Maybe                       (fromMaybe)
+import           Data.Monoid                      ((<>))
+import           Data.Sequence                    (Seq, (|>))
+import qualified Data.Sequence                    as Seq
+import           LLVM.General.AST                 (BasicBlock (..))
+import qualified LLVM.General.AST                 as LLVM (Definition (..))
+import           LLVM.General.AST.Constant        (Constant (GlobalReference))
+import           LLVM.General.AST.Instruction     (Named (..), Terminator (..))
+import qualified LLVM.General.AST.Instruction     as LLVM (Instruction (..))
+import           LLVM.General.AST.Name            (Name (..))
+import           LLVM.General.AST.Operand         (Operand (ConstantOperand))
+import           LLVM.General.AST.Type            (Type)
 --------------------------------------------------------------------------------
 
 type Inst  = Named LLVM.Instruction
 type Insts = Seq Inst
 
 newtype LLVM a = LLVM { unLLVM :: State LLVM.State a }
-  deriving (Functor, Applicative, Monad, MonadState LLVM.State)
+  deriving ( Functor, Applicative, Monad, MonadState LLVM.State)
 
 {- Symbol Table -}
 -- When opening a new scope, llvm wont know which variable is beign called if more than 1 variable have the same name.
@@ -55,7 +55,6 @@ closeScope = do
   t <- tail <$> use symTable
   when (null t) (nameCount .= -1)
   symTable .= t
-
 
 insertName :: String -> LLVM String
 insertName name = do
@@ -118,10 +117,10 @@ newLabel label = do
   case label `Map.lookup` ns of
     Nothing -> do
       nameSupply %= Map.insert label 1
-      pure . Name $ label <> "#" <> show 0
+      pure . Name $ "." <> label
     Just i  -> do
       nameSupply %= Map.insert label (succ i)
-      pure . Name $ label <> "#" <> show i
+      pure . Name $ "." <> label <> "." <> show i
 
 newUnLabel :: LLVM Name
 newUnLabel = newLabel ""

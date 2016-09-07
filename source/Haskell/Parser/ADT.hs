@@ -28,7 +28,7 @@ import           Control.Lens        (use, (%=), (.=))
 import           Control.Monad       (foldM, unless, void, when, zipWithM)
 import           Data.Foldable       (toList)
 import           Data.List           (intercalate)
-import qualified Data.Map            as Map
+import qualified Data.Map.Strict           as Map
 import           Data.Maybe          (isNothing)
 import           Data.Monoid         ((<>))
 import qualified Data.Sequence       as Seq (fromList, zip, zipWith)

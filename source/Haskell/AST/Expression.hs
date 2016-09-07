@@ -173,7 +173,7 @@ data Expression'
   = NullPtr
   | Value { theValue :: Value }
 
-  | StringLit { theString :: Text }
+  | StringLit { theStringId :: Int }
 
   | EmptySet
   | EmptyMultiset
@@ -236,8 +236,8 @@ instance Treelike Expression where
         IntV   v -> "Int Value `"   <> show v <> "` " <> show loc
         FloatV v -> "Float Value `" <> show v <> "` " <> show loc
 
-    StringLit { theString } -> leaf $
-      "String Literal `" <> show theString <> "` " <> show loc
+    StringLit { theStringId } -> leaf $
+      "String Literal #" <> show theStringId <> " " <> show loc
 
     EmptySet -> leaf $
       "Set Literal `Empty Set` " <> show loc
@@ -342,7 +342,7 @@ instance Show Expression where
     NullPtr -> "null"
     Value { theValue } -> show theValue
 
-    StringLit { theString } -> show theString
+    StringLit { theStringId } -> show theStringId
 
     EmptySet -> "{}"
 

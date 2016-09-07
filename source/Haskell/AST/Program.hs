@@ -13,9 +13,10 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map (elems, foldrWithKey)
 import           Data.Monoid     ((<>))
 import           Data.Sequence   (Seq)
-import           Data.Map        (Map, elems)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -27,12 +28,17 @@ data Program
     , insts       :: Instruction
     , structs     :: Map Text Struct
     , fullStructs :: Map Text Struct
-    }
+    , strings     :: Map Text Int }
 
 instance Treelike Program where
-  toTree Program { name, loc, defs, insts, structs } =
+  toTree Program { name, loc, defs, insts, structs, strings } =
     Node ("Program " <> unpack name <> " " <> show loc)
-      [ Node "Structs" (fmap toTree $ elems structs)
+      [ Node "Structs" (toTree <$> Map.elems structs)
       , Node "Definitions" (toForest defs)
+      , Node "Strings" $ stringsNode strings
       , toTree insts
       ]
+
+    where
+      stringsNode = Map.foldrWithKey aux []
+      aux k v f = (: f) (Node (unpack k) [leaf $ show v])

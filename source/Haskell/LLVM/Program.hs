@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections  #-}
 
 module LLVM.Program where
 
@@ -10,9 +11,6 @@ import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
                                                           preDefinitions)
-import           LLVM.Definition                         (definition,
-                                                          mainDefinition,
-                                                          preDefinitions)
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Struct                             (defineStruct)
@@ -21,13 +19,17 @@ import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (void)
-import           Control.Monad.Trans.State               (evalState)
+import           Control.Monad.Trans.State.Strict        (evalState)
+import           Data.Array                              (array)
+import qualified Data.ByteString                         as BS (unpack)
 import           Data.Foldable                           (toList)
-import           Data.Map                                (Map)
-import qualified Data.Map                                as Map
+import           Data.Map.Strict                         (Map)
+import qualified Data.Map.Strict                         as Map (size,
+                                                                 toAscList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
+import           Data.Text.Encoding                      (encodeUtf8)
 import           Data.Word
 import           LLVM.General.AST                        (Definition (..),
                                                           Module (..),
@@ -36,9 +38,11 @@ import           LLVM.General.AST                        (Definition (..),
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
+-- (Constant (Array, GetElementPtr, GlobalReference, Int))
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
-import           LLVM.General.AST.Global                 (Global (..),
-                                                          functionDefaults)
+import qualified LLVM.General.AST.Global                 as G (Global (..),
+                                                               functionDefaults,
+                                                               globalVariableDefaults)
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction,
                                                           Named (..),
@@ -53,16 +57,19 @@ import           System.Process                          (callCommand,
                                                           readProcess)
 --------------------------------------------------------------------------------
 
-
-
-
 -- addFile :: String -> LLVM ()
 -- addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
 
-
-programToLLVM :: [String] -> Map Text (T.Type, a) -> Program -> IO Module
-programToLLVM files types (Program name _ defs insts _ fullStructs) = do
-  -- Eval the program with the LLVMState
+programToLLVM :: [String]             -- ^ Files for read instructions
+              -> Map Text (T.Type, a) -- ^ Declared types
+              -> Program              -- ^ AST
+              -> IO Module
+programToLLVM
+  files
+  types
+  Program { name, defs, insts, fullStructs, strings }
+  = do
+  -- Eval the program with the LLVMRWS
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
 
@@ -77,6 +84,8 @@ programToLLVM files types (Program name _ defs insts _ fullStructs) = do
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
 
     program = do
+      addStrings strings
+
       preDefinitions files
 
       -- mapM_ defineType $ Map.toAscList types
@@ -101,11 +110,37 @@ programToLLVM files types (Program name _ defs insts _ fullStructs) = do
     -- Gets OSX version
     getOSXVersion :: IO String
     getOSXVersion = case os of
-      "darwin" -> do
-        crop <$> (readProcess "/usr/bin/sw_vers" ["-productVersion"] [])
+      "darwin" ->
+        crop <$> readProcess "/usr/bin/sw_vers" ["-productVersion"] []
       _        -> return ""
 
+    addStrings :: Map Text Int -> LLVM ()
+    addStrings strs = do
+      ops <- mapM addString (Map.toAscList strs)
+      stringOps .= array (0, Map.size strs - 1) ops
 
+    addString :: (Text, Int) -> LLVM (Int, Operand)
+    addString (theString, i) = do
+      let
+        -- Convert the string into an array of 8-bit chars
+        chars = BS.unpack . encodeUtf8 $ theString
+      -- Get the length of the string
+        n  = fromIntegral . succ . length $ chars
+      -- Create an array type
+
+      name <- newLabel "string"
+      -- Create a global definition for the string
+      addDefinition $ GlobalDefinition G.globalVariableDefaults
+        { G.name        = name
+        , G.isConstant  = True
+        , G.type'       = ArrayType n i8
+        , G.initializer = Just . C.Array i8 $
+          [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
+        }
+      pure . (i,) . ConstantOperand $ C.GetElementPtr
+        { C.inBounds = True
+        , C.address = C.GlobalReference i8 name
+        , C.indices = [C.Int 64 0, C.Int 64 0] }
 
 -- openFile :: String -> LLVM Operand
 -- openFile file = do

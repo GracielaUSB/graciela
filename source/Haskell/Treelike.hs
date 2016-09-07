@@ -19,7 +19,6 @@ module Treelike
     ) where
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
-import           Data.Monoid   ((<>))
 import           Data.Tree     (Forest, Tree (..), drawTree)
 --------------------------------------------------------------------------------
 

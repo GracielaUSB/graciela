@@ -19,12 +19,10 @@ module Type
   ) where
 --------------------------------------------------------------------------------
 import           Data.Int    (Int32)
-import           Data.List   (nub, intercalate)
+import           Data.List   (intercalate, nub)
 import           Data.Monoid ((<>))
-import           Data.Text   (Text, unpack, pack, takeWhile)
+import           Data.Text   (Text, pack, takeWhile, unpack)
 import           Prelude     hiding (takeWhile)
-
-import Debug.Trace
 --------------------------------------------------------------------------------
 
 -- | The mode in which an argument is passed to a graciela procedure.
@@ -68,10 +66,10 @@ data Type
 
   | GFullDataType
     { typeName ::  Text
-    , types  :: [Type]}
+    , types    :: [Type]}
   | GDataType
     { typeName ::  Text
-    , types  :: [Type]}
+    , types    :: [Type]}
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -153,18 +151,18 @@ instance Monoid Type where
 
   GTypeVar a `mappend` GTypeVar b =
     if a == b then GTypeVar a else GUndef
-  
+
   GFullDataType a fs `mappend` GFullDataType b _ =
     if a == b then GFullDataType a fs else GUndef
-  
+
   GDataType a fs `mappend` GDataType b _ =
     if a == b then GFullDataType a fs else GUndef
 
   GDataType a fs `mappend` GFullDataType b _ =
-    if a == takeWhile (\c -> c /= '-') b then GFullDataType b fs else GUndef    
+    if a == takeWhile (/= '-') b then GFullDataType b fs else GUndef
 
   GFullDataType a fs `mappend` GDataType b _ =
-    if takeWhile (\c -> c /= '-') a == b then GFullDataType a fs else GUndef    
+    if takeWhile (/= '-') a == b then GFullDataType a fs else GUndef
 
   GUnsafeName a `mappend` GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
@@ -188,7 +186,7 @@ instance Show Type where
         GSeq      t     -> "sequence of " <> show' t
         GFunc     ta tb -> "function " <> show' ta <> " -> " <> show' tb
         GRel      ta tb -> "relation " <> show' ta <> " -> " <> show' tb
-        
+
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> unpack n
@@ -201,11 +199,9 @@ instance Show Type where
         GUnsafeName t     -> unpack t
 
 llvmName name types = name <> (pack . ('-' :) . intercalate "-" . fmap show') types
-  where 
+  where
     show' GBool  = "b"
     show' GChar  = "c"
     show' GInt   = "i"
     show' GFloat = "f"
     show' t      = show t
-
-
