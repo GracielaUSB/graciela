@@ -1,15 +1,16 @@
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE PostfixOperators         #-}
 
 module LLVM.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
-import           AST.Instruction                     (Instruction)
+import qualified AST.Instruction                     as G (Instruction)
 import           LLVM.Abort                          (abort, abortString, warn,
                                                       warnString)
-import qualified LLVM.Abort                          as Abort (Abort (Post))
+import qualified LLVM.Abort                          as Abort (Abort (NegativeBound, NondecreasingBound, Post))
 import qualified LLVM.Abort                          as Warning (Warning (Pre))
 import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
@@ -25,8 +26,9 @@ import qualified Type                                as T
 import           Control.Lens                        (use, (%=), (.=))
 import           Control.Monad                       (unless)
 import           Data.Foldable                       (toList)
-import           Data.Map.Strict                           (Map)
-import qualified Data.Map.Strict                           as Map
+import           Data.Map.Strict                     (Map)
+import qualified Data.Map.Strict                     as Map
+import           Data.Maybe                          (fromMaybe)
 import           Data.Monoid                         ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
@@ -39,91 +41,216 @@ import           LLVM.General.AST                    (BasicBlock (..),
                                                       functionDefaults)
 import qualified LLVM.General.AST                    as LLVM (Definition (..))
 import           LLVM.General.AST.AddrSpace
+import qualified LLVM.General.AST.Constant           as C
 import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
+import           LLVM.General.AST.Instruction
+import           LLVM.General.AST.IntegerPredicate   (IntegerPredicate (SGE, SLT))
 import           LLVM.General.AST.Name               (Name (..))
-import           LLVM.General.AST.Operand            (MetadataNode (..))
+import           LLVM.General.AST.Operand            (MetadataNode (..),
+                                                      Operand (..))
 import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
-import           LLVM.General.AST.Type               (Type (..), double, i8,
-                                                      ptr)
+import           LLVM.General.AST.Type               (Type (..), double, i1,
+                                                      i32, i8, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
 {- Given the instruction blokc of the main program, construct the main LLVM function-}
-mainDefinition :: Instruction -> LLVM ()
+mainDefinition :: G.Instruction -> LLVM ()
 mainDefinition block = do
   main <- newLabel "main"
 
   (main #)
   instruction block
-  terminate' $ Ret Nothing []
+  terminate' $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
   blocks .= Seq.empty
   addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = Name "main"
         , parameters  = ([], False)
-        , returnType  = voidType
+        , returnType  = i32
         , basicBlocks = toList blocks'
         }
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
-definition Definition { defName, def', pre, post } = case def' of
-  FunctionDef { funcBody, funcRetType, funcParams } -> do
-    func <- newLabel $ "func" <> unpack defName
-    (func #)
+definition
+  Definition { defName, def', pre, post, bound, defLoc = Location (pos, _to) }
+  = case def' of
+    FunctionDef { funcBody, funcRetType, funcParams, funcRecursive } -> do
+      func <- newLabel $ "func" <> unpack defName
+      (func #)
 
-    -- TODO! pre and postcondition
-    openScope
+      -- TODO! postcondition
+      openScope
 
-    params <- mapM toLLVMParameter . toList $ funcParams
+      params <- mapM toLLVMParameter . toList $ funcParams
 
-    returnOperand <- Just <$> expression funcBody
+      preOp <- expression pre
+      yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
+      noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
+      terminate' CondBr
+        { condition = preOp
+        , trueDest  = yesPre
+        , falseDest = noPre
+        , metadata' = [] }
 
-    terminate' Ret
-      { returnOperand
-      , metadata' = [] }
+      (noPre #)
+      warn Warning.Pre pos
+      terminate' Br
+        { dest      = yesPre
+        , metadata' = [] }
 
-    let name = Name $ unpack defName
-    blocks' <- use blocks
-    blocks .= Seq.empty
+      (yesPre #)
 
-    returnType <- toLLVMType funcRetType
+      params' <- if funcRecursive
+        then do
+          -- Parameter t' (Name name') []
+          let
+            boundExp = fromMaybe
+              (error "internal error: boundless recursive function.")
+              bound
+            hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
+            oldBound = Name $ "." <> unpack defName <> "OldBound"
 
-    addDefinition $ LLVM.GlobalDefinition functionDefaults
-      { name        = name
-      , parameters  = (params,False)
-      , returnType
-      , basicBlocks = toList blocks'
-      }
-    closeScope
+          funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
+          boundOperand <- expression boundExp
 
+          gte0 <- newLabel "funcBoundGte0"
+          addInstruction $ gte0 := ICmp
+            { iPredicate = SGE
+            , operand0   = boundOperand
+            , operand1   = ConstantOperand $ C.Int 32 0
+            , metadata   = [] }
+          yesGte0 <- newLabel "funcGte0Yes"
+          noGte0  <- newLabel "funcGte0No"
+          terminate' CondBr
+            { condition = LocalReference boolType gte0
+            , trueDest  = yesGte0
+            , falseDest = noGte0
+            , metadata' = [] }
 
-  ProcedureDef { procDecl, procParams, procBody } -> do
-    proc <- newLabel $ "proc" <> unpack defName
-    (proc #)
+          (noGte0 #)
+          abort Abort.NegativeBound pos
 
-    openScope
+          (yesGte0 #)
+          yesOld <- newLabel "funcOldBoundYes"
+          noOld  <- newLabel "funcOldBoundNo"
+          terminate' CondBr
+            { condition = LocalReference boolType hasOldBound
+            , trueDest  = yesOld
+            , falseDest = noOld
+            , metadata' = [] }
 
-    params <- mapM toLLVMParameter' . toList $ procParams
+          (noOld #)
+          terminate' Br
+            { dest = funcBodyLabel
+            , metadata' = [] }
 
-    mapM_ declarationsOrRead procDecl
-    precondition pre
-    instruction procBody
-    postcondition post
+          (yesOld #)
+          ltOld <- newLabel "funcLtOld"
+          addInstruction $ ltOld := ICmp
+            { iPredicate = SLT
+            , operand0   = boundOperand
+            , operand1   = LocalReference intType oldBound
+            , metadata   = [] }
+          yesLtOld <- newLabel "funcLtOldBoundYes"
+          noLtOld  <- newLabel "funcLtOldBoundNo"
+          terminate' CondBr
+            { condition = LocalReference boolType ltOld
+            , trueDest  = yesLtOld
+            , falseDest = noLtOld
+            , metadata' = [] }
 
-    blocks' <- use blocks
-    blocks .= Seq.empty
+          (noLtOld #)
+          abort Abort.NondecreasingBound pos
 
-    addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name        = Name (unpack defName)
-        , parameters  = (params,False)
-        , returnType  = voidType
+          (yesLtOld #)
+          terminate' Br
+            { dest = funcBodyLabel
+            , metadata' = [] }
+
+          (funcBodyLabel #)
+
+          boundOp .= Just boundOperand
+          pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
+
+        else pure []
+
+      returnOperand <- expression funcBody
+
+      returnVar <- Name <$> insertName (unpack defName)
+
+      returnType <- toLLVMType funcRetType
+      addInstruction $ returnVar := Alloca
+        { allocatedType = returnType
+        , numElements   = Nothing
+        , alignment     = 4
+        , metadata      = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference returnType returnVar
+        , value    = returnOperand
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      postOperand <- expression post
+      yesPost <- newLabel "funcPostYes"
+      noPost  <- newLabel "funcPostNo"
+      terminate' CondBr
+        { condition = postOperand
+        , trueDest  = yesPost
+        , falseDest = noPost
+        , metadata' = [] }
+
+      (noPost #)
+      abort Abort.Post pos
+
+      (yesPost #)
+      terminate' Ret
+        { returnOperand = Just returnOperand
+        , metadata' = [] }
+
+      let name = Name $ unpack defName
+      blocks' <- use blocks
+      blocks .= Seq.empty
+
+      addDefinition $ LLVM.GlobalDefinition functionDefaults
+        { name        = name
+        , parameters  = (params' <> params, False)
+        , returnType
         , basicBlocks = toList blocks'
         }
-    closeScope
+      closeScope
+
+
+    ProcedureDef { procDecl, procParams, procBody } -> do
+      proc <- newLabel $ "proc" <> unpack defName
+      (proc #)
+
+      openScope
+
+      params <- mapM toLLVMParameter' . toList $ procParams
+
+      mapM_ declarationsOrRead procDecl
+      precondition pre
+      instruction procBody
+      postcondition post
+
+      blocks' <- use blocks
+      blocks .= Seq.empty
+
+      addDefinition $ LLVM.GlobalDefinition functionDefaults
+          { name        = Name (unpack defName)
+          , parameters  = (params,False)
+          , returnType  = voidType
+          , basicBlocks = toList blocks'
+          }
+      closeScope
 
   where
     toLLVMParameter (name, t) = do
@@ -143,7 +270,7 @@ definition Definition { defName, def', pre, post } = case def' of
       return $ Parameter (ptr t') (Name name') []
 
 
-declarationsOrRead :: Either Declaration Instruction -> LLVM()
+declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
 declarationsOrRead (Left decl)   = declaration decl
 declarationsOrRead (Right read') = instruction read'
 

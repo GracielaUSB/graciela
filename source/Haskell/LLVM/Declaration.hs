@@ -61,12 +61,12 @@ alloc gtype lval = do
           , alignment = 4
           , metadata  = []
           }
-  where 
-    value t = case t of 
-      GBool    -> pure $ ConstantOperand $ C.Int 1 0
-      GChar    -> pure $ ConstantOperand $ C.Int 8 0
-      GInt     -> pure $ ConstantOperand $ C.Int 32 0
-      GFloat   -> pure $ ConstantOperand $ C.Float $ LLVM.Double 0
+  where
+    value t = case t of
+      GBool    -> pure . ConstantOperand $ C.Int 1 0
+      GChar    -> pure . ConstantOperand $ C.Int 8 0
+      GInt     -> pure . ConstantOperand $ C.Int 32 0
+      GFloat   -> pure . ConstantOperand . C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 

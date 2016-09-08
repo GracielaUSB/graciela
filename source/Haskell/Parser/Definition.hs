@@ -1,4 +1,6 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE LambdaCase               #-}
+{-# LANGUAGE NamedFieldPuns           #-}
 
 module Parser.Definition
   ( function
@@ -25,10 +27,10 @@ import           Token
 import           Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens        (use, (%=), (.=))
+import           Control.Lens        (use, (%=), (.=), (^.), _Just)
 import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
-import qualified Data.Map.Strict           as Map (insert)
+import qualified Data.Map.Strict     as Map (insert)
 import           Data.Maybe          (isJust, isNothing)
 import           Data.Semigroup      ((<>))
 import           Data.Sequence       (Seq)
@@ -50,7 +52,9 @@ function = do
   Location(_,from) <- match TokFunc
   symbolTable %= openScope from
 
+  idFrom <- getPosition
   funcName' <- safeIdentifier
+  idTo <- getPosition
 
   symbolTable %= openScope from
 
@@ -61,18 +65,40 @@ function = do
 
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Precondition was expected")
-  postPos <- getPosition
-  post'   <- postcond <!> (postPos, UnknownError "Postcondition was expected")
+  postFrom <- getPosition
+
+  symbolTable %= openScope postFrom
+  case funcName' of
+    Nothing -> pure ()
+    Just funcName -> do
+      symbolTable %= insertSymbol funcName Entry
+        { _entryName = funcName
+        , _loc       = Location (idFrom, idTo)
+        , _info      = Var
+          { _varType  = funcRetType
+          , _varValue = Nothing }}
+
+  post'   <- postcond <!> (postFrom, UnknownError "Postcondition was expected")
+  postTo <- getPosition
+  symbolTable %= closeScope postTo
+
   bnd     <- join <$> optional A.bound
 
   currentFunc .= case (funcName', funcParams') of
-    (Nothing,_) -> Nothing
-    (_,Nothing) -> Nothing
-    (Just funcName, Just params) ->
-      Just (funcName, from, funcRetType, params, isJust bnd)
-
+    (Just funcName, Just params) -> Just CurrentRoutine
+      { _crName       = funcName
+      , _crPos        = from
+      , _crParams     = params
+      , _crType       = funcRetType
+      , _crRecAllowed = isJust bnd
+      , _crRecursive  = False  }
+    _ -> Nothing
 
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
+
+  funcRecursive <- use currentFunc >>= \case
+    Nothing -> error "internal error: currentFunction was nullified."
+    Just cr -> pure $ cr ^.crRecursive
 
   currentFunc .= Nothing
 
@@ -95,7 +121,8 @@ function = do
               , def' = FunctionDef
                 { funcBody
                 , funcParams
-                , funcRetType } }
+                , funcRetType
+                , funcRecursive } }
           definitions %= Map.insert funcName def
           pure . Just $ def
 
@@ -163,7 +190,13 @@ procedure = do
   bnd     <- join <$> optional A.bound
 
   currentProc .= case (procName', params') of
-    (Just procName, Just params) -> Just (procName, from, params, isJust bnd)
+    (Just procName, Just params) -> Just CurrentRoutine
+      { _crName       = procName
+      , _crPos        = from
+      , _crParams     = params
+      , _crType       = ()
+      , _crRecAllowed = isJust bnd
+      , _crRecursive  = False  }
     _ -> Nothing
 
   symbolTable %= openScope from
@@ -174,6 +207,11 @@ procedure = do
   to <- getPosition
   symbolTable %= closeScope to -- body
   symbolTable %= closeScope to -- params
+
+  procRecursive <- use currentProc >>= \case
+    Nothing -> error "internal error: currentFunction was nullified."
+    Just cr -> pure $ cr ^.crRecursive
+
   currentProc .= Nothing
 
   let
@@ -191,7 +229,8 @@ procedure = do
           , def' = ProcedureDef
             { procDecl = decls
             , procBody = body
-            , procParams = params }}
+            , procParams = params
+            , procRecursive }}
 
       -- Struct does not add thier procs to the table
       dt <- use currentStruct

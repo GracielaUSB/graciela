@@ -30,7 +30,7 @@ import           Data.Monoid                        ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
-                                                            (|>))
+                                                            zip, (|>))
 import           Data.Text                          (unpack)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
@@ -106,21 +106,26 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     (trueLabel #)
 
-  Assign { assignPairs } -> mapM_ assign' assignPairs
+
+  Assign { assignPairs } -> do
+    -- get the values first
+    values <- mapM expression exprs
+    -- then store them
+    zipWithM_ assign' lvals values
+    -- this way, things like `a, b := b, a` just work (tm).
+
     where
-      assign' (lval, expr) = do
-        ref   <- objectRef lval
-        type' <- toLLVMType $ objType lval
-
-        value <- expression expr
-
+      (lvals, exprs) = unzip . toList $ assignPairs
+      assign' lval value = do
+        ref <- objectRef lval
+        type' <- toLLVMType . objType $ lval
         addInstruction $ Do Store
-          { volatile = False
-          , address  = ref
-          , value    = value
+          { volatile       = False
+          , address        = ref
+          , value
           , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
+          , alignment      = 4
+          , metadata       = [] }
 
 
   Conditional { cguards } -> do
@@ -157,13 +162,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     (exit #)
 
-  ProcedureCall { pname, pargs } -> do
-    args <- mapM createArg pargs
+  ProcedureCall { pName, pArgs } -> do
+    args <- mapM createArg pArgs
     addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function           = callable voidType $ unpack pname
+      , function           = callable voidType $ unpack pName
       , arguments          = toList args
       , functionAttributes = []
       , metadata           = [] }
@@ -171,7 +176,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
       -- If it is not an Out or InOut argument, then just pass a constant value.
       -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
-      createArg (e,mode) = do
+      createArg (e,mode) =
         (,[]) <$> if mode == In && (expType e =:= basicT)
           then expression e
           else do
@@ -252,7 +257,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 
   Write { ln, wexprs } -> do
-    mapM_ write wexprs
+    operands <- mapM expression wexprs
+    mapM_ write (Seq.zip operands (expType <$> wexprs))
     when ln . addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
@@ -262,12 +268,11 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , functionAttributes = []
       , metadata           = [] }
     where
-      write wexpr = do
+      write (operand, t) = do
         -- Build the operand of the expression
-        operand <- expression wexpr
         let
         -- Call the correct C write function
-          fun = callable voidType $ case expType wexpr of
+          fun = callable voidType $ case t of
             T.GBool   -> writeBString
             T.GChar   -> writeCString
             T.GFloat  -> writeFString

@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE LambdaCase               #-}
+{-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TypeFamilies             #-}
 
 module Parser.Expression
   ( expression
@@ -26,7 +27,8 @@ import           Token
 import           Treelike
 import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%%=), (%=), (&~), (<&>), (^.))
+import           Control.Lens              (use, (%%=), (%=), (&~), (.=), (<&>),
+                                            (^.), _6, _Just)
 import           Control.Monad             (foldM, unless, void, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
@@ -282,7 +284,7 @@ variable name (Location (from, to)) = do
 
 
 call :: Text -> Location -> ParserExp (Maybe MetaExpr)
-call funcName (Location (from,_)) = do
+call fName (Location (from,_)) = do
 
   args <- between (match TokLeftPar) (match' TokRightPar) $
     metaexpr `sepBy` match TokComma
@@ -291,32 +293,34 @@ call funcName (Location (from,_)) = do
   let loc = Location (from, to)
 
   defs <- lift (use definitions)
-  case funcName `Map.lookup` defs of
-    Just Definition { defLoc, def' = FunctionDef { funcParams, funcRetType }} -> do
+  case fName `Map.lookup` defs of
+    Just Definition { defLoc, def' = FunctionDef { funcParams, funcRetType, funcRecursive }} -> do
       let
         nArgs   = length args
         nParams = length funcParams
         Location (pos, _) = defLoc
       if nArgs == nParams
         then do
-          args' <- foldM (checkType funcName pos)
+          args' <- foldM (checkType fName pos)
             (Just (Seq.empty, Taint False))
             (Seq.zip args funcParams)
           pure $ case args' of
             Nothing -> Nothing
-            Just (fargs, taint) ->
+            Just (fArgs, taint) ->
               let
                 expr = Expression
                   { E.loc
                   , expType = funcRetType
                   , exp' = FunctionCall
-                    { fname = funcName
-                    , fargs }}
+                    { fName
+                    , fArgs
+                    , fRecursiveCall = False
+                    , fRecursiveFunc = funcRecursive }}
               in Just (expr, ProtoNothing, taint)
 
         else do
           putError from BadFuncNumberOfArgs
-            { fName = funcName
+            { fName
             , fPos  = pos
             , nParams
             , nArgs }
@@ -324,7 +328,7 @@ call funcName (Location (from,_)) = do
 
     Just Definition { defLoc, def' = ProcedureDef {} } -> do
       putError from . UnknownError $
-        "Cannot call procedure `" <> unpack funcName <> "`, defined at " <>
+        "Cannot call procedure `" <> unpack fName <> "`, defined at " <>
         show defLoc <> " as an expression; a function was expected."
       pure Nothing
 
@@ -335,42 +339,47 @@ call funcName (Location (from,_)) = do
       -- Parser.State `currentFunc`.
       currentFunction <- lift (use currentFunc)
       case currentFunction of
-        Just (name, pos, retType, types, recursionAllowed)
-          | name == funcName && recursionAllowed -> do
+        Just cr@CurrentRoutine {}
+          | cr^.crName == fName && cr^.crRecAllowed -> do
             let
               nArgs = length args
-              nParams = length types
+              nParams = length (cr^.crParams)
 
             if nArgs == nParams
               then do
-                args' <- foldM (checkType funcName pos)
+                args' <- foldM (checkType fName (cr^.crPos))
                   (Just (Seq.empty, Taint False))
-                  (Seq.zip args types)
+                  (Seq.zip args (cr^.crParams))
+
+                lift $ (currentFunc . _Just . crRecursive) .= True
+
                 pure $ case args' of
                   Nothing -> Nothing
-                  Just (fargs, taint) ->
+                  Just (fArgs, taint) ->
                     let
                       expr = Expression
                         { E.loc
-                        , expType = retType
+                        , expType = cr^.crType
                         , exp' = FunctionCall
-                          { fname = funcName
-                          , fargs }}
+                          { fName
+                          , fArgs
+                          , fRecursiveCall = True
+                          , fRecursiveFunc = True }}
                     in Just (expr, ProtoNothing, taint)
               else do
                 putError from BadFuncNumberOfArgs
-                  { fName = funcName
-                  , fPos  = pos
+                  { fName
+                  , fPos  = cr^.crPos
                   , nParams
                   , nArgs }
                 pure Nothing
-          | name == funcName && not recursionAllowed -> do
+          | cr^.crName == fName && not (cr^.crRecAllowed) -> do
             putError from . UnknownError $
-              "Function `" <> unpack funcName <> "` cannot call itself \
-              \recursively because no Bound and Invariant were given for it."
+              "Function `" <> unpack fName <> "` cannot call itself \
+              \recursively because no bound was given for it."
             pure Nothing
         _ -> do
-          putError from $ UndefinedFunction funcName
+          putError from $ UndefinedFunction fName
           pure Nothing
 
   where

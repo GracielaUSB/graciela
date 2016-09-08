@@ -32,7 +32,6 @@ import           Prelude       hiding (Ordering (..))
 
 type Object = Object' Expression
 
-
 data Conversion = ToInt | ToDouble | ToChar
   deriving (Eq)
 
@@ -191,9 +190,10 @@ data Expression'
 
   -- | Llamada a funcion.
   | FunctionCall
-    { fname :: Text
-    -- , astST :: SymbolTable  -- ?
-    , fargs :: Seq Expression }
+    { fName          :: Text
+    , fArgs          :: Seq Expression
+    , fRecursiveCall :: Bool
+    , fRecursiveFunc :: Bool }
 
   | Conversion
     { toType :: Conversion
@@ -258,9 +258,14 @@ instance Treelike Expression where
       Node (show unOp <> " " <> show loc)
         [ toTree inner ]
 
-    FunctionCall { fname, {-astST,-} fargs } ->
-      Node ("Call Func " <> unpack fname <> " " <> show loc)
-        [ Node "Arguments" (toForest fargs) ]
+    FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
+      | fRecursiveCall && fRecursiveFunc ->
+        Node ("Recurse " <> show loc)
+          [ Node "Arguments" (toForest fArgs) ]
+      | otherwise ->
+        let rec = if fRecursiveFunc then "Recursive " else ""
+        in Node ("Call " <> rec <> "Func " <> unpack fName <> " " <> show loc)
+          [ Node "Arguments" (toForest fArgs) ]
 
     Conversion { toType, cExp } ->
       Node (show toType <> " " <> show loc)
@@ -356,8 +361,12 @@ instance Show Expression where
     Unary { unOp, inner } ->
       prettyUnOp unOp <> show inner
 
-    FunctionCall { fname, {-astST,-} fargs } ->
-      unpack fname <> "(" <> (show =<< toList fargs) <> ")"
+    FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
+      | fRecursiveCall && fRecursiveFunc ->
+        "(recurse)(" <> (show =<< toList fArgs) <> ")"
+      | otherwise ->
+        let rec = if fRecursiveFunc then "(rec)" else ""
+        in unpack fName <> rec <> "(" <> (show =<< toList fArgs) <> ")"
 
     Conversion { toType, cExp } ->
       show toType <> "(" <> show cExp <> ")"

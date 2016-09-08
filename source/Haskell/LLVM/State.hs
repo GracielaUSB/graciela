@@ -14,6 +14,7 @@ module LLVM.State
   , structs
   , currentStruct
   , stringOps
+  , boundOp
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
@@ -43,7 +44,8 @@ data State = State
   , _nameCount     :: Int
   , _structs       :: Map Text Struct
   , _currentStruct :: Maybe Struct
-  , _stringOps     :: Array Int Operand }
+  , _stringOps     :: Array Int Operand
+  , _boundOp       :: Maybe Operand }
 
 makeLenses ''State
 
@@ -59,4 +61,5 @@ initialState = State
   , _structs       = Map.empty
   , _currentStruct = Nothing
   , _stringOps     = undefined
+  , _boundOp       = Nothing
   }
