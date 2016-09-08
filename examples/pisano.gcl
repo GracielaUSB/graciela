@@ -1,5 +1,5 @@
 //Pisano (Fibonacci and other stuff)
-program Hola begin
+program Hola.bin begin
 
   abstract Diccionario (t0,t1) begin
     var MAX   : int;
