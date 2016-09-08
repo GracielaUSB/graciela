@@ -9,7 +9,7 @@ import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))

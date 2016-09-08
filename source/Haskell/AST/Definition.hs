@@ -10,7 +10,7 @@ import qualified AST.Instruction as I
 import           Location
 import           SymbolTable
 import           Treelike
-import           Type            (ArgMode (..), Type (..))
+import           AST.Type            (ArgMode (..), Type (..))
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))

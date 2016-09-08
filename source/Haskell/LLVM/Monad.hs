@@ -5,7 +5,7 @@ module LLVM.Monad where
 import           LLVM.State                       hiding (State)
 import qualified LLVM.State                       as LLVM (State)
 --------------------------------------------------------------------------------
-import           Control.Lens                     (use, (%=), (+=), (.=))
+import           Control.Lens                     (use, (%=), (+=), (.=), _head)
 import           Control.Monad                    (when)
 import           Control.Monad.State.Class        (MonadState)
 import           Control.Monad.Trans.State.Strict (State)
@@ -15,6 +15,7 @@ import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import           Data.Sequence                    (Seq, (|>))
 import qualified Data.Sequence                    as Seq
+import           Data.Text                        (Text, unpack)
 import           LLVM.General.AST                 (BasicBlock (..))
 import qualified LLVM.General.AST                 as LLVM (Definition (..))
 import           LLVM.General.AST.Constant        (Constant (GlobalReference))
@@ -32,41 +33,35 @@ newtype LLVM a = LLVM { unLLVM :: State LLVM.State a }
   deriving ( Functor, Applicative, Monad, MonadState LLVM.State)
 
 {- Symbol Table -}
--- When opening a new scope, llvm wont know which variable is beign called if more than 1 variable have the same name.
--- To prevent this confusion, lets call every declared variable with an unique name + identifier
+-- When opening a new scope, llvm wont know which variable is being called
+-- if more than 1 variable have the same name. To prevent this confusion,
+-- lets call every declared variable with an unique name + identifier
 -- (e.g. a -> %a1 and %a2)
 
-getVariableName :: String -> LLVM String
-getVariableName name = do
-  st <- use symTable
-  pure $ getVariableName' st
+getVariableName :: Text -> LLVM Name
+getVariableName name =
+  getVariableName' <$> use symTable
   where
-    getVariableName' [] = error $ "variable no definida " <> name
+    getVariableName' [] = error $
+      "internal error: undefined variable `" <> unpack name <> "`."
     getVariableName' (vars:xs) =
       fromMaybe (getVariableName' xs) (name `Map.lookup` vars)
 
+
 openScope :: LLVM ()
-openScope = do
-  nameCount += 1
-  symTable %= (Map.empty :)
+openScope = symTable %= (Map.empty :)
+
 
 closeScope :: LLVM ()
-closeScope = do
-  t <- tail <$> use symTable
-  when (null t) (nameCount .= -1)
-  symTable .= t
+closeScope = symTable %= tail
 
-insertName :: String -> LLVM String
-insertName name = do
-  (vars:xs) <- use symTable
-  num <- use nameCount
-  let
-    newName = name <> "$" <> show num
-    newMap = Map.insert name newName vars
-  symTable .= (newMap:xs)
-  return newName
 
--- -----------------------------------------------
+insertVar :: Text -> LLVM Name
+insertVar text = do
+  name <- newLabel ("var." <> unpack text)
+  symTable . _head %= Map.insert text name
+  pure name
+--------------------------------------------------------------------------------
 
 addDefinitions :: Seq LLVM.Definition -> LLVM ()
 addDefinitions defs =

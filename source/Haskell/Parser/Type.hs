@@ -22,7 +22,7 @@ import           Parser.Monad      (Parser, getType, identifier, integerLit,
 import           Parser.State
 import           SymbolTable       (lookup)
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)

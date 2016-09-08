@@ -43,7 +43,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type                   (ArgMode (..), Type (..), llvmName,
+import           AST.Type                   (ArgMode (..), Type (..), llvmName,
                                          (=:=))
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)

@@ -13,11 +13,13 @@ where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
 import           AST.Struct                 (Struct (..))
+import           AST.Type                   as T (Type (..), llvmName)
 import           LLVM.Monad
-import           LLVM.State                 (currentStruct)
-import           Type                       as T (Type (..), llvmName)
+import           LLVM.State                 (currentStruct, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
+import qualified Data.Map                   as Map (lookup)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (unpack)
 import           Data.Word                  (Word32, Word64)
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
@@ -62,7 +64,6 @@ toLLVMType (T.GArray sz t) = do
   inner <- toLLVMType t
   pure $ LLVM.ArrayType (fromIntegral sz)  inner
 
-
 toLLVMType (GFullDataType n t) =
   pure . LLVM.NamedTypeReference . Name . unpack $ llvmName n t
 
@@ -74,15 +75,24 @@ toLLVMType (GDataType name _) = do
       let types = structTypes struct
       pure . LLVM.NamedTypeReference . Name . unpack $ llvmName name types
 
-toLLVMType GAny            = error "GAny is not a valid type"
+toLLVMType (GTypeVar var) = do
+  substs <- use substitutionTable
+  case substs of
+    [] -> error "internal error: subsitituting without substitution table."
+    (subst:_) -> pure $
+      fromMaybe (error "internal error: substituting an unavailable type var")
+        (var `Map.lookup` subst)
+
+
+toLLVMType GAny            = error "internal error: GAny is not a valid type"
 
 -- Unsupported Types
-toLLVMType t               = pure $ LLVM.ArrayType 123 i32
+-- toLLVMType t               = pure $ LLVM.ArrayType 123 i32
 
 sizeOf :: T.Type -> Integer
 sizeOf T.GInt          = 4
 sizeOf T.GBool         = 4
 sizeOf T.GChar         = 4
 sizeOf T.GFloat        = 8
-sizeOf (T.GArray sz t) = (fromIntegral sz) * sizeOf t
+sizeOf (T.GArray sz t) = fromIntegral sz * sizeOf t
 sizeOf (T.GPointer t)  = 4

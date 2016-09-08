@@ -36,7 +36,7 @@ import           Error
 import           Location
 import           SymbolTable
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
 import           Data.Foldable         (foldl')

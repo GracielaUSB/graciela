@@ -20,7 +20,7 @@ module AST.Expression
 import           AST.Object    (Object')
 import           Location
 import           Treelike
-import           Type          (Type)
+import           AST.Type          (Type)
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
 import           Data.Int      (Int32)

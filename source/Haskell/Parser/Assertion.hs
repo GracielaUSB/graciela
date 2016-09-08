@@ -19,7 +19,7 @@ import           Parser.Monad
 import           Parser.State
 import           Parser.Type
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens       ((%=))
 import           Control.Monad      (unless, void)

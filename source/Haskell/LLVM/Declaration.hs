@@ -6,13 +6,13 @@ module LLVM.Declaration
 --------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression
+import           AST.Type                     (Type (..), (=:=))
 import           LLVM.Abort
 import           LLVM.Expression
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           SymbolTable
-import           Type                         (Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens                 (use, (%=), (.=))
 import           Control.Monad                (when, zipWithM_)
@@ -22,14 +22,12 @@ import qualified Data.Sequence                as Seq (empty, fromList,
                                                       singleton)
 import           Data.Text                    (Text, unpack)
 import           Data.Word
-import           Debug.Trace
 import qualified LLVM.General.AST.Constant    as C (Constant (..))
 import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
 import           LLVM.General.AST.Instruction (Instruction (..), Named (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 --------------------------------------------------------------------------------
-
 import           Debug.Trace
 
 declaration :: Declaration -> LLVM ()
@@ -42,10 +40,10 @@ declaration Initialization { declType, declPairs } =
 {- Allocate a variable -}
 alloc :: Type -> Text -> LLVM ()
 alloc gtype lval = do
-  name <- insertName $ unpack lval
+  name <- insertVar lval
   t    <- toLLVMType gtype
 
-  addInstruction $ Name name := Alloca
+  addInstruction $ name := Alloca
     { allocatedType = t
     , numElements   = Nothing
     , alignment     = 4
@@ -55,7 +53,7 @@ alloc gtype lval = do
       defaultValue <- value gtype
       addInstruction $ Do Store
           { volatile = False
-          , address  = LocalReference t (Name name)
+          , address  = LocalReference t name
           , value    = defaultValue
           , maybeAtomicity = Nothing
           , alignment = 4
@@ -73,10 +71,10 @@ alloc gtype lval = do
 {- Store an expression in a variable memory -}
 initialize :: Type -> (Text, Expression) -> LLVM ()
 initialize gtype (lval, expr) = do
-  name <- insertName $ unpack lval
+  name <- insertVar lval
   t    <- toLLVMType gtype
 
-  addInstruction $ Name name := Alloca
+  addInstruction $ name := Alloca
     { allocatedType = t
     , numElements   = Nothing
     , alignment     = 4
@@ -86,7 +84,7 @@ initialize gtype (lval, expr) = do
   -- The store is an unamed instruction, so get the next instruction label
   addInstruction $ Do Store
     { volatile = False
-    , address  = LocalReference t (Name name)
+    , address  = LocalReference t name
     , value    = value
     , maybeAtomicity = Nothing
     , alignment = 4

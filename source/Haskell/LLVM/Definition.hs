@@ -8,6 +8,8 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
+import           AST.Type                            ((=:=))
+import qualified AST.Type                            as T
 import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (NegativeBound, NondecreasingBound, Post))
 import           LLVM.Declaration                    (declaration)
@@ -20,8 +22,6 @@ import           LLVM.Warning                        (warn, warnString)
 import qualified LLVM.Warning                        as Warning (Warning (Post, Pre))
 import           Location
 import           Treelike
-import           Type                                ((=:=))
-import qualified Type                                as T
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
 import           Control.Monad                       (unless)
@@ -86,7 +86,7 @@ definition
       -- TODO! postcondition
       openScope
 
-      params <- mapM toLLVMParameter . toList $ funcParams
+      params <- mapM makeParam' . toList $ funcParams
 
       preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
@@ -107,7 +107,6 @@ definition
 
       params' <- if funcRecursive
         then do
-          -- Parameter t' (Name name') []
           let
             boundExp = fromMaybe
               (error "internal error: boundless recursive function.")
@@ -183,7 +182,7 @@ definition
 
       returnOperand <- expression funcBody
 
-      returnVar <- Name <$> insertName (unpack defName)
+      returnVar <- insertVar defName
 
       returnType <- toLLVMType funcRetType
       addInstruction $ returnVar := Alloca
@@ -251,7 +250,7 @@ definition
 
       openScope
 
-      params <- mapM toLLVMParameter' . toList $ procParams
+      params <- mapM makeParam . toList $ procParams
 
       mapM_ declarationsOrRead procDecl
       precondition pre
@@ -270,21 +269,18 @@ definition
       closeScope
 
   where
-    toLLVMParameter (name, t) = do
-      name' <- insertName $ unpack name
-      t'    <- toLLVMType t
-      return $ Parameter t' (Name name') []
+    makeParam' (name, t) = makeParam (name, t, T.In)
 
-    toLLVMParameter' (name, t, mode) | mode == T.In &&
+    makeParam (name, t, mode) | mode == T.In &&
           t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat] = do
-      name' <- insertName $ unpack name
+      name' <- insertVar name
       t'    <- toLLVMType t
-      return $ Parameter t' (Name name') []
+      return $ Parameter t' name' []
 
-    toLLVMParameter' (name, t, mode) = do
-      name' <- insertName $ unpack name
+    makeParam (name, t, mode) = do
+      name' <- insertVar name
       t'    <- toLLVMType t
-      return $ Parameter (ptr t') (Name name') []
+      return $ Parameter (ptr t') name' []
 
 
 declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()

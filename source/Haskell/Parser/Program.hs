@@ -16,7 +16,7 @@ import           Parser.Monad       hiding (sepBy1)
 import           Parser.State
 import           SymbolTable        (closeScope, openScope)
 import           Token
-import           Type
+import           AST.Type
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M

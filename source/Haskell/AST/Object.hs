@@ -9,7 +9,7 @@ module AST.Object
 --------------------------------------------------------------------------------
 import           Location
 import           Treelike
-import           Type        (ArgMode (..), Type)
+import           AST.Type        (ArgMode (..), Type)
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
 import           Data.Text   (Text, unpack)

@@ -12,7 +12,7 @@ module Entry
 import           AST.Expression
 import           Location
 import           Treelike
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
 import           Data.Monoid    ((<>))

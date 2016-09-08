@@ -22,7 +22,7 @@ import           LLVM.Warning                       (warn)
 import qualified LLVM.Warning                       as Warning (Warning (Manual))
 import           Location
 import           Treelike
-import           Type                               as T
+import           AST.Type                               as T
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, when, zipWithM_)

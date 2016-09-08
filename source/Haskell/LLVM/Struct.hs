@@ -1,14 +1,15 @@
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PostfixOperators  #-}
 
 module LLVM.Struct
   ( defineStruct
-  )
-  where
-
+  ) where
+--------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression               (Expression (..))
 import           AST.Struct                   (Struct (..), Struct' (..))
+import           AST.Type                     as T
 import           LLVM.Abort                   (abort, abortString)
 import qualified LLVM.Abort                   as Abort (Abort (Post))
 import           LLVM.Definition
@@ -19,7 +20,6 @@ import           LLVM.Type
 import           LLVM.Warning                 (warn, warnString)
 import qualified LLVM.Warning                 as Warning (Warning (Pre))
 import           Location
-import           Type                         as T
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
@@ -52,7 +52,7 @@ defineStruct ast@Struct {structName, structDecls, structProcs, struct'} =
       currentStruct .= Just ast
 
       type' <- Just . StructureType False <$>
-               mapM (toLLVMType . declType . snd) (toList $ structDecls)
+               mapM (toLLVMType . declType . snd) (toList structDecls)
 
       let
         name  = Name . unpack $ structName
@@ -85,12 +85,12 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     (proc #)
 
     openScope
-    name' <- insertName "self"
+    name' <- insertVar "self"
     -- Evaluate the condition expression
     cond <- expression expr
     -- Create both label
-    trueLabel  <- newLabel $ "condTrue"
-    falseLabel <- newLabel $ "condFalse"
+    trueLabel  <- newLabel "condTrue"
+    falseLabel <- newLabel "condFalse"
     -- Create the conditional branch
     terminate' CondBr
       { condition = cond
@@ -117,11 +117,10 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     blocks' <- use blocks
     blocks .= Seq.empty
 
-    let selfParam = Parameter t (Name name') []
+    let selfParam = Parameter t name' []
 
     addDefinition $ GlobalDefinition functionDefaults
           { name        = Name procName
           , parameters  = ([selfParam],False)
           , returnType  = voidType
-          , basicBlocks = toList blocks'
-        }
+          , basicBlocks = toList blocks' }

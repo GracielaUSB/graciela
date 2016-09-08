@@ -12,7 +12,7 @@ import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type            (Type)
+import           AST.Type            (Type)
 
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
