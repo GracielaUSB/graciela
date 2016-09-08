@@ -22,7 +22,7 @@ import           Parser.Monad      (Parser, getType, identifier, integerLit,
 import           Parser.State
 import           SymbolTable       (lookup)
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
@@ -141,18 +141,15 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
             t = GFullDataType structName fullTypes
           if ok
             then do
-              case structName `Map.lookup` full of
-                Nothing -> do
-                  let 
-                    types = Map.fromList $ zip structTypes fullTypes                  
+              let 
+                types = Map.fromList $ zip structTypes fullTypes                  
 
-                    fAlter = \case 
-                      Nothing -> Just [(types, ast)]
-                      Just l ->  Just $ [(types, ast)] <> l
+                fAlter = \case 
+                  Nothing -> Just [(types, ast)]
+                  Just l ->  Just $ [(types, ast)] <> l
+              fullDataTypes %= Map.alter fAlter structName
 
-                  fullDataTypes %= Map.alter fAlter structName
-                  pure t
-                _ -> pure t
+              pure t
 
             else pure GUndef
 

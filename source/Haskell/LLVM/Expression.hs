@@ -14,8 +14,9 @@ import qualified AST.Expression                          as Op (BinaryOperator (
                                                                 UnaryOperator (..))
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
+import           AST.Type                                as T
 import           LLVM.Abort                              (abort)
-import qualified LLVM.Abort                              as Abort (Abort (If, NullPointerAccess, Overflow))
+import qualified LLVM.Abort                              as Abort (Abort (DivisionByZero, If, NullPointerAccess, Overflow))
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
@@ -23,7 +24,6 @@ import           LLVM.Type                               (boolType, floatType,
 import           Location
 import           SymbolTable
 import           Treelike                                (drawTree, toTree)
-import           Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (foldM, when)
@@ -66,10 +66,9 @@ object obj@Object { objType, obj' } = case obj' of
   -- procedure as a constant so doesn't need to be loaded
   Variable { mode } | mode == Just In -> objectRef obj
 
-
   -- If not marked as In, just load the content of the variable
   _ -> do
-      label <- newLabel "var"
+      label <- newLabel "varObj"
       -- Make a reference to the variable that will be loaded (e.g. %a)
       addrToLoad <- objectRef obj
       t <- toLLVMType objType
@@ -97,8 +96,8 @@ objectRef obj@(Object loc objType obj') = do
   case obj' of
 
     Variable { name } -> do
-      name' <- getVariableName $ unpack name
-      return . LocalReference objType' $ Name name'
+      name' <- getVariableName name
+      pure $ LocalReference objType' name'
 
     Index inner index -> do
       ref <- objectRef inner
@@ -221,7 +220,7 @@ safeOperation label fun lOperand rOperand pos = do
   abort Abort.Overflow pos
 
   (normalLabel #)
-  pure Seq.empty
+
 
 callUnaryFunction :: String -> Operand -> Instruction
 callUnaryFunction fun innerOperand = Call
@@ -281,7 +280,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
         let
           minusOne = ConstantOperand $ C.Int 32 (-1)
           one = ConstantOperand $ C.Int 32 (1)
-        insts <- case op of
+        case op of
             Op.Abs    -> undefined
 
             Op.UMinus ->
@@ -293,7 +292,6 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
             Op.Pred   ->
                 safeOperation label intSub innerOperand one pos
 
-        addInstructions insts
         return $ LocalReference intType label
 
       opFloat :: Op.UnaryOperator -> Operand -> LLVM Operand
@@ -361,7 +359,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     where
       opInt op lOperand rOperand = do
         label <- newLabel "intOp"
-        insts <- case op of
+        case op of
           Op.Plus   ->
             safeOperation label intAdd lOperand rOperand pos
 
@@ -371,23 +369,64 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
           Op.Times  ->
             safeOperation label intMul lOperand rOperand pos
 
-          Op.Div    -> return . Seq.singleton $ label := SDiv
-                            { exact = True
-                            , operand0 = lOperand
-                            , operand1 = rOperand
-                            , metadata = [] }
-          Op.Mod    -> return . Seq.singleton $ label := SRem
-                            { operand0 = lOperand
-                            , operand1 = rOperand
-                            , metadata = [] }
-          Op.Min    -> return . Seq.singleton $
+          Op.Div    -> do
+            checkZero <- newLabel "divCheckZero"
+            addInstruction $ checkZero := ICmp
+              { iPredicate = EQ
+              , operand0   = ConstantOperand $ C.Int 32 0
+              , operand1   = rOperand
+              , metadata   = [] }
+
+            isZero <- newLabel "divIsZero"
+            isn'tZero <- newLabel "divIsn'tZero"
+            terminate' CondBr
+              { condition = LocalReference i1 checkZero
+              , trueDest  = isZero
+              , falseDest = isn'tZero
+              , metadata' = [] }
+
+            (isZero #)
+            abort Abort.DivisionByZero pos
+
+            (isn'tZero #)
+            addInstruction $ label := SDiv
+              { exact = True
+              , operand0 = lOperand
+              , operand1 = rOperand
+              , metadata = [] }
+
+          Op.Mod    -> do
+            checkZero <- newLabel "modCheckZero"
+            addInstruction $ checkZero := ICmp
+              { iPredicate = EQ
+              , operand0   = ConstantOperand $ C.Int 32 0
+              , operand1   = rOperand
+              , metadata   = [] }
+
+            isZero <- newLabel "modIsZero"
+            isn'tZero <- newLabel "modIsn'tZero"
+            terminate' CondBr
+              { condition = LocalReference i1 checkZero
+              , trueDest  = isZero
+              , falseDest = isn'tZero
+              , metadata' = [] }
+
+            (isZero #)
+            abort Abort.DivisionByZero pos
+
+            (isn'tZero #)
+            addInstruction $ label := SRem
+              { operand0 = lOperand
+              , operand1 = rOperand
+              , metadata = [] }
+
+          Op.Min    -> addInstruction $
             label := callFunction minnumString lOperand rOperand
 
-          Op.Max    -> return . Seq.singleton $
+          Op.Max    -> addInstruction $
             label := callFunction maxnumString  lOperand rOperand
           _         -> error "opInt"
 
-        addInstructions insts
         return $ LocalReference intType label
 
       opFloat op lOperand rOperand = do

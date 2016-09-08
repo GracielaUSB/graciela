@@ -72,7 +72,7 @@ import           Parser.Prim                ()
 import           Parser.State               hiding (State)
 import qualified Parser.State               as Parser (State)
 import           Token                      (Token (..), TokenPos (..))
-import           Type                       (Type)
+import           AST.Type                       (Type)
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
 import           Control.Lens               (use, (%=))

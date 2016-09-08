@@ -7,11 +7,11 @@ import qualified AST.Definition  as D
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
 import           AST.Struct      (Struct)
+import           AST.Type
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)

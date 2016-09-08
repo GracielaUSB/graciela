@@ -192,49 +192,49 @@ double _minF(double x, double y) {
 
 
 typedef enum
-  { IF
-  , AMANUAL
-  , POST
-  , ASSERT
-  , INVARIANT
-  , NONDECREASING_BOUND
-  , NEGATIVE_BOUND
-  , DIVISION_BY_ZERO
-  , OVERFLOW
-  , UNDERFLOW
-  , EMPTY_RANGE
-  , NULL_POINTER_ACCESS
-  , REPRESENTATION_INVARIANT
+  { A_IF
+  , A_MANUAL
+  , A_POST
+  , A_ASSERT
+  , A_INVARIANT
+  , A_NONDECREASING_BOUND
+  , A_NEGATIVE_BOUND
+  , A_DIVISION_BY_ZERO
+  , A_OVERFLOW
+  , A_UNDERFLOW
+  , A_EMPTY_RANGE
+  , A_NULL_POINTER_ACCESS
+  , A_REPRESENTATION_INVARIANT
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
   printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
-    case IF:
+    case A_IF:
       printf (":\n\tno true branch found in conditional.\n"); break;
-    case AMANUAL:
+    case A_MANUAL:
       printf (".\n"); break;
-    case POST:
+    case A_POST:
       printf (":\n\tthe postcondition was falsified.\n"); break;
-    case ASSERT:
+    case A_ASSERT:
       printf (":\n\tthe assertion was falsified.\n"); break;
-    case INVARIANT:
+    case A_INVARIANT:
       printf (":\n\tthe invariant was falsified.\n"); break;
-    case NONDECREASING_BOUND:
+    case A_NONDECREASING_BOUND:
       printf (":\n\tthe bound didn't decrease.\n"); break;
-    case NEGATIVE_BOUND:
+    case A_NEGATIVE_BOUND:
       printf (":\n\tthe bound became negative.\n"); break;
-    case DIVISION_BY_ZERO:
+    case A_DIVISION_BY_ZERO:
       printf (":\n\ta division by zero was attempted.\n"); break;
-    case OVERFLOW:
+    case A_OVERFLOW:
       printf (":\n\ta value overflowed.\n"); break;
-    case UNDERFLOW:
+    case A_UNDERFLOW:
       printf (":\n\ta value underflowed.\n"); break;
-    case EMPTY_RANGE:
+    case A_EMPTY_RANGE:
       printf (":\n\tthe quantifier's range was empty.\n"); break;
-    case NULL_POINTER_ACCESS:
+    case A_NULL_POINTER_ACCESS:
       printf (":\n\ta null pointer was dereferenced.\n"); break;
-    case REPRESENTATION_INVARIANT:
+    case A_REPRESENTATION_INVARIANT:
       printf (":\n\tthe representation invariant was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
@@ -243,22 +243,25 @@ void _abort (abort_t reason, int line, int column) {
 }
 
 typedef enum
-  { WManual
-  , PRE
-  , FORALL
-  , EXISTENTIAL
+  { W_MANUAL
+  , W_PRE
+  , W_POST
+  , W_FORALL
+  , W_EXISTENTIAL
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
   printf ("\x1B[0;35mWARNING:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
-    case WManual:
+    case W_MANUAL:
       printf (".\n"); break;
-    case PRE:
+    case W_PRE:
       printf (":\n\tthe precondition was falsified.\n"); break;
-    case FORALL:
+    case W_POST:
+      printf (":\n\tthe postcondition was falsified.\n"); break;
+    case W_FORALL:
       printf (":\n\tthe universal quantification was falsified.\n"); break;
-    case EXISTENTIAL:
+    case W_EXISTENTIAL:
       printf (":\n\tthe existential quantification was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;

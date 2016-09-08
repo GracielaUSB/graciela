@@ -11,7 +11,7 @@ import           LLVM.Expression
 import           LLVM.Instruction
 import           LLVM.State
 import           SymbolTable
-import qualified Type                                    (Type (..))
+import qualified AST.Type                                    (Type (..))
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.Trans.State

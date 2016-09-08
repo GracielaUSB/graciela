@@ -29,6 +29,7 @@ import           AST.Instruction        (Guard, Instruction (..),
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
+import           AST.Type               (ArgMode (..), Type (..),(=:=))
 import           Entry
 import           Error
 import           Location
@@ -37,13 +38,12 @@ import qualified Parser.Assertion       as A (bound)
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
--- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type                   (ArgMode (..), Type (..),(=:=))
+
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad          (foldM, unless, void, when, zipWithM)

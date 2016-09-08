@@ -13,6 +13,7 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
+import           AST.Type                  (ArgMode (..), Type (..), (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
@@ -25,7 +26,6 @@ import           SymbolTable               (closeScope, insertSymbol, lookup,
                                             openScope)
 import           Token
 import           Treelike
-import           Type                      (ArgMode (..), Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Control.Lens              (use, (%%=), (%=), (&~), (.=), (<&>),
                                             (^.), _6, _Just)
@@ -704,8 +704,8 @@ operator =
     [ InfixR (match TokPower      <&> binary Op.power ) ]
   , {-Level 4-}
     [ InfixL (match TokTimes      <&> binary Op.times )
-    , InfixL (match TokDiv        <&> binary Op.div   )
-    , InfixL (match TokMod        <&> binary Op.mod   ) ]
+    , InfixL (match TokDiv        <&> binary' Op.div  )
+    , InfixL (match TokMod        <&> binary' Op.mod  ) ]
   , {-Level 5-}
     [ InfixL (match TokPlus       <&> binary Op.plus   )
     , InfixL (match TokMinus      <&> binary Op.bMinus ) ]

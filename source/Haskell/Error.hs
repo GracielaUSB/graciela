@@ -10,7 +10,7 @@ import           Location
 import           Text.Megaparsec       hiding (Token)
 import           Text.Megaparsec.Error
 import           Token
-import           Type                  (Type (..))
+import           AST.Type                  (Type (..))
 --------------------------------------------------------------------------------
 import           Data.List             (intercalate)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))

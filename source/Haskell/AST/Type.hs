@@ -11,17 +11,18 @@ Implements the Graciela typesystem.
 
 {-# LANGUAGE LambdaCase #-}
 
-module Type
+module  AST.Type
   ( ArgMode (..)
   , Type (..)
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
-import           Data.Int    (Int32)
-import           Data.List   (intercalate, nub)
-import           Data.Monoid ((<>))
-import           Data.Text   (Text, pack, takeWhile, unpack)
-import           Prelude     hiding (takeWhile)
+import           Data.Int       (Int32)
+import           Data.List      (intercalate, nub)
+import           Data.Monoid    (Monoid (..))
+import           Data.Semigroup (Semigroup (..))
+import           Data.Text      (Text, pack, takeWhile, unpack)
+import           Prelude        hiding (takeWhile)
 --------------------------------------------------------------------------------
 
 -- | The mode in which an argument is passed to a graciela procedure.
@@ -85,88 +86,91 @@ a =:= b = (a <> b) /= GUndef
 
 -- | Graciela Types form a Monoid under the `more specific` operator,
 -- with the type @GAny@ as the identity.
+
 instance Monoid Type where
   mempty = GAny
-  a `mappend` b | a == b = a
-  GAny        `mappend` a           = a
-  a           `mappend` GAny        = a
+  mappend = (<>)
+instance Semigroup Type where
+  a <> b | a == b = a
+  GAny        <> a           = a
+  a           <> GAny        = a
 
-  GOneOf as   `mappend` GOneOf bs   = case as `merge` bs of
+  GOneOf as   <> GOneOf bs   = case as `merge` bs of
     []  -> GUndef
     [c] -> c
     cs  -> GOneOf cs
     where
-      as `merge` bs = nub [ c | a <- as, b <- bs, let c = a `mappend` b, c /= GUndef ]
-  GOneOf as   `mappend` a           = case a `matchIn` as of
+      as `merge` bs = nub [ c | a <- as, b <- bs, let c = a <> b, c /= GUndef ]
+  GOneOf as   <> a           = case a `matchIn` as of
     []  -> GUndef
     [c] -> c
     cs  -> GOneOf cs
     where
-      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
-  a           `mappend` GOneOf as   = case a `matchIn` as of
+      a `matchIn` as = nub [ c | b <- as, let c = a <> b, c /= GUndef ]
+  a           <> GOneOf as   = case a `matchIn` as of
     []  -> GUndef
     [c] -> c
     cs  -> GOneOf cs
     where
-      a `matchIn` as = nub [ c | b <- as, let c = a `mappend` b, c /= GUndef ]
+      a `matchIn` as = nub [ c | b <- as, let c = a <> b, c /= GUndef ]
 
-  GUndef      `mappend` a           = GUndef
-  a           `mappend` GUndef      = a
+  GUndef      <> a           = GUndef
+  a           <> GUndef      = a
 
-  GSet a      `mappend` GSet b      = case a `mappend` b of
+  GSet a      <> GSet b      = case a <> b of
     GUndef -> GUndef
     c      -> GSet c
-  GMultiset a `mappend` GMultiset b = case a `mappend` b of
+  GMultiset a <> GMultiset b = case a <> b of
     GUndef -> GUndef
     c      -> GMultiset c
-  GSeq a      `mappend` GSeq b      = case a `mappend` b of
+  GSeq a      <> GSeq b      = case a <> b of
     GUndef -> GUndef
     c      -> GSeq c
-  GPointer a  `mappend` GPointer b  = case a `mappend` b of
+  GPointer a  <> GPointer b  = case a <> b of
     GUndef -> GUndef
     c      -> GPointer c
 
-  GArray s a  `mappend` GArray t b
+  GArray s a  <> GArray t b
     | s /= t = GUndef
-    | s == t = case a `mappend` b of
+    | s == t = case a <> b of
       GUndef -> GUndef
       c      -> GArray (s `min` t) c
 
-  GFunc a c   `mappend` GFunc b d   = case (a `mappend` b, c `mappend` d) of
+  GFunc a c   <> GFunc b d   = case (a <> b, c <> d) of
     (GUndef, _) -> GUndef
     (_, GUndef) -> GUndef
     (e, f)      -> GFunc e f
-  GRel a c    `mappend` GRel b d    = case (a `mappend` b, c `mappend` d) of
+  GRel a c    <> GRel b d    = case (a <> b, c <> d) of
     (GUndef, _) -> GUndef
     (_, GUndef) -> GUndef
     (e, f)      -> GRel e f
 
-  GTuple as   `mappend` GTuple bs   = if length as == length bs
+  GTuple as   <> GTuple bs   = if length as == length bs
     then let cs = zipWith mappend as bs
       in if GUndef `elem` cs
         then GUndef
         else GTuple cs
     else GUndef
 
-  GTypeVar a `mappend` GTypeVar b =
+  GTypeVar a <> GTypeVar b =
     if a == b then GTypeVar a else GUndef
 
-  GFullDataType a fs `mappend` GFullDataType b _ =
+  GFullDataType a fs <> GFullDataType b _ =
     if a == b then GFullDataType a fs else GUndef
 
-  GDataType a fs `mappend` GDataType b _ =
+  GDataType a fs <> GDataType b _ =
     if a == b then GFullDataType a fs else GUndef
 
-  GDataType a fs `mappend` GFullDataType b _ =
+  GDataType a fs <> GFullDataType b _ =
     if a == takeWhile (/= '-') b then GFullDataType b fs else GUndef
 
-  GFullDataType a fs `mappend` GDataType b _ =
+  GFullDataType a fs <> GDataType b _ =
     if takeWhile (/= '-') a == b then GFullDataType a fs else GUndef
 
-  GUnsafeName a `mappend` GUnsafeName b =
+  GUnsafeName a <> GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
 
-  _ `mappend` _ = GUndef
+  _ <> _ = GUndef
 
 instance Show Type where
   show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"

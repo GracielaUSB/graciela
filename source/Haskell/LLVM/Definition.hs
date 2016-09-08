@@ -8,20 +8,20 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
-import           LLVM.Abort                          (abort, abortString, warn,
-                                                      warnString)
+import           AST.Type                            ((=:=))
+import qualified AST.Type                            as T
+import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (NegativeBound, NondecreasingBound, Post))
-import qualified LLVM.Abort                          as Warning (Warning (Pre))
 import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
 import           LLVM.Instruction
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
+import           LLVM.Warning                        (warn, warnString)
+import qualified LLVM.Warning                        as Warning (Warning (Post, Pre))
 import           Location
 import           Treelike
-import           Type                                ((=:=))
-import qualified Type                                as T
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
 import           Control.Monad                       (unless)
@@ -56,7 +56,7 @@ import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
-{- Given the instruction blokc of the main program, construct the main LLVM function-}
+{- Given the instruction block of the main program, construct the main LLVM function-}
 mainDefinition :: G.Instruction -> LLVM ()
 mainDefinition block = do
   main <- newLabel "main"
@@ -86,19 +86,19 @@ definition
       -- TODO! postcondition
       openScope
 
-      params <- mapM toLLVMParameter . toList $ funcParams
+      params <- mapM makeParam' . toList $ funcParams
 
-      preOp <- expression pre
+      preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
       noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
       terminate' CondBr
-        { condition = preOp
+        { condition = preOperand
         , trueDest  = yesPre
         , falseDest = noPre
         , metadata' = [] }
 
       (noPre #)
-      warn Warning.Pre pos
+      warn Warning.Pre (let Location (pos, _) = loc pre in pos)
       terminate' Br
         { dest      = yesPre
         , metadata' = [] }
@@ -107,7 +107,6 @@ definition
 
       params' <- if funcRecursive
         then do
-          -- Parameter t' (Name name') []
           let
             boundExp = fromMaybe
               (error "internal error: boundless recursive function.")
@@ -133,7 +132,8 @@ definition
             , metadata' = [] }
 
           (noGte0 #)
-          abort Abort.NegativeBound pos
+          abort Abort.NegativeBound
+            (let Location (pos, _) = loc boundExp in pos)
 
           (yesGte0 #)
           yesOld <- newLabel "funcOldBoundYes"
@@ -165,7 +165,8 @@ definition
             , metadata' = [] }
 
           (noLtOld #)
-          abort Abort.NondecreasingBound pos
+          abort Abort.NondecreasingBound
+            (let Location (pos, _) = loc boundExp in pos)
 
           (yesLtOld #)
           terminate' Br
@@ -181,7 +182,7 @@ definition
 
       returnOperand <- expression funcBody
 
-      returnVar <- Name <$> insertName (unpack defName)
+      returnVar <- insertVar defName
 
       returnType <- toLLVMType funcRetType
       addInstruction $ returnVar := Alloca
@@ -208,7 +209,22 @@ definition
         , metadata' = [] }
 
       (noPost #)
-      abort Abort.Post pos
+      yesPreNoPost  <- newLabel "funcPreYesPostNo"
+      noPreNoPost <- newLabel "funcPreNoPostNo"
+      terminate' CondBr
+        { condition = preOperand
+        , trueDest  = yesPreNoPost
+        , falseDest = noPreNoPost
+        , metadata' = [] }
+
+      (yesPreNoPost #)
+      abort Abort.Post (let Location (pos, _) = loc post in pos)
+
+      (noPreNoPost #)
+      warn Warning.Post (let Location (pos, _) = loc post in pos)
+      terminate' Br
+        { dest      = yesPost
+        , metadata' = [] }
 
       (yesPost #)
       terminate' Ret
@@ -234,7 +250,7 @@ definition
 
       openScope
 
-      params <- mapM toLLVMParameter' . toList $ procParams
+      params <- mapM makeParam . toList $ procParams
 
       mapM_ declarationsOrRead procDecl
       precondition pre
@@ -253,21 +269,18 @@ definition
       closeScope
 
   where
-    toLLVMParameter (name, t) = do
-      name' <- insertName $ unpack name
-      t'    <- toLLVMType t
-      return $ Parameter t' (Name name') []
+    makeParam' (name, t) = makeParam (name, t, T.In)
 
-    toLLVMParameter' (name, t, mode) | mode == T.In &&
+    makeParam (name, t, mode) | mode == T.In &&
           t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat] = do
-      name' <- insertName $ unpack name
+      name' <- insertVar name
       t'    <- toLLVMType t
-      return $ Parameter t' (Name name') []
+      return $ Parameter t' name' []
 
-    toLLVMParameter' (name, t, mode) = do
-      name' <- insertName $ unpack name
+    makeParam (name, t, mode) = do
+      name' <- insertVar name
       t'    <- toLLVMType t
-      return $ Parameter (ptr t') (Name name') []
+      return $ Parameter (ptr t') name' []
 
 
 declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()

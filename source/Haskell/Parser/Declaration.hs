@@ -30,7 +30,7 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens              (use, (%=))
 import           Control.Monad             (foldM, forM_, unless, void, when,

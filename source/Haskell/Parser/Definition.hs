@@ -25,7 +25,7 @@ import           Parser.Type
 import           SymbolTable         hiding (empty)
 import qualified SymbolTable         as ST (empty)
 import           Token
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
 import           Control.Lens        (use, (%=), (.=), (^.), _Just)

@@ -14,7 +14,7 @@ module Parser.Operator
 import           AST.Expression (BinaryOperator (..), Expression (..),
                                  Expression' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
-import           Type           (Type (..), (=:=))
+import           AST.Type       (Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
@@ -114,15 +114,33 @@ arithOpType _      _      = Left $
   show (GChar , GChar ) <> ", or " <>
   show (GFloat, GFloat)
 
-power, times, div, mod, plus, bMinus, max, min :: Bin
+power, times, plus, bMinus, max, min :: Bin
 power  = Bin Power  arithOpType $ arith (^) (**)
 times  = Bin Times  arithOpType $ arith (*) (*)
-div    = Bin Div    arithOpType $ arith P.div (/)
-mod    = Bin Mod    arithOpType $ arith P.mod F.mod'
 plus   = Bin Plus   arithOpType $ arith (+) (+)
 bMinus = Bin BMinus arithOpType $ arith (-) (-)
 max    = Bin Max    arithOpType $ arith P.max P.max
 min    = Bin Min    arithOpType $ arith P.min P.min
+
+div, mod :: Bin'
+div = Bin' Div arithOpType $ fraction P.div (/)
+mod = Bin' Mod arithOpType $ fraction P.mod F.mod'
+
+fraction :: (Int32 -> Int32 -> Int32)
+         -> (Double -> Double -> Double)
+         -> Expression -> Expression -> Expression
+fraction f g
+  l@Expression { exp' = lexp, expType }
+  r@Expression { exp' = rexp } =
+  let
+    exp' = case (lexp, rexp) of
+      (Value (IntV m), Value (IntV n))
+        | n /= 0 -> Value (IntV $ m `f` n)
+      (Value (CharV m), Value (CharV n))
+        | n /= '\0' -> Value . CharV . chr' $ ord' m `f` ord' n
+      (Value (FloatV m), Value (FloatV n)) -> Value (FloatV $ m `g` n)
+      _ -> Binary Div l r
+  in Expression { loc = loc l <> loc r, expType, exp'}
 
 --------------------------------------------------------------------------------
 boolOpType :: BinaryOpType

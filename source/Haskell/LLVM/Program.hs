@@ -15,7 +15,7 @@ import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Struct                             (defineStruct)
 import           LLVM.Type                               (intType)
-import           Type                                    as T
+import           AST.Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (void)

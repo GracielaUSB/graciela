@@ -22,7 +22,7 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
-import           Type
+import           AST.Type
 -------------------------------------------------------------------------------
 import           Control.Lens        (use, (%=), (.=))
 import           Data.List           (intercalate)

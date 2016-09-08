@@ -14,7 +14,7 @@ import           Parser.State
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type
+import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
 import           Control.Monad              (unless, void, when, (>=>))
