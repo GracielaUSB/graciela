@@ -19,7 +19,7 @@ import           LLVM.Monad
 import           LLVM.State                 (currentStruct, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
-import qualified Data.Map                   as Map (lookup)
+import qualified Data.Map                   as Map (lookup, elems)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text, unpack, pack)
 import           Data.Word                  (Word32, Word64)
@@ -68,10 +68,10 @@ toLLVMType (T.GArray sz t) = do
   pure $ LLVM.ArrayType (fromIntegral sz)  inner
 
 toLLVMType (GFullDataType n t) = do
-  types <- mapM toLLVMType t
+  types <- mapM toLLVMType . Map.elems $ t
   pure . LLVM.NamedTypeReference . Name $ llvmName n types
 
-toLLVMType (GDataType name _) = do
+toLLVMType (GDataType name) = do
   maybeStruct <- use currentStruct
   case maybeStruct of
     Nothing -> error "Esto no deberia ocurrir :D"

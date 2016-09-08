@@ -263,7 +263,7 @@ dataType = do
             case (currStruct, t1, t2) of
               -- If t1 and t2 are not the same, maybe its because one of then is implementing the other
               -- (e.g. Dicc implements Diccionario  => Dicc =:= Diccionario)
-              (Just (dt, Just adt, _), GDataType n1 _, GDataType n2 _)
+              (Just (dt, Just adt, _), GDataType n1, GDataType n2)
                 | adt == n1 || dt == n2 -> pure ()
 
               _ -> do 

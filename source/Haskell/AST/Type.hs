@@ -20,6 +20,8 @@ module  AST.Type
 import           Data.Int       (Int32)
 import           Data.List      (intercalate, nub)
 import           Data.Monoid    (Monoid (..))
+import           Data.Map       (Map)
+import           Data.Map       as Map (elems)
 import           Data.Semigroup (Semigroup (..))
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
@@ -66,10 +68,9 @@ data Type
 
   | GFullDataType
     { typeName ::  Text
-    , types    :: [Type]}
+    , types    :: Map Type Type}
   | GDataType
-    { typeName ::  Text
-    , types    :: [Type]}
+    { typeName ::  Text}
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -155,17 +156,19 @@ instance Semigroup Type where
   GTypeVar a <> GTypeVar b =
     if a == b then GTypeVar a else GUndef
 
-  GFullDataType a fs <> GFullDataType b _ =
+  GFullDataType a fs <> GFullDataType b fs' =
+    if a == b  && fs == fs' 
+      then GFullDataType a fs 
+      else GUndef
+
+  GDataType a <> GDataType b =
+    if a == b then GDataType a else GUndef
+
+  GDataType a <> GFullDataType b fs =
+    if a == b then GFullDataType b fs else GUndef
+
+  GFullDataType a fs <> GDataType b =
     if a == b then GFullDataType a fs else GUndef
-
-  GDataType a fs <> GDataType b _ =
-    if a == b then GFullDataType a fs else GUndef
-
-  GDataType a fs <> GFullDataType b _ =
-    if a == takeWhile (/= '-') b then GFullDataType b fs else GUndef
-
-  GFullDataType a fs <> GDataType b _ =
-    if takeWhile (/= '-') a == b then GFullDataType a fs else GUndef
 
   GUnsafeName a <> GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
@@ -195,10 +198,9 @@ instance Show Type where
         GTypeVar  n     -> unpack n
         
         GFullDataType n f   -> 
-          "data type " <> unpack n <> " " <> (intercalate " " $ fmap show' f)
+          "data type " <> unpack n <> " (" <> (intercalate " " $ fmap show' (Map.elems f)) <> ")"
         
-        GDataType n f   -> 
-          "data type " <> unpack n <> " " <> (intercalate " " $ fmap show' f)
+        GDataType n   -> "data type " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

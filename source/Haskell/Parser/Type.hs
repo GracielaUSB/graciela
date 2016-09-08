@@ -91,10 +91,10 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
         Nothing -> do
           current <- use currentStruct 
           case current of 
-            Just (name, _, t) -> if name == id 
+            Just (name, _, _) -> if name == id 
                 then do
                   identifier
-                  return $ GDataType name t
+                  return $ GDataType name
                 else do
                   notFollowedBy identifier
                   return GUndef
@@ -136,9 +136,6 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
 
               pure False
           
-          full <- use fullDataTypes
-          let 
-            t = GFullDataType structName fullTypes
           if ok
             then do
               let 
@@ -149,7 +146,7 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
                   Just l ->  Just $ [(types, ast)] <> l
               fullDataTypes %= Map.alter fAlter structName
 
-              pure t
+              pure $ GFullDataType structName types
 
             else pure GUndef
 
