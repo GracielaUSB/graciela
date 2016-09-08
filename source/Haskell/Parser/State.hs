@@ -77,7 +77,7 @@ data State = State
   , _typesTable    :: Map Text (Type, Location)
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text Struct
+  , _fullDataTypes :: Map Text [(Map Type Type, Struct)]
   , _stringIds     :: Map Text Int
   }
 

@@ -15,11 +15,13 @@ import           AST.Expression             (Expression)
 import           AST.Struct                 (Struct (..))
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct)
-import           Type                       as T (Type (..), llvmName)
+import           Type                       as T (Type (..))
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
-import           Data.Text                  (unpack)
+import           Data.Text                  (unpack,pack)
 import           Data.Word                  (Word32, Word64)
+import           Data.List                  (intercalate)
+import           Data.Monoid                ((<>))
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST.Name      (Name (..))
 import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
@@ -86,3 +88,11 @@ sizeOf T.GChar         = 4
 sizeOf T.GFloat        = 8
 sizeOf (T.GArray sz t) = (fromIntegral sz) * sizeOf t
 sizeOf (T.GPointer t)  = 4
+
+llvmName name types = name <> (pack . ('-' :) . intercalate "-" . fmap show') types
+  where
+    show' GBool  = "b"
+    show' GChar  = "c"
+    show' GInt   = "i"
+    show' GFloat = "f"
+    show' t      = show t

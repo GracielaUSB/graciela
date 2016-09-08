@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-
+{-# LANGUAGE LambdaCase #-}
 module Parser.Type
     ( basicType
     , type'
@@ -27,7 +27,8 @@ import           Type
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
-import           Data.Map.Strict   as Map (insert, elems, lookup, null, fromList)
+import           Data.Map.Strict   as Map (insert, elems, lookup, null, fromList,
+                                    alter)
 import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack, pack)
@@ -141,43 +142,19 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
           if ok
             then do
               case structName `Map.lookup` full of
-                
                 Nothing -> do
-                  -- Set an unique name to the DT (e.g. Dicc (int,char) -> Dicc-i-i)
-                  let name = llvmName structName fullTypes
-                  
-                  -- Same as above but with the procedures
                   let 
-                    types = Map.fromList $ zip structTypes fullTypes
+                    types = Map.fromList $ zip structTypes fullTypes                  
 
-                    modifyParam :: (Text, Type, ArgMode) -> (Text, Type, ArgMode)
-                    modifyParam (n,t,m) = case t of 
-                      GTypeVar _ -> case t `Map.lookup` types of
-                        Nothing -> undefined
-                        Just t' -> (n,t',m)
-                      _ -> (n,t,m)
-                      
-                    modifyProc :: Definition -> Parser Definition
-                    modifyProc proc@Definition{defName, def'} = do 
-                          let
-                            params = procParams def'
-                            params'  = fmap modifyParam params
+                    fAlter = \case 
+                      Nothing -> Just [(types, ast)]
+                      Just l ->  Just $ [(types, ast)] <> l
 
-                          pure proc 
-                              { defName = defName <> pack "-" <> name
-                              , def' = def' {procParams = params'}
-                              }
-                  
-                  procs <- mapM modifyProc structProcs
-                     
+                  fullDataTypes %= Map.alter fAlter structName
+                  pure t
+                _ -> pure t
 
-                  fullDataTypes %= Map.insert name 
-                    ast { structName = name, structTypes = fullTypes, structProcs = procs }
-                  return $ t
-
-                Just x -> return t
-
-            else return GUndef
+            else pure GUndef
 
       
 

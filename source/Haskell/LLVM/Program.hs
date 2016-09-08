@@ -25,7 +25,7 @@ import qualified Data.ByteString                         as BS (unpack)
 import           Data.Foldable                           (toList)
 import           Data.List                               (sortOn)
 import           Data.Map.Strict                         (Map)
-import qualified Data.Map.Strict                         as Map (size,
+import qualified Data.Map.Strict                         as Map (size, toList,
                                                                  toAscList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           (fromList, singleton)
@@ -89,7 +89,10 @@ programToLLVM
       preDefinitions files
 
       -- mapM_ defineType $ Map.toAscList types
-      mapM_ defineStruct fullStructs
+      let
+        mapStruct = Map.toList fullStructs
+
+      mapM_ (\(k,v) -> mapM_ (defineStruct k) v) mapStruct
       mapM_ definition defs
 
       mainDefinition insts

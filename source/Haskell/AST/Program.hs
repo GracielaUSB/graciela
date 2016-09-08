@@ -11,6 +11,7 @@ import           Location
 import           SymbolTable
 import           Token
 import           Treelike
+import           Type
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
@@ -27,7 +28,7 @@ data Program
     , defs        :: Seq Definition
     , insts       :: Instruction
     , structs     :: Map Text Struct
-    , fullStructs :: Map Text Struct
+    , fullStructs :: Map Text [(Map Type Type, Struct)]
     , strings     :: Map Text Int }
 
 instance Treelike Program where

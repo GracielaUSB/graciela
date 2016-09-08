@@ -12,22 +12,23 @@ program Hola.bin begin
       {pre  0 <  m  pre}
       {post 1 == m post}
 
+
     proc agregar (in d : Diccionario, in c : t0, in v : t1)
       {pre  true pre}
       {post true post}
   end
 
   type Dicc (a,b) implements Diccionario (a,b) begin
-    var   tam       : int;
-    var   clave     : array [1] of int;
-    var   valor     : array [2] of int;
+    var   tam   : int;
+    var   clave : array [1] of int;
+    var   valor : array [2] of int;
 
-    {repinv 1 < 10 /\ 2 > 4 repinv}
+    {repinv 0  <= 100 repinv}
 
     {coupinv false coupinv}
-
+    
     proc crear (out d : Dicc, in m : int)
-      {pre  0 < 1            pre}
+      {pre  1 == 0 pre}
       {post 1 == 0 \/ 1 != 0 post}
       |[
         write(1)
@@ -62,12 +63,12 @@ program Hola.bin begin
     ]|
     // hols
 
-  // func fibonacci (n : int*, x : array [10] of int) -> boolean
-  //   {pre true pre}
-  //   {post true post}
-  //   |[
-  //     if if if if true -> true fi -> true fi -> true fi -> true fi
-  //   ]|
+  func fibonacci (n : int*, x : array [10] of int) -> boolean
+    {pre true pre}
+    {post true post}
+    |[
+      if if if if true -> true fi -> true fi -> true fi -> true fi
+    ]|
 
   // proc readNum ()
   //     var num : int;
@@ -136,7 +137,11 @@ program Hola.bin begin
   main
   |[ 
      var d : Dicc (int,int)
-    ;writeln(1 + fibo(10))
+    ; var p : Dicc (int,char)
+
+    // ; crear(d,1)
+
+    ; writeln(1 + fibo(10))
 
   ]|
 end

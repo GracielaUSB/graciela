@@ -204,6 +204,7 @@ typedef enum
   , UNDERFLOW
   , EMPTY_RANGE
   , NULL_POINTER_ACCESS
+  , REPRESENTATION_INVARIANT
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -233,6 +234,8 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tthe quantifier's range was empty.\n"); break;
     case NULL_POINTER_ACCESS:
       printf (":\n\ta null pointer was dereferenced.\n"); break;
+    case REPRESENTATION_INVARIANT:
+      printf (":\n\tthe representation invariant was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

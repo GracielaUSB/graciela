@@ -35,12 +35,12 @@ namespace glib {
         SEQUENCE = 4
     } type;
 
-    typedef map<t,t>       Function;
-    typedef pair<t,t>      Tuple;
-    typedef set<t>           Set;
+    typedef map<t,t>           Function;
+    typedef pair<t,t>          Tuple;
+    typedef set<t>             Set;
     typedef set<Tuple>         Relation;
-    typedef multiset<t>      Multiset;
-    typedef vector<t>        Sequence;
+    typedef multiset<t>        Multiset;
+    typedef vector<t>          Sequence;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
 }

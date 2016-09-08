@@ -15,7 +15,6 @@ module Type
   ( ArgMode (..)
   , Type (..)
   , (=:=)
-  , llvmName
   ) where
 --------------------------------------------------------------------------------
 import           Data.Int    (Int32)
@@ -190,18 +189,16 @@ instance Show Type where
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> unpack n
-        GFullDataType n f   -> "data type " <> unpack n
-        GDataType n f   -> "data type " <> unpack n
+        
+        GFullDataType n f   -> 
+          "data type " <> unpack n <> " " <> (intercalate " " $ fmap show' f)
+        
+        GDataType n f   -> 
+          "data type " <> unpack n <> " " <> (intercalate " " $ fmap show' f)
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
 
-llvmName name types = name <> (pack . ('-' :) . intercalate "-" . fmap show') types
-  where
-    show' GBool  = "b"
-    show' GChar  = "c"
-    show' GInt   = "i"
-    show' GFloat = "f"
-    show' t      = show t
+

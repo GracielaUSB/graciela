@@ -11,7 +11,8 @@ import           AST.Expression               (Expression(..))
 import           AST.Struct                   (Struct(..), Struct'(..))
 import           LLVM.Abort                   (abort, abortString, warn,
                                                warnString)
-import qualified LLVM.Abort                   as Abort (Abort (Post))
+import qualified LLVM.Abort                   as Abort (Abort (RepInvariant,
+                                                Invariant))
 import qualified LLVM.Abort                   as Warning (Warning (Pre))
 import           LLVM.Definition
 import           LLVM.Expression
@@ -44,9 +45,11 @@ import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Struct -> LLVM ()
-defineStruct ast@Struct {structName, structDecls, structProcs, struct'} = 
-  case struct' of 
+defineStruct :: Text -> (Map T.Type T.Type, Struct) -> LLVM ()
+defineStruct structName (mapType, ast) = case ast of
+  
+  Struct {structName, structDecls, structProcs, struct'} -> case struct' of
+  
     DataType {abstract, abstractTypes, inv, repinv, coupinv} -> do
 
       currentStruct .= Just ast
@@ -101,13 +104,9 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     (falseLabel #)
     
     case inv of 
-      Invariant    -> warn Warning.Pre pos
-      RepInvariant -> warn Warning.Pre pos
+      Invariant    -> abort Abort.Invariant pos
+      RepInvariant -> abort Abort.RepInvariant pos
       
-    terminate' Br
-      { dest      = trueLabel
-      , metadata' = [] }
-
     -- And the true label to the next instructions
     (trueLabel #)
 

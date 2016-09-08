@@ -43,8 +43,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 import           Treelike
-import           Type                   (ArgMode (..), Type (..), llvmName,
-                                         (=:=))
+import           Type                   (ArgMode (..), Type (..),(=:=))
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
@@ -98,11 +97,11 @@ assertionInst = do
 
 
 declarationBlock :: Parser (Maybe (Seq Declaration))
-declarationBlock = sequence <$> (declaration `endBy` match TokSemicolon)
+declarationBlock = sequence <$> (declaration `endBy` match' TokSemicolon)
 
 
 declarationOrRead :: Parser (Maybe (Seq (Either Declaration Instruction)))
-declarationOrRead = sequence <$> (p `endBy` match TokSemicolon)
+declarationOrRead = sequence <$> (p `endBy` match' TokSemicolon)
   where
     p = do
       line <- eitherP declaration reading
@@ -492,6 +491,7 @@ procedureCall = do
   case procName `Map.lookup` defs of
 
     Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
+      traceM $ show procName
       let
         nArgs   = length args
         nParams = length procParams
@@ -523,6 +523,7 @@ procedureCall = do
       pure Nothing
 
     Nothing -> do
+      traceM "LLegando"
       -- If the procedure is not defined, it's possible that we're
       -- dealing with a recursive call. The information of a procedure
       -- that is being defined is stored temporarily at the
@@ -531,6 +532,7 @@ procedureCall = do
       case currentProcedure of
         Just cr@CurrentRoutine {}
           | cr^.crName == procName && cr^.crRecAllowed -> do
+            traceM "No LLego"
             let
               nArgs = length args
               nParams = length (cr^.crParams)
@@ -561,49 +563,51 @@ procedureCall = do
               "Procedure `" <> unpack procName <> "` cannot call itself \
               \recursively because no bound was given for it."
             pure Nothing
-        _ -> do
-          t <- hasDTType . toList $ args
-          case t of
 
-            GUndef -> do
-              putError from $ UndefinedProcedure procName
-              pure Nothing
+        -- _ -> do
+        --   t <- hasDTType . toList $ args
+        --   traceM "LLego"
+        --   case t of
 
-            GFullDataType n t -> do
-              fdts <- use fullDataTypes
-              let dtName = llvmName n t
-              case dtName `Map.lookup` fdts of
-                Just Struct{structProcs} -> do
-                  let
-                    procName' = procName <> pack "-" <> dtName
-                    procAst' = L.find (\x -> defName x == procName') structProcs
-                  case procAst' of
-                    Just procAst -> do
-                      let
-                        Location(from,_) = defLoc procAst
-                        ProcedureDef{procParams} = def' procAst
+        --     GUndef -> do
+        --       putError from $ UndefinedProcedure procName
+        --       pure Nothing
 
-                      args' <- foldM (checkType procName from)
-                        (Just Seq.empty) (Seq.zip args procParams)
+        --     GFullDataType n t -> do
+        --       fdts <- use fullDataTypes
+        --       let dtName = llvmName n t
+        --       case dtName `Map.lookup` fdts of
+        --         Just Struct{structProcs} -> do
+        --           let
+        --             procName' = procName <> pack "-" <> dtName
+        --             procAst' = L.find (\x -> defName x == procName') structProcs
+        --           case procAst' of
+        --             Just procAst -> do
+        --               let
+        --                 Location(from,_) = defLoc procAst
+        --                 ProcedureDef{procParams} = def' procAst
 
-                      pure $ case args' of
-                        Nothing -> Nothing
-                        Just args'' -> Just Instruction
-                          { instLoc = loc
-                          , inst' = ProcedureCall
-                            { pName = procName'
-                            , pArgs = args''
-                            , pRecursiveCall = False
-                            , pRecursiveProc = False }}
+        --               args' <- foldM (checkType procName from)
+        --                 (Just Seq.empty) (Seq.zip args procParams)
 
-                    Nothing -> do
-                      putError from . UnknownError $
-                        "Data Type `" <> unpack (takeWhile (/= '-') dtName) <>
-                        "` does not have a procedure called `" <>
-                        unpack procName <> "`"
-                      return Nothing
+        --               pure $ case args' of
+        --                 Nothing -> Nothing
+        --                 Just args'' -> Just Instruction
+        --                   { instLoc = loc
+        --                   , inst' = ProcedureCall
+        --                     { pName = procName'
+        --                     , pArgs = args''
+        --                     , pRecursiveCall = False
+        --                     , pRecursiveProc = False }}
 
-                _ -> error "No deberia estar aqui :D (:"
+        --             Nothing -> do
+        --               putError from . UnknownError $
+        --                 "Data Type `" <> unpack (takeWhile (/= '-') dtName) <>
+        --                 "` does not have a procedure called `" <>
+        --                 unpack procName <> "`"
+        --               return Nothing
+
+        --         _ -> error "No deberia estar aqui :D (:"
 
 
   where

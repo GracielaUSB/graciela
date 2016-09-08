@@ -314,8 +314,7 @@ procedureDeclaration = do
   symbolTable %= closeScope to
   case (procName', params', pre', post') of
     (Just procName, Just params, Just pre, Just post) -> do
-      let
-        def = Definition
+      pure . Just $ Definition
           { defLoc   = loc
           , defName  = procName
           , pre
@@ -323,5 +322,4 @@ procedureDeclaration = do
           , bound = Nothing
           , def' = AbstractProcedureDef params }
 
-      pure $ Just def
     _ -> pure Nothing

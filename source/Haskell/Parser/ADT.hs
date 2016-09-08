@@ -62,7 +62,7 @@ abstractDataType = do
       
       match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
 
-      decls' <- sequence <$> abstractDeclaration `endBy` match TokSemicolon
+      decls' <- sequence <$> abstractDeclaration `endBy` match' TokSemicolon
       inv'   <- invariant
       procs' <- sequence <$> many procedureDeclaration
 
@@ -123,7 +123,7 @@ dataType = do
       match' TokBegin
 
       symbolTable %= openScope from
-      decls'   <- sequence <$> (polymorphicDeclaration `endBy` match TokSemicolon)
+      decls'   <- sequence <$> (polymorphicDeclaration `endBy` match' TokSemicolon)
       repinv'  <- repInv
       coupinv' <- coupInv
 

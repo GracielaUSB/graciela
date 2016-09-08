@@ -195,6 +195,7 @@ variable name (Location (from, to)) = do
   case name `lookup` st of
 
     Left _ -> do
+      
       putError from . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
