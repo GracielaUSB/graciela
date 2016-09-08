@@ -19,6 +19,7 @@ module LLVM.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
+import qualified AST.Type                     as G (Type)
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)
@@ -43,12 +44,11 @@ data State = State
   , _blocks            :: Seq BasicBlock          -- Lista de bloques básicos en la definición actual
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
-  -- , _nameCount         :: Int
   , _structs           :: Map Text Struct
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [Map Text Type] }
+  , _substitutionTable :: [Map G.Type  G.Type] }
 
 makeLenses ''State
 
@@ -60,7 +60,6 @@ initialState = State
   , _blocks            = Seq.empty
   , _moduleDefs        = Seq.empty
   , _symTable          = []
-  -- , _nameCount         = -1
   , _structs           = Map.empty
   , _currentStruct     = Nothing
   , _stringOps         = undefined

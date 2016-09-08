@@ -75,11 +75,11 @@ toLLVMType (GDataType name _) = do
       let types = structTypes struct
       pure . LLVM.NamedTypeReference . Name . unpack $ llvmName name types
 
-toLLVMType (GTypeVar var) = do
+toLLVMType var@(GTypeVar _) = do
   substs <- use substitutionTable
   case substs of
     [] -> error "internal error: subsitituting without substitution table."
-    (subst:_) -> pure $
+    (subst:_) -> toLLVMType $
       fromMaybe (error "internal error: substituting an unavailable type var")
         (var `Map.lookup` subst)
 
