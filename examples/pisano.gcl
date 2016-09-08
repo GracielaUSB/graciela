@@ -1,144 +1,144 @@
 //Pisano (Fibonacci and other stuff)
 program Hola begin
 
-// abstract Diccionario (t0,t1) begin
-//   var MAX   : int;
-//   var conoc : set of t0;
-//   var tabla : func t0 -> t1;
+  abstract Diccionario (t0,t1) begin
+    var MAX   : int;
+    var conoc : set of t0;
+    var tabla : func t0 -> t1;
 
-//   {inv MAX > 0 inv}
+    {inv 1 > 0 inv}
 
-//   proc crear (out d : Diccionario, in m : int)
-//     {pre  0 <  m  pre}
-//     {post 1 == m post}
+    proc crear (out d : Diccionario, in m : int)
+      {pre  0 <  m  pre}
+      {post 1 == m post}
 
-//   proc agregar (in d : Diccionario, in c : int, in v : int)
-//     {pre  true pre}
-//     {post true post}
-// end
+    proc agregar (in d : Diccionario, in c : t0, in v : t1)
+      {pre  true pre}
+      {post true post}
+  end
 
-// type Dicc (a,b) implements Diccionario (int,int)
-// begin
-//   var   MAX := 10 : int;
-//   var   tam       : int;
-//   var   clave     : array [1] of int;
-//   var   valor     : array [2] of int;
+  type Dicc (a,b) implements Diccionario (a,b) begin
+    var   tam       : int;
+    var   clave     : array [1] of int;
+    var   valor     : array [2] of int;
 
-//   {repinv true repinv}
+    {repinv 1 < 10 /\ 2 > 4 repinv}
 
-//   {coupinv false coupinv}
+    {coupinv false coupinv}
 
-//   proc crear (out d : Dicc, in m : int)
-//     {pre  0 < 1            pre}
-//     {post 1 == 0 \/ 1 != 0 post}
-//     |[
-//       write(1)
-//     ]|
-    
+    proc crear (out d : Dicc, in m : int)
+      {pre  0 < 1            pre}
+      {post 1 == 0 \/ 1 != 0 post}
+      |[
+        write(1)
+      ]|
+      
 
-//   proc agregar (in d : Dicc, in c : int, in v : int)
+    proc agregar (in d : Dicc, in c : a, in v : b)
 
-//     var x       : int;
-//     var tam'    : int;
+      var x       : int;
+      var tam'    : int;
 
-//     var tam, MAX  : int;
-//     var clave     : array [1] of int;
-//     var valor     : array [2] of int;
+      var tam, MAX  : int;
+      var clave     : array [1] of int;
+      var valor     : array [2] of int;
 
-//     {pre  tam < MAX /*\/ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %)*/ pre}
-//     {post tam == tam' + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
-    
-//     |[
-//       tam' := tam;
-//       clave[tam], valor[tam], tam := 2, 3, tam + 1
-//     ]|
-    
-// end
+      {pre  tam < MAX /*\/ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %)*/ pre}
+      {post tam == tam' + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
+      
+      |[
+        tam' := tam;
+        clave[tam], valor[tam], tam := 2, 3, tam + 1
+      ]|
+      
+  end
+  func fibo (i : int) -> int
+    {pre i >= 0 pre}
+    {post i > 0 post}
+    {bound i bound}
+    |[
+      if i == 0 -> 1
+      [] i == 1 -> 1
+      [] i > 1  -> fibo(i-1) + fibo(i-2)
+      fi
 
+    ]|
+    // hols
 
-//     // func fibonacci (n : int*, x : array [10] of int) -> int
-//     // begin
-//     //     if n == 0  -> 0
-//     //     [] n == 1  -> 1
-//     //     [] n >  1  -> 2 /*fibonacci(n-1) + fibonacci(n-2)*/ // Recursion
-//     //     fi
-//     // end
+  // func fibonacci (n : int*, x : array [10] of int) -> boolean
+  //   {pre true pre}
+  //   {post true post}
+  //   |[
+  //     if if if if true -> true fi -> true fi -> true fi -> true fi
+  //   ]|
 
-//     // proc readNum ()
-//     // begin
-//     //     var num : int;
-//     //     read(num);
-//     //     var h : int;
-//     //     read(h);
+  // proc readNum ()
+  //     var num : int;
+  //     read(num);
+  //     var h : int;
+  //     read(h);
 
-//     //     {pre num ≥ 0 pre}
-//     //     |[
-//     //         var i,j,k := 1,2,3 : int;
-//     //         // write("El resultado es: "); // No acepta strings
-//     //         {a i > 1 a}
-//     //         writeln(1) // No buscar las funciones
-//     //     ]|
-//     //     {post true post}
-//     // end
+  //     {pre num ≥ 0 pre}
+  //     {post true post}
+  //     |[
+  //         var i,j,k := 1,2,3 : int;
+  //         // write("El resultado es: "); // No acepta strings
+  //         { i > 1 }
+  //         writeln(1) // No buscar las funciones
+  //     ]|
+      
 
-//     // proc readNum2 (out i : int*)
-//     // begin
-//     //     {pre true pre}
-//     //     |[
-//     //         if i != null -> 
-//     //           free(i)
-//     //         ; writeln("No es null asi que la nulifico y entro recursivamente")
-//     //         ; readNum2(i)
-//     //         [] i == null ->
-//     //           writeln("Es null, termino la recursion")
-//     //         fi
-//     //     ]|
-//     //     {post true post}
-//     // end
+  // proc readNum2 (out i : int*)
+  //     {pre true pre}
+  //     {post true post}
+  //     {bound 1 bound}
+  //     |[
+  //         free(i);
+  //         if i != null -> 
+  //                       writeln("No es null asi que la nulifico y entro recursivamente")
+  //                       ; readNum2(i)
+  //         [] i == null -> writeln("Es null, termino la recursion")
+  //         fi
+  //     ]|
+      
 
-//     // proc hola2 (out i : int, in t : array[10] of int)
+  // proc hola2 (out i : int, in t : array[10] of int)
+  //   {pre true pre}
+  //   {post true post}
+  //   {bound 1 bound}
+  //   |[
+  //     i := 10;
+  //     |[
+  //       var i := 100: int;
+  //       if i > 1 ->
+  //         var i := 1000 + t[1] : int;
 
-//     //   {pre true pre}
-//     //   {post true post}
-//     //   {bound 1 bound}
-//     //   |[
-//     //     i := 10;
-//     //     |[
-//     //       var i := 100: int;
-//     //       if i > 1 ->
-//     //         var i := 1000 + t[1] : int;
+  //         writeln(i, "hola")
+  //       fi;
+  //       writeln(i)
+  //     ]|;
+  //     writeln(i);
 
-//     //         writeln(i, "hola")
-//     //       fi;
-//     //       writeln(i)
-//     //     ]|;
-//     //     writeln(i);
-
-//     //     // hola2(i,t)
-//     //   ]|
+  //     // hola2(i,t)
+  //   ]|
 
   
-    proc hola (inout x : int)
+  // proc hola (inout x : int)
 
-      {pre x == 0 pre}
-      {post x == 11 post}
-      |[
-          read(x)
+  //   {pre x == 0 pre}
+  //   {post x == 11 post}
+  //   |[
+  //       read(x)
 
-          { x >= 10 }
+  //       // { x >= 10 }
 
-          ; x := 10
-      ]|
+  //       // ; x := 10
+  //   ]|
     
   
   main
-  |[ var i,j,k : int;
-     var p : int*;
-     if p == null -> write("es null")
-     [] otherwise -> write("no es null")
-     fi;
-     write("∑´´œœåß∂ƒ");
-     hola(i)
-    ;write(i)
+  |[ 
+    writeln(1 + fibo(10))
+
   ]|
 end

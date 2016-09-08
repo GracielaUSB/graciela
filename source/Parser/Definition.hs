@@ -4,6 +4,7 @@ module Parser.Definition
   ( function
   , procedure
   , procedureDeclaration
+  , polymorphicProcedure
   , listDefProc
   ) where
 --------------------------------------------------------------------------------
@@ -34,7 +35,7 @@ import           Data.Semigroup      ((<>))
 import           Data.Sequence       (Seq)
 import qualified Data.Sequence       as Seq (empty)
 import           Data.Text           (Text, unpack)
-import           Text.Megaparsec     (between, eof, errorUnexpected,
+import           Text.Megaparsec     (between, eof, errorUnexpected, try,
                                       getPosition, lookAhead, manyTill,
                                       optional, withRecovery, (<|>))
 --------------------------------------------------------------------------------
@@ -146,14 +147,20 @@ function = do
 
 
 procedure :: Parser (Maybe Definition)
-procedure = do
+procedure = procedure' type'
+
+polymorphicProcedure :: Parser (Maybe Definition)
+polymorphicProcedure = procedure' (try typeVar <|> type')
+
+procedure' :: Parser Type -> Parser (Maybe Definition)
+procedure' pType = do
   lookAhead $ match TokProc
 
   Location(_,from) <- match TokProc
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
-  params' <- parens doProcParams
+  params' <- parens $ doProcParams pType
 
   decls'  <- declarationOrRead
   prePos  <- getPosition
@@ -200,53 +207,53 @@ procedure = do
       pure $ Just def
     _ -> pure Nothing
 
-doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
+doProcParams pType =  lookAhead (match TokRightPar) $> Just Seq.empty
             <|> sequence <$> p `sepBy` match TokComma
+  where
+    p = procParam `followedBy` oneOf [TokRightPar, TokComma]
 
-p = procParam `followedBy` oneOf [TokRightPar, TokComma]
+    procParam :: Parser (Maybe (Text, Type, ArgMode))
+    procParam = do
+      pos <- getPosition
+      noParam pos <|> yesParam pos
 
-procParam :: Parser (Maybe (Text, Type, ArgMode))
-procParam = do
-  pos <- getPosition
-  noParam pos <|> yesParam pos
+    noParam pos = do
+      lookAhead (oneOf [TokRightPar, TokComma])
+      putError pos . UnknownError $ "A parameter was expected."
+      pure Nothing
 
-noParam pos = do
-  lookAhead (oneOf [TokRightPar, TokComma])
-  putError pos . UnknownError $ "A parameter was expected."
-  pure Nothing
+    yesParam from = do
+      mode' <- paramMode <!!>
+        (from, UnknownError "A parameter mode must be specified.")
 
-yesParam from = do
-  mode' <- paramMode <!!>
-    (from, UnknownError "A parameter mode must be specified.")
+      parName' <- safeIdentifier
+      match' TokColon
+      t <- pType
 
-  parName' <- safeIdentifier
-  match' TokColon
-  t <- type'
+      to <- getPosition
+      let loc = Location (from, to)
 
-  to <- getPosition
-  let loc = Location (from, to)
+      st <- use symbolTable
 
-  st <- use symbolTable
-
-  case (parName', mode') of
-    (Just parName, Just mode) ->
-      case parName `local` st of
-        Right Entry { _loc } -> do
-          putError from . UnknownError $
-            "Redefinition of parameter `" <> unpack parName <>
-            "`, original definition was at " <> show _loc <> "."
-          pure Nothing
-        Left _ -> do
-          symbolTable %= insertSymbol parName
-            (Entry parName loc (Argument mode t))
-          pure . Just $ (parName, t, mode)
-    _ -> pure Nothing
+      case (parName', mode') of
+        (Just parName, Just mode) ->
+          case parName `local` st of
+            Right Entry { _loc } -> do
+              putError from . UnknownError $
+                "Redefinition of parameter `" <> unpack parName <>
+                "`, original definition was at " <> show _loc <> "."
+              pure Nothing
+            Left _ -> do
+              symbolTable %= insertSymbol parName
+                (Entry parName loc (Argument mode t))
+              pure . Just $ (parName, t, mode)
+        _ -> pure Nothing
 
 
-paramMode =  match TokIn    $> In
-         <|> match TokInOut $> InOut
-         <|> match TokOut   $> Out
-         <|> match TokRef   $> Ref
+    paramMode =  match TokIn    $> In
+             <|> match TokInOut $> InOut
+             <|> match TokOut   $> Out
+             <|> match TokRef   $> Ref
 
 procedureDeclaration :: Parser (Maybe Definition)
 procedureDeclaration = do
@@ -255,7 +262,7 @@ procedureDeclaration = do
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
-  params' <- parens doProcParams
+  params' <- parens $ doProcParams (try typeVar <|> type')
 
   prePos <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")

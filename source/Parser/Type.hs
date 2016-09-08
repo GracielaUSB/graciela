@@ -9,7 +9,7 @@ module Parser.Type
     ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration
-import           AST.Definition    (Definition(..))
+import           AST.Definition    (Definition(..),Definition'(..))
 import           AST.Expression    (Expression (..), Expression' (Value),
                                     Value (..))
 import           AST.Struct
@@ -27,7 +27,7 @@ import           Type
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
-import           Data.Map          as Map (insert, elems, lookup, null)
+import           Data.Map          as Map (insert, elems, lookup, null, fromList)
 import           Data.List         (intercalate)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, unpack, pack)
@@ -141,14 +141,35 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
           if ok
             then do
               case structName `Map.lookup` full of
-              
+                
                 Nothing -> do
                   -- Set an unique name to the DT (e.g. Dicc (int,char) -> Dicc-i-i)
                   let name = llvmName structName fullTypes
+                  
                   -- Same as above but with the procedures
-                  procs <-  mapM (\x -> do 
-                                    pure x {defName = defName x <> pack "-" <> name}
-                                 )  structProcs 
+                  let 
+                    types = Map.fromList $ zip structTypes fullTypes
+
+                    modifyParam :: (Text, Type, ArgMode) -> (Text, Type, ArgMode)
+                    modifyParam (n,t,m) = case t of 
+                      GTypeVar _ -> case t `Map.lookup` types of
+                        Nothing -> undefined
+                        Just t' -> (n,t',m)
+                      _ -> (n,t,m)
+                      
+                    modifyProc :: Definition -> Parser Definition
+                    modifyProc proc@Definition{defName, def'} = do 
+                          let
+                            params = procParams def'
+                            params'  = fmap modifyParam params
+
+                          pure proc 
+                              { defName = defName <> pack "-" <> name
+                              , def' = def' {procParams = params'}
+                              }
+                  
+                  procs <- mapM modifyProc structProcs
+                     
 
                   fullDataTypes %= Map.insert name 
                     ast { structName = name, structTypes = fullTypes, structProcs = procs }
@@ -191,12 +212,12 @@ arraySize = do
 abstractType :: Parser Type
 abstractType
    =  type'
-  <|> do {match TokSet;      match TokOf; GSet      <$> typeVar }
-  <|> do {match TokMultiset; match TokOf; GMultiset <$> typeVar }
-  <|> do {match TokSeq;      match TokOf; GSeq      <$> typeVar }
+  <|> do {match TokSet;      match TokOf; GSet      <$> (typeVar<|>type') }
+  <|> do {match TokMultiset; match TokOf; GMultiset <$> (typeVar<|>type') }
+  <|> do {match TokSeq;      match TokOf; GSeq      <$> (typeVar<|>type') }
 
-  <|> do {match TokFunc; ba <- typeVar; match TokArrow;   bb <- typeVar; pure $ GFunc ba bb }
-  <|> do {match TokRel;  ba <- typeVar; match TokBiArrow; bb <- typeVar; pure $ GRel  ba bb }
+  <|> do {match TokFunc; ba <- (typeVar<|>type'); match TokArrow;   bb <- (typeVar<|>type'); pure $ GFunc ba bb }
+  <|> do {match TokRel;  ba <- (typeVar<|>type'); match TokBiArrow; bb <- (typeVar<|>type'); pure $ GRel  ba bb }
 
   <|> (GTuple <$> parens (typeVar `sepBy` match TokComma))
 

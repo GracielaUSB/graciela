@@ -120,7 +120,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , value    = value
           , maybeAtomicity = Nothing
           , alignment = 4
-          , metadata  = [] }
+          , metadata  = []}
 
 
   Conditional { cguards } -> do
@@ -205,7 +205,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , type'    = PointerType i8 (AddrSpace 0)
       , metadata = [] }
 
-    addInstruction $ labelCall := Call
+    addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []

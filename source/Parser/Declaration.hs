@@ -19,6 +19,7 @@ module Parser.Declaration
 import           AST.Declaration           (Declaration (..))
 import           AST.Expression            (Expression (..),
                                             Expression' (Value))
+import           AST.Struct                (Struct(..))
 import           Entry                     as E
 import           Error
 import           Location
@@ -38,6 +39,7 @@ import           Control.Monad             (foldM, forM_, unless, void, when,
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
 import           Data.Monoid               ((<>))
+import           Data.Map                  as Map (lookup)
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)
@@ -205,9 +207,29 @@ redefinition :: (Text, Location) -> Parser Bool
 redefinition (id, Location (from, _)) = do
   st <- use symbolTable
   let local = isLocal id st
-  if local 
+  
+  
+
+
+  if local
     then do 
       putError from . UnknownError $
          "Redefinition of variable `" <> unpack id <> "`"
       pure True
-    else pure False
+    else do
+      maybeStruct <- use currentStruct
+      case maybeStruct of
+        Just (_, Just abstName, _) -> do
+          adt <- getStruct abstName
+          case adt of
+            Just abst -> do 
+              if isLocal id . structSt $ abst
+                then do 
+                  putError from . UnknownError $
+                    "Redefinition of variable `" <> unpack id <> 
+                    "`. Was defined in Abstract Type `" <> unpack abstName <> "`"
+                  pure True
+                else pure False
+            _ -> pure False
+        _ -> pure False
+          

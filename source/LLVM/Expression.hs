@@ -255,7 +255,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
       ConstantOperand . C.Float $ LLVM.Double theFloat
 
   NullPtr ->
-    return . ConstantOperand $ C.Null i8
+    pure . ConstantOperand $ C.Null i8
 
   StringLit theString -> do
       let
@@ -488,14 +488,14 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
             {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
-                        , type'    = intType
+                        , type'    = i8
                         , metadata = []
                         }
               ptr1 = LocalReference intType labelCast1
 
               cast2 = PtrToInt
                         { operand0 = rOperand
-                        , type'    = intType
+                        , type'    = i8
                         , metadata = []
                         }
               ptr2 = LocalReference intType labelCast2
@@ -531,14 +531,14 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
               {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
-                        , type'    = intType
+                        , type'    = i8
                         , metadata = []
                         }
               ptr1 = LocalReference intType labelCast1
 
               cast2 = PtrToInt
                         { operand0 = rOperand
-                        , type'    = intType
+                        , type'    = i8
                         , metadata = []
                         }
               ptr2 = LocalReference intType labelCast2

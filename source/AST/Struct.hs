@@ -29,6 +29,7 @@ data Struct'
   | DataType
     { abstract      ::  Text
     , abstractTypes ::  Map Type Type
+    , inv           ::  Expression
     , repinv        ::  Expression
     , coupinv       ::  Expression }
 

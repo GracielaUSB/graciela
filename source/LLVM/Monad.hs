@@ -62,7 +62,7 @@ insertName name = do
   (vars:xs) <- use symTable
   num <- use nameCount
   let
-    newName = name <> "#" <> show num
+    newName = name <> "$" <> show num
     newMap = Map.insert name newName vars
   symTable .= (newMap:xs)
   return newName
