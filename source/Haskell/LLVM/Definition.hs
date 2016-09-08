@@ -8,16 +8,16 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
-import           LLVM.Abort                          (abort, abortString, warn,
-                                                      warnString)
+import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (NegativeBound, NondecreasingBound, Post))
-import qualified LLVM.Abort                          as Warning (Warning (Pre))
 import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
 import           LLVM.Instruction
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
+import           LLVM.Warning                        (warn, warnString)
+import qualified LLVM.Warning                        as Warning (Warning (Post, Pre))
 import           Location
 import           Treelike
 import           Type                                ((=:=))
@@ -56,7 +56,7 @@ import qualified LLVM.General.AST.Type               as LLVM (Type)
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
-{- Given the instruction blokc of the main program, construct the main LLVM function-}
+{- Given the instruction block of the main program, construct the main LLVM function-}
 mainDefinition :: G.Instruction -> LLVM ()
 mainDefinition block = do
   main <- newLabel "main"
@@ -88,17 +88,17 @@ definition
 
       params <- mapM toLLVMParameter . toList $ funcParams
 
-      preOp <- expression pre
+      preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
       noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
       terminate' CondBr
-        { condition = preOp
+        { condition = preOperand
         , trueDest  = yesPre
         , falseDest = noPre
         , metadata' = [] }
 
       (noPre #)
-      warn Warning.Pre pos
+      warn Warning.Pre (let Location (pos, _) = loc pre in pos)
       terminate' Br
         { dest      = yesPre
         , metadata' = [] }
@@ -133,7 +133,8 @@ definition
             , metadata' = [] }
 
           (noGte0 #)
-          abort Abort.NegativeBound pos
+          abort Abort.NegativeBound
+            (let Location (pos, _) = loc boundExp in pos)
 
           (yesGte0 #)
           yesOld <- newLabel "funcOldBoundYes"
@@ -165,7 +166,8 @@ definition
             , metadata' = [] }
 
           (noLtOld #)
-          abort Abort.NondecreasingBound pos
+          abort Abort.NondecreasingBound
+            (let Location (pos, _) = loc boundExp in pos)
 
           (yesLtOld #)
           terminate' Br
@@ -208,7 +210,22 @@ definition
         , metadata' = [] }
 
       (noPost #)
-      abort Abort.Post pos
+      yesPreNoPost  <- newLabel "funcPreYesPostNo"
+      noPreNoPost <- newLabel "funcPreNoPostNo"
+      terminate' CondBr
+        { condition = preOperand
+        , trueDest  = yesPreNoPost
+        , falseDest = noPreNoPost
+        , metadata' = [] }
+
+      (yesPreNoPost #)
+      abort Abort.Post (let Location (pos, _) = loc post in pos)
+
+      (noPreNoPost #)
+      warn Warning.Post (let Location (pos, _) = loc post in pos)
+      terminate' Br
+        { dest      = yesPost
+        , metadata' = [] }
 
       (yesPost #)
       terminate' Ret

@@ -15,11 +15,9 @@ the program to stop or to warn the user.
 
 module LLVM.Abort
   ( Abort (..)
-  , Warning (..)
   , abort
   , abortString
-  , warn
-  , warnString
+  , waCall
   ) where
 --------------------------------------------------------------------------------
 import           LLVM.Monad
@@ -35,11 +33,9 @@ import qualified LLVM.General.AST.Constant          as C
 import           LLVM.General.AST.Type              (Type (VoidType))
 --------------------------------------------------------------------------------
 
-abortString, warnString :: String
+abortString :: String
 -- | Graciela-lib for the abort function name.
 abortString = "_abort"
--- | Graciela-lib for the warn function name.
-warnString = "_warn"
 --------------------------------------------------------------------------------
 
 -- | Used to build the args for an abort or a warning.
@@ -67,8 +63,8 @@ waCall func i pos = addInstruction $ Do Call
 -- | Enum type for the different abort conditions.
 data Abort
   = If                 -- ^ A conditional had no true guard.
-  | AManual            -- ^ An `abort` instruction was manually called.
-  | Post               -- ^ A postcondition failed.
+  | Manual            -- ^ An `abort` instruction was manually called.
+  | Post              -- ^ A postcondition failed.
   | Assert             -- ^ An assertion failed.
   | Invariant          -- ^ An invariant failed.
   | NondecreasingBound -- ^ A bound didn't decrease between iterations or recursion.
@@ -86,16 +82,3 @@ abort :: Abort -> SourcePos -> LLVM ()
 abort reason pos = do
   waCall abortString (fromIntegral . fromEnum $ reason) pos
   terminate' $ Unreachable []
---------------------------------------------------------------------------------
-
--- | Enum type for the different warning conditions.
-data Warning
-  = WManual     -- ^ A `warn` instruction was manually called.
-  | Pre         -- ^ A precondition failed.
-  | Forall      -- ^ A universal quantifier returned false.
-  | Existential -- ^ An existential quantifier returned false.
-  deriving (Eq, Ord, Show, Enum)
-
--- | Generates a call to the appropriate warning.
-warn :: Warning -> SourcePos -> LLVM ()
-warn = waCall warnString . fromIntegral . fromEnum

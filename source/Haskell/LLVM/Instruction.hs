@@ -11,14 +11,15 @@ import           AST.Instruction                    (Guard, Instruction (..),
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         (Object' (..),
                                                      Object'' (..))
-import           LLVM.Abort                         (abort, warn)
-import qualified LLVM.Abort                         as Abort (Abort (AManual, Assert, If, Invariant, NegativeBound, NondecreasingBound))
-import qualified LLVM.Abort                         as Warning (Warning (WManual))
+import           LLVM.Abort                         (abort)
+import qualified LLVM.Abort                         as Abort (Abort (Assert, If, Invariant, Manual, NegativeBound, NondecreasingBound))
 import           LLVM.Declaration
 import           LLVM.Expression
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
+import           LLVM.Warning                       (warn)
+import qualified LLVM.Warning                       as Warning (Warning (Manual))
 import           Location
 import           Treelike
 import           Type                               as T
@@ -80,11 +81,11 @@ guard finish checkLabel (expr, decls, insts) = do
 instruction :: G.Instruction -> LLVM ()
 instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Abort -> do
-    abort Abort.AManual pos
+    abort Abort.Manual pos
     newLabel "unreachable" >>= (#)
 
   Warn -> do
-    warn Warning.WManual pos
+    warn Warning.Manual pos
 
   Assertion expr -> do
     -- Evaluate the condition expression

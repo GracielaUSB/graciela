@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
 
 module LLVM.Struct
@@ -6,59 +6,59 @@ module LLVM.Struct
   )
   where
 
-import           AST.Declaration              (Declaration(..))
-import           AST.Expression               (Expression(..))
-import           AST.Struct                   (Struct(..), Struct'(..))
-import           LLVM.Abort                   (abort, abortString, warn,
-                                               warnString)
+import           AST.Declaration              (Declaration (..))
+import           AST.Expression               (Expression (..))
+import           AST.Struct                   (Struct (..), Struct' (..))
+import           LLVM.Abort                   (abort, abortString)
 import qualified LLVM.Abort                   as Abort (Abort (Post))
-import qualified LLVM.Abort                   as Warning (Warning (Pre))
 import           LLVM.Definition
 import           LLVM.Expression
-import           LLVM.Type
 import           LLVM.Monad
 import           LLVM.State
+import           LLVM.Type
+import           LLVM.Warning                 (warn, warnString)
+import qualified LLVM.Warning                 as Warning (Warning (Pre))
 import           Location
-import           Type                         as T                    
+import           Type                         as T
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
 import           Control.Monad                (when)
 import           Data.Foldable                (toList)
-import           Data.Map.Strict                    (Map)
-import qualified Data.Map.Strict                    as Map
+import           Data.Map.Strict              (Map)
+import qualified Data.Map.Strict              as Map
 import           Data.Monoid                  ((<>))
-import           Data.Sequence                (Seq, (|>),ViewR((:>)), viewr)
+import           Data.Sequence                (Seq, ViewR ((:>)), viewr, (|>))
 import qualified Data.Sequence                as Seq
 import           Data.Text                    (Text, unpack)
-import           LLVM.General.AST             (BasicBlock (..), Definition(..),
-                                               functionDefaults,Parameter (..),
-                                               Terminator (..))
-import           LLVM.General.AST.Global      (Global (..),functionDefaults)
-import           LLVM.General.AST.Type        as LLVM
+import           LLVM.General.AST             (BasicBlock (..), Definition (..),
+                                               Parameter (..), Terminator (..),
+                                               functionDefaults)
+import           LLVM.General.AST.Global      (Global (..), functionDefaults)
 import           LLVM.General.AST.Instruction (Named (..), Terminator (..))
 import qualified LLVM.General.AST.Instruction as LLVM (Instruction (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
+import           LLVM.General.AST.Type        as LLVM
 --------------------------------------------------------------------------------
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
 defineStruct :: Struct -> LLVM ()
-defineStruct ast@Struct {structName, structDecls, structProcs, struct'} = 
-  case struct' of 
+defineStruct ast@Struct {structName, structDecls, structProcs, struct'} =
+  case struct' of
     DataType {abstract, abstractTypes, inv, repinv, coupinv} -> do
 
       currentStruct .= Just ast
 
-      type' <- Just . StructureType False <$> 
+      type' <- Just . StructureType False <$>
                mapM (toLLVMType . declType . snd) (toList $ structDecls)
 
-      let 
-        name  = Name . unpack $ structName 
+      let
+        name  = Name . unpack $ structName
         structType = LLVM.NamedTypeReference name
 
-      moduleDefs %= (|> TypeDefinition name type')      
+      moduleDefs %= (|> TypeDefinition name type')
 
       defineStructInv Invariant structName structType inv
       defineStructInv RepInvariant structName structType repinv
@@ -72,18 +72,18 @@ defineStructInv :: Invariant
                 -> LLVM.Type
                 -> Expression
                 -> LLVM ()
-defineStructInv inv name t expr@ Expression {loc = Location(pos,_)} 
+defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
   | inv == CoupInvariant = undefined
   | otherwise = do
-  
-    let 
-      procName = (case inv of 
+
+    let
+      procName = (case inv of
           Invariant -> "inv-"
           RepInvariant -> "repInv-") <> unpack name
 
     proc <- newLabel $ "proc" <> procName
     (proc #)
-    
+
     openScope
     name' <- insertName "self"
     -- Evaluate the condition expression
@@ -99,11 +99,11 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
       , metadata' = [] }
     -- Set the false label to the warning, then continue normally
     (falseLabel #)
-    
-    case inv of 
+
+    case inv of
       Invariant    -> warn Warning.Pre pos
       RepInvariant -> warn Warning.Pre pos
-      
+
     terminate' Br
       { dest      = trueLabel
       , metadata' = [] }

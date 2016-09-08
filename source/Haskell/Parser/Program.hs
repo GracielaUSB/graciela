@@ -20,9 +20,9 @@ import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M
-import Data.Maybe (fromMaybe)
 import           Data.Either
 import qualified Data.Map.Strict    as Map
+import           Data.Maybe         (fromMaybe)
 import           Data.Monoid        ((<>))
 import qualified Data.Sequence      as Seq (empty)
 import qualified Data.Text          as T (intercalate)
