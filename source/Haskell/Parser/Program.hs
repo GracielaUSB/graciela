@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Parser.Program
   ( program
@@ -11,7 +12,7 @@ import           Location           (Location (..))
 import           Parser.ADT
 import           Parser.Definition
 import           Parser.Instruction (block)
-import           Parser.Monad
+import           Parser.Monad       hiding (sepBy1)
 import           Parser.State
 import           SymbolTable        (closeScope, openScope)
 import           Token
@@ -19,12 +20,13 @@ import           Type
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M
-import qualified Data.Map.Strict    as Map
-
+import Data.Maybe (fromMaybe)
 import           Data.Either
+import qualified Data.Map.Strict    as Map
+import           Data.Monoid        ((<>))
 import qualified Data.Sequence      as Seq (empty)
-import qualified Data.Text          as T
-import           Text.Megaparsec    (eof, getPosition, (<|>))
+import qualified Data.Text          as T (intercalate)
+import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>))
 -------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -35,6 +37,10 @@ program = do
 
   match' TokProgram
   name' <- safeIdentifier
+  ext <- optional $ do
+    match TokDot
+    exts <- identifier `sepBy1` match TokDot
+    pure $ "." <> T.intercalate "." exts
   match' TokBegin
 
   symbolTable %= openScope from -- Open the program scope
@@ -61,7 +67,7 @@ program = do
       fdts    <- use fullDataTypes
       strings <- use stringIds
       pure $ Just Program
-        { name
+        { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)
         , defs
         , insts       = main

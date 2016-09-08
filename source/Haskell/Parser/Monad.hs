@@ -65,9 +65,9 @@ module Parser.Monad
   , sepEndBy1
   ) where
 --------------------------------------------------------------------------------
+import           AST.Struct
 import           Error
 import           Location
-import           AST.Struct
 import           Parser.Prim                ()
 import           Parser.State               hiding (State)
 import qualified Parser.State               as Parser (State)
@@ -86,7 +86,7 @@ import           Control.Monad.Trans.State  (StateT (..), evalStateT)
 import           Data.Int                   (Int32)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NE (fromList)
-import qualified Data.Map.Strict                  as Map (lookup)
+import qualified Data.Map.Strict            as Map (lookup)
 import           Data.Sequence              (Seq, (<|), (|>))
 import qualified Data.Sequence              as Seq (empty, singleton)
 import qualified Data.Set                   as Set (empty, singleton)
@@ -259,7 +259,7 @@ pMatch' t = withRecovery recover (match t)
     recover e = do
       pos <- getPosition
       -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
-      let 
+      let
         from :| _ = errorPos e
         expected  = Set.singleton . Tokens . NE.fromList $ [TokenPos from from t]
         loc       = Location (pos, pos)

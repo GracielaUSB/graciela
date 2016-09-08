@@ -20,9 +20,10 @@ import           Type                                    as T
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (void)
 import           Control.Monad.Trans.State.Strict        (evalState)
-import           Data.Array                              (array)
+import           Data.Array                              (listArray)
 import qualified Data.ByteString                         as BS (unpack)
 import           Data.Foldable                           (toList)
+import           Data.List                               (sortOn)
 import           Data.Map.Strict                         (Map)
 import qualified Data.Map.Strict                         as Map (size,
                                                                  toAscList)
@@ -38,7 +39,6 @@ import           LLVM.General.AST                        (Definition (..),
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
 import qualified LLVM.General.AST.Constant               as C
--- (Constant (Array, GetElementPtr, GlobalReference, Int))
 import qualified LLVM.General.AST.FloatingPointPredicate as FL
 import qualified LLVM.General.AST.Global                 as G (Global (..),
                                                                functionDefaults,
@@ -116,10 +116,10 @@ programToLLVM
 
     addStrings :: Map Text Int -> LLVM ()
     addStrings strs = do
-      ops <- mapM addString (Map.toAscList strs)
-      stringOps .= array (0, Map.size strs - 1) ops
+      ops <- mapM addString . sortOn snd . Map.toAscList $ strs
+      stringOps .= listArray (0, Map.size strs - 1) ops
 
-    addString :: (Text, Int) -> LLVM (Int, Operand)
+    addString :: (Text, Int) -> LLVM Operand
     addString (theString, i) = do
       let
         -- Convert the string into an array of 8-bit chars
@@ -137,7 +137,7 @@ programToLLVM
         , G.initializer = Just . C.Array i8 $
           [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
         }
-      pure . (i,) . ConstantOperand $ C.GetElementPtr
+      pure . ConstantOperand $ C.GetElementPtr
         { C.inBounds = True
         , C.address = C.GlobalReference i8 name
         , C.indices = [C.Int 64 0, C.Int 64 0] }

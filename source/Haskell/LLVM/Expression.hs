@@ -30,6 +30,7 @@ import           Control.Monad                           (foldM, when)
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
+import           Data.Maybe                              (fromMaybe)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
@@ -660,10 +661,11 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
 
       Just  e -> do
         val <- expression e
+        Just defaultLabel' <- use blockName
         terminate' Br
           { dest      = finish
           , metadata' = [] }
-        pure [(val, defaultLabel)]
+        pure [(val, defaultLabel')]
 
     (finish #)
     addInstruction $ result := Phi
@@ -697,23 +699,32 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
 
         (yes #)
         val <- expression right
+        Just yes' <- use blockName
         terminate' Br
           { dest      = finish
           , metadata' = [] }
 
-        pure (no, (val, yes) : pairs)
+        pure (no, (val, yes') : pairs)
 
-  FunctionCall { fname, fargs } -> do
-    arguments <- toList . fmap (,[]) <$> mapM expression fargs
+  FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc } -> do
+    arguments <- toList <$> mapM expression fArgs
     callType <- toLLVMType expType
+
+    recArgs <- if fRecursiveCall
+      then do
+        boundOperand <- fromMaybe (error "internal error: boundless recursive function 2.") <$> use boundOp
+        pure [ConstantOperand $ C.Int 1 1, boundOperand]
+      else if fRecursiveFunc
+        then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+        else pure []
 
     label <- newLabel "funcResult"
     addInstruction $ label := Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function = callable callType $ unpack fname
-      , arguments
+      , function           = callable callType $ unpack fName
+      , arguments          = fmap (,[]) $ recArgs <> arguments
       , functionAttributes = []
       , metadata           = [] }
 

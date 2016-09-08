@@ -1,4 +1,6 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns           #-}
+
 module Parser.Instruction
   ( instruction
   , declarationBlock
@@ -44,13 +46,13 @@ import           Treelike
 import           Type                   (ArgMode (..), Type (..), llvmName,
                                          (=:=))
 -------------------------------------------------------------------------------
-import           Control.Lens           (use, (%=), (+=), (^.))
+import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
 import           Data.Foldable          (asum, toList)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (any, find)
-import qualified Data.Map.Strict              as Map (lookup)
+import qualified Data.Map.Strict        as Map (lookup)
 import           Data.Monoid            ((<>))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
@@ -489,7 +491,7 @@ procedureCall = do
 
   case procName `Map.lookup` defs of
 
-    Just Definition { defLoc, def' = ProcedureDef { procParams }} -> do
+    Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
       let
         nArgs   = length args
         nParams = length procParams
@@ -502,8 +504,10 @@ procedureCall = do
             Just args'' -> Just Instruction
               { instLoc = loc
               , inst' = ProcedureCall
-                { pname = procName
-                , pargs = args'' }}
+                { pName = procName
+                , pArgs = args''
+                , pRecursiveCall = False
+                , pRecursiveProc = procRecursive }}
         else do
           putError from BadProcNumberOfArgs
             { pName = procName
@@ -525,32 +529,37 @@ procedureCall = do
       -- Parser.State `currentProc`.
       currentProcedure <- use currentProc
       case currentProcedure of
-        Just (name, pos, types, recursionAllowed)
-          | name == procName && recursionAllowed -> do
+        Just cr@CurrentRoutine {}
+          | cr^.crName == procName && cr^.crRecAllowed -> do
             let
               nArgs = length args
-              nParams = length types
+              nParams = length (cr^.crParams)
             if nArgs == nParams
               then do
-                args' <- foldM (checkType procName pos) (Just Seq.empty) (Seq.zip args types)
+                args' <- foldM (checkType procName (cr^.crPos)) (Just Seq.empty) (Seq.zip args (cr^.crParams))
+
+                currentProc . _Just . crRecursive .= True
+
                 pure $ case args' of
                   Nothing -> Nothing
-                  Just pargs -> Just Instruction
+                  Just pArgs -> Just Instruction
                     { instLoc = loc
                     , inst' = ProcedureCall
-                      { pname = procName
-                      , pargs }}
+                      { pName = procName
+                      , pArgs
+                      , pRecursiveCall = True
+                      , pRecursiveProc = True }}
               else do
                 putError from BadProcNumberOfArgs
                   { pName = procName
-                  , pPos  = pos
+                  , pPos  = cr ^. crPos
                   , nParams
                   , nArgs }
                 pure Nothing
-          | name == procName && not recursionAllowed -> do
+          | cr^.crName == procName && not (cr^.crRecAllowed) -> do
             putError from . UnknownError $
               "Procedure `" <> unpack procName <> "` cannot call itself \
-              \recursively because no Bound and Invariant were given for it."
+              \recursively because no bound was given for it."
             pure Nothing
         _ -> do
           t <- hasDTType . toList $ args
@@ -582,8 +591,10 @@ procedureCall = do
                         Just args'' -> Just Instruction
                           { instLoc = loc
                           , inst' = ProcedureCall
-                            { pname = procName'
-                            , pargs = args'' }}
+                            { pName = procName'
+                            , pArgs = args''
+                            , pRecursiveCall = False
+                            , pRecursiveProc = False }}
 
                     Nothing -> do
                       putError from . UnknownError $
