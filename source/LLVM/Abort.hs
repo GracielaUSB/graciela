@@ -78,6 +78,8 @@ data Abort
   | Underflow          -- ^ A value underflowed.
   | EmptyRange         -- ^ A quantification disallowing empty ranges received one.
   | NullPointerAccess  -- ^ A null pointer was dereferenced.
+  | AbstractInv
+  | RepInv
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate abort.

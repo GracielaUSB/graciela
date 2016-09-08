@@ -13,8 +13,9 @@ type Dicc implements Diccionario (int, char) begin
         %)
     repinv}
 
-    {coupinv  conoc == {i : 0<=i<=tam : clave[i]} /\
-            table == {i : 0<=i<=tam : (clave,valor[i])}
+    {coupinv  
+        conoc == {i : 0<=i<=tam : clave[i]} /\
+        table == {i : 0<=i<=tam : (clave,valor[i]) }
     coupinv}
 
     proc buscar: ( in d : Diccionario , in c : T0 , out v : T1 )
