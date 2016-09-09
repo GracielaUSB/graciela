@@ -1,0 +1,30 @@
+program ack.bin begin
+
+abstract AList (a) begin
+  var x : a;
+  {inv true inv}
+  /* abstractName procedures */
+end
+
+type ArrayList(a, b) implements AList (b) begin
+  var y : a;
+  var z : b;
+
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  proc crear ( out l : ArrayList, in i : a )
+    {pre true pre}
+    {post true post}
+    ⟦ write ( "hola" )
+    ⟧
+
+  /* typeName procedures */
+end
+
+main
+  ⟦ var P : ArrayList(int, char)
+  ; skip
+  ⟧
+
+end

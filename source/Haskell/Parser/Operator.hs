@@ -60,18 +60,15 @@ arithU :: Integral a
 arithU fi ff = f
   where
     f (IntV   v) = IntV   .                        fi        $ v
-    f (CharV  v) = CharV  . chr' . fi . ord' $ v
     f (FloatV v) = FloatV .                        ff        $ v
     f _          = error "internal error: bad arithUn precalc"
 
 
 arithUnType :: UnaryOpType
 arithUnType GInt   = Right GInt
-arithUnType GChar  = Right GChar
 arithUnType GFloat = Right GFloat
 arithUnType _      = Left $
   show GInt   <> ", " <>
-  show GChar  <> ", or " <>
   show GFloat
 
 uMinus, abs, sqrt :: Un

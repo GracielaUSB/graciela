@@ -213,18 +213,18 @@ dataType = do
 
               let
                 struct = Struct
-                      { structName  = name
-                      , structFields = fields
-                      , structSt    = st
-                      , structProcs = procs
-                      , structLoc   = loc
-                      , structTypes = types
-                      , struct'     = DataType
-                       { abstract = abstractName
-                       , abstractTypes
-                       , inv = inv struct'
-                       , repinv
-                       , coupinv }}
+                      { structName   = name
+                      , structFields = structFields <> fields
+                      , structSt     = st
+                      , structProcs  = procs
+                      , structLoc    = loc
+                      , structTypes  = types
+                      , struct'      = DataType
+                        { abstract   = abstractName
+                        , abstractTypes
+                        , inv = inv struct'
+                        , repinv
+                        , coupinv }}
               dataTypes %= Map.insert name struct
               typesVars .= []
               currentStruct .= Nothing

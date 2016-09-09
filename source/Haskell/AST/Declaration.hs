@@ -4,11 +4,11 @@ module AST.Declaration where
 --------------------------------------------------------------------------------
 import           AST.Expression (Expression, Object)
 import qualified AST.Expression as E
+import           AST.Type
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Data.Foldable  (toList)
 import           Data.Monoid    ((<>))
@@ -26,8 +26,6 @@ data Declaration
     { declLoc   :: Location
     , declType  :: Type
     , declPairs :: Seq (Text, Expression) }
-
-
 
 instance Treelike Declaration where
   toTree Declaration { declLoc, declType, declIds } =

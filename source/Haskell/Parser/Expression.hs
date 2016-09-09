@@ -817,7 +817,14 @@ dotField = do
                 Just ms -> case typeargs `Map.lookup` ms of
                   Nothing -> pure Nothing
                   Just Struct { structFields } ->
-                    aux obj (objType obj) loc fieldName structFields taint
+                    let
+                      f (_a, b@(GTypeVar _), _c) =
+                        case b `Map.lookup` typeargs of
+                          Nothing -> error "internal error: unfull GFullDataType"
+                          Just b' -> (_a, b', _c)
+                      f tuple = tuple
+                      structFields' = f <$> structFields
+                    in aux obj (objType obj) loc fieldName structFields' taint
             t -> do
               putError from' . UnknownError $
                 "Bad field access. Cannot access an expression \

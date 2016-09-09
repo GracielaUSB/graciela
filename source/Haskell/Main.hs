@@ -4,6 +4,7 @@
 module Main where
 --------------------------------------------------------------------------------
 import           AST.Program
+import           AST.Type
 import           Error
 import           Error
 import           Lexer
@@ -14,7 +15,6 @@ import           Parser.State
 import           SymbolTable
 import           Token
 import           Treelike
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
 import           Control.Monad              (unless, void, when, (>=>))
@@ -226,7 +226,7 @@ main = do
         putStr out
         hPutStr stderr errs
 
-        void $ readProcess "rm" [lltName] ""
+        -- void $ readProcess "rm" [lltName] ""
 
         case exitCode of
           ExitSuccess ->

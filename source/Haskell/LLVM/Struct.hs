@@ -25,6 +25,7 @@ import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
 import           Control.Monad                (when)
 import           Data.Foldable                (toList)
+import           Data.List                    (sortOn)
 import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as Map
 import           Data.Monoid                  ((<>))
@@ -55,7 +56,7 @@ defineStruct structName (mapType, ast) = case ast of
       currentStruct .= Just ast
 
       type' <- Just . StructureType False <$>
-               mapM (toLLVMType . (\(_,x,_) -> x)) (toList structFields)
+              mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
 
       types <- mapM toLLVMType structTypes
 

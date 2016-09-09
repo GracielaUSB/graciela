@@ -49,14 +49,14 @@ instance Treelike Struct where
 
       AbstractDataType { inv } ->
         Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
-          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields
+          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
           ,-} Node "Invariant" [toTree inv]
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
       DataType { abstract, repinv, coupinv } ->
         Node ("Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
-          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields
+          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
           ,-} Node "Representation Invariant" [toTree repinv]
           , Node "Coupling Invariant" [toTree coupinv]
           , Node "Procedures" . fmap toTree . toList $ structProcs

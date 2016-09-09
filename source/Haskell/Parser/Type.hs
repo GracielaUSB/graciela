@@ -182,18 +182,17 @@ arraySize = do
 
 abstractType :: Parser Type
 abstractType
-   =  type'
-  <|> do {match TokSet;      match TokOf; GSet      <$> (typeVar<|>type') }
+   =  do {match TokSet;      match TokOf; GSet      <$> (typeVar<|>type') }
   <|> do {match TokMultiset; match TokOf; GMultiset <$> (typeVar<|>type') }
   <|> do {match TokSeq;      match TokOf; GSeq      <$> (typeVar<|>type') }
 
-  <|> do {match TokFunc; ba <- (typeVar<|>type'); match TokArrow;   bb <- (typeVar<|>type'); pure $ GFunc ba bb }
-  <|> do {match TokRel;  ba <- (typeVar<|>type'); match TokBiArrow; bb <- (typeVar<|>type'); pure $ GRel  ba bb }
+  <|> do {match TokFunc; ba <- typeVar<|>type'; match TokArrow;   bb <- typeVar<|>type'; pure $ GFunc ba bb }
+  <|> do {match TokRel;  ba <- typeVar<|>type'; match TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
 
   <|> (GTuple <$> parens (typeVar `sepBy` match TokComma))
 
-  <|> typeVar
-
+  <|> try typeVar
+  <|> type'
 
 typeVarDeclaration  :: Parser Type
 typeVarDeclaration = do

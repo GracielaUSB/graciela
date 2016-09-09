@@ -16,6 +16,7 @@ import           Data.Monoid                      ((<>))
 import           Data.Sequence                    (Seq, (|>))
 import qualified Data.Sequence                    as Seq
 import           Data.Text                        (Text, unpack)
+import           Data.Word                        (Word32)
 import           LLVM.General.AST                 (BasicBlock (..))
 import qualified LLVM.General.AST                 as LLVM (Definition (..))
 import           LLVM.General.AST.Constant        (Constant (GlobalReference))
@@ -172,9 +173,9 @@ readFileChar  :: String
 readFileChar  = "_readFileChar"
 readFileFloat :: String
 readFileFloat = "_readFileDouble"
-intAdd        :: String
-intAdd        = "llvm.sadd.with.overflow.i32"
-intSub        :: String
-intSub        = "llvm.ssub.with.overflow.i32"
-intMul        :: String
-intMul        = "llvm.smul.with.overflow.i32"
+safeAdd       :: Word32 -> String
+safeAdd n     = "llvm.sadd.with.overflow.i" <> show n
+safeSub       :: Word32 -> String
+safeSub n     = "llvm.ssub.with.overflow.i" <> show n
+safeMul       :: Word32 -> String
+safeMul n     = "llvm.smul.with.overflow.i" <> show n

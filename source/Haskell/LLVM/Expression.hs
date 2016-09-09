@@ -39,6 +39,7 @@ import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  singleton,
                                                                  viewr)
 import           Data.Text                               (unpack)
+import           Data.Word                               (Word32)
 import           Data.Word                               ()
 import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
@@ -167,7 +168,16 @@ objectRef obj@(Object loc objType obj') = do
 
       return . LocalReference objType' $ labelLoad
 
-    _ -> error "Aun no hay soporte para estructuras"
+
+    Member { inner, field } -> do
+      ref <- objectRef inner
+      label <- newLabel "member"
+      addInstruction $ label := GetElementPtr
+          { inBounds = False
+          , address  = ref
+          , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+          , metadata = []}
+      pure . LocalReference objType' $ label
 
   where
     getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
@@ -185,36 +195,39 @@ objectRef obj@(Object loc objType obj') = do
 -- llvm.sadd.with.overflow.i32 (fun == intAdd)
 -- llvm.ssub.with.overflow.i32 (fun == intSub)
 -- llvm.smul.with.overflow.i32 (fun == intMul)
-safeOperation label fun lOperand rOperand pos = do
-  labelAdd      <- newLabel "safeAdd"
+safeOperation n label fun lOperand rOperand pos = do
+  labelOp      <- newLabel "safeOp"
   labelCond     <- newLabel "safeCond"
   overflowLabel <- newLabel "safeOverflow"
   normalLabel   <- newLabel "safeOk"
+
   let
-    safeStruct = StructureType False [intType, boolType]
-    add = callFunction fun lOperand rOperand
+    safeStruct = StructureType False [IntegerType n, boolType]
 
-    result = ExtractValue
-      { aggregate = LocalReference safeStruct labelAdd
-      , indices'  = [0]
-      , metadata  = [] }
+  addInstruction $ labelOp  := Call
+    { tailCallKind       = Nothing
+    , callingConvention  = CC.C
+    , returnAttributes   = []
+    , function           = callable (IntegerType n) (fun n)
+    , arguments          = [(lOperand,[]), (rOperand,[])]
+    , functionAttributes = []
+    , metadata           = [] }
 
-    condition = ExtractValue
-      { aggregate = LocalReference safeStruct labelAdd
-      , indices'  = [1]
-      , metadata  = [] }
+  addInstruction $ label     := ExtractValue
+    { aggregate = LocalReference safeStruct labelOp
+    , indices'  = [0]
+    , metadata  = [] }
 
-    condBr = CondBr
-      { condition = LocalReference boolType labelCond
-      , trueDest  = overflowLabel
-      , falseDest = normalLabel
-      , metadata' = [] }
+  addInstruction $ labelCond := ExtractValue
+    { aggregate = LocalReference safeStruct labelOp
+    , indices'  = [1]
+    , metadata  = [] }
 
-  addInstructions $ Seq.fromList [ labelAdd  := add
-                                 , label     := result
-                                 , labelCond := condition]
-
-  terminate' condBr
+  terminate' CondBr
+    { condition = LocalReference boolType labelCond
+    , trueDest  = overflowLabel
+    , falseDest = normalLabel
+    , metadata' = [] }
 
   (overflowLabel #)
   abort Abort.Overflow pos
@@ -232,15 +245,8 @@ callUnaryFunction fun innerOperand = Call
   , functionAttributes = []
   , metadata           = [] }
 
-callFunction :: String -> Operand -> Operand -> Instruction
-callFunction fun lOperand rOperand = Call
-  { tailCallKind       = Nothing
-  , callingConvention  = CC.C
-  , returnAttributes   = []
-  , function           = callable i32 fun
-  , arguments          = [(lOperand,[]), (rOperand,[])]
-  , functionAttributes = []
-  , metadata           = [] }
+-- callfFunction :: Word32 -> String -> Operand -> Operand -> Instruction
+-- callfFunction n fun lOperand rOperand =
 
 expression :: Expression -> LLVM Operand
 expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
@@ -266,33 +272,37 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     innerOperand <- expression inner
 
     operand <- case expType of
-          T.GInt   -> opInt   unOp innerOperand
-          T.GBool  -> opBool  unOp innerOperand
-          T.GFloat -> opFloat unOp innerOperand
-          t        -> error $ "tipo " <> show t <> " no soportado"
+      T.GInt   -> opInt 32  unOp innerOperand
+      T.GChar  -> opInt 8  unOp innerOperand
+      T.GBool  -> opBool  unOp innerOperand
+      T.GFloat -> opFloat unOp innerOperand
+      t        -> error $ "tipo " <> show t <> " no soportado"
 
     pure operand
 
     where
-      opInt :: Op.UnaryOperator -> Operand -> LLVM Operand
-      opInt op innerOperand = do
-        label <- newLabel "unaryResult"
+      opInt :: Word32 -> Op.UnaryOperator -> Operand -> LLVM Operand
+      opInt n op innerOperand = do
+        label <- newLabel $ case n of
+          32 -> "unaryIntOp"
+          8  -> "unaryCharOp"
+          _  -> error "internal error: badUnaryIntOp"
         let
           minusOne = ConstantOperand $ C.Int 32 (-1)
-          one = ConstantOperand $ C.Int 32 (1)
+          one = ConstantOperand $ C.Int n 1
         case op of
-            Op.Abs    -> undefined
+            Op.Abs    -> undefined -- TODO
 
             Op.UMinus ->
-                safeOperation label intMul innerOperand minusOne pos
+              safeOperation n label safeMul innerOperand minusOne pos
 
             Op.Succ   ->
-                safeOperation label intAdd innerOperand one pos
+              safeOperation n label safeAdd innerOperand one pos
 
             Op.Pred   ->
-                safeOperation label intSub innerOperand one pos
+              safeOperation n label safeSub innerOperand one pos
 
-        return $ LocalReference intType label
+        return $ LocalReference (IntegerType n) label
 
       opFloat :: Op.UnaryOperator -> Operand -> LLVM Operand
       opFloat op innerOperand = do
@@ -348,7 +358,8 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
     let
       op = case expType of
-        T.GInt   -> opInt
+        T.GInt   -> opInt 32
+        T.GChar  -> opInt 8
         T.GBool  -> opBool
         T.GFloat -> opFloat
         t        -> error $
@@ -357,23 +368,26 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     op binOp lOperand rOperand
 
     where
-      opInt op lOperand rOperand = do
-        label <- newLabel "intOp"
+      opInt n op lOperand rOperand = do
+        label <- newLabel $ case n of
+          32 -> "intOp"
+          8  -> "charOp"
+          _  -> error "internal error: badIntOp"
         case op of
           Op.Plus   ->
-            safeOperation label intAdd lOperand rOperand pos
+            safeOperation n label safeAdd lOperand rOperand pos
 
           Op.BMinus ->
-            safeOperation label intSub lOperand rOperand pos
+            safeOperation n label safeSub lOperand rOperand pos
 
           Op.Times  ->
-            safeOperation label intMul lOperand rOperand pos
+            safeOperation n label safeMul lOperand rOperand pos
 
           Op.Div    -> do
             checkZero <- newLabel "divCheckZero"
             addInstruction $ checkZero := ICmp
               { iPredicate = EQ
-              , operand0   = ConstantOperand $ C.Int 32 0
+              , operand0   = ConstantOperand $ C.Int n 0
               , operand1   = rOperand
               , metadata   = [] }
 
@@ -399,7 +413,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
             checkZero <- newLabel "modCheckZero"
             addInstruction $ checkZero := ICmp
               { iPredicate = EQ
-              , operand0   = ConstantOperand $ C.Int 32 0
+              , operand0   = ConstantOperand $ C.Int n 0
               , operand1   = rOperand
               , metadata   = [] }
 
@@ -421,13 +435,27 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
               , metadata = [] }
 
           Op.Min    -> addInstruction $
-            label := callFunction minnumString lOperand rOperand
+            label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (IntegerType n) minnumString
+              , arguments          = [(lOperand,[]), (rOperand,[])]
+              , functionAttributes = []
+              , metadata           = [] }
 
           Op.Max    -> addInstruction $
-            label := callFunction maxnumString  lOperand rOperand
+            label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (IntegerType n) maxnumString
+              , arguments          = [(lOperand,[]), (rOperand,[])]
+              , functionAttributes = []
+              , metadata           = [] }
           _         -> error "opInt"
 
-        return $ LocalReference intType label
+        return $ LocalReference (IntegerType n) label
 
       opFloat op lOperand rOperand = do
         label <- newLabel "floatBinaryResult"
@@ -456,17 +484,33 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
                             , operand1      = rOperand
                             , metadata      = []
                             }
-          Op.Power  ->
-            Seq.singleton $
-              label := callFunction powString lOperand rOperand
+          Op.Power  -> Seq.singleton $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable floatType powString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
 
-          Op.Min    ->
-            Seq.singleton $
-              label := callFunction minnumFstring lOperand rOperand
+          Op.Min    -> Seq.singleton $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable floatType minnumFstring
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
 
-          Op.Max    ->
-            Seq.singleton $
-              label := callFunction maxnumFstring lOperand rOperand
+          Op.Max    -> Seq.singleton $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable floatType maxnumFstring
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+
           _         -> error "opFloat"
         return $ LocalReference floatType label
 

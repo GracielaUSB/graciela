@@ -417,9 +417,13 @@ preDefinitions files =
     , defineFunction powString      floatParams2 floatType
 
 
-    , defineFunction intSub intParams2 overflow'
-    , defineFunction intMul intParams2 overflow'
-    , defineFunction intAdd intParams2 overflow'
+    , defineFunction (safeSub 32) intParams2 (overflow' 32)
+    , defineFunction (safeMul 32) intParams2 (overflow' 32)
+    , defineFunction (safeAdd 32) intParams2 (overflow' 32)
+
+    , defineFunction (safeSub 8) charParams2 (overflow' 8)
+    , defineFunction (safeMul 8) charParams2 (overflow' 8)
+    , defineFunction (safeAdd 8) charParams2 (overflow' 8)
 
     -- Read
     , defineFunction readIntStd    [] intType
@@ -452,6 +456,7 @@ preDefinitions files =
     boolParam     = [parameter ("x",  boolType)]
     floatParam    = [parameter ("x", floatType)]
     intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
+    charParams2   = fmap parameter [("x",   charType), ("y",   charType)]
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
     stringParam   = [Parameter stringType (Name "msg") [NoCapture]]
-    overflow'     = StructureType False [intType, boolType]
+    overflow' n   = StructureType False [IntegerType n, boolType]
