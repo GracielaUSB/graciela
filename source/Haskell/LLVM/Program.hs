@@ -7,6 +7,7 @@ module LLVM.Program where
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
+import           AST.Type                                as T
 import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
@@ -15,7 +16,6 @@ import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Struct                             (defineStruct)
 import           LLVM.Type                               (intType)
-import           AST.Type                                    as T
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad                           (void)
@@ -25,8 +25,9 @@ import qualified Data.ByteString                         as BS (unpack)
 import           Data.Foldable                           (toList)
 import           Data.List                               (sortOn)
 import           Data.Map.Strict                         (Map)
-import qualified Data.Map.Strict                         as Map (size, toList,
-                                                                 toAscList)
+import qualified Data.Map.Strict                         as Map (size,
+                                                                 toAscList,
+                                                                 toList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
@@ -92,7 +93,7 @@ programToLLVM
       let
         mapStruct = Map.toList fullStructs
 
-      mapM_ (\(k,v) -> mapM_ (defineStruct k) v) mapStruct
+      mapM_ (\(k, v) -> mapM_ (defineStruct k) $ Map.toList v) $ mapStruct
       mapM_ definition defs
 
       mainDefinition insts

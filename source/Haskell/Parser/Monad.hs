@@ -66,13 +66,13 @@ module Parser.Monad
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct
+import           AST.Type                   (Type)
 import           Error
 import           Location
 import           Parser.Prim                ()
 import           Parser.State               hiding (State)
 import qualified Parser.State               as Parser (State)
 import           Token                      (Token (..), TokenPos (..))
-import           AST.Type                       (Type)
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
 import           Control.Lens               (use, (%=))
@@ -217,19 +217,9 @@ pGetType name = do
 
 pGetStruct :: (Monad m)
            => Text -> ParserT m (Maybe Struct)
-pGetStruct name = do
-  structs <- use dataTypes
-  case name `Map.lookup` structs of
-    Just struct -> return $ Just struct
-    Nothing     -> return Nothing
+pGetStruct name = Map.lookup name <$> use dataTypes
 
--- pFollowedBy :: (Monad m)
---             => ParserT m (Maybe a) -> ParserT m b -> ParserT m (Maybe a)
--- pFollowedBy p follow =
---   withRecovery (pRecover follow) (p <* lookAhead follow)
-
-
-pRecover :: (MonadParser m)
+pRecover :: MonadParser m
          => m b
          -> ParseError TokenPos Error
          -> m (Maybe a)
@@ -446,16 +436,3 @@ sepEndBy p sep = sepEndBy1 p sep <|> pure Seq.empty
 sepEndBy1 :: Alternative m => m a -> m sep -> m (Seq a)
 sepEndBy1 p sep = (<|) <$> p <*> ((sep *> sepEndBy p sep) <|> pure Seq.empty)
 --------------------------------------------------------------------------------
-
--- insertType :: Text -> Type -> SourcePos -> Graciela ()
--- insertType name t loc =
---   typesTable %= Map.insert name (t, loc)
---
---
--- getType :: Text -> Graciela (Maybe Type)
--- getType name = do
---   types <- use typesTable
---   case Map.lookup name types of
---     Just (t, loc) -> return $ Just t
---     Nothing       -> return Nothing
---

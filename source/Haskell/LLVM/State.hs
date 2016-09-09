@@ -48,7 +48,7 @@ data State = State
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [Map G.Type  G.Type] }
+  , _substitutionTable :: [Map G.Type G.Type] }
 
 makeLenses ''State
 

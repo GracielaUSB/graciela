@@ -44,7 +44,7 @@ import           Prelude                   hiding (Ordering (..), lex, lookup)
 import           Text.Megaparsec           (between, getPosition, lookAhead,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
-import           Text.Megaparsec.Pos       (unsafePos)
+import           Debug.Trace
 
 expression :: Parser (Maybe Expression)
 expression =
@@ -195,7 +195,7 @@ variable name (Location (from, to)) = do
   case name `lookup` st of
 
     Left _ -> do
-      
+
       putError from . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
 
@@ -691,8 +691,8 @@ ifExp = do
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
   [ {-Level 0-}
-    [ Postfix (foldr1 (>=>) <$> some subindex) ]
- -- , Postfix (foldr1 (>=>) <$> some field) ] -- TODO: Field access, depends on ST design
+    [ Postfix (foldr1 (>=>) <$> some subindex)
+    , Postfix (foldr1 (>=>) <$> some dotField) ]
   , {-Level 1-}
     [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 2-}
@@ -771,10 +771,6 @@ subindex = do
                                 , index = sub }}}}
                       in pure . Just $ (expr, ProtoNothing, taint)
 
-                  -- badexpression { E.loc = Location (from, _) } ->
-                  --   let loc = Location (from, to)
-                  --   in pure (badexpression { E.loc }, ProtoNothing, Taint False)
-
                   e -> do
                     let
                       Location (from, _) = E.loc e
@@ -789,6 +785,69 @@ subindex = do
                 "Bad subindex. Must be integer expression."
               pure (\_ -> pure Nothing)
 
+
+dotField :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
+dotField = do
+  lookAhead $ match TokDot
+  from' <- getPosition
+  match TokDot
+  fieldName' <- safeIdentifier
+  to <- getPosition
+
+  case fieldName' of
+    Nothing -> pure (\_ -> pure Nothing)
+    Just fieldName -> pure $ \case
+      Nothing -> pure Nothing
+      Just (Expression { exp', loc = Location (from,_) }, _, taint) ->
+        case exp' of
+          o@(Obj obj) -> case objType obj of
+            GDataType n -> do
+              cstruct <- lift $ use currentStruct
+              case cstruct of
+                Just (name, _, structFields)
+                  | name == n ->
+                    aux o (objType obj) loc fieldName structFields
+                _ -> error "internal error: GDataType without currentStruct."
+            GFullDataType n typeargs -> do
+              fdts <- lift $ use fullDataTypes
+              case n `Map.lookup` fdts of
+                Nothing -> pure Nothing
+                Just ms -> case typeargs `Map.lookup` ms of
+                  Nothing -> pure Nothing
+                  Just Struct { structFields } ->
+                    aux o (objType obj) loc fieldName structFields
+            t -> do
+              putError from' . UnknownError $
+                "Bad field access. Cannot access an expression \
+                \of type " <> show t <> "."
+              pure Nothing
+          _ -> do
+            putError from' . UnknownError $
+              "Bad field access. Cannot access an expression."
+            pure Nothing
+  where
+    aux o oType loc fieldName structFields =
+      case fieldName `Map.lookup` structFields of
+        Just (i, t, _) ->
+          let
+            expr = Expression
+              { loc
+              , expType = t
+              , exp'    = Obj
+                { theObj = Object
+                  { loc
+                  , objType = t
+                  , obj' = Member
+                    { inner = obj
+                    , field = i }}}}
+          in pure . Just $ (expr, ProtoNothing, taint)
+        Nothing -> do
+          let Location (pos, _) = loc
+          putError pos . UnknownError $
+            "Bad field access. Object of type `" <> show oType <>
+            "` does not have a field named `" <>
+            unpack fieldName <> "`"
+          pure Nothing
 
 deref :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 deref = do
@@ -813,11 +872,6 @@ deref = do
                     , obj' = Deref
                       { O.inner = o }}}}
           in pure . Just $ (expr, ProtoNothing, taint)
-
-      -- badexpression { E.loc = Location (_, to) } ->
-      --   let loc = Location (from, to)
-      --   in pure (badexpression { E.loc }, ProtoNothing, Taint False)
-
 
       e -> do
         let

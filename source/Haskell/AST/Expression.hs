@@ -14,13 +14,12 @@ module AST.Expression
   , from
   , to
   , eSkip
-  )
-  where
+  ) where
 --------------------------------------------------------------------------------
 import           AST.Object    (Object')
+import           AST.Type      (Type)
 import           Location
 import           Treelike
-import           AST.Type          (Type)
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
 import           Data.Int      (Int32)

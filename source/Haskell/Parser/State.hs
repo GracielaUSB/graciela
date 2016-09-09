@@ -31,12 +31,12 @@ module Parser.State
 import           AST.Definition
 import           AST.Expression        (Value (BoolV))
 import           AST.Struct
+import           AST.Type
 import           Entry
 import           Error
 import           Location
 import           SymbolTable
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
 import           Data.Foldable         (foldl')
@@ -77,9 +77,8 @@ data State = State
   , _typesTable    :: Map Text (Type, Location)
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text [(Map Type Type, Struct)]
-  , _stringIds     :: Map Text Int
-  }
+  , _fullDataTypes :: Map Text (Map (Map Type Type) Struct)
+  , _stringIds     :: Map Text Int }
 
 makeLenses ''State
 

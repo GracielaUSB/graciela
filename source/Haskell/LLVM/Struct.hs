@@ -4,24 +4,20 @@
 
 module LLVM.Struct
   ( defineStruct
-  )
-  where
-
-import           AST.Declaration              (Declaration(..))
-import           AST.Expression               (Expression(..))
-import           AST.Struct                   (Struct(..), Struct'(..))
+  ) where
+--------------------------------------------------------------------------------
+import           AST.Declaration              (Declaration (..))
+import           AST.Expression               (Expression (..))
+import           AST.Struct                   (Struct (..), Struct' (..))
 import           AST.Type                     as T
 import           LLVM.Abort                   (abort, abortString)
-import qualified LLVM.Abort                   as Abort (Abort (RepInvariant,
-                                                Invariant))
-import qualified LLVM.Warning                 as Warning (Warning (Pre))
-import           LLVM.Warning                 (warn)
+import qualified LLVM.Abort                   as Abort (Abort (Invariant, RepInvariant))
 import           LLVM.Definition
 import           LLVM.Expression
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
-import           LLVM.Warning                 (warn, warnString)
+import           LLVM.Warning                 (warn)
 import qualified LLVM.Warning                 as Warning (Warning (Pre))
 import           Location
 --------------------------------------------------------------------------------
@@ -50,9 +46,9 @@ data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
 defineStruct :: Text -> (Map T.Type T.Type, Struct) -> LLVM ()
 defineStruct structName (mapType, ast) = case ast of
-  
+
   Struct {structName,structTypes, structDecls, structProcs, struct'} -> case struct' of
-  
+
     DataType {abstract, abstractTypes, inv, repinv, coupinv} -> do
 
       substitutionTable .= [mapType]
@@ -67,7 +63,6 @@ defineStruct structName (mapType, ast) = case ast of
         name  = Name $ llvmName structName types
         structType = LLVM.NamedTypeReference name
 
-      -- error . show $ llvmName structName types
       moduleDefs %= (|> TypeDefinition name type')
 
       defineStructInv Invariant structName structType inv
@@ -109,11 +104,11 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
       , metadata' = [] }
     -- Set the false label to the warning, then continue normally
     (falseLabel #)
-    
-    case inv of 
+
+    case inv of
       Invariant    -> abort Abort.Invariant pos
       RepInvariant -> abort Abort.RepInvariant pos
-      
+
     -- And the true label to the next instructions
     (trueLabel #)
 

@@ -7,41 +7,36 @@ module AST.Object
   , notIn
   ) where
 --------------------------------------------------------------------------------
+import           AST.Type    (ArgMode (..), Type)
 import           Location
 import           Treelike
-import           AST.Type        (ArgMode (..), Type)
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
+import Data.Int (Int32)
 import           Data.Text   (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Object'' e
   = Variable
     { name :: Text
-    , mode :: Maybe ArgMode
-    }
+    , mode :: Maybe ArgMode }
   | Member
     { inner :: Object' e
-    , field :: Text
-    }
+    , field :: Int32 }
   | Index
     { inner :: Object' e
-    , index :: e
-    }
+    , index :: e }
   | Deref
-    { inner :: Object' e
-    }
+    { inner :: Object' e }
   deriving (Eq)
 
 {- The type variable in `Object' e` allows us to separate this code from
- - the code in `Expression` without creating a cycle.
- -}
+ - the code in `Expression` without creating a cycle. -}
 data Object' e
   = Object
     { loc     :: Location
     , objType :: Type
-    , obj'    :: Object'' e
-    }
+    , obj'    :: Object'' e }
   deriving (Eq)
 
 objMode (Object _ _ Variable {mode}) = mode
