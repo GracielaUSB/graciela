@@ -196,8 +196,8 @@ dataType = do
                 lenNeeded = length structTypes
                 lenActual = length absTypes
                 loc       = Location(from,to)
-                fields'   = fmap (\(_,x,_) -> x) (toList fields)
                 abstractTypes = Map.fromList $ zip structTypes absTypes
+                fields'   = fmap (\(_,x,_) -> x) (toList $ fillTypes abstractTypes fields)
 
               -- error $ show abstractTypes
 
