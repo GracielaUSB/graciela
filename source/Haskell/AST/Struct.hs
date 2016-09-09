@@ -8,12 +8,13 @@ import qualified AST.Definition  as D
 import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           AST.Type        (Type (GTypeVar), TypeArgs)
+import           AST.Type        (Type (GTypeVar), TypeArgs, fillType)
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
+import           Control.Lens    ((%~), _2)
 import           Data.Array      ((!))
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
@@ -38,34 +39,31 @@ data Struct'
 
 data Struct
   = Struct
-    { structName   :: Text
-    , structTypes  :: [Type]
-    , structFields :: Fields
-    , structProcs  :: Seq Definition
-    , structLoc    :: Location
-    , structSt     :: SymbolTable
-    , struct'      :: Struct' }
+    { structBaseName :: Text
+    , structTypes    :: [Type]
+    , structFields   :: Fields
+    , structProcs    :: Map Text Definition
+    , structLoc      :: Location
+    , structSt       :: SymbolTable
+    , struct'        :: Struct' }
 
 
 fillTypes :: TypeArgs -> Fields -> Fields
-fillTypes typeArgs fields = f <$> fields
-  where
-    f (_a, GTypeVar i, _c) = (_a, typeArgs ! i, _c)
-    f tuple = tuple
+fillTypes typeArgs fields = (_2 %~ fillType typeArgs) <$> fields
 
 
 instance Treelike Struct where
-  toTree Struct { structLoc, structFields, structProcs, structTypes, structName, struct' }
+  toTree Struct { structLoc, structFields, structProcs, structTypes, structBaseName, struct' }
     = case struct' of
 
       AbstractDataType { inv } ->
-        Node ("Abstract Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
+        Node ("Abstract Type " <> unpack structBaseName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
           [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
           ,-} Node "Invariant" [toTree inv]
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
       DataType { abstract, repinv, coupinv } ->
-        Node ("Type " <> unpack structName <> " (" <> intercalate "," (fmap show structTypes) <>
+        Node ("Type " <> unpack structBaseName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
           [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
           ,-} Node "Representation Invariant" [toTree repinv]

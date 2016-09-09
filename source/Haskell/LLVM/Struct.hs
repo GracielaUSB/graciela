@@ -23,7 +23,7 @@ import           Location
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
-import           Control.Monad                (when)
+import           Control.Monad                (forM_, when)
 import           Data.Foldable                (toList)
 import           Data.List                    (sortOn)
 import           Data.Map.Strict              (Map)
@@ -47,32 +47,31 @@ import           Debug.Trace
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (T.TypeArgs, Struct) -> LLVM ()
-defineStruct structName (mapType, ast) = case ast of
+defineStruct :: Text -> (Struct, [T.TypeArgs]) -> LLVM ()
+defineStruct structBaseName (ast, typeMaps) = case ast of
 
-  Struct {structName,structTypes, structFields, structProcs, struct'} -> case struct' of
+  Struct {structBaseName,structTypes, structFields, structProcs, struct'} -> case struct' of
+    DataType {abstract, abstractTypes, inv, repinv, coupinv} ->
+      forM_ typeMaps $ \typeMap -> do
+        substitutionTable .= [typeMap]
+        currentStruct .= Just ast
 
-    DataType {abstract, abstractTypes, inv, repinv, coupinv} -> do
+        type' <- Just . StructureType False <$>
+                mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
 
-      substitutionTable .= [mapType]
-      currentStruct .= Just ast
+        types <- mapM toLLVMType structTypes
+        let
+          name  = Name $ llvmName structBaseName types
+          structType = LLVM.NamedTypeReference name
 
-      type' <- Just . StructureType False <$>
-              mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
+        moduleDefs %= (|> TypeDefinition name type')
 
-      types <- mapM toLLVMType structTypes
-      let
-        name  = Name $ llvmName structName types
-        structType = LLVM.NamedTypeReference name
+        defineStructInv Invariant structBaseName structType inv
+        defineStructInv RepInvariant structBaseName structType repinv
 
-      moduleDefs %= (|> TypeDefinition name type')
+        mapM_ definition structProcs
 
-      defineStructInv Invariant structName structType inv
-      defineStructInv RepInvariant structName structType repinv
-
-      mapM_ definition structProcs
-
-      currentStruct .= Nothing
+        currentStruct .= Nothing
 
 defineStructInv :: Invariant
                 -> Text

@@ -814,18 +814,9 @@ dotField = do
               fdts <- lift $ use fullDataTypes
               case n `Map.lookup` fdts of
                 Nothing -> pure Nothing
-                Just ms -> case typeArgs `Map.lookup` ms of
-                  Nothing -> pure Nothing
-                  Just Struct { structFields } ->
-                    let structFields' = fillTypes typeArgs structFields
-                    -- let
-                    --   f (_a, b@(GTypeVar _), _c) =
-                    --     case b `Map.lookup` typeArgs of
-                    --       Nothing -> error "internal error: unfull GFullDataType"
-                    --       Just b' -> (_a, b', _c)
-                    --   f tuple = tuple
-                    --   structFields' = f <$> structFields
-                    in aux obj (objType obj) loc fieldName structFields' taint
+                Just (Struct { structFields }, _) ->
+                  let structFields' = fillTypes typeArgs structFields
+                  in aux obj (objType obj) loc fieldName structFields' taint
             t -> do
               putError from' . UnknownError $
                 "Bad field access. Cannot access an expression \

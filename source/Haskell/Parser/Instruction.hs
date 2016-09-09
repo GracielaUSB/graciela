@@ -29,7 +29,8 @@ import           AST.Instruction        (Guard, Instruction (..),
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
-import           AST.Type               (ArgMode (..), Type (..), (=:=))
+import           AST.Type               (ArgMode (..), Type (..), fillType,
+                                         (=:=))
 import           Entry
 import           Error
 import           Location
@@ -43,16 +44,17 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 import           Treelike
-
 -------------------------------------------------------------------------------
 import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
+import qualified Data.Array             as Array (listArray)
+import           Data.Foldable          (foldMap)
 import           Data.Foldable          (asum, toList)
 import           Data.Functor           (($>))
-import qualified Data.List              as L (any, find)
+import qualified Data.List              as L (find)
 import qualified Data.Map.Strict        as Map (lookup)
-import           Data.Monoid            ((<>))
+import           Data.Monoid            (First (..), (<>))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
 import qualified Data.Set               as Set
@@ -489,7 +491,6 @@ procedureCall = do
   defs <- use definitions
 
   case procName `Map.lookup` defs of
-
     Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
       let
         nArgs   = length args
@@ -506,7 +507,8 @@ procedureCall = do
                 { pName = procName
                 , pArgs = args''
                 , pRecursiveCall = False
-                , pRecursiveProc = procRecursive }}
+                , pRecursiveProc = procRecursive
+                , pStructArgs    = Nothing }}
         else do
           putError from BadProcNumberOfArgs
             { pName = procName
@@ -539,6 +541,17 @@ procedureCall = do
 
                 currentProc . _Just . crRecursive .= True
 
+                pStructArgs <- do
+                  cs' <- use currentStruct
+                  typeArgs <- use typeVars
+                  case cs' of
+                    Nothing -> pure Nothing
+                    Just (name, _, _) -> pure . Just $
+                      ( name
+                      , Array.listArray (0, length typeArgs) $
+                        zipWith GTypeVar [0..] typeArgs)
+
+
                 pure $ case args' of
                   Nothing -> Nothing
                   Just pArgs -> Just Instruction
@@ -547,7 +560,8 @@ procedureCall = do
                       { pName = procName
                       , pArgs
                       , pRecursiveCall = True
-                      , pRecursiveProc = True }}
+                      , pRecursiveProc = True
+                      , pStructArgs }}
               else do
                 putError from BadProcNumberOfArgs
                   { pName = procName
@@ -561,69 +575,78 @@ procedureCall = do
               \recursively because no bound was given for it."
             pure Nothing
 
-        -- _ -> do
-        --   t <- hasDTType . toList $ args
-        --   traceM "LLego"
-        --   case t of
+        {- The called procedure isn't a global procedure nor the current one,
+           but it might be a struct's procedure so we check for that. -}
+        Nothing ->
+          case hasDTType args of
+            Nothing -> do
+              putError from $ UndefinedProcedure procName
+              pure Nothing
+            Just (GFullDataType name typeArgs) -> do
+              use fullDataTypes >>= \fdts -> case name `Map.lookup` fdts of
+                Nothing -> error
+                  "internal error: impossible call to struct procedure"
+                Just (Struct { structProcs }, _) -> do
+                  case procName `Map.lookup` structProcs of
+                    Just procAst -> do
+                      let
+                        Location(from, _) = defLoc procAst
+                        ProcedureDef { procParams } = def' procAst
 
-        --     GUndef -> do
-        --       putError from $ UndefinedProcedure procName
-        --       pure Nothing
+                      args' <- foldM (checkType' typeArgs procName from)
+                        (Just Seq.empty) (Seq.zip args procParams)
 
-        --     GFullDataType n t -> do
-        --       fdts <- use fullDataTypes
-        --       let dtName = llvmName n t
-        --       case dtName `Map.lookup` fdts of
-        --         Just Struct{structProcs} -> do
-        --           let
-        --             procName' = procName <> pack "-" <> dtName
-        --             procAst' = L.find (\x -> defName x == procName') structProcs
-        --           case procAst' of
-        --             Just procAst -> do
-        --               let
-        --                 Location(from,_) = defLoc procAst
-        --                 ProcedureDef{procParams} = def' procAst
+                      pure $ case args' of
+                        Nothing -> Nothing
+                        Just args'' -> Just Instruction
+                          { instLoc = loc
+                          , inst' = ProcedureCall
+                            { pName = procName
+                            , pArgs = args''
+                            , pRecursiveCall = False
+                            , pRecursiveProc = False
+                            , pStructArgs    = Just (name, typeArgs) } }
 
-        --               args' <- foldM (checkType procName from)
-        --                 (Just Seq.empty) (Seq.zip args procParams)
-
-        --               pure $ case args' of
-        --                 Nothing -> Nothing
-        --                 Just args'' -> Just Instruction
-        --                   { instLoc = loc
-        --                   , inst' = ProcedureCall
-        --                     { pName = procName'
-        --                     , pArgs = args''
-        --                     , pRecursiveCall = False
-        --                     , pRecursiveProc = False }}
-
-        --             Nothing -> do
-        --               putError from . UnknownError $
-        --                 "Data Type `" <> unpack (takeWhile (/= '-') dtName) <>
-        --                 "` does not have a procedure called `" <>
-        --                 unpack procName <> "`"
-        --               return Nothing
-
-        --         _ -> error "No deberia estar aqui :D (:"
-
+                    Nothing -> do
+                      putError from . UnknownError $
+                        "Data Type `" <> unpack name <>
+                        "` does not have a procedure called `" <>
+                        unpack procName <> "`"
+                      return Nothing
 
   where
-    hasDTType [] = pure GUndef
-    hasDTType (Nothing:xs) = hasDTType xs
-    hasDTType (Just x:xs) = case expType x of
-      fdt@GFullDataType{} -> pure fdt
-      dt@GDataType{} -> do
-        let Location(from,_) = E.loc x
-        putError from . UnknownError $
-          "Expression `" <> show x <> "` has an incomplete type " <> show dt
-        pure GUndef
-      _ -> hasDTType xs
+    hasDTType = getFirst . foldMap aux
+    aux (Just Expression { expType = f@GFullDataType {} } ) = First $ Just f
+    aux _ = First Nothing
 
+    checkType = checkType' (Array.listArray (0,-1) [])
 
-    checkType _ _ _ (Nothing, _) = pure Nothing
-    checkType pName pPos acc
+    -- checkType _ _ _ (Nothing, _) = pure Nothing
+    -- checkType pName pPos acc
+    --   (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
+    --     if pType =:= expType
+    --       then case exp' of
+    --         Obj {}
+    --           | mode `elem` [Out, InOut] ->
+    --             pure $ (|> (e, mode)) <$> acc
+    --         _
+    --           | mode == In ->
+    --             pure $ (|> (e, mode)) <$> acc
+    --         _ -> do
+    --           putError from . UnknownError $
+    --             "The parameter `" <> unpack name <> "` has mode " <>
+    --             show mode <> "\n\tbut recived an expression instead \
+    --             \of a variable"
+    --           pure Nothing
+    --       else do
+    --         putError from $
+    --           BadProcedureArgumentType name pName pPos pType expType
+    --         pure Nothing
+
+    checkType' _ _ _ _ (Nothing, _) = pure Nothing
+    checkType' typeArgs pName pPos acc
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
-        if pType =:= expType
+        if pType =:= fillType typeArgs expType
           then case exp' of
             Obj {}
               | mode `elem` [Out, InOut] ->
@@ -639,7 +662,7 @@ procedureCall = do
               pure Nothing
           else do
             putError from $
-              BadProcedureArgumentType name pName pPos pType expType
+              BadProcedureArgumentType name pName pPos pType (fillType typeArgs expType)
             pure Nothing
 
 

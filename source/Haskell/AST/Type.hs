@@ -16,11 +16,13 @@ module  AST.Type
   , Type (..)
   , TypeArgs
   , (=:=)
+  , fillType
   ) where
 --------------------------------------------------------------------------------
-import           Data.Array     (Array (..))
+import           Data.Array     (Array (..), bounds, (!))
 import           Data.Foldable  (toList)
 import           Data.Int       (Int32)
+import           Data.Ix        (inRange)
 import           Data.List      (intercalate, nub)
 import           Data.Map       (Map)
 import           Data.Map       as Map (elems)
@@ -57,7 +59,7 @@ data Type
   | GFunc     Type Type -- ^ Func type, for abstract functions.
   | GRel      Type Type -- ^ Relation type.
   | GTuple   [Type]     -- ^ N-tuple type.
-  | GTypeVar  Int   -- ^ A named type variable.
+  | GTypeVar  Int Text   -- ^ A named type variable.
 
   | GAny                -- ^ Any type, for full polymorphism.
   | GOneOf     [Type]   -- ^ Any type within a collection, for
@@ -83,6 +85,14 @@ data Type
     , innerType :: Type
     } -- ^ Sized array type.
   deriving (Eq, Ord)
+
+
+fillType :: TypeArgs -> Type -> Type
+fillType typeArgs t@(GTypeVar i _) =
+  if inRange (bounds typeArgs) i
+    then typeArgs ! i
+    else t
+fillType _        t              = t
 
 
 -- | Operator for checking whether two types match.
@@ -158,8 +168,8 @@ instance Semigroup Type where
         else GTuple cs
     else GUndef
 
-  GTypeVar a <> GTypeVar b =
-    if a == b then GTypeVar a else GUndef
+  a@(GTypeVar ai an) <> GTypeVar bi bn =
+    if ai == bi && an == bn then a else GUndef
 
   GFullDataType a fs <> GFullDataType b fs' =
     if a == b  && fs == fs'
@@ -201,7 +211,7 @@ instance Show Type where
 
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
-        GTypeVar  n     -> "Type Variable #" <> show n
+        GTypeVar  i n   -> "`" <> unpack n <> "`" -- "#" <> show i <> " ("
 
         GFullDataType n targs   ->
           "data type " <> unpack n <> " (" <> unwords (fmap show' (toList targs)) <> ")"

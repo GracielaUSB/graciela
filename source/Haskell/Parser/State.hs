@@ -78,7 +78,7 @@ data State = State
   , _typesTable    :: Map Text (Type, Location)
   , _typeVars      :: [Text]
   , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text (Map TypeArgs Struct)
+  , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
   , _stringIds     :: Map Text Int }
 
 makeLenses ''State

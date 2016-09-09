@@ -90,9 +90,10 @@ abstractDataType = do
       (Just inv, Just procs) -> do
 
         let struct = Struct
-                { structName   = abstractName
+                { structBaseName   = abstractName
                 , structFields = fields
-                , structProcs  = procs
+                , structProcs  = Map.fromList $
+                  (\d@Definition { defName } -> (defName, d)) <$> toList procs
                 , structLoc    = loc
                 , structSt     = st
                 , structTypes  = atypes
@@ -102,6 +103,7 @@ abstractDataType = do
       _ -> pure ()
     typeVars .= []
     currentStruct .= Nothing
+
 
 
 toFields :: Integer -> Seq Declaration -> Map Text (Integer, Type, Maybe Expression)
@@ -212,10 +214,11 @@ dataType = do
 
               let
                 struct = Struct
-                      { structName   = name
+                      { structBaseName   = name
                       , structFields = fillTypes abstractTypes structFields <> fields
                       , structSt     = st
-                      , structProcs  = procs
+                      , structProcs  = Map.fromList $
+                        (\d@Definition { defName } -> (defName, d)) <$> toList procs
                       , structLoc    = loc
                       , structTypes  = types
                       , struct'      = DataType
@@ -284,7 +287,7 @@ dataType = do
 
           let
             t1 = case t1' of
-              GTypeVar i -> types' ! i
+              GTypeVar i _ -> types' ! i
               _ -> t1'
 
           unless (t1 =:= t2) $ do

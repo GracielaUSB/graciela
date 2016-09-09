@@ -81,7 +81,7 @@ toLLVMType (GDataType name) = do
       types <- mapM toLLVMType (structTypes struct)
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
-toLLVMType (GTypeVar i) = do
+toLLVMType (GTypeVar i _) = do
   substs <- use substitutionTable
   case substs of
     [] -> error "internal error: subsitituting without substitution table."

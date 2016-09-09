@@ -5,11 +5,11 @@ module AST.Instruction where
 import           AST.Declaration (Declaration)
 import           AST.Expression  (Expression, Object)
 import qualified AST.Expression  as E
+import           AST.Type
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))
@@ -56,7 +56,8 @@ data Instruction'
     { pName          :: Text
     , pArgs          :: Seq (Expression, ArgMode)
     , pRecursiveCall :: Bool
-    , pRecursiveProc :: Bool }
+    , pRecursiveProc :: Bool
+    , pStructArgs    :: Maybe (Text, TypeArgs) }
 
   | Random
     { var :: Object }

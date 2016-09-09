@@ -89,11 +89,7 @@ programToLLVM
 
       preDefinitions files
 
-      -- mapM_ defineType $ Map.toAscList types
-      let
-        mapStruct = Map.toList fullStructs
-
-      mapM_ (\(k, v) -> mapM_ (defineStruct k) $ Map.toList v) $ mapStruct
+      mapM_ (uncurry defineStruct) . Map.toList $ fullStructs
       mapM_ definition defs
 
       mainDefinition insts

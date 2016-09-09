@@ -102,7 +102,7 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
               notFollowedBy identifier
               return GUndef
 
-        Just ast@Struct {structName, structTypes, structProcs} -> do
+        Just ast@Struct {structBaseName, structTypes, structProcs} -> do
 
           identifier
           fullTypes <- concat <$> (optional . parens $ type' `sepBy` match TokComma)
@@ -119,17 +119,17 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
             else do
               if slen == 0
                 then
-                    putError from . UnknownError $ "Type `" <> unpack structName <>
+                    putError from . UnknownError $ "Type `" <> unpack structBaseName <>
                         "` does not expect " <> show' fullTypes <> " as argument"
 
               else if slen > plen
                 then
-                  putError from . UnknownError $ "Type `" <> unpack structName <>
+                  putError from . UnknownError $ "Type `" <> unpack structBaseName <>
                      "` expected " <> show slen <> " types " <> show' structTypes <>
                      "\n\tbut recived " <> show plen <> " " <> show' fullTypes
 
               else
-                  putError from . UnknownError $ "Type `" <> unpack structName <>
+                  putError from . UnknownError $ "Type `" <> unpack structBaseName <>
                        "` expected only " <> show slen <> " types as arguments " <>
                        show' structTypes <> "\n\tbut recived " <> show plen <> " " <>
                        show' fullTypes
@@ -142,13 +142,12 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
                 types = Array.listArray (0, plen - 1) fullTypes
 
                 fAlter = \case
-                  Nothing -> Just $ Map.singleton types ast
-                  Just l  -> Just $ Map.insert types ast l
+                  Nothing               -> Just (ast, [types])
+                  Just (struct, types0) -> Just (struct, types : types0 )
 
-              fullDataTypes %= Map.alter fAlter structName
-              f <- use fullDataTypes
+              fullDataTypes %= Map.alter fAlter structBaseName
 
-              pure $ GFullDataType structName types
+              pure $ GFullDataType structBaseName types
 
             else pure GUndef
 
@@ -217,7 +216,7 @@ typeVarDeclaration = do
         else do
           tvs <- use typeVars
           typeVars <>= [tname]
-          pure $ GTypeVar (length tvs)
+          pure $ GTypeVar (length tvs) tname
     Just _ -> do
       notFollowedBy identifier
       pure GUndef
@@ -233,4 +232,4 @@ typeVar = do
       pure GUndef
     Just i -> do
       identifier
-      isPointer $ GTypeVar i
+      isPointer $ GTypeVar i tname
