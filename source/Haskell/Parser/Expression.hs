@@ -13,6 +13,7 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
+import           AST.Struct                (Struct (..))
 import           AST.Type                  (ArgMode (..), Type (..), (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
@@ -798,15 +799,16 @@ dotField = do
     Nothing -> pure (\_ -> pure Nothing)
     Just fieldName -> pure $ \case
       Nothing -> pure Nothing
-      Just (Expression { exp', loc = Location (from,_) }, _, taint) ->
+      Just (Expression { exp', loc }, _, taint) -> do
+        let Location (from,_) = loc
         case exp' of
-          o@(Obj obj) -> case objType obj of
+          (Obj obj) -> case objType obj of
             GDataType n -> do
               cstruct <- lift $ use currentStruct
               case cstruct of
                 Just (name, _, structFields)
                   | name == n ->
-                    aux o (objType obj) loc fieldName structFields
+                    aux obj (objType obj) loc fieldName structFields taint
                 _ -> error "internal error: GDataType without currentStruct."
             GFullDataType n typeargs -> do
               fdts <- lift $ use fullDataTypes
@@ -815,7 +817,7 @@ dotField = do
                 Just ms -> case typeargs `Map.lookup` ms of
                   Nothing -> pure Nothing
                   Just Struct { structFields } ->
-                    aux o (objType obj) loc fieldName structFields
+                    aux obj (objType obj) loc fieldName structFields taint
             t -> do
               putError from' . UnknownError $
                 "Bad field access. Cannot access an expression \
@@ -826,7 +828,7 @@ dotField = do
               "Bad field access. Cannot access an expression."
             pure Nothing
   where
-    aux o oType loc fieldName structFields =
+    aux o oType loc fieldName structFields taint =
       case fieldName `Map.lookup` structFields of
         Just (i, t, _) ->
           let
@@ -838,7 +840,7 @@ dotField = do
                   { loc
                   , objType = t
                   , obj' = Member
-                    { inner = obj
+                    { inner = o
                     , field = i }}}}
           in pure . Just $ (expr, ProtoNothing, taint)
         Nothing -> do

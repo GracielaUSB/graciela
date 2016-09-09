@@ -1,5 +1,5 @@
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE LambdaCase #-}
 module Parser.Type
     ( basicType
     , type'
@@ -9,43 +9,43 @@ module Parser.Type
     ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration
-import           AST.Definition    (Definition(..),Definition'(..))
+import           AST.Definition    (Definition (..), Definition' (..))
 import           AST.Expression    (Expression (..), Expression' (Value),
                                     Value (..))
 import           AST.Struct
+import           AST.Type
 import           Entry
 import           Error
 import           Location
 import           Parser.Expression (expression)
-import           Parser.Monad      (Parser, getType, identifier, integerLit,
-                                    match, parens, putError, getStruct, match')
+import           Parser.Monad      (Parser, getStruct, getType, identifier,
+                                    integerLit, match, match', parens, putError)
 import           Parser.State
 import           SymbolTable       (lookup)
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens      (use, (%=))
 import           Control.Monad     (void, when)
 import           Data.Int          (Int32)
-import           Data.Map.Strict   as Map (insert, elems, lookup, null, fromList,
-                                    alter)
 import           Data.List         (intercalate)
+import           Data.Map.Strict   as Map (alter, elems, fromList, insert,
+                                           lookup, null, singleton)
 import           Data.Monoid       ((<>))
-import           Data.Text         (Text, unpack, pack)
+import           Data.Text         (Text, pack, unpack)
+import           Debug.Trace
 import           Prelude           hiding (lookup)
-import           Text.Megaparsec   (getPosition, lookAhead, notFollowedBy,
-                                    sepBy, try, (<|>), optional, between)
-import         Debug.Trace
+import           Text.Megaparsec   (between, getPosition, lookAhead,
+                                    notFollowedBy, optional, sepBy, try, (<|>))
 --------------------------------------------------------------------------------
 
 basicType :: Parser Type
-basicType = do 
+basicType = do
   from <- getPosition
   t <- type'
   if t =:= GOneOf [GBool, GChar, GInt, GFloat]
     then pure t
-    else do 
-      putError from $ UnknownError $ show t <> " is not a basic type"
+    else do
+      putError from . UnknownError $ show t <> " is not a basic type"
       pure GUndef
 
 
@@ -53,7 +53,7 @@ basicType = do
 type' :: Parser Type
 type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
   where
-    parenType = do 
+    parenType = do
       t <- parens type'
       isPointer t
     -- Try to parse an array type
@@ -89,9 +89,9 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
 
       case t of
         Nothing -> do
-          current <- use currentStruct 
-          case current of 
-            Just (name, _, _) -> if name == id 
+          current <- use currentStruct
+          case current of
+            Just (name, _, _) -> if name == id
                 then do
                   identifier
                   return $ GDataType name
@@ -102,8 +102,8 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
               notFollowedBy identifier
               return GUndef
 
-        Just ast@Struct {structName, structTypes, structDecls, structProcs} -> do
-          
+        Just ast@Struct {structName, structTypes, structProcs} -> do
+
           identifier
           fullTypes <- concat <$> (optional . parens $ type' `sepBy` match TokComma)
 
@@ -112,51 +112,51 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
             slen = length structTypes
             show' []  = ""
             show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
-         
-          ok <- if slen == plen 
+
+          ok <- if slen == plen
             then pure True
 
-            else do 
+            else do
               if slen == 0
-                then do 
-                    putError from $ UnknownError $ "Type `" <> unpack structName <> 
+                then
+                    putError from . UnknownError $ "Type `" <> unpack structName <>
                         "` does not expect " <> show' fullTypes <> " as argument"
 
               else if slen > plen
-                then do 
-                  putError from $ UnknownError $ "Type `" <> unpack structName <> 
+                then
+                  putError from . UnknownError $ "Type `" <> unpack structName <>
                      "` expected " <> show slen <> " types " <> show' structTypes <>
                      "\n\tbut recived " <> show plen <> " " <> show' fullTypes
 
-              else do
-                  putError from $ UnknownError $ "Type `" <> unpack structName <> 
-                       "` expected only " <> show slen <> " types as arguments " <> 
+              else
+                  putError from . UnknownError $ "Type `" <> unpack structName <>
+                       "` expected only " <> show slen <> " types as arguments " <>
                        show' structTypes <> "\n\tbut recived " <> show plen <> " " <>
                        show' fullTypes
 
               pure False
-          
+
           if ok
             then do
-              let 
-                types = Map.fromList $ zip structTypes fullTypes                  
+              let
+                types = Map.fromList $ zip structTypes fullTypes
 
-                fAlter = \case 
-                  Nothing -> Just [(types, ast)]
-                  Just l ->  Just $ [(types, ast)] <> l
+                fAlter = \case
+                  Nothing -> Just $ Map.singleton types ast
+                  Just l  -> Just $ Map.insert types ast l
               fullDataTypes %= Map.alter fAlter structName
 
               pure $ GFullDataType structName types
 
             else pure GUndef
 
-      
+
 
 isPointer :: Type -> Parser Type
 isPointer t = do
     match TokTimes
     isPointer (GPointer t)
-  <|> pure t         
+  <|> pure t
 
 arraySize :: Parser (Maybe Int32)
 arraySize = do
@@ -196,7 +196,7 @@ abstractType
 
 
 typeVarDeclaration  :: Parser Type
-typeVarDeclaration = do 
+typeVarDeclaration = do
   tname <- lookAhead identifier
   t     <- getType tname
   case t of
@@ -205,7 +205,7 @@ typeVarDeclaration = do
       notFollowedBy (match TokTimes)
       typesVars %= (tname:)
       return $ GTypeVar tname
-    Just _ -> do 
+    Just _ -> do
       notFollowedBy identifier
       return $ GUndef
 
@@ -214,10 +214,9 @@ typeVar = do
   tname <- lookAhead identifier
   tvars <- use typesVars
   if tname `elem` tvars
-    then do 
+    then do
       identifier
       isPointer $ GTypeVar tname
-    else do 
+    else do
       notFollowedBy identifier
       return $ GUndef
-

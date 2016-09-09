@@ -12,7 +12,6 @@ import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Monoid ((<>))
-import Data.Int (Int32)
 import           Data.Text   (Text, unpack)
 --------------------------------------------------------------------------------
 
@@ -22,7 +21,7 @@ data Object'' e
     , mode :: Maybe ArgMode }
   | Member
     { inner :: Object' e
-    , field :: Int32 }
+    , field :: Integer }
   | Index
     { inner :: Object' e
     , index :: e }
@@ -47,7 +46,7 @@ notIn obj = objMode obj /= Just In
 instance Show e => Show (Object' e) where
   show Object { loc, objType, obj' } = case obj' of
     Variable {name} -> unpack name
-    Member {inner,field} -> show inner <> "." <> unpack field
+    Member {inner,field} -> show inner <> "." <> show field
     Index {inner, index} -> show inner <> "[" <> show index <> "]"
     Deref {inner}        -> "*" <> show inner
 
@@ -61,7 +60,7 @@ instance Treelike e => Treelike (Object' e) where
     Member { inner, field } ->
       Node ("Member " <> show loc)
         [ toTree inner
-        , leaf $ "Field `" <> unpack field <> "`"
+        , leaf $ "Field `" <> show field <> "`"
         ]
 
     Index  { inner, index } ->
