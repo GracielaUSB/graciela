@@ -49,7 +49,6 @@ basicType = do
       pure GUndef
 
 
-
 type' :: Parser Type
 type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
   where
@@ -158,6 +157,7 @@ isPointer t = do
     isPointer (GPointer t)
   <|> pure t
 
+
 arraySize :: Parser (Maybe Int32)
 arraySize = do
   pos <- getPosition
@@ -180,6 +180,7 @@ arraySize = do
           \sin cuantificaciones."
         pure Nothing
 
+
 abstractType :: Parser Type
 abstractType
    =  do {match TokSet;      match TokOf; GSet      <$> (typeVar<|>type') }
@@ -193,6 +194,7 @@ abstractType
 
   <|> try typeVar
   <|> type'
+
 
 typeVarDeclaration  :: Parser Type
 typeVarDeclaration = do

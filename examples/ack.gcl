@@ -6,14 +6,14 @@ abstract AList (a) begin
   /* abstractName procedures */
 end
 
-type ArrayList(a, b) implements AList (b) begin
-  var y : a;
+type ArrayList(c, b) implements AList (b) begin
+  var y : c;
   var z : b;
 
   {repinv true repinv}
   {coupinv true coupinv}
 
-  proc crear ( out l : ArrayList, in i : a )
+  proc crear ( out l : ArrayList, in i : c )
     {pre true pre}
     {post true post}
     ⟦ write ( "hola" )

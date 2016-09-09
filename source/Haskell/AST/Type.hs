@@ -19,9 +19,9 @@ module  AST.Type
 --------------------------------------------------------------------------------
 import           Data.Int       (Int32)
 import           Data.List      (intercalate, nub)
-import           Data.Monoid    (Monoid (..))
 import           Data.Map       (Map)
 import           Data.Map       as Map (elems)
+import           Data.Monoid    (Monoid (..))
 import           Data.Semigroup (Semigroup (..))
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
@@ -42,6 +42,8 @@ instance Show ArgMode where
     Out   -> "Out"
     InOut -> "In/Out"
     Ref   -> "Ref"
+
+type TypeArgs = Map Type Type
 
 -- | Graciela Types. Special types for polymorphism are also included.
 data Type
@@ -68,7 +70,7 @@ data Type
 
   | GFullDataType
     { typeName ::  Text
-    , types    :: Map Type Type}
+    , types    :: TypeArgs }
   | GDataType
     { typeName ::  Text}
   | GPointer Type -- ^ Pointer type.
@@ -157,8 +159,8 @@ instance Semigroup Type where
     if a == b then GTypeVar a else GUndef
 
   GFullDataType a fs <> GFullDataType b fs' =
-    if a == b  && fs == fs' 
-      then GFullDataType a fs 
+    if a == b  && fs == fs'
+      then GFullDataType a fs
       else GUndef
 
   GDataType a <> GDataType b =
@@ -174,6 +176,7 @@ instance Semigroup Type where
     if a == b then GUnsafeName a else GUndef
 
   _ <> _ = GUndef
+
 
 instance Show Type where
   show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
@@ -196,15 +199,13 @@ instance Show Type where
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
         GTypeVar  n     -> unpack n
-        
-        GFullDataType n f   -> 
-          "data type " <> unpack n <> " (" <> (intercalate " " $ fmap show' (Map.elems f)) <> ")"
-        
+
+        GFullDataType n f   ->
+          "data type " <> unpack n <> " (" <> (unwords $ fmap show' (Map.elems f)) <> ")"
+
         GDataType n   -> "data type " <> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
-
-

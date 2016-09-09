@@ -3,7 +3,6 @@ module Parser.ADT
     ( abstractDataType
     , dataType
     ) where
-
 -------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition

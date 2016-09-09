@@ -8,40 +8,53 @@ import qualified AST.Definition  as D
 import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           AST.Type        (Type)
+import           AST.Type        (Type (GTypeVar))
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
-
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map (lookup)
 import           Data.Monoid     ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
+type Fields = Map Text (Integer, Type, Maybe Expression)
+
 data Struct'
   = AbstractDataType
     { inv ::  Expression }
   | DataType
-    { abstract      ::  Text
-    , abstractTypes ::  Map Type Type
-    , inv           ::  Expression
-    , repinv        ::  Expression
-    , coupinv       ::  Expression }
+    { abstract      :: Text
+    , abstractTypes :: Map Type Type
+    , inv           :: Expression
+    , repinv        :: Expression
+    , coupinv       :: Expression }
 
 data Struct
   = Struct
     { structName   :: Text
     , structTypes  :: [Type]
-    , structFields :: Map Text (Integer, Type, Maybe Expression)
+    , structFields :: Fields
     , structProcs  :: Seq Definition
     , structLoc    :: Location
     , structSt     :: SymbolTable
     , struct'      :: Struct' }
+
+
+fillTypes :: Map Type Type -> Fields -> Fields
+fillTypes typeArgs fields = f <$> fields
+  where
+    f (_a, b@(GTypeVar _), _c) =
+      case b `Map.lookup` typeArgs of
+        Nothing -> error "internal error: unfull GFullDataType"
+        Just b' -> (_a, b', _c)
+    f tuple = tuple
+
 
 instance Treelike Struct where
   toTree Struct { structLoc, structFields, structProcs, structTypes, structName, struct' }

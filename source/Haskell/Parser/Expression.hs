@@ -13,7 +13,7 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           AST.Struct                (Struct (..))
+import           AST.Struct                (Struct (..), fillTypes)
 import           AST.Type                  (ArgMode (..), Type (..), (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
@@ -810,20 +810,21 @@ dotField = do
                   | name == n ->
                     aux obj (objType obj) loc fieldName structFields taint
                 _ -> error "internal error: GDataType without currentStruct."
-            GFullDataType n typeargs -> do
+            GFullDataType n typeArgs -> do
               fdts <- lift $ use fullDataTypes
               case n `Map.lookup` fdts of
                 Nothing -> pure Nothing
-                Just ms -> case typeargs `Map.lookup` ms of
+                Just ms -> case typeArgs `Map.lookup` ms of
                   Nothing -> pure Nothing
                   Just Struct { structFields } ->
-                    let
-                      f (_a, b@(GTypeVar _), _c) =
-                        case b `Map.lookup` typeargs of
-                          Nothing -> error "internal error: unfull GFullDataType"
-                          Just b' -> (_a, b', _c)
-                      f tuple = tuple
-                      structFields' = f <$> structFields
+                    let structFields' = fillTypes typeArgs structFields
+                    -- let
+                    --   f (_a, b@(GTypeVar _), _c) =
+                    --     case b `Map.lookup` typeArgs of
+                    --       Nothing -> error "internal error: unfull GFullDataType"
+                    --       Just b' -> (_a, b', _c)
+                    --   f tuple = tuple
+                    --   structFields' = f <$> structFields
                     in aux obj (objType obj) loc fieldName structFields' taint
             t -> do
               putError from' . UnknownError $
