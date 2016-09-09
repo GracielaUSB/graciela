@@ -2,7 +2,7 @@
 program Hola.bin begin
 
   abstract Diccionario (t0,t1) begin
-    var MAX   : int;
+    var MAX   : t0;
     var conoc : set of t0;
     var tabla : func t0 -> t1;
 
@@ -136,12 +136,96 @@ program Hola.bin begin
   
   main
   |[ 
-     var d : Dicc (int,int)
-    ; var p : Dicc (int,char)
+      var a,b,d := 1.0,2.0,3.0 : float
+    ; var g := a+b+d : float
+    ; var i := 12  : int
+    ; var x,y,z    : int*
+    ; var dd       : int**
+    ; var pedrito  : boolean*
+    ; var c1,c2    : boolean
+    ; var c := 'c' : char
+    ; var arreglo  : array[10] of array[10] of array[10] of int*
+    ; var bool     : boolean   
+    ; { x == null } new(x)  { x != null }
+    ; *x := 1
+    ; writeln(*x)
+    ; { x != null } free(x) { x == null }
+    ; read(i)
+    ; writeln(2533,2533,"hola")
+    ; write("x y z son iguales: ", x == z, "\n")
+    ; new(arreglo[1][2][3])
+    ; *arreglo[1][2][3] := 100
+    ; new(x)
+    ; new(pedrito)
+    ; *pedrito := false
+    ; free(pedrito)
+    ; writeln(pedrito == null)
+    ; new(dd)
+    ; new(*dd)
+    ; **dd := 3
+    ; *x := i
+    ; y := x
+    ; z := y
+    ; writeln(z != null /\ *z == i) // true
+    ; writeln(*arreglo[1][2][3] + 2)
+    ; |[
+          writeln(12345);
+          |[
+              writeln(12)
+          ]|
+     ]|
+    ; read(*x)
+      
+    ; 
+    { *x > 0 }
 
-    // ; crear(d,1)
+    if *x > 10             -> a := 1.0      
+    [] 0 <= *x /\ *x <= 10 -> a := 10.0
+    fi
+              
+    {    (*x > 10             ==> a == 1.0) 
+       /\ (0 <= *x /\ *x <= 10 ==> a == 10.0)
+    }
 
-    ; writeln(1 + fibo(10))
+
+    ; writeln(a < 10.0)
+    ; writeln(a > 10.0)
+    ; writeln(a <= 10.0)
+    ; writeln(a >= 10.0)
+    ; writeln(a != 10.0)
+
+    ; writeln(i < 10)
+    ; writeln(i > 10)
+    ; writeln(i <= 10)
+    ; writeln(i >= 10)
+    ; writeln(i != 10)
+
+    ; writeln(false ==> true)
+      
+    ; writeln(i)
+    //  ; read(a,b,c)
+
+    ; writeln(g)
+    ; writeln( ¬(true /\ false) )
+    ; writeln(a)
+    ; writeln(¬ (√(9.0+16.0) >= 5.0) )
+    ; writeln( -2 == 2147483647 )
+    ; new(x)
+    ; *x := 20
+    ; writeln(*x)
+    ; *x := 10
+    ; writeln(*x)
+    ; *x := 15
+    ; writeln(*x)
+    ; free(x)
+    ; new(x)
+    ; *x,*x := 15, 10
+    ; writeln(*x)
+    ; writeln( (3 max 4) min (10 max √2) )
+    ; free(x)  
+    ; new(x)
+    ; writeln( x != null )
+    ; writeln( x == null )
 
   ]|
 end

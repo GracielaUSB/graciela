@@ -141,7 +141,8 @@ dataType = do
   if isNothing name' || isNothing abstractName'
     then 
       void $ anyToken `manyTill` (void (match TokEnd) <|>  eof)
-    else do 
+
+    else 
       let 
         Just name         = name'
         Just abstractName = abstractName'
@@ -196,7 +197,8 @@ dataType = do
                 lenActual = length absTypes
                 loc       = Location(from,to)
                 fields'   = fmap (\(_,x,_) -> x) (toList fields)
-                abstractTypes = Map.fromList $ zip structTypes absTypes 
+                abstractTypes = fillTypes . Map.fromList $ zip structTypes absTypes 
+
 
               -- error $ show abstractTypes
 
