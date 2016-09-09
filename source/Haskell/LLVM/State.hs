@@ -19,7 +19,7 @@ module LLVM.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
-import qualified AST.Type                     as G (Type)
+import qualified AST.Type                     as G (Type, TypeArgs)
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)
@@ -48,7 +48,7 @@ data State = State
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [Map G.Type G.Type] }
+  , _substitutionTable :: [G.TypeArgs] }
 
 makeLenses ''State
 

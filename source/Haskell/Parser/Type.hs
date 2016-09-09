@@ -24,19 +24,20 @@ import           Parser.State
 import           SymbolTable       (lookup)
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens      (use, (%=))
+import           Control.Lens      (use, (%=), (<>=))
 import           Control.Monad     (void, when)
+import qualified Data.Array        as Array (listArray)
 import           Data.Int          (Int32)
-import           Data.List         (intercalate)
+import           Data.List         (elemIndex, intercalate)
 import           Data.Map.Strict   as Map (alter, elems, fromList, insert,
                                            lookup, null, singleton)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, pack, unpack)
-import           Debug.Trace
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,
                                     notFollowedBy, optional, sepBy, try, (<|>))
 --------------------------------------------------------------------------------
+import           Debug.Trace
 
 basicType :: Parser Type
 basicType = do
@@ -138,12 +139,14 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
           if ok
             then do
               let
-                types = Map.fromList $ zip structTypes fullTypes
+                types = Array.listArray (0, plen - 1) fullTypes
 
                 fAlter = \case
                   Nothing -> Just $ Map.singleton types ast
                   Just l  -> Just $ Map.insert types ast l
+
               fullDataTypes %= Map.alter fAlter structName
+              f <- use fullDataTypes
 
               pure $ GFullDataType structName types
 
@@ -199,25 +202,35 @@ abstractType
 typeVarDeclaration  :: Parser Type
 typeVarDeclaration = do
   tname <- lookAhead identifier
+  pos   <- getPosition
   t     <- getType tname
   case t of
     Nothing -> do
       identifier
       notFollowedBy (match TokTimes)
-      typesVars %= (tname:)
-      return $ GTypeVar tname
+
+      use typeVars >>= \x -> if tname `elem` x
+        then do
+          putError pos . UnknownError $
+            "Reused type variable `" <> unpack tname <> "`."
+          pure GUndef
+        else do
+          tvs <- use typeVars
+          typeVars <>= [tname]
+          pure $ GTypeVar (length tvs)
     Just _ -> do
       notFollowedBy identifier
-      return $ GUndef
+      pure GUndef
+
 
 typeVar :: Parser Type
 typeVar = do
   tname <- lookAhead identifier
-  tvars <- use typesVars
-  if tname `elem` tvars
-    then do
-      identifier
-      isPointer $ GTypeVar tname
-    else do
+  tvars <- use typeVars
+  case tname `elemIndex` tvars of
+    Nothing -> do
       notFollowedBy identifier
-      return $ GUndef
+      pure GUndef
+    Just i -> do
+      identifier
+      isPointer $ GTypeVar i

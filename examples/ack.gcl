@@ -13,7 +13,7 @@ type ArrayList(c, b) implements AList (b) begin
   {repinv true repinv}
   {coupinv true coupinv}
 
-  proc crear ( out l : ArrayList, in i : c )
+  proc crear ( out l : ArrayList, in i : int )
     {pre true pre}
     {post true post}
     ⟦ write ( "hola" )
@@ -23,8 +23,10 @@ type ArrayList(c, b) implements AList (b) begin
 end
 
 main
-  ⟦ var P : ArrayList(int, char)
-  ; skip
+  ⟦ var P : ArrayList(int, float)
+  ; var Q : ArrayList(char, int)
+  ; crear (P, 3)
+  ; crear (P, 4)
   ⟧
 
 end

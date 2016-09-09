@@ -14,9 +14,12 @@ Implements the Graciela typesystem.
 module  AST.Type
   ( ArgMode (..)
   , Type (..)
+  , TypeArgs
   , (=:=)
   ) where
 --------------------------------------------------------------------------------
+import           Data.Array     (Array (..))
+import           Data.Foldable  (toList)
 import           Data.Int       (Int32)
 import           Data.List      (intercalate, nub)
 import           Data.Map       (Map)
@@ -43,7 +46,7 @@ instance Show ArgMode where
     InOut -> "In/Out"
     Ref   -> "Ref"
 
-type TypeArgs = Map Type Type
+type TypeArgs = Array Int Type
 
 -- | Graciela Types. Special types for polymorphism are also included.
 data Type
@@ -54,7 +57,7 @@ data Type
   | GFunc     Type Type -- ^ Func type, for abstract functions.
   | GRel      Type Type -- ^ Relation type.
   | GTuple   [Type]     -- ^ N-tuple type.
-  | GTypeVar  Text      -- ^ A named type variable.
+  | GTypeVar  Int   -- ^ A named type variable.
 
   | GAny                -- ^ Any type, for full polymorphism.
   | GOneOf     [Type]   -- ^ Any type within a collection, for
@@ -198,10 +201,10 @@ instance Show Type where
 
         GTuple    ts    ->
           "tuple (" <> (unwords . fmap show' $ ts) <> ")"
-        GTypeVar  n     -> unpack n
+        GTypeVar  n     -> "Type Variable #" <> show n
 
-        GFullDataType n f   ->
-          "data type " <> unpack n <> " (" <> (unwords $ fmap show' (Map.elems f)) <> ")"
+        GFullDataType n targs   ->
+          "data type " <> unpack n <> " (" <> unwords (fmap show' (toList targs)) <> ")"
 
         GDataType n   -> "data type " <> unpack n
 

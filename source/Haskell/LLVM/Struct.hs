@@ -43,9 +43,11 @@ import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 import           LLVM.General.AST.Type        as LLVM
 --------------------------------------------------------------------------------
 
+import           Debug.Trace
+
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (Map T.Type T.Type, Struct) -> LLVM ()
+defineStruct :: Text -> (T.TypeArgs, Struct) -> LLVM ()
 defineStruct structName (mapType, ast) = case ast of
 
   Struct {structName,structTypes, structFields, structProcs, struct'} -> case struct' of
@@ -59,7 +61,6 @@ defineStruct structName (mapType, ast) = case ast of
               mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
 
       types <- mapM toLLVMType structTypes
-
       let
         name  = Name $ llvmName structName types
         structType = LLVM.NamedTypeReference name

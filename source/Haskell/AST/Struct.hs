@@ -8,12 +8,13 @@ import qualified AST.Definition  as D
 import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
-import           AST.Type        (Type (GTypeVar))
+import           AST.Type        (Type (GTypeVar), TypeArgs)
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
+import           Data.Array      ((!))
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
@@ -30,7 +31,7 @@ data Struct'
     { inv ::  Expression }
   | DataType
     { abstract      :: Text
-    , abstractTypes :: Map Type Type
+    , abstractTypes :: TypeArgs
     , inv           :: Expression
     , repinv        :: Expression
     , coupinv       :: Expression }
@@ -46,13 +47,10 @@ data Struct
     , struct'      :: Struct' }
 
 
-fillTypes :: Map Type Type -> Fields -> Fields
+fillTypes :: TypeArgs -> Fields -> Fields
 fillTypes typeArgs fields = f <$> fields
   where
-    f (_a, b@(GTypeVar _), _c) =
-      case b `Map.lookup` typeArgs of
-        Nothing -> error "internal error: unfull GFullDataType"
-        Just b' -> (_a, b', _c)
+    f (_a, GTypeVar i, _c) = (_a, typeArgs ! i, _c)
     f tuple = tuple
 
 
@@ -74,4 +72,3 @@ instance Treelike Struct where
           , Node "Coupling Invariant" [toTree coupinv]
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
-    where

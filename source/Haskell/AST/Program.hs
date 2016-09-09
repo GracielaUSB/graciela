@@ -28,7 +28,7 @@ data Program
     , defs        :: Seq Definition
     , insts       :: Instruction
     , structs     :: Map Text Struct
-    , fullStructs :: Map Text (Map (Map Type Type) Struct)
+    , fullStructs :: Map Text (Map TypeArgs Struct)
     , strings     :: Map Text Int }
 
 instance Treelike Program where

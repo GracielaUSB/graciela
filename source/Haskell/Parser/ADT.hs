@@ -22,9 +22,11 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 import           Control.Lens        (use, (%=), (.=))
 import           Control.Monad       (foldM, unless, void, when, zipWithM_)
+import           Data.Array          ((!))
+import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       (toList)
 import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
@@ -98,7 +100,7 @@ abstractDataType = do
                 }
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
-    typesVars .= []
+    typeVars .= []
     currentStruct .= Nothing
 
 
@@ -196,10 +198,8 @@ dataType = do
                 lenNeeded = length structTypes
                 lenActual = length absTypes
                 loc       = Location(from,to)
-                abstractTypes = Map.fromList $ zip structTypes absTypes
-                fields'   = fmap (\(_,x,_) -> x) (toList $ fillTypes abstractTypes fields)
-
-              -- error $ show abstractTypes
+                abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
+                -- fields'   = fmap (\(_,x,_) -> x) (toList $ fillTypes abstractTypes fields
 
               when (lenNeeded /= lenActual) . putError from . UnknownError $
                 "Type `" <> unpack name <> "` is implementing `" <>
@@ -213,7 +213,7 @@ dataType = do
               let
                 struct = Struct
                       { structName   = name
-                      , structFields = structFields <> fields
+                      , structFields = fillTypes abstractTypes structFields <> fields
                       , structSt     = st
                       , structProcs  = procs
                       , structLoc    = loc
@@ -225,7 +225,7 @@ dataType = do
                         , repinv
                         , coupinv }}
               dataTypes %= Map.insert name struct
-              typesVars .= []
+              typeVars .= []
               currentStruct .= Nothing
             _ -> pure ()
 
@@ -282,11 +282,10 @@ dataType = do
             "Parameter named `" <> unpack name2 <> "` has mode " <>
             show mode2 <>" but expected mode " <> show mode1
 
-          let t1 = case t1' of
-                  GTypeVar _ -> case t1' `Map.lookup` types' of
-                    Nothing -> error $ show t1'
-                    Just x -> x
-                  _ -> t1'
+          let
+            t1 = case t1' of
+              GTypeVar i -> types' ! i
+              _ -> t1'
 
           unless (t1 =:= t2) $ do
             currStruct <- use currentStruct

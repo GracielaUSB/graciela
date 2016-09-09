@@ -15,7 +15,7 @@ module Parser.State
   , currentFunc
   , typesTable
   , currentStruct
-  , typesVars
+  , typeVars
   , dataTypes
   , fullDataTypes
   , initialState
@@ -76,9 +76,9 @@ data State = State
   , _currentStruct ::
       Maybe (Text, Maybe Text, Map Text (Integer, Type, Maybe Expression))
   , _typesTable    :: Map Text (Type, Location)
-  , _typesVars     :: [Text]
+  , _typeVars      :: [Text]
   , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text (Map (Map Type Type) Struct)
+  , _fullDataTypes :: Map Text (Map TypeArgs Struct)
   , _stringIds     :: Map Text Int }
 
 makeLenses ''State
@@ -93,7 +93,7 @@ initialState path  = State
   , _currentProc   = Nothing
   , _currentFunc   = Nothing
   , _typesTable    = initialTypes
-  , _typesVars     = []
+  , _typeVars      = []
   , _dataTypes     = Map.empty
   , _fullDataTypes = Map.empty
   , _currentStruct = Nothing

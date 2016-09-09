@@ -820,7 +820,6 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     return . ConstantOperand $ C.Int 32 10
 
 
-
 -- createExpression :: Expression -> LLVM Operand
 -- createExpression (Expression loc expType constant exp') = case exp' of
 

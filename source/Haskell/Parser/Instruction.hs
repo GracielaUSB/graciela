@@ -29,7 +29,7 @@ import           AST.Instruction        (Guard, Instruction (..),
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
-import           AST.Type               (ArgMode (..), Type (..),(=:=))
+import           AST.Type               (ArgMode (..), Type (..), (=:=))
 import           Entry
 import           Error
 import           Location
@@ -491,7 +491,6 @@ procedureCall = do
   case procName `Map.lookup` defs of
 
     Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
-      traceM $ show procName
       let
         nArgs   = length args
         nParams = length procParams
@@ -523,7 +522,6 @@ procedureCall = do
       pure Nothing
 
     Nothing -> do
-      traceM "LLegando"
       -- If the procedure is not defined, it's possible that we're
       -- dealing with a recursive call. The information of a procedure
       -- that is being defined is stored temporarily at the
@@ -532,7 +530,6 @@ procedureCall = do
       case currentProcedure of
         Just cr@CurrentRoutine {}
           | cr^.crName == procName && cr^.crRecAllowed -> do
-            traceM "No LLego"
             let
               nArgs = length args
               nParams = length (cr^.crParams)

@@ -19,12 +19,14 @@ import           LLVM.Monad
 import           LLVM.State                 (currentStruct, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use)
-import qualified Data.Map                   as Map (lookup, elems)
-import           Data.Maybe                 (fromMaybe)
-import           Data.Text                  (Text, unpack, pack)
-import           Data.Word                  (Word32, Word64)
+import           Data.Array                 ((!))
+import           Data.Foldable              (toList)
 import           Data.List                  (intercalate)
+import qualified Data.Map                   as Map (lookup)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
+import           Data.Text                  (Text, pack, unpack)
+import           Data.Word                  (Word32, Word64)
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST.Name      (Name (..))
 import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
@@ -68,8 +70,8 @@ toLLVMType (T.GArray sz t) = do
   pure $ LLVM.ArrayType (fromIntegral sz)  inner
 
 toLLVMType (GFullDataType n t) = do
-  types <- mapM toLLVMType . Map.elems $ t
-  pure . LLVM.NamedTypeReference . Name $ llvmName n types
+  types <- mapM toLLVMType t
+  pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ types
 
 toLLVMType (GDataType name) = do
   maybeStruct <- use currentStruct
@@ -77,15 +79,13 @@ toLLVMType (GDataType name) = do
     Nothing -> error "Esto no deberia ocurrir :D"
     Just struct -> do
       types <- mapM toLLVMType (structTypes struct)
-      pure . LLVM.NamedTypeReference . Name $ llvmName name types
+      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
-toLLVMType var@(GTypeVar _) = do
+toLLVMType (GTypeVar i) = do
   substs <- use substitutionTable
   case substs of
     [] -> error "internal error: subsitituting without substitution table."
-    (subst:_) -> toLLVMType $
-      fromMaybe (error "internal error: substituting an unavailable type var")
-        (var `Map.lookup` subst)
+    (subst:_) -> toLLVMType $ subst ! i
 
 
 toLLVMType GAny            = error "internal error: GAny is not a valid type"
@@ -97,7 +97,7 @@ toLLVMType (GFunc   _ _ ) = pure . ptr $ i8
 toLLVMType (GRel    _ _ ) = pure . ptr $ i8
 toLLVMType (GSeq      _ ) = pure . ptr $ i8
 toLLVMType (GTuple    _ ) = pure . ptr $ i8
-toLLVMType t = error $ show t 
+toLLVMType t = error $ show t
 
 sizeOf :: T.Type -> Integer
 sizeOf T.GInt          = 4
@@ -111,7 +111,7 @@ sizeOf (T.GPointer t)  = 4
 llvmName :: Text -> [LLVM.Type] -> String
 llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') types
   where
-    show' t 
+    show' t
       | t == i1     = "b"
       | t == i8     = "c"
       | t == i32    = "i"
