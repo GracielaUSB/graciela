@@ -102,7 +102,7 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
               notFollowedBy identifier
               return GUndef
 
-        Just ast@Struct {structName, structTypes, structDecls, structProcs} -> do
+        Just ast@Struct {structName, structTypes, structProcs} -> do
           
           identifier
           fullTypes <- concat <$> (optional . parens $ type' `sepBy` match TokComma)

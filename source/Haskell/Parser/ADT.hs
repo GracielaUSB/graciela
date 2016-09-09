@@ -27,10 +27,13 @@ import           AST.Type
 import           Control.Lens        (use, (%=), (.=))
 import           Data.List           (intercalate)
 import           Data.Foldable       (toList)
+import           Data.Foldable       as F (concat)
 import           Control.Monad       (void, when, foldM, zipWithM_, unless)
 import           Data.Monoid         ((<>))
 import           Data.Maybe          (isNothing)
-import qualified Data.Map            as Map
+import           Data.Map            (Map)
+import qualified Data.Map            as Map (fromList, empty, insert, lookup)
+import           Data.Sequence       (Seq)
 import qualified Data.Sequence       as Seq (fromList, zip, zipWith)
 import           Data.Text           (Text, unpack, pack)
 import           Text.Megaparsec     (getPosition, optional, (<|>), manyTill,eof)
@@ -58,11 +61,19 @@ abstractDataType = do
     else do 
     
       let Just abstractName = abstractName'
-      currentStruct .= Just (abstractName, Nothing, atypes)
+      
       
       match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
 
       decls' <- sequence <$> abstractDeclaration `endBy` match' TokSemicolon
+
+      let 
+        fields = case decls' of
+          Nothing    -> Map.empty
+          Just decls -> toFields decls
+
+      currentStruct .= Just (abstractName, Nothing, fields)
+
       inv'   <- invariant
       procs' <- sequence <$> many procedureDeclaration
 
@@ -72,22 +83,39 @@ abstractDataType = do
       symbolTable %= closeScope to
       let loc = Location (from,to)
 
-      case (decls', inv', procs') of
-        (Just decls, Just inv, Just procs) -> do
+      case (inv', procs') of
+        (Just inv, Just procs) -> do
 
           let struct = Struct
-                  { structName  = abstractName
-                  , structDecls = Seq.fromList . zip [0..] . toList $ decls
-                  , structProcs = procs
-                  , structLoc   = loc
-                  , structSt    = st
-                  , structTypes = atypes
-                  , struct'     = AbstractDataType inv
+                  { structName   = abstractName
+                  , structFields = fields
+                  , structProcs  = procs
+                  , structLoc    = loc
+                  , structSt     = st
+                  , structTypes  = atypes
+                  , struct'      = AbstractDataType inv
                   }
           dataTypes %= Map.insert abstractName struct
         _ -> pure ()
       typesVars .= []
       currentStruct .= Nothing
+
+
+toFields :: Seq Declaration -> Map Text (Int, Type, Maybe Expression)
+toFields = Map.fromList . zipWith f [0..] . toList . F.concat . fmap toField'
+  where
+    toField' Declaration {declType, declIds} = 
+      zip (toList declIds) $ repeat (declType, Nothing)
+
+    toField' Initialization { declType, declPairs} = 
+      let 
+        names = fmap fst  (toList declPairs)
+        exprs = fmap snd  (toList declPairs)
+      in 
+        zip names $ zip (repeat declType) (fmap Just exprs)
+
+    f n (name, (t,e)) = (name, (n,t,e))
+
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
 dataType :: Parser ()
@@ -118,12 +146,20 @@ dataType = do
         Just name         = name'
         Just abstractName = abstractName'
 
-      currentStruct .= Just (name, abstractName', types)
+      
 
       match' TokBegin
 
       symbolTable %= openScope from
       decls'   <- sequence <$> (polymorphicDeclaration `endBy` match' TokSemicolon)
+
+      let 
+        fields = case decls' of
+          Nothing -> Map.empty
+          Just decls -> toFields decls
+
+      currentStruct .= Just (name, abstractName', fields)
+
       repinv'  <- repInv
       coupinv' <- coupInv
 
@@ -131,9 +167,9 @@ dataType = do
 
       getPosition >>= \pos -> symbolTable %= openScope pos
 
-      currentStruct .= Just (name, Nothing, types)
+      currentStruct .= Just (name, Nothing, fields)
       procs'   <- sequence <$> many polymorphicProcedure
-      currentStruct .= Just (name, abstractName', types)
+      currentStruct .= Just (name, abstractName', fields)
 
       match' TokEnd
       to <- getPosition
@@ -149,7 +185,7 @@ dataType = do
                       "Abstract Type `" <> show abstractName <>
                       "` does not exists."
 
-        Just Struct {structTypes, structDecls, structProcs, struct'} -> do
+        Just Struct {structTypes, structFields, structProcs, struct'} -> do
 
           case (procs', decls', repinv', coupinv') of
 
@@ -159,7 +195,7 @@ dataType = do
                 lenNeeded = length structTypes
                 lenActual = length absTypes
                 loc       = Location(from,to)
-                fields    = concat . fmap getFields $ decls
+                fields'   = fmap (\(_,x,_) -> x) (toList fields)
                 abstractTypes = Map.fromList $ zip structTypes absTypes 
 
               -- error $ show abstractTypes
@@ -177,8 +213,7 @@ dataType = do
               let
                 struct = Struct
                       { structName  = name
-                      , structDecls = Seq.fromList . zip [0..] . toList $
-                                          fmap snd structDecls <> decls
+                      , structFields = fields
                       , structSt    = st
                       , structProcs = procs
                       , structLoc   = loc

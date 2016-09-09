@@ -29,7 +29,7 @@ module Parser.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
-import           AST.Expression        (Value (BoolV))
+import           AST.Expression        (Expression, Value (BoolV))
 import           AST.Struct
 import           Entry
 import           Error
@@ -73,7 +73,8 @@ data State = State
   , _filesToRead   :: Set String
   , _currentProc   :: Maybe CurrentProc
   , _currentFunc   :: Maybe CurrentFunc
-  , _currentStruct :: Maybe (Text, Maybe Text, [Type])
+  , _currentStruct :: 
+      Maybe (Text, Maybe Text, Map Text (Int,Type,Maybe Expression))
   , _typesTable    :: Map Text (Type, Location)
   , _typesVars     :: [Text]
   , _dataTypes     :: Map Text Struct

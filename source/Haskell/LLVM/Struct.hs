@@ -51,7 +51,7 @@ data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 defineStruct :: Text -> (Map T.Type T.Type, Struct) -> LLVM ()
 defineStruct structName (mapType, ast) = case ast of
   
-  Struct {structName,structTypes, structDecls, structProcs, struct'} -> case struct' of
+  Struct {structName,structTypes, structFields, structProcs, struct'} -> case struct' of
   
     DataType {abstract, abstractTypes, inv, repinv, coupinv} -> do
 
@@ -59,7 +59,7 @@ defineStruct structName (mapType, ast) = case ast of
       currentStruct .= Just ast
 
       type' <- Just . StructureType False <$>
-               mapM (toLLVMType . declType . snd) (toList structDecls)
+               mapM (toLLVMType . (\(_,x,_) -> x)) (toList structFields)
 
       types <- mapM toLLVMType structTypes
 
