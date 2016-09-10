@@ -17,6 +17,8 @@ module  AST.Type
   , TypeArgs
   , (=:=)
   , fillType
+  , isTypeVar
+  , isDataType
   ) where
 --------------------------------------------------------------------------------
 import           Data.Array     (Array (..), bounds, (!))
@@ -94,6 +96,14 @@ fillType typeArgs t@(GTypeVar i _) =
     else t
 fillType _        t              = t
 
+isTypeVar t = case t of
+  GTypeVar _ _ -> True
+  _            -> False
+
+isDataType t = case t of
+  GFullDataType _ _ -> True
+  GDataType _ -> True
+  _ -> False
 
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool

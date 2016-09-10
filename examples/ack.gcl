@@ -11,17 +11,19 @@ abstract AList (a) begin
   /* abstractName procedures */
 end
 
-type ArrayList(c, b) implements AList (b) begin
+type ArrayList(c, b) implements AList (c) begin
   var y : c;
   var z : b;
 
   {repinv true repinv}
   {coupinv true coupinv}
 
-  proc crear ( out l : ArrayList, in i : b )
+  proc crear ( out l : ArrayList, in i : c )
     {pre true pre}
     {post true post}
-    ⟦ write ( "hola" )
+    ⟦ writeln( i )
+    ; l.y := i
+    ; writeln(l.y)
     ⟧
 
   /* typeName procedures */
@@ -30,8 +32,9 @@ end
 main
   ⟦ var P : ArrayList(int, float)
   ; var Q : ArrayList(char, int)
-  // ; crear (P, 3)
-  // ; crear (P, 4)
+  ; crear (P, 3)
+  ; crear (Q, 'c')
+  ; writeln(P.y, " ", Q.y)
   ; skip
   ⟧
 

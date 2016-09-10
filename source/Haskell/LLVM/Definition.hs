@@ -8,6 +8,7 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
+import           AST.Struct                          (Struct(..))
 import           AST.Type                            ((=:=))
 import qualified AST.Type                            as T
 import           LLVM.Abort                          (abort, abortString)
@@ -32,7 +33,7 @@ import           Data.Maybe                          (fromMaybe)
 import           Data.Monoid                         ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
-import           Data.Text                           (Text, unpack)
+import           Data.Text                           (Text, unpack, pack)
 import           Data.Word
 import           LLVM.General.AST                    (BasicBlock (..),
                                                       Named (..),
@@ -260,8 +261,16 @@ definition
       blocks' <- use blocks
       blocks .= Seq.empty
 
+      cs <- use currentStruct
+
+      defName' <- case cs of
+        Just Struct { structBaseName, structTypes } ->
+          llvmName (defName <> pack "-" <> structBaseName) <$> 
+            mapM toLLVMType structTypes
+        _ -> pure . unpack $ defName
+
       addDefinition $ LLVM.GlobalDefinition functionDefaults
-          { name        = Name (unpack defName)
+          { name        = Name defName'
           , parameters  = (params,False)
           , returnType  = voidType
           , basicBlocks = toList blocks'
@@ -271,16 +280,18 @@ definition
   where
     makeParam' (name, t) = makeParam (name, t, T.In)
 
-    makeParam (name, t, mode) | mode == T.In &&
-          t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat] = do
-      name' <- insertVar name
-      t'    <- toLLVMType t
-      return $ Parameter t' name' []
-
     makeParam (name, t, mode) = do
-      name' <- insertVar name
-      t'    <- toLLVMType t
-      return $ Parameter (ptr t') name' []
+      substTable:_ <- use substitutionTable
+      if T.fillType substTable t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
+         && mode == T.In
+        then do 
+          name' <- insertVar name
+          t'    <- toLLVMType t
+          pure $ Parameter t' name' []
+        else do
+          name' <- insertVar name
+          t'    <- toLLVMType t
+          pure $ Parameter (ptr t') name' []
 
 
 declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()

@@ -11,6 +11,7 @@ import           AST.Instruction                    (Guard, Instruction (..),
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         (Object' (..),
                                                      Object'' (..))
+import           AST.Struct                         (Struct(..))
 import           LLVM.Abort                         (abort)
 import qualified LLVM.Abort                         as Abort (Abort (Assert, If, Invariant, Manual, NegativeBound, NondecreasingBound))
 import           LLVM.Declaration
@@ -32,7 +33,7 @@ import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
                                                             zip, (|>))
-import           Data.Text                          (unpack)
+import           Data.Text                          (unpack, pack)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
 import           LLVM.General.AST.AddrSpace
@@ -163,13 +164,20 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     (exit #)
 
-  ProcedureCall { pName, pArgs } -> do
+  ProcedureCall { pName, pArgs, pStructArgs } -> do
     args <- mapM createArg pArgs
+
+    pName' <- case pStructArgs of
+      Just (structBaseName, typeArgs) ->
+        llvmName (pName <> pack "-" <> structBaseName) <$> 
+          mapM toLLVMType (toList typeArgs)
+      _ -> pure . unpack $ pName
+
     addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function           = callable voidType $ unpack pName
+      , function           = callable voidType pName'
       , arguments          = toList args
       , functionAttributes = []
       , metadata           = [] }
@@ -177,9 +185,11 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
       -- If it is not an Out or InOut argument, then just pass a constant value.
       -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
-      createArg (e,mode) =
+      createArg (e,mode) = do
+        
         (,[]) <$> if mode == In && (expType e =:= basicT)
-          then expression e
+          then
+            expression e
           else do
             label <- newLabel "argCast"
             ref   <- objectRef . E.theObj . exp' $ e
@@ -271,14 +281,17 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     where
       write (operand, t) = do
         -- Build the operand of the expression
+
+        t <- toLLVMType t
+
         let
         -- Call the correct C write function
           fun = callable voidType $ case t of
-            T.GBool   -> writeBString
-            T.GChar   -> writeCString
-            T.GFloat  -> writeFString
-            T.GInt    -> writeIString
-            T.GString -> writeSString
+            t' | t' == boolType   -> writeBString
+            t' | t' == charType   -> writeCString
+            t' | t' == floatType  -> writeFString
+            t' | t' == intType    -> writeIString
+            t' | t' == stringType -> writeSString
             _         -> error
               "internal error: attempted to write non-basic type."
         addInstruction $ Do Call

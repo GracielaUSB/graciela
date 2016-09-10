@@ -30,7 +30,7 @@ import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Type (..), fillType,
-                                         (=:=))
+                                         (=:=), isTypeVar)
 import           Entry
 import           Error
 import           Location
@@ -59,13 +59,12 @@ import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
 import qualified Data.Set               as Set
 import           Data.Text              (Text, pack, takeWhile, unpack)
-import           Debug.Trace
 import           Prelude                hiding (lookup, takeWhile)
 import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
-import           System.IO.Unsafe
+import           Debug.Trace
 
 
 instruction :: Parser (Maybe Instruction)
@@ -180,29 +179,29 @@ assign = do
     checkType :: Maybe (Seq (Object, Expression))
               -> (Maybe Expression, Maybe Expression)
               -> Parser (Maybe (Seq (Object, Expression)))
-    checkType _   (Nothing, _) = pure Nothing
-    checkType _   (_, Nothing) = pure Nothing
+    checkType acc   (Nothing, _) = pure acc
+    checkType acc   (_, Nothing) = pure acc
     checkType acc (Just l, Just r) = case (l,r) of
       (Expression (Location (from1,_)) t1 (Obj o), Expression _ t2 _)
         | notIn o ->
-          if (t1 =:= t2) && (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny])
+          if (t1 =:= t2) && (isTypeVar t1 || 
+            (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
             then pure $ (|> (o, r)) <$> acc
             else do
               putError from1 . UnknownError $
                 "Can't assign an expression of type `" <>
                 show t2 <> "` to a variable of type `" <>
                 show t1 <> "`."
-              pure Nothing
+              pure acc
         | otherwise -> do
           putError from1 . UnknownError $
             "The variable `" <> show o <> "` cannot be the target of an \
             \assignment because it has mode `In`."
-          pure Nothing
+          pure acc
       (Expression (Location (from,_)) _ _, Expression {}) -> do
         putError from $ UnknownError
           "An expression cannot be the target of an assignment."
-        pure Nothing
-
+        pure acc
 
 random :: Parser (Maybe Instruction)
 random = do
@@ -269,14 +268,15 @@ write = do
   where
     write' _   Nothing = pure Nothing
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
-      | expType =:= writable =
+      | expType =:= writable || isTypeVar expType =
         pure $ (|> e) <$> acc
       | otherwise = do
         putError from . UnknownError $
-          "Cannot write expression of type `" <> show expType <> "`."
-        pure Nothing
+          "Cannot write expression of type " <> show expType <> "."
+        pure acc
 
-    writable = GOneOf [GBool, GChar, GInt, GFloat, GString]
+    writable = GOneOf [GBool, GChar, GInt, GFloat, GString ]
+
       -- TODO How will this interact with polymorphism?
 
 
@@ -302,7 +302,11 @@ reading = do
       then do
         putError from . UnknownError $
           "At least one object must be read in a read instruction."
-        pure Nothing
+        pure $ Just Instruction
+          { instLoc = loc
+          , inst'   = Read
+            { file
+            , vars }}
       else do
         case file of
           Nothing -> pure ()
@@ -315,26 +319,26 @@ reading = do
   where
     fileFrom = match TokFrom *> stringLit
 
-    read' _   Nothing = pure Nothing
+    read' acc   Nothing = pure acc
     read' acc (Just Expression { exp' = Obj o @ Object { O.loc = Location (from, _), objType } })
       | objType =:= readable && notIn o =
         pure $ (|> o) <$> acc
       | notIn o = do
         putError from . UnknownError $
           "Cannot read object of type `" <> show objType <> "`."
-        pure Nothing
+        pure acc
       | objType =:= readable = do
         putError from . UnknownError $
           "Cannot read an `In` mode object."
-        pure Nothing
+        pure acc
       | otherwise = do
         putError from . UnknownError $
           "Cannot read an `In` mode object of type `" <> show objType <> "`."
-        pure Nothing
+        pure acc
     read' acc (Just expr@Expression { E.loc = Location (from, _) }) = do
       putError from . UnknownError $
         "Cannot read expression `" <> show expr <> "`."
-      pure Nothing
+      pure acc
 
     readable = GOneOf [GInt, GFloat, GChar]
       -- TODO Maybe Booleans too?
@@ -595,7 +599,6 @@ procedureCall = do
 
                       args' <- foldM (checkType' typeArgs procName from)
                         (Just Seq.empty) (Seq.zip args procParams)
-
                       pure $ case args' of
                         Nothing -> Nothing
                         Just args'' -> Just Instruction
@@ -646,7 +649,7 @@ procedureCall = do
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
     checkType' typeArgs pName pPos acc
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
-        if pType =:= fillType typeArgs expType
+        if expType =:= fillType typeArgs pType
           then case exp' of
             Obj {}
               | mode `elem` [Out, InOut] ->
@@ -662,7 +665,7 @@ procedureCall = do
               pure Nothing
           else do
             putError from $
-              BadProcedureArgumentType name pName pPos pType (fillType typeArgs expType)
+              BadProcedureArgumentType name pName pPos (fillType typeArgs pType) expType
             pure Nothing
 
 

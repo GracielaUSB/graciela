@@ -241,7 +241,7 @@ procedure' pType = do
 
       -- Struct does not add thier procs to the table
       dt <- use currentStruct
-      when (isNothing Nothing) $ definitions %= Map.insert procName def
+      when (isNothing dt) $ definitions %= Map.insert procName def
 
       pure $ Just def
     _ -> pure Nothing

@@ -46,7 +46,7 @@ import           Data.Text                 (Text, unpack)
 import           Debug.Trace
 import           Prelude                   hiding (lookup)
 import           Text.Megaparsec           (getPosition, notFollowedBy,
-                                            optional, try, (<|>))
+                                            optional, try, (<|>), lookAhead)
 --------------------------------------------------------------------------------
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
@@ -67,8 +67,8 @@ abstractDeclaration = declaration' abstractType True
 
 declaration' :: Parser Type -> Bool -> Parser (Maybe Declaration)
 declaration' allowedTypes isStruct = do
-
   from <- getPosition
+
   isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- (if isConst then (Just <$>) else optional) assignment

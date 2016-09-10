@@ -52,7 +52,7 @@ boolType :: LLVM.Type
 boolType   = i1
 
 stringType :: LLVM.Type
-stringType = LLVM.PointerType i8 (LLVM.AddrSpace 0)
+stringType = ptr i8
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
@@ -60,7 +60,7 @@ toLLVMType  T.GInt         = pure intType
 toLLVMType  T.GFloat       = pure floatType
 toLLVMType  T.GBool        = pure boolType
 toLLVMType  T.GChar        = pure charType
-toLLVMType  GString        = pure $ ptr i8
+toLLVMType  GString        = pure stringType
 toLLVMType (T.GPointer  t) = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)

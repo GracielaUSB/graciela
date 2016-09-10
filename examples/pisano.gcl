@@ -139,9 +139,8 @@ program Hola.bin begin
      var d : Dicc (int,int)
     ; var p : Dicc (int,char)
 
-    // ; crear(d,1)
+    ; crear(d,1)
 
-    ; writeln(1 + fibo(10))
 
   ]|
 end

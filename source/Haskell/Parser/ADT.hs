@@ -201,7 +201,7 @@ dataType = do
                 lenActual = length absTypes
                 loc       = Location(from,to)
                 abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
-                -- fields'   = fmap (\(_,x,_) -> x) (toList $ fillTypes abstractTypes fields
+
 
               when (lenNeeded /= lenActual) . putError from . UnknownError $
                 "Type `" <> unpack name <> "` is implementing `" <>
