@@ -66,8 +66,8 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
         moduleDefs %= (|> TypeDefinition name type')
 
-        defineStructInv Invariant structBaseName structType inv
-        defineStructInv RepInvariant structBaseName structType repinv
+        defineStructInv Invariant structBaseName types structType inv
+        defineStructInv RepInvariant structBaseName types structType repinv
 
         mapM_ definition structProcs
 
@@ -75,21 +75,22 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
 defineStructInv :: Invariant
                 -> Text
+                -> [LLVM.Type]
                 -> LLVM.Type
                 -> Expression
                 -> LLVM ()
-defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
+defineStructInv inv name types t expr@ Expression {loc = Location(pos,_)}
   | inv == CoupInvariant = undefined
   | otherwise = do
 
     let
-      procName = (case inv of
+      procName = (<> llvmName name types) (case inv of
           Invariant -> "inv-"
-          RepInvariant -> "repInv-") <> unpack name
+          RepInvariant -> "repInv-") 
 
     proc <- newLabel $ "proc" <> procName
     (proc #)
-
+    
     openScope
     name' <- insertVar "self"
     -- Evaluate the condition expression
@@ -119,7 +120,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     blocks' <- use blocks
     blocks .= Seq.empty
 
-    let selfParam = Parameter t name' []
+    let selfParam = Parameter (ptr t) name' []
 
     addDefinition $ GlobalDefinition functionDefaults
           { name        = Name procName

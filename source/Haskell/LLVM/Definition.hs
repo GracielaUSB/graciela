@@ -43,6 +43,7 @@ import           LLVM.General.AST                    (BasicBlock (..),
 import qualified LLVM.General.AST                    as LLVM (Definition (..))
 import           LLVM.General.AST.AddrSpace
 import qualified LLVM.General.AST.Constant           as C
+import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
 import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Instruction
@@ -247,34 +248,57 @@ definition
 
     ProcedureDef { procDecl, procParams, procBody } -> do
       proc <- newLabel $ "proc" <> unpack defName
+
       (proc #)
 
       openScope
 
       params <- mapM makeParam . toList $ procParams
-
       mapM_ declarationsOrRead procDecl
-      precondition pre
-      instruction procBody
-      postcondition post
-
-      blocks' <- use blocks
-      blocks .= Seq.empty
 
       cs <- use currentStruct
+      case cs of 
+        Nothing -> do 
 
-      defName' <- case cs of
-        Just Struct { structBaseName, structTypes } ->
-          llvmName (defName <> pack "-" <> structBaseName) <$> 
-            mapM toLLVMType structTypes
-        _ -> pure . unpack $ defName
+          precondition pre    
+          instruction procBody
+          postcondition post
 
-      addDefinition $ LLVM.GlobalDefinition functionDefaults
-          { name        = Name defName'
-          , parameters  = (params,False)
-          , returnType  = voidType
-          , basicBlocks = toList blocks'
-          }
+          blocks' <- use blocks
+
+          addDefinition $ LLVM.GlobalDefinition functionDefaults
+            { name        = Name $ unpack defName
+            , parameters  = (params,False)
+            , returnType  = voidType
+            , basicBlocks = toList blocks'
+            }
+
+
+
+        Just Struct { structBaseName, structTypes } -> do
+          
+          let 
+            dts = filter getDTs . toList $ procParams
+          
+          postFix <- llvmName (pack "-" <> structBaseName) <$> mapM toLLVMType structTypes
+          
+          mapM_ (callInvariant ("inv" <> postFix)) dts
+          mapM_ (callInvariant ("repInv" <> postFix)) dts
+      
+          precondition pre
+          instruction procBody
+          postcondition post
+          
+          blocks' <- use blocks
+          
+          addDefinition $ LLVM.GlobalDefinition functionDefaults
+            { name        = Name (unpack defName <> postFix)
+            , parameters  = (params,False)
+            , returnType  = voidType
+            , basicBlocks = toList blocks'
+            }
+
+      blocks .= Seq.empty
       closeScope
 
   where
@@ -292,6 +316,24 @@ definition
           name' <- insertVar name
           t'    <- toLLVMType t
           pure $ Parameter (ptr t') name' []
+
+    callInvariant funName (name, t, _) = do
+
+      type' <- toLLVMType t
+      name' <- getVariableName name
+      
+      addInstruction $ Do Call
+        { tailCallKind       = Nothing
+        , callingConvention  = CC.C
+        , returnAttributes   = []
+        , function           = callable voidType funName
+        , arguments          = [(LocalReference type' name',[])]
+        , functionAttributes = []
+        , metadata           = [] }
+
+    getDTs (name, t, _) = case t of
+      T.GDataType _ -> True
+      _ -> False
 
 
 declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()

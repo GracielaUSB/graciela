@@ -15,7 +15,6 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens    ((%~), _2)
-import           Data.Array      ((!))
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)

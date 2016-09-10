@@ -232,16 +232,28 @@ variable name (Location (from, to)) = do
         pure . Just $ (expr, protorange, taint)
 
       SelfVar { _selfType } -> do
-        let expr = Expression
-              { E.loc
-              , expType = _selfType
-              , exp' = Obj
-                { theObj = Object
-                  { O.loc
-                  , objType = _selfType
-                  , obj' = Variable
-                    { O.name = name
-                    , mode = Nothing}}}}
+        struct <- lift $ use currentStruct
+        let 
+          expr = case struct of 
+            Just (structName', _, mapTypes) -> case name `Map.lookup` mapTypes of
+              Just (i, _, _) -> Expression
+                { loc
+                , expType = _selfType
+                , exp'    = Obj
+                  { theObj = Object
+                    { loc
+                    , objType = _selfType
+                    , obj' = Member
+                      { field = i
+                      , inner = Object
+                        { loc
+                        , objType = GDataType structName'
+                        , obj' = Variable
+                          { O.name = pack "self"
+                          , mode = Nothing}}}}}}
+
+              Nothing -> error $ "Internal error: Data Type variable `"<> unpack name <>"` not found"
+            Nothing -> error "Internal error: Data Type not found"
 
         rangevars <- get
 

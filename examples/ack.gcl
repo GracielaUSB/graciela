@@ -2,7 +2,8 @@ program ack.bin begin
 
 abstract AList (a) begin
   var x : a;
-  {inv true inv}
+  var p : int;
+  {inv p == p inv}
 
   proc crear ( out l : AList, in i : a )
     {pre true pre}
@@ -14,13 +15,15 @@ end
 type ArrayList(c, b) implements AList (c) begin
   var y : c;
   var z : b;
+  var s : int;
 
-  {repinv true repinv}
+  {repinv 3 >= 3 repinv}
   {coupinv true coupinv}
 
   proc crear ( out l : ArrayList, in i : c )
-    {pre true pre}
+    {pre l.s > 10 pre}
     {post true post}
+    {bound 1 bound}
     ⟦ writeln( i )
     ; l.y := i
     ; writeln(l.y)
