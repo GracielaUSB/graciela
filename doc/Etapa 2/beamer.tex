@@ -1,0 +1,150 @@
+\documentclass{beamer}
+
+\mode<presentation>
+{
+  \usetheme{Warsaw}
+  \usecolortheme{default}
+  \usefonttheme{default}
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{caption}[numbered]
+}
+
+\usepackage[spanish]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{syntax}
+
+\setlength{\grammarparsep}{5pt plus 1pt minus 1pt}
+\setlength{\grammarindent}{7em}
+
+\title[Graciela]{[Gg]raciela - Segunda entrega}
+\author[Ackerman - Spaggiari]{Moisés Ackerman \and Carlos Spaggiari}
+\institute[USB]{Universidad Simón Bolívar}
+\date{\today{}}
+
+\begin{document}
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\section{Summer of '16}
+
+\subsection{Megaparsec}
+\begin{frame}{Megaparsec}
+\framesubtitle{Now you'll know what happend last summer}
+\begin{itemize}
+  \item Recuperación de errores mejorada
+  \item Fue necesario escribir versión monádica de Megaparsec.Expr, ExprM
+\end{itemize}
+\end{frame}
+
+\subsection{Modulex}
+\begin{frame}{Modulex}
+\framesubtitle{When 26 files in a single folder become 41 across four}
+\begin{itemize}
+  \item Árbol Sintáctico Abstracto
+  \item Analizador Sintáctico
+  \item Generación de Código
+\end{itemize}
+\end{frame}
+
+\subsection{Shiny new stuff}
+\begin{frame}{Shiny new stuff}
+\begin{itemize}
+  \item Expresión condicional -> ¡Awesome with functions!
+  \item Cuantificador (\#), why not?
+  \item Funciones y procedimientos recursivos requieren cota (procedimientos no la implementan aún)
+  \item Funciones ahora tienen pre- y poscondición
+\end{itemize}
+\end{frame}
+
+\subsection{Apuntadores}
+\begin{frame}{Apuntadores}
+\begin{itemize}
+  \item (*) de siempre
+  \item New, implementado con calloc
+  \item Free
+\end{itemize}
+\end{frame}
+
+\subsection{Generación de Código para TDEPs}
+\begin{frame}{Generación de Código para TDEPs}
+\begin{itemize}
+    \item Variables de tipo
+    \item Se prohibe recursión estructural directa
+    \item Se verifica correspondencia entre ``abstracto'' y ``concreto''
+    \item Acceso a campos
+    \item ¿Implementar operador (->)?
+\end{itemize}
+\end{frame}
+
+\subsection{Tweaks}
+\begin{frame}{Tweaks}
+\begin{itemize}
+  \item  Producción para Programa mejorada (gramática)
+    % \scriptsize
+    % \begin{grammar}
+
+    % <Program> ::= `program' <ProgramId>  `begin' <PSDTorRoutines> <MainBlock> <PSDTorRoutines> `end'
+
+    % <ProgramId> ::= <Id> `.' <ProgramId> | <Id>
+
+    % <MainBlock> ::= `main' <Block>
+
+    % \end{grammar}
+  \item Flags!
+    \begin {itemize}
+      \item -S para generación de Assembler
+      \item -L para generación de LLVM
+      \item -On para optimización
+    \end {itemize}
+  \item Fallo de postcondición luego de fallo de precondición sólo advierte.
+  \item Instrucción `warn`
+  \item SRR: String Redundance Reduction
+  \item El archivo compilado toma el nombre del program
+\end{itemize}
+\end{frame}
+
+\subsection{Cuantificadores}
+\begin{frame}{Cuantificadores}
+\begin{itemize}
+  \item El rango puede ser cualquier expresión booleana en forma normal
+    conjuntiva que produzca un rango acotado, un rango vacío,
+    un rango ``puntual'', o una iteración sobre un conjunto o tipos similares
+  \item Spoiler: básicamente son bucles acotados.
+\end{itemize}
+\end{frame}
+
+\section{Christmas Compiler}
+
+\begin{frame}
+\LARGE{Tercera etapa}
+\end{frame}
+
+\subsection{Más generación de código para TDEP}
+\begin{frame}{Más generación de código para TDEP}
+\begin{itemize}
+  \item Semántica precisa de las aserciones/invariantes en los TDEP
+  \item ¿Variables en procedimientos de TDEPs ``abstractos''?
+  \item ¿Funciones en TDEPs?
+\end{itemize}
+\end{frame}
+
+\subsection{Generación de código para (bi)functores}
+\begin{frame}{Generación de código para (bi)functores}
+\begin{itemize}
+  \item Implementados como librería dinámica en C++
+  \item Dudas recolección de basura
+\end{itemize}
+\end{frame}
+
+
+\subsection{Idea: Aserciones con mensajes}
+\begin{frame}{Idea: Aserciones con mensajes}
+\begin{itemize}
+  \item \texttt{\{ x > 4, ``acabo de asignar x := 3'' \}}
+\end{itemize}
+\end{frame}
+
+\end{document}

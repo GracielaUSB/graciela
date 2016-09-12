@@ -246,8 +246,8 @@ typedef enum
   { W_MANUAL
   , W_PRE
   , W_POST
-  , W_FORALL
-  , W_EXISTENTIAL
+  // , W_FORALL
+  // , W_EXISTENTIAL
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
@@ -259,10 +259,10 @@ void _warn (warning_t reason, int line, int column) {
       printf (":\n\tthe precondition was falsified.\n"); break;
     case W_POST:
       printf (":\n\tthe postcondition was falsified.\n"); break;
-    case W_FORALL:
-      printf (":\n\tthe universal quantification was falsified.\n"); break;
-    case W_EXISTENTIAL:
-      printf (":\n\tthe existential quantification was falsified.\n"); break;
+    // case W_FORALL:
+    //   printf (":\n\tthe universal quantification was falsified.\n"); break;
+    // case W_EXISTENTIAL:
+    //   printf (":\n\tthe existential quantification was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

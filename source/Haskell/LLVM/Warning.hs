@@ -19,8 +19,8 @@ data Warning
   = Manual      -- ^ A `warn` instruction was manually called.
   | Pre         -- ^ A precondition failed.
   | Post        -- ^ A postcondition failed after its precondition failed as well.
-  | Forall      -- ^ A universal quantifier returned false.
-  | Existential -- ^ An existential quantifier returned false.
+  -- | Forall      -- ^ A universal quantifier returned false.
+  -- | Existential -- ^ An existential quantifier returned false.
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate warning.

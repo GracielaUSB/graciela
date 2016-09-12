@@ -705,11 +705,12 @@ ifExp = do
 
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
-  [ {-Level 0-}
-    [ Postfix (foldr1 (>=>) <$> some subindex)
-    , Postfix (foldr1 (>=>) <$> some dotField) ]
-  , {-Level 1-}
+  [ {-Level -1-}
+    [ Postfix (foldr1 (>=>) <$> some dotField) ]
+  , {-Level 0-}
     [ Prefix  (foldr1 (>=>) <$> some deref) ]
+  , {-Level 1-}
+    [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
     [ Prefix (match TokNot        <&> unary Op.not    )
     , Prefix (match TokMinus      <&> unary Op.uMinus )

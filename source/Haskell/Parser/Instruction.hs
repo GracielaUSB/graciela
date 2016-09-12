@@ -30,7 +30,7 @@ import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Type (..), fillType,
-                                         (=:=), isTypeVar)
+                                         isTypeVar, (=:=))
 import           Entry
 import           Error
 import           Location
@@ -184,7 +184,7 @@ assign = do
     checkType acc (Just l, Just r) = case (l,r) of
       (Expression (Location (from1,_)) t1 (Obj o), Expression _ t2 _)
         | notIn o ->
-          if (t1 =:= t2) && (isTypeVar t1 || 
+          if (t1 =:= t2) && (isTypeVar t1 ||
             (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
             then pure $ (|> (o, r)) <$> acc
             else do
