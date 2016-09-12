@@ -1,40 +1,39 @@
 program List.bin begin
-  
+
 
   abstract ANode(T)
   begin
     /* Node variables */
      var element : T;
      var next    : ANode*;
-    
+
     {inv true inv}
-  
+
     proc pushBack (inout current : ANode, in element : T, in i : int)
       {pre true pre}
       {post true post}
     /* Node procedures */
-     
+
   end
 
   type Node(T) implements ANode(T)
-  begin   
-  
+  begin
+
     {repinv true repinv}
-  
+
     {coupinv true coupinv}
-  
+
     proc pushBack (inout current : Node, in element : T, in i: int)
-    
+
       {pre true pre}
       {post true post}
       {bound 1 bound}
-      |[ if current.next != null 
+      |[ if current.next != null
           -> skip
            ; pushBack(*current.next, element, i+1)
-        [] current.next == null 
+        [] current.next == null
           -> current.element := element
            ; new(current.next)
-           ; writeln("Salto: ", i)
         fi
       ]|
 
@@ -49,7 +48,7 @@ program List.bin begin
         [] otherwise -> writeln("have: ", i)
         fi
       ]|
-    proc freeNode (inout current : Node, in i : int)    
+    proc freeNode (inout current : Node, in i : int)
       {pre true pre}
       {post true post}
       {bound 1 bound}
@@ -67,29 +66,29 @@ program List.bin begin
     /* AList variables */
     const MAX := 100 : int;
     var   items      : seq of T;
-    
+
     {inv true inv}
 
     /* AList procedures */
     proc insert (out l : AList, in element : T)
       {pre true pre}
       {post true post}
-      
-     
+
+
   end
 
   type List(T) implements AList(T)
   begin
     /* List variables */
-    var tam := 0 : int; 
+    var tam := 0 : int;
     var first    : Node(T);
 
     {repinv 0 <= tam /\ tam <= MAX repinv}
-  
+
     {coupinv true coupinv}
 
-    proc insert (out l : List, in element : T) 
-    
+    proc insert (out l : List, in element : T)
+
       {pre true pre}
       {post true post}
       |[ pushBack(l.first, element, 1)
@@ -97,25 +96,25 @@ program List.bin begin
       ]|
 
     proc print (in l : List)
-     
+
        {pre true pre}
        {post true post}
        |[ if l.tam == 0 -> write("()")
           [] l.tam >= 1 -> printNode(l.first,0)
                          // ; write(")")
           fi
-       ]| 
-   
+       ]|
+
    proc freeList (inout l : List)
-    
+
       {pre true pre}
       {post true post}
       |[
         freeNode(l.first,0)
       ]|
-     
+
     /* List procedures */
-     
+
   end
 
 main
@@ -132,7 +131,8 @@ main
   // ; insert(l,100)
   // ; insert(l,1000)
   // ; insert(l,10000)
-  ; print(*l) 
+  ; print(*l)
+  ; writeln ((*l).first.element)
   ; freeList(*l)
   ; free(l)
   ]|

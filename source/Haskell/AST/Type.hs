@@ -95,8 +95,11 @@ fillType typeArgs t@(GTypeVar i _) =
   if inRange (bounds typeArgs) i
     then typeArgs ! i
     else t
-fillType typeArgs (GArray s t) = 
+fillType typeArgs (GArray s t) =
     GArray s (fillType typeArgs t)
+
+fillType typeArgs (GFullDataType n as) =
+  GFullDataType n (fillType typeArgs <$> as)
 
 fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
 fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
@@ -108,6 +111,7 @@ fillType typeArgs (GRel t1 t2) =
 fillType typeArgs (GTuple ts) = GTuple (fmap (fillType typeArgs) ts)
 
 fillType _ t = t
+
 
 isTypeVar t = case t of
   GTypeVar _ _ -> True
@@ -210,9 +214,9 @@ instance Semigroup Type where
       else GUndef
 
   t@(GDataType a a') <> GDataType b _ =
-    if a == b  
+    if a == b
       then t
-      else GUndef    
+      else GUndef
 
   GDataType a _ <> GFullDataType b fs =
     if a == b then GFullDataType b fs else GUndef

@@ -23,14 +23,14 @@ import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Monad
 import qualified Parser.Operator           as Op
 import           Parser.State              hiding (State)
-import           SymbolTable               (closeScope, insertSymbol, lookup,
-                                            openScope, emptyGlobal, defocus)
+import           SymbolTable               (closeScope, defocus, emptyGlobal,
+                                            insertSymbol, lookup, openScope)
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens              (use, (%%=), (%=), (&~), (.=), (<&>),
                                             (^.), _6, _Just)
-import           Control.Monad             (foldM, unless, void, (>=>))
+import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
@@ -830,35 +830,40 @@ dotField = do
   from' <- getPosition
   match TokDot
   fieldName' <- safeIdentifier
+
   to <- getPosition
 
   case fieldName' of
     Nothing -> pure (\_ -> pure Nothing)
     Just fieldName -> pure $ \case
       Nothing -> pure Nothing
-      Just (Expression { exp', loc }, _, taint) -> do
+      Just (e@Expression { exp', loc }, _, taint) -> do
         let Location (from,_) = loc
         case exp' of
-          (Obj obj) -> case objType obj of
-            GDataType n _-> do
-              cstruct <- lift $ use currentStruct
-              case cstruct of
-                Just (name, _, structFields, _, _)
-                  | name == n ->
-                    aux obj (objType obj) loc fieldName structFields taint
-                _ -> error "internal error: GDataType without currentStruct."
-            GFullDataType n typeArgs -> do
-              fdts <- lift $ use fullDataTypes
-              case n `Map.lookup` fdts of
-                Nothing -> pure Nothing
-                Just (Struct { structFields }, _) ->
-                  let structFields' = fillTypes typeArgs structFields
-                  in aux obj (objType obj) loc fieldName structFields' taint
-            t -> do
-              putError from' . UnknownError $
-                "Bad field access. Cannot access an expression \
-                \of type " <> show t <> "."
-              pure Nothing
+          (Obj obj) -> do
+
+
+            case objType obj of
+              GDataType n _-> do
+                cstruct <- lift $ use currentStruct
+                case cstruct of
+                  Just (name, _, structFields, _, _)
+                    | name == n ->
+                      aux obj (objType obj) loc fieldName structFields taint
+                  _ -> error "internal error: GDataType without currentStruct."
+              GFullDataType n typeArgs -> do
+                dts <- lift $ use dataTypes
+                case n `Map.lookup` dts of
+                  Nothing -> do
+                    pure Nothing
+                  Just Struct { structFields } ->
+                    let structFields' = fillTypes typeArgs structFields
+                    in aux obj (objType obj) loc fieldName structFields' taint
+              t -> do
+                putError from' . UnknownError $
+                  "Bad field access. Cannot access an expression \
+                  \of type " <> show t <> "."
+                pure Nothing
           _ -> do
             putError from' . UnknownError $
               "Bad field access. Cannot access an expression."

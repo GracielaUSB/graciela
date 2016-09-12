@@ -553,19 +553,19 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
             {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
-                        , type'    = i8
+                        , type'    = i64
                         , metadata = []
                         }
 
               cast2 = PtrToInt
                         { operand0 = rOperand
-                        , type'    = i8
+                        , type'    = i64
                         , metadata = []
                         }
 
               comp = ICmp { iPredicate = EQ
-                          , operand0   = LocalReference intType labelCast1
-                          , operand1   = LocalReference intType labelCast2
+                          , operand0   = LocalReference i64 labelCast1
+                          , operand1   = LocalReference i64 labelCast2
                           , metadata   = []
                           }
 
@@ -594,19 +594,19 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
               {- Both pointers must be cast to integer to be compared -}
               cast1 = PtrToInt
                         { operand0 = lOperand
-                        , type'    = i8
+                        , type'    = i64
                         , metadata = []
-                        } 
+                        }
 
               cast2 = PtrToInt
                         { operand0 = rOperand
-                        , type'    = i8
+                        , type'    = i64
                         , metadata = []
                         }
 
               comp = ICmp { iPredicate = NE
-                          , operand0   = LocalReference i8 labelCast1
-                          , operand1   = LocalReference i8 labelCast2
+                          , operand0   = LocalReference i64 labelCast1
+                          , operand1   = LocalReference i64 labelCast2
                           , metadata   = []
                           }
 

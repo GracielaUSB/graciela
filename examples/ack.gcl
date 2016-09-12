@@ -1,10 +1,96 @@
 program ack.bin begin
 
+// abstract ALista (T)
+// begin
+//     /* ALista variables */
+
+
+//     {inv true inv}
+
+//     /* ALista procedures */
+
+// end
+
+// type Nodo(T) implements abstractName ( )
+// begin
+//     /* Nodo(T) variables */
+
+
+//     {repinv true repinv}
+
+//     {coupinv true coupinv}
+
+//     /* Nodo(T) procedures */
+
+// end
+
+// type Lista (T) implements abstractName ( )
+// begin
+//     /* Lista (T) variables */
+
+//     {repinv true repinv}
+
+//     {coupinv true coupinv}
+
+//     proc insertar (inout l : Lista, in n : Node (T) * )
+
+//         {pre true pre}
+//         {post true post}
+//         |[
+
+
+//         ]|
+
+
+//     /* Lista (T) procedures */
+
+// end
+
+abstract C ( )
+begin
+  /* A variables */
+  {inv true inv}
+  /* A procedures */
+end
+
+type D implements C ( )
+begin
+  /* B variables */
+  var k : int;
+
+  {repinv true repinv}
+  {coupinv true coupinv}
+  /* B procedures */
+end
+
+abstract A ( )
+begin
+  /* A variables */
+  {inv true inv}
+  /* A procedures */
+end
+
+type B implements A ( )
+begin
+  /* B variables */
+  var x : array [2] of int;
+
+  var myD : (D*);
+
+  {repinv true repinv}
+  {coupinv true coupinv}
+  /* B procedures */
+end
+
+
 main
-  ⟦ var p : int*
-  ; var q : int*
-  ; writeln ( (% forall i : int | i == 4 | i > 5 %) )
-  ; writeln ( p == q )
+  ⟦ var y : B
+  ; y.x[0] := 3
+  ; y.x[1] := 4
+  ; new(y.myD)
+  ; (*y.myD).k := 5
+  ; writeln(y.x[0], " ", y.x[1])
+  ; writeln((*y.myD).k)
   ⟧
 
 end

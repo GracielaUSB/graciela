@@ -155,7 +155,7 @@ assign :: Parser (Maybe Instruction)
 assign = do
   from <- getPosition
 
-  lvals <- expression `sepBy1` match TokComma 
+  lvals <- expression `sepBy1` match TokComma
   match' TokAssign
   exprs <- expression `sepBy` match TokComma
 
@@ -268,13 +268,10 @@ write = do
     _ -> Nothing
 
   where
-    write' acc   Nothing = do
-        getPosition >>= \from -> putError from . UnknownError $
-          "Cannot write expression of type " <> show GUndef <> "."
-        pure acc
+    write' acc   Nothing = pure Nothing
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
-      | expType =:= writable || isTypeVar expType = do 
-          
+      | expType =:= writable || isTypeVar expType = do
+
           pure $ (|> e) <$> acc
       | otherwise = do
         putError from . UnknownError $
@@ -500,7 +497,7 @@ procedureCall = do
 
   defs <- use definitions
   let nArgs   = length args
-  
+
   case procName `Map.lookup` defs of
     Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
       let
@@ -538,19 +535,19 @@ procedureCall = do
       -- In that case, maybe its a Data Type procedure.
       -- There are two cases: 1) It's being called outside a Data Type.
       --                         Just look the first arguments that is a `GFullDataType`
-      --                      2) It's being called inside another procedure inside the same Data Type 
+      --                      2) It's being called inside another procedure inside the same Data Type
       --                         Just look the first arguments that is a `GDataType`
-      let 
+      let
         f = case hasDTType args of
           Nothing -> do
-            let 
+            let
               args' = sequence args
             case args' of
               Nothing -> do
-                putError from . UnknownError $ "Calling procedure `" <> 
+                putError from . UnknownError $ "Calling procedure `" <>
                   unpack procName <>"` with bad arguments"
                 pure Nothing
-              Just args'' -> do 
+              Just args'' -> do
                 putError from $ UndefinedProcedure procName args''
                 pure Nothing
           Just (GFullDataType name typeArgs') -> do
@@ -561,10 +558,10 @@ procedureCall = do
                 case procName `Map.lookup` structProcs of
                   Just procAst -> do
                     cs <- use currentStruct
-                    let 
+                    let
                       ProcedureDef { procParams } = def' procAst
                       nParams = length procParams
-                      typeArgs = case cs of 
+                      typeArgs = case cs of
                           Nothing -> typeArgs'
                           Just (_,_,_,t,_) -> fmap (fillType t) typeArgs'
 
@@ -679,7 +676,7 @@ procedureCall = do
         {- The called procedure isn't a global procedure nor the current one,
            but it might be a struct's procedure so we check for that. -}
         Nothing -> f
-          
+
 
   where
     hasDTType = getFirst . foldMap aux
