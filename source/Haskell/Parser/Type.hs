@@ -29,7 +29,7 @@ import           Control.Monad     (void, when)
 import qualified Data.Array        as Array (listArray)
 import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
-import           Data.Map.Strict   as Map (alter, elems, fromList, insert,
+import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
                                            lookup, null, singleton)
 import           Data.Monoid       ((<>))
 import           Data.Text         (Text, pack, unpack)
@@ -51,7 +51,7 @@ basicType = do
 
 
 type' :: Parser Type
-type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
+type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try type''
   where
     parenType = do
       t <- parens type'
@@ -91,10 +91,10 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (name, _, _) -> if name == id
+            Just (name, abstract, _, _, _) -> if name == id
                 then do
                   identifier
-                  return $ GDataType name
+                  isPointer $ GDataType name abstract
                 else do
                   notFollowedBy identifier
                   return GUndef
@@ -112,6 +112,7 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
             slen = length structTypes
             show' []  = ""
             show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
+
 
           ok <- if slen == plen
             then pure True
@@ -140,14 +141,16 @@ type' = parenType <|> try userDefined <|> try arrayOf <|> try type''
             then do
               let
                 types = Array.listArray (0, plen - 1) fullTypes
+              
+              when (null $ filter isTypeVar fullTypes) $ do
+                let
+                  fAlter = \case
+                    Nothing               -> Just (ast, [types])
+                    Just (struct, types0) -> Just (struct, types : types0 )
 
-                fAlter = \case
-                  Nothing               -> Just (ast, [types])
-                  Just (struct, types0) -> Just (struct, types : types0 )
+                fullDataTypes %= Map.alter fAlter structBaseName
 
-              fullDataTypes %= Map.alter fAlter structBaseName
-
-              pure $ GFullDataType structBaseName types
+              isPointer $ GFullDataType structBaseName types
 
             else pure GUndef
 
@@ -194,7 +197,6 @@ abstractType
 
   <|> (GTuple <$> parens (typeVar `sepBy` match TokComma))
 
-  <|> try typeVar
   <|> type'
 
 

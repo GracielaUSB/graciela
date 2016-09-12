@@ -20,8 +20,9 @@ data Object'' e
     { name :: Text
     , mode :: Maybe ArgMode }
   | Member
-    { inner :: Object' e
-    , field :: Integer }
+    { inner     :: Object' e
+    , field     :: Integer
+    , fieldName :: Text  }
   | Index
     { inner :: Object' e
     , index :: e }
@@ -46,7 +47,7 @@ notIn obj = objMode obj /= Just In
 instance Show e => Show (Object' e) where
   show Object { loc, objType, obj' } = case obj' of
     Variable {name} -> unpack name
-    Member {inner,field} -> show inner <> "." <> show field
+    Member {inner, fieldName} -> show inner <> "." <> unpack fieldName
     Index {inner, index} -> show inner <> "[" <> show index <> "]"
     Deref {inner}        -> "*" <> show inner
 
@@ -57,10 +58,10 @@ instance Treelike e => Treelike (Object' e) where
       leaf $ "Variable "<> argmode <> " `" <> unpack name <> "` " <> show loc
       where argmode = case mode of; Just x -> show x; _ -> ""
 
-    Member { inner, field } ->
+    Member { inner, fieldName } ->
       Node ("Member " <> show loc)
         [ toTree inner
-        , leaf $ "Field `" <> show field <> "`"
+        , leaf $ "Field `" <> show fieldName <> "`"
         ]
 
     Index  { inner, index } ->

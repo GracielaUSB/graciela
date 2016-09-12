@@ -2,145 +2,157 @@
 program Hola.bin begin
 
   abstract Diccionario (t0,t1) begin
-    var MAX   : int;
-    var conoc : set of t0;
-    var tabla : func t0 -> t1;
+    const MAX := 100 : int;
+    var conoc        : set of t0;
+    var tabla        : func t0 -> t1;
 
     {inv 1 > 0 inv}
 
-    proc crear (out d : Diccionario, in m : int)
-      {pre  0 <  m  pre}
-      {post 1 == m post}
+    proc crear (out d : Diccionario)
+      {pre  true  pre}
+      {post true post}
 
 
-    proc agregar (in d : Diccionario, in c : t0, in v : t1)
+    proc agregar (out d : Diccionario, in clave : t0, in valor : t1)
       {pre  true pre}
       {post true post}
   end
 
-  type Dicc (a,b) implements Diccionario (a,b) begin
-    var   tam   : int;
-    var   clave : array [1] of int;
-    var   valor : array [2] of int;
+  type Dicc (Clave,Valor) implements Diccionario (Clave,Valor) begin
+    var   tam    : int;
+    var   clave  : array [MAX] of Clave;
+    var   valor  : array [MAX] of Valor;
 
-    {repinv 0  <= 100 repinv}
+    {repinv 0 <= tam /\ tam <= MAX repinv}
 
     {coupinv false coupinv}
     
-    proc crear (out d : Dicc, in m : int)
-      {pre  1 == 0 pre}
-      {post 1 == 0 \/ 1 != 0 post}
-      |[
-        write(1)
-      ]|
+    proc crear (out d : Dicc)
+      {pre true pre}
+      {post d.tam == 0 post}
+      ⟦ 
+          d.tam := 0
+      ⟧
       
 
-    proc agregar (in d : Dicc, in c : a, in v : b)
+    proc agregar (out d : Dicc, in clave: Clave, in valor : Valor)
+      var tam' := d.tam : int;
 
-      var x       : int;
-      var tam'    : int;
-
-      var tam, MAX  : int;
-      var clave     : array [1] of int;
-      var valor     : array [2] of int;
-
-      {pre  tam < MAX /*\/ !(%exist i : int | 0 <= i ∧ i < tam | clave[i] == c %)*/ pre}
-      {post tam == tam' + 1 /*∧ (%exist i : int | 0 <= i ∧ i < tam | clave[i] == c ∧ valor[x] == v %) */post}
+      {pre  d.tam < d.MAX pre}
+      {post d.tam == tam' + 1 post}
       
-      |[
-        tam' := tam;
-        clave[tam], valor[tam], tam := 2, 3, tam + 1
-      ]|
-      
+      ⟦
+        d.clave[d.tam], d.valor[d.tam], d.tam := clave, valor, d.tam + 1
+        // Caso que falla en el assign d.clave[i] := d.tam
+      ⟧
+
+    proc mostrar (in d : Dicc)
+    
+      {pre true pre}
+      {post true post}
+      ⟦ var i := 0 : int
+      ; {inv true inv}
+        {bound d.tam - i bound}
+        do i < d.tam -> writeln(d.clave[i], " -> ", d.valor[i]) 
+                      ; i := i + 1        
+        od
+      ⟧    
   end
+
+
+
+
   func fibo (i : int) -> int
     {pre i >= 0 pre}
     {post i > 0 post}
     {bound i bound}
-    |[
-      1
-
-    ]|
-    // hols
+    ⟦
+       1
+    ⟧
 
   func fibonacci (n : int*, x : array [10] of int) -> boolean
     {pre true pre}
     {post true post}
-    |[
-      if if if if true -> true fi -> true fi -> true fi -> true fi
-    ]|
+    ⟦
+          if/*  😀 */if/* 😉 */if/*  🤓 */if 
+                   true -> true 
+          fi -> true fi -> true fi -> true fi
+    ⟧
 
-  // proc readNum ()
-  //     var num : int;
-  //     read(num);
-  //     var h : int;
-  //     read(h);
+  proc readNum ()
+      var num : int;
+      read(num);
+      var h : int;
+      read(h);
 
-  //     {pre num ≥ 0 pre}
-  //     {post true post}
-  //     |[
-  //         var i,j,k := 1,2,3 : int;
-  //         // write("El resultado es: "); // No acepta strings
-  //         { i > 1 }
-  //         writeln(1) // No buscar las funciones
-  //     ]|
+      {pre num ≥ 0 pre}
+      {post true post}
+      ⟦
+          var i,j,k := 1,2,3 : int;
+          write("El resultado es: ");
+          { i > 1 }
+          writeln(1)
+          { i > 100}
+      ⟧
       
 
-  // proc readNum2 (out i : int*)
-  //     {pre true pre}
-  //     {post true post}
-  //     {bound 1 bound}
-  //     |[
-  //         free(i);
-  //         if i != null -> 
-  //                       writeln("No es null asi que la nulifico y entro recursivamente")
-  //                       ; readNum2(i)
-  //         [] i == null -> writeln("Es null, termino la recursion")
-  //         fi
-  //     ]|
+  proc readNum2 (out i : int*)
+      {pre true pre}
+      {post true post}
+      {bound 1 bound}
+      ⟦ free(i)
+      ; if i != null
+          -> writeln("No es null asi que la nulifico y entro recursivamente")
+           ; readNum2(i)
+        [] i == null 
+          -> writeln("Es null, termino la recursion")
+        fi
+      ⟧
       
 
-  // proc hola2 (out i : int, in t : array[10] of int)
-  //   {pre true pre}
-  //   {post true post}
-  //   {bound 1 bound}
-  //   |[
-  //     i := 10;
-  //     |[
-  //       var i := 100: int;
-  //       if i > 1 ->
-  //         var i := 1000 + t[1] : int;
+  proc hola2 (out i : int, in t : array[10] of int)
+    {pre true pre}
+    {post true post}
+    {bound 1 bound}
+    ⟦i := 10
+    ; ⟦ var i := 100: int
+      ; if i > 1 ->
+          var i := 1000 + t[1] : int;
 
-  //         writeln(i, "hola")
-  //       fi;
-  //       writeln(i)
-  //     ]|;
-  //     writeln(i);
-
-  //     // hola2(i,t)
-  //   ]|
+          writeln(i, "hola")
+        fi
+      ; writeln(i)
+      ⟧
+    ; writeln(i)
+    ⟧
 
   
-  // proc hola (inout x : int)
+  proc hola (inout x : int)
 
-  //   {pre x == 0 pre}
-  //   {post x == 11 post}
-  //   |[
-  //       read(x)
+    {pre x == 0 pre}
+    {post x == 11 post}
+    ⟦
+        read(x)
 
-  //       // { x >= 10 }
+        // { x >= 10 }
 
-  //       // ; x := 10
-  //   ]|
+        // ; x := 10
+    ⟧
     
   
   main
-  |[ 
-     var d : Dicc (int,int)
-    ; var p : Dicc (int,char)
+  ⟦ var d : Dicc (int,int)
+  ; var d1 : (Dicc (int,int))*
+  ; new(d1)
+  ; crear(*d1)
+  ; writeln((*d1).tam)
+  ; agregar(*d1, 1, 1)
+  ; agregar(*d1, 2, 10)
+  ; agregar(*d1, 3, 100)
+  ; mostrar(*d1)
+  ; writeln((*d1).tam)
 
-    ; crear(d,1)
-
-
-  ]|
+  ; free(d1)
+  ⟧
+  
 end

@@ -76,10 +76,11 @@ data Type
   | GString -- ^ Basic string type.
 
   | GFullDataType
-    { typeName ::  Text
+    { typeName :: Text
     , types    :: TypeArgs }
   | GDataType
-    { typeName ::  Text}
+    { typeName :: Text
+    , abstName :: Maybe Text}
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -94,7 +95,19 @@ fillType typeArgs t@(GTypeVar i _) =
   if inRange (bounds typeArgs) i
     then typeArgs ! i
     else t
-fillType _        t              = t
+fillType typeArgs (GArray s t) = 
+    GArray s (fillType typeArgs t)
+
+fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
+fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
+fillType typeArgs (GSeq t) = GSeq (fillType typeArgs t)
+fillType typeArgs (GFunc t1 t2) =
+   GFunc (fillType typeArgs t1) (fillType typeArgs t2)
+fillType typeArgs (GRel t1 t2) =
+   GRel (fillType typeArgs t1) (fillType typeArgs t2)
+fillType typeArgs (GTuple ts) = GTuple (fmap (fillType typeArgs) ts)
+
+fillType _ t = t
 
 isTypeVar t = case t of
   GTypeVar _ _ -> True
@@ -102,7 +115,7 @@ isTypeVar t = case t of
 
 isDataType t = case t of
   GFullDataType _ _ -> True
-  GDataType _ -> True
+  GDataType _ _ -> True
   _ -> False
 
 -- | Operator for checking whether two types match.
@@ -186,13 +199,25 @@ instance Semigroup Type where
       then GFullDataType a fs
       else GUndef
 
-  GDataType a <> GDataType b =
-    if a == b then GDataType a else GUndef
+  t@(GDataType a (Just a')) <> GDataType b b' =
+    if a == b || a' == b
+      then t
+      else GUndef
 
-  GDataType a <> GFullDataType b fs =
+  GDataType a a' <> t@(GDataType b (Just b')) =
+    if a == b  || a == b'
+      then t
+      else GUndef
+
+  t@(GDataType a a') <> GDataType b _ =
+    if a == b  
+      then t
+      else GUndef    
+
+  GDataType a _ <> GFullDataType b fs =
     if a == b then GFullDataType b fs else GUndef
 
-  GFullDataType a fs <> GDataType b =
+  GFullDataType a fs <> GDataType b _=
     if a == b then GFullDataType a fs else GUndef
 
   GUnsafeName a <> GUnsafeName b =
@@ -224,9 +249,9 @@ instance Show Type where
         GTypeVar  i n   -> "`" <> unpack n <> "`" -- "#" <> show i <> " ("
 
         GFullDataType n targs   ->
-          "data type " <> unpack n <> " (" <> unwords (fmap show' (toList targs)) <> ")"
+          unpack n <> " (" <> unwords (fmap show' (toList targs)) <> ")"
 
-        GDataType n   -> "data type " <> unpack n
+        GDataType n _ -> unpack n
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

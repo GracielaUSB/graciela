@@ -3,7 +3,7 @@
 
 module Error where
 --------------------------------------------------------------------------------
-import           AST.Expression        (Expression)
+import           AST.Expression        (Expression(expType))
 import           Data.Monoid           ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
@@ -12,7 +12,9 @@ import           Text.Megaparsec.Error
 import           Token
 import           AST.Type                  (Type (..))
 --------------------------------------------------------------------------------
+import           Data.Foldable         (toList)
 import           Data.List             (intercalate)
+import           Data.Sequence         (Seq)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
 import           Data.Set              (Set)
@@ -105,6 +107,7 @@ data Error
     }
   | UndefinedProcedure
     { pName :: Text
+    , pArgs :: Seq Expression
     }
   | UndefinedSymbol
     { sName :: Text
@@ -203,8 +206,9 @@ instance ShowErrorComponent Error where
     UndefinedFunction { fName } ->
       "Undefined function named `" <> unpack fName <> "`."
 
-    UndefinedProcedure { pName } ->
-      "Undefined procedure named `" <> unpack pName <> "`."
+    UndefinedProcedure { pName, pArgs } ->
+      "Undefined procedure `" <> unpack pName <> "(" <>
+      intercalate "," (fmap (show . expType) (toList pArgs)) <> ")`."
 
     UndefinedSymbol { sName } ->
       "Undefined symbol named `" <> unpack sName <> "`."

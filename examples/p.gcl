@@ -1,0 +1,35 @@
+program p.bin begin
+
+abstract A
+begin
+  /* abstractName variables */
+   
+   var i : char;
+   var b : boolean;
+  
+  {inv true inv}
+
+  /* abstractName procedures */
+   
+end
+
+type B implements A
+begin
+  /* B variables */
+   
+  
+  {repinv true repinv}
+
+  {coupinv true coupinv}
+
+  /* B procedures */
+   
+end
+
+main
+  |[ var x : B
+   ; skip { x.b === false}
+
+
+  ]|
+end

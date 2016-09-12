@@ -57,6 +57,7 @@ import           LLVM.General.AST.Name                   (Name (..))
 import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
+import           LLVM.General.AST.Type                   as L (i64)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -171,7 +172,7 @@ objectRef obj@(Object loc objType obj') = do
 
     Member { inner, field } -> do
       ref <- objectRef inner
-      label <- newLabel "member"
+      label <- newLabel $ "member" <> show field
       addInstruction $ label := GetElementPtr
           { inBounds = False
           , address  = ref
@@ -555,18 +556,16 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
                         , type'    = i8
                         , metadata = []
                         }
-              ptr1 = LocalReference intType labelCast1
 
               cast2 = PtrToInt
                         { operand0 = rOperand
                         , type'    = i8
                         , metadata = []
                         }
-              ptr2 = LocalReference intType labelCast2
 
               comp = ICmp { iPredicate = EQ
-                          , operand0   = ptr1
-                          , operand1   = ptr2
+                          , operand0   = LocalReference intType labelCast1
+                          , operand1   = LocalReference intType labelCast2
                           , metadata   = []
                           }
 
@@ -597,19 +596,17 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
                         { operand0 = lOperand
                         , type'    = i8
                         , metadata = []
-                        }
-              ptr1 = LocalReference intType labelCast1
+                        } 
 
               cast2 = PtrToInt
                         { operand0 = rOperand
                         , type'    = i8
                         , metadata = []
                         }
-              ptr2 = LocalReference intType labelCast2
 
               comp = ICmp { iPredicate = NE
-                          , operand0   = ptr1
-                          , operand1   = ptr2
+                          , operand0   = LocalReference i8 labelCast1
+                          , operand1   = LocalReference i8 labelCast2
                           , metadata   = []
                           }
 
