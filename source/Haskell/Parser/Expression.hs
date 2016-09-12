@@ -233,8 +233,8 @@ variable name (Location (from, to)) = do
 
       SelfVar { _selfType } -> do
         struct <- lift $ use currentStruct
-        let 
-          expr = case struct of 
+        let
+          expr = case struct of
             Just (structName', _, mapTypes) -> case name `Map.lookup` mapTypes of
               Just (i, _, _) -> Expression
                 { loc
@@ -473,7 +473,7 @@ quantification = do
       Just (theBody @ Expression { expType = bodyType }, _, taint1) ->
         case range of
           Nothing -> pure Nothing
-          Just (cond, protorange, taint0) -> do
+          Just (cond, protorange, taint0) ->
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing
@@ -483,7 +483,9 @@ quantification = do
                     taint = taint0 <> taint1
                     expr = Expression
                       { E.loc
-                      , expType = newType
+                      , expType = case q of
+                        Count -> GInt
+                        _     -> newType
                       , exp' = Quantification
                         { qOp      = q
                         , qVar     = var

@@ -1,44 +1,10 @@
 program ack.bin begin
 
-abstract AList (a) begin
-  var x : a;
-  var p : int;
-  {inv p == p inv}
-
-  proc crear ( out l : AList, in i : a )
-    {pre true pre}
-    {post true post}
-
-  /* abstractName procedures */
-end
-
-type ArrayList(c, b) implements AList (c) begin
-  var y : c;
-  var z : b;
-  var s : int;
-
-  {repinv 3 >= 3 repinv}
-  {coupinv true coupinv}
-
-  proc crear ( out l : ArrayList, in i : c )
-    {pre l.s > 10 pre}
-    {post true post}
-    {bound 1 bound}
-    ⟦ writeln( i )
-    ; l.y := i
-    ; writeln(l.y)
-    ⟧
-
-  /* typeName procedures */
-end
-
 main
-  ⟦ var P : ArrayList(int, float)
-  ; var Q : ArrayList(char, int)
-  ; crear (P, 3)
-  ; crear (Q, 'c')
-  ; writeln(P.y, " ", Q.y)
-  ; skip
+  ⟦ var p : int*
+  ; var q : int*
+  ; writeln ( (% forall i : int | i == 4 | i > 5 %) )
+  ; writeln ( p == q )
   ⟧
 
 end

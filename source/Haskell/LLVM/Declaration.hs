@@ -52,13 +52,12 @@ alloc gtype lval = do
   when (gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
       defaultValue <- value gtype
       addInstruction $ Do Store
-          { volatile = False
-          , address  = LocalReference t name
-          , value    = defaultValue
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = []
-          }
+        { volatile = False
+        , address  = LocalReference t name
+        , value    = defaultValue
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
   where
     value t = case t of
       GBool    -> pure . ConstantOperand $ C.Int 1 0

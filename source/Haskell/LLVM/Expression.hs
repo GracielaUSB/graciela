@@ -18,6 +18,7 @@ import           AST.Type                                as T
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (DivisionByZero, If, NullPointerAccess, Overflow))
 import           LLVM.Monad
+import           LLVM.Quantification                     (quantification)
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, toLLVMType)
@@ -40,7 +41,6 @@ import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  viewr)
 import           Data.Text                               (unpack)
 import           Data.Word                               (Word32)
-import           Data.Word                               ()
 import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
 import qualified LLVM.General.AST.CallingConvention      as CC
@@ -813,11 +813,16 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
 
     pure $ LocalReference callType label
 
+  Quantification { qOp } ->
+    quantification expression e
+
   -- Dummy operand
   _ -> do
     traceM . drawTree . toTree $ e
     traceM "I don't know how to generate code for:"
     return . ConstantOperand $ C.Int 32 10
+
+
 
 
 -- createExpression :: Expression -> LLVM Operand
