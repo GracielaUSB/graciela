@@ -20,11 +20,10 @@
 #include <stdlib.h>
 #endif
 
-#ifdef __cplusplus
-using namespace std;
 
 typedef int64_t t;
-
+#ifdef __cplusplus
+using namespace std;
 namespace glib {
     
     typedef enum{
@@ -47,16 +46,27 @@ namespace glib {
 
 extern "C" {
 #endif
+    
+    typedef struct Iterator {
+        t       data;
+        int8_t* it;
+        int8_t* type;
+    }Iterator;
+    
+    Iterator *first(int8_t *ptr);
+    Iterator *next(Iterator* i);
+    
     /* Set */
-    int8_t* newSet();
-    int     equalSet(int8_t* ptr1, int8_t* ptr2);
-    void    insertSet(int8_t* ptr, t x);
-    int     sizeSet(int8_t* ptr);
-    int     isElemSet(int8_t* ptr, t x);
-    int8_t* unionSet(int8_t* ptr1, int8_t* ptr2);
-    int8_t* intersectSet(int8_t* ptr1, int8_t* ptr2);
-    int8_t* differenceSet(int8_t* ptr1, int8_t* ptr2);
-    void    freeSet(int8_t* ptr);
+    int8_t*  newSet();
+
+    int      equalSet(int8_t* ptr1, int8_t* ptr2);
+    void     insertSet(int8_t* ptr, t x);
+    int      sizeSet(int8_t* ptr);
+    int      isElemSet(int8_t* ptr, t x);
+    int8_t*  unionSet(int8_t* ptr1, int8_t* ptr2);
+    int8_t*  intersectSet(int8_t* ptr1, int8_t* ptr2);
+    int8_t*  differenceSet(int8_t* ptr1, int8_t* ptr2);
+    void     freeSet(int8_t* ptr);
     
     /* Multiset */
     int8_t* newMultiset();

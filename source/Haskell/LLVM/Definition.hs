@@ -305,8 +305,13 @@ definition
     makeParam' (name, t) = makeParam (name, t, T.In)
 
     makeParam (name, t, mode) = do
-      substTable:_ <- use substitutionTable
-      if T.fillType substTable t =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
+      substTable <- use substitutionTable
+      let 
+        t' = if null substTable
+              then t
+              else T.fillType (head substTable) t
+      
+      if t' =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
          && mode == T.In
         then do 
           name' <- insertVar name
@@ -332,7 +337,7 @@ definition
         , metadata           = [] }
 
     getDTs (name, t, _) = case t of
-      T.GDataType _ -> True
+      T.GDataType _ _ -> True
       _ -> False
 
 
@@ -483,17 +488,17 @@ preDefinitions files =
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
 
-    , defineFunction openFileStr [Parameter (ptr pointerType) (Name "nombreArchivo") []] (ptr pointerType)
+    , defineFunction openFileStr [Parameter (ptr i8) (Name "nombreArchivo") []] (ptr i8)
 
     -- Malloc
-    , defineFunction mallocString intParam (ptr pointerType)
-    , defineFunction freeString [parameter ("x", ptr pointerType)] voidType
+    , defineFunction mallocString intParam (ptr i8)
+    , defineFunction freeString [parameter ("x", ptr i8)] voidType
     -- mapM_ addFile files
 
-    -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr pointerType)]) intType
-    -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr pointerType)]) charType
-    -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr pointerType)]) floatType
-    -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr pointerType)]) voidType
+    -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr i8)]) intType
+    -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr i8)]) charType
+    -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr i8)]) floatType
+    -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr i8)]) voidType
     ]
 
   where

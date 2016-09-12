@@ -7,6 +7,7 @@ module LLVM.Program where
 import           AST.Definition
 import           AST.Instruction                         (Instruction)
 import           AST.Program
+import qualified AST.Program                             as P (structs)
 import           AST.Type                                as T
 import           LLVM.Abort
 import           LLVM.Definition                         (definition,
@@ -14,6 +15,7 @@ import           LLVM.Definition                         (definition,
                                                           preDefinitions)
 import           LLVM.Monad
 import           LLVM.State
+import qualified LLVM.State                              as S (structs)
 import           LLVM.Struct                             (defineStruct)
 import           LLVM.Type                               (intType)
 --------------------------------------------------------------------------------
@@ -27,7 +29,7 @@ import           Data.List                               (sortOn)
 import           Data.Map.Strict                         (Map)
 import qualified Data.Map.Strict                         as Map (size,
                                                                  toAscList,
-                                                                 toList)
+                                                                 toList, keys)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
@@ -68,7 +70,7 @@ programToLLVM :: [String]             -- ^ Files for read instructions
 programToLLVM
   files
   types
-  Program { name, defs, insts, fullStructs, strings }
+  Program { name, defs, insts, P.structs, fullStructs, strings }
   = do
   -- Eval the program with the LLVMRWS
   let definitions = evalState (unLLVM program) initialState
@@ -85,11 +87,17 @@ programToLLVM
     -- TODO add also all types and abstract types as Definition's `TypeDefinition`
 
     program = do
+      S.structs .= structs
+      fullDataTypes .= fullStructs
+
       addStrings strings
 
       preDefinitions files
 
       mapM_ (uncurry defineStruct) . Map.toList $ fullStructs
+      p <- use pendingDataTypes
+
+      mapM_ (uncurry defineStruct) . Map.toList $ p
       mapM_ definition defs
 
       mainDefinition insts

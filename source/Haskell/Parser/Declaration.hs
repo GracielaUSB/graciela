@@ -11,7 +11,7 @@ en la tabla de simbolos, mientras se esta realizando el parser.
 
 module Parser.Declaration 
     ( declaration
-    , polymorphicDeclaration
+    , dataTypeDeclaration
     , abstractDeclaration
     )
     where
@@ -57,8 +57,8 @@ declaration :: Parser (Maybe Declaration)
 declaration = declaration' type' False
 
 -- Accept polymorphic types
-polymorphicDeclaration :: Parser (Maybe Declaration)
-polymorphicDeclaration = declaration' (try typeVar <|> type') True
+dataTypeDeclaration :: Parser (Maybe Declaration)
+dataTypeDeclaration = declaration' type' True
 
 
 -- Accept both, polymorphic and abstract types (set, function, ...)
@@ -71,7 +71,7 @@ declaration' allowedTypes isStruct = do
 
   isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
-  mvals <- (if isConst then (Just <$>) else optional) assignment
+  mvals <- (if isConst then assignment' else assignment) 
 
   match TokColon
   t <- if isConst then type' else allowedTypes
@@ -92,7 +92,6 @@ declaration' allowedTypes isStruct = do
         forM_ ids $ \(id, loc) -> do
           redef <- redefinition (id, loc)
           unless redef  $ do
-            struct <- use currentStruct
             let
               info = if isStruct
                 then SelfVar t Nothing
@@ -103,12 +102,14 @@ declaration' allowedTypes isStruct = do
                   , _loc       = loc
                   , _info      = info }
             symbolTable %= insertSymbol id entry
+       
         pure . Just $ Declaration
           { declLoc  = location
           , declType = t
           , declIds  = fst <$> ids }
 
-      Just Nothing -> do
+      Just Nothing  -> do
+        error "Hola"
         pure Nothing
         -- Values were either mandatory or optional, and were given, but
         -- had errors. No more errors are given.
@@ -118,31 +119,36 @@ declaration' allowedTypes isStruct = do
         -- anyways, without errors in any.
         if length ids == length exprs
           then do
-            pairs <- foldM (checkType isConst t) Seq.empty $ Seq.zip ids exprs
+            pairs <- foldM (checkType isConst t isStruct) Seq.empty $ Seq.zip ids exprs
             pure $ if null pairs
-              then Nothing
+              then 
+                Nothing
               else Just Initialization
                 { declLoc   = location
                 , declType  = t
                 , declPairs = pairs }
           else do
             putError from . UnknownError $
-              "La cantidad de " <>
-              (if isConst then "constantes" else "variables") <>
-              " es distinta a la de expresiones"
+              "The number of " <>
+              (if isConst then "constants" else "variables") <>
+              " do not match with the\n\tnumber of expressions to be assigned"
             pure Nothing
 
 
-assignment :: Parser (Maybe (Seq Expression))
-assignment = sequence <$>
-  (match TokAssign *> expression `sepBy1` match TokComma)
+assignment :: Parser (Maybe (Maybe (Seq Expression)))
+assignment = optional $ sequence <$>
+  (match TokAssign *> (expression `sepBy` match TokComma))
+
+assignment' :: Parser (Maybe (Maybe (Seq Expression)))
+assignment' = Just . sequence <$>
+  (match' TokAssign *> (expression `sepBy` match TokComma))
 
 
-checkType :: Constness -> Type
+checkType :: Constness -> Type -> Bool
           -> Seq (Text, Expression)
           -> ((Text, Location), Expression)
           -> Parser (Seq (Text, Expression))
-checkType True t pairs
+checkType True t _ pairs
   ((identifier, location), expr@Expression { expType, exp' }) = do
   
 
@@ -165,18 +171,18 @@ checkType True t pairs
           pure $ pairs |> (identifier, expr)
         _       -> do
           putError from . UnknownError $
-            "Se intentó asignar una expresión no constante a la \
-            \constante `" <> unpack identifier <> "`"
+            "Trying to assign a non constant expression to the \
+            \constant `" <> unpack identifier <> "`."
           pure Seq.empty
 
     else do
       putError from . UnknownError $
-        "Se intentó asignar una expresión de tipo `" <> show expType <>
-        "` a la constante `" <> unpack identifier <> "`, de tipo `" <>
-        show t <> "`"
+        "Trying to assign an expression with type " <> show expType <>
+        " to the constant `" <> unpack identifier <> "`, of type " <>
+        show t <> "."
       pure Seq.empty
 
-checkType False t pairs
+checkType False t isStruct pairs 
   ((identifier, location), expr@Expression { loc, expType, exp' }) =
 
   let Location (from, _) = location
@@ -187,29 +193,29 @@ checkType False t pairs
         then pure pairs
         else do
           let
+            info = if isStruct
+              then SelfVar t
+              else Var t 
+
             entry = Entry
               { _entryName  = identifier
               , _loc        = location
-              , _info       = Var
-                { _varType  = t
-                , _varValue = Just expr }}
+              , _info       = info (Just expr) }
+
           symbolTable %= insertSymbol identifier entry
           pure $ pairs |> (identifier, expr)
 
     else do
       putError from . UnknownError $
-        "Se intentó asignar una expresión de tipo `" <> show expType <>
-        "` a la variable `" <> unpack identifier <> "`, de tipo `" <>
-        show t <> "`"
+        "Trying to assign an expression with type " <> show expType <>
+        " to the variable `" <> unpack identifier <> "`, of type " <>
+        show t <> "."
       pure Seq.empty
 
 redefinition :: (Text, Location) -> Parser Bool
 redefinition (id, Location (from, _)) = do
   st <- use symbolTable
   let local = isLocal id st
-  
-  
-
 
   if local
     then do 
@@ -219,7 +225,7 @@ redefinition (id, Location (from, _)) = do
     else do
       maybeStruct <- use currentStruct
       case maybeStruct of
-        Just (_, Just abstName, _) -> do
+        Just (_, Just abstName, _, _, _) -> do
           adt <- getStruct abstName
           case adt of
             Just abst -> do 

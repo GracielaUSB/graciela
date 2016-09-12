@@ -35,9 +35,13 @@ import           Data.Text                    (Text, unpack)
 import           LLVM.General.AST             (BasicBlock (..), Definition (..),
                                                Parameter (..), Terminator (..),
                                                functionDefaults)
-import           LLVM.General.AST.Global      (Global (..), functionDefaults)
+import qualified LLVM.General.AST.Constant    as C (Constant (..))
+import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
+import           LLVM.General.AST.Global      (Global (returnType, name, 
+                                               basicBlocks, parameters), 
+                                               functionDefaults)
 import           LLVM.General.AST.Instruction (Named (..), Terminator (..))
-import qualified LLVM.General.AST.Instruction as LLVM (Instruction (..))
+import           LLVM.General.AST.Instruction (Instruction (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 import           LLVM.General.AST.Type        as LLVM
@@ -56,35 +60,101 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
 
-        type' <- Just . StructureType False <$>
+        type' <- Just . StructureType True <$>
                 mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
 
         types <- mapM toLLVMType structTypes
         let
-          name  = Name $ llvmName structBaseName types
-          structType = LLVM.NamedTypeReference name
+          name  = llvmName structBaseName types
+          structType = LLVM.NamedTypeReference (Name name)
 
-        moduleDefs %= (|> TypeDefinition name type')
+        moduleDefs %= (|> TypeDefinition (Name name) type')
 
-        defineStructInv Invariant structBaseName types structType inv
-        defineStructInv RepInvariant structBaseName types structType repinv
+        defaultConstructor name structType typeMap
+        defineStructInv Invariant name structType inv
+        defineStructInv RepInvariant name structType repinv
 
         mapM_ definition structProcs
 
         currentStruct .= Nothing
 
-defineStructInv :: Invariant
-                -> Text
-                -> [LLVM.Type]
+defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
+defaultConstructor name structType typeMap = do
+  let 
+    procName = "init" <> name
+  proc <- newLabel procName
+
+  (proc #)
+  
+  Just Struct { structFields } <- use currentStruct
+
+  openScope
+  selfName <- insertVar "self"
+
+  let 
+    self = LocalReference structType selfName
+  
+  forM_ (toList structFields) $ \(field, t, expr) -> do
+    let 
+      filledT = fillType typeMap t
+    when (filledT =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
+      
+      member <- newLabel $ "member" <> show field
+      
+      addInstruction $ member := GetElementPtr
+          { inBounds = False
+          , address  = self
+          , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+          , metadata = []}
+
+      defaultValue <- case expr of 
+        Nothing -> value filledT
+        Just e -> expression e
+
+      t' <- toLLVMType filledT
+      addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t' member
+          , value    = defaultValue
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = []
+          }
+    pure ()
+  terminate' $ Ret Nothing []
+  closeScope
+
+  blocks' <- use blocks
+  blocks .= Seq.empty
+
+  let selfParam = Parameter (ptr structType) selfName []
+
+  addDefinition $ GlobalDefinition functionDefaults
+        { name        = Name procName
+        , parameters  = ([selfParam],False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks' }
+
+  where
+    value t = case t of
+      GBool    -> pure . ConstantOperand $ C.Int 1 0
+      GChar    -> pure . ConstantOperand $ C.Int 8 0
+      GInt     -> pure . ConstantOperand $ C.Int 32 0
+      GFloat   -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
+
+
+defineStructInv :: Invariant  
+                -> String
                 -> LLVM.Type
                 -> Expression
                 -> LLVM ()
-defineStructInv inv name types t expr@ Expression {loc = Location(pos,_)}
+defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
   | inv == CoupInvariant = undefined
   | otherwise = do
 
     let
-      procName = (<> llvmName name types) (case inv of
+      procName = (<> name) (case inv of
           Invariant -> "inv-"
           RepInvariant -> "repInv-") 
 

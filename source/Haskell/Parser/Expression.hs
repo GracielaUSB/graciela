@@ -24,7 +24,7 @@ import           Parser.Monad
 import qualified Parser.Operator           as Op
 import           Parser.State              hiding (State)
 import           SymbolTable               (closeScope, insertSymbol, lookup,
-                                            openScope)
+                                            openScope, emptyGlobal, defocus)
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
@@ -193,7 +193,24 @@ variable name (Location (from, to)) = do
 
   let loc = Location (from, to)
 
-  case name `lookup` st of
+  maybeStruct <- lift (use currentStruct)
+
+  abstractSt <- case maybeStruct of
+    Just (_, Just abstName, _, _, _) -> do
+      adt <- getStruct abstName
+      case adt of
+        Just abst -> do
+          pure $ structSt abst
+        _ -> pure emptyGlobal
+    _ -> pure emptyGlobal
+
+
+  let
+    entry = case name `lookup` st of
+      Left _ -> name `lookup` abstractSt
+      x      -> x
+
+  case entry of
 
     Left _ -> do
 
@@ -235,24 +252,27 @@ variable name (Location (from, to)) = do
         struct <- lift $ use currentStruct
         let
           expr = case struct of
-            Just (structName', _, mapTypes) -> case name `Map.lookup` mapTypes of
-              Just (i, _, _) -> Expression
-                { loc
-                , expType = _selfType
-                , exp'    = Obj
-                  { theObj = Object
-                    { loc
-                    , objType = _selfType
-                    , obj' = Member
-                      { field = i
-                      , inner = Object
-                        { loc
-                        , objType = GDataType structName'
-                        , obj' = Variable
-                          { O.name = pack "self"
-                          , mode = Nothing}}}}}}
+            Just (structName', abstract, mapTypes, _, _) ->
+              case name `Map.lookup` mapTypes of
+                Just (i, _, _) -> Expression
+                  { loc
+                  , expType = _selfType
+                  , exp'    = Obj
+                    { theObj = Object
+                      { loc
+                      , objType = _selfType
+                      , obj' = Member
+                        { field = i
+                        , fieldName = name
+                        , inner = Object
+                          { loc
+                          , objType = GDataType structName' abstract
+                          , obj' = Variable
+                            { O.name = pack "self"
+                            , mode = Nothing}}}}}}
 
-              Nothing -> error $ "Internal error: Data Type variable `"<> unpack name <>"` not found"
+                Nothing -> error $ "Internal error: Data Type variable `" <>
+                            unpack name <>"` not found"
             Nothing -> error "Internal error: Data Type not found"
 
         rangevars <- get
@@ -712,40 +732,42 @@ operator =
   , {-Level 1-}
     [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
+    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+  , {-Level 3-}
     [ Prefix (match TokNot        <&> unary Op.not    )
     , Prefix (match TokMinus      <&> unary Op.uMinus )
     , Prefix (match TokAbs        <&> unary Op.abs    )
     , Prefix (match TokSqrt       <&> unary Op.sqrt   ) ]
-  , {-Level 3-}
-    [ InfixR (match TokPower      <&> binary Op.power ) ]
   , {-Level 4-}
+    [ InfixR (match TokPower      <&> binary Op.power ) ]
+  , {-Level 5-}
     [ InfixL (match TokTimes      <&> binary Op.times )
     , InfixL (match TokDiv        <&> binary' Op.div  )
     , InfixL (match TokMod        <&> binary' Op.mod  ) ]
-  , {-Level 5-}
+  , {-Level 6-}
     [ InfixL (match TokPlus       <&> binary Op.plus   )
     , InfixL (match TokMinus      <&> binary Op.bMinus ) ]
-  , {-Level 6-}
+  , {-Level 7-}
     [ InfixL (match TokMax        <&> binary Op.max    )
     , InfixL (match TokMin        <&> binary Op.min    ) ]
-  , {-Level 7-}
+  , {-Level 8-}
     [ InfixN (match TokElem       <&> membership        )
     , InfixN (match TokNotElem    <&> binary Op.notElem )
     , InfixN (match TokLT         <&> comparison Op.lt  )
     , InfixN (match TokLE         <&> comparison Op.le  )
     , InfixN (match TokGT         <&> comparison Op.gt  )
     , InfixN (match TokGE         <&> comparison Op.ge  ) ]
-  , {-Level 8-}
+  , {-Level 9-}
     [ InfixN (match TokAEQ        <&> pointRange    )
     , InfixN (match TokANE        <&> binary Op.ane ) ]
-  , {-Level 9-}
-    [ InfixR (match TokAnd        <&> conjunction ) ]
   , {-Level 10-}
-    [ InfixR (match TokOr         <&> binary' Op.or ) ]
+    [ InfixR (match TokAnd        <&> conjunction ) ]
   , {-Level 11-}
+    [ InfixR (match TokOr         <&> binary' Op.or ) ]
+  , {-Level 12-}
     [ InfixR (match TokImplies    <&> binary' Op.implies    )
     , InfixL (match TokConsequent <&> binary' Op.consequent ) ]
-  , {-Level 12-}
+  , {-Level 13-}
     [ InfixN (match TokBEQ        <&> binary' Op.beq )
     , InfixN (match TokBNE        <&> binary' Op.bne ) ]
   ]
@@ -818,10 +840,10 @@ dotField = do
         let Location (from,_) = loc
         case exp' of
           (Obj obj) -> case objType obj of
-            GDataType n -> do
+            GDataType n _-> do
               cstruct <- lift $ use currentStruct
               case cstruct of
-                Just (name, _, structFields)
+                Just (name, _, structFields, _, _)
                   | name == n ->
                     aux obj (objType obj) loc fieldName structFields taint
                 _ -> error "internal error: GDataType without currentStruct."
@@ -855,7 +877,8 @@ dotField = do
                   , objType = t
                   , obj' = Member
                     { inner = o
-                    , field = i }}}}
+                    , field = i
+                    , fieldName }}}}
           in pure . Just $ (expr, ProtoNothing, taint)
         Nothing -> do
           let Location (pos, _) = loc

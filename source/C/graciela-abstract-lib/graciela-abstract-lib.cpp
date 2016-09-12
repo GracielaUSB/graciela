@@ -24,6 +24,43 @@ extern "C" {
         return (int8_t*)set;
     }
     
+    Iterator * first(int8_t *ptr){
+        Set* set = (Set*)ptr;
+        
+        Set::iterator *it =(Set::iterator*)malloc (sizeof(Set::iterator));
+        *it = set->begin();
+        t data = **it;
+        if (set->begin() == set->end()){
+            free(it);
+            return NULL;
+        }
+        else {
+            Iterator *i = (Iterator*)malloc(sizeof(Iterator));
+            i->data = data;
+            i->it = (int8_t*) it;
+            i->type = ptr;
+            return i;
+        }
+    }
+    Iterator *next(Iterator* i){
+        Set::iterator *next = (Set::iterator*)i->it;
+        Set* type = (Set*)i->type;
+
+        *next = ++(*next);
+        if (*next != type->end()) {
+            Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
+            _i->data = **next;
+            _i->it = (int8_t*) next;
+            _i->type = i->type;
+            free(i);
+            return _i;
+        } else {
+            free(i->it);
+            free(i);
+            return NULL;
+        }
+    }
+    
     int equalSet(int8_t *ptr1, int8_t* ptr2){
         return (Set*)ptr1 == (Set*)ptr2;
     }

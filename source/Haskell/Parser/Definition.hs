@@ -6,7 +6,6 @@ module Parser.Definition
   ( function
   , procedure
   , procedureDeclaration
-  , polymorphicProcedure
   , listDefProc
   ) where
 --------------------------------------------------------------------------------
@@ -28,13 +27,13 @@ import           Token
 import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens        (use, (%=), (.=), (^.), _Just)
+import           Control.Lens        (use, (%=), (.=), (^.), (%~), _Just, _5, over)
 import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
 import qualified Data.Map.Strict     as Map (insert)
 import           Data.Maybe          (isJust, isNothing)
 import           Data.Semigroup      ((<>))
-import           Data.Sequence       (Seq)
+import           Data.Sequence       (Seq, (|>))
 import qualified Data.Sequence       as Seq (empty)
 import           Data.Text           (Text, unpack)
 import           Text.Megaparsec     (between, eof, errorUnexpected, try,
@@ -105,7 +104,7 @@ function = do
 
   to <- getPosition
   symbolTable %= closeScope to
-
+  symbolTable %= closeScope postTo
   let loc = Location (from, to)
 
   case (funcName', funcParams', pre', post', funcBody') of
@@ -173,21 +172,16 @@ function = do
           pure . Just $ (parName, t)
 
 
+
 procedure :: Parser (Maybe Definition)
-procedure = procedure' type'
-
-polymorphicProcedure :: Parser (Maybe Definition)
-polymorphicProcedure = procedure' (try typeVar <|> type')
-
-procedure' :: Parser Type -> Parser (Maybe Definition)
-procedure' pType = do
+procedure = do
   lookAhead $ match TokProc
 
   Location(_,from) <- match TokProc
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
-  params' <- parens $ doProcParams pType
+  params' <- parens doProcParams
 
   decls'  <- declarationOrRead
   prePos  <- getPosition
@@ -241,12 +235,14 @@ procedure' pType = do
 
       -- Struct does not add thier procs to the table
       dt <- use currentStruct
-      when (isNothing dt) $ definitions %= Map.insert procName def
+      if isNothing dt
+        then definitions %= Map.insert procName def
+        else currentStruct %= over _Just (_5 %~ (Map.insert procName def))
 
       pure $ Just def
     _ -> pure Nothing
 
-doProcParams pType =  lookAhead (match TokRightPar) $> Just Seq.empty
+doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
             <|> sequence <$> p `sepBy` match TokComma
   where
     p = procParam `followedBy` oneOf [TokRightPar, TokComma]
@@ -267,7 +263,7 @@ doProcParams pType =  lookAhead (match TokRightPar) $> Just Seq.empty
 
       parName' <- safeIdentifier
       match' TokColon
-      t <- pType
+      t <- type'
 
       to <- getPosition
       let loc = Location (from, to)
@@ -301,7 +297,7 @@ procedureDeclaration = do
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
-  params' <- parens $ doProcParams (try typeVar <|> type')
+  params' <- parens $ doProcParams
 
   prePos <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")

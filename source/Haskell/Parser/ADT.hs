@@ -1,4 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Parser.ADT
     ( abstractDataType
     , dataType
@@ -23,7 +25,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens        (use, (%=), (.=))
+import           Control.Lens        (use, (%=), (.=), _Just, over, (.~), _3)
 import           Control.Monad       (foldM, unless, void, when, zipWithM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
@@ -35,8 +37,8 @@ import qualified Data.Map            as Map (empty, fromList, insert, lookup,
                                              size)
 import           Data.Maybe          (isNothing)
 import           Data.Monoid         ((<>))
-import           Data.Sequence       (Seq)
-import qualified Data.Sequence       as Seq (fromList, zip, zipWith)
+import           Data.Sequence       (Seq, ViewL(..))
+import qualified Data.Sequence       as Seq (fromList, zip, zipWith, empty, viewl)
 import           Data.Text           (Text, pack, unpack)
 import           Text.Megaparsec     (eof, getPosition, manyTill, optional,
                                       (<|>))
@@ -68,14 +70,18 @@ abstractDataType = do
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
 
-    decls' <- sequence <$> abstractDeclaration `endBy` match' TokSemicolon
+    let typeArgs = Array.listArray (0, length atypes - 1) atypes
 
-    let
-      fields = case decls' of
-        Nothing    -> Map.empty
-        Just decls -> toFields 0 decls
+    currentStruct .= Just (abstractName, Nothing, Map.empty, typeArgs, Map.empty)
 
-    currentStruct .= Just (abstractName, Nothing, fields)
+    decls' <- sequence <$> (abstractDeclaration `endBy` match' TokSemicolon)
+
+
+    fields <- case decls' of
+      Nothing    -> pure Map.empty
+      Just decls -> toFields 0 abstractName decls
+
+    currentStruct %= over _Just (_3 .~ fields)
 
     inv'   <- invariant
     procs' <- sequence <$> many procedureDeclaration
@@ -84,11 +90,24 @@ abstractDataType = do
     to    <- getPosition
     st <- use symbolTable
     symbolTable %= closeScope to
-    let loc = Location (from,to)
+    
+    let 
+      loc = Location (from,to)
+      checkProcParam Definition{defName, defLoc, def' } = do
+        let 
+          Location(pos,_) = defLoc
+          AbstractProcedureDef{abstParams} = def'
+        case Seq.viewl abstParams of 
+          EmptyL -> pure ()
+          (_,t,_) :< _ -> do
+            let adt = GDataType abstractName Nothing 
+            unless (t =:= adt) . putError pos . UnknownError $ 
+              "First parameter of procedure `" <> 
+              unpack defName <> "` must have type " <> show adt
 
     case (inv', procs') of
       (Just inv, Just procs) -> do
-
+        mapM_ checkProcParam procs
         let struct = Struct
                 { structBaseName   = abstractName
                 , structFields = fields
@@ -103,21 +122,31 @@ abstractDataType = do
       _ -> pure ()
     typeVars .= []
     currentStruct .= Nothing
+    
 
 
 
-toFields :: Integer -> Seq Declaration -> Map Text (Integer, Type, Maybe Expression)
-toFields n = Map.fromList . zipWith f [n..] . toList . F.concat . fmap toField'
+toFields :: Integer -> Text 
+         -> Seq Declaration 
+         -> Parser (Map Text (Integer, Type, Maybe Expression))
+toFields n name s = Map.fromList . zipWith f [n..] . toList . F.concat <$> mapM toField' s
   where
-    toField' Declaration {declType, declIds} =
-      zip (toList declIds) $ repeat (declType, Nothing)
+    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do 
+      when (recursiveDecl declType (GDataType name Nothing)) $ 
+        putError pos . UnknownError $ "Recursive definition. A Data\
+          \ Type cannot contain a field of itself."
+      
+      pure . zip (toList declIds) $ repeat (declType, Nothing)
 
-    toField' Initialization { declType, declPairs} =
+    toField' Initialization{ declLoc = Location(pos,_), declType, declPairs } = do
+      when (recursiveDecl declType (GDataType name Nothing)) $ 
+        putError pos . UnknownError $ "Recursive definition. A Data\
+          \ Type cannot contain a field of itself."
       let
         names = fmap fst  (toList declPairs)
         exprs = fmap snd  (toList declPairs)
-      in
-        zip names $ zip (repeat declType) (fmap Just exprs)
+
+      pure . zip names $ zip (repeat declType) $ fmap Just exprs
 
     f n (name, (t,e)) = (name, (n,t,e))
 
@@ -159,50 +188,55 @@ dataType = do
           void $ anyToken `manyTill` (void (match TokEnd) <|>  eof)
 
         Just Struct {structTypes, structFields, structProcs, struct'} -> do
-
-
           match' TokBegin
 
           symbolTable %= openScope from
-          decls'   <- sequence <$> (polymorphicDeclaration `endBy` match' TokSemicolon)
+          let typeArgs = Array.listArray (0, length types - 1) types
+          currentStruct .= Just (name, abstractName', Map.empty, typeArgs, Map.empty)
+
+          decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
+
+          fields' <- case decls' of
+            Nothing -> pure Map.empty
+            Just decls -> toFields (fromIntegral $ Map.size structFields) name decls
 
           let
-            fields = case decls' of
-              Nothing -> Map.empty
-              Just decls -> toFields (fromIntegral $ Map.size structFields) decls
+            lenNeeded = length structTypes
+            lenActual = length absTypes
 
-          currentStruct .= Just (name, abstractName', fields)
+            abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
+            
+            adtToDt (i,t,e) = (i, f t, e)
+
+            f t = case t of
+                GDataType _ _ -> t <> GDataType name abstractName'
+                GArray s t -> GArray s (f t)
+                GPointer t -> GPointer (f t)
+                _ -> t
+
+            fields = fmap adtToDt $ fillTypes abstractTypes structFields <> fields'       
+                   
+          currentStruct %= over _Just (_3 .~ fields)
 
           repinv'  <- repInv
           coupinv' <- coupInv
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
-
           getPosition >>= \pos -> symbolTable %= openScope pos
 
-          currentStruct .= Just (name, Nothing, fields)
-          procs'   <- sequence <$> many polymorphicProcedure
-          currentStruct .= Just (name, abstractName', fields)
+          procs'   <- sequence <$> many procedure
 
           match' TokEnd
           to <- getPosition
           st <- use symbolTable
 
           symbolTable %= closeScope to
-
           abstractAST <- getStruct abstractName
 
           case (procs', decls', repinv', coupinv') of
 
             (Just procs, Just decls, Just repinv, Just coupinv) -> do
-
-              let
-                lenNeeded = length structTypes
-                lenActual = length absTypes
-                loc       = Location(from,to)
-                abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
-
-
+              {- Different number of type arguments -}
               when (lenNeeded /= lenActual) . putError from . UnknownError $
                 "Type `" <> unpack name <> "` is implementing `" <>
                 unpack abstractName <> "` with only " <> show lenActual <>
@@ -210,16 +244,16 @@ dataType = do
                 ")\n\tbut expected " <> show lenNeeded <> " types (" <>
                 intercalate "," (fmap show structTypes) <> ")"
 
-              mapM_ (checkProc abstractTypes procs abstractName) structProcs
+              mapM_ (checkProc abstractTypes procs name abstractName) structProcs
 
               let
                 struct = Struct
                       { structBaseName   = name
-                      , structFields = fillTypes abstractTypes structFields <> fields
+                      , structFields = fields
                       , structSt     = st
                       , structProcs  = Map.fromList $
                         (\d@Definition { defName } -> (defName, d)) <$> toList procs
-                      , structLoc    = loc
+                      , structLoc    = Location(from,to)
                       , structTypes  = types
                       , struct'      = DataType
                         { abstract   = abstractName
@@ -234,7 +268,7 @@ dataType = do
 
   where
     -- Check if all abstract procedures are defined in the implementation
-    checkProc types' procs abstractName abstractProc = do
+    checkProc types' procs dtName abstractName abstractProc = do
       let
         name = defName abstractProc
         Location(pos,_) = defLoc abstractProc
@@ -263,8 +297,16 @@ dataType = do
 
 
               if length params1 == length params2
-                then
+                then do
                   zipWithM_ (checkParams pos1) params1 params2
+                  unless (null params1) $ do
+                    let 
+                      dt = GDataType dtName (Just abstractName)
+                      (_,t,_) = head params2
+                    unless (t =:= dt) $ putError pos2 . UnknownError $ 
+                      "First parameter of procedure `" <> unpack (defName def) <>
+                      "` must have type " <> show t
+
                 else
                   putError pos2 . UnknownError $
                     "The prodecure `" <> unpack (defName def) <>
@@ -291,15 +333,13 @@ dataType = do
               _ -> t1'
 
           unless (t1 =:= t2) $ do
-            currStruct <- use currentStruct
-
-            case (currStruct, t1, t2) of
-              -- If t1 and t2 are not the same, maybe its because one of then is implementing the other
-              -- (e.g. Dicc implements Diccionario  => Dicc =:= Diccionario)
-              (Just (dt, Just adt, _), GDataType n1, GDataType n2)
-                | adt == n1 || dt == n2 -> pure ()
-
-              _ ->
                 putError pos . UnknownError $
                   "Parameter named `" <> unpack name2 <> "` has type " <>
                   show t2 <>" but expected type " <> show t1
+
+recursiveDecl :: Type -> Type -> Bool
+recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
+recursiveDecl t dt = t =:= dt
+
+
+

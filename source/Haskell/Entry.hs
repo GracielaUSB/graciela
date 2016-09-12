@@ -24,12 +24,9 @@ data Entry'
   = Var
     { _varType  :: Type
     , _varValue :: Maybe Expression }
-  | SelfVar
+  | SelfVar -- Variables declared inside of a Data Type. these variables are only used inside invariants
     { _selfType  :: Type
     , _selfValue :: Maybe Expression }
-  | SelfConst
-    { _selfType  :: Type
-    , _selfConst :: Value }
   | Const
     { _constType  :: Type
     , _constValue :: Value }
@@ -66,11 +63,6 @@ instance Treelike Entry where
         , case _selfValue of
             Nothing     -> leaf "Not initialized"
             Just value  -> Node "Initial value: " [toTree value] ]
-
-    SelfConst { _selfType, _selfConst } ->
-      Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $ "Type: " <> show _selfType
-        , Node "Value" [toTree _selfConst]]
 
     Const { _constType, _constValue } ->
       Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)

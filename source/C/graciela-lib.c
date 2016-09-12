@@ -27,7 +27,9 @@ void _closeFile(int8_t* file) {
 }
 
 int8_t* _malloc(int size){
-  return malloc(size);
+  int8_t* p = calloc(1,size);
+  printf("%d -> ",(int8_t)p != 0);
+  return p;
 }
 
 void _free(int8_t *mem){

@@ -168,7 +168,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     args <- mapM createArg pArgs
 
     pName' <- case pStructArgs of
-      Just (structBaseName, typeArgs) ->
+      Just (structBaseName, typeArgs) -> do
         llvmName (pName <> pack "-" <> structBaseName) <$> 
           mapM toLLVMType (toList typeArgs)
       _ -> pure . unpack $ pName
@@ -186,13 +186,18 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       -- If it is not an Out or InOut argument, then just pass a constant value.
       -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
       createArg (e,mode) = do
+        subst <- use substitutionTable
+        let type' = case subst of
+              t:_ -> fillType t (expType e)
+              []  -> expType e
         
-        (,[]) <$> if mode == In && (expType e =:= basicT)
+        (,[]) <$> if mode == In && (type' =:= basicT)
           then
             expression e
           else do
             label <- newLabel "argCast"
             ref   <- objectRef . E.theObj . exp' $ e
+
             type' <- ptr <$> (toLLVMType . expType $ e)
             addInstruction $ label := BitCast
               { operand0 = ref
@@ -242,13 +247,14 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     labelCast  <- newLabel "newCast"
     ref        <- objectRef idName -- The variable that is being mallocated
     type'      <- toLLVMType (T.GPointer nType)
+    typeSize   <- sizeOf nType
 
     addInstruction $ labelCall := Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
       , function           = callable pointerType mallocString
-      , arguments          = [(ConstantOperand $ C.Int 32 (sizeOf nType),[])]
+      , arguments          = [(ConstantOperand $ C.Int 32 (typeSize),[])]
       , functionAttributes = []
       , metadata           = [] }
 
@@ -265,6 +271,27 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , maybeAtomicity = Nothing
       , alignment = 4
       , metadata  = [] }
+
+    let call name = Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType $ "init" <> name
+          , arguments          = [(LocalReference type' labelCast,[])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+    case nType of 
+      GFullDataType n t -> do
+        types <- mapM toLLVMType (toList t)
+        addInstruction $ call (llvmName n types)
+
+      GDataType n t -> do
+        subst:_ <- use substitutionTable
+        types <- mapM toLLVMType $ toList subst
+        addInstruction $ call (llvmName n types)
+
+      _ -> pure ()
 
 
   Write { ln, wexprs } -> do

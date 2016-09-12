@@ -12,6 +12,8 @@ module LLVM.State
   , symTable
   -- , nameCount
   , structs
+  , fullDataTypes   
+  , pendingDataTypes
   , currentStruct
   , stringOps
   , boundOp
@@ -45,6 +47,8 @@ data State = State
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
   , _structs           :: Map Text Struct
+  , _fullDataTypes     :: Map Text (Struct, [G.TypeArgs]) 
+  , _pendingDataTypes  :: Map Text (Struct, [G.TypeArgs]) 
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
@@ -61,6 +65,8 @@ initialState = State
   , _moduleDefs        = Seq.empty
   , _symTable          = []
   , _structs           = Map.empty
+  , _fullDataTypes     = Map.empty
+  , _pendingDataTypes  = Map.empty
   , _currentStruct     = Nothing
   , _stringOps         = undefined
   , _boundOp           = Nothing
