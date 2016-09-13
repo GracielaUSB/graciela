@@ -6,21 +6,23 @@ module LLVM.Quantification
 
 --------------------------------------------------------------------------------
 import           AST.Expression
-import           AST.Type                          (Type (..))
-import           LLVM.Abort                        (abort)
-import qualified LLVM.Abort                        as Abort (Abort (EmptyRange))
+import           AST.Type                                (Type (..))
+import           LLVM.Abort                              (abort)
+import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
 import           LLVM.Monad
 import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
-import qualified LLVM.General.AST.Constant         as C (Constant (Float, Int, Undef))
-import qualified LLVM.General.AST.Float            as F (SomeFloat (Double))
-import           LLVM.General.AST.Instruction      (FastMathFlags (..),
-                                                    Instruction (..),
-                                                    Named (..), Terminator (..))
-import           LLVM.General.AST.IntegerPredicate (IntegerPredicate (..))
-import           LLVM.General.AST.Operand          (Operand (..))
-import           LLVM.General.AST.Type             (i1, i32)
+import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
+import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
+import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OLT,OGT))
+import           LLVM.General.AST.Instruction            (FastMathFlags (..),
+                                                          Instruction (..),
+                                                          Named (..),
+                                                          Terminator (..))
+import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
+import           LLVM.General.AST.Operand                (Operand (..))
+import           LLVM.General.AST.Type                   (i1, i32)
 --------------------------------------------------------------------------------
 
 -- quantification
@@ -151,13 +153,21 @@ quantification expr safe e@Expression { loc = Location (from, to), expType, exp'
           , alignment      = 4
           , metadata       = [] }
         comp <- newLabel "qComp"
-        addInstruction $ comp := ICmp
-          { iPredicate = case qOp of
-            Maximum -> SGT
-            Minimum -> SLT
-          , operand0   = e
-          , operand1   = LocalReference qType oldPartial
-          , metadata   = [] }
+        addInstruction $ comp := case expType of
+          GFloat -> FCmp
+            { fpPredicate = case qOp of
+              Maximum -> OGT
+              Minimum -> OLT
+            , operand0 = e
+            , operand1 = LocalReference qType oldPartial
+            , metadata = [] }
+          _      -> ICmp
+            { iPredicate = case qOp of
+              Maximum -> SGT
+              Minimum -> SLT
+            , operand0 = e
+            , operand1 = LocalReference qType oldPartial
+            , metadata = [] }
         terminate' CondBr
           { condition = LocalReference i1 comp
           , trueDest  = justAccum'

@@ -2,7 +2,7 @@ program ack2.bin begin
 
 main
   ⟦ const tam := 05 : int
-  ; var   k         : array [tam] of int
+  ; var   k         : array [tam] of float
   ; var   i         : int
   ; var   ch        : char
 
