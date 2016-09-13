@@ -120,13 +120,14 @@ max    = Bin Max    arithOpType $ arith P.max P.max
 min    = Bin Min    arithOpType $ arith P.min P.min
 
 div, mod :: Bin'
-div = Bin' Div arithOpType $ fraction P.div (/)
-mod = Bin' Mod arithOpType $ fraction P.mod F.mod'
+div = Bin' Div arithOpType $ fraction Div P.div (/)
+mod = Bin' Mod arithOpType $ fraction Mod P.mod F.mod'
 
-fraction :: (Int32 -> Int32 -> Int32)
+fraction :: BinaryOperator
+         -> (Int32 -> Int32 -> Int32)
          -> (Double -> Double -> Double)
          -> Expression -> Expression -> Expression
-fraction f g
+fraction op f g
   l@Expression { exp' = lexp, expType }
   r@Expression { exp' = rexp } =
   let
@@ -136,7 +137,7 @@ fraction f g
       (Value (CharV m), Value (CharV n))
         | n /= '\0' -> Value . CharV . chr' $ ord' m `f` ord' n
       (Value (FloatV m), Value (FloatV n)) -> Value (FloatV $ m `g` n)
-      _ -> Binary Div l r
+      _ -> Binary op l r
   in Expression { loc = loc l <> loc r, expType, exp'}
 
 --------------------------------------------------------------------------------

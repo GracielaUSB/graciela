@@ -197,7 +197,7 @@ objectRef obj@(Object loc objType obj') = do
 -- llvm.ssub.with.overflow.i32 (fun == intSub)
 -- llvm.smul.with.overflow.i32 (fun == intMul)
 safeOperation n label fun lOperand rOperand pos = do
-  labelOp      <- newLabel "safeOp"
+  labelOp       <- newLabel "safeOp"
   labelCond     <- newLabel "safeCond"
   overflowLabel <- newLabel "safeOverflow"
   normalLabel   <- newLabel "safeOk"
@@ -811,7 +811,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     pure $ LocalReference callType label
 
   Quantification { qOp } ->
-    quantification expression e
+    quantification expression safeOperation e
 
   -- Dummy operand
   _ -> do

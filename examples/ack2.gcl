@@ -1,0 +1,21 @@
+program ack2.bin begin
+
+main
+  ⟦ const tam := 05 : int
+  ; var   k         : array [tam] of int
+  ; var   i         : int
+  ; var   ch        : char
+
+  ; {inv    true    inv}
+    {bound tam - i bound}
+    do i < tam -> write (if i < 10 -> " "
+                         [] otherwise -> ""
+                         fi, i, "> ")
+                ; read  (k[i])
+                ; i := i + 1
+    od
+  ; read(ch)
+  ; writeln ((% max i : int | 0 <= i /\ i < tam /\ ch == 'y' | k[i] %))
+  ⟧
+
+end

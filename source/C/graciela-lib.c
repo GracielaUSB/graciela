@@ -233,7 +233,7 @@ void _abort (abort_t reason, int line, int column) {
     case A_UNDERFLOW:
       printf (":\n\ta value underflowed.\n"); break;
     case A_EMPTY_RANGE:
-      printf (":\n\tthe quantifier's range was empty.\n"); break;
+      printf (":\n\tthe quantification range was empty.\n"); break;
     case A_NULL_POINTER_ACCESS:
       printf (":\n\ta null pointer was dereferenced.\n"); break;
     case A_REPRESENTATION_INVARIANT:
@@ -248,8 +248,6 @@ typedef enum
   { W_MANUAL
   , W_PRE
   , W_POST
-  // , W_FORALL
-  // , W_EXISTENTIAL
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
@@ -261,10 +259,6 @@ void _warn (warning_t reason, int line, int column) {
       printf (":\n\tthe precondition was falsified.\n"); break;
     case W_POST:
       printf (":\n\tthe postcondition was falsified.\n"); break;
-    // case W_FORALL:
-    //   printf (":\n\tthe universal quantification was falsified.\n"); break;
-    // case W_EXISTENTIAL:
-    //   printf (":\n\tthe existential quantification was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

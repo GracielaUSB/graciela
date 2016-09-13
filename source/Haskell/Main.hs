@@ -181,12 +181,15 @@ main = do
       Just program@Program { name } -> do
 
         {-Print AST-}
-        when (optAST options) . putStrLn . drawTree . toTree $ program
+        when (optAST options) $ do
+          putStrLn . drawTree . toTree $ program
+          exitSuccess
         {-Print Symbol Table-}
         when (optSTable options) $ do
           putStrLn . drawTree . toTree . defocus $ state ^. symbolTable
           putStrLn . drawTree . Node "Types" . toList $
             leaf . show <$> state ^. typesTable
+          exitSuccess
 
         {- Generate LLVM AST -}
         let

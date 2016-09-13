@@ -841,8 +841,6 @@ dotField = do
         let Location (from,_) = loc
         case exp' of
           (Obj obj) -> do
-
-
             case objType obj of
               GDataType n _-> do
                 cstruct <- lift $ use currentStruct
