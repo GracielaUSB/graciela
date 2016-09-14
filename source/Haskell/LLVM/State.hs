@@ -12,7 +12,7 @@ module LLVM.State
   , symTable
   -- , nameCount
   , structs
-  , fullDataTypes   
+  , fullDataTypes
   , pendingDataTypes
   , currentStruct
   , stringOps
@@ -21,7 +21,7 @@ module LLVM.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
-import qualified AST.Type                     as G (Type, TypeArgs)
+import qualified AST.Type                     as G (TypeArgs)
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)
@@ -34,7 +34,6 @@ import           LLVM.General.AST             (BasicBlock (..), Definition (..))
 import           LLVM.General.AST.Instruction (Instruction (..), Named (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (Operand)
-import           LLVM.General.AST.Type        (Type)
 --------------------------------------------------------------------------------
 
 type Inst  = Named Instruction
@@ -47,8 +46,8 @@ data State = State
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
   , _structs           :: Map Text Struct
-  , _fullDataTypes     :: Map Text (Struct, [G.TypeArgs]) 
-  , _pendingDataTypes  :: Map Text (Struct, [G.TypeArgs]) 
+  , _fullDataTypes     :: Map Text (Struct, [G.TypeArgs])
+  , _pendingDataTypes  :: Map Text (Struct, [G.TypeArgs])
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand

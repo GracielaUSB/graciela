@@ -184,7 +184,7 @@ assign = do
     checkType _   (Nothing, _) = pure Nothing
     checkType _   (_, Nothing) = pure Nothing
     checkType acc (Just l, Just r) = case (l,r) of
-      (Expression (Location (from1,_)) t1 (Obj o), Expression _ t2 _)
+      (Expression { loc = Location (from1,_), expType = t1, exp' = Obj o}, Expression { expType = t2 })
         | notIn o ->
           if (t1 =:= t2) && (isTypeVar t1 ||
             (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
@@ -200,7 +200,7 @@ assign = do
             "The variable `" <> show o <> "` cannot be the target of an \
             \assignment because it has mode `In`."
           pure Nothing
-      (Expression (Location (from,_)) _ _, Expression {}) -> do
+      (Expression { loc = Location (from,_) }, Expression {}) -> do
         putError from $ UnknownError
           "An expression cannot be the target of an assignment."
         pure Nothing

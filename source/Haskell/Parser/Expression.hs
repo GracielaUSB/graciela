@@ -108,9 +108,10 @@ term =  parens metaexpr
 
       let
         expr = Expression
-          { E.loc   = Location (from, to)
-          , expType = GBool
-          , exp'    = Value . BoolV $ lit }
+          { E.loc    = Location (from, to)
+          , expType  = GBool
+          , expConst = True
+          , exp'     = Value . BoolV $ lit }
         range = if lit
           then ProtoNothing
           else ProtoQRange EmptyRange
@@ -124,9 +125,10 @@ term =  parens metaexpr
       to <- getPosition
       let
         expr = Expression
-          { E.loc   = Location (from, to)
-          , expType = GPointer GAny
-          , exp'    = NullPtr }
+          { E.loc    = Location (from, to)
+          , expType  = GPointer GAny
+          , expConst = False
+          , exp'     = NullPtr }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 
@@ -139,9 +141,10 @@ term =  parens metaexpr
 
       let
         expr = Expression
-          { E.loc   = Location (from, to)
-          , expType = t
-          , exp'    = Value . val $ lit }
+          { E.loc    = Location (from, to)
+          , expType  = t
+          , expConst = True
+          , exp'     = Value . val $ lit }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 
@@ -156,6 +159,7 @@ term =  parens metaexpr
         expr = Expression
           { E.loc    = Location (from, to)
           , expType  = t GAny
+          , expConst = True
           , exp'     = e }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
@@ -171,9 +175,10 @@ term =  parens metaexpr
 
       let
         expr = Expression
-          { E.loc   = Location (from, to)
-          , expType = GString
-          , exp'    = StringLit strId }
+          { E.loc    = Location (from, to)
+          , expType  = GString
+          , expConst = True
+          , exp'     = StringLit strId }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 
@@ -224,6 +229,7 @@ variable name (Location (from, to)) = do
         let expr = Expression
               { E.loc
               , expType = _varType
+              , expConst = False
               , exp' = Obj
                 { theObj = Object
                   { O.loc
@@ -256,8 +262,9 @@ variable name (Location (from, to)) = do
               case name `Map.lookup` mapTypes of
                 Just (i, _, _) -> Expression
                   { loc
-                  , expType = _selfType
-                  , exp'    = Obj
+                  , expType  = _selfType
+                  , expConst = False
+                  , exp'     = Obj
                     { theObj = Object
                       { loc
                       , objType = _selfType
@@ -269,7 +276,7 @@ variable name (Location (from, to)) = do
                           , objType = GDataType structName' abstract
                           , obj' = Variable
                             { O.name = pack "self"
-                            , mode = Nothing}}}}}}
+                            , mode = Nothing }}}}}}
 
                 Nothing -> error $ "Internal error: Data Type variable `" <>
                             unpack name <>"` not found"
@@ -295,7 +302,8 @@ variable name (Location (from, to)) = do
         let
           expr = Expression
             { E.loc
-            , expType = _constType
+            , expType  = _constType
+            , expConst = True
             , exp' = Value _constValue }
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
@@ -305,6 +313,9 @@ variable name (Location (from, to)) = do
           expr = Expression
             { E.loc
             , expType  = _argType
+            , expConst = case _argMode of
+              In -> True
+              _  -> False
             , exp'     = Obj
               { theObj = Object
                 { O.loc
@@ -314,7 +325,6 @@ variable name (Location (from, to)) = do
                   , mode   = Just _argMode }}}}
 
         in pure . Just $ (expr, ProtoNothing, Taint False)
-
 
 
 call :: Text -> Location -> ParserExp (Maybe MetaExpr)
@@ -336,15 +346,16 @@ call fName (Location (from,_)) = do
       if nArgs == nParams
         then do
           args' <- foldM (checkType fName pos)
-            (Just (Seq.empty, Taint False))
+            (Just (Seq.empty, Taint False, True))
             (Seq.zip args funcParams)
           pure $ case args' of
             Nothing -> Nothing
-            Just (fArgs, taint) ->
+            Just (fArgs, taint, const') ->
               let
                 expr = Expression
                   { E.loc
-                  , expType = funcRetType
+                  , expType  = funcRetType
+                  , expConst = const'
                   , exp' = FunctionCall
                     { fName
                     , fArgs
@@ -382,18 +393,19 @@ call fName (Location (from,_)) = do
             if nArgs == nParams
               then do
                 args' <- foldM (checkType fName (cr^.crPos))
-                  (Just (Seq.empty, Taint False))
+                  (Just (Seq.empty, Taint False, True))
                   (Seq.zip args (cr^.crParams))
 
                 lift $ (currentFunc . _Just . crRecursive) .= True
 
                 pure $ case args' of
                   Nothing -> Nothing
-                  Just (fArgs, taint) ->
+                  Just (fArgs, taint, const') ->
                     let
                       expr = Expression
                         { E.loc
-                        , expType = cr^.crType
+                        , expType  = cr^.crType
+                        , expConst = const'
                         , exp' = FunctionCall
                           { fName
                           , fArgs
@@ -419,15 +431,16 @@ call fName (Location (from,_)) = do
   where
     checkType _ _ _ (Nothing, _) = pure Nothing
     checkType fName fPos acc
-      (Just (e@Expression { E.loc, expType, exp' }, _, taint), (name, pType)) = do
+      (Just (e@Expression { E.loc, expType, expConst, exp' }, _, taint), (name, pType)) = do
         let Location (from, _) = loc
         if pType == expType
-          then pure $ add e taint <$> acc
+          then pure $ add e taint expConst <$> acc
           else do
             putError from $
               BadFunctionArgumentType name fName fPos pType expType
             pure Nothing
-    add e taint1 (es, taint0) = (es |> e, taint0 <> taint1)
+    add e taint1 const1 (es, taint0, const0) =
+      (es |> e, taint0 <> taint1, const0 && const1)
 
 call _ _ = error "internal error: Function call from impossible location."
 
@@ -506,6 +519,7 @@ quantification = do
                       , expType = case q of
                         Count -> GInt
                         _     -> newType
+                      , expConst = False
                       , exp' = Quantification
                         { qOp      = q
                         , qVar     = var
@@ -587,12 +601,14 @@ instance Monoid IfBuilder where
 data IfState = IfState
   { ifType    :: Type
   , ifBuilder :: IfBuilder
-  , ifTaint   :: Taint }
+  , ifTaint   :: Taint
+  , ifConst   :: Bool }
 
 initialIfState = IfState
   { ifType    = GAny
   , ifBuilder = IfGuards Seq.empty Nothing
-  , ifTaint   = Taint False }
+  , ifTaint   = Taint False
+  , ifConst   = False }
 
 
 ifExp :: ParserExp (Maybe MetaExpr)
@@ -602,9 +618,9 @@ ifExp = do
 
   -- The StateT on top of ParserExp allows us to manage
   -- a state local to this level of abstraction.
-  IfState { ifType, ifBuilder, ifTaint } <- execStateT guards initialIfState
+  IfState { ifType, ifBuilder, ifTaint, ifConst } <- execStateT guards initialIfState
 
-  match TokFi
+  match' TokFi
 
   to <- getPosition
 
@@ -618,7 +634,8 @@ ifExp = do
       let
         expr = Expression
           { E.loc
-          , expType = ifType
+          , expType  = ifType
+          , expConst = ifConst
           , exp' = EConditional gs t }
       in pure . Just $ (expr, ProtoNothing, ifTaint)
 
@@ -656,7 +673,7 @@ ifExp = do
         --   pure (Nothing, st, taint0)
 
 
-    rhs (ml, st@IfState { ifType, ifBuilder, ifTaint }, taint0) = do
+    rhs (ml, st@IfState { ifType, ifBuilder, ifTaint, ifConst }, taint0) = do
       right <- lift metaexpr
       -- We take the right hand side of the guard,
       -- and 7 things could have happened,
@@ -702,7 +719,8 @@ ifExp = do
                             put st
                               { ifType = expType
                               , ifBuilder = ifBuilder <> IfExp r
-                              , ifTaint = taint1 }
+                              , ifTaint = taint1
+                              , ifConst = expConst r }
 
                           | exp' l == Value (BoolV False) ->
                             -- 5. We have a good rhs that must be ignored because
@@ -720,7 +738,8 @@ ifExp = do
                               { ifType    = expType
                               , ifBuilder =
                                 ifBuilder <> IfGuards (Seq.singleton (l, r)) Nothing
-                              , ifTaint   = ifTaint <> taint0 <> taint1 }
+                              , ifTaint   = ifTaint <> taint0 <> taint1
+                              , ifConst   = ifConst && expConst l && expConst r }
 
 
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
@@ -735,9 +754,9 @@ operator =
     [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 3-}
     [ Prefix (match TokNot        <&> unary Op.not    )
-    , Prefix (match TokMinus      <&> unary Op.uMinus )
-    , Prefix (match TokAbs        <&> unary Op.abs    )
-    , Prefix (match TokSqrt       <&> unary Op.sqrt   ) ]
+    , Prefix (match TokMinus      <&> unary Op.uMinus ) ]
+    -- , Prefix (match TokAbs        <&> unary Op.abs    )
+    -- , Prefix (match TokSqrt       <&> unary Op.sqrt   ) ]
   , {-Level 4-}
     [ InfixR (match TokPower      <&> binary Op.power ) ]
   , {-Level 5-}
@@ -800,6 +819,7 @@ subindex = do
                         expr = Expression
                           { E.loc = Location (from, to)
                           , expType = innerType
+                          , expConst = False
                           , exp' = Obj
                             { theObj = Object
                               { O.loc = Location (from, to)
@@ -873,8 +893,9 @@ dotField = do
           let
             expr = Expression
               { loc
-              , expType = t
-              , exp'    = Obj
+              , expType  = t
+              , expConst = False
+              , exp'     = Obj
                 { theObj = Object
                   { loc
                   , objType = t
@@ -907,6 +928,7 @@ deref = do
           let expr = Expression
                 { E.loc = Location (from, to)
                 , expType = pointerType
+                , expConst = False
                 , exp' = Obj
                   { theObj = Object
                     { O.loc = Location (from, to)
@@ -928,7 +950,7 @@ unary :: Op.Un -> Location
       -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 unary unOp
   opLoc @ (Location (from,_))
-  (Just (i @ Expression { expType = itype, exp' }, _, taint))
+  (Just (i @ Expression { expType = itype, exp', expConst }, _, taint))
   = case Op.unType unOp itype of
     Left expected -> do
       let loc = Location (from, to i)
@@ -948,6 +970,7 @@ unary unOp
         expr = Expression
           { E.loc = Location (from, to i)
           , expType = ret
+          , expConst
           , exp' = exp'' }
       pure . Just $ (expr, ProtoNothing, taint)
 
@@ -959,8 +982,8 @@ binary :: Op.Bin -> Location
 binary _ _ Nothing _ = pure Nothing
 binary _ _ _ Nothing = pure Nothing
 binary binOp opLoc
-  (Just (l @ Expression { expType = ltype, exp' = lexp }, _, ltaint))
-  (Just (r @ Expression { expType = rtype, exp' = rexp }, _, rtaint))
+  (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp }, _, ltaint))
+  (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp }, _, rtaint))
   = case Op.binType binOp ltype rtype of
 
     Left expected -> do
@@ -986,6 +1009,7 @@ binary binOp opLoc
         expr = Expression
           { E.loc = Location (from l, to r)
           , expType = ret
+          , expConst = lc && rc
           , exp' }
 
       in pure . Just $ (expr, ProtoNothing, taint)
@@ -996,8 +1020,8 @@ binary' :: Op.Bin' -> Location
 binary' _ _ Nothing _ = pure Nothing
 binary' _ _ _ Nothing = pure Nothing
 binary' binOp opLoc
-  (Just (l @ Expression { expType = ltype, exp' = lexp }, _, ltaint))
-  (Just (r @ Expression { expType = rtype, exp' = rexp }, _, rtaint))
+  (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp }, _, ltaint))
+  (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp }, _, rtaint))
   = case Op.binType' binOp ltype rtype of
 
     Left expected -> do
@@ -1024,8 +1048,8 @@ membership :: Location
            -> Maybe MetaExpr -> Maybe MetaExpr
            -> ParserExp (Maybe MetaExpr)
 membership opLoc
-  (Just (l @ Expression { expType = ltype }, ProtoVar, ltaint))
-  (Just (r @ Expression { expType = rtype }, _, Taint False))
+  (Just (l @ Expression { expType = ltype, expConst = lc }, ProtoVar, ltaint))
+  (Just (r @ Expression { expType = rtype, expConst = rc }, _, Taint False))
   = case Op.binType Op.elem ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
@@ -1040,6 +1064,7 @@ membership opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
+          , expConst = lc && rc
           , exp'     = eSkip }
       in pure . Just $ (expr, ProtoQRange (SetRange r), Taint False)
 
@@ -1073,6 +1098,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
+            , expConst = False
             , exp'     = eSkip }
         in pure . Just $ (expr, range, Taint True)
 
@@ -1082,8 +1108,8 @@ comparison binOp opLoc
   where
     succ' = aux Succ
     pred' = aux Pred
-    aux op e @ Expression { E.loc, expType, exp' } =
-      Expression { E.loc, expType, exp' = Unary op e }
+    aux op e @ Expression { E.loc, expType, expConst, exp' } =
+      Expression { E.loc, expType, expConst, exp' = Unary op e }
 
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype }, ProtoVar, _))
@@ -1108,6 +1134,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
+            , expConst = False
             , exp'     = eSkip }
         in pure . Just $ (expr, range, Taint True)
 
@@ -1117,8 +1144,8 @@ comparison binOp opLoc
   where
     succ' = aux Succ
     pred' = aux Pred
-    aux op e @ Expression { E.loc, expType, exp' } =
-      Expression { E.loc, expType, exp' = Unary op e }
+    aux op e @ Expression { E.loc, expType, expConst, exp' } =
+      Expression { E.loc, expType, expConst, exp' = Unary op e }
 
 comparison binOp opLoc l r = binary binOp opLoc l r
 
@@ -1143,6 +1170,7 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
+          , expConst = False
           , exp'     = eSkip }
       in pure . Just $ (expr, ProtoQRange (PointRange r), Taint False)
 
@@ -1165,6 +1193,7 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
+          , expConst = False
           , exp'     = eSkip }
       in pure . Just $ (expr, ProtoQRange (PointRange l), Taint False)
 
@@ -1179,12 +1208,12 @@ conjunction :: Location
 conjunction _ Nothing _ = pure Nothing
 conjunction _ _ Nothing = pure Nothing
 conjunction opLoc
-  l@(Just (Expression { expType = ltype }, ProtoNothing, ltaint))
-  r@(Just (Expression { expType = rtype }, ProtoNothing, rtaint))
+  l@(Just (Expression { }, ProtoNothing, ltaint))
+  r@(Just (Expression { }, ProtoNothing, rtaint))
   = binary' Op.and opLoc l r
 conjunction opLoc
-  (Just (l @ Expression { expType = ltype, exp' = lexp' }, lproto, ltaint))
-  (Just (r @ Expression { expType = rtype, exp' = rexp' }, rproto, rtaint))
+  (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp' }, lproto, ltaint))
+  (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp' }, rproto, rtaint))
   = case Op.binType' Op.and ltype rtype of
     Right GBool -> do
       varname <- gets head
@@ -1254,7 +1283,8 @@ conjunction opLoc
 
       wrap exp' = Expression
         { E.loc
-        , expType = GBool
+        , expType  = GBool
+        , expConst = False
         , exp' }
 
       joinCond = Op.binFunc' Op.and
@@ -1262,6 +1292,7 @@ conjunction opLoc
       joinProtos binOp l r = Expression
         { E.loc
         , expType  = expType l
+        , expConst = False
         , exp'     = Binary binOp l r }
 
       joinExpRanges l@ExpRange {} ExpRange { low, high }
@@ -1279,6 +1310,7 @@ conjunction opLoc
               { E.loc = Location
                 (from elow `min` from plow, to elow `max` to plow)
               , expType = t
+              , expConst = False
               , exp' = Binary
                 { binOp = Max
                 , lexpr = elow
@@ -1295,6 +1327,7 @@ conjunction opLoc
               { E.loc = Location
                 (from ehigh `min` from phigh, to ehigh `max` to phigh)
               , expType = t
+              , expConst = False
               , exp' = Binary
                 { binOp = Min
                 , lexpr = ehigh
@@ -1333,12 +1366,14 @@ conjunction opLoc
         in Binary
           { binOp = And
           , lexpr = Expression
-            { E.loc = Rearranged
+            { E.loc
             , expType = GBool
+            , expConst = False
             , exp' = lexpr' }
           , rexpr = Expression
-            { E.loc = Rearranged
+            { E.loc
             , expType = GBool
+            , expConst = False
             , exp' = rexpr' }}
 
       rebuild varname (ProtoLow l) =
@@ -1368,11 +1403,12 @@ conjunction opLoc
 
       obj name expType =
         Expression
-          { E.loc = Rearranged
+          { E.loc
           , expType
+          , expConst = False
           , exp' = Obj
             { theObj = Object
-              { O.loc = Rearranged
+              { O.loc
               , objType = expType
               , obj' = Variable
                 { O.name = name

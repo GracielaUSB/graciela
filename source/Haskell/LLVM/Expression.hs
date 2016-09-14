@@ -12,6 +12,7 @@ import           AST.Expression                          (Expression (..),
                                                           Object, Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
+import qualified AST.Expression                          as E (loc)
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type                                as T
@@ -250,7 +251,7 @@ callUnaryFunction fun innerOperand = Call
 -- callfFunction n fun lOperand rOperand =
 
 expression :: Expression -> LLVM Operand
-expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
+expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp' of
   Value val -> pure $ case val of
     BoolV  theBool  ->
       ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
@@ -351,7 +352,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
                 , metadata           = []
                 }
 
-  Binary { binOp, lexpr, rexpr } -> do
+  Binary { binOp, lexpr = lexpr@Expression { expType = lType }, rexpr } -> do
     -- Evaluate both expressions
     lOperand <- expression lexpr
     rOperand <- expression rexpr
@@ -517,7 +518,6 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
 
       opBool op lOperand rOperand = do
         label <- newLabel "boolBinaryResult"
-        let Expression _ lType _ = lexpr
         case op of
           Op.And     -> do
             let inst = And  { operand0      = lOperand
@@ -735,8 +735,7 @@ expression e@(Expression loc@(Location(pos,_)) expType exp') = case exp' of
     result <- newLabel "ifResult"
     extraPair <- case trueBranch of
       Nothing -> do
-        let Location (from, _to) = loc
-        abort Abort.If from
+        abort Abort.If pos
         pure []
 
       Just  e -> do

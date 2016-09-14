@@ -13,27 +13,36 @@ import           LLVM.Monad
 import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
+import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
-import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OLT,OGT))
+import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OGT, OLT))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Instruction (..),
                                                           Named (..),
                                                           Terminator (..))
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
+import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1, i32)
+import           LLVM.General.AST.Type                   (i1)
 --------------------------------------------------------------------------------
 
--- quantification
---   :: (Expression -> LLVM Operand) -- ^ The expression llvm-generator
---   -> Expression                   -- ^ The Quantification for which to generate code
---   -> LLVM Operand
-quantification expr safe e@Expression { loc = Location (from, to), expType, exp' } = case exp' of
+quantification :: Num a
+               => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
+               -> (a
+                 -> Name
+                 -> (Word32 -> String)
+                 -> Operand
+                 -> Operand
+                 -> SourcePos
+                 -> LLVM ()) -- ^ The safe operation llvm-generator
+               -> Expression -- ^ The Quantification for which to generate code
+               -> LLVM Operand
+quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' } = case exp' of
   Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
-        abort Abort.EmptyRange from
+        abort Abort.EmptyRange pos
         ConstantOperand . C.Undef  <$> toLLVMType expType
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
@@ -68,7 +77,7 @@ quantification expr safe e@Expression { loc = Location (from, to), expType, exp'
           , metadata' = [] }
 
         (rangeEmpty #)
-        abort Abort.EmptyRange from
+        abort Abort.EmptyRange pos
 
         (rangeNotEmpty #)
         openScope
@@ -256,7 +265,7 @@ quantification expr safe e@Expression { loc = Location (from, to), expType, exp'
           , metadata' = [] }
 
         (invalidResult #)
-        abort Abort.EmptyRange from
+        abort Abort.EmptyRange pos
 
         (validResult #)
         result <- newLabel "qResult"
@@ -515,7 +524,7 @@ quantification expr safe e@Expression { loc = Location (from, to), expType, exp'
               (case qOp of Summation -> safeAdd; Product -> safeMul)
               e
               (LocalReference qType oldPartial)
-              from
+              pos
 
         addInstruction $ Do Store
           { volatile = False

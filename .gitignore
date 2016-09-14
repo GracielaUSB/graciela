@@ -17,3 +17,8 @@ cabal.config
 *.swp
 *.DS_Store
 *.bin
+*.aux
+*.log
+*.nav
+*.toc
+*.snm

@@ -43,9 +43,9 @@ program List.bin begin
       {post true post}
       {bound 1 bound}
       |[
-        if current.next != null -> skip
+        if current.next != null -> writeln(current.element)
                                  ; printNode(*current.next, i+1)
-        [] otherwise -> writeln("have: ", i)
+        [] otherwise -> skip
         fi
       ]|
     proc freeNode (inout current : Node, in i : int)
@@ -124,14 +124,20 @@ main
   ; {inv true inv}
     {bound 100 - (*l).tam bound}
     do (*l).tam < 100 ->
-      insert(*l,100);
+      insert(*l,(*l).tam);
     od
   ; writeln("Tamaño: ",(*l).tam)
   // ; insert(*l,10)
   // ; insert(l,100)
   // ; insert(l,1000)
   // ; insert(l,10000)
-  ; print(*l)
+  ; |[ var a, b : int
+     ; a, b := 3, a + 1
+     ; writeln(a, " ", b)
+     ; a, b := b, a
+     ; writeln(a, " ", b)
+    ]|
+  // ; print(*l)
   ; writeln ((*l).first.element)
   ; freeList(*l)
   ; free(l)

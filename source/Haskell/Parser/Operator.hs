@@ -128,8 +128,8 @@ fraction :: BinaryOperator
          -> (Double -> Double -> Double)
          -> Expression -> Expression -> Expression
 fraction op f g
-  l@Expression { exp' = lexp, expType }
-  r@Expression { exp' = rexp } =
+  l@Expression { exp' = lexp, expConst = lc, expType }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (IntV m), Value (IntV n))
@@ -138,7 +138,7 @@ fraction op f g
         | n /= '\0' -> Value . CharV . chr' $ ord' m `f` ord' n
       (Value (FloatV m), Value (FloatV n)) -> Value (FloatV $ m `g` n)
       _ -> Binary op l r
-  in Expression { loc = loc l <> loc r, expType, exp'}
+  in Expression { loc = loc l <> loc r, expConst = lc && rc, expType, exp'}
 
 --------------------------------------------------------------------------------
 boolOpType :: BinaryOpType
@@ -156,7 +156,9 @@ bne        = Bin' BNE        boolOpType bne'
 
 or', and', implies', consequent', beq', bne'
   :: Expression -> Expression -> Expression
-or' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+or'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (BoolV True),  _) -> Value (BoolV True) -- true  \/ y === true
@@ -164,9 +166,11 @@ or' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (_, Value (BoolV True) ) -> Value (BoolV True) -- x \/ true  === true
       (_, Value (BoolV False)) -> lexp               -- x \/ false ===  x
       (_,_) -> Binary Or l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
-and' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+and'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (BoolV True),  _) -> rexp                -- true  /\ y ===  y
@@ -174,9 +178,11 @@ and' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (_, Value (BoolV True) ) -> lexp                -- x /\ true  ===  x
       (_, Value (BoolV False)) -> Value (BoolV False) -- x /\ false === false
       (_,_) -> Binary And l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
-implies' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+implies'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (BoolV True),  _) -> rexp               -- true  ==> y ===  y
@@ -184,9 +190,11 @@ implies' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (_, Value (BoolV True) ) -> Value (BoolV True) -- x ==> true  === true
       (_, Value (BoolV False)) -> Unary Not l        -- x ==> false === !x
       (_,_) -> Binary Implies l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
-consequent' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+consequent'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (_, Value (BoolV True) ) -> lexp               -- x <== true  ===  x
@@ -194,9 +202,11 @@ consequent' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (Value (BoolV True),  _) -> Value (BoolV True) -- true  <== y === true
       (Value (BoolV False), _) -> Unary Not l        -- false <== y === !y
       (_,_) -> Binary Consequent l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
-beq' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+beq'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (BoolV v), Value (BoolV w)) ->
@@ -206,9 +216,11 @@ beq' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (_, Value (BoolV True) ) -> lexp        -- (x === true ) ===  x
       (_, Value (BoolV False)) -> Unary Not l -- (x === false) === !x
       (_,_) -> Binary Implies l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
-bne' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
+bne'
+  l@Expression { exp' = lexp, expConst = lc }
+  r@Expression { exp' = rexp, expConst = rc } =
   let
     exp' = case (lexp, rexp) of
       (Value (BoolV v), Value (BoolV w)) ->
@@ -218,7 +230,7 @@ bne' l@Expression { exp' = lexp } r@Expression { exp' = rexp } =
       (_, Value (BoolV True) ) -> Unary Not l -- (x !== true ) === !x
       (_, Value (BoolV False)) -> lexp        -- (x !== false) ===  x
       (_,_) -> Binary Implies l r
-  in Expression { loc = loc l <> loc r, expType = GBool, exp'}
+  in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 --------------------------------------------------------------------------------
 comp :: (forall a. Ord a => a -> a -> Bool)
