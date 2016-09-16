@@ -17,7 +17,7 @@ where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
 import           AST.Struct                 (Struct (..))
-import           AST.Type                   as T (Type (..), fillType)
+import           AST.Type                   as T (Type (..), fillType, isTypeVar)
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, substitutionTable,
                                              structs, fullDataTypes, pendingDataTypes
@@ -115,12 +115,16 @@ toLLVMType (GFullDataType n t) = do
       ltypes <- mapM toLLVMType t'
       moduleDefs %= (|> TypeDefinition (Name . llvmName n . toList $ ltypes) type')
 
-toLLVMType (GDataType name _) = do
+toLLVMType t@(GDataType name _ typeArgs) = do
   maybeStruct <- use currentStruct
   case maybeStruct of
-    Nothing -> error "Esto no deberia ocurrir :D"
+    Nothing | isTypeVar t -> error $ show t <> "   Esto no deberia ocurrir :D"
     Just struct -> do
       types <- mapM toLLVMType (structTypes struct)
+      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
+
+    _ -> do
+      types <- mapM toLLVMType typeArgs
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
 toLLVMType (GTypeVar i _) = do
@@ -157,7 +161,7 @@ sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
-sizeOf (T.GDataType name _) = do 
+sizeOf (T.GDataType name _ _) = do 
   typeargs <- head <$> use substitutionTable
   getStructSize name  typeargs
 sizeOf t@(GTypeVar _ _) = do

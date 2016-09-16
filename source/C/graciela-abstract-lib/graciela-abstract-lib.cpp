@@ -365,7 +365,7 @@ extern "C" {
         
     void freeGarbage(){
         TrashCollector* tc = (TrashCollector*)_tc;
-        for (TrashCollector::iterator it = tc->begin(); it != tc->end(); ++it){
+        for (TrashCollector::iterator it = tc[0].begin(); it != tc[0].end(); ++it){
             switch (it->second) {
                 case SET: {
                     freeSet(it->first);

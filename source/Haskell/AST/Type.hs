@@ -19,6 +19,7 @@ module  AST.Type
   , fillType
   , isTypeVar
   , isDataType
+  , hasDT
   ) where
 --------------------------------------------------------------------------------
 import           Data.Array     (Array (..), bounds, (!))
@@ -80,7 +81,8 @@ data Type
     , types    :: TypeArgs }
   | GDataType
     { typeName :: Text
-    , abstName :: Maybe Text}
+    , abstName :: Maybe Text
+    , typeArgs :: TypeArgs }
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -98,8 +100,14 @@ fillType typeArgs t@(GTypeVar i _) =
 fillType typeArgs (GArray s t) =
     GArray s (fillType typeArgs t)
 
+fillType typeArgs (GPointer t) = 
+  GPointer (fillType typeArgs t)
+
 fillType typeArgs (GFullDataType n as) =
   GFullDataType n (fillType typeArgs <$> as)
+
+fillType typeArgs (GDataType n an as) =
+  GDataType n an (fillType typeArgs <$> as)
 
 fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
 fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
@@ -119,8 +127,14 @@ isTypeVar t = case t of
 
 isDataType t = case t of
   GFullDataType _ _ -> True
-  GDataType _ _ -> True
+  GDataType _ _ _-> True
   _ -> False
+
+hasDT t@(GDataType{}) = Just t
+hasDT t@(GFullDataType{}) = Just t
+hasDT (GArray _ t) = hasDT t
+hasDT (GPointer t) = hasDT t
+hasDT _ = Nothing
 
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool
@@ -203,25 +217,25 @@ instance Semigroup Type where
       then GFullDataType a fs
       else GUndef
 
-  t@(GDataType a (Just a')) <> GDataType b b' =
-    if a == b || a' == b
+  t@(GDataType a (Just a') _) <> GDataType b Nothing _ =
+    if a' == b
       then t
       else GUndef
 
-  GDataType a a' <> t@(GDataType b (Just b')) =
-    if a == b  || a == b'
+  GDataType a Nothing _ <> t@(GDataType b (Just b') _) =
+    if a == b'
       then t
       else GUndef
 
-  t@(GDataType a a') <> GDataType b _ =
-    if a == b
+  t@(GDataType a _ ta) <> GDataType b _ tb =
+    if a == b && ta == tb
       then t
       else GUndef
 
-  GDataType a _ <> GFullDataType b fs =
+  GDataType a _ _<> GFullDataType b fs =
     if a == b then GFullDataType b fs else GUndef
 
-  GFullDataType a fs <> GDataType b _=
+  GFullDataType a fs <> GDataType b _ _=
     if a == b then GFullDataType a fs else GUndef
 
   GUnsafeName a <> GUnsafeName b =
@@ -253,9 +267,9 @@ instance Show Type where
         GTypeVar  i n   -> "`" <> unpack n <> "`" -- "#" <> show i <> " ("
 
         GFullDataType n targs   ->
-          unpack n <> " (" <> unwords (fmap show' (toList targs)) <> ")"
+          unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")f"
 
-        GDataType n _ -> unpack n
+        GDataType n na targs -> unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")"
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

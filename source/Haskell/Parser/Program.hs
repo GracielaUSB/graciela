@@ -21,10 +21,11 @@ import           AST.Type
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M
 import           Data.Either
+import           Data.Foldable      (toList)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
 import           Data.Monoid        ((<>))
-import qualified Data.Sequence      as Seq (empty)
+import qualified Data.Sequence      as Seq (empty, fromList)
 import qualified Data.Text          as T (intercalate)
 import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>))
 -------------------------------------------------------------------------------
@@ -46,12 +47,12 @@ program = do
   symbolTable %= openScope from -- Open the program scope
   many (abstractDataType <|> dataType)
 
-  defs' <- listDefProc
+  defs' <- sequence <$> many (function <|> procedure)
     -- (1) listDefProc should also include type definitions
 
   main' <- mainRoutine
-
-  _moreDecls <- listDefProc
+  defs  <- Seq.fromList . toList <$> use definitions
+  _moreDecls <- many (function <|> procedure)
     -- These aren't compiled since they can't be reached, but they're
     -- still checked so the user knows.
 
@@ -61,11 +62,12 @@ program = do
   to <- getPosition
   symbolTable %= closeScope to
 
-  case (name', defs', main') of
-    (Just name, Just defs, Just main) -> do
+  case (name', main') of
+    (Just name, Just main) -> do
       dts     <- use dataTypes
       fdts    <- use fullDataTypes
       strings <- use stringIds
+      
       pure $ Just Program
         { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)

@@ -1,5 +1,6 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PostfixOperators         #-}
 
 module LLVM.Definition where
@@ -233,7 +234,16 @@ definition
         { returnOperand = Just returnOperand
         , metadata' = [] }
 
-      let name = Name $ unpack defName
+      
+
+      postFix <- do 
+        cs <- use currentStruct
+        case cs of 
+          Nothing -> pure ""
+          Just Struct { structBaseName, structTypes } ->
+            llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+
+      let name = Name $ unpack defName <> postFix
       blocks' <- use blocks
       blocks .= Seq.empty
 
@@ -336,8 +346,8 @@ definition
         , functionAttributes = []
         , metadata           = [] }
 
-    getDTs (name, t, _) = case t of
-      T.GDataType _ _ -> True
+    getDTs (_, t, _) = case t of
+      T.GDataType {} -> True
       _ -> False
 
 

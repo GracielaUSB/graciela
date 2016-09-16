@@ -5,13 +5,11 @@ program List.bin begin
   begin
     /* Node variables */
      var element : T;
-     var next    : ANode*;
+     var next    : ANode(T)*;
 
     {inv true inv}
 
-    proc pushBack (inout current : ANode, in element : T, in i : int)
-      {pre true pre}
-      {post true post}
+    
     /* Node procedures */
 
   end
@@ -22,42 +20,21 @@ program List.bin begin
     {repinv true repinv}
 
     {coupinv true coupinv}
-
-    proc pushBack (inout current : Node, in element : T, in i: int)
-
-      {pre true pre}
-      {post true post}
-      {bound 1 bound}
-      |[ if current.next != null
-          -> skip
-           ; pushBack(*current.next, element, i+1)
-        [] current.next == null
-          -> current.element := element
-           ; new(current.next)
-        fi
+    func hola (i : T) -> int
+      {pre  true pre}
+      {post  true post}
+      |[
+        2
       ]|
 
-    proc printNode (inout current : Node, in i : int)
-
-      {pre true pre}
+    func elemNode (n : Node(T)*, x : T, b : int) -> boolean
+      {pre  true  pre}
       {post true post}
-      {bound 1 bound}
-      |[
-        if current.next != null -> writeln(current.element)
-                                 ; printNode(*current.next, i+1)
-        [] otherwise -> skip
-        fi
-      ]|
-    proc freeNode (inout current : Node, in i : int)
-      {pre true pre}
-      {post true post}
-      {bound 1 bound}
-      |[
-        if current.next != null -> skip
-                                 ; freeNode(*current.next, i+1)
-                                 ; free(current.next)
-        [] otherwise -> writeln("Free: ", i)
-        fi
+      {bound b  bound}
+      |[ if n == null         -> false
+         [] (*n).element == x -> true
+         [] otherwise         -> elemNode((*n).next, x, b-1)
+         fi        
       ]|
   end
 
@@ -70,76 +47,197 @@ program List.bin begin
     {inv true inv}
 
     /* AList procedures */
-    proc insert (out l : AList, in element : T)
-      {pre true pre}
+    proc insert (inout l : AList(T), in x : T)
+      {pre  true  pre} 
       {post true post}
 
+    proc print (in l : AList(T))
+      {pre  true  pre} 
+      {post true post}
 
+    proc freeList (inout l : AList(T))
+      {pre  true  pre} 
+      {post true post}
+
+  end
+
+  type ListO(T) implements AList(T)
+  begin
+    /* ListO variables */
+     var tam := 0 : int;
+     var first    : Node(T)*;
+    
+    {repinv 0 <= tam /\ tam <= MAX repinv}
+  
+    {coupinv true coupinv}
+  
+    /* ListO procedures */
+
+    proc insert (inout l : ListO(T), in x : T)
+      {pre true pre}
+      {post elemNode(l.first, x, l.tam) post}
+      |[ if l.tam == 0 
+            -> new(l.first)
+             ; (*l.first).element := x
+
+         [] otherwise  
+            -> var aux := l.first : Node(T)*
+             ; var i   := 0       : int
+             ; {inv true inv}
+               {bound l.tam - i bound}
+               do i < l.tam 
+                -> if (*aux).element >= x 
+                    -> var aux2 : Node(T)*
+                     ; new(aux2)
+                     ; (*aux).element, (*aux2).element := x, (*aux).element
+                     ; (*aux2).next, (*aux).next := (*aux).next, aux2
+                     ; i := l.tam
+                   [] (*aux).next == null 
+                    -> var aux2 : Node(T)*
+                     ; new(aux2)
+                     ; (*aux2).element := x
+                     ; (*aux).next     := aux2
+                     ; i := l.tam
+                   [] otherwise
+                    -> aux, i := (*aux).next, i+1
+                   fi
+               od
+          fi
+        ; l.tam := l.tam + 1
+      ]|
+
+    proc print (in l : ListO(T))
+      {pre true pre}
+      {post true post}
+      |[ var aux := l.first : Node(T)*
+       ; var i   := 0       : int
+       ; {inv true inv}
+         {bound l.tam - i bound}
+         do i < l.tam  -> { aux != null }
+                        ; writeln((*aux).element)
+                        ; aux, i := (*aux).next, i+1
+         od
+      ]|
+     
+    proc freeList (inout l : ListO(T))
+      {pre true pre}
+      {post true post}
+      |[ var aux  := l.first : Node(T)*
+       ; var next := null    : Node(T)*
+       ; var i    := 0       : int
+       ; {inv true inv}
+         {bound l.tam - i bound}
+         do i < l.tam  -> { aux != null }
+                        ; next, (*aux).next, i := (*aux).next, null, i+1
+                        ; free(aux)
+                        ; aux := next
+         od
+       ; l.first := null
+      ]| 
+      
   end
 
   type List(T) implements AList(T)
   begin
     /* List variables */
     var tam := 0 : int;
-    var first    : Node(T);
+    var first    : Node(T)*;
+    
 
     {repinv 0 <= tam /\ tam <= MAX repinv}
 
     {coupinv true coupinv}
 
-    proc insert (out l : List, in element : T)
-
+    proc insert (inout l : List(T), in x : T)
+      {pre true pre}
+      {post elemNode(l.first, x, l.tam) post}
+      |[ if l.tam == 0 -> new(l.first)
+                        ; (*l.first).element := x
+         [] otherwise -> var aux := l.first : Node(T)*
+                       ; var i   := 0       : int
+                       ; {inv true inv}
+                         {bound l.tam - i bound}
+                         do i < l.tam 
+                           -> if (*aux).next == null -> new((*aux).next)
+                              [] otherwise -> skip
+                              fi
+                            ; aux := (*aux).next
+                            ; i := i + 1
+                         od 
+                       ; (*aux).element := x
+         fi
+       ; l.tam := l.tam + 1 
+      ]|
+    
+    proc print (in l : List(T))
       {pre true pre}
       {post true post}
-      |[ pushBack(l.first, element, 1)
-       ; l.tam := l.tam + 1
+      |[ var aux := l.first : Node(T)*
+       ; var i   := 0       : int
+       ; {inv true inv}
+         {bound l.tam - i bound}
+         do i < l.tam  -> { aux != null }
+                        ; writeln((*aux).element)
+                        ; aux, i := (*aux).next, i+1
+         od
       ]|
-
-    proc print (in l : List)
-
-       {pre true pre}
-       {post true post}
-       |[ if l.tam == 0 -> write("()")
-          [] l.tam >= 1 -> printNode(l.first,0)
-                         // ; write(")")
-          fi
-       ]|
-
-   proc freeList (inout l : List)
-
+    
+    proc freeList (inout l : List(T))
       {pre true pre}
       {post true post}
-      |[
-        freeNode(l.first,0)
-      ]|
-
-    /* List procedures */
+      |[ var aux  := l.first : Node(T)*
+       ; var next := null    : Node(T)*
+       ; var i    := 0       : int
+       ; {inv true inv}
+         {bound l.tam - i bound}
+         do i < l.tam  -> { aux != null }
+                        ; next, (*aux).next, i := (*aux).next, null, i+1
+                        ; free(aux)
+                        ; aux := next
+         od
+       ; l.first := null
+      ]| 
 
   end
 
+  
+
 main
-  |[ var l : List (int)*
-  ;  var x := 0 : int
-  ; new(l)
-  ; {inv true inv}
-    {bound 100 - (*l).tam bound}
-    do (*l).tam < 100 ->
-      insert(*l,(*l).tam);
-    od
-  ; writeln("Tamaño: ",(*l).tam)
-  // ; insert(*l,10)
-  // ; insert(l,100)
-  // ; insert(l,1000)
-  // ; insert(l,10000)
-  ; |[ var a, b : int
-     ; a, b := 3, a + 1
-     ; writeln(a, " ", b)
-     ; a, b := b, a
-     ; writeln(a, " ", b)
-    ]|
-  // ; print(*l)
-  ; writeln ((*l).first.element)
-  ; freeList(*l)
-  ; free(l)
+  |[ var l       : List(int)
+   ; var lo      : ListO(int)
+   ; var s       : Node(int)
+   ; var n := 10 : int
+
+
+   ; {inv true inv}
+     {bound n - l.tam bound}
+     do l.tam < n ->
+       insert(l,l.tam);
+     od
+
+
+   ; insert(lo,99)
+   ; insert(lo,5)
+   ; insert(lo,-129)
+   ; insert(lo,3*6)
+   ; insert(lo,122*6+n*5)
+   ; insert(lo,-1002)
+   // ; writeln("Tamaño: ",(*l).tam)
+
+   ; writeln(elemNode(null, 1, l.tam))
+
+   ; writeln("Lista Normal")
+   ; print(l)
+   ; writeln("Lista Ordenada")
+   ; print(lo)
+
+   ; freeList(l)
+   ; freeList(lo)
+   // ; hola('c')
+
+   // ; writeln(jamon(*l,1))
+
+
+
   ]|
 end

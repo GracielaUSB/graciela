@@ -91,10 +91,13 @@ type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try ty
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (name, abstract, _, _, _) -> if name == id
+            Just (GDataType name abstract _, _, _) -> do
+              if name == id
                 then do
                   identifier
-                  isPointer $ GDataType name abstract
+                  t <- parens $ type' `sepBy` match TokComma
+                  let typeargs = Array.listArray (0, length t - 1) t
+                  isPointer $ GDataType name abstract typeargs
                 else do
                   notFollowedBy identifier
                   return GUndef

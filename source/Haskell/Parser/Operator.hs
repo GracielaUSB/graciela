@@ -246,6 +246,7 @@ compOpType :: BinaryOpType
 compOpType GInt   GInt   = Right GBool
 compOpType GChar  GChar  = Right GBool
 compOpType GFloat GFloat = Right GBool
+compOpType t1@GTypeVar{} t2@GTypeVar{} | t1 =:= t2 = Right GBool
 compOpType _      _      = Left $
   show (GInt  , GInt  ) <> ", " <>
   show (GChar , GChar ) <> ", or " <>
