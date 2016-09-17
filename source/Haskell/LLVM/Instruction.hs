@@ -119,7 +119,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     where
       (lvals, exprs) = unzip . toList $ assignPairs
       assign' lval value = do
-        ref <- objectRef lval
+        ref <- objectRef lval False
         type' <- toLLVMType . objType $ lval
         addInstruction $ Do Store
           { volatile       = False
@@ -196,7 +196,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
             expression e
           else do
             label <- newLabel "argCast"
-            ref   <- objectRef . E.theObj . exp' $ e
+            ref   <- objectRef (E.theObj . exp' $ e) False
 
             type' <- ptr <$> (toLLVMType . expType $ e)
             addInstruction $ label := BitCast
@@ -210,7 +210,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     labelLoad  <- newLabel "freeLoad"
     labelCast  <- newLabel "freeCast"
     labelNull  <- newLabel "freeNull"
-    ref        <- objectRef idName
+    ref        <- objectRef idName False
     type' <- toLLVMType (T.GPointer freeType)
 
     addInstruction $ labelLoad := Load
@@ -245,7 +245,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   New { idName,nType } -> do
     labelCall  <- newLabel "newCall"
     labelCast  <- newLabel "newCast"
-    ref        <- objectRef idName -- The variable that is being mallocated
+    ref        <- objectRef idName False-- The variable that is being mallocated
     type'      <- toLLVMType (T.GPointer nType)
     typeSize   <- sizeOf nType
 
@@ -360,7 +360,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata           = [] }
 
         -- Get the reference of the variable's memory
-        objRef <- objectRef var
+        objRef <- objectRef var False
         -- Store the value saved at `readResult` in the variable memory
         addInstruction $ Do Store
           { volatile = False

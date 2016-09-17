@@ -69,43 +69,56 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { mode } | mode == Just In -> objectRef obj
+  Variable { mode } | mode == Just In -> objectRef obj False
+    -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
   _ -> do
       label <- newLabel "varObj"
       -- Make a reference to the variable that will be loaded (e.g. %a)
-      addrToLoad <- objectRef obj
+      addrToLoad <- objectRef obj False
       t <- toLLVMType objType
 
-      let
-        -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
-        load = Load { volatile  = False
-                    , address   = addrToLoad
-                    , maybeAtomicity = Nothing
-                    , alignment = 4
-                    , metadata  = []
-                    }
-        -- `ref` is the reference to where the variable value was loaded (e.g. %12)
-        ref = LocalReference t label
+      -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
+      addInstruction $ label := Load { volatile  = False
+                  , address   = addrToLoad
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = [] }
 
-      addInstructions $ Seq.fromList [label := load]
+      -- The reference to where the variable value was loaded (e.g. %12)
+      return $ LocalReference t label
 
-      return ref
 
 
 -- Get the reference to the object.
-objectRef :: Object -> LLVM Operand
-objectRef obj@(Object loc objType obj') = do
+-- indicate that the object is not a deref, array access or field access inside a procedure
+objectRef :: Object -> Bool -> LLVM Operand
+objectRef obj@(Object loc objType obj') flag = do
   objType' <- toLLVMType objType
   case obj' of
 
-    Variable { name } -> do
+    Variable { name , mode } -> do
       name' <- getVariableName name
-      pure $ LocalReference objType' name'
+      if mode /= Nothing && not flag && objType =:= GPointer GAny
+        then do
+          label <- newLabel "CACACACA"
+          -- Make a reference to the variable that will be loaded (e.g. %a)
+
+          -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
+          addInstruction $ label := Load 
+            { volatile  = False
+            , address   = LocalReference objType' name'
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = [] }
+
+          -- The reference to where the variable value was loaded (e.g. %12)
+          pure $ LocalReference objType' label
+        else pure $ LocalReference objType' name'
 
     Index inner index -> do
-      ref <- objectRef inner
+      ref <- objectRef inner True
       label <- newLabel "idx"
       index <- expression index
       let
@@ -119,7 +132,7 @@ objectRef obj@(Object loc objType obj') = do
       return . LocalReference objType' $ label
 
     Deref inner -> do
-      ref        <- objectRef inner
+      ref        <- objectRef inner True
       labelLoad  <- newLabel "derefLoad"
       labelCast  <- newLabel "derefCast"
       labelNull  <- newLabel "derefNull"
@@ -128,42 +141,40 @@ objectRef obj@(Object loc objType obj') = do
       falseLabel <- newLabel "derefNullFalse"
       let
         Location (pos,_) = loc
-        load = Load { volatile  = False
-                    , address   = ref
-                    , maybeAtomicity = Nothing
-                    , alignment = 4
-                    , metadata  = []
-                    }
 
-        {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
-           In that case, abort the program giving the source line of the bad access instead of letting
-           the OS ends the process
-        -}
-        cast = PtrToInt { operand0 = LocalReference objType' labelLoad
-                        , type'    = intType
-                        , metadata = []
-                        }
-        null = PtrToInt { operand0 = ConstantOperand . C.Null $ ptr objType'
-                        , type'    = intType
-                        , metadata = []
-                        }
-        cond = ICmp { iPredicate = EQ
-                    , operand0   = LocalReference intType labelCast
-                    , operand1   = LocalReference intType labelNull
-                    , metadata   = []
-                    }
-        condBr = CondBr { condition = LocalReference boolType labelCond
-                        , trueDest  = trueLabel
-                        , falseDest = falseLabel
-                        , metadata' = []
-                        }
+      addInstruction $ labelLoad := Load 
+        { volatile  = False
+        , address   = ref
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
 
-      addInstructions $ Seq.fromList [ labelLoad := load
-                                     , labelCast := cast
-                                     , labelNull := null
-                                     , labelCond := cond]
+      {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
+         In that case, abort the program giving the source line of the bad access instead of letting
+         the OS ends the process
+      -}
+      addInstruction $ labelCast := PtrToInt 
+        { operand0 = LocalReference objType' labelLoad
+        , type'    = i64
+        , metadata = [] }
 
-      terminate' condBr
+      addInstruction $ labelNull := PtrToInt 
+        { operand0 = ConstantOperand . C.Null $ ptr objType'
+        , type'    = i64
+        , metadata = [] }
+
+      addInstruction $ labelCond := ICmp 
+        { iPredicate = EQ
+        , operand0   = LocalReference i64 labelCast
+        , operand1   = LocalReference i64 labelNull
+        , metadata   = [] }
+
+      terminate' $ CondBr 
+        { condition = LocalReference boolType labelCond
+        , trueDest  = trueLabel
+        , falseDest = falseLabel
+        , metadata' = [] }
+
 
       (trueLabel #)
       abort Abort.NullPointerAccess pos
@@ -174,7 +185,7 @@ objectRef obj@(Object loc objType obj') = do
 
 
     Member { inner, field } -> do
-      ref <- objectRef inner
+      ref <- objectRef inner True
       label <- newLabel $ "member" <> show field
       addInstruction $ label := GetElementPtr
           { inBounds = False
@@ -190,7 +201,7 @@ objectRef obj@(Object loc objType obj') = do
       getIndices (index':indices,ref) inner
 
     getIndices (indices,ref) obj = do
-      ref <- objectRef obj
+      ref <- objectRef obj False
       return (reverse indices, Just ref)
 
 
@@ -832,7 +843,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
               expression expr
             else do
               label <- newLabel "argCast"
-              ref   <- objectRef . theObj $ exp'
+              ref   <- objectRef (theObj exp') False
 
               type' <- ptr <$> toLLVMType type'
               addInstruction $ label := BitCast

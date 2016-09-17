@@ -680,6 +680,7 @@ procedureCall = do
   where
     hasDTType = getFirst . foldMap aux
     aux (Just Expression { expType = f } ) = First $ hasDT f
+    aux Nothing = First Nothing
 
     checkType = checkType' (Array.listArray (0,-1) [])
 

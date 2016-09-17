@@ -6,6 +6,7 @@ module LLVM.Type
   , intType
   , charType
   , pointerType
+  , ptrInt
   , voidType
   , boolType
   , stringType
@@ -36,31 +37,20 @@ import           Data.Word                  (Word32, Word64)
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST           (Definition (..))
 import           LLVM.General.AST.Name      (Name (..))
-import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
+import           LLVM.General.AST.Type      (double, i1, i64, i32, i8, ptr)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
 import           System.Info                (arch)
 --------------------------------------------------------------------------------
 
-floatType :: LLVM.Type
-floatType = double
-
-intType :: LLVM.Type
-intType = i32
-
-charType :: LLVM.Type
-charType = i8
-
-pointerType :: LLVM.Type
+floatType, intType, charType, pointerType, ptrInt, voidType, boolType :: LLVM.Type
+floatType   = double
+intType     = i32
+charType    = i8
 pointerType = i8
-
-voidType :: LLVM.Type
-voidType = LLVM.VoidType
-
-boolType :: LLVM.Type
-boolType   = i1
-
-stringType :: LLVM.Type
-stringType = ptr i8
+ptrInt      = if arch == "x86_64" then i8 else i32
+voidType    = LLVM.VoidType
+boolType    = i1
+stringType  = ptr i8
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type

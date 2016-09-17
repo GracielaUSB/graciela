@@ -19,6 +19,7 @@ module  AST.Type
   , fillType
   , isTypeVar
   , isDataType
+  , basic
   , hasDT
   ) where
 --------------------------------------------------------------------------------
@@ -135,6 +136,8 @@ hasDT t@(GFullDataType{}) = Just t
 hasDT (GArray _ t) = hasDT t
 hasDT (GPointer t) = hasDT t
 hasDT _ = Nothing
+
+basic = GOneOf [GBool, GChar, GInt, GFloat]
 
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool

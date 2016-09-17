@@ -544,7 +544,7 @@ call fName (Location (from,_)) = do
   where
     hasDTType = getFirst . foldMap aux 
     aux (Just (Expression { expType },_,_)) = First $ hasDT expType
-
+    aux Nothing = First Nothing
     checkType = checkType' (Array.listArray (0,-1) [])
 
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
@@ -988,13 +988,20 @@ dotField = do
         case exp' of
           (Obj obj) -> do
             case objType obj of
-              GDataType n _ _-> do
+              GDataType n _ typeArgs-> do
                 cstruct <- lift $ use currentStruct
                 case cstruct of
                   Just (GDataType name _ _, structFields, _)
                     | name == n ->
                       aux obj (objType obj) loc fieldName structFields taint
-                  _ -> error "internal error: GDataType without currentStruct."
+                  _ -> do 
+                    structs <- lift $ use dataTypes
+                    case n `Map.lookup` structs of 
+                      Just Struct { structFields } -> 
+                        let structFields' = fillTypes typeArgs structFields                  
+                        in aux obj (objType obj) loc fieldName structFields' taint
+                      _ -> error "internal error: GDataType without struct."
+                      
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
                 case n `Map.lookup` dts of
