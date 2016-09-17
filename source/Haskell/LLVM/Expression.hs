@@ -69,7 +69,8 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { mode } | mode == Just In -> objectRef obj False
+  Variable { mode } | mode == Just In  
+    || (mode /= Nothing && not (objType =:= basic)) -> objectRef obj False
     -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
@@ -100,21 +101,18 @@ objectRef obj@(Object loc objType obj') flag = do
 
     Variable { name , mode } -> do
       name' <- getVariableName name
-      if mode /= Nothing && not flag && objType =:= GPointer GAny
-        then do
-          label <- newLabel "loadRef"
-          -- Make a reference to the variable that will be loaded (e.g. %a)
-
-          -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
-          addInstruction $ label := Load 
-            { volatile  = False
-            , address   = LocalReference objType' name'
-            , maybeAtomicity = Nothing
-            , alignment = 4
-            , metadata  = [] }
-
-          -- The reference to where the variable value was loaded (e.g. %12)
-          pure $ LocalReference objType' label
+      if mode /= Nothing && not flag 
+        then case objType of 
+          GPointer t -> do 
+            label <- newLabel "loadRef"
+            addInstruction $ label := Load 
+              { volatile  = False
+              , address   = LocalReference objType' name'
+              , maybeAtomicity = Nothing
+              , alignment = 4
+              , metadata  = [] }
+            pure $ LocalReference objType' label
+          _ -> pure $ LocalReference objType' name'
         else pure $ LocalReference objType' name'
 
     Index inner index -> do

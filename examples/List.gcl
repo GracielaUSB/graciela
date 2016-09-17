@@ -45,6 +45,14 @@ program List.bin begin
          [] otherwise  -> atNode((*n).next, pos-1)
          fi        
       ]|
+
+    proc hola(in n : Node(T)*)
+      {pre  n != null  pre}
+      {post n != null post}
+
+      |[ if n == null   -> skip
+         fi        
+      ]|
   end
 
   abstract AList(T)

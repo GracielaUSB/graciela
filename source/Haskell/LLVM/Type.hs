@@ -47,7 +47,7 @@ floatType   = double
 intType     = i32
 charType    = i8
 pointerType = i8
-ptrInt      = if arch == "x86_64" then i8 else i32
+ptrInt      = if arch == "x86_64" then i64 else i32
 voidType    = LLVM.VoidType
 boolType    = i1
 stringType  = ptr i8
