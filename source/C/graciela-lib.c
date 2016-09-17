@@ -246,6 +246,8 @@ typedef enum
   { W_MANUAL
   , W_PRE
   , W_POST
+  , W_INVARIANT
+  , W_REPINVARIENT
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
@@ -257,6 +259,10 @@ void _warn (warning_t reason, int line, int column) {
       printf (":\n\tthe precondition was falsified.\n"); break;
     case W_POST:
       printf (":\n\tthe postcondition was falsified.\n"); break;
+    case W_INVARIANT:
+      printf (":\n\tthe invariant was falsified.\n"); break;
+    case W_REPINVARIENT:
+      printf (":\n\tthe representation invariant was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

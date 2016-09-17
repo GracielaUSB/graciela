@@ -34,13 +34,10 @@ begin
     {bound b bound}
     |[ if current == null -> skip
        [] current != null 
-         -> if (*current).left != null -> print((*current).left, b-1)
-            [] otherwise -> skip
-            fi
+         -> print((*current).left, b-1)
           ; writeln((*current).element)
-          ; if (*current).right != null -> print((*current).right, b-1) 
-            [] otherwise -> skip
-            fi
+          ; print((*current).right, b-1) 
+            
        fi
       
     ]|
@@ -67,13 +64,21 @@ begin
   {coupinv true coupinv}
 
   /* BinaryTree procedures */
-  proc insert (inout t : BinaryTreeO(T), in x : T)
+  proc hola (in x : int)
   
     {pre true pre}
     {post true post}
-    |[ if t.root == null -> new(t.root)
-                          ; (*t.root).element := x
+    |[
+      write("Soy un simpatico numero: ",x)
+    ]|
 
+  proc insert (inout t : BinaryTreeO(T), in x : T)
+  
+    {pre true pre}
+    {post elemNode(t.root, x, t.tam) post}
+    |[ if t.root == null 
+          -> new(t.root)
+           ; (*t.root).element := x
        [] otherwise 
           -> var aux := t.root : Node(T)*
            ; var i   := 0      : int
@@ -123,6 +128,7 @@ main
      
      ; printf(bt)
      ; writeln("Size: ",bt.tam)
+     ; hola(1)
     ]|
 
 end

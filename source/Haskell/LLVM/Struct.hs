@@ -18,7 +18,7 @@ import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                 (warn)
-import qualified LLVM.Warning                 as Warning (Warning (Pre))
+import qualified LLVM.Warning                 as Warning (Warning (Pre,Invariant, RepInvariant))
 import           Location
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
@@ -164,23 +164,43 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     openScope
     name' <- insertVar "self"
     -- Evaluate the condition expression
-    cond <- expression expr
+    condInv <- expression expr
     -- Create both label
     trueLabel  <- newLabel "condTrue"
     falseLabel <- newLabel "condFalse"
+
+    precondTrue  <- newLabel "precondTrue"
+    precondFalse <- newLabel "precondFalse"
     -- Create the conditional branch
     terminate' CondBr
-      { condition = cond
+      { condition = condInv
       , trueDest  = trueLabel
       , falseDest = falseLabel
       , metadata' = [] }
     -- Set the false label to the warning, then continue normally
     (falseLabel #)
 
+    terminate' CondBr
+      { condition = LocalReference boolType (Name "cond")
+      , trueDest  = precondTrue
+      , falseDest = precondFalse
+      , metadata' = [] }
+
+    (precondTrue #)
     case inv of
       Invariant    -> abort Abort.Invariant pos
       RepInvariant -> abort Abort.RepInvariant pos
 
+    (precondFalse #)
+
+    case inv of
+      Invariant    -> warn Warning.Invariant pos
+      RepInvariant -> warn Warning.RepInvariant pos
+
+    terminate' Br
+        { dest      = trueLabel
+        , metadata' = [] }
+        
     -- And the true label to the next instructions
     (trueLabel #)
 
@@ -190,10 +210,12 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     blocks' <- use blocks
     blocks .= Seq.empty
 
-    let selfParam = Parameter (ptr t) name' []
+    let 
+      selfParam    = Parameter (ptr t) name' []
+      precondParam = Parameter boolType (Name "cond") []
 
     addDefinition $ GlobalDefinition functionDefaults
           { name        = Name procName
-          , parameters  = ([selfParam],False)
+          , parameters  = ([selfParam, precondParam],False)
           , returnType  = voidType
           , basicBlocks = toList blocks' }

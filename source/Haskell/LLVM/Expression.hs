@@ -102,7 +102,7 @@ objectRef obj@(Object loc objType obj') flag = do
       name' <- getVariableName name
       if mode /= Nothing && not flag && objType =:= GPointer GAny
         then do
-          label <- newLabel "CACACACA"
+          label <- newLabel "loadRef"
           -- Make a reference to the variable that will be loaded (e.g. %a)
 
           -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
