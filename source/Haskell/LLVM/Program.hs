@@ -62,7 +62,7 @@ import           System.Process                          (callCommand,
 --------------------------------------------------------------------------------
 
 -- addFile :: String -> LLVM ()
--- addFile file = globalVariable (Name (convertFile file)) (ptr pointerType) (C.Null (ptr pointerType))
+
 
 programToLLVM :: [String]             -- ^ Files for read instructions
               -> Map Text (T.Type, a) -- ^ Declared types

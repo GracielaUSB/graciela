@@ -180,13 +180,16 @@ type'' isParam =  parenType
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (name, abstract, _, _, _) -> if name == id
-              then do
-                identifier
-                isPointer $ GDataType name abstract
-              else do
-                notFollowedBy identifier
-                return GUndef
+            Just (GDataType name abstract _, _, _) -> do
+              if name == id
+                then do
+                  identifier
+                  t <- parens $ type' `sepBy` match TokComma
+                  let typeargs = Array.listArray (0, length t - 1) (toList t)
+                  isPointer $ GDataType name abstract typeargs
+                else do
+                  notFollowedBy identifier
+                  return GUndef
             Nothing -> do
               notFollowedBy identifier
               return GUndef

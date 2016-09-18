@@ -74,7 +74,7 @@ data State = State
   , _filesToRead   :: Set String
   , _currentProc   :: Maybe CurrentProc
   , _currentFunc   :: Maybe CurrentFunc
-  , _currentStruct :: Maybe (Text, Maybe Text, Fields, TypeArgs, Map Text Definition)
+  , _currentStruct :: Maybe (Type, Fields, Map Text Definition)
   , _typesTable    :: Map Text (Type, Location)
   , _typeVars      :: [Text]
   , _dataTypes     :: Map Text Struct

@@ -32,6 +32,9 @@ data Definition'
     , procRecursive :: Bool }
   | AbstractProcedureDef
     { abstParams :: Seq (Text, Type, ArgMode) }
+  | AbstractFunctionDef
+    { abstFParams  :: Seq (Text, Type)
+    , funcRetType :: Type }
 
 data Definition
   = Definition
@@ -69,6 +72,14 @@ instance Treelike Definition where
       AbstractProcedureDef {abstParams} ->
         Node ("Abstarct Procedure " <> unpack defName <> " " <> show defLoc)
           [ Node "Parameters" (showPs abstParams)
+          , Node "Precondition" [toTree pre]
+          , Node "Postcondition" [toTree post]
+          ]
+
+      AbstractFunctionDef {abstFParams, funcRetType} ->
+        Node ("Abstarct Function " <> unpack defName <> " -> " <>
+               show funcRetType <> " " <> show defLoc)
+          [ Node "Parameters" (showFPs abstFParams)
           , Node "Precondition" [toTree pre]
           , Node "Postcondition" [toTree post]
           ]

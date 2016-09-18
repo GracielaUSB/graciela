@@ -6,6 +6,7 @@ module LLVM.Type
   , intType
   , charType
   , pointerType
+  , ptrInt
   , voidType
   , boolType
   , stringType
@@ -18,7 +19,8 @@ where
 import           AST.Expression             (Expression)
 import qualified AST.Expression             as T (Type)
 import           AST.Struct                 (Struct (..))
-import           AST.Type                   as T (Type' (..), fillType)
+import           AST.Type                   as T (Type' (..), fillType,
+                                                  isTypeVar)
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
                                              moduleDefs, pendingDataTypes,
@@ -38,31 +40,20 @@ import           Data.Word                  (Word32, Word64)
 import           LLVM.General.AST           (Definition (..))
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST.Name      (Name (..))
-import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
+import           LLVM.General.AST.Type      (double, i1, i32, i64, i8, ptr)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
 import           System.Info                (arch)
 --------------------------------------------------------------------------------
 
-floatType :: LLVM.Type
-floatType = double
-
-intType :: LLVM.Type
-intType = i32
-
-charType :: LLVM.Type
-charType = i8
-
-pointerType :: LLVM.Type
+floatType, intType, charType, pointerType, ptrInt, voidType, boolType :: LLVM.Type
+floatType   = double
+intType     = i32
+charType    = i8
 pointerType = i8
-
-voidType :: LLVM.Type
-voidType = LLVM.VoidType
-
-boolType :: LLVM.Type
-boolType   = i1
-
-stringType :: LLVM.Type
-stringType = ptr i8
+ptrInt      = if arch == "x86_64" then i64 else i32
+voidType    = LLVM.VoidType
+boolType    = i1
+stringType  = ptr i8
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
@@ -124,12 +115,16 @@ toLLVMType (GFullDataType n t) = do
       ltypes <- mapM toLLVMType t'
       moduleDefs %= (|> TypeDefinition (Name . llvmName n . toList $ ltypes) type')
 
-toLLVMType (GDataType name _) = do
+toLLVMType t@(GDataType name _ typeArgs) = do
   maybeStruct <- use currentStruct
   case maybeStruct of
-    Nothing -> error "Esto no deberia ocurrir :D"
+    Nothing | isTypeVar t -> error $ show t <> "   Esto no deberia ocurrir :D"
     Just struct -> do
       types <- mapM toLLVMType (structTypes struct)
+      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
+
+    _ -> do
+      types <- mapM toLLVMType typeArgs
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
 toLLVMType (GTypeVar i _) = do
@@ -169,7 +164,7 @@ sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
-sizeOf (T.GDataType name _) = do
+sizeOf (T.GDataType name _ _) = do
   typeargs <- head <$> use substitutionTable
   getStructSize name  typeargs
 sizeOf t@(GTypeVar _ _) = do

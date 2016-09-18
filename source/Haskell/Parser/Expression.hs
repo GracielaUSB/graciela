@@ -14,7 +14,8 @@ import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
-import           AST.Type                  (ArgMode (..), Type' (..), (=:=))
+import           AST.Type                  (ArgMode (..), Type' (..), fillType,
+                                            hasDT, (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
@@ -34,10 +35,11 @@ import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
+import qualified Data.Array                as Array (listArray)
 import           Data.Functor              (($>))
 import qualified Data.Map.Strict           as Map (insert, lookup, size)
-import           Data.Maybe                (catMaybes)
-import           Data.Monoid               ((<>))
+import           Data.Maybe                (catMaybes, fromJust)
+import           Data.Monoid               (First (..), (<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton, zip)
 import           Data.Text                 (Text, pack, unpack)
@@ -201,7 +203,7 @@ variable name (Location (from, to)) = do
   maybeStruct <- lift (use currentStruct)
 
   abstractSt <- case maybeStruct of
-    Just (_, Just abstName, _, _, _) -> do
+    Just (GDataType _ (Just abstName) _, _, _) -> do
       adt <- getStruct abstName
       case adt of
         Just abst -> do
@@ -258,7 +260,7 @@ variable name (Location (from, to)) = do
         struct <- lift $ use currentStruct
         let
           expr = case struct of
-            Just (structName', abstract, mapTypes, _, _) ->
+            Just (GDataType structName' abstract t, mapTypes, _) ->
               case name `Map.lookup` mapTypes of
                 Just (i, _, _) -> Expression
                   { loc
@@ -273,7 +275,7 @@ variable name (Location (from, to)) = do
                         , fieldName = name
                         , inner = Object
                           { loc
-                          , objType = GDataType structName' abstract
+                          , objType = GDataType structName' abstract t
                           , obj' = Variable
                             { O.name = pack "self"
                             , mode = Nothing }}}}}}
@@ -329,7 +331,6 @@ variable name (Location (from, to)) = do
 
 call :: Text -> Location -> ParserExp (Maybe MetaExpr)
 call fName (Location (from,_)) = do
-
   args <- between (match TokLeftPar) (match' TokRightPar) $
     metaexpr `sepBy` match TokComma
 
@@ -360,7 +361,8 @@ call fName (Location (from,_)) = do
                     { fName
                     , fArgs
                     , fRecursiveCall = False
-                    , fRecursiveFunc = funcRecursive }}
+                    , fRecursiveFunc = funcRecursive
+                    , fStructArgs = Nothing }}
               in Just (expr, ProtoNothing, taint)
 
         else do
@@ -378,6 +380,106 @@ call fName (Location (from,_)) = do
       pure Nothing
 
     Nothing -> do
+      let
+        nArgs = length args
+        f = case hasDTType args of
+
+          Nothing -> do
+            let
+              args' = sequence args
+            case args' of
+              Nothing -> do
+                putError from . UnknownError $ "Calling function `" <>
+                  unpack fName <>"` with bad arguments"
+                pure Nothing
+              Just args'' -> do
+                putError from . UndefinedFunction fName $ (\(e,_,_) -> e) <$> args''
+                pure Nothing
+
+          Just (GFullDataType name typeArgs') -> do
+            lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
+              Nothing -> error "internal error: impossible call to struct function"
+              Just Struct { structProcs } -> do
+                case fName `Map.lookup` structProcs of
+                  Just Definition{ def'=FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
+                    cs <- lift $ use currentStruct
+                    let
+                      nParams = length funcParams
+                      typeArgs = case cs of
+                          Nothing -> typeArgs'
+                          Just (GDataType _ _ dtArgs,_,_) ->
+                            fmap (fillType dtArgs) typeArgs'
+
+                    when (nArgs /= nParams) . putError from . UnknownError $
+                      "Calling function `" <> unpack fName <> "` with a bad number of arguments."
+
+                    args' <- foldM (checkType' typeArgs fName from)
+                        (Just (Seq.empty, Taint False, True))
+                        (Seq.zip args funcParams )
+                    pure $ case args' of
+                      Nothing -> Nothing
+                      Just (fArgs, taint, const') -> do
+                        let
+                          expr = Expression
+                            { E.loc
+                            , expType = fillType typeArgs' funcRetType
+                            , expConst = const'
+                            , exp' = FunctionCall
+                              { fName
+                              , fArgs
+                              , fRecursiveCall = False
+                              , fRecursiveFunc = funcRecursive
+                              , fStructArgs    = Just (name, typeArgs) }}
+
+                        Just (expr, ProtoNothing, taint)
+
+                  _ -> do
+                    putError from . UnknownError $
+                      "Data Type `" <> unpack name <>
+                      "` does not have a function called `" <>
+                      unpack fName <> "`"
+                    return Nothing
+
+          Just t@(GDataType name _ _) -> do
+            Just (GDataType {typeArgs}, _, structProcs) <- lift $ use currentStruct
+            case fName `Map.lookup` structProcs of
+              Just Definition {def' =
+                FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
+                let
+                  nParams = length funcParams
+
+                when (nParams /= nArgs) . putError from . UnknownError $
+                    "Calling procedure `" <> unpack fName <>
+                    "` with a bad number of arguments."
+
+                args' <- foldM (checkType' typeArgs fName from)
+                  (Just (Seq.empty, Taint False, True))
+                  (Seq.zip args funcParams )
+
+                pure $ case args' of
+                  Nothing -> Nothing
+                  Just (fArgs, taint, const') -> do
+                    let
+                      expr = Expression
+                        { E.loc
+                        , expType = funcRetType
+                        , expConst = const'
+                        , exp' = FunctionCall
+                          { fName
+                          , fArgs
+                          , fRecursiveCall = False
+                          , fRecursiveFunc = funcRecursive
+                          , fStructArgs    = Just (name, typeArgs)}}
+
+                    Just (expr, ProtoNothing, taint)
+
+              Nothing -> do
+                putError from . UnknownError $
+                  "Data Type `" <> unpack name <>
+                  "` does not have a procedure called `" <>
+                  unpack fName <> "`"
+                return Nothing
+
       -- If the function is not defined, it's possible that we're
       -- dealing with a recursive call. The information of a function
       -- that is being defined is stored temporarily at the
@@ -398,6 +500,16 @@ call fName (Location (from,_)) = do
 
                 lift $ (currentFunc . _Just . crRecursive) .= True
 
+                fStructArgs <- do
+                  cs'      <- lift $ use currentStruct
+                  typeArgs <- lift $ use typeVars
+                  case cs' of
+                    Nothing -> pure Nothing
+                    Just (GDataType name _ _, _, _) -> pure . Just $
+                      ( name
+                      , Array.listArray (0, length typeArgs - 1) $
+                        zipWith GTypeVar [0..] typeArgs)
+
                 pure $ case args' of
                   Nothing -> Nothing
                   Just (fArgs, taint, const') ->
@@ -410,7 +522,8 @@ call fName (Location (from,_)) = do
                           { fName
                           , fArgs
                           , fRecursiveCall = True
-                          , fRecursiveFunc = True }}
+                          , fRecursiveFunc = True
+                          , fStructArgs }}
                     in Just (expr, ProtoNothing, taint)
               else do
                 putError from BadFuncNumberOfArgs
@@ -424,17 +537,30 @@ call fName (Location (from,_)) = do
               "Function `" <> unpack fName <> "` cannot call itself \
               \recursively because no bound was given for it."
             pure Nothing
-        _ -> do
-          putError from $ UndefinedFunction fName
-          pure Nothing
+          | otherwise -> f
+
+        Nothing -> f
 
   where
-    checkType _ _ _ (Nothing, _) = pure Nothing
-    checkType fName fPos acc
-      (Just (e@Expression { E.loc, expType, expConst, exp' }, _, taint), (name, pType)) = do
-        let Location (from, _) = loc
-        if pType =:= expType
-          then pure $ add e taint expConst <$> acc
+    hasDTType = getFirst . foldMap aux
+    aux (Just (Expression { expType },_,_)) = First $ hasDT expType
+    aux Nothing = First Nothing
+    checkType = checkType' (Array.listArray (0,-1) [])
+
+    checkType' _ _ _ _ (Nothing, _) = pure Nothing
+    checkType' typeArgs fName fPos acc
+      (Just (e@Expression { E.loc, expType,expConst, exp' }, _, taint), (name, pType)) = do
+        let
+          Location (from, _) = loc
+          pType' = fillType typeArgs pType
+        if  pType' =:= expType
+          then do
+            let
+              type' = case expType of
+                GPointer GAny -> pType'
+                _             -> expType
+
+            pure $ add e{expType = type'} taint expConst <$> acc
           else do
             putError from $
               BadFunctionArgumentType name fName fPos pType expType
@@ -887,13 +1013,20 @@ dotField = do
         case exp' of
           (Obj obj) -> do
             case objType obj of
-              GDataType n _-> do
+              GDataType n _ typeArgs-> do
                 cstruct <- lift $ use currentStruct
                 case cstruct of
-                  Just (name, _, structFields, _, _)
+                  Just (GDataType name _ _, structFields, _)
                     | name == n ->
                       aux obj (objType obj) loc fieldName structFields taint
-                  _ -> error "internal error: GDataType without currentStruct."
+                  _ -> do
+                    structs <- lift $ use dataTypes
+                    case n `Map.lookup` structs of
+                      Just Struct { structFields } ->
+                        let structFields' = fillTypes typeArgs structFields
+                        in aux obj (objType obj) loc fieldName structFields' taint
+                      _ -> error "internal error: GDataType without struct."
+
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
                 case n `Map.lookup` dts of

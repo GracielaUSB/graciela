@@ -53,7 +53,6 @@ int main() {
     freeGarbage();
     freeTrashCollector();
     
-    calloc(<#size_t#>, <#size_t#>)
     
     return 0;
 }

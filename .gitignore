@@ -17,8 +17,12 @@ cabal.config
 *.swp
 *.DS_Store
 *.bin
+<<<<<<< Updated upstream
 *.aux
 *.log
 *.nav
 *.toc
 *.snm
+=======
+*.dSYM
+>>>>>>> Stashed changes

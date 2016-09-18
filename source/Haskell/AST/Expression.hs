@@ -198,7 +198,8 @@ data Expression'
     { fName          :: Text
     , fArgs          :: Seq Expression
     , fRecursiveCall :: Bool
-    , fRecursiveFunc :: Bool }
+    , fRecursiveFunc :: Bool
+    , fStructArgs    :: Maybe (Text, TypeArgs) }
 
   | Conversion
     { toType :: Conversion
@@ -238,7 +239,7 @@ eSkip = Value . BoolV  $ True
 
 instance Treelike Expression where
   toTree Expression { loc, expType, exp' } = case exp' of
-    NullPtr -> leaf "Null Pointer"
+    NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
     Value { theValue } -> leaf $
       case theValue of
         BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
@@ -256,7 +257,7 @@ instance Treelike Expression where
       "Multiset Literal `Empty Multiset` " <> show loc
 
     Obj { theObj } ->
-      Node ("Object " <> show loc)
+      Node ("Object " <> show expType <> " " <> show loc)
         [ toTree theObj ]
 
     Binary { binOp, lexpr, rexpr } ->

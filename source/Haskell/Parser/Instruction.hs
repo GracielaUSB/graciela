@@ -31,7 +31,7 @@ import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Type' (..), fillType,
-                                         isTypeVar, (=:=))
+                                         hasDT, isTypeVar, (=:=))
 import           Entry
 import           Error
 import           Location
@@ -70,11 +70,11 @@ import           Debug.Trace
 
 instruction :: Parser (Maybe Instruction)
 instruction
-   =  try procedureCall
+   =  conditional
+  <|> try procedureCall
   <|> try assign
   <|> abort
   <|> warn
-  <|> conditional
   <|> free
   <|> new
   <|> random
@@ -183,17 +183,20 @@ assign = do
               -> Parser (Maybe (Seq (Object, Expression)))
     checkType _   (Nothing, _) = pure Nothing
     checkType _   (_, Nothing) = pure Nothing
-    checkType acc (Just l, Just r) = case (l,r) of
-      (Expression { loc = Location (from1,_), expType = t1, exp' = Obj o}, Expression { expType = t2 })
+    checkType acc (Just lval, Just rval) = case (lval,rval) of
+      ( Expression { loc = Location (from1,_), expType = t1, exp' = Obj o},
+        Expression { expType = t2, exp' = expr } )
         | notIn o ->
           if (t1 =:= t2) && (isTypeVar t1 ||
             (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
-            then pure $ (|> (o, r)) <$> acc
+            then case expr of
+              NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
+              _       -> pure $ (|> (o, rval)) <$> acc
             else do
               putError from1 . UnknownError $
-                "Can't assign an expression of type `" <>
-                show t2 <> "` to a variable of type `" <>
-                show t1 <> "`."
+                "Can't assign an expression of type " <>
+                show t2 <> " to a variable of type " <>
+                show t1 <> "."
               pure Nothing
         | otherwise -> do
           putError from1 . UnknownError $
@@ -268,15 +271,14 @@ write = do
     _ -> Nothing
 
   where
-    write' acc   Nothing = pure Nothing
+    write' _   Nothing = pure Nothing
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
       | expType =:= writable || isTypeVar expType = do
-
           pure $ (|> e) <$> acc
       | otherwise = do
         putError from . UnknownError $
           "Cannot write expression of type " <> show expType <> "."
-        pure acc
+        pure Nothing
 
     writable = GOneOf [GBool, GChar, GInt, GFloat, GString ]
 
@@ -406,7 +408,6 @@ guard = do
   match TokArrow
 
   symbolTable %= openScope from
-
   decls   <- declarationBlock
   actions <- many . assertedInst $ oneOf [TokFi, TokOd, TokSepGuards]
 
@@ -535,7 +536,7 @@ procedureCall = do
       -- In that case, maybe its a Data Type procedure.
       -- There are two cases: 1) It's being called outside a Data Type.
       --                         Just look the first arguments that is a `GFullDataType`
-      --                      2) It's being called inside another procedure inside the same Data Type
+      --                      2) It's being called in another procedure inside the same Data Type
       --                         Just look the first arguments that is a `GDataType`
       let
         f = case hasDTType args of
@@ -556,14 +557,14 @@ procedureCall = do
                 "internal error: impossible call to struct procedure"
               Just Struct { structProcs } -> do
                 case procName `Map.lookup` structProcs of
-                  Just procAst -> do
+                  Just Definition { def' = ProcedureDef { procParams }} -> do
                     cs <- use currentStruct
                     let
-                      ProcedureDef { procParams } = def' procAst
                       nParams = length procParams
                       typeArgs = case cs of
                           Nothing -> typeArgs'
-                          Just (_,_,_,t,_) -> fmap (fillType t) typeArgs'
+                          Just (GDataType _ _ dtArgs,_,_) ->
+                            fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
                       "Calling procedure `" <> unpack procName <> "` with a bad number of arguments."
@@ -581,20 +582,18 @@ procedureCall = do
                           , pRecursiveProc = False
                           , pStructArgs    = Just (name, typeArgs) } }
 
-                  Nothing -> do
+                  _ -> do
                     putError from . UnknownError $
                       "Data Type `" <> unpack name <>
                       "` does not have a procedure called `" <>
                       unpack procName <> "`"
                     return Nothing
 
-          Just t@(GDataType name _) -> do
-            Just (_,_,_,typeArgs,structProcs) <- use currentStruct
+          Just t@(GDataType name _ _) -> do
+            Just (GDataType {typeArgs}, _, structProcs) <- use currentStruct
             case procName `Map.lookup` structProcs of
-              Just procAst -> do
-                Just (_,_,_,typeArgs,_) <- use currentStruct
+              Just Definition { def' = ProcedureDef { procParams }} -> do
                 let
-                  ProcedureDef { procParams } = def' procAst
                   nParams = length procParams
 
                 when (nArgs /= nParams) . putError from . UnknownError $
@@ -642,7 +641,7 @@ procedureCall = do
                   typeArgs <- use typeVars
                   case cs' of
                     Nothing -> pure Nothing
-                    Just (name, _, _, _, _) -> pure . Just $
+                    Just (GDataType name _ _, _, _) -> pure . Just $
                       ( name
                       , Array.listArray (0, length typeArgs - 1) $
                         zipWith GTypeVar [0..] typeArgs)
@@ -680,9 +679,8 @@ procedureCall = do
 
   where
     hasDTType = getFirst . foldMap aux
-    aux (Just Expression { expType = f@GFullDataType {} } ) = First $ Just f
-    aux (Just Expression { expType = f@GDataType {} } ) = First $ Just f
-    aux _ = First Nothing
+    aux (Just Expression { expType = f } ) = First $ hasDT f
+    aux Nothing = First Nothing
 
     checkType = checkType' (Array.listArray (0,-1) [])
 

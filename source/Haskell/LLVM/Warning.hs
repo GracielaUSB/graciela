@@ -19,6 +19,8 @@ data Warning
   = Manual      -- ^ A `warn` instruction was manually called.
   | Pre         -- ^ A precondition failed.
   | Post        -- ^ A postcondition failed after its precondition failed as well.
+  | Invariant
+  | RepInvariant
   -- | Forall      -- ^ A universal quantifier returned false.
   -- | Existential -- ^ An existential quantifier returned false.
   deriving (Eq, Ord, Show, Enum)

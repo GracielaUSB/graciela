@@ -1,6 +1,7 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
 
 module LLVM.Definition where
@@ -235,7 +236,16 @@ definition
         { returnOperand = Just returnOperand
         , metadata' = [] }
 
-      let name = Name $ unpack defName
+
+
+      postFix <- do
+        cs <- use currentStruct
+        case cs of
+          Nothing -> pure ""
+          Just Struct { structBaseName, structTypes } ->
+            llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+
+      let name = Name $ unpack defName <> postFix
       blocks' <- use blocks
       blocks .= Seq.empty
 
@@ -283,11 +293,15 @@ definition
 
           postFix <- llvmName (pack "-" <> structBaseName) <$> mapM toLLVMType structTypes
 
-          mapM_ (callInvariant ("inv" <> postFix)) dts
-          mapM_ (callInvariant ("repInv" <> postFix)) dts
+          cond <- precondition pre
 
-          precondition pre
+          mapM_ (callInvariant ("inv" <> postFix) cond) dts
+          mapM_ (callInvariant ("repInv" <> postFix) cond) dts
+
           instruction procBody
+
+          mapM_ (callInvariant ("inv" <> postFix) cond) dts
+          mapM_ (callInvariant ("repInv" <> postFix) cond) dts
           postcondition post
 
           blocks' <- use blocks
@@ -353,7 +367,7 @@ definition
           pure $ n + 1
     arrAux _ = pure ()
 
-    callInvariant funName (name, t, _) = do
+    callInvariant funName cond (name, t, _) = do
 
       type' <- toLLVMType t
       name' <- getVariableName name
@@ -363,12 +377,12 @@ definition
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType funName
-        , arguments          = [(LocalReference type' name',[])]
+        , arguments          = [(LocalReference type' name',[]), (cond,[])]
         , functionAttributes = []
         , metadata           = [] }
 
-    getDTs (name, t, _) = case t of
-      T.GDataType _ _ -> True
+    getDTs (_, t, _) = case t of
+      T.GDataType {} -> True
       _ -> False
 
 
@@ -376,7 +390,7 @@ declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
 declarationsOrRead (Left decl)   = declaration decl
 declarationsOrRead (Right read') = instruction read'
 
-precondition :: Expression -> LLVM ()
+precondition :: Expression -> LLVM Operand
 precondition expr@ Expression {loc = Location (pos,_) } = do
     -- Evaluate the condition expression
     cond <- expression expr
@@ -398,6 +412,8 @@ precondition expr@ Expression {loc = Location (pos,_) } = do
 
     -- And the true label to the next instructions
     (trueLabel #)
+
+    pure cond
 
 postcondition :: Expression -> LLVM ()
 postcondition expr@ Expression {loc = Location(pos,_)} = do

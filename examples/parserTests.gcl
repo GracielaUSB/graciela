@@ -15,7 +15,7 @@ begin
 	 
 end
 
-type Dicc implements Diccionario (int)
+type Dicc (a) implements Diccionario (a)
 begin	
 	// Dicc variables
 	var M : int;

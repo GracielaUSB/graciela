@@ -18,7 +18,7 @@ module Parser.Declaration
 -------------------------------------------------------------------------------
 import           AST.Declaration           (Declaration (..))
 import           AST.Expression            (Expression (..),
-                                            Expression' (Value), Type)
+                                            Expression' (NullPtr, Value), Type)
 import           AST.Struct                (Struct (..))
 import           AST.Type
 import           Entry                     as E
@@ -107,7 +107,6 @@ declaration' allowedTypes isStruct = do
           , declIds  = fst <$> ids }
 
       Just Nothing  -> do
-        error "Hola"
         pure Nothing
         -- Values were either mandatory or optional, and were given, but
         -- had errors. No more errors are given.
@@ -159,6 +158,10 @@ checkType True t _ pairs
       else case exp' of
         Value v -> do
           let
+            expr' = case exp' of
+              NullPtr {} -> expr{expType = t}
+              _ -> expr
+
             entry = Entry
               { _entryName  = identifier
               , _loc        = location
@@ -166,7 +169,7 @@ checkType True t _ pairs
                 { _constType  = t
                 , _constValue = v }}
           symbolTable %= insertSymbol identifier entry
-          pure $ pairs |> (identifier, expr)
+          pure $ pairs |> (identifier, expr')
         _       -> do
           putError from . UnknownError $
             "Trying to assign a non constant expression to the \
@@ -194,14 +197,17 @@ checkType False t isStruct pairs
             info = if isStruct
               then SelfVar t
               else Var t
+            expr' = case exp' of
+              NullPtr {} -> expr{expType = t}
+              _ -> expr
 
             entry = Entry
               { _entryName  = identifier
               , _loc        = location
-              , _info       = info (Just expr) }
+              , _info       = info (Just expr') }
 
           symbolTable %= insertSymbol identifier entry
-          pure $ pairs |> (identifier, expr)
+          pure $ pairs |> (identifier, expr')
 
     else do
       putError from . UnknownError $
@@ -223,7 +229,7 @@ redefinition (id, Location (from, _)) = do
     else do
       maybeStruct <- use currentStruct
       case maybeStruct of
-        Just (_, Just abstName, _, _, _) -> do
+        Just (GDataType _ (Just abstName) _, _, _) -> do
           adt <- getStruct abstName
           case adt of
             Just abst -> do

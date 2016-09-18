@@ -8,17 +8,17 @@ program Hola.bin begin
 
     {inv 1 > 0 inv}
 
-    proc crear (out d : Diccionario)
+    proc crear (out d : Diccionario(t0,t1))
       {pre  true  pre}
       {post true post}
 
 
-    proc agregar (out d : Diccionario, in clave : t0, in valor : t1)
+    proc agregar (out d : Diccionario(t0,t1), in clave : t0, in valor : t1)
       {pre  true pre}
       {post true post}
   end
 
-  type Dicc (Clave,Valor) implements Diccionario (Clave,Valor) begin
+  type Dicc(Clave,Valor) implements Diccionario (Clave,Valor) begin
     var   tam    : int;
     var   clave  : array [MAX] of Clave;
     var   valor  : array [MAX] of Valor;
@@ -27,7 +27,7 @@ program Hola.bin begin
 
     {coupinv false coupinv}
     
-    proc crear (out d : Dicc)
+    proc crear (out d : Dicc(Clave,Valor))
       {pre true pre}
       {post d.tam == 0 post}
       ⟦ 
@@ -35,7 +35,7 @@ program Hola.bin begin
       ⟧
       
 
-    proc agregar (out d : Dicc, in clave: Clave, in valor : Valor)
+    proc agregar (out d : Dicc(Clave,Valor), in clave: Clave, in valor : Valor)
       var tam' := d.tam : int;
 
       {pre  d.tam < d.MAX pre}
@@ -46,7 +46,7 @@ program Hola.bin begin
         // Caso que falla en el assign d.clave[i] := d.tam
       ⟧
 
-    proc mostrar (in d : Dicc)
+    proc mostrar (in d : Dicc(Clave,Valor))
     
       {pre true pre}
       {post true post}
@@ -57,6 +57,23 @@ program Hola.bin begin
                       ; i := i + 1        
         od
       ⟧    
+
+    proc pertenece (in d : Dicc(Clave,Valor), in c : Clave, out b : boolean)
+    
+      {pre true pre}
+      {post true post}
+      |[ 
+        var i := 0 : int
+      ; {inv true inv}
+        {bound d.tam - i bound}
+        do i < d.tam  ->
+          if d.clave[i] == c -> b := true ; write("Existe")
+          [] otherwise -> skip
+          fi;
+          i := i + 1
+        od
+      ]|
+    
   end
 
 
@@ -87,12 +104,9 @@ program Hola.bin begin
 
       {pre num ≥ 0 pre}
       {post true post}
-      ⟦
-          var i,j,k := 1,2,3 : int;
-          write("El resultado es: ");
-          { i > 1 }
-          writeln(1)
-          { i > 100}
+      ⟦ var i,j,k := 1,2,3 : int
+      ; write("El resultado es: ")
+      ; { i > 1 } writeln(1) { i > 100}
       ⟧
       
 
@@ -141,8 +155,9 @@ program Hola.bin begin
     
   
   main
-  ⟦ var d : Dicc (int,int)
-  ; var d1 : (Dicc (int,int))*
+  ⟦ var d  : Dicc(int,int)
+  ; var d1 : Dicc(int,int)*
+  ; var b  : boolean
   ; new(d1)
   ; crear(*d1)
   ; writeln((*d1).tam)
@@ -151,7 +166,8 @@ program Hola.bin begin
   ; agregar(*d1, 3, 100)
   ; mostrar(*d1)
   ; writeln((*d1).tam)
-
+  ; pertenece(*d1, 3, b)
+  ; pertenece(*d1, 4, b)
   ; free(d1)
   ⟧
   

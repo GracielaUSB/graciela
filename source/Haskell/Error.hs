@@ -21,6 +21,8 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
 
+import Debug.Trace
+
 -- data MyParseError
 --   = CustomError -- Mientras no mejoremos los errores jajaja
 --     { msg    :: String
@@ -75,6 +77,13 @@ data Error
     { aExpr :: Expression
     , aType :: Type
     }
+  | BadNumberOfTypeArgs 
+    { dtName    :: Text
+    , dtTypes   :: [Type]
+    , absName   :: Text
+    , abstypes  :: [Type]
+    , len       :: Int
+    , lenNeeded :: Int }
   | EmptyBlock
 
   | NoDoInvariant
@@ -104,6 +113,7 @@ data Error
     }
   | UndefinedFunction
     { fName :: Text
+    , fArgs :: Seq Expression
     }
   | UndefinedProcedure
     { pName :: Text
@@ -125,7 +135,8 @@ data Error
 
 instance ErrorComponent Error where
   representFail :: String -> Error
-  representFail =  UnknownError
+  representFail e = 
+    traceShow (showErrorComponent $ UnknownError e) (UnknownError e)
 
   {- Unused, just to remove the class warning-}
   representIndentation _ _ _ = UnknownError ""
@@ -172,6 +183,20 @@ instance ShowErrorComponent Error where
       "\n\tbut only variables of type "<> show GChar <>", "<> show GFloat <>
       " or " <> show GInt <>" can be read."
 
+    BadNumberOfTypeArgs { dtName, dtTypes , absName, abstypes, len, lenNeeded } -> 
+      let 
+        t a b = if a == 0
+                  then "no type"
+                else show (length b) <> if a > 1 
+                    then " type (" <> intercalate "," (fmap show b) <> ")"
+                  else " types (" <> intercalate "," (fmap show b) <> ")"
+
+      in "Type `" <> unpack dtName <> "` is implementing `" <>
+          unpack absName <> "` with " <> t len dtTypes <> 
+          "\n\tbut expected " <> t lenNeeded abstypes
+                
+        
+
     EmptyBlock ->
       "Instruction blocks must contain at least one instruccion"
 
@@ -202,9 +227,10 @@ instance ShowErrorComponent Error where
 
     NotInScope { sName } ->
       "Not in the scope: `" <> unpack sName <> "`"
-
-    UndefinedFunction { fName } ->
-      "Undefined function named `" <> unpack fName <> "`."
+      
+    UndefinedFunction { fName, fArgs } ->
+      "Undefined function `" <> unpack fName <> "(" <>
+      intercalate "," (fmap (show . expType) (toList fArgs)) <> ")`."
 
     UndefinedProcedure { pName, pArgs } ->
       "Undefined procedure `" <> unpack pName <> "(" <>

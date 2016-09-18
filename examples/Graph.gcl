@@ -1,0 +1,156 @@
+program Graph.bin begin
+
+abstract ANode(T)
+begin
+  /* ANode variables */
+
+  {inv true inv}
+  /* ANode procedures */
+end
+abstract AGraph(T)
+begin
+  /* AList variables */ 
+  {inv true inv}
+  /* AList procedures */
+end
+
+type Node(T) implements ANode(T)
+begin
+  /* Node variables */
+  var tam, id := 0, 0 : int;
+  var next := null : Node(T)*;
+  var value        : T;
+
+  
+  {repinv true repinv}
+
+  {coupinv true coupinv}
+  proc create (inout n : Node(T), in value : T, in id : int)
+    {pre true pre}
+    {post true post}
+    |[ n.value := value
+     ; n.id    := id
+     ; n.next  := null
+     ; n.tam   := 0
+    ]|
+
+  proc insert (inout  n : Node(T)*, in newNode : Node(T)*)
+    {pre true pre}
+    {post true post}
+    |[ var aux := (*n).next : Node(T)*
+     ; var i := 0 : int
+     ; skip
+     ; if aux == null -> (*n).next, (*n).tam := newNode, (*n).tam + 1
+       [] otherwise 
+        -> {inv true inv}
+           {bound (*n).tam - i bound}
+           do (*aux).next != null /\ i < (*n).tam 
+             -> if (*(*aux).next).id == (*newNode).id 
+                  -> writeln("Repeted node: ", (*newNode).id)
+                   ; i := (*n).tam
+                [] otherwise -> aux, i := (*aux).next, i + 1
+                fi
+           [] (*aux).next != null /\ i < (*n).tam 
+             -> (*aux).next, (*n).tam := newNode, (*n).tam + 1
+           od
+       fi
+      
+    ]|
+
+  proc path(inout n : Node(T)*, in x : int, out b : boolean, in bo : int)
+    {pre true pre}
+    {post true post}
+    {bound bo bound}
+    |[ if n == null -> skip
+       [] (*n).id == x -> b := true
+       [] otherwise ->  var i   := 0         : int
+                      ; var aux := (*n).next : Node(T)*
+                      ; {inv true inv}
+                        {bound (*n).tam - i bound}
+                        do i < (*n).tam 
+                          -> path(aux,x,b, bo - 1)
+                           ; if b -> i := (*n).tam 
+                             [] otherwise -> i := i + 1
+                             fi
+                        od
+       fi
+     ; if b -> writeln((*n).id) fi
+    ]|
+  /* Node procedures */
+end
+
+
+proc test (in x : int*, inout y : int*, out z : int*)
+
+  {pre true pre}
+  {post true post}
+  |[ if x == null -> writeln("correcto") [] x != null -> writeln("MAL") fi
+   ; if y == null -> writeln("correcto") [] y != null -> writeln("MAL") fi
+   ; if z == null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+
+  ]|
+
+proc test2 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
+  {pre true pre}
+  {post true post}
+  |[ if x == null -> writeln("correcto") [] x != null -> writeln("MAL") fi
+   ; if y == null -> writeln("correcto") [] y != null -> writeln("MAL") fi
+   ; if z == null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+
+  ]|
+
+proc test3 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
+  {pre true pre}
+  {post true post}
+  |[ if x != null -> writeln("correcto") [] x == null -> writeln("MAL") fi
+   ; if y != null -> writeln("correcto") [] y == null -> writeln("MAL") fi
+   ; if z != null -> writeln("correcto") [] z == null -> writeln("MAL") fi
+  ]|
+
+proc test4 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
+  {pre true pre}
+  {post true post}
+  |[ if (*x).next != null -> writeln("correcto") [] x != null -> writeln("MAL") fi
+   ; if (*y).next != null -> writeln("correcto") [] y != null -> writeln("MAL") fi
+   ; if (*z).next != null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+   ; if (*x).id > -1 -> writeln((*x).id, "√") [] x == null -> writeln("MAL") fi
+   ; if (*y).id > -1 -> writeln((*y).id, "√") [] y == null -> writeln("MAL") fi
+   ; if (*z).id > -1 -> writeln((*z).id, "√") [] z == null -> writeln("MAL") fi
+  ]|
+
+main
+  |[ var a,b,c,d,e : Node(int)*
+   ; var z,y,x : int*
+   ; var bool : boolean
+   ; new(a) 
+   ; new(b) 
+   ; new(c) 
+   ; new(d)
+   ; new(e)
+   ; create(*a,10,0)
+   ; create(*b,10,1)
+   ; create(*c,10,2)
+   ; create(*d,10,3)
+   ; create(*e,10,4)
+   ; insert(a,b)
+   ; insert(a,c)
+   ; insert(b,d)
+   ; insert(b,e)
+   ; insert(c,e)
+   ; insert(d,e)
+   ; path(a, 4, bool, 5)
+   ; free(a) 
+   ; free(b) 
+   ; free(c) 
+   ; free(d)
+   ; free(e)
+   ; test(x,y,z)
+   ; new(x)
+   ; new(y)
+   ; new(z)
+   ; test(x,y,z)
+   ; free(x)
+   ; free(y)
+   ; free(z)
+  ]|
+end

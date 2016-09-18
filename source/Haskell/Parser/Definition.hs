@@ -5,8 +5,8 @@
 module Parser.Definition
   ( function
   , procedure
+  , functionDeclaration
   , procedureDeclaration
-  , listDefProc
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -27,15 +27,15 @@ import qualified SymbolTable         as ST (empty)
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _5,
+import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _3,
                                       _Just)
 import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
-import qualified Data.Map.Strict     as Map (insert)
+import qualified Data.Map.Strict     as Map (insert, lookup)
 import           Data.Maybe          (isJust, isNothing)
 import           Data.Semigroup      ((<>))
-import           Data.Sequence       (Seq, (|>))
-import qualified Data.Sequence       as Seq (empty)
+import           Data.Sequence       (Seq, ViewL (..), (|>))
+import qualified Data.Sequence       as Seq (empty, viewl)
 import           Data.Text           (Text, unpack)
 import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
@@ -43,8 +43,6 @@ import           Text.Megaparsec     (between, eof, errorUnexpected,
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
-listDefProc :: Parser (Maybe (Seq Definition))
-listDefProc = sequence <$> many (function <|> procedure)
 
 function :: Parser (Maybe Definition)
 function = do
@@ -98,7 +96,7 @@ function = do
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
 
   funcRecursive <- use currentFunc >>= \case
-    Nothing -> error "internal error: currentFunction was nullified."
+    Nothing -> error "internal error: currentFunction was nullified. 1"
     Just cr -> pure $ cr ^.crRecursive
 
   currentFunc .= Nothing
@@ -124,7 +122,38 @@ function = do
                 , funcParams
                 , funcRetType
                 , funcRecursive } }
-          definitions %= Map.insert funcName def
+
+
+          -- Struct does not add thier procs to the table
+          dt <- use currentStruct
+
+          case dt of
+            Just (dtType, _, procs) -> do
+              let
+                hasDT' = foldr ((||) . (\(_,pType) -> (Nothing /= hasDT pType) || isTypeVar pType)) False funcParams
+              case Seq.viewl funcParams of
+                (_, pType) :< _ | hasDT' -> do
+                  case hasDT pType of
+                    Just pType' -> if pType' =:= dtType
+                      then currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
+                      else putError from . UnknownError $
+                          "First parameter of function `" <> unpack (defName def) <>
+                          "` must have type " <> show dtType <> "."
+
+                    _ -> currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
+
+                _ -> case funcName `Map.lookup` procs of
+                  Nothing -> definitions %= Map.insert funcName def
+                  Just _  -> putError from . UnknownError $
+                    "Redefinition of procedure `" <> unpack funcName <> "`."
+
+            Nothing -> do
+              defs <- use definitions
+              case funcName `Map.lookup` defs of
+                Nothing -> definitions %= Map.insert funcName def
+                Just _  -> putError from . UnknownError $
+                  "Redefinition of procedure `" <> unpack funcName <> "`."
+
           pure . Just $ def
 
         else do
@@ -136,10 +165,9 @@ function = do
     _ -> pure Nothing
 
 
-  where
-    doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
+doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
                 <|> sequence <$> p `sepBy` match TokComma
-
+  where
     p = funcParam `followedBy` oneOf [TokRightPar, TokComma]
 
     funcParam = do
@@ -211,7 +239,7 @@ procedure = do
   symbolTable %= closeScope to -- params
 
   procRecursive <- use currentProc >>= \case
-    Nothing -> error "internal error: currentProc was nullified."
+    Nothing -> error "internal error: currentProcedure was nullified. 2"
     Just cr -> pure $ cr ^.crRecursive
 
   currentProc .= Nothing
@@ -236,9 +264,34 @@ procedure = do
 
       -- Struct does not add thier procs to the table
       dt <- use currentStruct
-      if isNothing dt
-        then definitions %= Map.insert procName def
-        else currentStruct %= over _Just (_5 %~ (Map.insert procName def))
+
+      case dt of
+        Just (dtType, _, procs) -> do
+          let
+            hasDT' = foldr ((||) . (\(_,pType,_) -> (Nothing /= hasDT pType) || isTypeVar pType)) False params
+          case Seq.viewl params of
+            (_, pType, _) :< _ | hasDT' -> do
+              case hasDT pType of
+                Just pType' -> if pType' =:= dtType
+                  then currentStruct %= over _Just (_3 %~ (Map.insert procName def))
+                  else putError from . UnknownError $
+                      "First parameter of procedure `" <> unpack (defName def) <>
+                      "` must have type " <> show dtType <> " when using Variable Types."
+
+                _ -> currentStruct %= over _Just (_3 %~ (Map.insert procName def))
+
+
+            _ -> case procName `Map.lookup` procs of
+                Nothing -> definitions %= Map.insert procName def
+                Just _  -> putError from . UnknownError $
+                  "Redefinition of procedure `" <> unpack procName <> "`."
+
+        Nothing -> do
+          defs <- use definitions
+          case procName `Map.lookup` defs of
+            Nothing -> definitions %= Map.insert procName def
+            Just _  -> putError from . UnknownError $
+              "Redefinition of procedure `" <> unpack procName <> "`."
 
       pure $ Just def
     _ -> pure Nothing
@@ -290,6 +343,42 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
              <|> match TokInOut $> InOut
              <|> match TokOut   $> Out
              <|> match TokRef   $> Ref
+
+
+functionDeclaration :: Parser (Maybe Definition)
+functionDeclaration = do
+  lookAhead $ match TokFunc
+  Location(_,from) <- match TokFunc
+
+  funcName' <- safeIdentifier
+  symbolTable %= openScope from
+  params' <- parens $ doFuncParams
+
+  match' TokArrow
+  retType <- type'
+
+  prePos  <- getPosition
+  pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
+  postPos <- getPosition
+  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
+
+  to   <- getPosition
+  let loc = Location (from,to)
+
+  symbolTable %= closeScope to
+  case (funcName', params', pre', post') of
+    (Just funcName, Just params, Just pre, Just post) -> do
+      pure . Just $ Definition
+          { defLoc   = loc
+          , defName  = funcName
+          , pre
+          , post
+          , bound = Nothing
+          , def' = AbstractFunctionDef
+            { abstFParams = params
+            , funcRetType = retType }}
+
+    _ -> pure Nothing
 
 procedureDeclaration :: Parser (Maybe Definition)
 procedureDeclaration = do
