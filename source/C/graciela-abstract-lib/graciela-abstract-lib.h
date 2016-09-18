@@ -43,7 +43,7 @@ namespace glib {
     typedef vector<t>          Sequence;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
-    typedef queue
+    typedef stack<TrashCollector> stack;
 }
 
 extern "C" {
@@ -117,9 +117,11 @@ extern "C" {
      *  store inside a vector of pointer, to be freed when freeGarbage()
      *  is called.
      */
-    void    newTrashCollector();
-    void    freeGarbage();
-    void    freeTrashCollector();
+    void initTC();
+    void openScope();
+    void closeScope();
+    void freeTrashCollector();
+    
 #ifdef __cplusplus
 }
 #endif

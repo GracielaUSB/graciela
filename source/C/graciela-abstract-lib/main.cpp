@@ -19,7 +19,8 @@ typedef int8_t* TrashCollector;
 
 
 TEST_CASE("Graciela Relation"){
-    newTrashCollector();
+    initTC();
+    openScope();
     Relation r = newRelation();
     
     insertRelation(r, 1, 2);
@@ -79,12 +80,12 @@ TEST_CASE("Graciela Relation"){
     s = compositionRelation(r2, r);
     REQUIRE(sizeRelation(s) == 0);
     
-    freeGarbage();
     freeTrashCollector();
 }
 
 TEST_CASE("Graciela Function"){
-    newTrashCollector();
+    initTC();
+    openScope();
     Function f = newFunction();
     insertFunction(f, 1, 2);
     insertFunction(f, 1, 2);
@@ -129,13 +130,13 @@ TEST_CASE("Graciela Function"){
     
     s = compositionRelation(f2, f);
     REQUIRE(sizeFunction(s) == 0);
-    freeGarbage();
     freeTrashCollector();
 }
 
 TEST_CASE("Graciela Multiset"){
     
-    newTrashCollector();
+    initTC();
+    openScope();
     Multiset empty = newMultiset();
     Multiset s = newMultiset();
     REQUIRE(sizeMultiset(s) == 0);
@@ -220,13 +221,13 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(countMultiset(differenceS, 2) == 2);
     REQUIRE(countMultiset(differenceS, 3) == 2);
     
-    freeGarbage();
     freeTrashCollector();
 }
 
 TEST_CASE("Graciela Set"){
     /* Create set, insert element and is element */
-    newTrashCollector();
+    initTC();
+    openScope();
     Set s = newSet();
     REQUIRE(sizeSet(s) == 0);
     insertSet(s, 1);
@@ -285,6 +286,5 @@ TEST_CASE("Graciela Set"){
     differenceS = differenceSet(s2, s);
     REQUIRE(sizeSet(differenceS) == 1);
     REQUIRE(isElemSet(differenceS, 6));
-    freeGarbage();
     freeTrashCollector();
 }

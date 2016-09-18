@@ -11,7 +11,8 @@ import           AST.Instruction                    (Guard, Instruction (..),
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         (Object' (..),
                                                      Object'' (..))
-import           AST.Struct                         (Struct(..))
+import           AST.Struct                         (Struct (..))
+import           AST.Type                           as T
 import           LLVM.Abort                         (abort)
 import qualified LLVM.Abort                         as Abort (Abort (Assert, If, Invariant, Manual, NegativeBound, NondecreasingBound))
 import           LLVM.Declaration
@@ -23,7 +24,6 @@ import           LLVM.Warning                       (warn)
 import qualified LLVM.Warning                       as Warning (Warning (Manual))
 import           Location
 import           Treelike
-import           AST.Type                               as T
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, when, zipWithM_)
@@ -33,7 +33,7 @@ import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
                                                             zip, (|>))
-import           Data.Text                          (unpack, pack)
+import           Data.Text                          (pack, unpack)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
 import           LLVM.General.AST.AddrSpace
@@ -169,7 +169,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     pName' <- case pStructArgs of
       Just (structBaseName, typeArgs) -> do
-        llvmName (pName <> pack "-" <> structBaseName) <$> 
+        llvmName (pName <> pack "-" <> structBaseName) <$>
           mapM toLLVMType (toList typeArgs)
       _ -> pure . unpack $ pName
 
@@ -185,12 +185,12 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
       -- If it is not an Out or InOut argument, then just pass a constant value.
       -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
-      createArg (e,mode) = do
+      createArg (e, mode) = do
         subst <- use substitutionTable
         let type' = case subst of
               t:_ -> fillType t (expType e)
               []  -> expType e
-        
+
         (,[]) <$> if mode == In && (type' =:= basicT)
           then
             expression e
@@ -281,7 +281,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , functionAttributes = []
           , metadata           = [] }
 
-    case nType of 
+    case nType of
       GFullDataType n t -> do
         types <- mapM toLLVMType (toList t)
         addInstruction $ call (llvmName n types)

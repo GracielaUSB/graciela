@@ -18,8 +18,8 @@ type Node(T) implements ANode(T)
 begin
   /* Node variables */
   var tam, id := 0, 0 : int;
-  var next := null : Node(T)*;
-  var value        : T;
+  var next    : array[5] of Node(T)*;
+  var value   : T;
 
   
   {repinv true repinv}
@@ -136,7 +136,7 @@ main
    ; insert(n9,n10)//                10
    ; writeln((*n1).tam); writeln((*n2).tam); writeln((*n3).tam); writeln((*n4).tam); writeln((*n5).tam)
    ; writeln((*n6).tam); writeln((*n7).tam); writeln((*n8).tam); writeln((*n9).tam); writeln((*n10).tam)
-   ; path(n1, 4, bool, 10)
+   ; path(n1, 10, bool, 10)
    ; free(n1); free(n2); free(n3); free(n4); free(n5)
    ; free(n6); free(n7); free(n8); free(n9); free(n10)
 

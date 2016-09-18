@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parser.ADT
@@ -8,7 +8,7 @@ module Parser.ADT
 -------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition
-import           AST.Expression      (Expression (..))
+import           AST.Expression      (Expression (..), Type)
 import           AST.Instruction
 import           AST.Struct
 import           AST.Type
@@ -25,7 +25,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens        (use, (%=), (.=), _Just, over, (.~), _2)
+import           Control.Lens        (over, use, (%=), (.=), (.~), _2, _Just)
 import           Control.Monad       (foldM, unless, void, when, zipWithM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
@@ -35,10 +35,11 @@ import           Data.List           (intercalate)
 import           Data.Map            (Map)
 import qualified Data.Map            as Map (empty, fromList, insert, lookup,
                                              size)
-import           Data.Maybe          (isNothing,catMaybes)
+import           Data.Maybe          (catMaybes, isNothing)
 import           Data.Monoid         ((<>))
-import           Data.Sequence       (Seq, ViewL(..))
-import qualified Data.Sequence       as Seq (fromList, zip, zipWith, empty, viewl)
+import           Data.Sequence       (Seq, ViewL (..))
+import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
+                                             zipWith)
 import           Data.Text           (Text, pack, unpack)
 import           Text.Megaparsec     (eof, getPosition, manyTill, optional,
                                       (<|>))
@@ -63,7 +64,7 @@ abstractDataType = do
   then
     void $ anyToken `manyTill` (void (match TokEnd) <|> eof)
   else do
-    let 
+    let
       typeArgs = Array.listArray (0, length atypes - 1) atypes
       abstractType = GDataType abstractName Nothing typeArgs
       Just abstractName = abstractName'
@@ -86,8 +87,8 @@ abstractDataType = do
     to    <- getPosition
     st <- use symbolTable
     symbolTable %= closeScope to
-    
-    let 
+
+    let
       loc = Location (from,to)
 
     case (inv', procs') of
@@ -107,31 +108,30 @@ abstractDataType = do
       _ -> pure ()
     typeVars .= []
     currentStruct .= Nothing
-    
 
 
 
 toFields :: Integer -> Text -> Type
-         -> Seq Declaration 
+         -> Seq Declaration
          -> Parser (Map Text (Integer, Type, Maybe Expression))
 toFields n name dt s = Map.fromList . zipWith f [n..] . toList . F.concat <$> mapM toField' s
   where
-    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do 
-      when (recursiveDecl declType dt) $ 
+    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do
+      when (recursiveDecl declType dt) .
         putError pos . UnknownError $ "Recursive definition. A Data\
           \ Type cannot contain a field of itself."
-      
+
       pure . zip (toList declIds) $ repeat (declType, Nothing)
 
     toField' Initialization{ declLoc = Location(pos,_), declType, declPairs } = do
-      when (recursiveDecl declType dt) $ 
+      when (recursiveDecl declType dt) .
         putError pos . UnknownError $ "Recursive definition. A Data\
           \ Type cannot contain a field of itself."
       let
         names = fmap fst  (toList declPairs)
         exprs = fmap snd  (toList declPairs)
 
-      pure . zip names $ zip (repeat declType) $ fmap Just exprs
+      pure . zip names . zip (repeat declType) $ fmap Just exprs
 
     f n (name, (t,e)) = (name, (n,t,e))
 
@@ -176,7 +176,7 @@ dataType = do
           match' TokBegin
 
           symbolTable %= openScope from
-          let 
+          let
             dtType   = GDataType name abstractName' typeArgs
             typeArgs = Array.listArray (0, length types - 1) types
           currentStruct .= Just (dtType, Map.empty, Map.empty)
@@ -203,7 +203,7 @@ dataType = do
 
             fields = fmap adtToDt $ fillTypes abstractTypes structFields <> fields'
 
-                   
+
           currentStruct %= over _Just (_2 .~ fields)
 
           repinv'  <- repInv
@@ -226,9 +226,9 @@ dataType = do
 
             (Just decls, Just repinv, Just coupinv) -> do
               {- Different number of type arguments -}
- 
-              when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs 
-                name structTypes abstractName absTypes lenActual lenNeeded            
+
+              when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
+                name structTypes abstractName absTypes lenActual lenNeeded
 
               let
                 struct = Struct
@@ -247,7 +247,7 @@ dataType = do
               dataTypes %= Map.insert name struct
               typeVars .= []
               currentStruct .= Nothing
-            
+
 
             _ -> pure ()
 
@@ -271,7 +271,7 @@ dataType = do
         (=-=) :: Definition
               -> Definition
               -> Parser Bool
-        (=-=) abstDef@Definition{def' = AbstractProcedureDef{}} 
+        (=-=) abstDef@Definition{def' = AbstractProcedureDef{}}
               def@Definition{def' = ProcedureDef{}}
           | defName def /= defName abstDef = pure False
           | otherwise = do
@@ -289,7 +289,7 @@ dataType = do
                     showPos pos1
               pure True
 
-        (=-=) abstDef@Definition{def' = AbstractFunctionDef{}}  
+        (=-=) abstDef@Definition{def' = AbstractFunctionDef{}}
               def@Definition{def' = ProcedureDef{}}
           | defName def /= defName abstDef = pure False
           | otherwise = do
@@ -306,7 +306,7 @@ dataType = do
                     "The prodecure `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
                     showPos pos1
-              else if retT /= abstractRetT 
+              else if retT /= abstractRetT
                 then putError pos2 . UnknownError $
                     "The return type of function `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
@@ -317,7 +317,7 @@ dataType = do
         _ =-= _ = pure False
 
 
-        checkFParams pos (name1, t1) (name2, t2) = 
+        checkFParams pos (name1, t1) (name2, t2) =
           checkParams pos (name1, t1, In) (name2, t2, In)
 
         checkParams :: SourcePos
@@ -338,14 +338,10 @@ dataType = do
               GTypeVar i _ -> abTypes' ! i
               _ -> t1'
 
-          unless (t1 =:= t2) $ do
-                putError pos . UnknownError $
-                  "Parameter named `" <> unpack name2 <> "` has type " <>
-                  show t2 <>" but expected type " <> show t1
+          unless (t1 =:= t2) . putError pos . UnknownError $
+            "Parameter named `" <> unpack name2 <> "` has type " <>
+            show t2 <>" but expected type " <> show t1
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
 recursiveDecl t dt = t =:= dt
-
-
-

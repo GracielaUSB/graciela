@@ -4,9 +4,11 @@ module LLVM.Declaration
   ( declaration
   ) where
 --------------------------------------------------------------------------------
-import           AST.Declaration              (Declaration (..))
-import           AST.Expression
-import           AST.Type                     (Type (..), (=:=), isDataType)
+import           AST.Declaration                    (Declaration (..))
+import           AST.Expression                     (Expression)
+import qualified AST.Expression                     as G (Type)
+import           AST.Type                           (Type' (..), isDataType,
+                                                     (=:=))
 import           LLVM.Abort
 import           LLVM.Expression
 import           LLVM.Monad
@@ -14,22 +16,26 @@ import           LLVM.State
 import           LLVM.Type
 import           SymbolTable
 --------------------------------------------------------------------------------
-import           Control.Lens                 (use, (%=), (.=))
-import           Control.Monad                (when, zipWithM_)
-import           Data.Monoid                  ((<>))
-import           Data.Foldable                (toList)
-import           Data.Sequence                (Seq)
-import qualified Data.Sequence                as Seq (empty, fromList,
-                                                      singleton)
-import           Data.Text                    (Text, unpack)
+import           Control.Lens                       (use, (%=), (.=))
+import           Control.Monad                      (foldM, void, when,
+                                                     zipWithM_)
+import           Data.Foldable                      (toList)
+import           Data.Functor                       (($>))
+import           Data.Monoid                        ((<>))
+import           Data.Sequence                      (Seq)
+import qualified Data.Sequence                      as Seq (empty, fromList,
+                                                            singleton)
+import           Data.Text                          (Text, unpack)
 import           Data.Word
-import qualified LLVM.General.AST.Constant    as C (Constant (..))
 import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
-import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
-import           LLVM.General.AST.Instruction (Instruction (..), Named (..))
-import           LLVM.General.AST.Name        (Name (..))
-import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
-import           LLVM.General.AST.Type        (ptr)
+import qualified LLVM.General.AST.Constant          as C (Constant (..))
+import qualified LLVM.General.AST.Float             as LLVM (SomeFloat (Double))
+import           LLVM.General.AST.Instruction       (Instruction (..),
+                                                     Named (..))
+import           LLVM.General.AST.Name              (Name (..))
+import           LLVM.General.AST.Operand           (CallableOperand,
+                                                     Operand (..))
+import           LLVM.General.AST.Type              (Type (..), i32, ptr)
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -41,7 +47,62 @@ declaration Initialization { declType, declPairs } =
   mapM_ (initialize declType) declPairs
 
 {- Allocate a variable -}
-alloc :: Type -> Text -> LLVM ()
+alloc :: G.Type -> Text -> LLVM ()
+alloc GArray { dimensions, innerType } lval = do
+  name <- insertVar lval
+
+  dims <- mapM dimAux dimensions
+
+  num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
+
+  inner <- toLLVMType innerType
+  let arrT = iterate (ArrayType 1) inner !! length dimensions
+
+  addInstruction $ name := Alloca
+    { numElements    = Just num
+    , alignment      = 4
+    , metadata       = []
+    , allocatedType  = StructureType
+      { isPacked     = False
+      , elementTypes = reverse $ arrT : (toList dimensions $> i32) }}
+
+  void $ foldM (sizeAux (LocalReference arrT name)) 0 dims
+
+  where
+    dimAux (Left t)  = error "internal error: alloc of dimension variable"
+    dimAux (Right e) = expression e
+
+    numAux operand0 operand1 = do
+      result <- newUnLabel
+      addInstruction $ result := Mul
+        { operand0
+        , operand1
+        , nsw = False
+        , nuw = False
+        , metadata = [] }
+      pure $ LocalReference i32 result
+
+    sizeAux ref n value = do
+      dimPtr <- newLabel "dimPtr"
+      addInstruction $ dimPtr := GetElementPtr
+        { inBounds = False
+        , address  = ref
+        , indices  =
+          [ ConstantOperand (C.Int 32 0)
+          , ConstantOperand (C.Int 32 n) ]
+        , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile       = False
+        , address        = LocalReference i32 dimPtr
+        , value
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      pure $ n + 1
+
+
 alloc gtype lval = do
   name <- insertVar lval
   t    <- toLLVMType gtype
@@ -52,10 +113,10 @@ alloc gtype lval = do
     , alignment     = 4
     , metadata      = [] }
 
-  case gtype of 
+  case gtype of
     GFullDataType { typeName, types } -> do
       types' <- mapM toLLVMType $ toList types
-      let 
+      let
         name'  = llvmName typeName types'
       cast <- newLabel "cast"
 
@@ -63,7 +124,6 @@ alloc gtype lval = do
               { operand0 = LocalReference t name
               , type'    = ptr t
               , metadata = [] }
-
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
@@ -75,7 +135,7 @@ alloc gtype lval = do
         , metadata           = [] }
 
     _ | gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
-      
+
       defaultValue <- value gtype
       addInstruction $ Do Store
 
@@ -99,7 +159,7 @@ alloc gtype lval = do
 
 
 {- Store an expression in a variable memory -}
-initialize :: Type -> (Text, Expression) -> LLVM ()
+initialize :: G.Type -> (Text, Expression) -> LLVM ()
 initialize gtype (lval, expr) = do
   name <- insertVar lval
   t    <- toLLVMType gtype

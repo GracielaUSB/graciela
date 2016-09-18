@@ -15,12 +15,16 @@ extern "C" {
    
     using namespace glib;
     
-    int8_t* _tc;
+    int8_t* _stack;
+    
+    void mark(TCTuple t){
+        ((stack<TrashCollector*>*)_stack)->top()->push_back(t);
+    }
     
     /* Set */
     int8_t *newSet(){
         Set *set = new Set;
-        ((TrashCollector*)_tc)->push_back(TCTuple((int8_t*)set,SET));
+        mark(TCTuple((int8_t*)set,SET));
         return (int8_t*)set;
     }
     
@@ -123,7 +127,7 @@ extern "C" {
     
     int8_t *newMultiset(){
         Multiset *mul = new Multiset;
-        ((TrashCollector*)_tc)->push_back(TCTuple((int8_t*)mul,MULTISET));
+        mark(TCTuple((int8_t*)mul,MULTISET));
         return (int8_t*)mul;
     }
     
@@ -196,7 +200,7 @@ extern "C" {
     
     int8_t *newFunction(){
         Function *function = new Function();
-        ((TrashCollector*)_tc)->push_back(TCTuple((int8_t*)function,FUNCTION));
+        mark(TCTuple((int8_t*)function,FUNCTION));
         return (int8_t*) function;
     }
     
@@ -262,7 +266,7 @@ extern "C" {
     
     int8_t *newRelation(){
         Relation *rel = new Relation();
-        ((TrashCollector*)_tc)->push_back(TCTuple((int8_t*)rel,RELATION));
+        mark(TCTuple((int8_t*)rel,RELATION));
         return (int8_t*) rel;
     }
     
@@ -327,7 +331,7 @@ extern "C" {
     
     int8_t *newSequence(){
         Sequence *s = new Sequence;
-        ((TrashCollector*)_tc)->push_back(TCTuple((int8_t*)s,SEQUENCE));
+        mark(TCTuple((int8_t*)s,SEQUENCE));
         return (int8_t*) s;
     }
     
@@ -357,14 +361,19 @@ extern "C" {
     
     /* Trash Collector */
     
-    void newTrashCollector(){
+    void initTC(){
+        _stack = (int8_t*)(new stack<TrashCollector>);
+    }
+    
+    void openScope(){
         TrashCollector *tc = new TrashCollector;
         tc->reserve(64);
-        _tc = (int8_t*)tc;
+        ((stack<TrashCollector*>*)_stack)->push(tc);
     }
-        
-    void freeGarbage(){
-        TrashCollector* tc = (TrashCollector*)_tc;
+    
+    void closeScope(){
+        TrashCollector* tc = ((stack<TrashCollector*>*)_stack)->top();
+        ((stack<TrashCollector*>*)_stack)->pop();
         for (TrashCollector::iterator it = tc[0].begin(); it != tc[0].end(); ++it){
             switch (it->second) {
                 case SET: {
@@ -390,10 +399,16 @@ extern "C" {
             }
         }
         tc->clear();
+        delete tc;
     }
     
     void freeTrashCollector(){
-        delete (TrashCollector*)_tc;
+        for (int i = 0 ; i < ((stack<TrashCollector*>*)_stack)->size(); i++)
+        {
+            closeScope();
+        }
+
+        delete ((stack<TrashCollector*>*)_stack);
     }
 }
 

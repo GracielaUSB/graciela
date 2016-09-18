@@ -5,10 +5,11 @@ module LLVM.Program where
 
 --------------------------------------------------------------------------------
 import           AST.Definition
+import qualified AST.Expression                          as T (Type)
 import           AST.Instruction                         (Instruction)
 import           AST.Program
 import qualified AST.Program                             as P (structs)
-import           AST.Type                                as T
+import           AST.Type
 import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
@@ -27,9 +28,9 @@ import qualified Data.ByteString                         as BS (unpack)
 import           Data.Foldable                           (toList)
 import           Data.List                               (sortOn)
 import           Data.Map.Strict                         (Map)
-import qualified Data.Map.Strict                         as Map (size,
+import qualified Data.Map.Strict                         as Map (keys, size,
                                                                  toAscList,
-                                                                 toList, keys)
+                                                                 toList)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)

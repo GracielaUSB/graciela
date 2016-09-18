@@ -13,7 +13,9 @@
 
 
 int main() {
-    newTrashCollector();
+    initTC();
+    openScope();
+    
     int8_t *a = newSet();
     
     int8_t *func = newFunction();
@@ -22,11 +24,19 @@ int main() {
     printf("(1,2)@func  == %s\n",isElemFunction(func, 1,2)?"True":"False");
     printf("(1,12)@func == %s\n",isElemFunction(func, 1,12)?"True":"False");
     
+    openScope();
     int8_t *rel = newRelation();
     insertRelation(rel, 1, 2);
     insertRelation(rel, 10, 12);
     printf("(1,2)@rel  == %s\n",isElemRelation(rel, 1,2)?"True":"False");
     printf("(1,12)@rel == %s\n",isElemRelation(rel, 1,12)?"True":"False");
+    
+    struct Iterator *it = first(rel);
+    while (it != NULL){
+        printf("%lli\n",it->data);
+        it = next(it);
+    }
+    closeScope();
     
     insertSet(a,1);
     insertSet(a,2);
@@ -43,16 +53,8 @@ int main() {
     insertMultiset(mul, 4);
     insertMultiset(mul, 5);
     printf("%d <- \n",isElemMultiset(mul, 1));
+
     
-    
-    struct Iterator *it = first(rel);
-    while (it != NULL){
-        printf("%lli\n",it->data);
-        it = next(it);
-    }
-    freeGarbage();
     freeTrashCollector();
-    
-    
     return 0;
 }

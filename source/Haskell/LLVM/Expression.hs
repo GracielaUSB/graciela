@@ -1,7 +1,7 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections            #-}
 
 module LLVM.Expression
@@ -18,21 +18,19 @@ import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type                                as T
 import           LLVM.Abort                              (abort)
-import qualified LLVM.Abort                              as Abort (Abort 
-                                                         (DivisionByZero, If,
-                                                          NullPointerAccess, Overflow))
+import qualified LLVM.Abort                              as Abort (Abort (..))
 import           LLVM.Monad
 import           LLVM.Quantification                     (quantification)
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
-                                                          intType, toLLVMType,
-                                                          llvmName)
+                                                          intType, llvmName,
+                                                          toLLVMType)
 import           Location
 import           SymbolTable
 import           Treelike                                (drawTree, toTree)
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad                           (foldM, when)
+import           Control.Monad                           (foldM, when, zipWithM)
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
@@ -71,7 +69,7 @@ object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
-  Variable { mode } | mode == Just In  
+  Variable { mode } | mode == Just In
     || (mode /= Nothing && not (objType =:= basic)) -> objectRef obj False
     -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
@@ -103,11 +101,11 @@ objectRef obj@(Object loc objType obj') flag = do
 
     Variable { name , mode } -> do
       name' <- getVariableName name
-      if mode /= Nothing && not flag 
-        then case objType of 
-          GPointer t -> do 
+      if mode /= Nothing && not flag
+        then case objType of
+          GPointer t -> do
             label <- newLabel "loadRef"
-            addInstruction $ label := Load 
+            addInstruction $ label := Load
               { volatile  = False
               , address   = LocalReference objType' name'
               , maybeAtomicity = Nothing
@@ -117,19 +115,82 @@ objectRef obj@(Object loc objType obj') flag = do
           _ -> pure $ LocalReference objType' name'
         else pure $ LocalReference objType' name'
 
-    Index inner index -> do
-      ref <- objectRef inner True
+    Index inner indices -> do
+      ref   <- objectRef inner True
       label <- newLabel "idx"
-      index <- expression index
-      let
-        getelemPtr = GetElementPtr
-              { inBounds = False
-              , address  = ref
-              , indices  = [ConstantOperand $ C.Int 32 0, index]
-              , metadata = []}
+      inds <- zipWithM (idx ref) (toList indices) [0..]
+      addInstruction $ label := GetElementPtr
+        { inBounds = False
+        , address  = ref
+        , indices  =
+          ConstantOperand (C.Int 32 0) :
+          ConstantOperand (C.Int 32 . fromIntegral . length $ indices) :
+          inds
+        , metadata = [] }
 
-      addInstruction $ label := getelemPtr
-      return . LocalReference objType' $ label
+      pure . LocalReference objType' $ label
+
+      where
+        idx ref index n = do
+          e <- expression index
+
+          chkGEZ <- newLabel "idxChkGEZ"
+          addInstruction $ chkGEZ := ICmp
+            { iPredicate = SGE
+            , operand0   = e
+            , operand1   = ConstantOperand (C.Int 32 0)
+            , metadata   = [] }
+
+          gez <- newLabel "idxGEZ"
+          notGez <- newLabel "idxNotGEZ"
+          terminate' CondBr
+            { condition = LocalReference i1 chkGEZ
+            , trueDest  = gez
+            , falseDest = notGez
+            , metadata' = [] }
+
+          (notGez #)
+          abort Abort.NegativeIndex (pos . E.loc $ index)
+
+          (gez #)
+          bndPtr <- newLabel "idxBoundPtr"
+          addInstruction $ bndPtr := GetElementPtr
+            { inBounds = False
+            , address  = ref
+            , indices  =
+              [ ConstantOperand (C.Int 32 0)
+              , ConstantOperand (C.Int 32 n)]
+            , metadata = [] }
+
+          bnd <- newLabel "idxBound"
+          addInstruction $ bnd :=  Load
+            { volatile       = False
+            , address        = LocalReference i32 bndPtr
+            , maybeAtomicity = Nothing
+            , alignment      = 4
+            , metadata       = [] }
+
+          chkInBound <- newLabel "idxChkInBound"
+          addInstruction $ chkInBound := ICmp
+            { iPredicate = SLT
+            , operand0   = e
+            , operand1   = LocalReference i32 bnd
+            , metadata   = [] }
+
+          inBound <- newLabel "idxInBound"
+          notInBound <- newLabel "idxNotInBound"
+          terminate' CondBr
+            { condition = LocalReference i1 chkInBound
+            , trueDest  = inBound
+            , falseDest = notInBound
+            , metadata' = [] }
+
+          (notInBound #)
+          abort Abort.OutOfBoundsIndex (pos . E.loc $ index)
+
+          (inBound #)
+          pure e
+
 
     Deref inner -> do
       ref        <- objectRef inner True
@@ -142,7 +203,7 @@ objectRef obj@(Object loc objType obj') flag = do
       let
         Location (pos,_) = loc
 
-      addInstruction $ labelLoad := Load 
+      addInstruction $ labelLoad := Load
         { volatile  = False
         , address   = ref
         , maybeAtomicity = Nothing
@@ -153,23 +214,23 @@ objectRef obj@(Object loc objType obj') flag = do
          In that case, abort the program giving the source line of the bad access instead of letting
          the OS ends the process
       -}
-      addInstruction $ labelCast := PtrToInt 
+      addInstruction $ labelCast := PtrToInt
         { operand0 = LocalReference objType' labelLoad
         , type'    = i64
         , metadata = [] }
 
-      addInstruction $ labelNull := PtrToInt 
+      addInstruction $ labelNull := PtrToInt
         { operand0 = ConstantOperand . C.Null $ ptr objType'
         , type'    = i64
         , metadata = [] }
 
-      addInstruction $ labelCond := ICmp 
+      addInstruction $ labelCond := ICmp
         { iPredicate = EQ
         , operand0   = LocalReference i64 labelCast
         , operand1   = LocalReference i64 labelNull
         , metadata   = [] }
 
-      terminate' $ CondBr 
+      terminate' $ CondBr
         { condition = LocalReference boolType labelCond
         , trueDest  = trueLabel
         , falseDest = falseLabel
@@ -194,15 +255,15 @@ objectRef obj@(Object loc objType obj') flag = do
           , metadata = []}
       pure . LocalReference objType' $ label
 
-  where
-    getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
-    getIndices (indices,ref) (Object _ _ (Index inner index)) = do
-      index' <- expression index
-      getIndices (index':indices,ref) inner
-
-    getIndices (indices,ref) obj = do
-      ref <- objectRef obj False
-      return (reverse indices, Just ref)
+  -- where
+  --   getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
+  --   getIndices (indices,ref) (Object _ _ (Index inner index)) = do
+  --     index' <- expression index
+  --     getIndices (index':indices,ref) inner
+  --
+  --   getIndices (indices,ref) obj = do
+  --     ref <- objectRef obj False
+  --     return (reverse indices, Just ref)
 
 
 
@@ -276,10 +337,10 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
       ConstantOperand . C.Float $ LLVM.Double theFloat
 
   NullPtr ->
-    case expType of 
+    case expType of
       GPointer GAny -> pure .ConstantOperand . C.Null $ ptr i8
       _             -> ConstantOperand . C.Null  <$> toLLVMType expType
-    
+
 
   StringLit { theStringId } ->
     (! theStringId) <$> use stringOps
@@ -804,14 +865,14 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
   FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc, fStructArgs } -> do
     arguments <- toList <$> mapM createArg fArgs
     callType <- toLLVMType expType
-    
+
     fName' <- case fStructArgs of
       Just (structBaseName, typeArgs) -> do
-        llvmName (fName <> "-" <> structBaseName) <$> 
+        llvmName (fName <> "-" <> structBaseName) <$>
           mapM toLLVMType (toList typeArgs)
       _ -> pure . unpack $ fName
 
-    recArgs <- if fRecursiveCall
+    recArgs <- fmap (,[]) <$> if fRecursiveCall
       then do
         boundOperand <- fromMaybe (error "internal error: boundless recursive function 2.") <$> use boundOp
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
@@ -824,33 +885,34 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function           = callable callType $ fName'
-      , arguments          = (,[]) <$> recArgs <> arguments
+      , function           = callable callType $ unpack fName
+      , arguments          = recArgs <> arguments
       , functionAttributes = []
       , metadata           = [] }
 
     pure $ LocalReference callType label
 
-    where 
-      createArg expr@Expression{expType, exp'} = do
-          subst <- use substitutionTable
-          let type' = case subst of
-                t:_ -> fillType t expType
-                []  -> expType
-          
-          if type' =:= basicT
-            then
-              expression expr
-            else do
-              label <- newLabel "argCast"
-              ref   <- objectRef (theObj exp') False
+    where
+      createArg expr@Expression { expType, exp' } = do
+        subst <- use substitutionTable
+        let
+          type' = case subst of
+            t:_ -> fillType t expType
+            []  -> expType
 
-              type' <- ptr <$> toLLVMType type'
-              addInstruction $ label := BitCast
-                { operand0 = ref
-                , type'    = type'
-                , metadata = [] }
-              pure $ LocalReference type' label
+        (,[]) <$> if type' =:= basicT
+          then
+            expression expr
+          else do
+            label <- newLabel "argCast"
+            ref   <- objectRef (theObj exp') False
+
+            type' <- ptr <$> toLLVMType type'
+            addInstruction $ label := BitCast
+              { operand0 = ref
+              , type'    = type'
+              , metadata = [] }
+            pure $ LocalReference type' label
       basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
 
   Quantification { qOp } ->
@@ -861,6 +923,3 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
     traceM . drawTree . toTree $ e
     traceM "I don't know how to generate code for:"
     return . ConstantOperand $ C.Int 32 10
-
-
-

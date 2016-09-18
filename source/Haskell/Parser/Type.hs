@@ -3,6 +3,7 @@
 module Parser.Type
     ( basicType
     , type'
+    , type''
     , abstractType
     , typeVarDeclaration
     , typeVar
@@ -10,7 +11,7 @@ module Parser.Type
 --------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition    (Definition (..), Definition' (..))
-import           AST.Expression    (Expression (..), Expression' (Value),
+import           AST.Expression    (Expression (..), Expression' (Value), Type,
                                     Value (..))
 import           AST.Struct
 import           AST.Type
@@ -18,15 +19,18 @@ import           Entry
 import           Error
 import           Location
 import           Parser.Expression (expression)
-import           Parser.Monad      (Parser, getStruct, getType, identifier,
-                                    integerLit, match, match', parens, putError)
+import           Parser.Monad      (Parser, followedBy, getStruct, getType,
+                                    identifier, identifierAndLoc, integerLit,
+                                    match, match', oneOf, parens, putError,
+                                    sepBy)
 import           Parser.State
-import           SymbolTable       (lookup)
+import           SymbolTable       (insertSymbol, local, lookup)
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens      (use, (%=), (<>=))
-import           Control.Monad     (void, when)
+import           Control.Monad     (unless)
 import qualified Data.Array        as Array (listArray)
+import           Data.Foldable     (asum, toList)
 import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
 import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
@@ -35,7 +39,7 @@ import           Data.Monoid       ((<>))
 import           Data.Text         (Text, pack, unpack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,
-                                    notFollowedBy, optional, sepBy, try, (<|>))
+                                    notFollowedBy, optional, try, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -51,26 +55,111 @@ basicType = do
 
 
 type' :: Parser Type
-type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try type''
+type' = type'' False
+
+
+type IsParameter = Bool
+
+type'' :: IsParameter -> Parser Type
+type'' isParam =  parenType
+              <|> try typeVar
+              <|> try userDefined
+              <|> try arrayOf
+              <|> try basicOrPointer
   where
     parenType = do
-      t <- parens type'
+      t <- parens $ type'' isParam
       isPointer t
+
     -- Try to parse an array type
+    arrayOf :: Parser Type
     arrayOf = do
-
+      pos <- getPosition
       match TokArray
-      msize <- arraySize
+      mdims' <- between (match TokLeftBracket) (match' TokRightBracket) $
+        arraySize isParam `sepBy` match TokComma
       match TokOf
-      t <- type'
+      t <- type'' isParam
+      pos' <- getPosition
 
-      pure $ case t of
-        GUndef -> GUndef
-        t -> case msize of
-          Nothing -> GUndef
-          Just i -> GArray i t
+      let mdims = sequence mdims'
 
-    type'' = do
+      case t of
+        GUndef -> pure GUndef
+        GArray _ _ -> do
+          putError pos . UnknownError $
+            "Cannot build an array of arrays. \
+            \Try instead a multidimensional array."
+          pure GUndef
+        t -> case mdims of
+          Nothing -> pure GUndef
+          Just dims -> if null dims
+            then do
+              putError pos' . UnknownError $
+                "Missing dimensions in array declaration."
+              pure GUndef
+            else pure $ GArray dims t
+
+    arraySize :: IsParameter -> Parser (Maybe (Either Text Expression))
+    arraySize False = do
+      pos <- getPosition
+      expr <- expression
+      case expr of
+        Nothing ->
+          pure Nothing
+        Just e@Expression { expType, loc, expConst, exp' } -> case expType of
+          GInt | expConst -> case exp' of
+            Value (IntV i) | i <= 0 -> do
+              putError pos . UnknownError $
+                "A negative dimension was given in the array declaration."
+              pure Nothing
+            _ -> pure . Just . Right $ e
+          _ -> do
+            putError pos . UnknownError $
+              "Array dimension must be an integer constant expression."
+            pure Nothing
+    arraySize True = do
+      pos <- getPosition
+      sizeVar <|> sizeExpr
+
+    sizeVar = do
+      lookAhead . try $ identifier *> oneOf [TokRightBracket, TokComma]
+      (varName, loc) <- identifierAndLoc
+
+      st <- use symbolTable
+
+      case varName `local` st of
+        Right Entry { _loc } -> do
+          putError (pos loc) . UnknownError $
+            "Redefinition of parameter `" <> unpack varName <>
+            "`, original definition was at " <> show _loc <> "."
+          pure Nothing
+        Left _ -> do
+          symbolTable %= insertSymbol varName
+            (Entry varName loc (Argument In GInt))
+          pure . Just . Left $ varName
+
+    sizeExpr = do
+      pos <- getPosition
+      expr <- expression `followedBy` oneOf [TokComma, TokRightBracket]
+      case expr of
+        Nothing ->
+          pure Nothing
+        Just e@Expression { exp' } -> case exp' of
+          Value (IntV i) -> if i <= 0
+            then do
+              putError pos . UnknownError $
+                "A negative dimension was given in the array declaration."
+              pure Nothing
+            else pure . Just . Right $ e
+          _ -> do
+            putError pos . UnknownError $
+              "Array dimension must be an integer constant expression."
+            pure Nothing
+
+
+
+    basicOrPointer = do
       -- If its not an array, then try with a basic type or a pointer
       from  <- getPosition
       tname <- identifier
@@ -81,7 +170,7 @@ type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try ty
           putError from (UndefinedType tname)
           pure GUndef
         Just t' -> isPointer t'
-    -- TODO: Or if its a user defined Type
+
     userDefined = do
       from <- getPosition
       id <- lookAhead identifier
@@ -96,7 +185,7 @@ type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try ty
                 then do
                   identifier
                   t <- parens $ type' `sepBy` match TokComma
-                  let typeargs = Array.listArray (0, length t - 1) t
+                  let typeargs = Array.listArray (0, length t - 1) (toList t)
                   isPointer $ GDataType name abstract typeargs
                 else do
                   notFollowedBy identifier
@@ -108,44 +197,41 @@ type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try ty
         Just ast@Struct {structBaseName, structTypes, structProcs} -> do
 
           identifier
-          fullTypes <- concat <$> (optional . parens $ type' `sepBy` match TokComma)
+          fullTypes <- asum <$> (optional . parens $ type'' isParam `sepBy` match TokComma)
 
           let
             plen = length fullTypes
             slen = length structTypes
-            show' []  = ""
-            show'  l  = "(" <> intercalate "," (fmap show l) <> ")"
-
+            show' l = if null l
+              then ""
+              else "(" <> intercalate "," (toList $ show <$> l) <> ")"
 
           ok <- if slen == plen
             then pure True
 
             else do
-              if slen == 0
-                then
-                    putError from . UnknownError $ "Type `" <> unpack structBaseName <>
-                        "` does not expect " <> show' fullTypes <> " as argument"
+              if slen == 0 then putError from . UnknownError $
+                "Type `" <> unpack structBaseName <>
+                "` does not expect " <> show' fullTypes <> " as argument"
 
-              else if slen > plen
-                then
-                  putError from . UnknownError $ "Type `" <> unpack structBaseName <>
-                     "` expected " <> show slen <> " types " <> show' structTypes <>
-                     "\n\tbut recived " <> show plen <> " " <> show' fullTypes
+              else if slen > plen then putError from . UnknownError $
+                "Type `" <> unpack structBaseName <> "` expected " <>
+                show slen <> " types " <> show' structTypes <>
+                "\n\tbut recived " <> show plen <> " " <> show' fullTypes
 
-              else
-                  putError from . UnknownError $ "Type `" <> unpack structBaseName <>
-                       "` expected only " <> show slen <> " types as arguments " <>
-                       show' structTypes <> "\n\tbut recived " <> show plen <> " " <>
-                       show' fullTypes
+              else putError from . UnknownError $
+                "Type `" <> unpack structBaseName <> "` expected only " <>
+                show slen <> " types as arguments " <> show' structTypes <>
+                "\n\tbut recived " <> show plen <> " " <> show' fullTypes
 
               pure False
 
           if ok
             then do
               let
-                types = Array.listArray (0, plen - 1) fullTypes
-              
-              when (null $ filter isTypeVar fullTypes) $ do
+                types = Array.listArray (0, plen - 1) . toList $ fullTypes
+
+              unless (any isTypeVar fullTypes) $ do
                 let
                   fAlter = \case
                     Nothing               -> Just (ast, [types])
@@ -158,35 +244,11 @@ type' = parenType <|> try typeVar <|> try userDefined <|> try arrayOf <|> try ty
             else pure GUndef
 
 
-
 isPointer :: Type -> Parser Type
 isPointer t = do
     match TokTimes
     isPointer (GPointer t)
   <|> pure t
-
-
-arraySize :: Parser (Maybe Int32)
-arraySize = do
-  pos <- getPosition
-  expr <- between (match TokLeftBracket) (match' TokRightBracket) expression
-  case expr of
-    Nothing ->
-      pure Nothing
-    Just Expression { expType, loc, exp' } -> case expType of
-      GInt -> case exp' of
-        Value (IntV i) -> return (Just i)
-        Value _ -> error "internal error: Type and Value mismatch"
-        _       -> do
-          putError pos . UnknownError $
-            "El tamaño de una variable debe ser una constante, y no puede \
-            \incluir cuantificaciones."
-          pure Nothing
-      _ -> do
-        putError pos . UnknownError $
-          "El tamaño de una variable debe ser una constante de tipo entero, \
-          \sin cuantificaciones."
-        pure Nothing
 
 
 abstractType :: Parser Type

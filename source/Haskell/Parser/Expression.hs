@@ -14,8 +14,8 @@ import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
-import           AST.Type                  (ArgMode (..), Type (..), (=:=)
-                                            ,hasDT, fillType)
+import           AST.Type                  (ArgMode (..), Type' (..), fillType,
+                                            hasDT, (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
@@ -29,17 +29,17 @@ import           SymbolTable               (closeScope, defocus, emptyGlobal,
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%%=), (%=), (&~), (.=), (<&>),
-                                            (^.), _6, _Just, _1)
+import           Control.Lens              (use, view, (%%=), (%=), (&~), (.=),
+                                            (<&>), (^.), _1, _3, _Just)
 import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
-import qualified Data.Array             as Array (listArray)
+import qualified Data.Array                as Array (listArray)
 import           Data.Functor              (($>))
 import qualified Data.Map.Strict           as Map (insert, lookup, size)
 import           Data.Maybe                (catMaybes, fromJust)
-import           Data.Monoid               (First (..),(<>))
+import           Data.Monoid               (First (..), (<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, singleton, zip)
 import           Data.Text                 (Text, pack, unpack)
@@ -78,7 +78,7 @@ type ParserExp = StateT [ Text ] Parser
 
 
 expr :: ParserExp (Maybe Expression)
-expr = pure . ((\(e,_,_) -> e) <$>) =<< metaexpr
+expr = pure . (view _1 <$>) =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
@@ -380,10 +380,10 @@ call fName (Location (from,_)) = do
       pure Nothing
 
     Nothing -> do
-      let 
+      let
         nArgs = length args
         f = case hasDTType args of
-          
+
           Nothing -> do
             let
               args' = sequence args
@@ -395,7 +395,7 @@ call fName (Location (from,_)) = do
               Just args'' -> do
                 putError from . UndefinedFunction fName $ (\(e,_,_) -> e) <$> args''
                 pure Nothing
-         
+
           Just (GFullDataType name typeArgs') -> do
             lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
               Nothing -> error "internal error: impossible call to struct function"
@@ -407,7 +407,7 @@ call fName (Location (from,_)) = do
                       nParams = length funcParams
                       typeArgs = case cs of
                           Nothing -> typeArgs'
-                          Just (GDataType _ _ dtArgs,_,_) -> 
+                          Just (GDataType _ _ dtArgs,_,_) ->
                             fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
@@ -430,7 +430,7 @@ call fName (Location (from,_)) = do
                               , fRecursiveCall = False
                               , fRecursiveFunc = funcRecursive
                               , fStructArgs    = Just (name, typeArgs) }}
-                        
+
                         Just (expr, ProtoNothing, taint)
 
                   _ -> do
@@ -443,13 +443,13 @@ call fName (Location (from,_)) = do
           Just t@(GDataType name _ _) -> do
             Just (GDataType {typeArgs}, _, structProcs) <- lift $ use currentStruct
             case fName `Map.lookup` structProcs of
-              Just Definition {def' = 
+              Just Definition {def' =
                 FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
                 let
                   nParams = length funcParams
 
                 when (nParams /= nArgs) . putError from . UnknownError $
-                    "Calling procedure `" <> unpack fName <> 
+                    "Calling procedure `" <> unpack fName <>
                     "` with a bad number of arguments."
 
                 args' <- foldM (checkType' typeArgs fName from)
@@ -459,7 +459,7 @@ call fName (Location (from,_)) = do
                 pure $ case args' of
                   Nothing -> Nothing
                   Just (fArgs, taint, const') -> do
-                    let 
+                    let
                       expr = Expression
                         { E.loc
                         , expType = funcRetType
@@ -538,11 +538,11 @@ call fName (Location (from,_)) = do
               \recursively because no bound was given for it."
             pure Nothing
           | otherwise -> f
-        
+
         Nothing -> f
 
   where
-    hasDTType = getFirst . foldMap aux 
+    hasDTType = getFirst . foldMap aux
     aux (Just (Expression { expType },_,_)) = First $ hasDT expType
     aux Nothing = First Nothing
     checkType = checkType' (Array.listArray (0,-1) [])
@@ -550,16 +550,16 @@ call fName (Location (from,_)) = do
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
     checkType' typeArgs fName fPos acc
       (Just (e@Expression { E.loc, expType,expConst, exp' }, _, taint), (name, pType)) = do
-        let 
+        let
           Location (from, _) = loc
           pType' = fillType typeArgs pType
         if  pType' =:= expType
-          then do 
-            let 
+          then do
+            let
               type' = case expType of
                 GPointer GAny -> pType'
                 _             -> expType
-                
+
             pure $ add e{expType = type'} taint expConst <$> acc
           else do
             putError from $
@@ -843,7 +843,7 @@ ifExp = do
                             -- the final value of the ifExp is this rhs.
 
                             put st
-                              { ifType = expType
+                              { ifType = newType
                               , ifBuilder = ifBuilder <> IfExp r
                               , ifTaint = taint1
                               , ifConst = expConst r }
@@ -851,7 +851,7 @@ ifExp = do
                           | exp' l == Value (BoolV False) ->
                             -- 5. We have a good rhs that must be ignored because
                             -- its lhs was false. Its type does affect the ifExp.
-                            put st { ifType = expType }
+                            put st { ifType = newType }
 
                           | otherwise ->
                             -- 6. We have a good rhs whose type matches the
@@ -861,7 +861,7 @@ ifExp = do
                             -- guard, the match is done against GAny, i.e., any
                             -- type will match).
                             put IfState
-                              { ifType    = expType
+                              { ifType    = newType
                               , ifBuilder =
                                 ifBuilder <> IfGuards (Seq.singleton (l, r)) Nothing
                               , ifTaint   = ifTaint <> taint0 <> taint1
@@ -921,53 +921,78 @@ operator =
 subindex :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 subindex = do
   from' <- getPosition
-  subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
+  -- subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
+  subindices' <- between
+    (match TokLeftBracket)
+    (match' TokRightBracket)
+    (subAux `sepBy` match TokComma)
   to <- getPosition
 
-  case subind of
+  let subindices = sequence subindices'
+
+  case subindices of
     Nothing -> pure (\_ -> pure Nothing)
-    Just (sub, _, taint0) ->
-      case sub of
-        -- badexpression {} -> pure $ badSubindex to
+    Just subs -> if null subs
+      then pure $ \case
+        Just (Expression { expType, loc }, _, _) -> case expType of
+          GArray _ _ -> do
+            putError (pos loc) . UnknownError $
+              "Missing dimensions in array access."
+            pure Nothing
+          _ -> do
+            putError (pos loc) . UnknownError $ "Cannot subindex non-array."
+            pure Nothing
+        Nothing -> pure Nothing
+      else pure $ \case
+        Nothing -> pure Nothing
+        Just (expr, _, taint1) -> case expr of
+          Expression
+            { E.loc = Location (from, _)
+            , expType = GArray { dimensions, innerType }
+            , exp' = Obj o } -> do
+              let
+                lsubs = length subs
+                ldims = length dimensions
+              if lsubs /= ldims
+                then do
+                  putError from . UnknownError $
+                    "Attempted to index " <> show ldims <>"-dimensional array \
+                    \with a " <> show lsubs <> "-dimensional subindex."
+                  pure Nothing
+                else
+                  let
+                    taint = foldMap (view _3) subs <> taint1
+                    expr = Expression
+                      { E.loc = Location (from, to)
+                      , expType = innerType
+                      , expConst = False
+                      , exp' = Obj
+                        { theObj = Object
+                          { O.loc = Location (from, to)
+                          , objType = innerType
+                          , obj' = Index
+                            { O.inner = o
+                            , indices = view _1 <$> subs }}}}
+                  in pure . Just $ (expr, ProtoNothing, taint)
 
-        Expression { expType } ->
-          case expType of
-            GInt ->
-              pure $ \case
-                Nothing -> pure Nothing
-                Just (expr, _, taint1) -> case expr of
-                  Expression
-                    { E.loc = Location (from, _)
-                    , expType = GArray { innerType }
-                    , exp' = Obj o } ->
-                      let
-                        taint = taint0 <> taint1
-                        expr = Expression
-                          { E.loc = Location (from, to)
-                          , expType = innerType
-                          , expConst = False
-                          , exp' = Obj
-                            { theObj = Object
-                              { O.loc = Location (from, to)
-                              , objType = innerType
-                              , obj' = Index
-                                { O.inner = o
-                                , index = sub }}}}
-                      in pure . Just $ (expr, ProtoNothing, taint)
+          _ -> do
+            putError (pos . E.loc $ expr) . UnknownError $
+              "Cannot subindex non-array."
 
-                  e -> do
-                    let
-                      Location (from, _) = E.loc e
-                      loc = Location (from, to)
+            pure Nothing
 
-                    putError from . UnknownError $ "Cannot subindex non-array."
-
-                    pure Nothing
-
-            _ -> do --FIXME
-              putError from' . UnknownError $
-                "Bad subindex. Must be integer expression."
-              pure (\_ -> pure Nothing)
+  where
+    subAux :: ParserExp (Maybe MetaExpr)
+    subAux = do
+      e <- metaexpr
+      case e of
+        je@(Just (Expression { expType = GInt }, _, _)) -> pure je
+        Just (Expression { expType, loc }, _, _) -> do
+          putError (pos loc) . UnknownError $
+            "Cannot use expression of type `" <> show expType <>
+            " as subindex, integer expression was expected`."
+          pure Nothing
+        Nothing -> pure Nothing
 
 
 dotField :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
@@ -994,14 +1019,14 @@ dotField = do
                   Just (GDataType name _ _, structFields, _)
                     | name == n ->
                       aux obj (objType obj) loc fieldName structFields taint
-                  _ -> do 
+                  _ -> do
                     structs <- lift $ use dataTypes
-                    case n `Map.lookup` structs of 
-                      Just Struct { structFields } -> 
-                        let structFields' = fillTypes typeArgs structFields                  
+                    case n `Map.lookup` structs of
+                      Just Struct { structFields } ->
+                        let structFields' = fillTypes typeArgs structFields
                         in aux obj (objType obj) loc fieldName structFields' taint
                       _ -> error "internal error: GDataType without struct."
-                      
+
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
                 case n `Map.lookup` dts of

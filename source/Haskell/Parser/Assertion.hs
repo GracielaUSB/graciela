@@ -10,16 +10,15 @@ module Parser.Assertion
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
+import           AST.Type
 import           Error              as PE
 import           Location
 import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Monad
--- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens       ((%=))
 import           Control.Monad      (unless, void)

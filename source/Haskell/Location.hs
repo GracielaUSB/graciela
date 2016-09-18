@@ -16,6 +16,7 @@ module Location
   ( Location (..)
   , SourcePos (..)
   , Pos
+  , pos
   , showPos
   , unPos
   ) where
@@ -29,8 +30,6 @@ import           Text.Megaparsec.Pos (Pos, SourcePos (..), unPos, unsafePos)
 -- definitions.
 data Location
   = Location (SourcePos, SourcePos) -- ^ A real location within a file.
-  -- | Rearranged                      -- ^ A location which has been lost because
-                                    -- of code rearrangement.
   | GracielaDef                     -- ^ The location of internal Graciela
                                     -- definitions.
   deriving (Eq, Ord)
@@ -41,7 +40,6 @@ instance Show Location where
       then "(line " <> show (unPos l0) <> ", (col " <> show (unPos c0) <>
         " -> col " <> show (unPos c1) <> "))"
       else "(" <> showPos p0 <> " -> " <> showPos p1 <> ")"
-  -- show Rearranged = "()"
   show GracielaDef = "In the Graciela Definition"
 
 instance Monoid Location where
@@ -54,10 +52,12 @@ instance Monoid Location where
     in Location (zero, inf)
   GracielaDef `mappend` _ = GracielaDef
   _ `mappend` GracielaDef = GracielaDef
-  -- Rearranged `mappend` _  = Rearranged
-  -- _ `mappend` Rearranged  = Rearranged
   Location (from0, to0) `mappend` Location (from1, to1) =
     Location (from0 `min` from1, to0 `max` to1)
+
+pos :: Location -> SourcePos
+pos (Location (p, _)) = p
+pos GracielaDef = SourcePos "Graciela" (unsafePos 1) (unsafePos 1)
 
 -- | Shows a 'SourcePos' in a human-readable way.
 showPos :: SourcePos -> String

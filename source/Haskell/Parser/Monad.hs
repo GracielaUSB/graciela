@@ -65,8 +65,8 @@ module Parser.Monad
   , sepEndBy1
   ) where
 --------------------------------------------------------------------------------
+import           AST.Expression             (Type)
 import           AST.Struct
-import           AST.Type                   (Type)
 import           Error
 import           Location
 import           Parser.Prim                ()

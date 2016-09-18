@@ -7,12 +7,14 @@ module AST.Object
   , notIn
   ) where
 --------------------------------------------------------------------------------
-import           AST.Type    (ArgMode (..), Type)
+import           AST.Type      (ArgMode (..), Type', TypeArgs')
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Monoid ((<>))
-import           Data.Text   (Text, unpack)
+import           Data.Foldable (toList)
+import           Data.Monoid   ((<>))
+import           Data.Sequence (Seq)
+import           Data.Text     (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Object'' e
@@ -24,8 +26,8 @@ data Object'' e
     , field     :: Integer
     , fieldName :: Text  }
   | Index
-    { inner :: Object' e
-    , index :: e }
+    { inner   :: Object' e
+    , indices :: Seq e }
   | Deref
     { inner :: Object' e }
   deriving (Eq)
@@ -35,7 +37,7 @@ data Object'' e
 data Object' e
   = Object
     { loc     :: Location
-    , objType :: Type
+    , objType :: Type' e
     , obj'    :: Object'' e }
   deriving (Eq)
 
@@ -48,7 +50,7 @@ instance Show e => Show (Object' e) where
   show Object { loc, objType, obj' } = case obj' of
     Variable {name} -> unpack name
     Member {inner, fieldName} -> show inner <> "." <> unpack fieldName
-    Index {inner, index} -> show inner <> "[" <> show index <> "]"
+    Index { inner, indices } -> show inner <> show (toList indices)
     Deref {inner}        -> "*" <> show inner
 
 instance Treelike e => Treelike (Object' e) where
@@ -64,10 +66,10 @@ instance Treelike e => Treelike (Object' e) where
         , leaf $ "Field `" <> show fieldName <> "`"
         ]
 
-    Index  { inner, index } ->
+    Index  { inner, indices } ->
       Node ("Index " <> show loc)
         [ toTree inner
-        , toTree index
+        , Node "indices" $ toForest indices
         ]
 
     Deref  { inner } ->

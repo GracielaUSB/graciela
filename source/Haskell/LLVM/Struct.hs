@@ -7,9 +7,10 @@ module LLVM.Struct
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
-import           AST.Expression               (Expression (..))
+import           AST.Expression               (Expression (..), TypeArgs)
+import qualified AST.Expression               as T (Type)
 import           AST.Struct                   (Struct (..), Struct' (..))
-import           AST.Type                     as T
+import           AST.Type
 import           LLVM.Abort                   (abort, abortString)
 import qualified LLVM.Abort                   as Abort (Abort (Invariant, RepInvariant))
 import           LLVM.Definition
@@ -37,11 +38,10 @@ import           LLVM.General.AST             (BasicBlock (..), Definition (..),
                                                functionDefaults)
 import qualified LLVM.General.AST.Constant    as C (Constant (..))
 import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
-import           LLVM.General.AST.Global      (Global (returnType, name, 
-                                               basicBlocks, parameters), 
+import           LLVM.General.AST.Global      (Global (basicBlocks, name, parameters, returnType),
                                                functionDefaults)
-import           LLVM.General.AST.Instruction (Named (..), Terminator (..))
-import           LLVM.General.AST.Instruction (Instruction (..))
+import           LLVM.General.AST.Instruction (Instruction (..), Named (..),
+                                               Terminator (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
 import           LLVM.General.AST.Type        as LLVM
@@ -51,7 +51,7 @@ import           Debug.Trace
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (Struct, [T.TypeArgs]) -> LLVM ()
+defineStruct :: Text -> (Struct, [TypeArgs]) -> LLVM ()
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
   Struct {structBaseName,structTypes, structFields, structProcs, struct'} -> case struct' of
@@ -80,34 +80,34 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
 defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
 defaultConstructor name structType typeMap = do
-  let 
+  let
     procName = "init" <> name
   proc <- newLabel procName
 
   (proc #)
-  
+
   Just Struct { structFields } <- use currentStruct
 
   openScope
   selfName <- insertVar "self"
 
-  let 
+  let
     self = LocalReference structType selfName
-  
+
   forM_ (toList structFields) $ \(field, t, expr) -> do
-    let 
+    let
       filledT = fillType typeMap t
     when (filledT =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
-      
+
       member <- newLabel $ "member" <> show field
-      
+
       addInstruction $ member := GetElementPtr
           { inBounds = False
           , address  = self
           , indices  = ConstantOperand . C.Int 32 <$> [0, field]
           , metadata = []}
 
-      defaultValue <- case expr of 
+      defaultValue <- case expr of
         Nothing -> value filledT
         Just e -> expression e
 
@@ -144,7 +144,7 @@ defaultConstructor name structType typeMap = do
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 
-defineStructInv :: Invariant  
+defineStructInv :: Invariant
                 -> String
                 -> LLVM.Type
                 -> Expression
@@ -156,11 +156,11 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     let
       procName = (<> name) (case inv of
           Invariant -> "inv-"
-          RepInvariant -> "repInv-") 
+          RepInvariant -> "repInv-")
 
     proc <- newLabel $ "proc" <> procName
     (proc #)
-    
+
     openScope
     name' <- insertVar "self"
     -- Evaluate the condition expression

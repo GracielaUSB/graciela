@@ -23,15 +23,15 @@ module Parser.Instruction
 import           AST.Declaration        (Declaration)
 import           AST.Definition         (Definition (..), Definition' (..))
 import           AST.Expression         (Expression (..), Expression' (..),
-                                         Object (..))
+                                         Object (..), Type)
 import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
-import           AST.Type               (ArgMode (..), Type (..), fillType,
-                                         isTypeVar, (=:=), hasDT)
+import           AST.Type               (ArgMode (..), Type' (..), fillType,
+                                         hasDT, isTypeVar, (=:=))
 import           Entry
 import           Error
 import           Location
@@ -189,7 +189,7 @@ assign = do
         | notIn o ->
           if (t1 =:= t2) && (isTypeVar t1 ||
             (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
-            then case expr of 
+            then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
               _       -> pure $ (|> (o, rval)) <$> acc
             else do
@@ -563,7 +563,7 @@ procedureCall = do
                       nParams = length procParams
                       typeArgs = case cs of
                           Nothing -> typeArgs'
-                          Just (GDataType _ _ dtArgs,_,_) -> 
+                          Just (GDataType _ _ dtArgs,_,_) ->
                             fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $

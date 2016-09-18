@@ -11,6 +11,7 @@ module Parser.Definition
 --------------------------------------------------------------------------------
 import           AST.Definition
 import           AST.Expression
+import           AST.Type
 import           Entry
 import           Error
 import           Location
@@ -24,21 +25,21 @@ import           Parser.Type
 import           SymbolTable         hiding (empty)
 import qualified SymbolTable         as ST (empty)
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens        (use, (%=), (.=), (^.), (%~), _Just, _3, over)
+import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _3,
+                                      _Just)
 import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
 import qualified Data.Map.Strict     as Map (insert, lookup)
 import           Data.Maybe          (isJust, isNothing)
 import           Data.Semigroup      ((<>))
-import           Data.Sequence       (Seq, (|>), ViewL(..) )
+import           Data.Sequence       (Seq, ViewL (..), (|>))
 import qualified Data.Sequence       as Seq (empty, viewl)
 import           Data.Text           (Text, unpack)
-import           Text.Megaparsec     (between, eof, errorUnexpected, try,
+import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
-                                      optional, withRecovery, (<|>))
+                                      optional, try, withRecovery, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -127,32 +128,32 @@ function = do
           dt <- use currentStruct
 
           case dt of
-            Just (dtType, _, procs) -> do 
-              let 
+            Just (dtType, _, procs) -> do
+              let
                 hasDT' = foldr ((||) . (\(_,pType) -> (Nothing /= hasDT pType) || isTypeVar pType)) False funcParams
-              case Seq.viewl funcParams of 
+              case Seq.viewl funcParams of
                 (_, pType) :< _ | hasDT' -> do
-                  case hasDT pType of 
+                  case hasDT pType of
                     Just pType' -> if pType' =:= dtType
                       then currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
-                      else putError from . UnknownError $ 
+                      else putError from . UnknownError $
                           "First parameter of function `" <> unpack (defName def) <>
                           "` must have type " <> show dtType <> "."
 
                     _ -> currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
-                
-                _ -> case funcName `Map.lookup` procs of 
+
+                _ -> case funcName `Map.lookup` procs of
                   Nothing -> definitions %= Map.insert funcName def
-                  Just _  -> putError from . UnknownError $ 
+                  Just _  -> putError from . UnknownError $
                     "Redefinition of procedure `" <> unpack funcName <> "`."
 
             Nothing -> do
               defs <- use definitions
-              case funcName `Map.lookup` defs of 
+              case funcName `Map.lookup` defs of
                 Nothing -> definitions %= Map.insert funcName def
-                Just _  -> putError from . UnknownError $ 
+                Just _  -> putError from . UnknownError $
                   "Redefinition of procedure `" <> unpack funcName <> "`."
-    
+
           pure . Just $ def
 
         else do
@@ -181,7 +182,7 @@ doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
     yesParam from = do
       parName <- identifier
       match' TokColon
-      t <- type'
+      t <- type'' True
 
       to <- getPosition
       let loc = Location (from, to)
@@ -205,7 +206,7 @@ procedure :: Parser (Maybe Definition)
 procedure = do
   lookAhead $ match TokProc
 
-  Location(_,from) <- match TokProc
+  Location (_, from) <- match TokProc
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
@@ -259,39 +260,39 @@ procedure = do
             { procDecl = decls
             , procBody = body
             , procParams = params
-            , procRecursive }}     
+            , procRecursive }}
 
       -- Struct does not add thier procs to the table
       dt <- use currentStruct
 
       case dt of
-        Just (dtType, _, procs) -> do 
-          let 
+        Just (dtType, _, procs) -> do
+          let
             hasDT' = foldr ((||) . (\(_,pType,_) -> (Nothing /= hasDT pType) || isTypeVar pType)) False params
-          case Seq.viewl params of 
+          case Seq.viewl params of
             (_, pType, _) :< _ | hasDT' -> do
-              case hasDT pType of 
+              case hasDT pType of
                 Just pType' -> if pType' =:= dtType
                   then currentStruct %= over _Just (_3 %~ (Map.insert procName def))
-                  else putError from . UnknownError $ 
+                  else putError from . UnknownError $
                       "First parameter of procedure `" <> unpack (defName def) <>
                       "` must have type " <> show dtType <> " when using Variable Types."
 
                 _ -> currentStruct %= over _Just (_3 %~ (Map.insert procName def))
 
-            
-            _ -> case procName `Map.lookup` procs of 
+
+            _ -> case procName `Map.lookup` procs of
                 Nothing -> definitions %= Map.insert procName def
-                Just _  -> putError from . UnknownError $ 
+                Just _  -> putError from . UnknownError $
                   "Redefinition of procedure `" <> unpack procName <> "`."
 
-        Nothing -> do 
+        Nothing -> do
           defs <- use definitions
-          case procName `Map.lookup` defs of 
+          case procName `Map.lookup` defs of
             Nothing -> definitions %= Map.insert procName def
-            Just _  -> putError from . UnknownError $ 
+            Just _  -> putError from . UnknownError $
               "Redefinition of procedure `" <> unpack procName <> "`."
-      
+
       pure $ Just def
     _ -> pure Nothing
 
@@ -316,7 +317,7 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
 
       parName' <- safeIdentifier
       match' TokColon
-      t <- type'
+      t <- type'' True
 
       to <- getPosition
       let loc = Location (from, to)
@@ -373,7 +374,7 @@ functionDeclaration = do
           , pre
           , post
           , bound = Nothing
-          , def' = AbstractFunctionDef 
+          , def' = AbstractFunctionDef
             { abstFParams = params
             , funcRetType = retType }}
 
