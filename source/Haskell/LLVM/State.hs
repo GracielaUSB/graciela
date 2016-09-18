@@ -10,7 +10,6 @@ module LLVM.State
   , blocks
   , moduleDefs
   , symTable
-  -- , nameCount
   , structs
   , fullDataTypes
   , pendingDataTypes
@@ -20,8 +19,8 @@ module LLVM.State
   , substitutionTable
   ) where
 --------------------------------------------------------------------------------
+import qualified AST.Expression               as G (TypeArgs)
 import           AST.Struct                   (Struct (..))
-import qualified AST.Type                     as G (TypeArgs)
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)

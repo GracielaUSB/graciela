@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parser.ADT
@@ -8,7 +8,7 @@ module Parser.ADT
 -------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition
-import           AST.Expression      (Expression (..))
+import           AST.Expression      (Expression (..), Type)
 import           AST.Instruction
 import           AST.Struct
 import           AST.Type
@@ -25,7 +25,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens        (use, (%=), (.=), _Just, over, (.~), _3)
+import           Control.Lens        (over, use, (%=), (.=), (.~), _3, _Just)
 import           Control.Monad       (foldM, unless, void, when, zipWithM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
@@ -37,8 +37,9 @@ import qualified Data.Map            as Map (empty, fromList, insert, lookup,
                                              size)
 import           Data.Maybe          (isNothing)
 import           Data.Monoid         ((<>))
-import           Data.Sequence       (Seq, ViewL(..))
-import qualified Data.Sequence       as Seq (fromList, zip, zipWith, empty, viewl)
+import           Data.Sequence       (Seq, ViewL (..))
+import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
+                                             zipWith)
 import           Data.Text           (Text, pack, unpack)
 import           Text.Megaparsec     (eof, getPosition, manyTill, optional,
                                       (<|>))
@@ -90,19 +91,19 @@ abstractDataType = do
     to    <- getPosition
     st <- use symbolTable
     symbolTable %= closeScope to
-    
-    let 
+
+    let
       loc = Location (from,to)
       checkProcParam Definition{defName, defLoc, def' } = do
-        let 
+        let
           Location(pos,_) = defLoc
           AbstractProcedureDef{abstParams} = def'
-        case Seq.viewl abstParams of 
+        case Seq.viewl abstParams of
           EmptyL -> pure ()
           (_,t,_) :< _ -> do
-            let adt = GDataType abstractName Nothing 
-            unless (t =:= adt) . putError pos . UnknownError $ 
-              "First parameter of procedure `" <> 
+            let adt = GDataType abstractName Nothing
+            unless (t =:= adt) . putError pos . UnknownError $
+              "First parameter of procedure `" <>
               unpack defName <> "` must have type " <> show adt
 
     case (inv', procs') of
@@ -122,31 +123,31 @@ abstractDataType = do
       _ -> pure ()
     typeVars .= []
     currentStruct .= Nothing
-    
 
 
 
-toFields :: Integer -> Text 
-         -> Seq Declaration 
+
+toFields :: Integer -> Text
+         -> Seq Declaration
          -> Parser (Map Text (Integer, Type, Maybe Expression))
 toFields n name s = Map.fromList . zipWith f [n..] . toList . F.concat <$> mapM toField' s
   where
-    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do 
-      when (recursiveDecl declType (GDataType name Nothing)) $ 
+    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do
+      when (recursiveDecl declType (GDataType name Nothing)) .
         putError pos . UnknownError $ "Recursive definition. A Data\
           \ Type cannot contain a field of itself."
-      
+
       pure . zip (toList declIds) $ repeat (declType, Nothing)
 
     toField' Initialization{ declLoc = Location(pos,_), declType, declPairs } = do
-      when (recursiveDecl declType (GDataType name Nothing)) $ 
+      when (recursiveDecl declType (GDataType name Nothing)) .
         putError pos . UnknownError $ "Recursive definition. A Data\
           \ Type cannot contain a field of itself."
       let
         names = fmap fst  (toList declPairs)
         exprs = fmap snd  (toList declPairs)
 
-      pure . zip names $ zip (repeat declType) $ fmap Just exprs
+      pure . zip names . zip (repeat declType) $ fmap Just exprs
 
     f n (name, (t,e)) = (name, (n,t,e))
 
@@ -205,7 +206,7 @@ dataType = do
             lenActual = length absTypes
 
             abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
-            
+
             adtToDt (i,t,e) = (i, f t, e)
 
             f t = case t of
@@ -214,8 +215,8 @@ dataType = do
                 GPointer t -> GPointer (f t)
                 _ -> t
 
-            fields = fmap adtToDt $ fillTypes abstractTypes structFields <> fields'       
-                   
+            fields = fmap adtToDt $ fillTypes abstractTypes structFields <> fields'
+
           currentStruct %= over _Just (_3 .~ fields)
 
           repinv'  <- repInv
@@ -300,10 +301,10 @@ dataType = do
                 then do
                   zipWithM_ (checkParams pos1) params1 params2
                   unless (null params1) $ do
-                    let 
+                    let
                       dt = GDataType dtName (Just abstractName)
                       (_,t,_) = head params2
-                    unless (t =:= dt) $ putError pos2 . UnknownError $ 
+                    unless (t =:= dt) . putError pos2 . UnknownError $
                       "First parameter of procedure `" <> unpack (defName def) <>
                       "` must have type " <> show t
 
@@ -332,14 +333,10 @@ dataType = do
               GTypeVar i _ -> types' ! i
               _ -> t1'
 
-          unless (t1 =:= t2) $ do
-                putError pos . UnknownError $
-                  "Parameter named `" <> unpack name2 <> "` has type " <>
-                  show t2 <>" but expected type " <> show t1
+          unless (t1 =:= t2) . putError pos . UnknownError $
+            "Parameter named `" <> unpack name2 <> "` has type " <>
+            show t2 <>" but expected type " <> show t1
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
 recursiveDecl t dt = t =:= dt
-
-
-

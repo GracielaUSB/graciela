@@ -4,6 +4,7 @@ module AST.Program where
 --------------------------------------------------------------------------------
 import           AST.Definition  (Definition)
 import qualified AST.Definition  as D
+import           AST.Expression  (TypeArgs)
 import           AST.Instruction (Instruction)
 import qualified AST.Instruction as I
 import           AST.Struct      (Struct)

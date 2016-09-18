@@ -12,9 +12,9 @@ module Parser.Operator
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression (BinaryOperator (..), Expression (..),
-                                 Expression' (Binary, Unary, Value),
+                                 Expression' (Binary, Unary, Value), Type,
                                  UnaryOperator (..), Value (..))
-import           AST.Type       (Type (..), (=:=))
+import           AST.Type       (Type' (..), (=:=))
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')

@@ -11,6 +11,7 @@ module Parser.Definition
 --------------------------------------------------------------------------------
 import           AST.Definition
 import           AST.Expression
+import           AST.Type
 import           Entry
 import           Error
 import           Location
@@ -24,10 +25,10 @@ import           Parser.Type
 import           SymbolTable         hiding (empty)
 import qualified SymbolTable         as ST (empty)
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Applicative (empty)
-import           Control.Lens        (use, (%=), (.=), (^.), (%~), _Just, _5, over)
+import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _5,
+                                      _Just)
 import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
 import qualified Data.Map.Strict     as Map (insert)
@@ -36,9 +37,9 @@ import           Data.Semigroup      ((<>))
 import           Data.Sequence       (Seq, (|>))
 import qualified Data.Sequence       as Seq (empty)
 import           Data.Text           (Text, unpack)
-import           Text.Megaparsec     (between, eof, errorUnexpected, try,
+import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
-                                      optional, withRecovery, (<|>))
+                                      optional, try, withRecovery, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -153,7 +154,7 @@ function = do
     yesParam from = do
       parName <- identifier
       match' TokColon
-      t <- type'
+      t <- type'' True
 
       to <- getPosition
       let loc = Location (from, to)
@@ -177,7 +178,7 @@ procedure :: Parser (Maybe Definition)
 procedure = do
   lookAhead $ match TokProc
 
-  Location(_,from) <- match TokProc
+  Location (_, from) <- match TokProc
 
   procName' <- safeIdentifier
   symbolTable %= openScope from
@@ -210,7 +211,7 @@ procedure = do
   symbolTable %= closeScope to -- params
 
   procRecursive <- use currentProc >>= \case
-    Nothing -> error "internal error: currentFunction was nullified."
+    Nothing -> error "internal error: currentProc was nullified."
     Just cr -> pure $ cr ^.crRecursive
 
   currentProc .= Nothing
@@ -263,7 +264,7 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
 
       parName' <- safeIdentifier
       match' TokColon
-      t <- type'
+      t <- type'' True
 
       to <- getPosition
       let loc = Location (from, to)

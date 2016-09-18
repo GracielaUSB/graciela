@@ -1,5 +1,5 @@
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE LambdaCase #-}
 
 module LLVM.Type
   ( floatType
@@ -16,25 +16,27 @@ module LLVM.Type
 where
 --------------------------------------------------------------------------------
 import           AST.Expression             (Expression)
+import qualified AST.Expression             as T (Type)
 import           AST.Struct                 (Struct (..))
-import           AST.Type                   as T (Type (..), fillType)
+import           AST.Type                   as T (Type' (..), fillType)
 import           LLVM.Monad
-import           LLVM.State                 (currentStruct, substitutionTable,
-                                             structs, fullDataTypes, pendingDataTypes
-                                             , moduleDefs)
+import           LLVM.State                 (currentStruct, fullDataTypes,
+                                             moduleDefs, pendingDataTypes,
+                                             structs, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use, (%=))
 import           Data.Array                 ((!))
 import           Data.Foldable              (toList)
+import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
-import qualified Data.Map                   as Map (lookup, alter)
+import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import           Data.Sequence              ((|>))
 import           Data.Text                  (Text, pack, unpack)
 import           Data.Word                  (Word32, Word64)
-import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST           (Definition (..))
+import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
 import           LLVM.General.AST.Name      (Name (..))
 import           LLVM.General.AST.Type      (double, i1, i16, i32, i8, ptr)
 import qualified LLVM.General.AST.Type      as LLVM (Type (..))
@@ -73,9 +75,16 @@ toLLVMType (T.GPointer  t) = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
 
-toLLVMType (T.GArray sz t) = do
+-- toLLVMType (T.GArray sz t) = do
+--   inner <- toLLVMType t
+--   pure $ LLVM.ArrayType (fromIntegral sz)  inner
+
+toLLVMType (T.GArray dims t) = do
   inner <- toLLVMType t
-  pure $ LLVM.ArrayType (fromIntegral sz)  inner
+  let arrT = iterate (LLVM.ArrayType 1) inner !! length dims
+  pure LLVM.StructureType
+    { LLVM.isPacked     = False
+    , LLVM.elementTypes = reverse $ arrT : (toList dims $> i32) }
 
 toLLVMType (GFullDataType n t) = do
   fdts <- use fullDataTypes
@@ -85,16 +94,16 @@ toLLVMType (GFullDataType n t) = do
     t' = case substs of
       [] -> t
       (subst:_) -> fmap (fillType subst) t
-  case n `Map.lookup` fdts of 
-    Nothing -> do 
+  case n `Map.lookup` fdts of
+    Nothing -> do
       Just ast@Struct{structFields} <- (n `Map.lookup`) <$> use structs
       case n `Map.lookup` pdt of
-        Just (_, typeArgs) | t' `elem` typeArgs -> pure ()        
+        Just (_, typeArgs) | t' `elem` typeArgs -> pure ()
         _ -> pendingDT t' ast
 
-    Just (s, typeArgs) | t' `elem` typeArgs -> pure () 
+    Just (s, typeArgs) | t' `elem` typeArgs -> pure ()
     Just (s, typeArgs) -> pendingDT t' s
-        
+
 
 
   types <- mapM toLLVMType t'
@@ -104,7 +113,7 @@ toLLVMType (GFullDataType n t) = do
   where
     pendingDT t' s@Struct{ structFields } = do
       type' <- Just . LLVM.StructureType True <$>
-                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_) -> x)) 
+                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_) -> x))
                   (sortOn (\(i,_,_) -> i) . toList $ structFields)
       let
         fAlter = \case
@@ -148,7 +157,10 @@ sizeOf T.GBool         = pure 1
 sizeOf T.GChar         = pure 1
 sizeOf T.GInt          = pure 4
 sizeOf T.GFloat        = pure 8
-sizeOf (T.GArray sz t) = (fromIntegral sz *) <$> sizeOf t
+-- sizeOf (T.GArray sz t) = (fromIntegral sz *) <$> sizeOf t
+sizeOf (T.GArray sz t) = error
+  "internal error: sizeOf array; \
+  \cannot calculate size of array statically"
 sizeOf (T.GPointer t)  = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GSet      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GMultiset _  ) = pure $ if arch == "x86_64" then 8 else 4
@@ -157,13 +169,13 @@ sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
-sizeOf (T.GDataType name _) = do 
+sizeOf (T.GDataType name _) = do
   typeargs <- head <$> use substitutionTable
   getStructSize name  typeargs
 sizeOf t@(GTypeVar _ _) = do
   substs <- use substitutionTable
   case substs of
-      [] -> error $ "internal error unknow convertion for type " <> show t
+      [] -> error $ "internal error unknow conversion for type " <> show t
       (subst:_) -> sizeOf (fillType subst t)
 sizeOf t = error $ "internal error: getting size of an unknow type " <> show t
 
@@ -174,8 +186,7 @@ getStructSize name typeArgs = do
     Just Struct { structFields, structTypes } -> do
 
       let
-        types' = fmap (fillType typeArgs . (\(_,x,_) -> x)) $ 
-          toList structFields 
+        types' = fillType typeArgs . (\(_,x,_) -> x) <$> toList structFields
 
       sum <$> mapM sizeOf types'
 

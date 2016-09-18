@@ -3,20 +3,20 @@
 
 module Error where
 --------------------------------------------------------------------------------
-import           AST.Expression        (Expression(expType))
+import           AST.Expression        (Expression (expType), Type)
+import           AST.Type              (Type' (..))
 import           Data.Monoid           ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
 import           Text.Megaparsec       hiding (Token)
 import           Text.Megaparsec.Error
 import           Token
-import           AST.Type                  (Type (..))
 --------------------------------------------------------------------------------
 import           Data.Foldable         (toList)
 import           Data.List             (intercalate)
-import           Data.Sequence         (Seq)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
+import           Data.Sequence         (Seq)
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
@@ -155,14 +155,14 @@ instance ShowErrorComponent Error where
       show nArgs <> (if nArgs == 1 then " argument." else " arguments.")
 
     BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
-      "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack fName <>
-      "` " <> showPos fPos <> " has type " <> show pType <>
-      ", but recived a expression with type " <> show aType <> "."
+      "The parameter `" <> unpack paramName <>"` of the function `" <> unpack fName <>
+      "` " <> showPos fPos <> " has type `" <> show pType <>
+      "`, but received an expression with type `" <> show aType <> "`."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
       "` " <> showPos pPos <> " has type `" <> show pType <>
-      "`, but recived a expression with type `" <> show aType <> "`."
+      "`, but received an expression with type `" <> show aType <> "`."
 
     BadReadArgument { aExpr } ->
       "The expression `" <> show aExpr <> "` is a constant expression."

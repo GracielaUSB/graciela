@@ -11,13 +11,15 @@ module AST.Expression
   , QuantOperator (..)
   , UnaryOperator (..)
   , Value (..)
+  , Type
+  , TypeArgs
   , from
   , to
   , eSkip
   ) where
 --------------------------------------------------------------------------------
 import           AST.Object    (Object')
-import           AST.Type      (Type)
+import           AST.Type      (Type', TypeArgs')
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
@@ -27,6 +29,10 @@ import           Data.Monoid   ((<>))
 import           Data.Sequence (Seq)
 import           Data.Text     (Text, unpack)
 import           Prelude       hiding (Ordering (..))
+--------------------------------------------------------------------------------
+
+type Type     = Type'     Expression
+type TypeArgs = TypeArgs' Expression
 --------------------------------------------------------------------------------
 
 type Object = Object' Expression
@@ -95,7 +101,7 @@ data QuantOperator
   | Summation | Product
   | Minimum   | Maximum
   | Count
-  deriving(Eq)
+  deriving (Eq)
 
 instance Show QuantOperator where
   show ForAll    = "Forall (∀)"
@@ -210,7 +216,6 @@ data Expression'
   | EConditional
     { eguards    :: Seq (Expression, Expression)
     , trueBranch :: Maybe Expression }
-
   deriving (Eq)
 
 data Expression
@@ -219,7 +224,12 @@ data Expression
     , expType  :: Type
     , expConst :: Bool
     , exp'     :: Expression' }
-  deriving (Eq)
+
+instance Eq Expression where
+  (==)
+    (Expression _loc0 expType0 expConst0 exp'0)
+    (Expression _loc1 expType1 expConst1 exp'1)
+    = expType0 == expType1 && expConst0 == expConst1 && exp'0 == exp'1
 
 
 eSkip :: Expression'
@@ -278,7 +288,7 @@ instance Treelike Expression where
           , leaf $ "of type " <> show qVarType ]
         , Node "Range" [toTree qRange]
         , case qCond of
-            Expression { exp' } | exp' == eSkip -> leaf "No Conditions"
+            Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
             _ -> Node "Conditions" [ toTree qCond ]
         , Node "Body" [ toTree qBody ] ]
 

@@ -74,7 +74,9 @@ data Abort
   | Underflow          -- ^ A value underflowed.
   | EmptyRange         -- ^ A quantification disallowing empty ranges received one.
   | NullPointerAccess  -- ^ A null pointer was dereferenced.
-  | RepInvariant
+  | RepInvariant       -- ^ The representation invariant was falsified.
+  | NegativeIndex      -- ^ A negative index was used to access an array.
+  | OutOfBoundsIndex   -- ^ An index outside the bounds of an array was used to access it.
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate abort.

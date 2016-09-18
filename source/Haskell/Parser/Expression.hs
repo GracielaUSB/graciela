@@ -14,7 +14,7 @@ import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
-import           AST.Type                  (ArgMode (..), Type (..), (=:=))
+import           AST.Type                  (ArgMode (..), Type' (..), (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
@@ -28,8 +28,8 @@ import           SymbolTable               (closeScope, defocus, emptyGlobal,
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%%=), (%=), (&~), (.=), (<&>),
-                                            (^.), _6, _Just)
+import           Control.Lens              (use, view, (%%=), (%=), (&~), (.=),
+                                            (<&>), (^.), _1, _3, _Just)
 import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
@@ -76,7 +76,7 @@ type ParserExp = StateT [ Text ] Parser
 
 
 expr :: ParserExp (Maybe Expression)
-expr = pure . ((\(e,_,_) -> e) <$>) =<< metaexpr
+expr = pure . (view _1 <$>) =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
@@ -433,7 +433,7 @@ call fName (Location (from,_)) = do
     checkType fName fPos acc
       (Just (e@Expression { E.loc, expType, expConst, exp' }, _, taint), (name, pType)) = do
         let Location (from, _) = loc
-        if pType == expType
+        if pType =:= expType
           then pure $ add e taint expConst <$> acc
           else do
             putError from $
@@ -717,7 +717,7 @@ ifExp = do
                             -- the final value of the ifExp is this rhs.
 
                             put st
-                              { ifType = expType
+                              { ifType = newType
                               , ifBuilder = ifBuilder <> IfExp r
                               , ifTaint = taint1
                               , ifConst = expConst r }
@@ -725,7 +725,7 @@ ifExp = do
                           | exp' l == Value (BoolV False) ->
                             -- 5. We have a good rhs that must be ignored because
                             -- its lhs was false. Its type does affect the ifExp.
-                            put st { ifType = expType }
+                            put st { ifType = newType }
 
                           | otherwise ->
                             -- 6. We have a good rhs whose type matches the
@@ -735,7 +735,7 @@ ifExp = do
                             -- guard, the match is done against GAny, i.e., any
                             -- type will match).
                             put IfState
-                              { ifType    = expType
+                              { ifType    = newType
                               , ifBuilder =
                                 ifBuilder <> IfGuards (Seq.singleton (l, r)) Nothing
                               , ifTaint   = ifTaint <> taint0 <> taint1
@@ -795,53 +795,78 @@ operator =
 subindex :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 subindex = do
   from' <- getPosition
-  subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
+  -- subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
+  subindices' <- between
+    (match TokLeftBracket)
+    (match' TokRightBracket)
+    (subAux `sepBy` match TokComma)
   to <- getPosition
 
-  case subind of
+  let subindices = sequence subindices'
+
+  case subindices of
     Nothing -> pure (\_ -> pure Nothing)
-    Just (sub, _, taint0) ->
-      case sub of
-        -- badexpression {} -> pure $ badSubindex to
+    Just subs -> if null subs
+      then pure $ \case
+        Just (Expression { expType, loc }, _, _) -> case expType of
+          GArray _ _ -> do
+            putError (pos loc) . UnknownError $
+              "Missing dimensions in array access."
+            pure Nothing
+          _ -> do
+            putError (pos loc) . UnknownError $ "Cannot subindex non-array."
+            pure Nothing
+        Nothing -> pure Nothing
+      else pure $ \case
+        Nothing -> pure Nothing
+        Just (expr, _, taint1) -> case expr of
+          Expression
+            { E.loc = Location (from, _)
+            , expType = GArray { dimensions, innerType }
+            , exp' = Obj o } -> do
+              let
+                lsubs = length subs
+                ldims = length dimensions
+              if lsubs /= ldims
+                then do
+                  putError from . UnknownError $
+                    "Attempted to index " <> show ldims <>"-dimensional array \
+                    \with a " <> show lsubs <> "-dimensional subindex."
+                  pure Nothing
+                else
+                  let
+                    taint = foldMap (view _3) subs <> taint1
+                    expr = Expression
+                      { E.loc = Location (from, to)
+                      , expType = innerType
+                      , expConst = False
+                      , exp' = Obj
+                        { theObj = Object
+                          { O.loc = Location (from, to)
+                          , objType = innerType
+                          , obj' = Index
+                            { O.inner = o
+                            , indices = view _1 <$> subs }}}}
+                  in pure . Just $ (expr, ProtoNothing, taint)
 
-        Expression { expType } ->
-          case expType of
-            GInt ->
-              pure $ \case
-                Nothing -> pure Nothing
-                Just (expr, _, taint1) -> case expr of
-                  Expression
-                    { E.loc = Location (from, _)
-                    , expType = GArray { innerType }
-                    , exp' = Obj o } ->
-                      let
-                        taint = taint0 <> taint1
-                        expr = Expression
-                          { E.loc = Location (from, to)
-                          , expType = innerType
-                          , expConst = False
-                          , exp' = Obj
-                            { theObj = Object
-                              { O.loc = Location (from, to)
-                              , objType = innerType
-                              , obj' = Index
-                                { O.inner = o
-                                , index = sub }}}}
-                      in pure . Just $ (expr, ProtoNothing, taint)
+          _ -> do
+            putError (pos . E.loc $ expr) . UnknownError $
+              "Cannot subindex non-array."
 
-                  e -> do
-                    let
-                      Location (from, _) = E.loc e
-                      loc = Location (from, to)
+            pure Nothing
 
-                    putError from . UnknownError $ "Cannot subindex non-array."
-
-                    pure Nothing
-
-            _ -> do --FIXME
-              putError from' . UnknownError $
-                "Bad subindex. Must be integer expression."
-              pure (\_ -> pure Nothing)
+  where
+    subAux :: ParserExp (Maybe MetaExpr)
+    subAux = do
+      e <- metaexpr
+      case e of
+        je@(Just (Expression { expType = GInt }, _, _)) -> pure je
+        Just (Expression { expType, loc }, _, _) -> do
+          putError (pos loc) . UnknownError $
+            "Cannot use expression of type `" <> show expType <>
+            " as subindex, integer expression was expected`."
+          pure Nothing
+        Nothing -> pure Nothing
 
 
 dotField :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))

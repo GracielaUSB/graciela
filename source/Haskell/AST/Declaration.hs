@@ -2,7 +2,7 @@
 
 module AST.Declaration where
 --------------------------------------------------------------------------------
-import           AST.Expression (Expression, Object)
+import           AST.Expression (Expression, Object, Type)
 import qualified AST.Expression as E
 import           AST.Type
 import           Location

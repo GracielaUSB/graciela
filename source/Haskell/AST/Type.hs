@@ -13,8 +13,8 @@ Implements the Graciela typesystem.
 
 module  AST.Type
   ( ArgMode (..)
-  , Type (..)
-  , TypeArgs
+  , Type' (..)
+  , TypeArgs'
   , (=:=)
   , fillType
   , isTypeVar
@@ -30,6 +30,8 @@ import           Data.Map       (Map)
 import           Data.Map       as Map (elems)
 import           Data.Monoid    (Monoid (..))
 import           Data.Semigroup (Semigroup (..))
+import           Data.Sequence  (Seq)
+import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
 --------------------------------------------------------------------------------
@@ -50,23 +52,23 @@ instance Show ArgMode where
     InOut -> "In/Out"
     Ref   -> "Ref"
 
-type TypeArgs = Array Int Type
+type TypeArgs' e = Array Int (Type' e)
 
 -- | Graciela Types. Special types for polymorphism are also included.
-data Type
-  = GUndef              -- ^ Undefined type, for error propagation.
-  | GSet      Type      -- ^ Set type.
-  | GMultiset Type      -- ^ Multiset (bag) type.
-  | GSeq      Type      -- ^ Sequence (ordered set) type.
-  | GFunc     Type Type -- ^ Func type, for abstract functions.
-  | GRel      Type Type -- ^ Relation type.
-  | GTuple   [Type]     -- ^ N-tuple type.
-  | GTypeVar  Int Text   -- ^ A named type variable.
+data Type' e
+  = GUndef                        -- ^ Undefined type, for error propagation.
+  | GSet      (Type' e)           -- ^ Set type.
+  | GMultiset (Type' e)           -- ^ Multiset (bag) type.
+  | GSeq      (Type' e)           -- ^ Sequence (ordered set) type.
+  | GFunc     (Type' e) (Type' e) -- ^ Func type, for abstract functions.
+  | GRel      (Type' e) (Type' e) -- ^ Relation type.
+  | GTuple    (Seq (Type' e))     -- ^ N-tuple type.
+  | GTypeVar  Int Text            -- ^ A named type variable.
 
-  | GAny                -- ^ Any type, for full polymorphism.
-  | GOneOf     [Type]   -- ^ Any type within a collection, for
-                        -- restricted polymorphism
-  | GUnsafeName Text    -- ^ A named type, only used for error messages.
+  | GAny                          -- ^ Any type, for full polymorphism.
+  | GOneOf    [Type' e]           -- ^ Any type within a collection, for
+                                  -- restricted polymorphism
+  | GUnsafeName Text              -- ^ A named type, only used for error messages.
 
   | GInt    -- ^ Basic integer type.
   | GFloat  -- ^ Basic floating-point number type.
@@ -77,20 +79,20 @@ data Type
 
   | GFullDataType
     { typeName :: Text
-    , types    :: TypeArgs }
+    , types    :: TypeArgs' e }
   | GDataType
     { typeName :: Text
     , abstName :: Maybe Text}
-  | GPointer Type -- ^ Pointer type.
+  | GPointer (Type' e) -- ^ Pointer type.
 
   | GArray
-    { size      :: Int32
-    , innerType :: Type
+    { dimensions :: Seq (Either Text e)
+    , innerType  :: Type' e
     } -- ^ Sized array type.
   deriving (Eq, Ord)
 
 
-fillType :: TypeArgs -> Type -> Type
+fillType :: TypeArgs' e -> Type' e -> Type' e
 fillType typeArgs t@(GTypeVar i _) =
   if inRange (bounds typeArgs) i
     then typeArgs ! i
@@ -123,17 +125,17 @@ isDataType t = case t of
   _ -> False
 
 -- | Operator for checking whether two types match.
-(=:=) :: Type -> Type -> Bool
-a =:= b = (a <> b) /= GUndef
+(=:=) :: Eq e => Type' e -> Type' e -> Bool
+a =:= b = a <> b /= GUndef
 
 
 -- | Graciela Types form a Monoid under the `more specific` operator,
 -- with the type @GAny@ as the identity.
 
-instance Monoid Type where
+instance Eq e => Monoid (Type' e) where
   mempty = GAny
   mappend = (<>)
-instance Semigroup Type where
+instance Eq e => Semigroup (Type' e) where
   a <> b | a == b = a
   GAny        <> a           = a
   a           <> GAny        = a
@@ -173,11 +175,14 @@ instance Semigroup Type where
     GUndef -> GUndef
     c      -> GPointer c
 
-  GArray s a  <> GArray t b
-    | s /= t = GUndef
-    | s == t = case a <> b of
+  GArray s a  <> GArray t b    -- To match, the dimensions must be exactly the same.
+    | length s == length t && and (Seq.zipWith (==~) s t) = case a <> b of
       GUndef -> GUndef
-      c      -> GArray (s `min` t) c
+      c      -> GArray s c
+    | otherwise = GUndef
+    where
+      Right x ==~ Right y = x == y
+      _       ==~ _       = True
 
   GFunc a c   <> GFunc b d   = case (a <> b, c <> d) of
     (GUndef, _) -> GUndef
@@ -189,7 +194,7 @@ instance Semigroup Type where
     (e, f)      -> GRel e f
 
   GTuple as   <> GTuple bs   = if length as == length bs
-    then let cs = zipWith mappend as bs
+    then let cs = Seq.zipWith (<>) as bs
       in if GUndef `elem` cs
         then GUndef
         else GTuple cs
@@ -230,7 +235,7 @@ instance Semigroup Type where
   _ <> _ = GUndef
 
 
-instance Show Type where
+instance Show (Type' e) where
   show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
     where
       show' = \case
@@ -241,7 +246,7 @@ instance Show Type where
         GChar           -> "char"
         GString         -> "string"
         GPointer     t  -> "pointer to " <> show' t
-        GArray    s  t  -> "array[" <> show s <> "] of " <> show' t
+        GArray    ds t  -> show (length ds) <> "-D array of " <> show' t
         GSet      t     -> "set of " <> show' t
         GMultiset t     -> "multiset of " <> show' t
         GSeq      t     -> "sequence of " <> show' t
@@ -249,7 +254,7 @@ instance Show Type where
         GRel      ta tb -> "relation " <> show' ta <> " -> " <> show' tb
 
         GTuple    ts    ->
-          "tuple (" <> (unwords . fmap show' $ ts) <> ")"
+          "tuple (" <> (unwords . toList $ show' <$> ts) <> ")"
         GTypeVar  i n   -> "`" <> unpack n <> "`" -- "#" <> show i <> " ("
 
         GFullDataType n targs   ->

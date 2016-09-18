@@ -9,7 +9,7 @@ Se encuentra todo lo referente al almacenamiento de las variables
 en la tabla de simbolos, mientras se esta realizando el parser.
 -}
 
-module Parser.Declaration 
+module Parser.Declaration
     ( declaration
     , dataTypeDeclaration
     , abstractDeclaration
@@ -18,35 +18,33 @@ module Parser.Declaration
 -------------------------------------------------------------------------------
 import           AST.Declaration           (Declaration (..))
 import           AST.Expression            (Expression (..),
-                                            Expression' (Value))
-import           AST.Struct                (Struct(..))
+                                            Expression' (Value), Type)
+import           AST.Struct                (Struct (..))
+import           AST.Type
 import           Entry                     as E
 import           Error
 import           Location
 import           Parser.Expression
 import           Parser.Monad
--- import           Parser.Rhecovery
 import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens              (use, (%=))
 import           Control.Monad             (foldM, forM_, unless, void, when,
                                             zipWithM_)
--- import           Control.Monad.Trans.State.Lazy
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
-import           Data.Monoid               ((<>))
 import           Data.Map                  as Map (lookup)
+import           Data.Monoid               ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)
 import           Debug.Trace
 import           Prelude                   hiding (lookup)
-import           Text.Megaparsec           (getPosition, notFollowedBy,
-                                            optional, try, (<|>), lookAhead)
+import           Text.Megaparsec           (getPosition, lookAhead,
+                                            notFollowedBy, optional, try, (<|>))
 --------------------------------------------------------------------------------
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
@@ -71,7 +69,7 @@ declaration' allowedTypes isStruct = do
 
   isConst <- match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
-  mvals <- (if isConst then assignment' else assignment) 
+  mvals <- if isConst then assignment' else assignment
 
   match TokColon
   t <- if isConst then type' else allowedTypes
@@ -102,7 +100,7 @@ declaration' allowedTypes isStruct = do
                   , _loc       = loc
                   , _info      = info }
             symbolTable %= insertSymbol id entry
-       
+
         pure . Just $ Declaration
           { declLoc  = location
           , declType = t
@@ -121,7 +119,7 @@ declaration' allowedTypes isStruct = do
           then do
             pairs <- foldM (checkType isConst t isStruct) Seq.empty $ Seq.zip ids exprs
             pure $ if null pairs
-              then 
+              then
                 Nothing
               else Just Initialization
                 { declLoc   = location
@@ -150,13 +148,13 @@ checkType :: Constness -> Type -> Bool
           -> Parser (Seq (Text, Expression))
 checkType True t _ pairs
   ((identifier, location), expr@Expression { expType, exp' }) = do
-  
+
 
   let Location (from, _) = location
   redef <- redefinition (identifier,location)
-      
+
   if expType =:= t
-    then  if redef 
+    then  if redef
       then pure pairs
       else case exp' of
         Value v -> do
@@ -182,7 +180,7 @@ checkType True t _ pairs
         show t <> "."
       pure Seq.empty
 
-checkType False t isStruct pairs 
+checkType False t isStruct pairs
   ((identifier, location), expr@Expression { loc, expType, exp' }) =
 
   let Location (from, _) = location
@@ -195,7 +193,7 @@ checkType False t isStruct pairs
           let
             info = if isStruct
               then SelfVar t
-              else Var t 
+              else Var t
 
             entry = Entry
               { _entryName  = identifier
@@ -218,7 +216,7 @@ redefinition (id, Location (from, _)) = do
   let local = isLocal id st
 
   if local
-    then do 
+    then do
       putError from . UnknownError $
          "Redefinition of variable `" <> unpack id <> "`"
       pure True
@@ -228,14 +226,13 @@ redefinition (id, Location (from, _)) = do
         Just (_, Just abstName, _, _, _) -> do
           adt <- getStruct abstName
           case adt of
-            Just abst -> do 
+            Just abst -> do
               if isLocal id . structSt $ abst
-                then do 
+                then do
                   putError from . UnknownError $
-                    "Redefinition of variable `" <> unpack id <> 
+                    "Redefinition of variable `" <> unpack id <>
                     "`. Was defined in Abstract Type `" <> unpack abstName <> "`"
                   pure True
                 else pure False
             _ -> pure False
         _ -> pure False
-          

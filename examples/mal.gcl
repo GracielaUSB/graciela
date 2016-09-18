@@ -1,0 +1,61 @@
+program mal.bin begin
+
+// proc avg (in x : array [m, n] of int)
+//   {pre true pre}
+//   {post true post}
+//   ⟦ var acc  := 0    : int
+//   ; var i, j := 0, 0 : int
+//   ; writeln ("ok so I'll take the average of an [", m, " x ", n, "] matrix.")
+//   ; {inv true inv}
+//     {bound m - i bound}
+//     do i < m -> {inv true inv}
+//                 {bound n - j bound}
+//                 do j < n -> acc := acc + x [i, j]
+//                           ; j := j + 1
+//                 od
+//               ; i, j := i + 1, 0
+//     od
+//   ; writeln ("So the average is: ", acc / (m*n))
+//   ⟧
+
+func middle (x : array [m, n] of int) -> int
+  {pre  true pre}
+  {post true post}
+  ⟦ (% sigma i : int | m/2 - 1 <= i /\ i <= m/2 + 1 |
+      (% sigma j : int | n/2 - 1 <= j /\ j <= n/2 + 1 |
+        x[i, j] %) %) ⟧
+
+main
+  ⟦ var i, j := 0, 0 : int
+  ; var x : array [6, 8] of int
+  ; var y : int
+  ; y := 5
+  ; writeln ("y: ", y)
+  ; {inv   true    inv}
+    {bound 6 - i bound}
+    do i < 6 -> {inv   true    inv}
+                {bound 8 - j bound}
+                do j < 8 -> x [i, j] := i + j
+                          ; write (i+j, " ")
+                          ; j := j + 1
+                od
+              ; writeln()
+              ; j := 0
+              ; i := i + 1
+    od
+  ; writeln ("y: ", y)
+  ; writeln (middle(x))
+  // ; i, j := 0, 0
+  // ; {inv   true    inv}
+  //   {bound 6 - i bound}
+  //   do i < 6 -> {inv   true    inv}
+  //               {bound 8 - j bound}
+  //               do j < 8 -> writeln ("x[", i, ", ", j, "] = ", x[i, j])
+  //                         ; j := j + 1
+  //               od
+  //             ; j := 0
+  //             ; i := i + 1
+  //   od
+  ⟧
+
+end

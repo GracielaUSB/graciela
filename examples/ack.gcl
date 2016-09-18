@@ -1,96 +1,39 @@
 program ack.bin begin
 
-// abstract ALista (T)
-// begin
-//     /* ALista variables */
-
-
-//     {inv true inv}
-
-//     /* ALista procedures */
-
-// end
-
-// type Nodo(T) implements abstractName ( )
-// begin
-//     /* Nodo(T) variables */
-
-
-//     {repinv true repinv}
-
-//     {coupinv true coupinv}
-
-//     /* Nodo(T) procedures */
-
-// end
-
-// type Lista (T) implements abstractName ( )
-// begin
-//     /* Lista (T) variables */
-
-//     {repinv true repinv}
-
-//     {coupinv true coupinv}
-
-//     proc insertar (inout l : Lista, in n : Node (T) * )
-
-//         {pre true pre}
-//         {post true post}
-//         |[
-
-
-//         ]|
-
-
-//     /* Lista (T) procedures */
-
-// end
-
-abstract C ( )
-begin
-  /* A variables */
-  {inv true inv}
-  /* A procedures */
-end
-
-type D implements C ( )
-begin
-  /* B variables */
-  var k : int;
-
-  {repinv true repinv}
-  {coupinv true coupinv}
-  /* B procedures */
-end
-
-abstract A ( )
-begin
-  /* A variables */
-  {inv true inv}
-  /* A procedures */
-end
-
-type B implements A ( )
-begin
-  /* B variables */
-  var x : array [2] of int;
-
-  var myD : (D*);
-
-  {repinv true repinv}
-  {coupinv true coupinv}
-  /* B procedures */
-end
-
+proc show (in k : int, in x : array [m, n] of int)
+  {pre true pre}
+  {post true post}
+  ⟦ writeln (k, m, n) ⟧
 
 main
-  ⟦ var y : B
-  ; y.x[0] := 3
-  ; y.x[1] := 4
-  ; new(y.myD)
-  ; (*y.myD).k := 5
-  ; writeln(y.x[0], " ", y.x[1])
-  ; writeln((*y.myD).k)
+  ⟦ var i, j := 0, 0 : int
+  ; var x : array [6, 8] of int
+  ; var y : int
+  ; y := 5
+  ; writeln ("y: ", y)
+  ; {inv   true    inv}
+    {bound 6 - i bound}
+    do i < 6 -> {inv   true    inv}
+                {bound 8 - j bound}
+                do j < 8 -> x [i, j] := 999
+                          ; j := j + 1
+                od
+              ; j := 0
+              ; i := i + 1
+    od
+  ; writeln ("y: ", y)
+  ; show (3, x)
+  // ; i, j := 0, 0
+  // ; {inv   true    inv}
+  //   {bound 6 - i bound}
+  //   do i < 6 -> {inv   true    inv}
+  //               {bound 8 - j bound}
+  //               do j < 8 -> writeln ("x[", i, ", ", j, "] = ", x[i, j])
+  //                         ; j := j + 1
+  //               od
+  //             ; j := 0
+  //             ; i := i + 1
+  //   od
   ⟧
 
 end

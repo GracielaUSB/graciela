@@ -28,7 +28,6 @@ void _closeFile(int8_t* file) {
 
 int8_t* _malloc(int size){
   int8_t* p = calloc(1,size);
-  printf("%d -> ",(int8_t)p != 0);
   return p;
 }
 
@@ -207,6 +206,8 @@ typedef enum
   , A_EMPTY_RANGE
   , A_NULL_POINTER_ACCESS
   , A_REPRESENTATION_INVARIANT
+  , A_NEGATIVE_INDEX
+  , A_OUT_OF_BOUNDS_INDEX
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -238,6 +239,10 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\ta null pointer was dereferenced.\n"); break;
     case A_REPRESENTATION_INVARIANT:
       printf (":\n\tthe representation invariant was falsified.\n"); break;
+    case A_NEGATIVE_INDEX:
+      printf (":\n\ta negative index was used to access an array.\n"); break;
+    case A_OUT_OF_BOUNDS_INDEX:
+      printf (":\n\tout of bounds index in access to array.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

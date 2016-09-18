@@ -3,14 +3,14 @@
 module AST.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
-import           AST.Expression  (Expression)
+import           AST.Expression  (Expression, Type)
 import qualified AST.Expression  as E
 import           AST.Instruction (Instruction (..), Instruction' (..))
 import qualified AST.Instruction as I
+import           AST.Type        (ArgMode (..), Type' (..))
 import           Location
 import           SymbolTable
 import           Treelike
-import           AST.Type            (ArgMode (..), Type (..))
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
 import           Data.Monoid     ((<>))

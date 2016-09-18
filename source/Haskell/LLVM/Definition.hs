@@ -1,4 +1,5 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE PostfixOperators         #-}
 
@@ -8,7 +9,7 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
-import           AST.Struct                          (Struct(..))
+import           AST.Struct                          (Struct (..))
 import           AST.Type                            ((=:=))
 import qualified AST.Type                            as T
 import           LLVM.Abort                          (abort, abortString)
@@ -25,7 +26,7 @@ import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
-import           Control.Monad                       (unless)
+import           Control.Monad                       (foldM, unless, void)
 import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
@@ -33,8 +34,8 @@ import           Data.Maybe                          (fromMaybe)
 import           Data.Monoid                         ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
-import           Data.Text                           (Text, unpack, pack)
-import           Data.Word
+import           Data.Text                           (Text, pack, unpack)
+import           Data.Word                           (Word32)
 import           LLVM.General.AST                    (BasicBlock (..),
                                                       Named (..),
                                                       Parameter (..),
@@ -42,8 +43,8 @@ import           LLVM.General.AST                    (BasicBlock (..),
                                                       functionDefaults)
 import qualified LLVM.General.AST                    as LLVM (Definition (..))
 import           LLVM.General.AST.AddrSpace
+import qualified LLVM.General.AST.CallingConvention  as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant           as C
-import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
 import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Instruction
@@ -85,10 +86,11 @@ definition
       func <- newLabel $ "func" <> unpack defName
       (func #)
 
-      -- TODO! postcondition
       openScope
 
       params <- mapM makeParam' . toList $ funcParams
+
+      mapM_ arrAux' funcParams
 
       preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
@@ -256,11 +258,13 @@ definition
       params <- mapM makeParam . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
-      cs <- use currentStruct
-      case cs of 
-        Nothing -> do 
+      mapM_ arrAux procParams
 
-          precondition pre    
+      cs <- use currentStruct
+      case cs of
+        Nothing -> do
+
+          precondition pre
           instruction procBody
           postcondition post
 
@@ -270,27 +274,24 @@ definition
             { name        = Name $ unpack defName
             , parameters  = (params,False)
             , returnType  = voidType
-            , basicBlocks = toList blocks'
-            }
-
-
+            , basicBlocks = toList blocks' }
 
         Just Struct { structBaseName, structTypes } -> do
-          
-          let 
+
+          let
             dts = filter getDTs . toList $ procParams
-          
+
           postFix <- llvmName (pack "-" <> structBaseName) <$> mapM toLLVMType structTypes
-          
+
           mapM_ (callInvariant ("inv" <> postFix)) dts
           mapM_ (callInvariant ("repInv" <> postFix)) dts
-      
+
           precondition pre
           instruction procBody
           postcondition post
-          
+
           blocks' <- use blocks
-          
+
           addDefinition $ LLVM.GlobalDefinition functionDefaults
             { name        = Name (unpack defName <> postFix)
             , parameters  = (params,False)
@@ -306,14 +307,13 @@ definition
 
     makeParam (name, t, mode) = do
       substTable <- use substitutionTable
-      let 
+      let
         t' = if null substTable
               then t
               else T.fillType (head substTable) t
-      
-      if t' =:= T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
-         && mode == T.In
-        then do 
+
+      if t' =:= T.GOneOf [T.GBool, T.GChar, T.GInt, T.GFloat] && mode == T.In
+        then do
           name' <- insertVar name
           t'    <- toLLVMType t
           pure $ Parameter t' name' []
@@ -322,11 +322,42 @@ definition
           t'    <- toLLVMType t
           pure $ Parameter (ptr t') name' []
 
+    arrAux' (arr, t) = arrAux (arr, t, T.In)
+
+    arrAux (arr, t@(T.GArray dims inner), mode) = do
+      t' <- toLLVMType t
+      arrName <- getVariableName arr
+      void $ foldM (dimAux t' arrName) 0 dims
+      where
+        dimAux t' arrName n dim = do
+          case dim of
+            Right _ -> pure ()
+            Left dimName -> do
+              name' <- insertVar dimName
+
+              dimAddr <- newUnLabel
+              addInstruction $ dimAddr := GetElementPtr
+                { inBounds = False
+                , address  = LocalReference t' arrName
+                , indices  =
+                  [ ConstantOperand (C.Int 32 0)
+                  , ConstantOperand (C.Int 32 n) ]
+                , metadata = [] }
+
+              addInstruction $ name' := Load
+                { volatile       = False
+                , address        = LocalReference i32 dimAddr
+                , maybeAtomicity = Nothing
+                , alignment      = 4
+                , metadata       = [] }
+          pure $ n + 1
+    arrAux _ = pure ()
+
     callInvariant funName (name, t, _) = do
 
       type' <- toLLVMType t
       name' <- getVariableName name
-      
+
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
