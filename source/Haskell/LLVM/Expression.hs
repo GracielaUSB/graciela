@@ -18,7 +18,9 @@ import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type                                as T
 import           LLVM.Abort                              (abort)
-import qualified LLVM.Abort                              as Abort (Abort (DivisionByZero, If, NullPointerAccess, Overflow))
+import qualified LLVM.Abort                              as Abort (Abort 
+                                                         (DivisionByZero, If,
+                                                          NullPointerAccess, Overflow))
 import           LLVM.Monad
 import           LLVM.Quantification                     (quantification)
 import           LLVM.State
