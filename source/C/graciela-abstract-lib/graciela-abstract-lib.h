@@ -32,12 +32,14 @@ namespace glib {
         MULTISET = 1,
         FUNCTION = 2,
         RELATION = 3,
-        SEQUENCE = 4
+        SEQUENCE = 4,
+        SETPAIR  = 5
     } type;
 
     typedef map<t,t>           Function;
     typedef pair<t,t>          Tuple;
     typedef set<t>             Set;
+    typedef set<Tuple>         SetPair;
     typedef set<Tuple>         Relation;
     typedef multiset<t>        Multiset;
     typedef vector<t>          Sequence;
@@ -49,78 +51,93 @@ namespace glib {
 extern "C" {
 #endif
     
+    typedef struct gtuple {
+        int64_t a;
+        int64_t b;
+    } gtuple;
+    
     typedef struct Iterator {
         t       data;
         int8_t* it;
         int8_t* type;
     }Iterator;
     
-    Iterator *first(int8_t *ptr);
-    Iterator *next(Iterator* i);
+    Iterator *_first(int8_t *ptr);
+    Iterator *_next(Iterator* i);
     
     /* Set */
-    int8_t*  newSet();
-
-    int      equalSet(int8_t* ptr1, int8_t* ptr2);
-    void     insertSet(int8_t* ptr, t x);
-    int      sizeSet(int8_t* ptr);
-    int      isElemSet(int8_t* ptr, t x);
-    int8_t*  unionSet(int8_t* ptr1, int8_t* ptr2);
-    int8_t*  intersectSet(int8_t* ptr1, int8_t* ptr2);
-    int8_t*  differenceSet(int8_t* ptr1, int8_t* ptr2);
-    void     freeSet(int8_t* ptr);
+    int8_t*  _newSet();
+    int      _equalSet(int8_t* ptr1, int8_t* ptr2);
+    void     _insertSet(int8_t* ptr, t x);
+    int      _sizeSet(int8_t* ptr);
+    int      _isElemSet(int8_t* ptr, t x);
+    int8_t*  _unionSet(int8_t* ptr1, int8_t* ptr2);
+    int8_t*  _intersectSet(int8_t* ptr1, int8_t* ptr2);
+    int8_t*  _differenceSet(int8_t* ptr1, int8_t* ptr2);
+    void     _freeSet(int8_t* ptr);
+    /* SetPair */
     
+    int8_t* _newSetPair();
+    int     _equalSetPair(int8_t *ptr1, int8_t* ptr2);
+    void    _insertSetPair(int8_t *ptr, gtuple x);
+    int     _sizeSetPair(int8_t *ptr);
+    int     _isElemSetPair(int8_t *ptr, gtuple x);
+    int8_t* _unionSetPair(int8_t *ptr1, int8_t * ptr2);
+    int8_t* _intersectSetPair(int8_t *ptr1, int8_t * ptr2);
+    int8_t* _differenceSetPair(int8_t *ptr1, int8_t * ptr2);
+    void    _freeSetPair(int8_t* ptr);
+
     /* Multiset */
-    int8_t* newMultiset();
-    int     equalMultiset(int8_t* ptr1, int8_t* ptr2);
-    void    insertMultiset(int8_t* ptr, t x);
-    int     isElemMultiset(int8_t* ptr, t x);
-    int     sizeMultiset(int8_t* ptr);
-    int     countMultiset(int8_t* ptr, t x);
-    int8_t* unionMultiset(int8_t* ptr1, int8_t* ptr2);
-    int8_t* intersectMultiset(int8_t* ptr1, int8_t* ptr2);
-    int8_t* differenceMultiset(int8_t* ptr1, int8_t* ptr2);
-    void    freeMultiset(int8_t* ptr);
+    int8_t* _newMultiset();
+    int     _equalMultiset(int8_t* ptr1, int8_t* ptr2);
+    void    _insertMultiset(int8_t* ptr, t x);
+    int     _isElemMultiset(int8_t* ptr, t x);
+    int     _sizeMultiset(int8_t* ptr);
+    int     _countMultiset(int8_t* ptr, t x);
+    int8_t* _unionMultiset(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _intersectMultiset(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _differenceMultiset(int8_t* ptr1, int8_t* ptr2);
+    void    _freeMultiset(int8_t* ptr);
     
     /* Function */
-    int8_t* newFunction();
-    int     equalFunction(int8_t* ptr1, int8_t* ptr2);
-    void    insertFunction(int8_t* ptr, t key, t value);
-    int     sizeFunction(int8_t *ptr);
-    int     isElemFunction(int8_t* ptr, t key, t value);
-    int8_t* domFunction(int8_t* ptr);
-    int     pairFunction(int8_t* ptr, t k);
-    int8_t* compositionFunction(int8_t *ptr1, int8_t *ptr2);
-    void    freeFunction(int8_t* ptr);
+    int8_t* _newFunction();
+    int     _equalFunction(int8_t* ptr1, int8_t* ptr2);
+    void    _insertFunction(int8_t* ptr, t key, t value);
+    int     _sizeFunction(int8_t *ptr);
+    int     _isElemFunction(int8_t* ptr, t key, t value);
+    int8_t* _domFunction(int8_t* ptr);
+    int     _pairFunction(int8_t* ptr, t k);
+    int8_t* _compositionFunction(int8_t *ptr1, int8_t *ptr2);
+    void    _freeFunction(int8_t* ptr);
     
     /* Relation */
-    int8_t* newRelation();
-    int     equalRelation(int8_t* ptr1, int8_t* ptr2);
-    void    insertRelation(int8_t* ptr, t key, t value);
-    int     sizeRelation(int8_t *ptr);
-    int     isElemRelation(int8_t* ptr, t key, t value);
-    int8_t* domRelation(int8_t* ptr);
-    int8_t* pairRelation(int8_t* ptr, t key);
-    int8_t* compositionRelation(int8_t *ptr1, int8_t *ptr2);
-    void    freeRelation(int8_t* ptr);
+    int8_t* _newRelation();
+    int     _equalRelation(int8_t* ptr1, int8_t* ptr2);
+    void    _insertRelation(int8_t* ptr, t key, t value);
+    int     _sizeRelation(int8_t *ptr);
+    int     _isElemRelation(int8_t* ptr, t key, t value);
+    int8_t* _domRelation(int8_t* ptr);
+    int8_t* _pairRelation(int8_t* ptr, t key);
+    int8_t* _compositionRelation(int8_t *ptr1, int8_t *ptr2);
+    void    _freeRelation(int8_t* ptr);
     
     /* Sequence */
-    int8_t* newSequence();
-    int     equalSequence(int8_t* ptr1, int8_t* ptr2);
-    int     isElemSequence(int8_t* ptr, t x);
-    void    insertSequence(int8_t* ptr, t x);
-    int     sizeSequence(int8_t* ptr);
-    void    freeSequence(int8_t* ptr);
+    int8_t* _newSequence();
+    int     _equalSequence(int8_t* ptr1, int8_t* ptr2);
+    int     _isElemSequence(int8_t* ptr, t x);
+    void    _insertSequence(int8_t* ptr, t x);
+    int     _sizeSequence(int8_t* ptr);
+    void    _freeSequence(int8_t* ptr);
     
     /* TrashCollector 
      *  Every pointer to a type created (set, multiset, ...) is
      *  store inside a vector of pointer, to be freed when freeGarbage()
      *  is called.
      */
-    void initTC();
-    void openScope();
-    void closeScope();
-    void freeTrashCollector();
+    void _initTC();
+    void _openScope();
+    void _closeScope();
+    void _freeTrashCollector();
     
 #ifdef __cplusplus
 }
