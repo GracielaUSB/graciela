@@ -4,11 +4,9 @@ module AST.Struct where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
 import           AST.Definition  (Definition)
-import qualified AST.Definition  as D
-import           AST.Expression  (Expression, Type, TypeArgs)
 import           AST.Instruction (Instruction)
-import qualified AST.Instruction as I
-import           AST.Type        (Type' (GTypeVar), fillType)
+import           AST.Type        (Expression, Type (GTypeVar), TypeArgs,
+                                  fillType)
 import           Location
 import           SymbolTable
 import           Token

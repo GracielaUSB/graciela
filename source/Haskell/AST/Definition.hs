@@ -3,11 +3,8 @@
 module AST.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
-import           AST.Expression  (Expression, Type)
-import qualified AST.Expression  as E
 import           AST.Instruction (Instruction (..), Instruction' (..))
-import qualified AST.Instruction as I
-import           AST.Type        (ArgMode (..), Type' (..))
+import           AST.Type        (ArgMode (..), Expression, Type (..))
 import           Location
 import           SymbolTable
 import           Treelike
@@ -33,7 +30,7 @@ data Definition'
   | AbstractProcedureDef
     { abstParams :: Seq (Text, Type, ArgMode) }
   | AbstractFunctionDef
-    { abstFParams  :: Seq (Text, Type)
+    { abstFParams :: Seq (Text, Type)
     , funcRetType :: Type }
 
 data Definition

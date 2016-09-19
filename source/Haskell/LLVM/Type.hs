@@ -16,11 +16,10 @@ module LLVM.Type
   )
 where
 --------------------------------------------------------------------------------
-import           AST.Expression             (Expression)
-import qualified AST.Expression             as T (Type)
 import           AST.Struct                 (Struct (..))
-import           AST.Type                   as T (Type' (..), fillType,
+import           AST.Type                   as T (Type (..), fillType,
                                                   isTypeVar)
+import           AST.Type                   (Expression)
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
                                              moduleDefs, pendingDataTypes,

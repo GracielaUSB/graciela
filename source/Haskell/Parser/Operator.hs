@@ -11,10 +11,10 @@ module Parser.Operator
   , bne, lt, le, gt, ge, aeq, ane, elem, notElem
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression (BinaryOperator (..), Expression (..),
-                                 Expression' (Binary, Unary, Value), Type,
+import           AST.Expression (BinaryOperator (..), Expression' (..),
+                                 Expression'' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
-import           AST.Type       (Type' (..), (=:=))
+import           AST.Type       (Expression, Type (..), (=:=))
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
@@ -279,9 +279,13 @@ elemType t1 (GSet t2)
 elemType t1 (GMultiset t2)
   | t1 =:= t2 = Right GBool
   | otherwise = Left $ show (t2, GMultiset t2)
+elemType t1 (GSeq t2)
+  | t1 =:= t2 = Right GBool
+  | otherwise = Left $ show (t2, GSeq t2)
 elemType _ _ = Left $
   show (GUnsafeName "t", GSet      (GUnsafeName "t")) <> ", or " <>
-  show (GUnsafeName "t", GMultiset (GUnsafeName "t"))
+  show (GUnsafeName "t", GMultiset (GUnsafeName "t")) <> ", or " <>
+  show (GUnsafeName "t", GSeq      (GUnsafeName "t"))
 
 elem, notElem :: Bin
 elem    = Bin Elem    elemType elemPre

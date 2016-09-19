@@ -5,10 +5,9 @@ module LLVM.Declaration
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
-import           AST.Expression                     (Expression)
-import qualified AST.Expression                     as G (Type)
-import           AST.Type                           (Type' (..), isDataType,
-                                                     (=:=))
+import           AST.Type                           (Expression, Type (..),
+                                                     isDataType, (=:=))
+import qualified AST.Type                           as G (Type)
 import           LLVM.Abort
 import           LLVM.Expression
 import           LLVM.Monad
@@ -51,7 +50,7 @@ alloc :: G.Type -> Text -> LLVM ()
 alloc GArray { dimensions, innerType } lval = do
   name <- insertVar lval
 
-  dims <- mapM dimAux dimensions
+  dims <- mapM expression dimensions
 
   num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
 
@@ -69,9 +68,6 @@ alloc GArray { dimensions, innerType } lval = do
   void $ foldM (sizeAux (LocalReference arrT name)) 0 dims
 
   where
-    dimAux (Left t)  = error "internal error: alloc of dimension variable"
-    dimAux (Right e) = expression e
-
     numAux operand0 operand1 = do
       result <- newUnLabel
       addInstruction $ result := Mul

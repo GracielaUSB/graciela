@@ -9,20 +9,31 @@ Portability : POSIX
 Implements the Graciela typesystem.
 -}
 
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module  AST.Type
   ( ArgMode (..)
-  , Type' (..)
-  , TypeArgs'
+  , Type (..)
+  , TypeArgs
+  , Expression
+  , Object
+  , QRange
   , (=:=)
   , fillType
   , isTypeVar
   , isDataType
   , basic
   , hasDT
+  , notIn
+  , objMode
   ) where
---------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+import           AST.Expression (Expression' (..), Expression'' (..),
+                                 QRange' (..), Value (..))
+import           AST.Object     (Object' (..), Object'' (..))
+import qualified AST.Object     as O (inner)
+-------------------------------------------------------------------------------------
 import           Data.Array     (Array (..), bounds, (!))
 import           Data.Foldable  (toList)
 import           Data.Int       (Int32)
@@ -36,7 +47,18 @@ import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
---------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+
+type Expression = Expression' Type ArgMode
+type QRange     = QRange' Type ArgMode
+type Object     = Object' Type ArgMode Expression
+-------------------------------------------------------------------------------------
+
+objMode (Object _ _ Variable { mode }) = mode
+objMode (Object _ _ o) = objMode (O.inner o)
+
+notIn obj = objMode obj /= Just In
+-------------------------------------------------------------------------------------
 
 -- | The mode in which an argument is passed to a graciela procedure.
 data ArgMode
@@ -54,21 +76,21 @@ instance Show ArgMode where
     InOut -> "In/Out"
     Ref   -> "Ref"
 
-type TypeArgs' e = Array Int (Type' e)
+type TypeArgs = Array Int Type
 
 -- | Graciela Types. Special types for polymorphism are also included.
-data Type' e
+data Type
   = GUndef                        -- ^ Undefined type, for error propagation.
-  | GSet      (Type' e)           -- ^ Set type.
-  | GMultiset (Type' e)           -- ^ Multiset (bag) type.
-  | GSeq      (Type' e)           -- ^ Sequence (ordered set) type.
-  | GFunc     (Type' e) (Type' e) -- ^ Func type, for abstract functions.
-  | GRel      (Type' e) (Type' e) -- ^ Relation type.
-  | GTuple    (Seq (Type' e))     -- ^ N-tuple type.
+  | GSet      { innerType :: Type } -- ^ Set type.
+  | GMultiset { innerType :: Type } -- ^ Multiset (bag) type.
+  | GSeq      { innerType :: Type } -- ^ Sequence (ordered set) type.
+  | GFunc     Type Type -- ^ Func type, for abstract functions.
+  | GRel      Type Type -- ^ Relation type.
+  | GTuple    (Seq Type)     -- ^ N-tuple type.
   | GTypeVar  Int Text            -- ^ A named type variable.
 
   | GAny                          -- ^ Any type, for full polymorphism.
-  | GOneOf    [Type' e]           -- ^ Any type within a collection, for
+  | GOneOf    [Type]           -- ^ Any type within a collection, for
                                   -- restricted polymorphism
   | GUnsafeName Text              -- ^ A named type, only used for error messages.
 
@@ -81,21 +103,21 @@ data Type' e
 
   | GFullDataType
     { typeName :: Text
-    , types    :: TypeArgs' e }
+    , types    :: TypeArgs }
   | GDataType
     { typeName :: Text
     , abstName :: Maybe Text
-    , typeArgs :: TypeArgs' e }
-  | GPointer (Type' e) -- ^ Pointer type.
+    , typeArgs :: TypeArgs }
+  | GPointer Type -- ^ Pointer type.
 
   | GArray
-    { dimensions :: Seq (Either Text e)
-    , innerType  :: Type' e
+    { dimensions :: Seq Expression
+    , innerType  :: Type
     } -- ^ Sized array type.
-  deriving (Eq, Ord)
+  deriving (Eq)
 
 
-fillType :: TypeArgs' e -> Type' e -> Type' e
+fillType :: TypeArgs -> Type -> Type
 fillType typeArgs t@(GTypeVar i _) =
   if inRange (bounds typeArgs) i
     then typeArgs ! i
@@ -129,12 +151,12 @@ isTypeVar t = case t of
   _            -> False
 
 isDataType t = case t of
-  GFullDataType _ _ -> True
-  GDataType _ _ _-> True
+  GFullDataType {} -> True
+  GDataType {} -> True
   _ -> False
 
-hasDT t@(GDataType{}) = Just t
-hasDT t@(GFullDataType{}) = Just t
+hasDT t@GDataType {} = Just t
+hasDT t@GFullDataType {} = Just t
 hasDT (GArray _ t) = hasDT t
 hasDT (GPointer t) = hasDT t
 hasDT _ = Nothing
@@ -142,17 +164,17 @@ hasDT _ = Nothing
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
 -- | Operator for checking whether two types match.
-(=:=) :: Eq e => Type' e -> Type' e -> Bool
+(=:=) :: Type -> Type -> Bool
 a =:= b = a <> b /= GUndef
 
 
 -- | Graciela Types form a Monoid under the `more specific` operator,
 -- with the type @GAny@ as the identity.
 
-instance Eq e => Monoid (Type' e) where
+instance Monoid Type where
   mempty = GAny
   mappend = (<>)
-instance Eq e => Semigroup (Type' e) where
+instance Semigroup Type where
   a <> b | a == b = a
   GAny        <> a           = a
   a           <> GAny        = a
@@ -198,8 +220,8 @@ instance Eq e => Semigroup (Type' e) where
       c      -> GArray s c
     | otherwise = GUndef
     where
-      Right x ==~ Right y = x == y
-      _       ==~ _       = True
+      Expression { exp' = Value (IntV n0)} ==~ Expression { exp' = Value (IntV n1)} = n0 == n1
+      _ ==~ _ = True
 
   GFunc a c   <> GFunc b d   = case (a <> b, c <> d) of
     (GUndef, _) -> GUndef
@@ -252,7 +274,7 @@ instance Eq e => Semigroup (Type' e) where
   _ <> _ = GUndef
 
 
-instance Show (Type' e) where
+instance Show Type where
   show t' = "\ESC[0;32m" <> show' t' <> "\ESC[m"
     where
       show' = \case

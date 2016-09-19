@@ -3,9 +3,8 @@
 module AST.Instruction where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
-import           AST.Expression  (Expression, Object, Type, TypeArgs)
-import qualified AST.Expression  as E
-import           AST.Type
+import           AST.Expression  (expType)
+import           AST.Type        (ArgMode, Expression, Object, Type, TypeArgs)
 import           Location
 import           SymbolTable
 import           Token
@@ -166,5 +165,5 @@ instance Treelike Instruction where
         [ toTree ident
         , toTree expr ]
       writeExp e = Node "wexp"
-        [ Node "type" [leaf . show . E.expType $ e]
+        [ Node "type" [leaf . show . expType $ e]
         , Node "tree" [toTree e] ]

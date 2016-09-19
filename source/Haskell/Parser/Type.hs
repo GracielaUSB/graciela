@@ -3,7 +3,6 @@
 module Parser.Type
     ( basicType
     , type'
-    , type''
     , abstractType
     , typeVarDeclaration
     , typeVar
@@ -11,7 +10,7 @@ module Parser.Type
 --------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition    (Definition (..), Definition' (..))
-import           AST.Expression    (Expression (..), Expression' (Value), Type,
+import           AST.Expression    (Expression' (..), Expression'' (Value),
                                     Value (..))
 import           AST.Struct
 import           AST.Type
@@ -55,20 +54,14 @@ basicType = do
 
 
 type' :: Parser Type
-type' = type'' False
-
-
-type IsParameter = Bool
-
-type'' :: IsParameter -> Parser Type
-type'' isParam =  parenType
-              <|> try typeVar
-              <|> try userDefined
-              <|> try arrayOf
-              <|> try basicOrPointer
+type' =  parenType
+     <|> try typeVar
+     <|> try userDefined
+     <|> try arrayOf
+     <|> try basicOrPointer
   where
     parenType = do
-      t <- parens $ type'' isParam
+      t <- parens type'
       isPointer t
 
     -- Try to parse an array type
@@ -77,9 +70,9 @@ type'' isParam =  parenType
       pos <- getPosition
       match TokArray
       mdims' <- between (match TokLeftBracket) (match' TokRightBracket) $
-        arraySize isParam `sepBy` match TokComma
+        arraySize `sepBy` match TokComma
       match TokOf
-      t <- type'' isParam
+      t <- type'
       pos' <- getPosition
 
       let mdims = sequence mdims'
@@ -100,8 +93,8 @@ type'' isParam =  parenType
               pure GUndef
             else pure $ GArray dims t
 
-    arraySize :: IsParameter -> Parser (Maybe (Either Text Expression))
-    arraySize False = do
+    arraySize :: Parser (Maybe Expression)
+    arraySize = do
       pos <- getPosition
       expr <- expression
       case expr of
@@ -113,31 +106,11 @@ type'' isParam =  parenType
               putError pos . UnknownError $
                 "A negative dimension was given in the array declaration."
               pure Nothing
-            _ -> pure . Just . Right $ e
+            _ -> pure . Just $ e
           _ -> do
             putError pos . UnknownError $
               "Array dimension must be an integer constant expression."
             pure Nothing
-    arraySize True = do
-      pos <- getPosition
-      sizeVar <|> sizeExpr
-
-    sizeVar = do
-      lookAhead . try $ identifier *> oneOf [TokRightBracket, TokComma]
-      (varName, loc) <- identifierAndLoc
-
-      st <- use symbolTable
-
-      case varName `local` st of
-        Right Entry { _loc } -> do
-          putError (pos loc) . UnknownError $
-            "Redefinition of parameter `" <> unpack varName <>
-            "`, original definition was at " <> show _loc <> "."
-          pure Nothing
-        Left _ -> do
-          symbolTable %= insertSymbol varName
-            (Entry varName loc (Argument In GInt))
-          pure . Just . Left $ varName
 
     sizeExpr = do
       pos <- getPosition
@@ -156,8 +129,6 @@ type'' isParam =  parenType
             putError pos . UnknownError $
               "Array dimension must be an integer constant expression."
             pure Nothing
-
-
 
     basicOrPointer = do
       -- If its not an array, then try with a basic type or a pointer
@@ -197,7 +168,7 @@ type'' isParam =  parenType
         Just ast@Struct {structBaseName, structTypes, structProcs} -> do
 
           identifier
-          fullTypes <- asum <$> (optional . parens $ type'' isParam `sepBy` match TokComma)
+          fullTypes <- asum <$> (optional . parens $ type' `sepBy` match TokComma)
 
           let
             plen = length fullTypes

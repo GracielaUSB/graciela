@@ -3,8 +3,8 @@
 
 module Error where
 --------------------------------------------------------------------------------
-import           AST.Expression        (Expression (expType), Type)
-import           AST.Type              (Type' (..))
+import           AST.Expression        (Expression' (expType))
+import           AST.Type              (Expression, Type (..))
 import           Data.Monoid           ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
@@ -21,7 +21,7 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
 
-import Debug.Trace
+import           Debug.Trace
 
 -- data MyParseError
 --   = CustomError -- Mientras no mejoremos los errores jajaja
@@ -77,7 +77,7 @@ data Error
     { aExpr :: Expression
     , aType :: Type
     }
-  | BadNumberOfTypeArgs 
+  | BadNumberOfTypeArgs
     { dtName    :: Text
     , dtTypes   :: [Type]
     , absName   :: Text
@@ -135,7 +135,7 @@ data Error
 
 instance ErrorComponent Error where
   representFail :: String -> Error
-  representFail e = 
+  representFail e =
     traceShow (showErrorComponent $ UnknownError e) (UnknownError e)
 
   {- Unused, just to remove the class warning-}
@@ -183,19 +183,19 @@ instance ShowErrorComponent Error where
       "\n\tbut only variables of type "<> show GChar <>", "<> show GFloat <>
       " or " <> show GInt <>" can be read."
 
-    BadNumberOfTypeArgs { dtName, dtTypes , absName, abstypes, len, lenNeeded } -> 
-      let 
+    BadNumberOfTypeArgs { dtName, dtTypes , absName, abstypes, len, lenNeeded } ->
+      let
         t a b = if a == 0
                   then "no type"
-                else show (length b) <> if a > 1 
+                else show (length b) <> if a > 1
                     then " type (" <> intercalate "," (fmap show b) <> ")"
                   else " types (" <> intercalate "," (fmap show b) <> ")"
 
       in "Type `" <> unpack dtName <> "` is implementing `" <>
-          unpack absName <> "` with " <> t len dtTypes <> 
+          unpack absName <> "` with " <> t len dtTypes <>
           "\n\tbut expected " <> t lenNeeded abstypes
-                
-        
+
+
 
     EmptyBlock ->
       "Instruction blocks must contain at least one instruccion"
@@ -227,7 +227,7 @@ instance ShowErrorComponent Error where
 
     NotInScope { sName } ->
       "Not in the scope: `" <> unpack sName <> "`"
-      
+
     UndefinedFunction { fName, fArgs } ->
       "Undefined function `" <> unpack fName <> "(" <>
       intercalate "," (fmap (show . expType) (toList fArgs)) <> ")`."
@@ -244,7 +244,6 @@ instance ShowErrorComponent Error where
 
     UnexpectedToken { uts } ->
       (\x -> "Unexpected " <> show x) `concatMap` uts
-      -- "Unexpected " <> show uts
 
     UnknownError {emsg} -> emsg
 

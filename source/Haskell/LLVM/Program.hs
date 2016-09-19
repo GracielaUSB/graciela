@@ -5,11 +5,11 @@ module LLVM.Program where
 
 --------------------------------------------------------------------------------
 import           AST.Definition
-import qualified AST.Expression                          as T (Type)
 import           AST.Instruction                         (Instruction)
 import           AST.Program
 import qualified AST.Program                             as P (structs)
 import           AST.Type
+import qualified AST.Type                                as G (Type)
 import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
@@ -65,7 +65,7 @@ import           System.Process                          (callCommand,
 
 
 programToLLVM :: [String]             -- ^ Files for read instructions
-              -> Map Text (T.Type, a) -- ^ Declared types
+              -> Map Text (G.Type, a) -- ^ Declared types
               -> Program              -- ^ AST
               -> IO Module
 programToLLVM

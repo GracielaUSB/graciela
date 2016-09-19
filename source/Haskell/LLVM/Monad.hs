@@ -81,21 +81,18 @@ addInstruction inst =
   currentBlock %= (|> inst)
 --------------------------------------------------------------------------------
 
-terminate :: Named Terminator -> LLVM ()
-terminate terminator = do
+terminate' :: Terminator -> LLVM ()
+terminate' terminator = do
   name' <- use blockName
   case name' of
     Nothing -> error $
       "internal error: attempted to terminate an unnamed block with\n" <>
-      show terminator <> "\n"
+      show (Do terminator) <> "\n"
     Just name -> do
       insts <- use currentBlock
-      blocks %= (|> BasicBlock name (toList insts) terminator)
+      blocks %= (|> BasicBlock name (toList insts) (Do terminator))
       currentBlock .= Seq.empty
       blockName .= Nothing
-
-terminate' :: Terminator -> LLVM ()
-terminate' = terminate . Do
 
 (#) :: Name -> LLVM ()
 (#) name = do

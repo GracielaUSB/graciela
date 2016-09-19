@@ -29,8 +29,7 @@ module Parser.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
-import           AST.Expression        (Expression, Type, TypeArgs,
-                                        Value (BoolV))
+import           AST.Expression        (Value (BoolV))
 import           AST.Struct
 import           AST.Type
 import           Entry

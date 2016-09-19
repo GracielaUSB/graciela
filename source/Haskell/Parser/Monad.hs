@@ -63,10 +63,14 @@ module Parser.Monad
   , sepBy1
   , sepEndBy
   , sepEndBy1
+
+  , some'
+  , many'
+  , sepBy1'
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression             (Type)
 import           AST.Struct
+import           AST.Type                   (Type)
 import           Error
 import           Location
 import           Parser.Prim                ()
@@ -395,6 +399,14 @@ many v = many_v
     some_v = fmap (<|) v <*> many_v
 {-# INLINE many #-}
 
+-- | One or more, carrying a state.
+some' :: (Monad m, Alternative m) => (a -> m a) -> a -> m a
+some' v s = v s >>= many' v
+
+-- | Zero or more, carrying a state
+many' :: (Monad m, Alternative m) => (a -> m a) -> a -> m a
+many' v s = some' v s <|> pure s
+
 -- | @endBy p sep@ parses /zero/ or more occurrences of @p@, separated
 -- and ended by @sep@. Returns a sequence of values returned by @p@.
 --
@@ -422,6 +434,11 @@ sepBy p sep = sepBy1 p sep <|> pure Seq.empty
 sepBy1 :: Alternative m => m a -> m sep -> m (Seq a)
 sepBy1 p sep = (<|) <$> p <*> many (sep *> p)
 {-# INLINE sepBy1 #-}
+
+-- | @sepBy1' s p sep@ parses /one/ or more occurrences of @p s@, separated
+-- by @sep@. Returns a sequence of values returned by @p@.
+sepBy1' :: (Monad m, Alternative m) => (a -> m a) -> m sep -> a -> m a
+sepBy1' p sep s = p s >>= many' (\t -> sep *> p t)
 
 -- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
 -- separated and optionally ended by @sep@. Returns a sequence of values

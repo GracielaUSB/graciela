@@ -7,8 +7,7 @@ module LLVM.Struct
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
-import           AST.Expression               (Expression (..), TypeArgs)
-import qualified AST.Expression               as T (Type)
+import           AST.Expression               (Expression' (..))
 import           AST.Struct                   (Struct (..), Struct' (..))
 import           AST.Type
 import           LLVM.Abort                   (abort, abortString)
@@ -19,7 +18,7 @@ import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                 (warn)
-import qualified LLVM.Warning                 as Warning (Warning (Pre,Invariant, RepInvariant))
+import qualified LLVM.Warning                 as Warning (Warning (Invariant, Pre, RepInvariant))
 import           Location
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
@@ -200,7 +199,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     terminate' Br
         { dest      = trueLabel
         , metadata' = [] }
-        
+
     -- And the true label to the next instructions
     (trueLabel #)
 
@@ -210,7 +209,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     blocks' <- use blocks
     blocks .= Seq.empty
 
-    let 
+    let
       selfParam    = Parameter (ptr t) name' []
       precondParam = Parameter boolType (Name "cond") []
 

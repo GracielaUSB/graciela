@@ -95,9 +95,9 @@ function = do
 
   funcBody' <- between (match' TokOpenBlock) (match' TokCloseBlock) expression
 
-  funcRecursive <- use currentFunc >>= \case
-    Nothing -> error "internal error: currentFunction was nullified. 1"
-    Just cr -> pure $ cr ^.crRecursive
+  funcRecursive <- use currentFunc >>= pure . \case
+    Nothing -> False
+    Just cr -> cr ^.crRecursive
 
   currentFunc .= Nothing
 
@@ -182,7 +182,7 @@ doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
     yesParam from = do
       parName <- identifier
       match' TokColon
-      t <- type'' True
+      t <- type'
 
       to <- getPosition
       let loc = Location (from, to)
@@ -238,9 +238,9 @@ procedure = do
   symbolTable %= closeScope to -- body
   symbolTable %= closeScope to -- params
 
-  procRecursive <- use currentProc >>= \case
-    Nothing -> error "internal error: currentProcedure was nullified. 2"
-    Just cr -> pure $ cr ^.crRecursive
+  procRecursive <- use currentProc >>= pure . \case
+    Nothing -> False
+    Just cr -> cr ^.crRecursive
 
   currentProc .= Nothing
 
@@ -317,7 +317,7 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
 
       parName' <- safeIdentifier
       match' TokColon
-      t <- type'' True
+      t <- type'
 
       to <- getPosition
       let loc = Location (from, to)

@@ -22,16 +22,16 @@ module Parser.Instruction
 -------------------------------------------------------------------------------
 import           AST.Declaration        (Declaration)
 import           AST.Definition         (Definition (..), Definition' (..))
-import           AST.Expression         (Expression (..), Expression' (..),
-                                         Object (..), Type)
+import           AST.Expression         (Expression' (..), Expression'' (..))
 import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
-import           AST.Type               (ArgMode (..), Type' (..), fillType,
-                                         hasDT, isTypeVar, (=:=))
+import           AST.Type               (ArgMode (..), Expression, Object,
+                                         Type (..), fillType, hasDT, isTypeVar,
+                                         notIn, (=:=))
 import           Entry
 import           Error
 import           Location

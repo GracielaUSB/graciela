@@ -2,9 +2,8 @@
 
 module AST.Declaration where
 --------------------------------------------------------------------------------
-import           AST.Expression (Expression, Object, Type)
-import qualified AST.Expression as E
-import           AST.Type
+import           AST.Expression
+import           AST.Type       (Expression, Object, Type)
 import           Location
 import           SymbolTable
 import           Token

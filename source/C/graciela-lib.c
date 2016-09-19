@@ -207,6 +207,7 @@ typedef enum
   , A_REPRESENTATION_INVARIANT
   , A_NEGATIVE_INDEX
   , A_OUT_OF_BOUNDS_INDEX
+  , A_BAD_ARRAY_ARG
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -242,6 +243,8 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\ta negative index was used to access an array.\n"); break;
     case A_OUT_OF_BOUNDS_INDEX:
       printf (":\n\tout of bounds index in access to array.\n"); break;
+    case A_BAD_ARRAY_ARG:
+      printf (":\n\tbad array argument, size mismatch.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }

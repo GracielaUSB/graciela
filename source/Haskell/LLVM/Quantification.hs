@@ -5,8 +5,12 @@ module LLVM.Quantification
   (quantification) where
 
 --------------------------------------------------------------------------------
-import           AST.Expression
-import           AST.Type                                (Type' (..))
+import           AST.Expression                          (Expression' (..),
+                                                          Expression'' (..),
+                                                          QRange' (..),
+                                                          QuantOperator (..))
+import           AST.Type                                (Expression, QRange,
+                                                          Type (..))
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
 import           LLVM.Monad

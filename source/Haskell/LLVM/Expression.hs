@@ -8,15 +8,16 @@ module LLVM.Expression
 
 where
 --------------------------------------------------------------------------------
-import           AST.Expression                          (Expression (..),
-                                                          Expression' (..),
-                                                          Object, Value (..))
+import           AST.Expression                          (Expression' (..),
+                                                          Expression'' (..),
+                                                          Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import qualified AST.Expression                          as E (loc)
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
-import           AST.Type                                as T
+import           AST.Type
+import qualified AST.Type                                as G (Type)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
 import           LLVM.Monad
@@ -351,10 +352,10 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
     innerOperand <- expression inner
 
     operand <- case expType of
-      T.GInt   -> opInt 32  unOp innerOperand
-      T.GChar  -> opInt 8  unOp innerOperand
-      T.GBool  -> opBool  unOp innerOperand
-      T.GFloat -> opFloat unOp innerOperand
+      GInt   -> opInt 32  unOp innerOperand
+      GChar  -> opInt 8  unOp innerOperand
+      GBool  -> opBool  unOp innerOperand
+      GFloat -> opFloat unOp innerOperand
       t        -> error $ "tipo " <> show t <> " no soportado"
 
     pure operand
@@ -437,10 +438,10 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
     let
       op = case expType of
-        T.GInt   -> opInt 32
-        T.GChar  -> opInt 8
-        T.GBool  -> opBool
-        T.GFloat -> opFloat
+        GInt   -> opInt 32
+        GChar  -> opInt 8
+        GBool  -> opBool
+        GFloat -> opFloat
         t        -> error $
           "internal error: type " <> show t <> " not supported"
 
@@ -913,7 +914,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
               , type'    = type'
               , metadata = [] }
             pure $ LocalReference type' label
-      basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
+      basicT = GOneOf [GBool,GChar,GInt,GFloat]
 
   Quantification { qOp } ->
     quantification expression safeOperation e

@@ -19,8 +19,8 @@ module LLVM.State
   , substitutionTable
   ) where
 --------------------------------------------------------------------------------
-import qualified AST.Expression               as G (TypeArgs)
 import           AST.Struct                   (Struct (..))
+import           AST.Type                     (TypeArgs)
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)
@@ -45,12 +45,12 @@ data State = State
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
   , _structs           :: Map Text Struct
-  , _fullDataTypes     :: Map Text (Struct, [G.TypeArgs])
-  , _pendingDataTypes  :: Map Text (Struct, [G.TypeArgs])
+  , _fullDataTypes     :: Map Text (Struct, [TypeArgs])
+  , _pendingDataTypes  :: Map Text (Struct, [TypeArgs])
   , _currentStruct     :: Maybe Struct
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [G.TypeArgs] }
+  , _substitutionTable :: [TypeArgs] }
 
 makeLenses ''State
 

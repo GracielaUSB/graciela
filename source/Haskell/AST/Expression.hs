@@ -4,38 +4,31 @@
 module AST.Expression
   ( BinaryOperator (..)
   , Conversion (..)
-  , Expression (..)
+  , Expression'' (..)
   , Expression' (..)
-  , Object
-  , QRange (..)
+  , QRange' (..)
   , QuantOperator (..)
   , UnaryOperator (..)
   , Value (..)
-  , Type
-  , TypeArgs
+  , CollectionKind (..)
   , from
   , to
   , eSkip
   ) where
 --------------------------------------------------------------------------------
 import           AST.Object    (Object')
-import           AST.Type      (Type', TypeArgs')
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
+import           Data.Array    (Array)
 import           Data.Foldable (toList)
 import           Data.Int      (Int32)
+import           Data.List     (intercalate)
 import           Data.Monoid   ((<>))
 import           Data.Sequence (Seq)
 import           Data.Text     (Text, unpack)
 import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
-
-type Type     = Type'     Expression
-type TypeArgs = TypeArgs' Expression
---------------------------------------------------------------------------------
-
-type Object = Object' Expression
 
 data Conversion = ToInt | ToDouble | ToChar
   deriving (Eq)
@@ -113,19 +106,19 @@ instance Show QuantOperator where
   show Count     = "Count (#)"
 
 
-data QRange
+data QRange' t m
   = ExpRange -- Both limits are included, i.e. low <= var <= high
-    { low  :: Expression
-    , high :: Expression }
+    { low  :: Expression' t m
+    , high :: Expression' t m }
   -- | Works for Multiset as well
   | SetRange
-    { theSet :: Expression }
+    { theSet :: Expression' t m }
   | PointRange
-    { thePoint :: Expression }
+    { thePoint :: Expression' t m }
   | EmptyRange
   deriving (Eq)
 
-instance Show QRange where
+instance Show t => Show (QRange' t m) where
   show = \case
     ExpRange { low, high } ->
       unwords [ "from", show low, "to", show high ]
@@ -137,7 +130,7 @@ instance Show QRange where
       "Empty range"
 
 
-instance Treelike QRange where
+instance (Show t, Show m) => Treelike (QRange' t m) where
   toTree ExpRange { low, high } =
     Node "Exp Range"
       [ Node "From" [toTree low]
@@ -173,71 +166,83 @@ instance Treelike Value where
   toTree = leaf . show
 
 
-data Expression'
+data CollectionKind
+  = Set
+  | Multiset
+  | Sequence
+  deriving (Eq, Show)
+
+
+data Expression'' t m
   = NullPtr
   | Value { theValue :: Value }
 
   | StringLit { theStringId :: Int }
 
-  | EmptySet
-  | EmptyMultiset
+  | Collection
+    { colKind  :: CollectionKind
+    , colVar   :: Maybe (Text, t, QRange' t m, Expression' t m)
+      -- ^ the (optional) variable's name, type, range and condition.
+    , colElems :: Seq (Expression' t m) }
 
-  | Obj { theObj :: Object }
+  | Tuple { tupElems :: Seq (Expression' t m) }
+
+  | Obj { theObj :: Object' t m (Expression' t m) }
 
   | Binary
     { binOp :: BinaryOperator
-    , lexpr :: Expression
-    , rexpr :: Expression }
+    , lexpr :: Expression' t m
+    , rexpr :: Expression' t m }
 
   | Unary
     { unOp  :: UnaryOperator
-    , inner :: Expression }
+    , inner :: Expression' t m }
 
   -- | Llamada a funcion.
   | FunctionCall
     { fName          :: Text
-    , fArgs          :: Seq Expression
+    , fArgs          :: Seq (Expression' t m)
     , fRecursiveCall :: Bool
     , fRecursiveFunc :: Bool
-    , fStructArgs    :: Maybe (Text, TypeArgs) }
+    , fStructArgs    :: Maybe (Text, Array Int t) }
 
   | Conversion
     { toType :: Conversion
-    , cExp   :: Expression }
+    , cExp   :: Expression' t m }
 
   | Quantification
     { qOp      :: QuantOperator
     , qVar     :: Text
-    , qVarType :: Type
-    , qRange   :: QRange
-    , qCond    :: Expression
-    , qBody    :: Expression }
+    , qVarType :: t
+    , qRange   :: QRange' t m
+    , qCond    :: Expression' t m
+    , qBody    :: Expression' t m }
 
    -- | Expresión If.
   | EConditional
-    { eguards    :: Seq (Expression, Expression)
-    , trueBranch :: Maybe Expression }
+    { eguards    :: Seq (Expression' t m, Expression' t m)
+    , trueBranch :: Maybe (Expression' t m) }
   deriving (Eq)
 
-data Expression
+data Expression' t m
   = Expression
     { loc      :: Location
-    , expType  :: Type
+    , expType  :: t
     , expConst :: Bool
-    , exp'     :: Expression' }
+    , exp'     :: Expression'' t m }
 
-instance Eq Expression where
+instance (Eq t, Eq m) => Eq (Expression' t m) where
   (==)
     (Expression _loc0 expType0 expConst0 exp'0)
     (Expression _loc1 expType1 expConst1 exp'1)
     = expType0 == expType1 && expConst0 == expConst1 && exp'0 == exp'1
 
 
-eSkip :: Expression'
+eSkip :: Expression'' t m
 eSkip = Value . BoolV  $ True
 
 
-instance Treelike Expression where
+instance (Show t, Show m) => Treelike (Expression' t m) where
   toTree Expression { loc, expType, exp' } = case exp' of
     NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
     Value { theValue } -> leaf $
@@ -250,11 +255,26 @@ instance Treelike Expression where
     StringLit { theStringId } -> leaf $
       "String Literal #" <> show theStringId <> " " <> show loc
 
-    EmptySet -> leaf $
-      "Set Literal `Empty Set` " <> show loc
+    Collection { colKind, colVar = Nothing, colElems } | null colElems ->
+      leaf $ "Empty " <> show expType <> " " <> show loc
 
-    EmptyMultiset -> leaf $
-      "Multiset Literal `Empty Multiset` " <> show loc
+    Collection { colKind, colVar = Nothing, colElems } ->
+      Node (show expType <> " " <> show loc)
+        [ Node "Elements" (toForest colElems) ]
+
+    Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
+      Node (show expType <> " " <> show loc)
+        [ Node "Variable"
+          [ leaf $ unpack name
+          , leaf $ "of type " <> show ty ]
+        , Node "Range" [toTree range]
+        , case cond of
+            Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
+            _ -> Node "Conditions" [ toTree cond]
+        , Node "Elements" (toForest colElems) ]
+
+    Tuple { tupElems } ->
+      Node ("Tuple " <> show loc) (toForest tupElems)
 
     Obj { theObj } ->
       Node ("Object " <> show expType <> " " <> show loc)
@@ -307,10 +327,10 @@ instance Treelike Expression where
             , Node "Then" [toTree rhs] ]
 
 
-from :: Expression -> SourcePos
+from :: Expression' t m -> SourcePos
 from e = let Location (f,_) = loc e in f
 
-to :: Expression -> SourcePos
+to :: Expression' t m -> SourcePos
 to e =   let Location (_,t) = loc e in t
 
 
@@ -353,16 +373,29 @@ prettyUnOp Pred   = "pred"
 prettyUnOp Succ   = "succ"
 
 
-instance Show Expression where
+instance Show t => Show (Expression' t m) where
   show Expression { loc, expType, exp' } = case exp' of
     NullPtr -> "null"
     Value { theValue } -> show theValue
 
     StringLit { theStringId } -> show theStringId
 
-    EmptySet -> "{}"
+    Collection { colKind, colVar = Nothing, colElems } | null colElems ->
+      show colKind <> "()"
 
-    EmptyMultiset -> "{{}}"
+    Collection { colKind, colVar = Nothing, colElems } ->
+      show colKind <> "(" <> intercalate ", " (show <$> toList colElems) <> ")"
+
+    Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
+      show colKind <> unwords
+        [ "(", var, ":", ty', "|"
+        , range', "|", cond', "|", elems', ")"]
+      where
+        var    = unpack name
+        ty'    = show ty
+        range' = show range
+        cond'  = show cond
+        elems' = intercalate ", " (show <$> toList colElems)
 
     Obj { theObj } -> show theObj
 

@@ -63,8 +63,8 @@ waCall func i pos = addInstruction $ Do Call
 -- | Enum type for the different abort conditions.
 data Abort
   = If                 -- ^ A conditional had no true guard.
-  | Manual            -- ^ An `abort` instruction was manually called.
-  | Post              -- ^ A postcondition failed.
+  | Manual             -- ^ An `abort` instruction was manually called.
+  | Post               -- ^ A postcondition failed.
   | Assert             -- ^ An assertion failed.
   | Invariant          -- ^ An invariant failed.
   | NondecreasingBound -- ^ A bound didn't decrease between iterations or recursion.
@@ -77,6 +77,9 @@ data Abort
   | RepInvariant       -- ^ The representation invariant was falsified.
   | NegativeIndex      -- ^ A negative index was used to access an array.
   | OutOfBoundsIndex   -- ^ An index outside the bounds of an array was used to access it.
+  | BadArrayArg        -- ^ A procedure/function was declared with an array of a given size,
+                       -- but a different one was used at callsite. This check cannot always
+                       -- be done at compile time.
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate abort.

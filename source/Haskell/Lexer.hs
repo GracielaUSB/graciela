@@ -105,24 +105,24 @@ identifier = lexeme $
   TokId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf "_?'"))
 
 
-emptyMultiset :: Lexer TokenPos
-emptyMultiset = try . lexeme $ ascii <|> utf8
-  where
-    ascii =
-      symbol "{{"     TokLeftBag  *>
-      symbol "}}"     TokRightBag *>
-      pure TokEmptyMultiset
-    utf8 =
-      symbol "\10181" TokLeftBag  *>
-      symbol "\10182" TokRightBag *>
-      pure TokEmptyMultiset
-
-
-emptySet :: Lexer TokenPos
-emptySet = try . lexeme $
-  symbol "{" TokLeftBrace  *>
-  symbol "}" TokRightBrace *>
-  pure TokEmptySet
+-- emptyMultiset :: Lexer TokenPos
+-- emptyMultiset = try . lexeme $ ascii <|> utf8
+--   where
+--     ascii =
+--       symbol "{{"     TokLeftBag  *>
+--       symbol "}}"     TokRightBag *>
+--       pure TokEmptyMultiset
+--     utf8 =
+--       symbol "\10181" TokLeftBag  *>
+--       symbol "\10182" TokRightBag *>
+--       pure TokEmptyMultiset
+--
+--
+-- emptySet :: Lexer TokenPos
+-- emptySet = try . lexeme $
+--   symbol "{" TokLeftBrace  *>
+--   symbol "}" TokRightBrace *>
+--   pure TokEmptySet
 
 
 unexpected :: Lexer TokenPos
@@ -223,6 +223,11 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "<=="        TokConsequent
       <|> symbol   "\8656"      TokConsequent -- ⇐
 
+      -- V2.0
+      <|> symbol   "<<"         TokLeftSeq
+      <|> symbol   ">>"         TokRightSeq
+      -- V2.0
+
       <|> symbol   "=="         TokAEQ
       <|> symbol   "!="         TokANE
       <|> symbol   "\8800"      TokANE   -- ≠
@@ -271,13 +276,13 @@ token  =  reserved "program"    TokProgram
 
 
       -- V2.0
-      <|> emptyMultiset                     -- ⟅ ⟆ or {{ }}
+      -- <|> emptyMultiset                     -- ⟅ ⟆ or {{ }}
       <|> symbol   "{{"         TokLeftBag
       <|> symbol   "\10181"     TokLeftBag  -- ⟅
       <|> symbol   "}}"         TokRightBag
       <|> symbol   "\10182"     TokRightBag -- ⟆
 
-      <|> emptySet                          -- { }
+      -- <|> emptySet                          -- { }
       <|> symbol   "\8709"      TokEmptySet -- ∅
       <|> symbol   "{"          TokLeftBrace
       <|> symbol   "}"          TokRightBrace

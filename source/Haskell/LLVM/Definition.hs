@@ -8,13 +8,13 @@ module LLVM.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration                     (Declaration)
 import           AST.Definition
-import           AST.Expression                      (Expression (..))
+import           AST.Expression                      (Expression' (..))
 import qualified AST.Instruction                     as G (Instruction)
 import           AST.Struct                          (Struct (..))
-import           AST.Type                            ((=:=))
+import           AST.Type                            (Expression, (=:=))
 import qualified AST.Type                            as T
 import           LLVM.Abort                          (abort, abortString)
-import qualified LLVM.Abort                          as Abort (Abort (NegativeBound, NondecreasingBound, Post))
+import qualified LLVM.Abort                          as Abort (Abort (..))
 import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
 import           LLVM.Instruction
@@ -24,6 +24,7 @@ import           LLVM.Type
 import           LLVM.Warning                        (warn, warnString)
 import qualified LLVM.Warning                        as Warning (Warning (Post, Pre))
 import           Location
+import qualified Location                            as L (pos)
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
@@ -49,7 +50,7 @@ import qualified LLVM.General.AST.Constant           as C
 import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Instruction
-import           LLVM.General.AST.IntegerPredicate   (IntegerPredicate (SGE, SLT))
+import           LLVM.General.AST.IntegerPredicate   (IntegerPredicate (EQ, SGE, SLT))
 import           LLVM.General.AST.Name               (Name (..))
 import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
@@ -57,6 +58,7 @@ import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
 import           LLVM.General.AST.Type               (Type (..), double, i1,
                                                       i32, i8, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
+import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -344,27 +346,46 @@ definition
       void $ foldM (dimAux t' arrName) 0 dims
       where
         dimAux t' arrName n dim = do
-          case dim of
-            Right _ -> pure ()
-            Left dimName -> do
-              name' <- insertVar dimName
+          paramDim <- expression dim
 
-              dimAddr <- newUnLabel
-              addInstruction $ dimAddr := GetElementPtr
-                { inBounds = False
-                , address  = LocalReference t' arrName
-                , indices  =
-                  [ ConstantOperand (C.Int 32 0)
-                  , ConstantOperand (C.Int 32 n) ]
-                , metadata = [] }
+          dimAddr <- newUnLabel
+          addInstruction $ dimAddr := GetElementPtr
+            { inBounds = False
+            , address  = LocalReference t' arrName
+            , indices  =
+              [ ConstantOperand (C.Int 32 0)
+              , ConstantOperand (C.Int 32 n) ]
+            , metadata = [] }
 
-              addInstruction $ name' := Load
-                { volatile       = False
-                , address        = LocalReference i32 dimAddr
-                , maybeAtomicity = Nothing
-                , alignment      = 4
-                , metadata       = [] }
+          argDim <- newLabel "arrCheck"
+          addInstruction $ argDim := Load
+            { volatile       = False
+            , address        = LocalReference i32 dimAddr
+            , maybeAtomicity = Nothing
+            , alignment      = 4
+            , metadata       = [] }
+
+          arrCheckCmp <- newLabel "arrCheckCmp"
+          addInstruction $ arrCheckCmp := ICmp
+            { iPredicate = EQ
+            , operand0 = paramDim
+            , operand1 = LocalReference i32 argDim
+            , metadata = [] }
+
+          arrOk <- newLabel "arrOk"
+          arrNotOk <- newLabel "arrNotOk"
+          terminate' CondBr
+            { condition = LocalReference i1 arrCheckCmp
+            , trueDest  = arrOk
+            , falseDest = arrNotOk
+            , metadata' = [] }
+
+          (arrNotOk #)
+          abort Abort.BadArrayArg (L.pos . loc $ dim)
+
+          (arrOk #)
           pure $ n + 1
+
     arrAux _ = pure ()
 
     callInvariant funName cond (name, t, _) = do

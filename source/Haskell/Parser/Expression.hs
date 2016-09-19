@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TupleSections            #-}
 {-# LANGUAGE TypeFamilies             #-}
 
 module Parser.Expression
@@ -14,8 +15,9 @@ import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
-import           AST.Type                  (ArgMode (..), Type' (..), fillType,
-                                            hasDT, (=:=))
+import           AST.Type                  (ArgMode (..), Expression, Object,
+                                            QRange, Type (..), fillType, hasDT,
+                                            (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
 import           Lexer
@@ -41,10 +43,12 @@ import qualified Data.Map.Strict           as Map (insert, lookup, size)
 import           Data.Maybe                (catMaybes, fromJust)
 import           Data.Monoid               (First (..), (<>))
 import           Data.Sequence             (Seq, (|>))
-import qualified Data.Sequence             as Seq (empty, singleton, zip)
+import qualified Data.Sequence             as Seq (empty, fromList, singleton,
+                                                   zip)
 import           Data.Text                 (Text, pack, unpack)
 import           Prelude                   hiding (Ordering (..), lex, lookup)
 import           Text.Megaparsec           (between, getPosition, lookAhead,
+                                            manyTill, optional,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -91,11 +95,11 @@ term =  parens metaexpr
     <|> callOrVariable
     <|> bool
     <|> nullptr
-    <|> basicLit integerLit       IntV          GInt
-    <|> basicLit floatLit         FloatV        GFloat
-    <|> basicLit charLit          CharV         GChar
-    <|> setLit   TokEmptySet      EmptySet      GSet
-    <|> setLit   TokEmptyMultiset EmptyMultiset GMultiset
+    <|> basicLit integerLit IntV   GInt
+    <|> basicLit floatLit   FloatV GFloat
+    <|> basicLit charLit    CharV  GChar
+    <|> emptySet
+    <|> collection
     <|> string
     <|> quantification
     <|> ifExp
@@ -150,20 +154,15 @@ term =  parens metaexpr
 
       pure . Just $ (expr, ProtoNothing, Taint False)
 
-    setLit :: Token -> Expression' -> (Type -> Type)
-           -> ParserExp (Maybe MetaExpr)
-    setLit tok e t = do
-      from <- getPosition
-      void $ match tok
-      to <- getPosition
-
+    emptySet :: ParserExp (Maybe MetaExpr)
+    emptySet = do
+      loc <- match TokEmptySet
       let
         expr = Expression
-          { E.loc    = Location (from, to)
-          , expType  = t GAny
+          { E.loc
+          , expType  = GSet GAny
           , expConst = True
-          , exp'     = e }
-
+          , exp'     = Collection Set Nothing Seq.empty }
       pure . Just $ (expr, ProtoNothing, Taint False)
 
     string = do
@@ -183,6 +182,198 @@ term =  parens metaexpr
           , exp'     = StringLit strId }
 
       pure . Just $ (expr, ProtoNothing, Taint False)
+
+
+collection :: ParserExp (Maybe MetaExpr)
+collection = do
+  (colKind, Location (from,_)) <-  (Set,)      <$> match TokLeftBrace
+                               <|> (Multiset,) <$> match TokLeftBag
+                               <|> (Sequence,) <$> match TokLeftSeq
+
+  mvrc <- optional (varAndRange from)
+  melems <- elems $ case colKind of
+    Set      -> TokRightBrace
+    Multiset -> TokRightBag
+    Sequence -> TokRightSeq
+
+  Location (_, to) <- match' $ case colKind of
+    Set      -> TokRightBrace
+    Multiset -> TokRightBag
+    Sequence -> TokRightSeq
+
+  case mvrc of
+    Just _ -> lift $ symbolTable %= closeScope to
+    _      -> pure ()
+
+  case mvrc of
+    -- A variable was given but an error occurred, either syntax or semantic
+    Just Nothing -> pure Nothing
+
+    -- A variable was not given, only (maybe) elems
+    Nothing -> case melems of
+      -- There were errors in the elems
+      Nothing -> pure Nothing
+      -- All elems are ok
+      Just (els, t) ->
+        let
+          e = Expression
+            { E.loc   = Location (from, to)
+            , expType = (case colKind of
+              Set      -> GSet
+              Multiset -> GMultiset
+              Sequence -> GSeq
+              ) t
+            , expConst = False
+            , exp' = Collection
+              { colKind
+              , colVar   = Nothing
+              , colElems = els }}
+        in pure . Just $ (e, ProtoNothing, Taint False)
+
+    -- A variable was given without errors
+    Just (Just (var, varTy, range, cond)) -> case melems of
+      -- But there were errors in the elems
+      Nothing -> pure Nothing
+      -- And the elems are okay
+      Just (els, t) -> if null els
+        -- The element list is empty
+        then do
+          putError from . UnknownError $
+            "Set comprehension without elements."
+          pure Nothing
+
+        -- The element list is not empty
+        else
+          let
+            e = Expression
+              { E.loc   = Location (from, to)
+              , expType = (case colKind of
+                Set      -> GSet
+                Multiset -> GMultiset
+                Sequence -> GSeq
+                ) t
+              , expConst = False
+              , exp' = Collection
+                { colKind
+                , colVar   = Just (var, varTy, range, cond)
+                , colElems = els }}
+          in pure . Just $ (e, ProtoNothing, Taint False)
+
+  where
+    varAndRange :: SourcePos -> ParserExp (Maybe (Text, Type, QRange, Expression))
+    varAndRange from = do
+      void . lookAhead . try $ identifier *> match TokColon
+
+      lift $ symbolTable %= openScope from
+      (var, varTy) <- declaration
+
+      void $ match' TokPipe
+
+      range <- case varTy of
+        GUndef -> do
+          anyToken `manyTill` match' TokPipe
+          pure Nothing
+        _ -> do
+          modify (var :)
+          range <- metaexpr
+          void $ match' TokPipe
+          modify tail
+          pure range
+
+      case range of
+        Nothing -> pure Nothing
+        Just (cond, protorange, taint0) -> do
+          let
+            Location (rfrom, _) = E.loc cond
+
+          case protorange of
+            ProtoVar -> do
+              putError rfrom . UnknownError $
+                "Bad collection range. Range must be a boolean expression \
+                \in Conjunctive Normal Form where the variable `" <> unpack var <>
+                "` is bounded."
+              pure Nothing
+            ProtoNothing -> do
+              putError rfrom . UnknownError $
+                "Bad collection range. Range must be a boolean expression \
+                \in Conjunctive Normal Form where the variable `" <> unpack var <>
+                "` is bounded."
+              pure Nothing
+            ProtoLow _ -> do
+              putError rfrom . UnknownError $
+                "Bad collection range. No upper bound was given."
+              pure Nothing
+            ProtoHigh _ -> do
+              putError rfrom . UnknownError $
+                "Bad collection range. No lower bound was given."
+              pure Nothing
+            ProtoQRange qrange ->
+              pure . Just $ (var, varTy, qrange, cond)
+
+    quantifiableTypes, allowedCollTypes :: Type
+    quantifiableTypes = GOneOf [ GInt, GChar ]
+    allowedCollTypes  = GOneOf
+      [ GInt
+      , GChar
+      , GTuple $ Seq.fromList
+        [ GOneOf [GInt, GChar]
+        , GOneOf [GInt, GChar, GFloat]] ]
+
+    declaration = do
+      from <- getPosition
+
+      var <- identifier
+      void $ match TokColon
+      tname <- identifier
+
+      to <- getPosition
+
+      let loc = Location (from, to)
+
+      typeEntry <- Map.lookup tname <$> lift (use typesTable)
+
+      case typeEntry of
+        Nothing -> do
+          putError from . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
+          pure (var, GUndef)
+
+        Just (t, _) ->
+          if t =:= quantifiableTypes
+            then do
+              lift $ symbolTable %= insertSymbol var Entry
+                { _entryName = var
+                , _loc = Location (from, to)
+                , _info = Var
+                  { _varType  = t
+                  , _varValue = Nothing }}
+              pure (var, t)
+            else do
+              putError from . UnknownError $
+                "type `" <> unpack tname <> "` is not quantifiable."
+              pure (var, GUndef)
+
+    elems :: Token -> ParserExp (Maybe (Seq Expression, Type))
+    elems close =  lookAhead (match close) *> pure (Just (Seq.empty, GAny))
+               <|> (elem' close `sepBy1'` match TokComma) (Just (Seq.empty, allowedCollTypes))
+
+    elem' :: Token
+          -> Maybe (Seq Expression, Type)
+          -> ParserExp (Maybe (Seq Expression, Type))
+    elem' close acc = do
+      pos <- getPosition
+      el <- metaexpr `followedBy` oneOf [close, TokComma]
+      case el of
+        Nothing ->
+          pure Nothing
+        Just (e, _, _) -> case acc of
+          Nothing -> pure Nothing
+          Just (els, t) -> case t <> expType e of
+            GUndef -> do
+              putError pos . UnknownError $
+                "Unexpected expression of type `" <> show (expType e) <> "`,\
+                \expected instead an expression of type `" <> show t <> "`."
+              pure Nothing
+            newType -> pure . Just $ (els |> e, newType)
 
 
 callOrVariable :: ParserExp (Maybe MetaExpr)

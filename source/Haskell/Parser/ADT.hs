@@ -8,7 +8,7 @@ module Parser.ADT
 -------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition
-import           AST.Expression      (Expression (..), Type)
+import           AST.Expression      (Expression' (..))
 import           AST.Instruction
 import           AST.Struct
 import           AST.Type

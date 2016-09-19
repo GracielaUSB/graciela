@@ -4,8 +4,8 @@
 
 module LLVM.Instruction where
 --------------------------------------------------------------------------------
-import           AST.Expression                     (Expression (..))
-import qualified AST.Expression                     as E (Expression' (..))
+import           AST.Expression                     (Expression' (..),
+                                                     Expression'' (..))
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
@@ -14,7 +14,7 @@ import           AST.Object                         (Object' (..),
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           LLVM.Abort                         (abort)
-import qualified LLVM.Abort                         as Abort (Abort (Assert, If, Invariant, Manual, NegativeBound, NondecreasingBound))
+import qualified LLVM.Abort                         as Abort (Abort (..))
 import           LLVM.Declaration
 import           LLVM.Expression
 import           LLVM.Monad
@@ -196,7 +196,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
             expression e
           else do
             label <- newLabel "argCast"
-            ref   <- objectRef (E.theObj . exp' $ e) False
+            ref   <- objectRef (theObj . exp' $ e) False
 
             type' <- ptr <$> (toLLVMType . expType $ e)
             addInstruction $ label := BitCast
@@ -297,7 +297,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Write { ln, wexprs } -> do
     operands <- mapM expression wexprs
     mapM_ write (Seq.zip operands (expType <$> wexprs))
-    
+
     when ln . addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C

@@ -17,11 +17,11 @@ module Parser.Declaration
     where
 -------------------------------------------------------------------------------
 import           AST.Declaration           (Declaration (..))
-import           AST.Expression            (Expression (..),
-                                            Expression' (NullPtr, Value), Type)
+import           AST.Expression            (Expression' (..),
+                                            Expression'' (NullPtr, Value))
 import           AST.Struct                (Struct (..))
 import           AST.Type
-import           Entry                     as E
+import           Entry
 import           Error
 import           Location
 import           Parser.Expression
