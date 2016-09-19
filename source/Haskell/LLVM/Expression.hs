@@ -8,7 +8,8 @@ module LLVM.Expression
 
 where
 --------------------------------------------------------------------------------
-import           AST.Expression                          (Expression' (..),
+import           AST.Expression                          (CollectionKind (..),
+                                                          Expression' (..),
                                                           Expression'' (..),
                                                           Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
@@ -21,7 +22,8 @@ import qualified AST.Type                                as G (Type)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
 import           LLVM.Monad
-import           LLVM.Quantification                     (quantification)
+import           LLVM.Quantification                     (collection,
+                                                          quantification)
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
@@ -35,7 +37,7 @@ import           Control.Monad                           (foldM, when, zipWithM)
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
-import           Data.Maybe                              (fromMaybe)
+import           Data.Maybe                              (fromMaybe, isJust)
 import           Data.Monoid                             ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
@@ -71,7 +73,7 @@ object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
   Variable { mode } | mode == Just In
-    || (mode /= Nothing && not (objType =:= basic)) -> objectRef obj False
+    || (isJust mode && not (objType =:= basic)) -> objectRef obj False
     -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
@@ -102,7 +104,7 @@ objectRef obj@(Object loc objType obj') flag = do
 
     Variable { name , mode } -> do
       name' <- getVariableName name
-      if mode /= Nothing && not flag
+      if isJust mode && not flag
         then case objType of
           GPointer t -> do
             label <- newLabel "loadRef"
@@ -144,7 +146,7 @@ objectRef obj@(Object loc objType obj') flag = do
 
           gez <- newLabel "idxGEZ"
           notGez <- newLabel "idxNotGEZ"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference i1 chkGEZ
             , trueDest  = gez
             , falseDest = notGez
@@ -180,7 +182,7 @@ objectRef obj@(Object loc objType obj') flag = do
 
           inBound <- newLabel "idxInBound"
           notInBound <- newLabel "idxNotInBound"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference i1 chkInBound
             , trueDest  = inBound
             , falseDest = notInBound
@@ -231,7 +233,7 @@ objectRef obj@(Object loc objType obj') flag = do
         , operand1   = LocalReference i64 labelNull
         , metadata   = [] }
 
-      terminate' $ CondBr
+      terminate CondBr
         { condition = LocalReference boolType labelCond
         , trueDest  = trueLabel
         , falseDest = falseLabel
@@ -300,7 +302,7 @@ safeOperation n label fun lOperand rOperand pos = do
     , indices'  = [1]
     , metadata  = [] }
 
-  terminate' CondBr
+  terminate CondBr
     { condition = LocalReference boolType labelCond
     , trueDest  = overflowLabel
     , falseDest = normalLabel
@@ -326,7 +328,7 @@ callUnaryFunction fun innerOperand = Call
 -- callfFunction n fun lOperand rOperand =
 
 expression :: Expression -> LLVM Operand
-expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp' of
+expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' of
   Value val -> pure $ case val of
     BoolV  theBool  ->
       ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
@@ -473,7 +475,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
 
             isZero <- newLabel "divIsZero"
             isn'tZero <- newLabel "divIsn'tZero"
-            terminate' CondBr
+            terminate CondBr
               { condition = LocalReference i1 checkZero
               , trueDest  = isZero
               , falseDest = isn'tZero
@@ -499,7 +501,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
 
             isZero <- newLabel "modIsZero"
             isn'tZero <- newLabel "modIsn'tZero"
-            terminate' CondBr
+            terminate CondBr
               { condition = LocalReference i1 checkZero
               , trueDest  = isZero
               , falseDest = isn'tZero
@@ -650,6 +652,20 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
             addInstructions $ Seq.fromList [ labelCast1 := cast1
                                            , labelCast2 := cast2
                                            , label  := comp]
+
+          Op.AEQ | lType =:= GOneOf (($ GAny) <$> [GSet, GMultiset, GSeq]) -> do
+            t <- toLLVMType lType
+            addInstruction $ label :=  Call
+              { tailCallKind = Nothing
+              , callingConvention = CC.C
+              , returnAttributes = []
+              , function = callable t $ case lType of
+                GSet      _ -> equalSetString
+                GMultiset _ -> equalMultisetString
+                GSeq      _ -> equalSeqString
+              , arguments = (,[]) <$> [lOperand, rOperand]
+              , functionAttributes = []
+              , metadata = [] }
 
           Op.AEQ -> do
             let inst = if lType =:= GFloat
@@ -803,7 +819,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
 
     expType' <- toLLVMType expType
 
-    terminate' Br
+    terminate Br
       { dest      = entry
       , metadata' = [] }
 
@@ -819,7 +835,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
       Just  e -> do
         val <- expression e
         Just defaultLabel' <- use blockName
-        terminate' Br
+        terminate Br
           { dest      = finish
           , metadata' = [] }
         pure [(val, defaultLabel')]
@@ -848,7 +864,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
         no  <- newLabel "ifExpGuardNo"
 
         condition <- expression left
-        terminate' CondBr
+        terminate CondBr
           { condition
           , trueDest  = yes
           , falseDest = no
@@ -857,7 +873,7 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
         (yes #)
         val <- expression right
         Just yes' <- use blockName
-        terminate' Br
+        terminate Br
           { dest      = finish
           , metadata' = [] }
 
@@ -916,8 +932,11 @@ expression e@(Expression { E.loc = (Location(pos,_)), expType, exp'}) = case exp
             pure $ LocalReference type' label
       basicT = GOneOf [GBool,GChar,GInt,GFloat]
 
-  Quantification { qOp } ->
+  Quantification { } ->
     quantification expression safeOperation e
+
+  Collection { } ->
+    collection expression e
 
   -- Dummy operand
   _ -> do

@@ -2,10 +2,11 @@
 {-# LANGUAGE PostfixOperators #-}
 
 module LLVM.Quantification
-  (quantification) where
-
+  ( quantification
+  , collection) where
 --------------------------------------------------------------------------------
-import           AST.Expression                          (Expression' (..),
+import           AST.Expression                          (CollectionKind (..),
+                                                          Expression' (..),
                                                           Expression'' (..),
                                                           QRange' (..),
                                                           QuantOperator (..))
@@ -18,6 +19,7 @@ import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
 import           Data.Word                               (Word32)
+import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
 import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OGT, OLT))
@@ -74,7 +76,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata   = [] }
         rangeEmpty    <- newLabel "qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = rangeEmpty
@@ -123,7 +125,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata  = [] }
 
         loop <- newLabel "qLoop"
-        terminate' Br
+        terminate Br
           { dest      = loop
           , metadata' = [] }
 
@@ -132,7 +134,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
 
         accum <- newLabel "qAccum"
         getNext <- newLabel "qNext"
-        terminate' CondBr
+        terminate CondBr
           { condition = cond
           , trueDest  = accum
           , falseDest = getNext
@@ -151,7 +153,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
         checkAccum <- newLabel "qCheckAccum"
         justAccum  <- newLabel "qJustAccum"
         justAccum' <- newLabel "qJustAccum1"
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 oldValid
           , trueDest  = checkAccum
           , falseDest = justAccum
@@ -181,7 +183,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
             , operand0 = e
             , operand1 = LocalReference qType oldPartial
             , metadata = [] }
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 comp
           , trueDest  = justAccum'
           , falseDest = getNext
@@ -195,7 +197,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
-        terminate' Br
+        terminate Br
           { dest      = justAccum'
           , metadata' = [] }
 
@@ -208,7 +210,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , alignment = 4
           , metadata  = [] }
 
-        terminate' Br
+        terminate Br
           { dest      = getNext
           , metadata' = [] }
 
@@ -243,7 +245,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 bound
           , trueDest  = loop
           , falseDest = qEnd
@@ -262,7 +264,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
 
         validResult   <- newLabel "qValidResult"
         invalidResult <- newLabel "qInvalidResult"
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 finalValid
           , trueDest  = validResult
           , falseDest = invalidResult
@@ -302,14 +304,14 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata   = [] }
         rangeEmpty    <- newLabel "qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = rangeEmpty
           , metadata' = [] }
 
         (rangeEmpty #)
-        terminate' Br
+        terminate Br
           { dest      = case qOp of ForAll -> tLabel; Exists -> fLabel
           , metadata' = [] }
 
@@ -332,7 +334,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata  = [] }
 
         loop <- newLabel "qLoop"
-        terminate' Br
+        terminate Br
           { dest      = loop
           , metadata' = [] }
 
@@ -341,7 +343,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
 
         accum <- newLabel "qAccum"
         getNext <- newLabel "qNext"
-        terminate' CondBr
+        terminate CondBr
           { condition = cond
           , trueDest  = accum
           , falseDest = getNext
@@ -349,7 +351,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
 
         (accum #)
         e <- expr qBody
-        terminate' CondBr
+        terminate CondBr
           { condition = e
           , trueDest  = case qOp of ForAll -> getNext; Exists -> tLabel
           , falseDest = case qOp of ForAll -> fLabel;  Exists -> getNext
@@ -386,17 +388,17 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 bound
           , trueDest  = loop
           , falseDest = case qOp of ForAll -> tLabel; Exists -> fLabel
           , metadata' = [] }
 
         (tLabel #)
-        terminate' $ Br qEnd []
+        terminate $ Br qEnd []
 
         (fLabel #)
-        terminate' $ Br qEnd []
+        terminate $ Br qEnd []
 
         (qEnd #)
         closeScope
@@ -427,14 +429,14 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata   = [] }
         rangeEmpty    <- newLabel "qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = rangeEmpty
           , metadata' = [] }
 
         (rangeEmpty #)
-        terminate' Br
+        terminate Br
           { dest      = qEnd
           , metadata' = [] }
 
@@ -471,7 +473,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , metadata  = [] }
 
         loop <- newLabel "qLoop"
-        terminate' Br
+        terminate Br
           { dest      = loop
           , metadata' = [] }
 
@@ -480,7 +482,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
 
         accum <- newLabel "qAccum"
         getNext <- newLabel "qNext"
-        terminate' CondBr
+        terminate CondBr
           { condition = cond
           , trueDest  = accum
           , falseDest = getNext
@@ -508,7 +510,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           _ -> case qOp of
             Count -> do
               plusOne <- newLabel "qPlusOne"
-              terminate' CondBr
+              terminate CondBr
                 { condition = e
                 , trueDest  = plusOne
                 , falseDest = getNext
@@ -538,7 +540,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , alignment = 4
           , metadata  = [] }
 
-        terminate' Br
+        terminate Br
           { dest      = getNext
           , metadata' = [] }
 
@@ -574,7 +576,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
-        terminate' CondBr
+        terminate CondBr
           { condition = LocalReference i1 bound
           , trueDest  = loop
           , falseDest = endLoad
@@ -588,7 +590,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
           , maybeAtomicity = Nothing
           , alignment      = 4
           , metadata       = [] }
-        terminate' Br
+        terminate Br
           { dest      = qEnd
           , metadata' = [] }
 
@@ -625,3 +627,32 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
     v0 Product   _      = error "internal error: impossibly typed product"
     v0 Minimum   _      = undefined
     v0 Maximum   _      = undefined
+
+collection expr e@Expression { loc = Location (pos, _), expType, exp' } = case exp' of
+  Collection { colKind, colVar = Nothing, colElems } -> if null colElems
+    then do
+      theSet <- newLabel "emptySet"
+
+      t <- toLLVMType expType
+
+      addInstruction $ theSet := Call
+        { tailCallKind = Nothing
+        , callingConvention = CC.C
+        , returnAttributes = []
+        , function = callable t $ case colKind of
+          Set      -> newSetString
+          Multiset -> newMultisetString
+          Sequence -> newSeqString
+        , arguments = []
+        , functionAttributes = []
+        , metadata = [] }
+
+      pure $ LocalReference t theSet
+
+    else pure . ConstantOperand $ C.Int 32 1
+  Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
+    pure . ConstantOperand $ C.Int 32 1
+
+
+  _ -> error "internal error: collection only admits \
+             \Collection Expression"

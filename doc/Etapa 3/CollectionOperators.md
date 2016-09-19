@@ -64,18 +64,25 @@ compose, ∘                 :: Rel a b -> Rel b c -> Rel a c
 inverse                    :: Rel a b -> Rel b a
 toSet                      :: Rel a b -> Set (a, b)
 
-<<int x | 0 <= x /\ x <= 10 | x >>
-## OVERALL
-_                          :: Sequence a -> Int -> a <!-- fails if x is not in domain -->
+## DONE
+notelem, ∉                :: a     -> Multiset a -> Bool
+                            | a     -> Sequence a -> Bool
+                            | a     -> Set a -> Bool
+elem, ∈                   :: a     -> Multiset a -> Bool
+                            | a     -> Sequence a -> Bool
+                            | a     -> Set a -> Bool
 !=                         :: Multiset a -> Multiset a -> Bool
                             | Sequence a -> Sequence a -> Bool
                             | Set a -> Set a -> Bool
-@                          :: Func a b -> a -> b <!-- fails if x is not in domain -->
-                            | Rel a b -> a -> Set b
-++, ⧺                      :: Sequence a -> Sequence a -> Sequence a
 ==                         :: Multiset a -> Multiset a -> Bool
                             | Sequence a -> Sequence a -> Bool
                             | Set a -> Set a -> Bool
+
+## OVERALL
+_                          :: Sequence a -> Int -> a <!-- fails if x is not in domain -->
+@                          :: Func a b -> a -> b <!-- fails if x is not in domain -->
+                            | Rel a b -> a -> Set b
+++, ⧺                      :: Sequence a -> Sequence a -> Sequence a
 cardinality, card          :: Multiset a -> Int
                             | Sequence a -> Int
                             | Set a -> Int
@@ -87,9 +94,6 @@ cross                      :: Multiset a -> Multiset b -> Multiset (a, b)
                             | Set a -> Set b -> Set (a, b)
 domain                     :: Func a b -> Set a
                             | Rel a b -> Set a
-elem, ∈                   :: a     -> Multiset a -> Bool
-                            | a     -> Sequence a -> Bool
-                            | a     -> Set a -> Bool
 func                       :: Set (a, b) -> Func a b <!-- fails if an element of the codomain appears twice -->
 intersect, intersection, ∩ :: Multiset a -> Multiset a -> Multiset a
                             | Set a -> Set a -> Set a
@@ -99,9 +103,6 @@ minus, \\                  :: Multiset a -> Multiset a -> Multiset a
                             | Set a -> Set a -> Set a
 msum, ⊎                    :: Multiset a -> Multiset a -> Multiset a
 multiplicity               :: Multiset a -> a -> Int
-notelem, ∉                :: a     -> Multiset a -> Bool
-                            | a     -> Sequence a -> Bool
-                            | a     -> Set a -> Bool
 rel                        :: Set (a, b) -> Rel a b
 scalar, ⊗                  :: Int -> Multiset a -> Multiset a
 ssubset, ⊂, ⊊             :: Multiset a -> Multiset a -> Bool
@@ -120,4 +121,3 @@ toSet                      :: Func a b -> Set (a, b)
                             | Sequence a -> Set a
 union, ∪                   :: Multiset a -> Multiset a -> Multiset a
                             | Set a -> Set a -> Set a
-n

@@ -81,8 +81,8 @@ addInstruction inst =
   currentBlock %= (|> inst)
 --------------------------------------------------------------------------------
 
-terminate' :: Terminator -> LLVM ()
-terminate' terminator = do
+terminate :: Terminator -> LLVM ()
+terminate terminator = do
   name' <- use blockName
   case name' of
     Nothing -> error $
@@ -122,10 +122,25 @@ newUnLabel = newLabel ""
 callable :: Type -> String -> Either a Operand
 callable t = Right . ConstantOperand . GlobalReference t . Name
 
+newSetString :: String
+newSetString = "_newSet"
+newSeqString :: String
+newSeqString = "_newSequence"
+newMultisetString :: String
+newMultisetString = "_newMultiset"
+
+equalSetString :: String
+equalSetString = "_equalSet"
+equalSeqString :: String
+equalSeqString = "_equalSequence"
+equalMultisetString :: String
+equalMultisetString = "_equalMultiset"
+
 freeString    :: String
 freeString    = "_free"
 mallocString  :: String
 mallocString  = "_malloc"
+
 lnString      :: String
 lnString      = "_ln"
 writeIString  :: String
@@ -138,14 +153,17 @@ writeFString  :: String
 writeFString  = "_writeDouble"
 writeSString  :: String
 writeSString  = "_writeString"
+
 randomInt     :: String
 randomInt     = "_random"
+
 sqrtString    :: String
 sqrtString    = "llvm.sqrt.f64"
 fabsString    :: String
 fabsString    = "llvm.fabs.f64"
 powString     :: String
 powString     = "llvm.pow.f64"
+
 minnumString  :: String
 minnumString  = "_min"
 maxnumString  :: String
@@ -154,12 +172,14 @@ minnumFstring :: String
 minnumFstring = "_minF"
 maxnumFstring :: String
 maxnumFstring = "_maxF"
+
 readIntStd    :: String
 readIntStd    = "_readIntStd"
 readCharStd   :: String
 readCharStd   = "_readCharStd"
 readFloatStd  :: String
 readFloatStd  = "_readDoubleStd"
+
 openFileStr   :: String
 openFileStr   = "_openFile"
 readFileInt   :: String
@@ -170,6 +190,7 @@ readFileChar  :: String
 readFileChar  = "_readFileChar"
 readFileFloat :: String
 readFileFloat = "_readFileDouble"
+
 safeAdd       :: Word32 -> String
 safeAdd n     = "llvm.sadd.with.overflow.i" <> show n
 safeSub       :: Word32 -> String

@@ -223,7 +223,8 @@ main = do
               <> assembly
               <> [lltName]
               <> ["-o", outName]
-              <> [lib | not $ optLLVM options || optAssembly options]
+              <> [lib         | not $ optLLVM options || optAssembly options]
+              <> [abstractLib | not $ optLLVM options || optAssembly options]
         (exitCode, out, errs) <- readProcessWithExitCode clang args ""
 
         putStr out
@@ -253,6 +254,10 @@ main = do
     lib  = case os of
       "darwin"  -> "/usr/local/lib/graciela-lib.so"
       "linux"   -> "/usr/local/lib/graciela-lib.so"
+      "windows" -> undefined
+    abstractLib  = case os of
+      "darwin"  -> "/usr/local/lib/graciela-abstract-lib.so"
+      "linux"   -> "/usr/local/lib/graciela-abstract-lib.so"
       "windows" -> undefined
     clang = case os of
       "darwin" -> "/usr/local/bin/clang-3.5"

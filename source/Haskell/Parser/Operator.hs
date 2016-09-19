@@ -257,7 +257,39 @@ compOpType' :: BinaryOpType
 compOpType' (GPointer t1) (GPointer t2) = if t1 =:= t2
   then Right GBool
   else Left $ show (GPointer t1, GPointer t1)
-compOpType' a b = compOpType a b
+
+compOpType' GBool  GBool  = Right GBool
+compOpType' GInt   GInt   = Right GBool
+compOpType' GChar  GChar  = Right GBool
+compOpType' GFloat GFloat = Right GBool
+
+compOpType' t1@GTypeVar{} t2@GTypeVar{} = if t1 =:= t2
+  then Right GBool
+  else Left $ show (t1, t1)
+
+compOpType' t@(GSet t1)      (GSet t2)      = if t1 =:= t2
+  then Right GBool
+  else Left $ show (t, t)
+compOpType' t@(GSeq t1)      (GSeq t2)      = if t1 =:= t2
+  then Right GBool
+  else Left $ show (t, t)
+compOpType' t@(GMultiset t1) (GMultiset t2) = if t1 =:= t2
+  then Right GBool
+  else Left $ show (t, t)
+compOpType' t@(GFunc t1 t2)  (GFunc t3 t4)  = if t1 =:= t3 && t2 =:= t4
+  then Right GBool
+  else Left $ show (t, t)
+compOpType' t@(GRel t1 t2)   (GRel t3 t4)   = if t1 =:= t3 && t2 =:= t4
+  then Right GBool
+  else Left $ show (t, t)
+
+compOpType' _      _      = Left $
+  show (GInt  , GInt  ) <> ", " <>
+  show (GChar , GChar ) <> ", " <>
+  show (GFloat, GFloat) <> ", " <>
+  show (GBool , GBool ) <> ", or " <>
+  show (GPointer (GTypeVar 0 "t"), GPointer (GTypeVar 0 "t"))
+
 
 lt, le, gt, ge, aeq, ane :: Bin
 lt  = Bin LT  compOpType $ comp (<)
@@ -290,3 +322,26 @@ elemType _ _ = Left $
 elem, notElem :: Bin
 elem    = Bin Elem    elemType elemPre
 notElem = Bin NotElem elemType elemPre
+--------------------------------------------------------------------------------
+
+-- elemPre :: (Value -> Value -> Value)
+-- elemPre _ _ = error "internal error: bad elem precalc"
+--
+-- elemType :: BinaryOpType
+-- elemType t1 (GSet t2)
+--   | t1 =:= t2 = Right GBool
+--   | otherwise = Left $ show (t2, GSet t2)
+-- elemType t1 (GMultiset t2)
+--   | t1 =:= t2 = Right GBool
+--   | otherwise = Left $ show (t2, GMultiset t2)
+-- elemType t1 (GSeq t2)
+--   | t1 =:= t2 = Right GBool
+--   | otherwise = Left $ show (t2, GSeq t2)
+-- elemType _ _ = Left $
+--   show (GUnsafeName "t", GSet      (GUnsafeName "t")) <> ", or " <>
+--   show (GUnsafeName "t", GMultiset (GUnsafeName "t")) <> ", or " <>
+--   show (GUnsafeName "t", GSeq      (GUnsafeName "t"))
+--
+-- elem, notElem :: Bin
+-- elem    = Bin Elem    elemType elemPre
+-- notElem = Bin NotElem elemType elemPre

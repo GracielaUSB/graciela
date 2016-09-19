@@ -86,4 +86,4 @@ data Abort
 abort :: Abort -> SourcePos -> LLVM ()
 abort reason pos = do
   waCall abortString (fromIntegral . fromEnum $ reason) pos
-  terminate' $ Unreachable []
+  terminate $ Unreachable []

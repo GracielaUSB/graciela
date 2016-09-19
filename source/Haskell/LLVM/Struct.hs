@@ -120,7 +120,7 @@ defaultConstructor name structType typeMap = do
           , metadata  = []
           }
     pure ()
-  terminate' $ Ret Nothing []
+  terminate $ Ret Nothing []
   closeScope
 
   blocks' <- use blocks
@@ -171,7 +171,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     precondTrue  <- newLabel "precondTrue"
     precondFalse <- newLabel "precondFalse"
     -- Create the conditional branch
-    terminate' CondBr
+    terminate CondBr
       { condition = condInv
       , trueDest  = trueLabel
       , falseDest = falseLabel
@@ -179,7 +179,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     -- Set the false label to the warning, then continue normally
     (falseLabel #)
 
-    terminate' CondBr
+    terminate CondBr
       { condition = LocalReference boolType (Name "cond")
       , trueDest  = precondTrue
       , falseDest = precondFalse
@@ -196,14 +196,14 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
       Invariant    -> warn Warning.Invariant pos
       RepInvariant -> warn Warning.RepInvariant pos
 
-    terminate' Br
+    terminate Br
         { dest      = trueLabel
         , metadata' = [] }
 
     -- And the true label to the next instructions
     (trueLabel #)
 
-    terminate' $ Ret Nothing []
+    terminate $ Ret Nothing []
     closeScope
 
     blocks' <- use blocks

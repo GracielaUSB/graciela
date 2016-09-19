@@ -46,6 +46,8 @@ main
     od
   ; writeln ("y: ", y)
   ; writeln (middle(M, N, x))
+  // ; writeln ({x : int | 0 <=x /\ x <= 3 | x*1, x*2, x*3} == {'a'})
+  ; writeln ({} == {})
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant in set not implemented yet
   // ; i, j := 0, 0
   // ; {inv   true    inv}

@@ -61,7 +61,7 @@ guard finish checkLabel (expr, decls, insts) = do
 
   condition <- expression expr
 
-  terminate' CondBr
+  terminate CondBr
     { condition
     , trueDest  = yes
     , falseDest = no
@@ -71,7 +71,7 @@ guard finish checkLabel (expr, decls, insts) = do
   openScope
   mapM_ declaration decls
   mapM_ instruction insts
-  terminate' Br
+  terminate Br
     { dest      = finish
     , metadata' = [] }
 
@@ -95,7 +95,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     trueLabel  <- newLabel "assertTrue"
     falseLabel <- newLabel "assertFalse"
     -- Create the conditional branch
-    terminate' CondBr
+    terminate CondBr
       { condition = cond
       , trueDest  = trueLabel
       , falseDest = falseLabel
@@ -134,7 +134,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     entry  <- newLabel "ifExpEntry"
     finish <- newLabel "ifExpFinish"
 
-    terminate' Br
+    terminate Br
       { dest      = entry
       , metadata' = [] }
 
@@ -149,7 +149,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Block decls insts -> do
     block <- newLabel "blockEntry"
     exit <- newLabel "blockExit"
-    terminate' Br
+    terminate Br
       { dest      = block
       , metadata' = [] }
 
@@ -158,7 +158,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     mapM_ declaration decls
     mapM_ instruction insts
     closeScope
-    terminate' Br
+    terminate Br
       { dest      = exit
       , metadata' = [] }
 
@@ -377,7 +377,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     checkGte0 <- newLabel "doCheckGte0"
     n         <- newLabel "doN"
 
-    terminate' Br
+    terminate Br
       { dest      = begin
       , metadata' = [] }
 
@@ -390,7 +390,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     boundVal0 <- expression rbound
     Just begin' <- use blockName
-    terminate' Br
+    terminate Br
       { dest      = checkGte0
       , metadata' = [] }
 
@@ -412,7 +412,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     noLtOld <- newLabel "doNoLtOld"
 
     Just again' <- use blockName
-    terminate' CondBr
+    terminate CondBr
       { condition = LocalReference boolType ltOld
       , trueDest  = checkGte0
       , falseDest = noLtOld
@@ -438,7 +438,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     yesGte0 <- newLabel "doGte0Yes"
     noGte0  <- newLabel "doGte0No"
-    terminate' CondBr
+    terminate CondBr
       { condition = LocalReference boolType gte0
       , trueDest  = yesGte0
       , falseDest = noGte0
@@ -451,7 +451,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     invVal <- expression rinv
     yesInv <- newLabel "doInvYes"
     noInv  <- newLabel "doInvNo"
-    terminate' CondBr
+    terminate CondBr
       { condition = invVal
       , trueDest  = yesInv
       , falseDest = noInv
@@ -470,7 +470,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , metadata       = [] }
 
     firstGuard <- newLabel "doGuards"
-    terminate' Br
+    terminate Br
       { dest      = firstGuard
       , metadata' = [] }
 

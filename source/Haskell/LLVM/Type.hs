@@ -65,10 +65,6 @@ toLLVMType (T.GPointer  t) = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
 
--- toLLVMType (T.GArray sz t) = do
---   inner <- toLLVMType t
---   pure $ LLVM.ArrayType (fromIntegral sz)  inner
-
 toLLVMType (T.GArray dims t) = do
   inner <- toLLVMType t
   let arrT = iterate (LLVM.ArrayType 1) inner !! length dims

@@ -69,7 +69,7 @@ mainDefinition block = do
 
   (main #)
   instruction block
-  terminate' $ Ret (Just . ConstantOperand $ C.Int 32 0) []
+  terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
   blocks .= Seq.empty
@@ -98,7 +98,7 @@ definition
       preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
       noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
-      terminate' CondBr
+      terminate CondBr
         { condition = preOperand
         , trueDest  = yesPre
         , falseDest = noPre
@@ -106,7 +106,7 @@ definition
 
       (noPre #)
       warn Warning.Pre (let Location (pos, _) = loc pre in pos)
-      terminate' Br
+      terminate Br
         { dest      = yesPre
         , metadata' = [] }
 
@@ -132,7 +132,7 @@ definition
             , metadata   = [] }
           yesGte0 <- newLabel "funcGte0Yes"
           noGte0  <- newLabel "funcGte0No"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference boolType gte0
             , trueDest  = yesGte0
             , falseDest = noGte0
@@ -145,14 +145,14 @@ definition
           (yesGte0 #)
           yesOld <- newLabel "funcOldBoundYes"
           noOld  <- newLabel "funcOldBoundNo"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference boolType hasOldBound
             , trueDest  = yesOld
             , falseDest = noOld
             , metadata' = [] }
 
           (noOld #)
-          terminate' Br
+          terminate Br
             { dest = funcBodyLabel
             , metadata' = [] }
 
@@ -165,7 +165,7 @@ definition
             , metadata   = [] }
           yesLtOld <- newLabel "funcLtOldBoundYes"
           noLtOld  <- newLabel "funcLtOldBoundNo"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference boolType ltOld
             , trueDest  = yesLtOld
             , falseDest = noLtOld
@@ -176,7 +176,7 @@ definition
             (let Location (pos, _) = loc boundExp in pos)
 
           (yesLtOld #)
-          terminate' Br
+          terminate Br
             { dest = funcBodyLabel
             , metadata' = [] }
 
@@ -209,7 +209,7 @@ definition
       postOperand <- expression post
       yesPost <- newLabel "funcPostYes"
       noPost  <- newLabel "funcPostNo"
-      terminate' CondBr
+      terminate CondBr
         { condition = postOperand
         , trueDest  = yesPost
         , falseDest = noPost
@@ -218,7 +218,7 @@ definition
       (noPost #)
       yesPreNoPost  <- newLabel "funcPreYesPostNo"
       noPreNoPost <- newLabel "funcPreNoPostNo"
-      terminate' CondBr
+      terminate CondBr
         { condition = preOperand
         , trueDest  = yesPreNoPost
         , falseDest = noPreNoPost
@@ -229,12 +229,12 @@ definition
 
       (noPreNoPost #)
       warn Warning.Post (let Location (pos, _) = loc post in pos)
-      terminate' Br
+      terminate Br
         { dest      = yesPost
         , metadata' = [] }
 
       (yesPost #)
-      terminate' Ret
+      terminate Ret
         { returnOperand = Just returnOperand
         , metadata' = [] }
 
@@ -374,7 +374,7 @@ definition
 
           arrOk <- newLabel "arrOk"
           arrNotOk <- newLabel "arrNotOk"
-          terminate' CondBr
+          terminate CondBr
             { condition = LocalReference i1 arrCheckCmp
             , trueDest  = arrOk
             , falseDest = arrNotOk
@@ -419,7 +419,7 @@ precondition expr@ Expression {loc = Location (pos,_) } = do
     trueLabel  <- newLabel "precondTrue"
     falseLabel <- newLabel "precondFalse"
     -- Create the conditional branch
-    terminate' CondBr
+    terminate CondBr
       { condition = cond
       , trueDest  = trueLabel
       , falseDest = falseLabel
@@ -427,7 +427,7 @@ precondition expr@ Expression {loc = Location (pos,_) } = do
     -- Set the false label to the warning, then continue normally
     (falseLabel #)
     warn Warning.Pre pos
-    terminate' Br
+    terminate Br
       { dest      = trueLabel
       , metadata' = [] }
 
@@ -444,7 +444,7 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
   trueLabel  <- newLabel "postcondTrue"
   falseLabel <- newLabel "postcondFalse"
   -- Create the conditional branch
-  terminate' CondBr
+  terminate CondBr
     { condition = cond
     , trueDest  = trueLabel
     , falseDest = falseLabel
@@ -455,7 +455,7 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
   -- And the true label to the next instructions
 
   (trueLabel #)
-  terminate' $ Ret Nothing []
+  terminate $ Ret Nothing []
 
   -- nextLabel <- newLabel
   -- (nextLabel #)
@@ -503,6 +503,22 @@ preDefinitions files =
   addDefinitions $ fromList [
     -- Random
       defineFunction randomInt [] intType
+
+    -- (Bi)Functors
+    , defineFunction newSetString         [] (ptr i8)
+    , defineFunction newSeqString         [] (ptr i8)
+    , defineFunction newMultisetString    [] (ptr i8)
+
+    , defineFunction equalSetString       [ parameter ("ptr1", ptr i8)
+                                          , parameter ("ptr2", ptr i8)]
+                                          boolType
+    , defineFunction equalSeqString       [ parameter ("ptr1", ptr i8)
+                                          , parameter ("ptr2", ptr i8)]
+                                          boolType
+    , defineFunction equalMultisetString  [ parameter ("ptr1", ptr i8)
+                                          , parameter ("ptr2", ptr i8)]
+                                          boolType
+
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)
                                  , parameter ("line", intType)
