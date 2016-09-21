@@ -47,9 +47,10 @@ main
   ; writeln ("y: ", y)
   ; writeln (middle(M, N, x))
   // ; writeln ({x : int | 0 <=x /\ x <= 3 | x*1, x*2, x*3} == {'a'})
-  ; writeln ( {x : int | 0 < x /\ x < 5 | x, x+10} == {1,2,3,4,11,12,13,14} )
+  ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4>> )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4,5>> )
+  ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'b','c'>> )
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant in set not implemented yet
   // ; i, j := 0, 0
   // ; {inv   true    inv}

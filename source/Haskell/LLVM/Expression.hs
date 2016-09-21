@@ -432,7 +432,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
                 , metadata           = []
                 }
 
-  Binary { binOp, lexpr = lexpr@Expression { expType = lType }, rexpr } -> do
+  Binary { binOp
+         , lexpr = lexpr@Expression { expType = lType }
+         , rexpr = rexpr@Expression { expType = rType } } -> do
     -- Evaluate both expressions
     lOperand <- expression lexpr
     rOperand <- expression rexpr
@@ -444,7 +446,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         GChar  -> opInt 8
         GBool  -> opBool
         GFloat -> opFloat
-        t        -> error $
+        t      -> error $
           "internal error: type " <> show t <> " not supported"
 
     op binOp lOperand rOperand
@@ -811,6 +813,36 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
                              , metadata   = []
                              }
             addInstructions $ Seq.fromList [label' := orInst, label := equal]
+
+      --   return $ LocalReference boolType label
+
+      -- opSet op lOperand rOperand = do
+      --   label <- newLabel "boolBinaryResult"
+      --   case op of
+          Op.Elem -> do
+            value <- newLabel "item"
+            addInstruction . (value :=) $ case lType of
+              GFloat -> BitCast
+                { operand0 = lOperand
+                , type' = i64
+                , metadata = [] }
+              _ -> SExt
+                { operand0 = lOperand
+                , type' = i64
+                , metadata = [] }
+
+            addInstruction $ label := Call
+              { tailCallKind = Nothing
+              , callingConvention = CC.C
+              , returnAttributes = []
+              , function = callable boolType $ case rType of
+                  GSet      _ -> isElemSetString
+                  GMultiset _ -> isElemMultisetString
+                  GSeq      _ -> isElemSeqString
+              , arguments = (,[]) <$> [rOperand, LocalReference i64 value]
+              , functionAttributes = []
+              , metadata = [] }
+
         return $ LocalReference boolType label
 
   EConditional { eguards, trueBranch } -> do

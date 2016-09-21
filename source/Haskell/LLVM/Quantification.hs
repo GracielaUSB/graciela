@@ -726,7 +726,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
         , metadata' = [] }
 
       (getNext #)
-      prevIterator <- newLabel "qPrevIterator"
+      prevIterator <- newLabel "cPrevIterator"
       addInstruction $ prevIterator := Load
         { volatile       = False
         , address        = LocalReference cType iterator
@@ -734,7 +734,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
         , alignment      = 4
         , metadata       = [] }
 
-      nextIterator <- newLabel "qNextIterator"
+      nextIterator <- newLabel "cNextIterator"
       addInstruction $ nextIterator := Add
         { nsw = False
         , nuw = False
@@ -766,9 +766,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
       (cEnd #)
       closeScope
 
-
-
-      pure $ theSet
+      pure theSet
 
 
   _ -> error "internal error: collection only admits \
@@ -778,10 +776,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
     empty colKind = do
       theSet <- newLabel "theSet"
       t <- toLLVMType expType
-      case colKind of
-          Set      -> traceM newSetString
-          Multiset -> traceM newMultisetString
-          Sequence -> traceM newSeqString
+
       addInstruction $ theSet := Call
         { tailCallKind = Nothing
         , callingConvention = CC.C

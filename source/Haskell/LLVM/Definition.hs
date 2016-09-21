@@ -560,6 +560,17 @@ preDefinitions files =
                                            , parameter ("x"  , i64)]
                                            voidType
 
+
+    , defineFunction isElemSetString [ parameter ("ptr", ptr i8)
+                                     , parameter ("x", i64)]
+                                     boolType
+    , defineFunction isElemMultisetString [ parameter ("ptr", ptr i8)
+                                          , parameter ("x", i64)]
+                                          boolType
+    , defineFunction isElemSeqString [ parameter ("ptr", ptr i8)
+                                     , parameter ("x", i64)]
+                                     boolType
+
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)
                                  , parameter ("line", intType)

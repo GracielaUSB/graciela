@@ -151,6 +151,13 @@ insertSeqString = "_insertSequence"
 insertMultisetString :: String
 insertMultisetString = "_insertMultiset"
 
+isElemSetString :: String
+isElemSetString = "_isElemSet"
+isElemMultisetString :: String
+isElemMultisetString = "_isElemMultiset"
+isElemSeqString :: String
+isElemSeqString = "_isElemSeq"
+
 freeString    :: String
 freeString    = "_free"
 mallocString  :: String
