@@ -56,7 +56,7 @@ import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
 import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
 import           LLVM.General.AST.Type               (Type (..), double, i1,
-                                                      i32, i8, ptr)
+                                                      i32, i8, ptr, i64)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
 import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
@@ -68,7 +68,35 @@ mainDefinition block = do
   main <- newLabel "main"
 
   (main #)
+  addInstruction $ Do Call
+    { tailCallKind       = Nothing
+    , callingConvention  = CC.C
+    , returnAttributes   = []
+    , function           = callable voidType initTrashCollectorString
+    , arguments          = []
+    , functionAttributes = []
+    , metadata           = [] }
+
+  addInstruction $ Do Call
+    { tailCallKind       = Nothing
+    , callingConvention  = CC.C
+    , returnAttributes   = []
+    , function           = callable voidType openScopeString
+    , arguments          = []
+    , functionAttributes = []
+    , metadata           = [] }
+
   instruction block
+
+  addInstruction $ Do Call
+    { tailCallKind       = Nothing
+    , callingConvention  = CC.C
+    , returnAttributes   = []
+    , function           = callable voidType freeTrashCollectorString
+    , arguments          = []
+    , functionAttributes = []
+    , metadata           = [] }
+
   terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
@@ -505,9 +533,12 @@ preDefinitions files =
       defineFunction randomInt [] intType
 
     -- (Bi)Functors
-    , defineFunction newSetString         [] (ptr i8)
-    , defineFunction newSeqString         [] (ptr i8)
-    , defineFunction newMultisetString    [] (ptr i8)
+    , defineFunction newSetString             [] (ptr i8)
+    , defineFunction newSeqString             [] (ptr i8)
+    , defineFunction newMultisetString        [] (ptr i8)
+    , defineFunction initTrashCollectorString [] voidType
+    , defineFunction freeTrashCollectorString [] voidType
+    , defineFunction openScopeString          [] voidType
 
     , defineFunction equalSetString       [ parameter ("ptr1", ptr i8)
                                           , parameter ("ptr2", ptr i8)]
@@ -518,6 +549,16 @@ preDefinitions files =
     , defineFunction equalMultisetString  [ parameter ("ptr1", ptr i8)
                                           , parameter ("ptr2", ptr i8)]
                                           boolType
+
+    , defineFunction insertSetString       [ parameter ("ptr", ptr i8)
+                                           , parameter ("x"  , i64)]
+                                           voidType
+    , defineFunction insertSeqString       [ parameter ("ptr", ptr i8)
+                                           , parameter ("x"  , i64)]
+                                           voidType
+    , defineFunction insertMultisetString  [ parameter ("ptr", ptr i8)
+                                           , parameter ("x"  , i64)]
+                                           voidType
 
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)

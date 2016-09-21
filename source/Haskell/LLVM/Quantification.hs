@@ -1,10 +1,13 @@
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE TupleSections #-}
+
 
 module LLVM.Quantification
   ( quantification
   , collection) where
 --------------------------------------------------------------------------------
+import qualified AST.Expression                          as E (Expression'(expType))
 import           AST.Expression                          (CollectionKind (..),
                                                           Expression' (..),
                                                           Expression'' (..),
@@ -19,6 +22,7 @@ import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
 import           Data.Word                               (Word32)
+import           Control.Monad                           (when)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
@@ -30,9 +34,9 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
 import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1)
+import           LLVM.General.AST.Type                   (i1, i64)
 --------------------------------------------------------------------------------
-
+import Debug.Trace
 quantification :: Num a
                => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
                -> (a
@@ -44,7 +48,7 @@ quantification :: Num a
                  -> LLVM ()) -- ^ The safe operation llvm-generator
                -> Expression -- ^ The Quantification for which to generate code
                -> LLVM Operand
-quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' } = case exp' of
+quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
@@ -628,13 +632,156 @@ quantification expr safe e@Expression { loc = Location (pos, _), expType, exp' }
     v0 Minimum   _      = undefined
     v0 Maximum   _      = undefined
 
-collection expr e@Expression { loc = Location (pos, _), expType, exp' } = case exp' of
-  Collection { colKind, colVar = Nothing, colElems } -> if null colElems
-    then do
-      theSet <- newLabel "emptySet"
+collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+  Collection { colKind, colVar = Nothing, colElems } -> do
+      theSet <- empty colKind
+      when (not $ null colElems) $ do
+        mapM_ (callInsert colKind theSet) colElems
+      pure theSet
 
+  Collection { colKind, colVar = Just (name, ty, range, cond), colElems } -> case range of 
+    EmptyRange -> empty colKind
+
+    PointRange { thePoint } -> do
+      let range' = ExpRange
+            { low = thePoint
+            , high = thePoint }
+
+      collection expression e
+        { exp' = exp'
+          { colVar = Just (name, ty, range', cond) }}
+
+    ExpRange { low, high } -> do
+      l <- expression low
+      h <- expression high
+      
+      cType <- toLLVMType $ case expType of
+        GSet t -> t
+        GSeq t -> t
+        GMultiset t -> t
+
+      theSet <- empty colKind
+
+      cEnd <- newLabel "cEnd"
+
+      checkRange <- newLabel "cCheckRange"
+      addInstruction $ checkRange := ICmp
+        { iPredicate = SLE
+        , operand0   = l
+        , operand1   = h
+        , metadata   = [] }
+      rangeEmpty    <- newLabel "cRangeEmpty"
+      rangeNotEmpty <- newLabel "cRangeNotEmpty"
+      terminate CondBr
+        { condition = LocalReference i1 checkRange
+        , trueDest  = rangeNotEmpty
+        , falseDest = rangeEmpty
+        , metadata' = [] }
+
+      (rangeEmpty #)
+      terminate Br
+        { dest      = cEnd
+        , metadata' = [] }
+
+      (rangeNotEmpty #)
+      openScope
+
+      iterator <- insertVar name
+      t        <- toLLVMType ty
+      addInstruction $ iterator := Alloca
+        { allocatedType = t
+        , numElements   = Nothing
+        , alignment     = 4
+        , metadata      = [] }
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference t iterator
+        , value    = l
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      loop <- newLabel "qLoop"
+      terminate Br
+        { dest      = loop
+        , metadata' = [] }
+
+      (loop #)
+      cond' <- expression cond
+
+      accum <- newLabel "cAccum"
+      getNext <- newLabel "cNext"
+      terminate CondBr
+        { condition = cond'
+        , trueDest  = accum
+        , falseDest = getNext
+        , metadata' = [] }
+
+      (accum #)
+
+      mapM_ (callInsert colKind theSet) colElems 
+      
+      terminate Br
+        { dest      = getNext
+        , metadata' = [] }
+
+      (getNext #)
+      prevIterator <- newLabel "qPrevIterator"
+      addInstruction $ prevIterator := Load
+        { volatile       = False
+        , address        = LocalReference cType iterator
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      nextIterator <- newLabel "qNextIterator"
+      addInstruction $ nextIterator := Add
+        { nsw = False
+        , nuw = False
+        , operand0 = LocalReference cType prevIterator
+        , operand1 = ConstantOperand $
+          C.Int (case ty of GInt -> 32; GChar -> 8) 1
+        , metadata = [] }
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference t iterator
+        , value    = LocalReference t nextIterator
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      bound <- newLabel "cBound"
+      endLoad <- newLabel "cEndLoad"
+      addInstruction $ bound := ICmp
+        { iPredicate = SLE
+        , operand0   = LocalReference t nextIterator
+        , operand1   = h
+        , metadata   = [] }
+      terminate CondBr
+        { condition = LocalReference i1 bound
+        , trueDest  = loop
+        , falseDest = cEnd
+        , metadata' = [] }
+
+      (cEnd #)
+      closeScope
+
+
+
+      pure $ theSet
+
+
+  _ -> error "internal error: collection only admits \
+             \Collection Expression"
+
+  where 
+    empty colKind = do
+      theSet <- newLabel "theSet"
       t <- toLLVMType expType
-
+      case colKind of
+          Set      -> traceM newSetString
+          Multiset -> traceM newMultisetString
+          Sequence -> traceM newSeqString
       addInstruction $ theSet := Call
         { tailCallKind = Nothing
         , callingConvention = CC.C
@@ -649,10 +796,28 @@ collection expr e@Expression { loc = Location (pos, _), expType, exp' } = case e
 
       pure $ LocalReference t theSet
 
-    else pure . ConstantOperand $ C.Int 32 1
-  Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
-    pure . ConstantOperand $ C.Int 32 1
+    callInsert colKind theSet expr = do
+      expr' <- expression expr
+      t <- toLLVMType expType
+      value <- newLabel "item"
+      addInstruction . (value :=) $ case E.expType expr of
+        GFloat -> BitCast
+          { operand0 = expr'
+          , type' = i64
+          , metadata = [] }
+        _ -> SExt
+          { operand0 = expr'
+          , type' = i64
+          , metadata = [] }
 
-
-  _ -> error "internal error: collection only admits \
-             \Collection Expression"
+      addInstruction $ Do Call
+        { tailCallKind = Nothing
+        , callingConvention = CC.C
+        , returnAttributes = []
+        , function = callable t $ case colKind of
+          Set      -> insertSetString
+          Multiset -> insertMultisetString
+          Sequence -> insertSeqString
+        , arguments = (,[]) <$> [theSet, LocalReference i64 value]
+        , functionAttributes = []
+        , metadata = [] }

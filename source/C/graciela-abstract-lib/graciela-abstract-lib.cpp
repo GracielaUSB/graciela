@@ -66,7 +66,7 @@ extern "C" {
     }
     
     int _equalSet(int8_t *ptr1, int8_t* ptr2){
-        return (Set*)ptr1 == (Set*)ptr2;
+        return *(Set*)ptr1 == *(Set*)ptr2;
     }
     
     void _insertSet(int8_t *ptr, t x){
@@ -119,6 +119,14 @@ extern "C" {
         return (int8_t*)newset;
     }
     
+    int _includesSet(int8_t* ptr1, int8_t* ptr2){
+        Set *set1 = (Set*)ptr1,
+            *set2 = (Set*)ptr2;
+        
+        return includes(set1->begin(), set1->end(),
+                        set2->begin(), set2->end());
+    }
+    
     void _freeSet(int8_t* ptr) {
         delete (Set*)ptr;
     }
@@ -131,7 +139,7 @@ extern "C" {
     }
     
     int _equalSetPair(int8_t *ptr1, int8_t* ptr2){
-        return (SetPair*)ptr1 == (SetPair*)ptr2;
+        return *(SetPair*)ptr1 == *(SetPair*)ptr2;
     }
     
     void _insertSetPair(int8_t *ptr, gtuple x){
@@ -185,6 +193,14 @@ extern "C" {
         return (int8_t*)newset;
     }
     
+    int _includesSetPair(int8_t* ptr1, int8_t* ptr2){
+        Set *set1 = (Set*)ptr1,
+            *set2 = (Set*)ptr2;
+        
+        return includes(set1->begin(), set1->end(),
+                        set2->begin(), set2->end());
+    }
+    
     void _freeSetPair(int8_t* ptr) {
         delete (SetPair*)ptr;
     }
@@ -198,7 +214,7 @@ extern "C" {
     }
     
     int _equalMultiset(int8_t *ptr1, int8_t* ptr2){
-        return (Multiset*)ptr1 == (Multiset*)ptr2;
+        return *(Multiset*)ptr1 == *(Multiset*)ptr2;
         
     }
     
@@ -257,6 +273,14 @@ extern "C" {
         return (int8_t*)newSet;
     }
     
+    int _includesMultiset(int8_t* ptr1, int8_t* ptr2){
+        Multiset *set1 = (Multiset*)ptr1,
+                 *set2 = (Multiset*)ptr2;
+        
+        return includes(set1->begin(), set1->end(),
+                        set2->begin(), set2->end());
+    }
+    
     void _freeMultiset(int8_t* ptr) {
         delete (Multiset*)ptr;
     }
@@ -271,7 +295,7 @@ extern "C" {
     }
     
     int _equalFunction(int8_t* ptr1, int8_t* ptr2){
-        return (Function*)ptr1 == (Function*)ptr2;
+        return *(Function*)ptr1 == *(Function*)ptr2;
     }
     
     void _insertFunction(int8_t *ptr, t key, t value) {
@@ -346,7 +370,7 @@ extern "C" {
     }
     
     int _equalRelation(int8_t *ptr1, int8_t *ptr2){
-        return (Relation*)ptr1 == (Relation*)ptr2;
+        return *(Relation*)ptr1 == *(Relation*)ptr2;
     }
     
     void _insertRelation(int8_t *ptr, t key, t value) {
@@ -420,7 +444,7 @@ extern "C" {
     }
     
     int _equalSequence(int8_t* ptr1, int8_t* ptr2){
-        return (Sequence*)ptr1 == (Sequence*)ptr2;
+        return *(Sequence*)ptr1 == *(Sequence*)ptr2;
     }
     
     int _isElemSequence(int8_t *ptr, t x){
@@ -445,7 +469,7 @@ extern "C" {
     
     /* Trash Collector */
     
-    void _initTC(){
+    void _initTrashCollector(){
         _stack = (int8_t*)(new stack<TrashCollector>);
     }
     
@@ -454,7 +478,7 @@ extern "C" {
         tc->reserve(64);
         ((stack<TrashCollector*>*)_stack)->push(tc);
     }
-    
+
     void _closeScope(){
         TrashCollector* tc = ((stack<TrashCollector*>*)_stack)->top();
         ((stack<TrashCollector*>*)_stack)->pop();

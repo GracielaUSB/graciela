@@ -122,6 +122,13 @@ newUnLabel = newLabel ""
 callable :: Type -> String -> Either a Operand
 callable t = Right . ConstantOperand . GlobalReference t . Name
 
+initTrashCollectorString :: String
+initTrashCollectorString = "_initTrashCollector"
+freeTrashCollectorString :: String
+freeTrashCollectorString = "_freeTrashCollector"
+openScopeString :: String
+openScopeString = "_openScope"
+
 newSetString :: String
 newSetString = "_newSet"
 newSeqString :: String
@@ -135,6 +142,14 @@ equalSeqString :: String
 equalSeqString = "_equalSequence"
 equalMultisetString :: String
 equalMultisetString = "_equalMultiset"
+
+
+insertSetString :: String
+insertSetString = "_insertSet"
+insertSeqString :: String
+insertSeqString = "_insertSequence"
+insertMultisetString :: String
+insertMultisetString = "_insertMultiset"
 
 freeString    :: String
 freeString    = "_free"

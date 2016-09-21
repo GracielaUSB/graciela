@@ -19,7 +19,7 @@ typedef int8_t* TrashCollector;
 
 
 TEST_CASE("Graciela Relation"){
-    _initTC();
+    _initTrashCollector();
     _openScope();
     Relation r = _newRelation();
     
@@ -84,7 +84,7 @@ TEST_CASE("Graciela Relation"){
 }
 
 TEST_CASE("Graciela Function"){
-    _initTC();
+    _initTrashCollector;
     _openScope();
     Function f = _newFunction();
     _insertFunction(f, 1, 2);
@@ -135,7 +135,7 @@ TEST_CASE("Graciela Function"){
 
 TEST_CASE("Graciela Multiset"){
     
-    _initTC();
+    _initTrashCollector;
     _openScope();
     Multiset empty = _newMultiset();
     Multiset s = _newMultiset();
@@ -155,8 +155,10 @@ TEST_CASE("Graciela Multiset"){
     _insertMultiset(s2, 2);
     _insertMultiset(s2, 2);
     _insertMultiset(s2, 2);
+    REQUIRE(_includesMultiset(s, s2));
     _insertMultiset(s2, 3);
     _insertMultiset(s2, 3);
+    REQUIRE_FALSE(_includesMultiset(s, s2));
     REQUIRE(_sizeMultiset(s2) == 5);
     
     /* Union                                       */
@@ -226,7 +228,7 @@ TEST_CASE("Graciela Multiset"){
 
 TEST_CASE("Graciela Set"){
     /* Create set, insert element and is element */
-    _initTC();
+    _initTrashCollector;
     _openScope();
     Set s = _newSet();
     REQUIRE(_sizeSet(s) == 0);
@@ -257,10 +259,15 @@ TEST_CASE("Graciela Set"){
     /* Union */
     Set s2 = _newSet();
     _insertSet(s2, 1);
+    REQUIRE(_includesSet(s, s2));
     _insertSet(s2, 2);
+    REQUIRE(_includesSet(s, s2));
     _insertSet(s2, 3);
+    REQUIRE(_includesSet(s, s2));
     _insertSet(s2, 4);
+    REQUIRE(_includesSet(s, s2));
     _insertSet(s2, 5);
+    REQUIRE(_includesSet(s, s2));
     Set unionS = _unionSet(s, s2);
     REQUIRE(_sizeSet(unionS) == 5);
     _insertSet(s2, 6);
@@ -286,5 +293,8 @@ TEST_CASE("Graciela Set"){
     differenceS = _differenceSet(s2, s);
     REQUIRE(_sizeSet(differenceS) == 1);
     REQUIRE(_isElemSet(differenceS, 6));
+    _insertSet(s2, 6);
+    REQUIRE_FALSE(_includesSet(s, s2));
+    REQUIRE(_includesSet(s2, s));
     _freeTrashCollector();
 }

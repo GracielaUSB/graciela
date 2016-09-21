@@ -14,7 +14,7 @@ module Parser.Operator
 import           AST.Expression (BinaryOperator (..), Expression' (..),
                                  Expression'' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
-import           AST.Type       (Expression, Type (..), (=:=))
+import           AST.Type       (Expression, Type (..), (=:=), basic)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
@@ -283,12 +283,14 @@ compOpType' t@(GRel t1 t2)   (GRel t3 t4)   = if t1 =:= t3 && t2 =:= t4
   then Right GBool
   else Left $ show (t, t)
 
-compOpType' _      _      = Left $
-  show (GInt  , GInt  ) <> ", " <>
-  show (GChar , GChar ) <> ", " <>
-  show (GFloat, GFloat) <> ", " <>
-  show (GBool , GBool ) <> ", or " <>
-  show (GPointer (GTypeVar 0 "t"), GPointer (GTypeVar 0 "t"))
+compOpType' t      _      = if t =:= basic 
+  then Left $
+    show (GInt  , GInt  ) <> ", " <>
+    show (GChar , GChar ) <> ", " <>
+    show (GFloat, GFloat) <> ", " <>
+    show (GBool , GBool ) <> ", or " <>
+    show (GPointer (GTypeVar 0 "t"), GPointer (GTypeVar 0 "t"))
+  else Left $ show (t,t)
 
 
 lt, le, gt, ge, aeq, ane :: Bin

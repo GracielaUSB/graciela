@@ -74,6 +74,7 @@ extern "C" {
     int8_t*  _unionSet(int8_t* ptr1, int8_t* ptr2);
     int8_t*  _intersectSet(int8_t* ptr1, int8_t* ptr2);
     int8_t*  _differenceSet(int8_t* ptr1, int8_t* ptr2);
+    int      _includesSet(int8_t* ptr1, int8_t* ptr2);
     void     _freeSet(int8_t* ptr);
     /* SetPair */
     
@@ -85,6 +86,7 @@ extern "C" {
     int8_t* _unionSetPair(int8_t *ptr1, int8_t * ptr2);
     int8_t* _intersectSetPair(int8_t *ptr1, int8_t * ptr2);
     int8_t* _differenceSetPair(int8_t *ptr1, int8_t * ptr2);
+    int     _includesSetPair(int8_t* ptr1, int8_t* ptr2);
     void    _freeSetPair(int8_t* ptr);
 
     /* Multiset */
@@ -97,6 +99,7 @@ extern "C" {
     int8_t* _unionMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _intersectMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _differenceMultiset(int8_t* ptr1, int8_t* ptr2);
+    int     _includesMultiset(int8_t* ptr1, int8_t* ptr2);
     void    _freeMultiset(int8_t* ptr);
     
     /* Function */
@@ -134,7 +137,7 @@ extern "C" {
      *  store inside a vector of pointer, to be freed when freeGarbage()
      *  is called.
      */
-    void _initTC();
+    void _initTrashCollector();
     void _openScope();
     void _closeScope();
     void _freeTrashCollector();
