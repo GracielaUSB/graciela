@@ -50,7 +50,12 @@ main
   ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4>> )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4,5>> )
-  ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'b','c'>> )
+  ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'c','b'>> ++ 3)
+  ; writeln ()
+  ; writeln ()
+  ; writeln ()
+  ; writeln (√(3.0))
+  ; writeln (√(3.0) * √(3.0))
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant in set not implemented yet
   // ; i, j := 0, 0
   // ; {inv   true    inv}

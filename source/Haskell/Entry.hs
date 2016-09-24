@@ -15,7 +15,7 @@ import           Treelike
 import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
-import           Data.Monoid    ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------

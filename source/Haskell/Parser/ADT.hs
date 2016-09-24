@@ -36,7 +36,7 @@ import           Data.Map            (Map)
 import qualified Data.Map            as Map (empty, fromList, insert, lookup,
                                              size)
 import           Data.Maybe          (catMaybes, isNothing)
-import           Data.Monoid         ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)

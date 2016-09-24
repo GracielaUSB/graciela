@@ -21,7 +21,7 @@ import           Location
 import           Data.Function      (on)
 import           Data.Int           (Int32)
 import           Data.List.NonEmpty (toList)
-import           Data.Monoid        ((<>))
+import           Data.Semigroup     ((<>))
 import           Data.Text          (Text, unpack)
 import           Text.Megaparsec    (ShowToken (..))
 --------------------------------------------------------------------------------
@@ -73,9 +73,6 @@ data Token
   | TokDiv
   | TokMod
   | TokPower
-
-  | TokAbs
-  | TokSqrt
 
   | TokDot
   | TokComma
@@ -143,6 +140,7 @@ data Token
   | TokSigma
   | TokPi
   | TokCount
+  | TokHash
 
   | TokIf
   | TokFi
@@ -198,6 +196,15 @@ data Token
   | TokSetMinus
   | TokSetUnion
   | TokSetIntersect
+
+  | TokMultisetSum
+  | TokAtSign
+  | TokConcat
+  | TokSubset
+  | TokSSubset
+  | TokSuperset
+  | TokSSuperset
+
   | TokEmptySet
 
   | TokSet
@@ -240,9 +247,6 @@ instance Show Token where
     TokDiv            -> "`/` - División"
     TokMod            -> "`mod` - Modulo"
     TokPower          -> "`^` - Potencia"
-
-    TokAbs            -> "`abs` - Valor Absoluto"
-    TokSqrt           -> "`sqrt` - Raíz Cuadrada"
 
     TokDot            -> "`.` - Punto"
     TokComma          -> "`,` - Coma"
@@ -310,6 +314,7 @@ instance Show Token where
     TokSigma          -> "`sigma` - Sumatoria"
     TokPi             -> "`pi` - Productoria"
     TokCount          -> "`count` - Cuenta"
+    TokHash           -> "`#` - number sign"
 
     TokIf             -> "`if` - Apertura de Selector"
     TokFi             -> "`fi` - Cierre de Selector"
@@ -367,6 +372,15 @@ instance Show Token where
     TokSetMinus       -> "`\\` - Resta de conjuntos"
     TokSetUnion       -> "`union` - Unión de conjuntos"
     TokSetIntersect   -> "`intersect` - Intersección de conjuntos"
+
+    TokMultisetSum    -> "`msum` - Multiset sum"
+    TokAtSign         -> "`@` - func and rel access "
+    TokConcat         -> "`++` - sequence concatenation"
+    TokSubset         -> "`subset`"
+    TokSSubset        -> "`ssubset` - strict subset "
+    TokSuperset       -> "`superset`"
+    TokSSuperset      -> "`ssuperset` - strict superset"
+
     TokEmptySet       -> "`∅` - Conjunto vacío"
 
     TokSet            -> "`set` - Conjunto"

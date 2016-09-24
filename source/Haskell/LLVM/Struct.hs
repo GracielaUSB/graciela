@@ -28,7 +28,7 @@ import           Data.Foldable                (toList)
 import           Data.List                    (sortOn)
 import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as Map
-import           Data.Monoid                  ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence                (Seq, ViewR ((:>)), viewr, (|>))
 import qualified Data.Sequence                as Seq
 import           Data.Text                    (Text, unpack)

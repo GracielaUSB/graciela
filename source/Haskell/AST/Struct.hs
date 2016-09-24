@@ -17,7 +17,7 @@ import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (lookup)
-import           Data.Monoid     ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import qualified AST.Instruction                     as G (Instruction)
 import           AST.Struct                          (Struct (..))
 import           AST.Type                            (Expression, (=:=))
 import qualified AST.Type                            as T
+import           Error                               (internal)
 import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (..))
 import           LLVM.Declaration                    (declaration)
@@ -25,6 +26,7 @@ import           LLVM.Warning                        (warn, warnString)
 import qualified LLVM.Warning                        as Warning (Warning (Post, Pre))
 import           Location
 import qualified Location                            as L (pos)
+import           Parser.Config
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (.=))
@@ -33,7 +35,7 @@ import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
 import           Data.Maybe                          (fromMaybe)
-import           Data.Monoid                         ((<>))
+import           Data.Semigroup                      ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
 import           Data.Text                           (Text, pack, unpack)
@@ -56,7 +58,7 @@ import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
 import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
 import           LLVM.General.AST.Type               (Type (..), double, i1,
-                                                      i32, i8, ptr, i64)
+                                                      i32, i64, i8, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
 import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
@@ -102,11 +104,11 @@ mainDefinition block = do
   blocks' <- use blocks
   blocks .= Seq.empty
   addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name        = Name "main"
-        , parameters  = ([], False)
-        , returnType  = i32
-        , basicBlocks = toList blocks'
-        }
+    { name        = Name "main"
+    , parameters  = ([], False)
+    , returnType  = i32
+    , basicBlocks = toList blocks'
+    }
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
@@ -144,7 +146,7 @@ definition
         then do
           let
             boundExp = fromMaybe
-              (error "internal error: boundless recursive function.")
+              (internal "boundless recursive function.")
               bound
             hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
             oldBound = Name $ "." <> unpack defName <> "OldBound"
@@ -266,8 +268,6 @@ definition
         { returnOperand = Just returnOperand
         , metadata' = [] }
 
-
-
       postFix <- do
         cs <- use currentStruct
         case cs of
@@ -345,6 +345,8 @@ definition
 
       blocks .= Seq.empty
       closeScope
+
+    GracielaFunc {} -> pure ()
 
   where
     makeParam' (name, t) = makeParam (name, t, T.In)
@@ -532,6 +534,49 @@ preDefinitions files =
     -- Random
       defineFunction randomInt [] intType
 
+    -- Polymorphic functions
+    , defineFunction sqrtIString [ parameter ("x", intType)
+                                 , parameter ("line", intType)
+                                 , parameter ("column", intType)]
+                                 intType
+    , defineFunction sqrtFString [ parameter ("x", floatType)
+                                 , parameter ("line", intType)
+                                 , parameter ("column", intType)]
+                                 floatType
+    , defineFunction absIString  [ parameter ("x", intType)
+                                 , parameter ("line", intType)
+                                 , parameter ("column", intType)]
+                                 intType
+    , defineFunction absFString               floatParam floatType
+    , defineFunction toSetMultiString         ptrParam   (ptr i8)
+    , defineFunction toSetSeqString           ptrParam   (ptr i8)
+    , defineFunction toSetFuncString          ptrParam   (ptr i8)
+    , defineFunction toSetRelString           ptrParam   (ptr i8)
+    , defineFunction toMultiSetString         ptrParam   (ptr i8)
+    , defineFunction toMultiSeqString         ptrParam   (ptr i8)
+    , defineFunction funcString               [ parameter ("x", ptr i8)
+                                              , parameter ("line", intType)
+                                              , parameter ("column", intType)]
+                                              (ptr i8)
+    , defineFunction relString                ptrParam   (ptr i8)
+    , defineFunction cardSetString            ptrParam   (ptr i8)
+    , defineFunction cardMultiString          ptrParam   (ptr i8)
+    , defineFunction cardSeqString            ptrParam   (ptr i8)
+    , defineFunction cardFuncString           ptrParam   (ptr i8)
+    , defineFunction cardRelString            ptrParam   (ptr i8)
+    , defineFunction domainFuncString         ptrParam   (ptr i8)
+    , defineFunction domainRelString          ptrParam   (ptr i8)
+    , defineFunction codomainFuncString       ptrParam   (ptr i8)
+    , defineFunction codomainRelString        ptrParam   (ptr i8)
+    , defineFunction inverseFuncString        ptrParam   (ptr i8)
+    , defineFunction inverseRelString         ptrParam   (ptr i8)
+    , defineFunction multiplicityMultiString  [ parameter ("item", i64)
+                                              , parameter ("cont", ptr i8) ]
+                                              intType
+    , defineFunction multiplicitySeqString    [ parameter ("item", i64)
+                                              , parameter ("cont", ptr i8) ]
+                                              intType
+
     -- (Bi)Functors
     , defineFunction newSetString             [] (ptr i8)
     , defineFunction newSeqString             [] (ptr i8)
@@ -642,15 +687,15 @@ preDefinitions files =
       { name        = Name name
       , parameters  = (params, False)
       , returnType  = t
-      , basicBlocks = []
-      }
+      , basicBlocks = [] }
     parameter (name, t) = Parameter t (Name name) []
     intParam      = [parameter ("x",   intType)]
     charParam     = [parameter ("x",  charType)]
     boolParam     = [parameter ("x",  boolType)]
     floatParam    = [parameter ("x", floatType)]
+    ptrParam      = [parameter ("x",    ptr i8)]
     intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
-    charParams2   = fmap parameter [("x",   charType), ("y",   charType)]
+    charParams2   = fmap parameter [("x",  charType), ("y",  charType)]
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
     stringParam   = [Parameter stringType (Name "msg") [NoCapture]]
     overflow' n   = StructureType False [IntegerType n, boolType]

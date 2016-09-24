@@ -20,6 +20,7 @@ import           AST.Struct                 (Struct (..))
 import           AST.Type                   as T (Type (..), fillType,
                                                   isTypeVar)
 import           AST.Type                   (Expression)
+import           Error                      (internal)
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
                                              moduleDefs, pendingDataTypes,
@@ -32,7 +33,7 @@ import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Monoid                ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence              ((|>))
 import           Data.Text                  (Text, pack, unpack)
 import           Data.Word                  (Word32, Word64)
@@ -125,11 +126,11 @@ toLLVMType t@(GDataType name _ typeArgs) = do
 toLLVMType (GTypeVar i _) = do
   substs <- use substitutionTable
   case substs of
-    [] -> error "internal error: subsitituting without substitution table."
+    [] -> internal "subsitituting without substitution table."
     (subst:_) -> toLLVMType $ subst ! i
 
 
-toLLVMType GAny            = error "internal error: GAny is not a valid type"
+toLLVMType GAny            = internal "GAny is not a valid type"
 
 -- Unsupported Types
 toLLVMType (GSet      _ ) = pure . ptr $ i8

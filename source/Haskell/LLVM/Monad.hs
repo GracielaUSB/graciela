@@ -12,7 +12,7 @@ import           Control.Monad.Trans.State.Strict (State)
 import           Data.Foldable                    (toList)
 import qualified Data.Map.Strict                  as Map (empty, insert, lookup)
 import           Data.Maybe                       (fromMaybe)
-import           Data.Monoid                      ((<>))
+import           Data.Semigroup                   ((<>))
 import           Data.Sequence                    (Seq, (|>))
 import qualified Data.Sequence                    as Seq
 import           Data.Text                        (Text, unpack)
@@ -142,7 +142,6 @@ equalSeqString :: String
 equalSeqString = "_equalSequence"
 equalMultisetString :: String
 equalMultisetString = "_equalMultiset"
-
 
 insertSetString :: String
 insertSetString = "_insertSet"

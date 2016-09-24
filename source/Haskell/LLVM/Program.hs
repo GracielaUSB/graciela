@@ -31,7 +31,7 @@ import           Data.Map.Strict                         (Map)
 import qualified Data.Map.Strict                         as Map (keys, size,
                                                                  toAscList,
                                                                  toList)
-import           Data.Monoid                             ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
 import           Data.Text.Encoding                      (encodeUtf8)
@@ -63,14 +63,13 @@ import           System.Process                          (callCommand,
 
 -- addFile :: String -> LLVM ()
 
-
 programToLLVM :: [String]             -- ^ Files for read instructions
-              -> Map Text (G.Type, a) -- ^ Declared types
+              -- -> Map Text (G.Type, a) -- ^ Declared types
               -> Program              -- ^ AST
               -> IO Module
 programToLLVM
   files
-  types
+  -- types
   Program { name, defs, insts, P.structs, fullStructs, strings }
   = do
   -- Eval the program with the LLVMRWS

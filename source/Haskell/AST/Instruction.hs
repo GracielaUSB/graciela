@@ -11,7 +11,7 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
-import           Data.Monoid     ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import qualified Data.Sequence   as Seq (zipWith)
 import           Data.Text       (Text, unpack)

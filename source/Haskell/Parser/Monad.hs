@@ -73,24 +73,27 @@ import           AST.Struct
 import           AST.Type                   (Type)
 import           Error
 import           Location
+import           Parser.Config              (Config (..), defaultConfig)
 import           Parser.Prim                ()
 import           Parser.State               hiding (State)
 import qualified Parser.State               as Parser (State)
 import           Token                      (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
-import           Control.Lens               (use, (%=))
+import           Control.Lens               (use, view, (%=), (<~), _1, _2)
 import           Control.Monad              (MonadPlus, void)
 import           Control.Monad.Identity     (Identity (..))
+import           Control.Monad.Reader       (MonadReader (..), asks)
 import           Control.Monad.State        (MonadState)
 import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Except (ExceptT (..), catchE, runExceptT,
                                              throwE)
+import           Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
 import           Control.Monad.Trans.State  (StateT (..), evalStateT)
 import           Data.Int                   (Int32)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NE (fromList)
-import qualified Data.Map.Strict            as Map (lookup)
+import qualified Data.Map.Strict            as Map (empty, lookup)
 import           Data.Sequence              (Seq, (<|), (|>))
 import qualified Data.Sequence              as Seq (empty, singleton)
 import qualified Data.Set                   as Set (empty, singleton)
@@ -105,9 +108,12 @@ import           Text.Megaparsec.Prim       (MonadParsec (..))
 
 -- | Graciela Parser monad transformer.
 newtype ParserT m a = ParserT
-  { unParserT :: ParsecT Error [TokenPos] (StateT Parser.State m) a }
-  deriving ( Functor, Applicative, Monad, MonadState Parser.State
-           , MonadParsec Error [TokenPos], MonadPlus, Alternative )
+  { unParserT :: ParsecT Error [TokenPos] (ReaderT Config (StateT Parser.State m)) a }
+  deriving ( Functor, Applicative, Monad
+           , MonadState Parser.State
+           , MonadParsec Error [TokenPos]
+           , MonadReader Config
+           , MonadPlus, Alternative)
 
 -- | Graciela Parser monad.
 type Parser = ParserT Identity
@@ -120,14 +126,17 @@ runParserT  :: Monad m
             -> FilePath
             -> Parser.State
             -> [TokenPos]
-            -> m (Maybe a, Parser.State)
-runParserT p fp s input = runStateT flatten s
+            -> m (Either (ParseError TokenPos Error) a, Parser.State)
+runParserT p fp s input = runStateT (runReaderT flatten defaultConfig) s
   where
     flatten = do
+      definitions <~ asks nativeFunctions
+      symbolTable <~ asks nativeSymbols
+
       x <- Mega.runParserT (unParserT p) fp input
       pure $ case x of
-        Right (Just v) -> Just v
-        _              -> Nothing
+        Right (Just v) -> Right v
+        Left e         -> Left  e
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final state.
@@ -136,8 +145,8 @@ evalParserT :: Monad m
             -> FilePath
             -> Parser.State
             -> [TokenPos]
-            -> m (Maybe a)
-evalParserT p fp s input = fst <$> runParserT p fp s input
+            -> m (Either (ParseError TokenPos Error) a)
+evalParserT p fp s input = view _1 <$> runParserT p fp s input
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final value.
@@ -147,7 +156,7 @@ execParserT :: Monad m
             -> Parser.State
             -> [TokenPos]
             -> m Parser.State
-execParserT  p fp s input = snd <$> runParserT p fp s input
+execParserT  p fp s input = view _2 <$> runParserT p fp s input
 --------------------------------------------------------------------------------
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
@@ -156,7 +165,7 @@ runParser  :: Parser (Maybe a)
            -> FilePath
            -> Parser.State
            -> [TokenPos]
-           -> (Maybe a, Parser.State)
+           -> (Either (ParseError TokenPos Error) a, Parser.State)
 runParser  p fp s input = runIdentity $ runParserT p fp s input
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final state.
@@ -164,7 +173,7 @@ evalParser :: Parser (Maybe a)
            -> FilePath
            -> Parser.State
            -> [TokenPos]
-           -> Maybe a
+           -> Either (ParseError TokenPos Error) a
 evalParser p fp s input = runIdentity $ evalParserT p fp s input
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
@@ -214,8 +223,8 @@ pPutError from e = ParserT $ do
 pGetType :: (Monad m)
          => Text -> ParserT m (Maybe Type)
 pGetType name = do
-  types <- use typesTable
-  case Map.lookup name types of
+  types <- asks nativeTypes
+  case name `Map.lookup` types of
     Just (t, loc) -> return $ Just t
     Nothing       -> return Nothing
 

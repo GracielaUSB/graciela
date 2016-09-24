@@ -6,7 +6,6 @@ module Main where
 import           AST.Program
 import           AST.Type
 import           Error
-import           Error
 import           Lexer
 import           LLVM.Program
 import           Parser.Monad
@@ -25,7 +24,7 @@ import           Data.Foldable              (toList)
 import           Data.List                  (nub)
 import           Data.Map.Strict            (showTree)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Monoid                ((<>))
+import           Data.Semigroup ((<>))
 import qualified Data.Sequence              as Seq (null)
 import           Data.Set                   (empty)
 import           Data.Text                  (Text, unpack)
@@ -178,7 +177,7 @@ main = do
 
   if null (state ^. errors)
     then case r of
-      Just program@Program { name } -> do
+      Right program@Program { name } -> do
 
         {-Print AST-}
         when (optAST options) $ do
@@ -187,16 +186,16 @@ main = do
         {-Print Symbol Table-}
         when (optSTable options) $ do
           putStrLn . drawTree . toTree . defocus $ state ^. symbolTable
-          putStrLn . drawTree . Node "Types" . toList $
-            leaf . show <$> state ^. typesTable
+          -- putStrLn . drawTree . Node "Types" . toList $
+          --   leaf . show <$> state ^. typesTable
           exitSuccess
 
         {- Generate LLVM AST -}
         let
           files = toList $ state ^. filesToRead
-          types = state ^. typesTable
+          -- types = state ^. typesTable
 
-        newast <- programToLLVM files types program
+        newast <- programToLLVM files {-types-} program
 
         let
           lltName = case optOutName options of
@@ -238,9 +237,7 @@ main = do
           ExitFailure _ ->
             die "clang error"
 
-      Nothing -> error
-        "internal error: No AST was generated but no errors \
-        \were reported either"
+      Left message -> internal $ "No AST was generated: " <> show message
 
     else
       {- If any errors occurred during Parsing, they will be printed here-}

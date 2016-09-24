@@ -3,7 +3,9 @@ $ gcc -fPIC -shared graciela-lib.c -o graciela-lib.so
 $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 */
 
+#include "math.h"
 #include "stdio.h"
+#include "limits.h"
 #include "stdlib.h"
 #include "wchar.h"
 #include "locale.h"
@@ -208,6 +210,7 @@ typedef enum
   , A_NEGATIVE_INDEX
   , A_OUT_OF_BOUNDS_INDEX
   , A_BAD_ARRAY_ARG
+  , A_NEGATIVE_ROOT
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -245,6 +248,8 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tout of bounds index in access to array.\n"); break;
     case A_BAD_ARRAY_ARG:
       printf (":\n\tbad array argument, size mismatch.\n"); break;
+    case A_NEGATIVE_ROOT:
+      printf (":\n\tattempted to take the square root of a negative value.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
@@ -275,4 +280,32 @@ void _warn (warning_t reason, int line, int column) {
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
+}
+
+int _abs_i (int x, int line, int column) {
+  if (x < 0)
+    if (x == INT_MIN)
+      _abort (A_OVERFLOW, line, column);
+    else
+      return (-x);
+  else
+    return x;
+}
+
+double _abs_f (double x) {
+  return x < 0 ? (-x) : x;
+}
+
+int _sqrt_i (int x, int line, int column) {
+  if (x < 0)
+    _abort (A_NEGATIVE_ROOT, line, column);
+  else
+    return floor(sqrt(x));
+}
+
+double _sqrt_f (double x, int line, int column) {
+  if (x < 0)
+    _abort (A_NEGATIVE_ROOT, line, column);
+  else
+    return sqrt(x);
 }

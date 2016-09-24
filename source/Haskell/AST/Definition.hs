@@ -5,12 +5,13 @@ module AST.Definition where
 import           AST.Declaration (Declaration)
 import           AST.Instruction (Instruction (..), Instruction' (..))
 import           AST.Type        (ArgMode (..), Expression, Type (..))
+import           Error           (Error)
 import           Location
 import           SymbolTable
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
-import           Data.Monoid     ((<>))
+import           Data.Semigroup  ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Sequence   as Seq (zip)
 import           Data.Text       (Text, pack, unpack)
@@ -22,6 +23,9 @@ data Definition'
     , funcParams    :: Seq (Text, Type)
     , funcRetType   :: Type
     , funcRecursive :: Bool }
+  | GracielaFunc
+    { signatures :: Seq Type -> Either Error (Type, Text, Bool)
+    , casts      :: Seq Int }
   | ProcedureDef
     { procDecl      :: Seq (Either Declaration Instruction)
     , procBody      :: Instruction
@@ -51,8 +55,10 @@ instance Treelike Definition where
         in Node (rec <> "Function " <> unpack defName <> " -> " <> show funcRetType <> " " <> show defLoc)
           [ Node "Parameters" (showFPs funcParams)
           , boundNode
-          , Node "Body" [toTree funcBody]
-          ]
+          , Node "Body" [toTree funcBody] ]
+
+      GracielaFunc { } ->
+        leaf $ "Graciela native function `" <> unpack defName <> "`"
 
       ProcedureDef { procDecl, procBody, procParams, procRecursive} ->
         let rec = if procRecursive then "Recursive " else ""
@@ -63,23 +69,20 @@ instance Treelike Definition where
           , Node "Precondition" [toTree pre]
           , boundNode
           , Node "Body" [toTree procBody]
-          , Node "Postcondition" [toTree post]
-          ]
+          , Node "Postcondition" [toTree post] ]
 
       AbstractProcedureDef {abstParams} ->
-        Node ("Abstarct Procedure " <> unpack defName <> " " <> show defLoc)
+        Node ("Abstract Procedure " <> unpack defName <> " " <> show defLoc)
           [ Node "Parameters" (showPs abstParams)
           , Node "Precondition" [toTree pre]
-          , Node "Postcondition" [toTree post]
-          ]
+          , Node "Postcondition" [toTree post] ]
 
       AbstractFunctionDef {abstFParams, funcRetType} ->
-        Node ("Abstarct Function " <> unpack defName <> " -> " <>
+        Node ("Abstract Function " <> unpack defName <> " -> " <>
                show funcRetType <> " " <> show defLoc)
           [ Node "Parameters" (showFPs abstFParams)
           , Node "Precondition" [toTree pre]
-          , Node "Postcondition" [toTree post]
-          ]
+          , Node "Postcondition" [toTree post] ]
 
     where
       showPs :: Seq (Text, Type, ArgMode) -> [Tree String]

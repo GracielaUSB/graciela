@@ -6,23 +6,43 @@ module Parser.Operator
   ( Un (..)
   , Bin (..)
   , Bin' (..)
-  , uMinus, abs, sqrt, not, power, times, div, mod, plus
-  , bMinus, max, min, or, and, implies, consequent, beq
-  , bne, lt, le, gt, ge, aeq, ane, elem, notElem
+  -- * unary operators
+  , uMinus, not
+  -- * arithmetic operators
+  , power, times, div, mod, plus, bMinus, max, min
+  -- * boolean operators
+  , or, and, implies, consequent, beq
+  -- * comparison operators
+  , bne, lt, le, gt, ge, aeq, ane
+  -- * membership operators
+  , elem, notElem
+  -- * functor operators
+  , intersect, difference, union
+  -- * functor relation operators
+  , ssubset, ssuperset, subset, superset
+  -- * multiset operators
+  , multisum
+  -- * sequence access operator
+  , seqAt
+  -- * bifunctor access operator
+  , bifuncAt
+  -- * sequence concatenation operator
+  , concat
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression (BinaryOperator (..), Expression' (..),
                                  Expression'' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
-import           AST.Type       (Expression, Type (..), (=:=), basic)
+import           AST.Type       (Expression, Type (..), basic, (=:=))
+import           Error          (internal)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
 import           Data.Int       (Int32)
-import           Data.Monoid    ((<>))
-import           Prelude        hiding (Ordering (..), abs, and, div, elem, max,
-                                 min, mod, not, notElem, or, sqrt)
-import qualified Prelude        as P (abs, div, max, min, mod, not, or, sqrt)
+import           Data.Semigroup ((<>))
+import           Prelude        hiding (Ordering (..), and, concat, div, elem,
+                                 max, min, mod, not, notElem, or)
+import qualified Prelude        as P (div, max, min, mod, not, or)
 
 import           Debug.Trace
 --------------------------------------------------------------------------------
@@ -61,7 +81,7 @@ arithU fi ff = f
   where
     f (IntV   v) = IntV   .                        fi        $ v
     f (FloatV v) = FloatV .                        ff        $ v
-    f _          = error "internal error: bad arithUn precalc"
+    f _          = internal "bad arithUn precalc"
 
 
 arithUnType :: UnaryOpType
@@ -71,10 +91,8 @@ arithUnType _      = Left $
   show GInt   <> ", " <>
   show GFloat
 
-uMinus, abs, sqrt :: Un
+uMinus :: Un
 uMinus = Un UMinus arithUnType $ arithU negate negate
-abs    = Un Abs    arithUnType $ arithU P.abs P.abs
-sqrt   = Un Sqrt   arithUnType $ arithU (floor . P.sqrt. fromIntegral) P.sqrt
 
 --------------------------------------------------------------------------------
 boolU :: (Bool -> Bool)
@@ -82,7 +100,7 @@ boolU :: (Bool -> Bool)
 boolU fb = f
   where
     f (BoolV v) = BoolV . fb $ v
-    f _         = error "internal error: bad boolUn precalc"
+    f _         = internal "bad boolUn precalc"
 
 boolUnType :: UnaryOpType
 boolUnType GBool = Right GBool
@@ -100,7 +118,7 @@ arith fi ff = f
     f (IntV   v) (IntV   w) = IntV (v `fi` w)
     f (CharV  v) (CharV  w) = CharV . chr' $ (ord' v `fi` ord' w)
     f (FloatV v) (FloatV w) = FloatV (v `ff` w)
-    f _          _          = error "internal error: bad arithOp precalc"
+    f _          _          = internal "bad arithOp precalc"
 
 arithOpType :: BinaryOpType
 arithOpType GInt   GInt   = Right GInt
@@ -240,7 +258,7 @@ comp fc = f
     f (IntV   v) (IntV   w) = BoolV $ v `fc` w
     f (CharV  v) (CharV  w) = BoolV $ v `fc` w
     f (FloatV v) (FloatV w) = BoolV $ v `fc` w
-    f _          _          = error "internal error: bad compOp precalc"
+    f _          _          = internal "bad compOp precalc"
 
 compOpType :: BinaryOpType
 compOpType GInt   GInt   = Right GBool
@@ -283,7 +301,7 @@ compOpType' t@(GRel t1 t2)   (GRel t3 t4)   = if t1 =:= t3 && t2 =:= t4
   then Right GBool
   else Left $ show (t, t)
 
-compOpType' t      _      = if t =:= basic 
+compOpType' t      _      = if t =:= basic
   then Left $
     show (GInt  , GInt  ) <> ", " <>
     show (GChar , GChar ) <> ", " <>
@@ -304,7 +322,7 @@ ane = Bin ANE compOpType' $ comp (/=)
 
 --------------------------------------------------------------------------------
 elemPre :: (Value -> Value -> Value)
-elemPre _ _ = error "internal error: bad elem precalc"
+elemPre _ _ = internal "bad elem precalc"
 
 elemType :: BinaryOpType
 elemType t1 (GSet t2)
@@ -326,24 +344,100 @@ elem    = Bin Elem    elemType elemPre
 notElem = Bin NotElem elemType elemPre
 --------------------------------------------------------------------------------
 
--- elemPre :: (Value -> Value -> Value)
--- elemPre _ _ = error "internal error: bad elem precalc"
---
--- elemType :: BinaryOpType
--- elemType t1 (GSet t2)
---   | t1 =:= t2 = Right GBool
---   | otherwise = Left $ show (t2, GSet t2)
--- elemType t1 (GMultiset t2)
---   | t1 =:= t2 = Right GBool
---   | otherwise = Left $ show (t2, GMultiset t2)
--- elemType t1 (GSeq t2)
---   | t1 =:= t2 = Right GBool
---   | otherwise = Left $ show (t2, GSeq t2)
--- elemType _ _ = Left $
---   show (GUnsafeName "t", GSet      (GUnsafeName "t")) <> ", or " <>
---   show (GUnsafeName "t", GMultiset (GUnsafeName "t")) <> ", or " <>
---   show (GUnsafeName "t", GSeq      (GUnsafeName "t"))
---
--- elem, notElem :: Bin
--- elem    = Bin Elem    elemType elemPre
--- notElem = Bin NotElem elemType elemPre
+setSetPre :: (Value -> Value -> Value)
+setSetPre _ _ = internal "bad set-set precalc"
+
+setSetType :: BinaryOpType
+setSetType t1@(GSet _) t2@(GSet _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3 -> Right t3
+setSetType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3 -> Right t3
+setSetType _ _ = let t = GUnsafeName "t" in Left $
+  show (GSet t, GSet t) <> ", or " <>
+  show (GMultiset t, GMultiset t)
+
+intersect, difference, union :: Bin
+intersect  = Bin Intersection setSetType setSetPre
+difference = Bin Difference   setSetType setSetPre
+union      = Bin Union        setSetType setSetPre
+--------------------------------------------------------------------------------
+
+setRelPre :: (Value -> Value -> Value)
+setRelPre _ _ = internal "bad set rel precalc"
+
+setRelType :: BinaryOpType
+setRelType t1@(GSet _) t2@(GSet _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  _ -> Right GBool
+setRelType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  _ -> Right GBool
+setRelType _ _ = let t = GUnsafeName "t" in Left $
+  show (GSet t, GSet t) <> ", or " <>
+  show (GMultiset t, GMultiset t)
+
+ssubset, ssuperset, subset, superset :: Bin
+ssubset   = Bin SSubset   setRelType setRelPre
+ssuperset = Bin SSuperset setRelType setRelPre
+subset    = Bin Subset    setRelType setRelPre
+superset  = Bin Superset  setRelType setRelPre
+--------------------------------------------------------------------------------
+
+multiPre :: (Value -> Value -> Value)
+multiPre _ _ = internal "bad set-set precalc"
+
+multiType :: BinaryOpType
+multiType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3 -> Right t3
+multiType _ _ = let t = GUnsafeName "t" in Left $
+  show (GMultiset t, GMultiset t)
+
+multisum :: Bin
+multisum  = Bin MultisetSum multiType multiPre
+--------------------------------------------------------------------------------
+
+seqAtPre :: (Value -> Value -> Value)
+seqAtPre _ _ = internal "bad seqAt operator precalc"
+
+seqAtType :: BinaryOpType
+seqAtType (GSeq t1) GInt = Right t1
+seqAtType _ _ = let t = GUnsafeName "t" in Left $
+  show (GSeq t, GInt)
+
+seqAt :: Bin
+seqAt  = Bin SeqAt seqAtType seqAtPre
+--------------------------------------------------------------------------------
+
+bifuncAtPre :: (Value -> Value -> Value)
+bifuncAtPre _ _ = internal "bad bifuncAt operator precalc"
+
+bifuncAtType :: BinaryOpType
+bifuncAtType (GFunc a b) c = case a <> c of
+  GUndef -> Left $ show (GFunc a b, a)
+  _ -> Right b
+bifuncAtType (GRel a b) c = case a <> c of
+  GUndef -> Left $ show (GFunc a b, a)
+  _ -> Right $ GSet b
+bifuncAtType _ _ = let [s, t] = GUnsafeName <$> ["s", "t"] in Left $
+  show (GFunc s t, s) <> ", or " <>
+  show (GRel  s t, s)
+
+bifuncAt :: Bin
+bifuncAt  = Bin SeqAt bifuncAtType bifuncAtPre
+--------------------------------------------------------------------------------
+
+concatPre :: (Value -> Value -> Value)
+concatPre _ _ = internal "bad concat operator precalc"
+
+concatType :: BinaryOpType
+concatType t1@(GSeq a) t2 = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3 -> Right t3
+concatType _ _ = let t = GUnsafeName "t" in Left $
+  show (GSeq t, GSeq t)
+
+concat :: Bin
+concat  = Bin Concat concatType concatPre

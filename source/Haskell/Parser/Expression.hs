@@ -1,7 +1,9 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedLists          #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE ScopedTypeVariables      #-}
 {-# LANGUAGE TupleSections            #-}
 {-# LANGUAGE TypeFamilies             #-}
 
@@ -20,8 +22,10 @@ import           AST.Type                  (ArgMode (..), Expression, Object,
                                             (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
+import           Error                     (internal)
 import           Lexer
 import           Location
+import           Parser.Config
 import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Monad
 import qualified Parser.Operator           as Op
@@ -31,17 +35,21 @@ import           SymbolTable               (closeScope, defocus, emptyGlobal,
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, view, (%%=), (%=), (&~), (.=),
-                                            (<&>), (^.), _1, _3, _Just)
+import           Control.Lens              (elements, use, view, (%%=), (%=),
+                                            (%~), (&), (&~), (.=), (<&>), (^.),
+                                            _1, _3, _Just)
 import           Control.Monad             (foldM, unless, void, when, (>=>))
+import           Control.Monad.Reader      (asks)
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
 import qualified Data.Array                as Array (listArray)
+import           Data.Foldable             (foldl')
 import           Data.Functor              (($>))
 import qualified Data.Map.Strict           as Map (insert, lookup, size)
 import           Data.Maybe                (catMaybes, fromJust)
-import           Data.Monoid               (First (..), (<>))
+import           Data.Monoid               (First (..))
+import           Data.Semigroup            (Semigroup (..))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, singleton,
                                                    zip)
@@ -72,9 +80,12 @@ newtype Taint = Taint Bool -- A MetaExpr is `tainted` when it
                            -- be used as a range limit.
   deriving (Eq, Ord, Show)
 
+instance Semigroup Taint where
+  Taint x <> Taint y = Taint (x || y)
+
 instance Monoid Taint where
   mempty = Taint False
-  Taint x `mappend` Taint y = Taint (x || y)
+  mappend = (<>)
 
 type MetaExpr = (Expression, ProtoRange, Taint)
 
@@ -122,7 +133,7 @@ term =  parens metaexpr
           then ProtoNothing
           else ProtoQRange EmptyRange
 
-      pure . Just $ (expr, range, Taint False)
+      pure $ Just (expr, range, Taint False)
 
     nullptr :: ParserExp (Maybe MetaExpr)
     nullptr = do
@@ -136,7 +147,7 @@ term =  parens metaexpr
           , expConst = False
           , exp'     = NullPtr }
 
-      pure . Just $ (expr, ProtoNothing, Taint False)
+      pure $ Just (expr, ProtoNothing, Taint False)
 
     basicLit :: Parser a -> (a -> Value) -> Type
              -> ParserExp (Maybe MetaExpr)
@@ -152,7 +163,7 @@ term =  parens metaexpr
           , expConst = True
           , exp'     = Value . val $ lit }
 
-      pure . Just $ (expr, ProtoNothing, Taint False)
+      pure $ Just (expr, ProtoNothing, Taint False)
 
     emptySet :: ParserExp (Maybe MetaExpr)
     emptySet = do
@@ -163,7 +174,7 @@ term =  parens metaexpr
           , expType  = GSet GAny
           , expConst = True
           , exp'     = Collection Set Nothing Seq.empty }
-      pure . Just $ (expr, ProtoNothing, Taint False)
+      pure $ Just (expr, ProtoNothing, Taint False)
 
     string = do
       from <- getPosition
@@ -181,7 +192,7 @@ term =  parens metaexpr
           , expConst = True
           , exp'     = StringLit strId }
 
-      pure . Just $ (expr, ProtoNothing, Taint False)
+      pure $ Just (expr, ProtoNothing, Taint False)
 
 
 collection :: ParserExp (Maybe MetaExpr)
@@ -228,7 +239,7 @@ collection = do
               { colKind
               , colVar   = Nothing
               , colElems = els }}
-        in pure . Just $ (e, ProtoNothing, Taint False)
+        in pure $ Just (e, ProtoNothing, Taint False)
 
     -- A variable was given without errors
     Just (Just (var, varTy, range, cond)) -> case melems of
@@ -257,7 +268,7 @@ collection = do
                 { colKind
                 , colVar   = Just (var, varTy, range, cond)
                 , colElems = els }}
-          in pure . Just $ (e, ProtoNothing, Taint False)
+          in pure $ Just (e, ProtoNothing, Taint False)
 
   where
     varAndRange :: SourcePos -> ParserExp (Maybe (Text, Type, QRange, Expression))
@@ -308,7 +319,7 @@ collection = do
                 "Bad collection range. No lower bound was given."
               pure Nothing
             ProtoQRange qrange ->
-              pure . Just $ (var, varTy, qrange, cond)
+              pure $ Just (var, varTy, qrange, cond)
 
     quantifiableTypes, allowedCollTypes :: Type
     quantifiableTypes = GOneOf [ GInt, GChar ]
@@ -330,7 +341,7 @@ collection = do
 
       let loc = Location (from, to)
 
-      typeEntry <- Map.lookup tname <$> lift (use typesTable)
+      typeEntry <- Map.lookup tname <$> lift (asks nativeTypes)
 
       case typeEntry of
         Nothing -> do
@@ -361,7 +372,7 @@ collection = do
           -> ParserExp (Maybe (Seq Expression, Type))
     elem' close acc = do
       pos <- getPosition
-      el <- metaexpr `followedBy` oneOf [close, TokComma]
+      el <- metaexpr `followedBy` oneOf ([close, TokComma] :: [Token])
       case el of
         Nothing ->
           pure Nothing
@@ -373,7 +384,7 @@ collection = do
                 "Unexpected expression of type `" <> show (expType e) <> "`,\
                 \expected instead an expression of type `" <> show t <> "`."
               pure Nothing
-            newType -> pure . Just $ (els |> e, newType)
+            newType -> pure $ Just (els |> e, newType)
 
 
 callOrVariable :: ParserExp (Maybe MetaExpr)
@@ -445,7 +456,7 @@ variable name (Location (from, to)) = do
                 then Taint True
                 else Taint False
 
-        pure . Just $ (expr, protorange, taint)
+        pure $ Just (expr, protorange, taint)
 
       SelfVar { _selfType } -> do
         struct <- lift $ use currentStruct
@@ -489,7 +500,7 @@ variable name (Location (from, to)) = do
                 then Taint True
                 else Taint False
 
-        pure . Just $ (expr, protorange, taint)
+        pure $ Just (expr, protorange, taint)
 
       Const { _constType, _constValue } ->
         let
@@ -499,7 +510,7 @@ variable name (Location (from, to)) = do
             , expConst = True
             , exp' = Value _constValue }
 
-        in pure . Just $ (expr, ProtoNothing, Taint False)
+        in pure $ Just (expr, ProtoNothing, Taint False)
 
       Argument { _argMode, _argType } ->
         let
@@ -517,7 +528,7 @@ variable name (Location (from, to)) = do
                   { O.name = name
                   , mode   = Just _argMode }}}}
 
-        in pure . Just $ (expr, ProtoNothing, Taint False)
+        in pure $ Just (expr, ProtoNothing, Taint False)
 
 
 call :: Text -> Location -> ParserExp (Maybe MetaExpr)
@@ -559,10 +570,47 @@ call fName (Location (from,_)) = do
         else do
           putError from BadFuncNumberOfArgs
             { fName
-            , fPos  = pos
+            , fPos = pos
             , nParams
             , nArgs }
           pure Nothing
+
+    Just Definition { def' = GracielaFunc { signatures, casts } } ->
+      case sequence args of
+        Nothing -> pure Nothing
+        Just args' -> do
+          let
+            aux (es, ts, c0, t0) (e@Expression { expConst, expType }, _, t1) =
+              (es |> e, ts |> expType, c0 && expConst, t0 <> t1)
+            (fArgs', types, const', taint) =
+              foldl' aux (Seq.empty, Seq.empty, True, Taint False) args'
+            i64cast e@Expression { E.loc, expType, expConst, exp' } =
+              e { exp' = I64Cast e }
+            fArgs = fArgs' & elements (`elem` casts) %~ i64cast
+            SourcePos _ line col = from
+            pos' = Expression loc GInt True . Value . IntV . fromIntegral . unPos <$>
+              [ line, col ]
+
+          case signatures types of
+            Right (funcRetType, fName, canAbort) ->
+              let
+                expr = Expression
+                  { E.loc
+                  , expType  = funcRetType
+                  , expConst = const'
+                  , exp' = FunctionCall
+                    { fName
+                    , fArgs = fArgs <> if canAbort
+                      then pos'
+                      else []
+                    , fRecursiveCall = False
+                    , fRecursiveFunc = False
+                    , fStructArgs = Nothing }}
+              in pure $ Just (expr, ProtoNothing, taint)
+
+            Left message -> do
+              putError from message
+              pure Nothing
 
     Just Definition { defLoc, def' = ProcedureDef {} } -> do
       putError from . UnknownError $
@@ -589,7 +637,7 @@ call fName (Location (from,_)) = do
 
           Just (GFullDataType name typeArgs') -> do
             lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
-              Nothing -> error "internal error: impossible call to struct function"
+              Nothing -> internal "impossible call to struct function"
               Just Struct { structProcs } -> do
                 case fName `Map.lookup` structProcs of
                   Just Definition{ def'=FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
@@ -696,7 +744,7 @@ call fName (Location (from,_)) = do
                   typeArgs <- lift $ use typeVars
                   case cs' of
                     Nothing -> pure Nothing
-                    Just (GDataType name _ _, _, _) -> pure . Just $
+                    Just (GDataType name _ _, _, _) -> pure $ Just
                       ( name
                       , Array.listArray (0, length typeArgs - 1) $
                         zipWith GTypeVar [0..] typeArgs)
@@ -759,7 +807,6 @@ call fName (Location (from,_)) = do
     add e taint1 const1 (es, taint0, const0) =
       (es |> e, taint0 <> taint1, const0 && const1)
 
-call _ _ = error "internal error: Function call from impossible location."
 
 quantification :: ParserExp (Maybe MetaExpr)
 quantification = do
@@ -844,19 +891,19 @@ quantification = do
                         , qRange
                         , qCond    = cond
                         , qBody    = theBody }}
-                  in pure . Just $ (expr, ProtoNothing, taint)
+                  in pure $ Just (expr, ProtoNothing, taint)
               _ -> pure Nothing
 
   where
     numeric = GOneOf [ GChar, GInt, GFloat ]
 
-    quantifier =  (match TokForall $> (ForAll,    GBool))
-              <|> (match TokExist  $> (Exists,    GBool))
-              <|> (match TokPi     $> (Product,   numeric))
-              <|> (match TokSigma  $> (Summation, numeric))
-              <|> (match TokMax    $> (Maximum,   numeric))
-              <|> (match TokMin    $> (Minimum,   numeric))
-              <|> (match TokCount  $> (Count,     GBool))
+    quantifier =  (match TokForall                    $> (ForAll,    GBool))
+              <|> (match TokExist                     $> (Exists,    GBool))
+              <|> (match TokPi                        $> (Product,   numeric))
+              <|> (match TokSigma                     $> (Summation, numeric))
+              <|> (match TokMax                       $> (Maximum,   numeric))
+              <|> (match TokMin                       $> (Minimum,   numeric))
+              <|> ((match TokCount <|> match TokHash) $> (Count,     GBool))
 
     quantifiableTypes = GOneOf [ GInt, GChar ]
 
@@ -871,7 +918,7 @@ quantification = do
 
       let loc = Location (from, to)
 
-      typeEntry <- Map.lookup tname <$> lift (use typesTable)
+      typeEntry <- Map.lookup tname <$> lift (asks nativeTypes)
 
       case typeEntry of
         Nothing -> do
@@ -900,20 +947,22 @@ data IfBuilder
   | IfNothing
   deriving (Show)
 
-instance Monoid IfBuilder where
-  mempty = IfGuards Seq.empty Nothing
-  IfNothing `mappend` _ = IfNothing
-  _ `mappend` IfNothing = IfNothing
+instance Semigroup IfBuilder where
+  IfNothing <> _ = IfNothing
+  _ <> IfNothing = IfNothing
 
-  (IfExp e) `mappend` _ = IfExp e
+  IfExp e <> _ = IfExp e
 
-  (IfGuards gs0 Nothing) `mappend` (IfGuards gs1 t) =
+  IfGuards gs0 Nothing <> IfGuards gs1 t =
     IfGuards (gs0 <> gs1) t
-  (IfGuards gs Nothing)  `mappend` (IfExp e) =
+  IfGuards gs Nothing  <> IfExp e =
     IfGuards gs (Just e)
 
-  igt@(IfGuards _ (Just _)) `mappend` _ = igt
+  igt@(IfGuards _ (Just _)) <> _ = igt
 
+instance Monoid IfBuilder where
+  mempty = IfGuards Seq.empty Nothing
+  mappend = (<>)
 
 data IfState = IfState
   { ifType    :: Type
@@ -946,7 +995,7 @@ ifExp = do
   case ifBuilder of
     IfNothing -> pure Nothing
     IfExp e ->
-      pure . Just $ (e { E.loc, expType = ifType }, ProtoNothing, ifTaint)
+      pure $ Just (e { E.loc, expType = ifType }, ProtoNothing, ifTaint)
     IfGuards gs t ->
       let
         expr = Expression
@@ -954,7 +1003,7 @@ ifExp = do
           , expType  = ifType
           , expConst = ifConst
           , exp' = EConditional gs t }
-      in pure . Just $ (expr, ProtoNothing, ifTaint)
+      in pure $ Just (expr, ProtoNothing, ifTaint)
 
   where
     guards =
@@ -1061,49 +1110,59 @@ ifExp = do
 
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
-  [ {-Level -1-}
+  [ {-Level 0-}
     [ Postfix (foldr1 (>=>) <$> some dotField) ]
-  , {-Level 0-}
-    [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 1-}
-    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+    [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 2-}
     [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 3-}
+    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+  , {-Level 4-}
     [ Prefix (match TokNot        <&> unary Op.not    )
     , Prefix (match TokMinus      <&> unary Op.uMinus ) ]
-    -- , Prefix (match TokAbs        <&> unary Op.abs    )
-    -- , Prefix (match TokSqrt       <&> unary Op.sqrt   ) ]
-  , {-Level 4-}
-    [ InfixR (match TokPower      <&> binary Op.power ) ]
   , {-Level 5-}
+    [ InfixR (match TokPower      <&> binary Op.power ) ]
+  , {-Level 6-}
     [ InfixL (match TokTimes      <&> binary Op.times )
     , InfixL (match TokDiv        <&> binary' Op.div  )
     , InfixL (match TokMod        <&> binary' Op.mod  ) ]
-  , {-Level 6-}
-    [ InfixL (match TokPlus       <&> binary Op.plus   )
-    , InfixL (match TokMinus      <&> binary Op.bMinus ) ]
   , {-Level 7-}
+    [ InfixL (match TokPlus         <&> binary Op.plus       )
+    , InfixL (match TokMinus        <&> binary Op.bMinus     )
+    , InfixL (match TokSetUnion     <&> binary Op.union      )
+    , InfixL (match TokMultisetSum  <&> binary Op.multisum   )
+    , InfixL (match TokSetIntersect <&> binary Op.intersect  )
+    , InfixL (match TokSetMinus     <&> binary Op.difference )
+    , InfixL (match TokConcat       <&> binary Op.concat     ) ]
+  , {-Level 8-}
     [ InfixL (match TokMax        <&> binary Op.max    )
     , InfixL (match TokMin        <&> binary Op.min    ) ]
-  , {-Level 8-}
-    [ InfixN (match TokElem       <&> membership        )
-    , InfixN (match TokNotElem    <&> binary Op.notElem )
-    , InfixN (match TokLT         <&> comparison Op.lt  )
-    , InfixN (match TokLE         <&> comparison Op.le  )
-    , InfixN (match TokGT         <&> comparison Op.gt  )
-    , InfixN (match TokGE         <&> comparison Op.ge  ) ]
   , {-Level 9-}
+    [ InfixL (match TokHash       <&> binary Op.seqAt    )
+    , InfixL (match TokAtSign     <&> binary Op.bifuncAt ) ]
+  , {-Level 10-}
+    [ InfixN (match TokElem       <&> membership             )
+    , InfixN (match TokNotElem    <&> binary Op.notElem      )
+    , InfixN (match TokLT         <&> comparison Op.lt       )
+    , InfixN (match TokLE         <&> comparison Op.le       )
+    , InfixN (match TokGT         <&> comparison Op.gt       )
+    , InfixN (match TokGE         <&> comparison Op.ge       )
+    , InfixN (match TokSubset     <&> binary     Op.subset   )
+    , InfixN (match TokSSubset    <&> binary     Op.ssubset  )
+    , InfixN (match TokSuperset   <&> binary     Op.superset )
+    , InfixN (match TokSSuperset  <&> binary     Op.ssuperset) ]
+  , {-Level 11-}
     [ InfixN (match TokAEQ        <&> pointRange    )
     , InfixN (match TokANE        <&> binary Op.ane ) ]
-  , {-Level 10-}
-    [ InfixR (match TokAnd        <&> conjunction ) ]
-  , {-Level 11-}
-    [ InfixR (match TokOr         <&> binary' Op.or ) ]
   , {-Level 12-}
+    [ InfixR (match TokAnd        <&> conjunction ) ]
+  , {-Level 13-}
+    [ InfixR (match TokOr         <&> binary' Op.or ) ]
+  , {-Level 14-}
     [ InfixR (match TokImplies    <&> binary' Op.implies    )
     , InfixL (match TokConsequent <&> binary' Op.consequent ) ]
-  , {-Level 13-}
+  , {-Level 15-}
     [ InfixN (match TokBEQ        <&> binary' Op.beq )
     , InfixN (match TokBNE        <&> binary' Op.bne ) ]
   ]
@@ -1164,7 +1223,7 @@ subindex = do
                           , obj' = Index
                             { O.inner = o
                             , indices = view _1 <$> subs }}}}
-                  in pure . Just $ (expr, ProtoNothing, taint)
+                  in pure $ Just (expr, ProtoNothing, taint)
 
           _ -> do
             putError (pos . E.loc $ expr) . UnknownError $
@@ -1216,7 +1275,7 @@ dotField = do
                       Just Struct { structFields } ->
                         let structFields' = fillTypes typeArgs structFields
                         in aux obj (objType obj) loc fieldName structFields' taint
-                      _ -> error "internal error: GDataType without struct."
+                      _ -> internal "GDataType without struct."
 
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
@@ -1252,7 +1311,7 @@ dotField = do
                     { inner = o
                     , field = i
                     , fieldName }}}}
-          in pure . Just $ (expr, ProtoNothing, taint)
+          in pure $ Just (expr, ProtoNothing, taint)
         Nothing -> do
           let Location (pos, _) = loc
           putError pos . UnknownError $
@@ -1284,7 +1343,7 @@ deref = do
                     , objType = pointerType
                     , obj' = Deref
                       { O.inner = o }}}}
-          in pure . Just $ (expr, ProtoNothing, taint)
+          in pure $ Just (expr, ProtoNothing, taint)
 
       e -> do
         let
@@ -1321,7 +1380,7 @@ unary unOp
           , expType = ret
           , expConst
           , exp' = exp'' }
-      pure . Just $ (expr, ProtoNothing, taint)
+      pure $ Just (expr, ProtoNothing, taint)
 
 unary _ _ _ = pure Nothing
 
@@ -1361,7 +1420,7 @@ binary binOp opLoc
           , expConst = lc && rc
           , exp' }
 
-      in pure . Just $ (expr, ProtoNothing, taint)
+      in pure $ Just (expr, ProtoNothing, taint)
 
 
 binary' :: Op.Bin' -> Location
@@ -1390,7 +1449,7 @@ binary' binOp opLoc
           then ProtoQRange EmptyRange
           else ProtoNothing
 
-      in pure . Just $ (expr, range, taint)
+      in pure $ Just (expr, range, taint)
 
 
 membership :: Location
@@ -1415,9 +1474,9 @@ membership opLoc
           , expType  = GBool
           , expConst = lc && rc
           , exp'     = eSkip }
-      in pure . Just $ (expr, ProtoQRange (SetRange r), Taint False)
+      in pure $ Just (expr, ProtoQRange (SetRange r), Taint False)
 
-    Right _ -> error "internal error: impossible membership type"
+    Right _ -> internal "impossible membership type"
 
 membership opLoc l r = binary Op.elem opLoc l r
 
@@ -1443,16 +1502,16 @@ comparison binOp opLoc
             LE -> ProtoLow  l
             GT -> ProtoHigh (pred' l)
             GE -> ProtoHigh l
-            _  -> error "internal error: impossible comparison operator"
+            _  -> internal "impossible comparison operator"
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
             , expConst = False
             , exp'     = eSkip }
-        in pure . Just $ (expr, range, Taint True)
+        in pure $ Just (expr, range, Taint True)
 
       Right _ ->
-        error "internal error: impossible type equality"
+        internal "impossible type equality"
 
   where
     succ' = aux Succ
@@ -1479,16 +1538,16 @@ comparison binOp opLoc
             LE -> ProtoHigh r
             GT -> ProtoLow  (succ' r)
             GE -> ProtoLow  r
-            _  -> error "internal error: impossible comparison operator"
+            _  -> internal "impossible comparison operator"
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
             , expConst = False
             , exp'     = eSkip }
-        in pure . Just $ (expr, range, Taint True)
+        in pure $ Just (expr, range, Taint True)
 
       Right _ ->
-        error "internal error: impossible type equality"
+        internal "impossible type equality"
 
   where
     succ' = aux Succ
@@ -1521,9 +1580,9 @@ pointRange opLoc
           , expType  = GBool
           , expConst = False
           , exp'     = eSkip }
-      in pure . Just $ (expr, ProtoQRange (PointRange r), Taint False)
+      in pure $ Just (expr, ProtoQRange (PointRange r), Taint False)
 
-    Right _ -> error "internal error: impossible type equality"
+    Right _ -> internal "impossible type equality"
 
 pointRange opLoc
   (Just (l @ Expression { expType = rtype }, _, Taint False))
@@ -1544,9 +1603,9 @@ pointRange opLoc
           , expType  = GBool
           , expConst = False
           , exp'     = eSkip }
-      in pure . Just $ (expr, ProtoQRange (PointRange l), Taint False)
+      in pure $ Just (expr, ProtoQRange (PointRange l), Taint False)
 
-    Right _ -> error "internal error: impossible type equality"
+    Right _ -> internal "impossible type equality"
 
 pointRange opLoc l r = binary Op.aeq opLoc l r
 
@@ -1568,9 +1627,9 @@ conjunction opLoc
       varname <- gets head
       let
         taint = ltaint <> rtaint
-        (conds, range) = case (lproto, rproto) of
-          (ProtoVar, _) -> error "internal error: boolean ProtoVar"
-          (_, ProtoVar) -> error "internal error: boolean ProtoVar"
+        (conds :: Seq Expression, range) = case (lproto, rproto) of
+          (ProtoVar, _) -> internal "boolean ProtoVar"
+          (_, ProtoVar) -> internal "boolean ProtoVar"
 
           (q @ (ProtoQRange EmptyRange), _) ->
             ([wrap eSkip], q)
@@ -1615,7 +1674,7 @@ conjunction opLoc
 
         expr = foldr1 joinCond conds
 
-      pure . Just $ (expr, range, taint)
+      pure $ Just (expr, range, taint)
 
     Left expected -> do
       let loc = Location (from l, to r)
@@ -1625,7 +1684,7 @@ conjunction opLoc
         show (ltype, rtype) <> "."
       pure Nothing
 
-    Right _ -> error "internal error: Bad andOp type"
+    Right _ -> internal "Bad andOp type"
 
     where
       loc = E.loc l <> E.loc r
@@ -1648,7 +1707,7 @@ conjunction opLoc
         = let ProtoQRange l' = joinExpRangeProto l (ProtoLow low)
           in  joinExpRangeProto l' (ProtoHigh high)
 
-      joinExpRanges _ _ = error "internal error: can only join two ExpRanges"
+      joinExpRanges _ _ = internal "can only join two ExpRanges"
 
       joinExpRangeProto
         ExpRange { low = elow, high }
@@ -1692,7 +1751,7 @@ conjunction opLoc
           t = case expType e of
             GSet a      -> a
             GMultiset a -> a
-            _           -> error "internal error: impossible set type"
+            _           -> internal "impossible set type"
           lexpr = obj varname t
         in Binary
           { binOp = Elem

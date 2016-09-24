@@ -19,6 +19,7 @@ import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type
 import qualified AST.Type                                as G (Type)
+import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
 import           LLVM.Monad
@@ -38,7 +39,7 @@ import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Maybe                              (fromMaybe, isJust)
-import           Data.Monoid                             ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  empty,
@@ -368,7 +369,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         label <- newLabel $ case n of
           32 -> "unaryIntOp"
           8  -> "unaryCharOp"
-          _  -> error "internal error: badUnaryIntOp"
+          _  -> internal "badUnaryIntOp"
         let
           minusOne = ConstantOperand $ C.Int 32 (-1)
           one = ConstantOperand $ C.Int n 1
@@ -456,7 +457,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         label <- newLabel $ case n of
           32 -> "intOp"
           8  -> "charOp"
-          _  -> error "internal error: badIntOp"
+          _  -> internal "badIntOp"
         case op of
           Op.Plus   ->
             safeOperation n label safeAdd lOperand rOperand pos
@@ -923,7 +924,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
     recArgs <- fmap (,[]) <$> if fRecursiveCall
       then do
-        boundOperand <- fromMaybe (error "internal error: boundless recursive function 2.") <$> use boundOp
+        boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
       else if fRecursiveFunc
         then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]

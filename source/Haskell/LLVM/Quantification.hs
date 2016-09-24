@@ -1,28 +1,29 @@
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections    #-}
 
 
 module LLVM.Quantification
   ( quantification
   , collection) where
 --------------------------------------------------------------------------------
-import qualified AST.Expression                          as E (Expression'(expType))
 import           AST.Expression                          (CollectionKind (..),
                                                           Expression' (..),
                                                           Expression'' (..),
                                                           QRange' (..),
                                                           QuantOperator (..))
+import qualified AST.Expression                          as E (Expression' (expType))
 import           AST.Type                                (Expression, QRange,
                                                           Type (..))
+import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
 import           LLVM.Monad
 import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
+import           Control.Monad                           (unless, when)
 import           Data.Word                               (Word32)
-import           Control.Monad                           (when)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
@@ -36,7 +37,7 @@ import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type                   (i1, i64)
 --------------------------------------------------------------------------------
-import Debug.Trace
+import           Debug.Trace
 quantification :: Num a
                => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
                -> (a
@@ -613,7 +614,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
 
     SetRange { theSet } -> pure . ConstantOperand $ C.Int 32 1
 
-  _ -> error "internal error: quantification only admits \
+  _ -> internal "quantification only admits \
              \Quantification Expression"
 
   where
@@ -624,22 +625,22 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
     v0 Summation GChar  = C.Int  8 0
     v0 Summation GInt   = C.Int 32 0
     v0 Summation GFloat = C.Float . F.Double $ 0
-    v0 Summation _      = error "internal error: impossibly typed summation"
+    v0 Summation _      = internal "impossibly typed summation"
     v0 Product   GChar  = C.Int  8 1
     v0 Product   GInt   = C.Int 32 1
     v0 Product   GFloat = C.Float . F.Double $ 1
-    v0 Product   _      = error "internal error: impossibly typed product"
+    v0 Product   _      = internal "impossibly typed product"
     v0 Minimum   _      = undefined
     v0 Maximum   _      = undefined
 
 collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Collection { colKind, colVar = Nothing, colElems } -> do
       theSet <- empty colKind
-      when (not $ null colElems) $ do
+      unless (null colElems) $ do
         mapM_ (callInsert colKind theSet) colElems
       pure theSet
 
-  Collection { colKind, colVar = Just (name, ty, range, cond), colElems } -> case range of 
+  Collection { colKind, colVar = Just (name, ty, range, cond), colElems } -> case range of
     EmptyRange -> empty colKind
 
     PointRange { thePoint } -> do
@@ -654,7 +655,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
     ExpRange { low, high } -> do
       l <- expression low
       h <- expression high
-      
+
       cType <- toLLVMType $ case expType of
         GSet t -> t
         GSeq t -> t
@@ -719,8 +720,8 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
 
       (accum #)
 
-      mapM_ (callInsert colKind theSet) colElems 
-      
+      mapM_ (callInsert colKind theSet) colElems
+
       terminate Br
         { dest      = getNext
         , metadata' = [] }
@@ -769,10 +770,10 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
       pure theSet
 
 
-  _ -> error "internal error: collection only admits \
+  _ -> internal "collection only admits \
              \Collection Expression"
 
-  where 
+  where
     empty colKind = do
       theSet <- newLabel "theSet"
       t <- toLLVMType expType

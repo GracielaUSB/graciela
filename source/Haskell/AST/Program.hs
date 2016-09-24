@@ -15,7 +15,7 @@ import           Treelike
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (elems, foldrWithKey)
-import           Data.Monoid     ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------

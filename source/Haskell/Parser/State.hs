@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -13,7 +14,6 @@ module Parser.State
   , definitions
   , currentProc
   , currentFunc
-  , typesTable
   , currentStruct
   , typeVars
   , dataTypes
@@ -74,7 +74,6 @@ data State = State
   , _currentProc   :: Maybe CurrentProc
   , _currentFunc   :: Maybe CurrentFunc
   , _currentStruct :: Maybe (Type, Fields, Map Text Definition)
-  , _typesTable    :: Map Text (Type, Location)
   , _typeVars      :: [Text]
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
@@ -86,31 +85,14 @@ makeLenses ''State
 initialState :: FilePath -> State
 initialState path  = State
   { _errors        = Seq.empty
-  , _symbolTable
+  , _symbolTable   = emptyGlobal
   , _definitions   = Map.empty
   , _filesToRead   = Set.empty
   , _currentProc   = Nothing
   , _currentFunc   = Nothing
-  , _typesTable    = initialTypes
   , _typeVars      = []
   , _dataTypes     = Map.empty
   , _fullDataTypes = Map.empty
   , _currentStruct = Nothing
-  , _stringIds       = Map.empty
+  , _stringIds     = Map.empty
   }
-
-  where
-    initialTypes = Map.fromList
-      [ (pack "int",    (GInt,   GracielaDef))
-      , (pack "float",  (GFloat, GracielaDef))
-      , (pack "boolean",(GBool,  GracielaDef))
-      , (pack "char",   (GChar,  GracielaDef))
-      ]
-    symbols =
-      [ ("otherwise", Const GBool (BoolV True)) ]
-
-    st0 = emptyGlobal
-
-    _symbolTable = foldl' auxInsert st0 symbols
-
-    auxInsert st (k, e') = insertSymbol k (Entry k GracielaDef e') st

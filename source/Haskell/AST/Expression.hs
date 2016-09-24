@@ -16,18 +16,18 @@ module AST.Expression
   , eSkip
   ) where
 --------------------------------------------------------------------------------
-import           AST.Object    (Object')
+import           AST.Object     (Object')
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Array    (Array)
-import           Data.Foldable (toList)
-import           Data.Int      (Int32)
-import           Data.List     (intercalate)
-import           Data.Monoid   ((<>))
-import           Data.Sequence (Seq)
-import           Data.Text     (Text, unpack)
-import           Prelude       hiding (Ordering (..))
+import           Data.Array     (Array)
+import           Data.Foldable  (toList)
+import           Data.Int       (Int32)
+import           Data.List      (intercalate)
+import           Data.Semigroup ((<>))
+import           Data.Sequence  (Seq)
+import           Data.Text      (Text, unpack)
+import           Prelude        hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 data Conversion = ToInt | ToDouble | ToChar
@@ -44,6 +44,11 @@ data BinaryOperator
   | And | Or | Implies | Consequent | BEQ | BNE
   | AEQ | ANE | LT | LE | GT | GE
   | Elem | NotElem | Difference | Intersection | Union
+  | Subset | SSubset | Superset | SSuperset
+  | MultisetSum
+  | SeqAt
+  | BifuncAt
+  | Concat
   deriving (Eq)
 
 instance Show BinaryOperator where
@@ -72,10 +77,23 @@ instance Show BinaryOperator where
 
   show Elem         = "Member of (∈)"
   show NotElem      = "Not Member of (∉)"
+
   show Difference   = "Difference (∖)"
   show Intersection = "Intersection (∩)"
   show Union        = "Union (∪)"
 
+  show Subset       = "Subset (⊆)"
+  show SSubset      = "Strict Subset (⊊)"
+  show Superset     = "Superset (⊇)"
+  show SSuperset    = "Strict Superset (⊋)"
+
+  show MultisetSum  = "Multiset Sum (⊎)"
+
+  show SeqAt        = "Sequence Access (#)"
+
+  show BifuncAt     = "Function or Relation Access (@)"
+
+  show Concat       = "Sequence Concatenation (++)"
 
 data UnaryOperator = UMinus | Not | Abs | Sqrt | Pred | Succ
   deriving (Eq)
@@ -198,6 +216,10 @@ data Expression'' t m
     { unOp  :: UnaryOperator
     , inner :: Expression' t m }
 
+  -- | Cast to an i64 (used for polymorphic functions)
+  | I64Cast
+    { inner :: Expression' t m }
+
   -- | Llamada a funcion.
   | FunctionCall
     { fName          :: Text
@@ -288,6 +310,9 @@ instance (Show t, Show m) => Treelike (Expression' t m) where
     Unary { unOp, inner } ->
       Node (show unOp <> " " <> show loc)
         [ toTree inner ]
+
+    I64Cast { inner } ->
+      Node ("I64Cast " <> show loc) [ toTree inner ]
 
     FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
       | fRecursiveCall && fRecursiveFunc ->

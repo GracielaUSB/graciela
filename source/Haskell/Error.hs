@@ -1,11 +1,12 @@
-{-# LANGUAGE InstanceSigs   #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE InstanceSigs    #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Error where
 --------------------------------------------------------------------------------
 import           AST.Expression        (Expression' (expType))
 import           AST.Type              (Expression, Type (..))
-import           Data.Monoid           ((<>))
+import           Data.Semigroup        ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
 import           Text.Megaparsec       hiding (Token)
@@ -20,17 +21,10 @@ import           Data.Sequence         (Seq)
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
-
 import           Debug.Trace
 
--- data MyParseError
---   = CustomError -- Mientras no mejoremos los errores jajaja
---     { msg    :: String
---     , mpeloc :: Location
---     }
-
--- instance Show MyParseError where
---   show (CustomError msg loc) = show loc <> "  " <> msg
+internal :: String -> a
+internal = error . ("internal error: " <>)
 
 data Error
   = BadAssertType
@@ -62,6 +56,13 @@ data Error
     , fPos      :: SourcePos
     , pType     :: Type
     , aType     :: Type
+    }
+  | BadFunctionArgumentType'
+    { paramNum :: Int
+    , fName    :: Text
+    , fPos     :: SourcePos
+    , pTypes   :: Seq Type
+    , aType    :: Type
     }
   | BadProcedureArgumentType
     { paramName :: Text
@@ -170,6 +171,17 @@ instance ShowErrorComponent Error where
       "` " <> showPos fPos <> " has type `" <> show pType <>
       "`, but received an expression with type `" <> show aType <> "`."
 
+    BadFunctionArgumentType' { paramNum, fName, fPos, pTypes = [pType], aType} ->
+      "Parameter number " <> show paramNum <> " of the function `" <> unpack fName <>
+      "` " <> showPos fPos <> " admits type `" <> show pType <>
+      "`, but received an expression of type `" <> show aType <> "`."
+
+    BadFunctionArgumentType' { paramNum, fName, fPos, pTypes, aType} ->
+      "Parameter number " <> show paramNum <> " of the procedure `" <> unpack fName <>
+      "` " <> showPos fPos <> " admits one of the following types:" <>
+      (unlines . fmap (("\t" <>) . show) . toList $ pTypes) <>
+      "`, but received an expression of type `" <> show aType <> "`."
+
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
       "` " <> showPos pPos <> " has type `" <> show pType <>
@@ -260,11 +272,13 @@ prettyError (ParseError pos us ps xs) =
   sourcePosStackPretty pos <> ": " <> "\ESC[1;31m" <> "Error:" <> "\ESC[m\n" <>
   if Set.null us && Set.null ps && Set.null xs
     then "unknown parse error\n"
-    else concat
-      [ messageItemsPretty "\t Found unexpected: " us
-      , messageItemsPretty "\t instead of: "  ps
-      , unlines . fmap ("\t"<>) $ (showErrorComponent <$> Set.toAscList xs)
-      ]
+    else
+      let message =
+            [ messageItemsPretty "\t Found unexpected: " us
+            , messageItemsPretty "\t instead of: "  ps
+            , unlines . fmap ("\t"<>) $
+              (showErrorComponent <$> Set.toAscList xs) ] :: [String]
+      in concat message
 
 messageItemsPretty :: ShowErrorComponent a
   => String            -- ^ Prefix to prepend

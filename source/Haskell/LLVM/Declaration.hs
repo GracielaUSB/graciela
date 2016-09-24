@@ -20,7 +20,7 @@ import           Control.Monad                      (foldM, void, when,
                                                      zipWithM_)
 import           Data.Foldable                      (toList)
 import           Data.Functor                       (($>))
-import           Data.Monoid                        ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton)

@@ -28,7 +28,7 @@ import           Treelike
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, when, zipWithM_)
 import           Data.Foldable                      (toList)
-import           Data.Monoid                        ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,

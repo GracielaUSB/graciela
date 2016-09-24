@@ -18,13 +18,14 @@ module Lexer
   ( lex
   ) where
 --------------------------------------------------------------------------------
+import           Error                 (internal)
 import           Location
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Monad         (void)
 import           Data.Functor          (($>))
 import           Data.Int              (Int32)
-import           Data.Monoid           ((<>))
+import           Data.Semigroup        ((<>))
 import           Data.Text             (Text, pack)
 import           Prelude               hiding (lex)
 import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,
@@ -43,7 +44,7 @@ lex :: FilePath -- ^ Name of source file
     -> [TokenPos]
 lex fn input = case runParser lexer fn input of
   Right ts -> ts
-  Left  _  -> error "internal error: uncaught unexpected token"
+  Left  _  -> internal "uncaught unexpected token"
 --------------------------------------------------------------------------------
 
 type Lexer = Parsec Dec Text
@@ -191,6 +192,22 @@ token  =  reserved "program"    TokProgram
       <|> reserved "intersect"  TokSetIntersect
       <|> symbol   "\8745"      TokSetUnion -- ∩
 
+      <|> reserved "msum"       TokMultisetSum
+      <|> symbol   "\8846"      TokMultisetSum -- ⊎
+      <|> symbol   "@"          TokAtSign
+      <|> symbol   "++"         TokConcat
+      <|> symbol   "\10746"     TokConcat -- ⧺
+      <|> reserved "subset"     TokSubset
+      <|> symbol   "\8838"      TokSubset    -- ⊆
+      <|> reserved "ssubset"    TokSSubset
+      <|> symbol   "\8834"      TokSSubset   -- ⊂
+      <|> symbol   "\8842"      TokSSubset   -- ⊊
+      <|> reserved "superset"   TokSuperset
+      <|> symbol   "\8839"      TokSuperset  -- ⊇
+      <|> reserved "ssuperset"  TokSSuperset
+      <|> symbol   "\8835"      TokSSuperset -- ⊃
+      <|> symbol   "\8843"      TokSSuperset -- ⊋
+
       <|> reserved "new"        TokNew
       <|> reserved "free"       TokFree
       -- V2.0
@@ -204,9 +221,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "mod"        TokMod
       <|> symbol   "^"          TokPower
 
-      <|> reserved "abs"        TokAbs
-      <|> reserved "sqrt"       TokSqrt
-      <|> symbol   "\8730"      TokSqrt -- √
+      <|> symbol   "\8730"      (TokId $ pack "sqrt")  -- √
 
       <|> symbol   "==>"        TokImplies
       <|> symbol   "\8658"      TokImplies    -- ⇒
@@ -303,7 +318,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "pi"         TokPi
       <|> symbol   "\8719"      TokPi       -- ∏
       <|> reserved "count"      TokCount
-      <|> symbol   "#"          TokCount
+      <|> symbol   "#"          TokHash     -- count quant and sequence access
 
       <|> reserved "if"         TokIf
       <|> reserved "fi"         TokFi

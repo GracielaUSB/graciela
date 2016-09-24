@@ -46,7 +46,7 @@ import           Treelike
 import           Data.List       (sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Monoid     ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq, ViewL ((:<)), ViewR ((:>)), (<|), (><),
                                   (|>))
 import qualified Data.Sequence   as Seq
@@ -107,7 +107,7 @@ empty' pos
 emptyGlobal' :: Scope
 emptyGlobal'
   = Scope
-    { sLoc      = GracielaDef
+    { sLoc      = gracielaDef
     , sEntries  = Map.empty
     , sChildren = Seq.empty
     }

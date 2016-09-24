@@ -34,7 +34,7 @@ import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
 import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
                                            lookup, null, singleton)
-import           Data.Monoid       ((<>))
+import           Data.Semigroup ((<>))
 import           Data.Text         (Text, pack, unpack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,

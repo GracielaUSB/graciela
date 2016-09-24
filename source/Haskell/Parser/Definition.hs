@@ -123,8 +123,7 @@ function = do
                 , funcRetType
                 , funcRecursive } }
 
-
-          -- Struct does not add thier procs to the table
+          -- Struct does not add their procs to the table
           dt <- use currentStruct
 
           case dt of
@@ -262,7 +261,7 @@ procedure = do
             , procParams = params
             , procRecursive }}
 
-      -- Struct does not add thier procs to the table
+      -- Struct does not add their procs to the table
       dt <- use currentStruct
 
       case dt of
