@@ -22,6 +22,8 @@ import qualified AST.Type                                as G (Type)
 import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
+import           LLVM.Boolean                            (boolean',
+                                                          wrapBoolean')
 import           LLVM.Monad
 import           LLVM.Quantification                     (collection,
                                                           quantification)
@@ -39,7 +41,7 @@ import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Maybe                              (fromMaybe, isJust)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup                          ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  empty,
@@ -68,6 +70,18 @@ import           LLVM.General.AST.Type                   as L (i64)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 import           Debug.Trace
+
+boolean :: Name -> Name -> Expression -> LLVM ()
+boolean = boolean' expression object objectRef
+
+wrapBoolean :: Expression -> LLVM Operand
+wrapBoolean = wrapBoolean' expression object objectRef
+
+expression' :: Expression -> LLVM Operand
+expression' e@Expression { expType } = if expType == GBool
+  then wrapBoolean e
+  else expression e
+--------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
 object obj@Object { objType, obj' } = case obj' of
@@ -325,14 +339,16 @@ callUnaryFunction fun innerOperand = Call
   , functionAttributes = []
   , metadata           = [] }
 
--- callfFunction :: Word32 -> String -> Operand -> Operand -> Instruction
--- callfFunction n fun lOperand rOperand =
-
 expression :: Expression -> LLVM Operand
+expression e@Expression { expType = GBool} =
+  internal $
+    "generated boolean expression with `expression` instead of `boolean`\n" <>
+    drawTree (toTree e)
+
 expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' of
   Value val -> pure $ case val of
-    BoolV  theBool  ->
-      ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
+    -- BoolV  theBool  ->
+    --   ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
     CharV  theChar  ->
       ConstantOperand . C.Int 8 . fromIntegral . ord $ theChar
     IntV   theInt   ->
@@ -345,7 +361,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       GPointer GAny -> pure .ConstantOperand . C.Null $ ptr i8
       _             -> ConstantOperand . C.Null  <$> toLLVMType expType
 
-
   StringLit { theStringId } ->
     (! theStringId) <$> use stringOps
 
@@ -357,7 +372,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     operand <- case expType of
       GInt   -> opInt 32  unOp innerOperand
       GChar  -> opInt 8  unOp innerOperand
-      GBool  -> opBool  unOp innerOperand
+      -- GBool  -> opBool  unOp innerOperand
       GFloat -> opFloat unOp innerOperand
       t        -> error $ "tipo " <> show t <> " no soportado"
 
@@ -374,8 +389,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
           minusOne = ConstantOperand $ C.Int 32 (-1)
           one = ConstantOperand $ C.Int n 1
         case op of
-            Op.Abs    -> undefined -- TODO
-
             Op.UMinus ->
               safeOperation n label safeMul innerOperand minusOne pos
 
@@ -392,33 +405,14 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         label <- newLabel "opFloat"
         let
           insts = case op of
-            Op.Abs    -> Seq.singleton $
-              label := callUnaryFunction fabsString innerOperand
-
             Op.UMinus -> Seq.singleton $ label := FMul
                     { fastMathFlags = NoFastMathFlags
                     , operand0 = innerOperand
                     , operand1 = ConstantOperand . C.Float $ LLVM.Double (-1.0)
                     , metadata = []}
 
-            Op.Sqrt   -> Seq.singleton $
-              label := callUnaryFunction sqrtString innerOperand
-
         addInstructions insts
         return $ LocalReference floatType label
-
-      opBool :: Op.UnaryOperator -> Operand -> LLVM Operand
-      opBool op innerOperand = do
-        label <- newLabel "opBool"
-        let
-          insts =  case op of
-            Op.Not -> Seq.singleton $ label := Xor
-                { operand0 = innerOperand
-                , operand1 = ConstantOperand $ C.Int 1 (-1)
-                , metadata = []
-                }
-        addInstructions insts
-        return $ LocalReference boolType label
 
       callUnaryFunction :: String -> Operand -> Instruction
       callUnaryFunction fun innerOperand =
@@ -445,7 +439,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       op = case expType of
         GInt   -> opInt 32
         GChar  -> opInt 8
-        GBool  -> opBool
+        -- GBool  -> opBool
         GFloat -> opFloat
         t      -> error $
           "internal error: type " <> show t <> " not supported"
@@ -538,38 +532,39 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
-          _         -> error "opInt"
+
+          _ -> error "opInt"
 
         return $ LocalReference (IntegerType n) label
 
       opFloat op lOperand rOperand = do
         label <- newLabel "floatBinaryResult"
-        addInstructions $ case op of
-          Op.Plus   -> Seq.singleton $ label := FAdd
-                            { fastMathFlags = NoFastMathFlags
-                            , operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-          Op.BMinus -> Seq.singleton $ label := FSub
-                            { fastMathFlags = NoFastMathFlags
-                            , operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-          Op.Times  -> Seq.singleton $ label := FMul
-                            { fastMathFlags = NoFastMathFlags
-                            , operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-          Op.Div   ->  Seq.singleton $ label := FDiv
-                            { fastMathFlags = NoFastMathFlags
-                            , operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-          Op.Power  -> Seq.singleton $ label := Call
+        case op of
+          Op.Plus   -> addInstruction $ label := FAdd
+            { fastMathFlags = NoFastMathFlags
+            , operand0      = lOperand
+            , operand1      = rOperand
+            , metadata      = [] }
+
+          Op.BMinus -> addInstruction $ label := FSub
+            { fastMathFlags = NoFastMathFlags
+            , operand0      = lOperand
+            , operand1      = rOperand
+            , metadata      = [] }
+
+          Op.Times  -> addInstruction $ label := FMul
+            { fastMathFlags = NoFastMathFlags
+            , operand0      = lOperand
+            , operand1      = rOperand
+            , metadata      = [] }
+
+          Op.Div   ->  addInstruction $ label := FDiv
+            { fastMathFlags = NoFastMathFlags
+            , operand0      = lOperand
+            , operand1      = rOperand
+            , metadata      = [] }
+
+          Op.Power  -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
@@ -578,7 +573,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-          Op.Min    -> Seq.singleton $ label := Call
+          Op.Min    -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
@@ -587,7 +582,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-          Op.Max    -> Seq.singleton $ label := Call
+          Op.Max    -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
@@ -596,255 +591,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-          _         -> error "opFloat"
+          _ -> error "opFloat"
         return $ LocalReference floatType label
-
-      opBool op lOperand rOperand = do
-        label <- newLabel "boolBinaryResult"
-        case op of
-          Op.And     -> do
-            let inst = And  { operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.Or -> do
-            let inst = Or { operand0      = lOperand
-                          , operand1      = rOperand
-                          , metadata      = []
-                          }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.BEQ -> do
-            let inst = ICmp { iPredicate = EQ
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.BNE -> do
-            let inst = ICmp { iPredicate = NE
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-
-          Op.AEQ | lType =:= GPointer GAny -> do
-            labelCast1 <- newLabel "pointerEq0"
-            labelCast2 <- newLabel "pointerEq1"
-            let
-            {- Both pointers must be cast to integer to be compared -}
-              cast1 = PtrToInt
-                        { operand0 = lOperand
-                        , type'    = i64
-                        , metadata = []
-                        }
-
-              cast2 = PtrToInt
-                        { operand0 = rOperand
-                        , type'    = i64
-                        , metadata = []
-                        }
-
-              comp = ICmp { iPredicate = EQ
-                          , operand0   = LocalReference i64 labelCast1
-                          , operand1   = LocalReference i64 labelCast2
-                          , metadata   = []
-                          }
-
-            addInstructions $ Seq.fromList [ labelCast1 := cast1
-                                           , labelCast2 := cast2
-                                           , label  := comp]
-
-          Op.AEQ | lType =:= GOneOf (($ GAny) <$> [GSet, GMultiset, GSeq]) -> do
-            t <- toLLVMType lType
-            addInstruction $ label :=  Call
-              { tailCallKind = Nothing
-              , callingConvention = CC.C
-              , returnAttributes = []
-              , function = callable t $ case lType of
-                GSet      _ -> equalSetString
-                GMultiset _ -> equalMultisetString
-                GSeq      _ -> equalSeqString
-              , arguments = (,[]) <$> [lOperand, rOperand]
-              , functionAttributes = []
-              , metadata = [] }
-
-          Op.AEQ -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.OEQ
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = EQ
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-
-          Op.ANE | lType =:= GPointer GAny -> do
-            labelCast1 <- newLabel "pointerNe0"
-            labelCast2 <- newLabel "pointerNe1"
-            let
-              {- Both pointers must be cast to integer to be compared -}
-              cast1 = PtrToInt
-                        { operand0 = lOperand
-                        , type'    = i64
-                        , metadata = []
-                        }
-
-              cast2 = PtrToInt
-                        { operand0 = rOperand
-                        , type'    = i64
-                        , metadata = []
-                        }
-
-              comp = ICmp { iPredicate = NE
-                          , operand0   = LocalReference i64 labelCast1
-                          , operand1   = LocalReference i64 labelCast2
-                          , metadata   = []
-                          }
-
-            addInstructions $ Seq.fromList [ labelCast1 := cast1
-                                           , labelCast2 := cast2
-                                           , label  := comp]
-
-          Op.ANE | lType =:= GOneOf[GFloat, GInt, GChar] -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.ONE
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = NE
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-
-          Op.LT -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.OLT
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = SLT
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.LE -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.OLE
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = SLE
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.GT -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.OGT
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = SGT
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-          Op.GE -> do
-            let inst = if lType =:= GFloat
-                  then FCmp { fpPredicate = F.OGE
-                            , operand0    = lOperand
-                            , operand1    = rOperand
-                            , metadata    = []
-                            }
-                  else ICmp { iPredicate = SGE
-                            , operand0   = lOperand
-                            , operand1   = rOperand
-                            , metadata   = []
-                            }
-            addInstructions $ Seq.fromList [label := inst]
-
-          Op.Implies    -> do
-            -- p ==> q ≡ (p ⋁ q ≡ q)
-            label' <- newLabel "impliesResult"
-            -- Operate p ⋁ q and save the result at label'
-            let orInst = Or { operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-            let result = LocalReference boolType label'
-
-            -- Operate the t ≡ q, where t is the previous result and save it in label
-            let equal = ICmp { iPredicate = EQ
-                             , operand0   = result
-                             , operand1   = rOperand
-                             , metadata   = []
-                             }
-            addInstructions $ Seq.fromList [label' := orInst, label := equal]
-
-
-          Op.Consequent -> do
-            -- p <== q ≡ (p ⋁ q ≡ p)
-            label' <- newLabel "conseqResult"
-            -- Operate p ⋁ q and save the result at label'
-            let orInst = Or { operand0      = lOperand
-                            , operand1      = rOperand
-                            , metadata      = []
-                            }
-            let result = LocalReference boolType label'
-
-            -- Operate the t ≡ q, where t is the previous result and save it in label
-            let equal = ICmp { iPredicate = EQ
-                             , operand0   = lOperand
-                             , operand1   = result
-                             , metadata   = []
-                             }
-            addInstructions $ Seq.fromList [label' := orInst, label := equal]
-
-      --   return $ LocalReference boolType label
-
-      -- opSet op lOperand rOperand = do
-      --   label <- newLabel "boolBinaryResult"
-      --   case op of
-          Op.Elem -> do
-            value <- newLabel "item"
-            addInstruction . (value :=) $ case lType of
-              GFloat -> BitCast
-                { operand0 = lOperand
-                , type' = i64
-                , metadata = [] }
-              _ -> SExt
-                { operand0 = lOperand
-                , type' = i64
-                , metadata = [] }
-
-            addInstruction $ label := Call
-              { tailCallKind = Nothing
-              , callingConvention = CC.C
-              , returnAttributes = []
-              , function = callable boolType $ case rType of
-                  GSet      _ -> isElemSetString
-                  GMultiset _ -> isElemMultisetString
-                  GSeq      _ -> isElemSeqString
-              , arguments = (,[]) <$> [rOperand, LocalReference i64 value]
-              , functionAttributes = []
-              , metadata = [] }
-
-        return $ LocalReference boolType label
 
   EConditional { eguards, trueBranch } -> do
     entry  <- newLabel "ifExpEntry"
@@ -896,12 +644,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         yes <- newLabel "ifExpGuardYes"
         no  <- newLabel "ifExpGuardNo"
 
-        condition <- expression left
-        terminate CondBr
-          { condition
-          , trueDest  = yes
-          , falseDest = no
-          , metadata' = [] }
+        boolean yes no left
 
         (yes #)
         val <- expression right
@@ -966,10 +709,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       basicT = GOneOf [GBool,GChar,GInt,GFloat]
 
   Quantification { } ->
-    quantification expression safeOperation e
+    quantification expression boolean safeOperation e
 
   Collection { } ->
-    collection expression e
+    collection expression boolean e
 
   -- Dummy operand
   _ -> do

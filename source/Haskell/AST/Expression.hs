@@ -3,7 +3,6 @@
 
 module AST.Expression
   ( BinaryOperator (..)
-  , Conversion (..)
   , Expression'' (..)
   , Expression' (..)
   , QRange' (..)
@@ -30,18 +29,11 @@ import           Data.Text      (Text, unpack)
 import           Prelude        hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
-data Conversion = ToInt | ToDouble | ToChar
-  deriving (Eq)
-
-instance Show Conversion where
-  show ToInt    = "to int"
-  show ToDouble = "to double"
-  show ToChar   = "to char"
-
-
 data BinaryOperator
   = Plus | BMinus | Times | Div | Mod | Power | Max | Min
-  | And | Or | Implies | Consequent | BEQ | BNE
+  | And | Or
+  | Implies | Consequent
+  | BEQ | BNE
   | AEQ | ANE | LT | LE | GT | GE
   | Elem | NotElem | Difference | Intersection | Union
   | Subset | SSubset | Superset | SSuperset
@@ -63,8 +55,8 @@ instance Show BinaryOperator where
 
   show And        = "(/\\)"
   show Or         = "(\\/)"
-  show Implies    = "(==>)"
-  show Consequent = "(<==)"
+  -- show Implies    = "(==>)"
+  -- show Consequent = "(<==)"
   show BEQ        = "(===)"
   show BNE        = "(!==)"
 
@@ -95,14 +87,12 @@ instance Show BinaryOperator where
 
   show Concat       = "Sequence Concatenation (++)"
 
-data UnaryOperator = UMinus | Not | Abs | Sqrt | Pred | Succ
+data UnaryOperator = UMinus | Not | Pred | Succ
   deriving (Eq)
 
 instance Show UnaryOperator where
-  show Abs    = "abs"
   show UMinus = "(-)"
   show Not    = "not"
-  show Sqrt   = "sqrt"
   show Pred   = "pred"
   show Succ   = "succ"
 
@@ -228,10 +218,6 @@ data Expression'' t m
     , fRecursiveFunc :: Bool
     , fStructArgs    :: Maybe (Text, Array Int t) }
 
-  | Conversion
-    { toType :: Conversion
-    , cExp   :: Expression' t m }
-
   | Quantification
     { qOp      :: QuantOperator
     , qVar     :: Text
@@ -323,10 +309,6 @@ instance (Show t, Show m) => Treelike (Expression' t m) where
         in Node ("Call " <> rec <> "Func " <> unpack fName <> " " <> show loc)
           [ Node "Arguments" (toForest fArgs) ]
 
-    Conversion { toType, cExp } ->
-      Node (show toType <> " " <> show loc)
-        [ toTree cExp ]
-
     Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
       Node ("Quantification " <> show qOp <> " " <> show loc)
         [ Node "Variable"
@@ -390,10 +372,10 @@ prettyBinOp Intersection = " ∩ "
 prettyBinOp Union        = " ∪ "
 
 prettyUnOp :: UnaryOperator -> String
-prettyUnOp Abs    = "abs"
+-- prettyUnOp Abs    = "abs"
 prettyUnOp UMinus = " - "
 prettyUnOp Not    = " not "
-prettyUnOp Sqrt   = "sqrt"
+-- prettyUnOp Sqrt   = "sqrt"
 prettyUnOp Pred   = "pred"
 prettyUnOp Succ   = "succ"
 
@@ -436,9 +418,6 @@ instance Show t => Show (Expression' t m) where
       | otherwise ->
         let rec = if fRecursiveFunc then "(rec)" else ""
         in unpack fName <> rec <> "(" <> (show =<< toList fArgs) <> ")"
-
-    Conversion { toType, cExp } ->
-      show toType <> "(" <> show cExp <> ")"
 
     Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
       unwords

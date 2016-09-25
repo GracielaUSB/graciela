@@ -114,6 +114,8 @@ data Type
     { dimensions :: Seq Expression
     , innerType  :: Type
     } -- ^ Sized array type.
+
+  | I64 -- ^ Used for casts
   deriving (Eq)
 
 
@@ -305,3 +307,4 @@ instance Show Type where
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
+        I64               -> "64-bit int"

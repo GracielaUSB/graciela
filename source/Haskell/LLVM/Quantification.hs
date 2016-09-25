@@ -5,6 +5,7 @@
 
 module LLVM.Quantification
   ( quantification
+  , boolQ
   , collection) where
 --------------------------------------------------------------------------------
 import           AST.Expression                          (CollectionKind (..),
@@ -38,8 +39,127 @@ import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type                   (i1, i64)
 --------------------------------------------------------------------------------
 import           Debug.Trace
+
+boolQ :: Num a
+      => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
+      -> (Name -> Name -> Expression -> LLVM ()) -- ^ The boolean expression llvm-generator
+      -> Name -- ^ true destination
+      -> Name -- ^ false destination
+      -> Expression -- ^ The Quantification for which to generate code
+      -> LLVM ()
+boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+  Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
+    EmptyRange -> case qOp of
+      ForAll -> terminate $ Br true  []
+      Exists -> terminate $ Br false []
+
+    PointRange { thePoint } ->
+      boolQ expr boolean true false e
+        { exp' = exp'
+          { qRange = ExpRange
+            { low  = thePoint
+            , high = thePoint }}}
+
+    ExpRange { low, high }
+      | qOp `elem` [ForAll, Exists] -> do
+        l <- expr low
+        h <- expr high
+
+        checkRange <- newLabel "qCheckRange"
+        addInstruction $ checkRange := ICmp
+          { iPredicate = SLE
+          , operand0   = l
+          , operand1   = h
+          , metadata   = [] }
+        rangeNotEmpty <- newLabel "qRangeNotEmpty"
+        terminate CondBr
+          { condition = LocalReference i1 checkRange
+          , trueDest  = rangeNotEmpty
+          , falseDest = case qOp of
+            ForAll -> true
+            Exists -> false
+          , metadata' = [] }
+
+        (rangeNotEmpty #)
+        openScope
+
+        iterator <- insertVar qVar
+        t        <- toLLVMType qVarType
+        addInstruction $ iterator := Alloca
+          { allocatedType = t
+          , numElements   = Nothing
+          , alignment     = 4
+          , metadata      = [] }
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t iterator
+          , value    = l
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        loop <- newLabel "qLoop"
+        terminate Br
+          { dest      = loop
+          , metadata' = [] }
+
+        (loop #)
+        accum <- newLabel "qBody"
+        getNext <- newLabel "qNext"
+
+        boolean accum getNext qCond
+
+        (accum #)
+        let (true', false') = case qOp of
+              ForAll -> (getNext, false)
+              Exists -> (true,  getNext)
+        boolean true' false' qBody
+
+        (getNext #)
+        prevIterator <- newLabel "qPrevIterator"
+        addInstruction $ prevIterator := Load
+          { volatile       = False
+          , address        = LocalReference t iterator
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+        nextIterator <- newLabel "qNextIterator"
+        addInstruction $ nextIterator := Add
+          { nsw = False
+          , nuw = False
+          , operand0 = LocalReference t prevIterator
+          , operand1 = ConstantOperand $
+            C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
+          , metadata = [] }
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t iterator
+          , value    = LocalReference t nextIterator
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        bound <- newLabel "qBound"
+        addInstruction $ bound := ICmp
+          { iPredicate = SLE
+          , operand0   = LocalReference t nextIterator
+          , operand1   = h
+          , metadata   = [] }
+        terminate CondBr
+          { condition = LocalReference i1 bound
+          , trueDest  = loop
+          , falseDest = case qOp of ForAll -> true; Exists -> false
+          , metadata' = [] }
+
+    SetRange { theSet } -> internal "set iteration not implemented yet"
+
+  _ -> internal "boolQ only admits Quantification Expression"
+
+
 quantification :: Num a
                => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
+               -> (Name -> Name -> Expression -> LLVM ()) -- ^ The boolean expression llvm-generator
                -> (a
                  -> Name
                  -> (Word32 -> String)
@@ -49,7 +169,7 @@ quantification :: Num a
                  -> LLVM ()) -- ^ The safe operation llvm-generator
                -> Expression -- ^ The Quantification for which to generate code
                -> LLVM Operand
-quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
@@ -58,7 +178,7 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
     PointRange { thePoint } ->
-      quantification expr safe e
+      quantification expr boolean safe e
         { exp' = exp'
           { qRange = ExpRange
             { low = thePoint
@@ -135,15 +255,10 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
           , metadata' = [] }
 
         (loop #)
-        cond <- expr qCond
-
         accum <- newLabel "qAccum"
         getNext <- newLabel "qNext"
-        terminate CondBr
-          { condition = cond
-          , trueDest  = accum
-          , falseDest = getNext
-          , metadata' = [] }
+
+        boolean accum getNext qCond
 
         (accum #)
         e <- expr qBody
@@ -289,135 +404,6 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
 
         pure $ LocalReference qType result
 
-      | qOp `elem` [ForAll, Exists]     -> do
-        l <- expr low
-        h <- expr high
-
-        qType <- toLLVMType expType
-
-        let [t', f'] = ConstantOperand . C.Int 1 <$> [1, 0]
-
-        tLabel <- newLabel "qTrue"
-        fLabel <- newLabel "qFalse"
-        qEnd <- newLabel "qEnd"
-
-        checkRange <- newLabel "qCheckRange"
-        addInstruction $ checkRange := ICmp
-          { iPredicate = SLE
-          , operand0   = l
-          , operand1   = h
-          , metadata   = [] }
-        rangeEmpty    <- newLabel "qRangeEmpty"
-        rangeNotEmpty <- newLabel "qRangeNotEmpty"
-        terminate CondBr
-          { condition = LocalReference i1 checkRange
-          , trueDest  = rangeNotEmpty
-          , falseDest = rangeEmpty
-          , metadata' = [] }
-
-        (rangeEmpty #)
-        terminate Br
-          { dest      = case qOp of ForAll -> tLabel; Exists -> fLabel
-          , metadata' = [] }
-
-        (rangeNotEmpty #)
-        openScope
-
-        iterator <- insertVar qVar
-        t        <- toLLVMType qVarType
-        addInstruction $ iterator := Alloca
-          { allocatedType = t
-          , numElements   = Nothing
-          , alignment     = 4
-          , metadata      = [] }
-        addInstruction $ Do Store
-          { volatile = False
-          , address  = LocalReference t iterator
-          , value    = l
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
-
-        loop <- newLabel "qLoop"
-        terminate Br
-          { dest      = loop
-          , metadata' = [] }
-
-        (loop #)
-        cond <- expr qCond
-
-        accum <- newLabel "qAccum"
-        getNext <- newLabel "qNext"
-        terminate CondBr
-          { condition = cond
-          , trueDest  = accum
-          , falseDest = getNext
-          , metadata' = [] }
-
-        (accum #)
-        e <- expr qBody
-        terminate CondBr
-          { condition = e
-          , trueDest  = case qOp of ForAll -> getNext; Exists -> tLabel
-          , falseDest = case qOp of ForAll -> fLabel;  Exists -> getNext
-          , metadata' = [] }
-
-        (getNext #)
-        prevIterator <- newLabel "qPrevIterator"
-        addInstruction $ prevIterator := Load
-          { volatile       = False
-          , address        = LocalReference qType iterator
-          , maybeAtomicity = Nothing
-          , alignment      = 4
-          , metadata       = [] }
-
-        nextIterator <- newLabel "qNextIterator"
-        addInstruction $ nextIterator := Add
-          { nsw = False
-          , nuw = False
-          , operand0 = LocalReference qType prevIterator
-          , operand1 = ConstantOperand $
-            C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
-          , metadata = [] }
-        addInstruction $ Do Store
-          { volatile = False
-          , address  = LocalReference t iterator
-          , value    = LocalReference t nextIterator
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
-
-        bound <- newLabel "qBound"
-        addInstruction $ bound := ICmp
-          { iPredicate = SLE
-          , operand0   = LocalReference t nextIterator
-          , operand1   = h
-          , metadata   = [] }
-        terminate CondBr
-          { condition = LocalReference i1 bound
-          , trueDest  = loop
-          , falseDest = case qOp of ForAll -> tLabel; Exists -> fLabel
-          , metadata' = [] }
-
-        (tLabel #)
-        terminate $ Br qEnd []
-
-        (fLabel #)
-        terminate $ Br qEnd []
-
-        (qEnd #)
-        closeScope
-
-        result <- newLabel "qResult"
-        addInstruction $ result := Phi
-          { type'          = qType
-          , incomingValues =
-            [ (t', tLabel)
-            , (f', fLabel) ]
-          , metadata       = [] }
-
-        pure $ LocalReference qType result
-
       | qOp `elem` [Summation, Product, Count] -> do
         l <- expr low
         h <- expr high
@@ -483,15 +469,10 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
           , metadata' = [] }
 
         (loop #)
-        cond <- expr qCond
-
         accum <- newLabel "qAccum"
         getNext <- newLabel "qNext"
-        terminate CondBr
-          { condition = cond
-          , trueDest  = accum
-          , falseDest = getNext
-          , metadata' = [] }
+
+        boolean accum getNext qCond
 
         (accum #)
         e <- expr qBody
@@ -619,8 +600,6 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
 
   where
     v0 :: QuantOperator -> Type -> C.Constant
-    v0 ForAll    _      = C.Int  1 1
-    v0 Exists    _      = C.Int  1 0
     v0 Count     _      = C.Int 32 0
     v0 Summation GChar  = C.Int  8 0
     v0 Summation GInt   = C.Int 32 0
@@ -633,10 +612,10 @@ quantification expr safe e@Expression { loc = Location (pos, _), E.expType, exp'
     v0 Minimum   _      = undefined
     v0 Maximum   _      = undefined
 
-collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+collection expression boolean e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Collection { colKind, colVar = Nothing, colElems } -> do
       theSet <- empty colKind
-      unless (null colElems) $ do
+      unless (null colElems) $
         mapM_ (callInsert colKind theSet) colElems
       pure theSet
 
@@ -648,7 +627,7 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
             { low = thePoint
             , high = thePoint }
 
-      collection expression e
+      collection expression boolean e
         { exp' = exp'
           { colVar = Just (name, ty, range', cond) }}
 
@@ -708,15 +687,10 @@ collection expression e@Expression { loc = Location (pos, _), E.expType, exp' } 
         , metadata' = [] }
 
       (loop #)
-      cond' <- expression cond
-
       accum <- newLabel "cAccum"
       getNext <- newLabel "cNext"
-      terminate CondBr
-        { condition = cond'
-        , trueDest  = accum
-        , falseDest = getNext
-        , metadata' = [] }
+
+      boolean accum getNext cond
 
       (accum #)
 

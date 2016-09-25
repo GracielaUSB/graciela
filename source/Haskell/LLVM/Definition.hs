@@ -29,7 +29,7 @@ import qualified Location                            as L (pos)
 import           Parser.Config
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens                        (use, (%=), (.=))
+import           Control.Lens                        (use, (%=), (&), (.=))
 import           Control.Monad                       (foldM, unless, void)
 import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
@@ -125,14 +125,16 @@ definition
 
       mapM_ arrAux' funcParams
 
-      preOperand <- expression pre
       yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
       noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
+
+      preOperand <- wrapBoolean pre
+
       terminate CondBr
         { condition = preOperand
         , trueDest  = yesPre
         , falseDest = noPre
-        , metadata' = [] }
+        , metadata' = []}
 
       (noPre #)
       warn Warning.Pre (let Location (pos, _) = loc pre in pos)
@@ -217,7 +219,7 @@ definition
 
         else pure []
 
-      returnOperand <- expression funcBody
+      returnOperand <- expression' funcBody
 
       returnVar <- insertVar defName
 
@@ -236,7 +238,7 @@ definition
         , alignment = 4
         , metadata  = [] }
 
-      postOperand <- expression post
+      postOperand <- expression' post
       yesPost <- newLabel "funcPostYes"
       noPost  <- newLabel "funcPostNo"
       terminate CondBr
@@ -443,12 +445,12 @@ declarationsOrRead (Right read') = instruction read'
 
 precondition :: Expression -> LLVM Operand
 precondition expr@ Expression {loc = Location (pos,_) } = do
-    -- Evaluate the condition expression
-    cond <- expression expr
-    -- Create both label
+    -- Create both labels
     trueLabel  <- newLabel "precondTrue"
     falseLabel <- newLabel "precondFalse"
-    -- Create the conditional branch
+    -- Evaluate the condition expression
+    cond <- wrapBoolean expr
+    -- Add the conditional branch
     terminate CondBr
       { condition = cond
       , trueDest  = trueLabel
@@ -469,7 +471,7 @@ precondition expr@ Expression {loc = Location (pos,_) } = do
 postcondition :: Expression -> LLVM ()
 postcondition expr@ Expression {loc = Location(pos,_)} = do
   -- Evaluate the condition expression
-  cond <- expression expr
+  cond <- wrapBoolean expr
   -- Create both labels
   trueLabel  <- newLabel "postcondTrue"
   falseLabel <- newLabel "postcondFalse"
@@ -530,14 +532,32 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files =
-  addDefinitions $ fromList [
+  addDefinitions $ fromList
     -- Random
-      defineFunction randomInt [] intType
+    [ defineFunction randomInt [] intType
+
+    -- Conversion functions
+
+    , defineFunction float2intString  [ parameter ("x", floatType)
+                                      , parameter ("line", intType)
+                                      , parameter ("column", intType) ]
+                                      intType
+    , defineFunction char2intString   charParam intType
+    , defineFunction float2charString [ parameter ("x", floatType)
+                                      , parameter ("line", intType)
+                                      , parameter ("column", intType) ]
+                                      charType
+    , defineFunction int2charString   [ parameter ("x", intType)
+                                      , parameter ("line", intType)
+                                      , parameter ("column", intType) ]
+                                      charType
+    , defineFunction char2floatString charParam floatType
+    , defineFunction int2floatString  intParam  floatType
 
     -- Polymorphic functions
     , defineFunction sqrtIString [ parameter ("x", intType)
                                  , parameter ("line", intType)
-                                 , parameter ("column", intType)]
+                                 , parameter ("column", intType) ]
                                  intType
     , defineFunction sqrtFString [ parameter ("x", floatType)
                                  , parameter ("line", intType)
@@ -594,6 +614,19 @@ preDefinitions files =
     , defineFunction equalMultisetString  [ parameter ("ptr1", ptr i8)
                                           , parameter ("ptr2", ptr i8)]
                                           boolType
+
+    , defineFunction subsetSetString        [ parameter ("ptr1", ptr i8)
+                                            , parameter ("ptr2", ptr i8)]
+                                            boolType
+    , defineFunction subsetMultisetString   [ parameter ("ptr1", ptr i8)
+                                            , parameter ("ptr2", ptr i8)]
+                                            boolType
+    , defineFunction ssubsetSetString       [ parameter ("ptr1", ptr i8)
+                                            , parameter ("ptr2", ptr i8)]
+                                            boolType
+    , defineFunction ssubsetMultisetString  [ parameter ("ptr1", ptr i8)
+                                            , parameter ("ptr2", ptr i8)]
+                                            boolType
 
     , defineFunction insertSetString       [ parameter ("ptr", ptr i8)
                                            , parameter ("x"  , i64)]

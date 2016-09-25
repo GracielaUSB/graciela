@@ -233,7 +233,7 @@ beq'
       (Value (BoolV False), _) -> Unary Not r -- (false === y) === !y
       (_, Value (BoolV True) ) -> lexp        -- (x === true ) ===  x
       (_, Value (BoolV False)) -> Unary Not l -- (x === false) === !x
-      (_,_) -> Binary Implies l r
+      (_,_) -> Binary BEQ l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 bne'
@@ -247,7 +247,7 @@ bne'
       (Value (BoolV False), _) -> rexp        -- (false !== y) ===  y
       (_, Value (BoolV True) ) -> Unary Not l -- (x !== true ) === !x
       (_, Value (BoolV False)) -> lexp        -- (x !== false) ===  x
-      (_,_) -> Binary Implies l r
+      (_,_) -> Binary BNE l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 --------------------------------------------------------------------------------

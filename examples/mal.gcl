@@ -50,13 +50,10 @@ main
   ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4>> )
   ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4,5>> )
-  ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'c','b'>> ++ 3)
-  ; writeln ()
-  ; writeln ()
-  ; writeln ()
-  ; writeln (√(3.0))
-  ; writeln (√(3.0) * √(3.0))
-  // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant in set not implemented yet
+  ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'c','b'>>)
+
+  ; writeln (i mod 2 == 0 ==> x[1000,1000] > 0) // Test for jumping code
+  // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet
   // ; i, j := 0, 0
   // ; {inv   true    inv}
   //   {bound 6 - i bound}

@@ -309,3 +309,37 @@ double _sqrt_f (double x, int line, int column) {
   else
     return sqrt(x);
 }
+
+
+int _float2int (double x, int line, int column) {
+  if (-2147483648.49 <= x && x <= 2147483647.49)
+    return (x >= 0 ? (int)(x+0.5) : (int)(x-0.5));
+  else
+    _abort (A_OVERFLOW, line, column);
+}
+
+int _char2int (char x) {
+  return (int)(x);
+}
+
+char _float2char (double x, int line, int column) {
+  if (0.0 <= x && x <= 255.49)
+    return (char)(x+0.5);
+  else
+    _abort (A_OVERFLOW, line, column);
+}
+
+char _int2char (int x, int line, int column) {
+  if (0 <= x && x <= 255)
+    return (char)(x);
+  else
+    _abort (A_OVERFLOW, line, column);
+}
+
+double _char2float (char x) {
+  return (double)(x);
+}
+
+double _int2float (int x) {
+  return (double)(x);
+}

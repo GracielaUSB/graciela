@@ -31,6 +31,13 @@ module Parser.Config
   , inverseRelString
   , multiplicityMultiString
   , multiplicitySeqString
+  -- * LLVM Conversion function strings
+  , float2intString
+  , char2intString
+  , float2charString
+  , int2charString
+  , char2floatString
+  , int2floatString
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -79,7 +86,7 @@ defaultConfig = Config
     symbols =
       [ ("otherwise", Const GBool (BoolV True)) ] :: [(Text, Entry')]
 
-    auxInsert st (k, e') = insertSymbol k (Entry k gracielaDef e') st
+    auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 
     nativeFunctions = Map.mapWithKey wrap $ Map.empty &~ do
       at "abs"          ?= (absG         , [])
@@ -94,7 +101,11 @@ defaultConfig = Config
       at "sqrt"         ?= (sqrtG        , [])
       at "toMultiset"   ?= (toMultisetG  , [])
       at "toSet"        ?= (toSetG       , [])
+      at "toInt"        ?= (toIntG       , [])
+      at "toChar"       ?= (toCharG      , [])
+      at "toFloat"      ?= (toFloatG     , [])
 
+    toIntG, toCharG, toFloatG        :: Seq Type -> Either Error (Type, Text, Bool)
     absG, cardG, codomainG, domainG  :: Seq Type -> Either Error (Type, Text, Bool)
     funcG, inverseG, multiplicityG   :: Seq Type -> Either Error (Type, Text, Bool)
     relG, sqrtG, toMultisetG, toSetG :: Seq Type -> Either Error (Type, Text, Bool)
@@ -118,6 +129,42 @@ defaultConfig = Config
       , fName   = undefined
       , nParams = undefined
       , nArgs   = undefined }
+
+    toIntG [ GFloat ] = Right (GInt, pack float2intString, True)
+    toIntG [ GChar  ] = Right (GInt, pack  char2intString, False)
+    toIntG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "toInt"
+      , pTypes = [GFloat, GChar]
+      , aType  = a }
+    toIntG args = Left badNumArgs
+      { fName = "toInt"
+      , nParams = 1
+      , nArgs = length args}
+
+    toCharG [ GFloat ] = Right (GChar, pack float2charString, True)
+    toCharG [ GInt   ] = Right (GChar, pack   int2charString, True)
+    toCharG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "toChar"
+      , pTypes = [GFloat, GInt]
+      , aType  = a }
+    toCharG args = Left badNumArgs
+      { fName = "toChar"
+      , nParams = 1
+      , nArgs = length args}
+
+    toFloatG [ GChar ] = Right (GFloat, pack char2floatString, False)
+    toFloatG [ GInt  ] = Right (GFloat, pack  int2floatString, False)
+    toFloatG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "toFloat"
+      , pTypes = [GChar, GInt]
+      , aType  = a }
+    toFloatG args = Left badNumArgs
+      { fName = "toFloat"
+      , nParams = 1
+      , nArgs = length args}
 
     sqrtG [ GInt   ] = Right (GInt,   pack sqrtIString, True)
     sqrtG [ GFloat ] = Right (GFloat, pack sqrtFString, True)
@@ -334,3 +381,13 @@ inverseRelString = "_inverse_rel"
 multiplicityMultiString, multiplicitySeqString :: String
 multiplicityMultiString = "_multiplicity_multiset"
 multiplicitySeqString = "_multiplicity_seq"
+
+float2intString, char2intString   :: String
+float2intString  = "_float2int"
+char2intString   = "_char2int"
+float2charString, int2charString  :: String
+float2charString = "_float2char"
+int2charString   = "_int2char"
+char2floatString, int2floatString :: String
+char2floatString = "_char2float"
+int2floatString  = "_int2float"

@@ -15,6 +15,7 @@ import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           LLVM.Abort                         (abort)
 import qualified LLVM.Abort                         as Abort (Abort (..))
+import           LLVM.Boolean
 import           LLVM.Declaration
 import           LLVM.Expression
 import           LLVM.Monad
@@ -28,7 +29,7 @@ import           Treelike
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, when, zipWithM_)
 import           Data.Foldable                      (toList)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup                     ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
@@ -59,13 +60,7 @@ guard finish checkLabel (expr, decls, insts) = do
   yes <- newLabel "instGuardYes"
   no  <- newLabel "instGuardNo"
 
-  condition <- expression expr
-
-  terminate CondBr
-    { condition
-    , trueDest  = yes
-    , falseDest = no
-    , metadata' = [] }
+  condition <- boolean yes no expr
 
   (yes #)
   openScope
@@ -89,18 +84,11 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     warn Warning.Manual pos
 
   Assertion expr -> do
-    -- Evaluate the condition expression
-    cond <- expression expr
-    -- Create both label
+    -- Create both labels
     trueLabel  <- newLabel "assertTrue"
     falseLabel <- newLabel "assertFalse"
-    -- Create the conditional branch
-    terminate CondBr
-      { condition = cond
-      , trueDest  = trueLabel
-      , falseDest = falseLabel
-      , metadata' = []
-      }
+    -- Evaluate the condition expression using short-circuit
+    boolean trueLabel falseLabel expr
     -- Set the false label to the abort
     -- And the true label to the next instructions
     (falseLabel #)
@@ -111,13 +99,14 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
   Assign { assignPairs } -> do
     -- get the values first
-    values <- mapM expression exprs
+    values <- mapM expression' exprs
     -- then store them
     zipWithM_ assign' lvals values
     -- this way, things like `a, b := b, a` just work (tm).
 
     where
       (lvals, exprs) = unzip . toList $ assignPairs
+
       assign' lval value = do
         ref <- objectRef lval False
         type' <- toLLVMType . objType $ lval
@@ -192,8 +181,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
               []  -> expType e
 
         (,[]) <$> if mode == In && (type' =:= basicT)
-          then
-            expression e
+          then expression' e
           else do
             label <- newLabel "argCast"
             ref   <- objectRef (theObj . exp' $ e) False
@@ -295,7 +283,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 
   Write { ln, wexprs } -> do
-    operands <- mapM expression wexprs
+    operands <- mapM expression' wexprs
     mapM_ write (Seq.zip operands (expType <$> wexprs))
 
     when ln . addInstruction $ Do Call
@@ -448,14 +436,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     abort Abort.NegativeBound pos
 
     (yesGte0 #)
-    invVal <- expression rinv
     yesInv <- newLabel "doInvYes"
     noInv  <- newLabel "doInvNo"
-    terminate CondBr
-      { condition = invVal
-      , trueDest  = yesInv
-      , falseDest = noInv
-      , metadata' = [] }
+
+    boolean yesInv noInv rinv
 
     (noInv #)
     abort Abort.Invariant pos

@@ -159,9 +159,9 @@ data Token
   | TokWriteln
   | TokRead
 
-  | TokToInt
-  | TokToDouble
-  | TokToChar
+  -- | TokToInt
+  -- | TokToDouble
+  -- | TokToChar
 
   -- | TokMinInt
   -- | TokMinDouble
@@ -333,9 +333,9 @@ instance Show Token where
     TokWriteln        -> "`writeln` - Escritor con Salto de Línea"
     TokRead           -> "`read` - Lector"
 
-    TokToInt          -> "`toInt` - Conversión a Entero"
-    TokToDouble       -> "`toDouble` - Conversión a Flotante"
-    TokToChar         -> "`toChar` - Conversión a Caracter"
+    -- TokToInt          -> "`toInt` - Conversión a Entero"
+    -- TokToDouble       -> "`toDouble` - Conversión a Flotante"
+    -- TokToChar         -> "`toChar` - Conversión a Caracter"
 
     -- TokMinInt         -> "`MIN_INT` - Mínimo Entero"
     -- TokMinDouble      -> "`MIN_DOUBLE` - Mínimo Flotante"

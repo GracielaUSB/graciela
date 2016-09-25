@@ -5,6 +5,7 @@ module LLVM.Declaration
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
+import           AST.Expression                     (Expression' (..))
 import           AST.Type                           (Expression, Type (..),
                                                      isDataType, (=:=))
 import qualified AST.Type                           as G (Type)
@@ -20,7 +21,7 @@ import           Control.Monad                      (foldM, void, when,
                                                      zipWithM_)
 import           Data.Foldable                      (toList)
 import           Data.Functor                       (($>))
-import           Data.Semigroup ((<>))
+import           Data.Semigroup                     ((<>))
 import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton)
@@ -166,7 +167,7 @@ initialize gtype (lval, expr) = do
     , alignment     = 4
     , metadata      = [] }
 
-  value <- expression expr
+  value <- expression' expr
   -- The store is an unamed instruction, so get the next instruction label
   addInstruction $ Do Store
     { volatile = False

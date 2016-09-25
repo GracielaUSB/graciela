@@ -335,9 +335,9 @@ token  =  reserved "program"    TokProgram
       <|> reserved "writeln"    TokWriteln
       <|> reserved "read"       TokRead
 
-      <|> reserved "toChar"     TokToChar
-      <|> reserved "toInt"      TokToInt
-      <|> reserved "toDouble"   TokToDouble
+      -- <|> reserved "toChar"     TokToChar
+      -- <|> reserved "toInt"      TokToInt
+      -- <|> reserved "toDouble"   TokToDouble
 
       <|> reserved "true"       (TokBool True)
       <|> reserved "false"      (TokBool False)

@@ -143,6 +143,16 @@ equalSeqString = "_equalSequence"
 equalMultisetString :: String
 equalMultisetString = "_equalMultiset"
 
+subsetSetString :: String
+subsetSetString = "_subsetSet"
+subsetMultisetString :: String
+subsetMultisetString = "_subsetMultiset"
+
+ssubsetSetString :: String
+ssubsetSetString = "_ssubsetSet"
+ssubsetMultisetString :: String
+ssubsetMultisetString = "_ssubsetMultiset"
+
 insertSetString :: String
 insertSetString = "_insertSet"
 insertSeqString :: String

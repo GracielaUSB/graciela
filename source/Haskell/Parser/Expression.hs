@@ -585,7 +585,7 @@ call fName (Location (from,_)) = do
             (fArgs', types, const', taint) =
               foldl' aux (Seq.empty, Seq.empty, True, Taint False) args'
             i64cast e@Expression { E.loc, expType, expConst, exp' } =
-              e { exp' = I64Cast e }
+              e { exp' = I64Cast e, expType = I64 }
             fArgs = fArgs' & elements (`elem` casts) %~ i64cast
             SourcePos _ line col = from
             pos' = Expression loc GInt True . Value . IntV . fromIntegral . unPos <$>
