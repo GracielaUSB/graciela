@@ -221,6 +221,8 @@ token  =  reserved "program"    TokProgram
       -- V2.0
       <|> symbol   "<<"         TokLeftSeq
       <|> symbol   ">>"         TokRightSeq
+      <|> symbol   "\12296"     TokLeftSeq -- 〈
+      <|> symbol   "\12297"     TokRightSeq -- 〉
       -- V2.0
 
       <|> symbol   "=="         TokAEQ

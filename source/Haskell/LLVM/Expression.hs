@@ -437,10 +437,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
     let
       op = case expType of
-        GInt   -> opInt 32
-        GChar  -> opInt 8
+        GInt        -> opInt 32
+        GChar       -> opInt 8
         -- GBool  -> opBool
-        GFloat -> opFloat
+        GFloat      -> opFloat
+        GSet _      -> opSet
+        GMultiset _ -> opMultiset
+        GSeq _      -> opSeq
         t      -> error $
           "internal error: type " <> show t <> " not supported"
 
@@ -592,6 +595,78 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , metadata           = [] }
 
           _ -> error "opFloat"
+        return $ LocalReference floatType label
+
+      opSet op lOperand rOperand = do
+        label <- newLabel "setBinaryResult"
+        case op of 
+          Op.Union -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) unionSetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Intersection -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) intersectSetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Difference -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) differenceSetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+        return $ LocalReference floatType label
+
+      opMultiset op lOperand rOperand = do
+        label <- newLabel "multisetBinaryResult"
+        case op of 
+          Op.Union -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) unionMultisetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Intersection -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) intersectMultisetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Difference -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) differenceMultisetString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+        return $ LocalReference floatType label
+
+      opSeq op lOperand rOperand = do
+        label <- newLabel "multisetBinaryResult"
+        case op of 
+          Op.Concat -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) concatSequenceString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+
         return $ LocalReference floatType label
 
   EConditional { eguards, trueBranch } -> do

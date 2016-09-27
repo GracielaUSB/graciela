@@ -122,50 +122,55 @@ newUnLabel = newLabel ""
 callable :: Type -> String -> Either a Operand
 callable t = Right . ConstantOperand . GlobalReference t . Name
 
-initTrashCollectorString :: String
+initTrashCollectorString, freeTrashCollectorString, openScopeString :: String
 initTrashCollectorString = "_initTrashCollector"
-freeTrashCollectorString :: String
 freeTrashCollectorString = "_freeTrashCollector"
-openScopeString :: String
 openScopeString = "_openScope"
 
-newSetString :: String
+newSetString, newSeqString, newMultisetString :: String
 newSetString = "_newSet"
-newSeqString :: String
 newSeqString = "_newSequence"
-newMultisetString :: String
 newMultisetString = "_newMultiset"
 
-equalSetString :: String
-equalSetString = "_equalSet"
-equalSeqString :: String
-equalSeqString = "_equalSequence"
-equalMultisetString :: String
+equalSetString, equalSeqString, equalMultisetString :: String
+equalSetString      = "_equalSet"
+equalSeqString      = "_equalSequence"
 equalMultisetString = "_equalMultiset"
 
-subsetSetString :: String
-subsetSetString = "_subsetSet"
-subsetMultisetString :: String
+subsetSetString, subsetMultisetString :: String
+subsetSetString      = "_subsetSet"
 subsetMultisetString = "_subsetMultiset"
 
-ssubsetSetString :: String
-ssubsetSetString = "_ssubsetSet"
-ssubsetMultisetString :: String
+ssubsetSetString, ssubsetMultisetString :: String
+ssubsetSetString      = "_ssubsetSet"
 ssubsetMultisetString = "_ssubsetMultiset"
 
-insertSetString :: String
-insertSetString = "_insertSet"
-insertSeqString :: String
-insertSeqString = "_insertSequence"
-insertMultisetString :: String
+insertSetString, insertSeqString, insertMultisetString :: String
+insertSetString      = "_insertSet"
+insertSeqString      = "_insertSequence"
 insertMultisetString = "_insertMultiset"
 
-isElemSetString :: String
-isElemSetString = "_isElemSet"
-isElemMultisetString :: String
+isElemSetString, isElemMultisetString, isElemSeqString :: String
+isElemSetString      = "_isElemSet"
 isElemMultisetString = "_isElemMultiset"
-isElemSeqString :: String
-isElemSeqString = "_isElemSeq"
+isElemSeqString      = "_isElemSeq"
+
+
+unionSetString, unionMultisetString :: String
+unionSetString      = "_unionSet"
+unionMultisetString = "_unionMultiset"
+
+intersectSetString, intersectMultisetString :: String
+intersectSetString      = "_intersectSet"
+intersectMultisetString = "_intersectMultiset"
+
+differenceSetString, differenceMultisetString :: String
+differenceSetString      = "_differenceSet"
+differenceMultisetString = "_differenceMultiset"
+
+concatSequenceString :: String
+concatSequenceString = "_concatSequence"
+
 
 freeString    :: String
 freeString    = "_free"

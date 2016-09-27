@@ -55,8 +55,8 @@ instance Show BinaryOperator where
 
   show And        = "(/\\)"
   show Or         = "(\\/)"
-  -- show Implies    = "(==>)"
-  -- show Consequent = "(<==)"
+  show Implies    = "(==>)"
+  show Consequent = "(<==)"
   show BEQ        = "(===)"
   show BNE        = "(!==)"
 
@@ -86,6 +86,8 @@ instance Show BinaryOperator where
   show BifuncAt     = "Function or Relation Access (@)"
 
   show Concat       = "Sequence Concatenation (++)"
+
+
 
 data UnaryOperator = UMinus | Not | Pred | Succ
   deriving (Eq)

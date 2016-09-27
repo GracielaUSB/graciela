@@ -129,6 +129,7 @@ extern "C" {
     int     _equalSequence(int8_t* ptr1, int8_t* ptr2);
     int     _isElemSequence(int8_t* ptr, t x);
     void    _insertSequence(int8_t* ptr, t x);
+    int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2);
     int     _sizeSequence(int8_t* ptr);
     void    _freeSequence(int8_t* ptr);
     

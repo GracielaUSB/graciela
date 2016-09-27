@@ -99,7 +99,7 @@ extern "C" {
         Set *set1   = (Set*)ptr1,
             *set2   = (Set*)ptr2,
             *newset = (Set*)_newSet();
-        
+      
         set_intersection(set1->begin(), set1->end(),
                          set2->begin(), set2->end(),
                          inserter(*newset, newset->begin()));
@@ -458,7 +458,16 @@ extern "C" {
     void _insertSequence(int8_t* ptr, t x){
         ((Sequence*)ptr)->push_back(x);
     }
-    
+  
+    int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2){
+      Sequence *seq1   = (Sequence*)ptr1,
+               *seq2   = (Sequence*)ptr2,
+               *newSeq = (Sequence*)_newSequence();
+      newSeq->insert( newSeq->end(), seq1->begin(), seq1->end());
+      newSeq->insert( newSeq->end(), seq2->begin(), seq2->end());
+      return (int8_t*)newSeq;
+    }
+  
     int _sizeSequence(int8_t* ptr){
         return (int) ((Sequence*)ptr)->size();
     }

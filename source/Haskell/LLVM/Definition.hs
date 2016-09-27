@@ -617,14 +617,17 @@ preDefinitions files =
                                               , parameter ("cont", ptr i8) ]
                                               intType
 
-    -- (Bi)Functors
-    , defineFunction newSetString             [] (ptr i8)
-    , defineFunction newSeqString             [] (ptr i8)
-    , defineFunction newMultisetString        [] (ptr i8)
+
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
     , defineFunction openScopeString          [] voidType
 
+    -- (Bi)Functors
+    , defineFunction newSetString             [] (ptr i8)
+    , defineFunction newSeqString             [] (ptr i8)
+    , defineFunction newMultisetString        [] (ptr i8)
+
+--------------------------------------------------------------------------------
     , defineFunction equalSetString       [ parameter ("ptr1", ptr i8)
                                           , parameter ("ptr2", ptr i8)]
                                           boolType
@@ -634,7 +637,7 @@ preDefinitions files =
     , defineFunction equalMultisetString  [ parameter ("ptr1", ptr i8)
                                           , parameter ("ptr2", ptr i8)]
                                           boolType
-
+--------------------------------------------------------------------------------
     , defineFunction subsetSetString        [ parameter ("ptr1", ptr i8)
                                             , parameter ("ptr2", ptr i8)]
                                             boolType
@@ -647,7 +650,7 @@ preDefinitions files =
     , defineFunction ssubsetMultisetString  [ parameter ("ptr1", ptr i8)
                                             , parameter ("ptr2", ptr i8)]
                                             boolType
-
+--------------------------------------------------------------------------------
     , defineFunction insertSetString       [ parameter ("ptr", ptr i8)
                                            , parameter ("x"  , i64)]
                                            voidType
@@ -657,8 +660,7 @@ preDefinitions files =
     , defineFunction insertMultisetString  [ parameter ("ptr", ptr i8)
                                            , parameter ("x"  , i64)]
                                            voidType
-
-
+--------------------------------------------------------------------------------
     , defineFunction isElemSetString [ parameter ("ptr", ptr i8)
                                      , parameter ("x", i64)]
                                      boolType
@@ -668,7 +670,31 @@ preDefinitions files =
     , defineFunction isElemSeqString [ parameter ("ptr", ptr i8)
                                      , parameter ("x", i64)]
                                      boolType
+--------------------------------------------------------------------------------
+    , defineFunction unionSetString      [ parameter ("ptr1", ptr i8)
+                                         , parameter ("ptr2", ptr i8)]
+                                         (ptr i8)
+    , defineFunction intersectSetString  [ parameter ("ptr1", ptr i8)
+                                         , parameter ("ptr2", ptr i8)]
+                                         (ptr i8)
+    , defineFunction differenceSetString [ parameter ("ptr1", ptr i8)
+                                         , parameter ("ptr2", ptr i8)]
+                                         (ptr i8)
 
+    , defineFunction unionMultisetString  [ parameter ("ptr1", ptr i8)
+                                          , parameter ("ptr2", ptr i8)]
+                                          (ptr i8)
+    , defineFunction intersectMultisetString  [ parameter ("ptr1", ptr i8)
+                                              , parameter ("ptr2", ptr i8)]
+                                              (ptr i8)
+    , defineFunction differenceMultisetString [ parameter ("ptr1", ptr i8)
+                                              , parameter ("ptr2", ptr i8)]
+                                              (ptr i8)
+--------------------------------------------------------------------------------
+    , defineFunction concatSequenceString [ parameter ("ptr1", ptr i8)
+                                          , parameter ("ptr2", ptr i8)]
+                                          (ptr i8)
+--------------------------------------------------------------------------------
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)
                                  , parameter ("line", intType)

@@ -84,7 +84,7 @@ TEST_CASE("Graciela Relation"){
 }
 
 TEST_CASE("Graciela Function"){
-    _initTrashCollector;
+    _initTrashCollector();
     _openScope();
     Function f = _newFunction();
     _insertFunction(f, 1, 2);
@@ -135,7 +135,7 @@ TEST_CASE("Graciela Function"){
 
 TEST_CASE("Graciela Multiset"){
     
-    _initTrashCollector;
+    _initTrashCollector();
     _openScope();
     Multiset empty = _newMultiset();
     Multiset s = _newMultiset();
@@ -228,9 +228,13 @@ TEST_CASE("Graciela Multiset"){
 
 TEST_CASE("Graciela Set"){
     /* Create set, insert element and is element */
-    _initTrashCollector;
+    _initTrashCollector();
+    int x = -10, y = -10 >> 31;
+    printf("%d\n",y);
     _openScope();
     Set s = _newSet();
+    REQUIRE(_equalSet(_unionSet(s,s), s));
+
     REQUIRE(_sizeSet(s) == 0);
     _insertSet(s, 1);
     _insertSet(s, 1);
@@ -296,5 +300,11 @@ TEST_CASE("Graciela Set"){
     _insertSet(s2, 6);
     REQUIRE_FALSE(_includesSet(s, s2));
     REQUIRE(_includesSet(s2, s));
+  
+  Set a = _newSet(), b = _newSet();
+  _insertSet(a, 4);
+  _insertSet(b, 4);
+  REQUIRE(_equalSet(_differenceSet(a, b), _newSet()));
+  
     _freeTrashCollector();
 }
