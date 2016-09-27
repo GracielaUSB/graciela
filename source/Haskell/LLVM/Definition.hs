@@ -436,7 +436,7 @@ definition
 
     getDTs (_, t, _) = case t of
       T.GDataType {} -> True
-      _ -> False
+      _              -> False
 
 
 declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
@@ -533,11 +533,31 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files =
   addDefinitions $ fromList
-    -- Random
-    [ defineFunction randomInt [] intType
+
+    [ -- Random
+      defineFunction randomInt [] intType
+
+
+
+    -- Trace pseudo Functions
+    , defineFunction traceIntString         intParam intType
+    , defineFunction traceFloatString       floatParam floatType
+    , defineFunction traceCharString        charParam charType
+    , defineFunction traceBoolString        boolParam boolType
+    , defineFunction traceStringIntString   [ parameter ("x", stringType)
+                                            , parameter ("y", intType) ]
+                                            intType
+    , defineFunction traceStringFloatString [ parameter ("x", stringType)
+                                            , parameter ("y", floatType) ]
+                                            floatType
+    , defineFunction traceStringCharString  [ parameter ("x", stringType)
+                                            , parameter ("y", charType) ]
+                                            charType
+    , defineFunction traceStringBoolString  [ parameter ("x", stringType)
+                                            , parameter ("y", boolType) ]
+                                            boolType
 
     -- Conversion functions
-
     , defineFunction float2intString  [ parameter ("x", floatType)
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]

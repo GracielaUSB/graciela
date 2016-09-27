@@ -106,26 +106,6 @@ identifier = lexeme $
   TokId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf "_?'"))
 
 
--- emptyMultiset :: Lexer TokenPos
--- emptyMultiset = try . lexeme $ ascii <|> utf8
---   where
---     ascii =
---       symbol "{{"     TokLeftBag  *>
---       symbol "}}"     TokRightBag *>
---       pure TokEmptyMultiset
---     utf8 =
---       symbol "\10181" TokLeftBag  *>
---       symbol "\10182" TokRightBag *>
---       pure TokEmptyMultiset
---
---
--- emptySet :: Lexer TokenPos
--- emptySet = try . lexeme $
---   symbol "{" TokLeftBrace  *>
---   symbol "}" TokRightBrace *>
---   pure TokEmptySet
-
-
 unexpected :: Lexer TokenPos
 unexpected = lexeme $ TokUnexpected <$> anyChar
 
@@ -334,10 +314,6 @@ token  =  reserved "program"    TokProgram
       <|> reserved "write"      TokWrite
       <|> reserved "writeln"    TokWriteln
       <|> reserved "read"       TokRead
-
-      -- <|> reserved "toChar"     TokToChar
-      -- <|> reserved "toInt"      TokToInt
-      -- <|> reserved "toDouble"   TokToDouble
 
       <|> reserved "true"       (TokBool True)
       <|> reserved "false"      (TokBool False)

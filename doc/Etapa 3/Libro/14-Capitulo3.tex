@@ -1,0 +1,157 @@
+
+\chapter{Marco Metodológico}
+
+\thispagestyle{empty} 
+
+Este capítulo presenta los aspectos metodológicos para el desarrollo
+del proyecto de pasantía, se realiza una breve descripción la metodología
+utilizada así como su implementación en este proyecto.
+
+
+\section{AUP}
+
+El Proceso Unificado Agil (\textit{Agile Unified Process}, AUP o AgileUP)
+es una metodología para el desarrollo de software, basado en el Rational
+Unified Process (RUP) de IBM. Describe de una forma simple la forma
+de desarrollar aplicaciones de software de negocio utilizando técnicas
+ágiles y conceptos que aún se mantienen válidos en RUP. \cite{Cap3.AUP2}
+
+AUP emplea técnicas ágiles, incluyendo Desarrollo Guiado por Pruebas
+(\textit{Test Driven Development} o TDD), modelado ágil, gestión ágil
+de cambios y refactorización de bases de datos. Algunas de estas técnicas
+formaron parte integral del desarrollo del proyecto. 
+
+AUP establece metas y objetivos donde las colaboraciones son usadas
+para lograr resultados. Una colaboración puede referirse a un trabajo
+realizado por un sólo individuo que interactúa con otros, o puede
+referirse a un grupo de trabajo que involucra a múltiples individuos
+que interactúan unos con otros y con agentes externos. \cite{Cap3.AUP1} 
+
+Para el desarrollo de este proyecto la metodología AUP fue implementada
+siguiendo la documentación de la versión 1.1 del Proceso Unificado
+Ágil. Se emplea AUP debido a que presenta un equilibrio entre las
+etapas de diseño, planificación y documentación del sistema, con la
+implementación del mismo, por lo tanto, se sigue manteniendo un desarrollo
+estructurado y coherente, pero brindando una mayor flexibilidad para
+el programador, tanto para en tiempo efectivo de implementación, como
+en el manejo de cambios en el sistema a través del proceso de desarrollo.
+
+
+\section{Fases de AUP}
+
+La metodología AUP, (al igual que RUP), busca dividir el desarrollo
+de software en cuatro (4) fases, cada una de las cuales comprende
+técnicas y disciplinas de desarrollo, que permiten iterar sobre ellas
+hasta lograr el cumplimiento de los objetivos planteados. Al ser una
+metodología flexible y ágil, AUP permite que las técnicas que componen
+cada fase, se puedan adecuar a las necesidades y realidades del proyecto. 
+
+A continuación, se muestra un gráfico con las fases de la metodología
+AUP (Figura 3.1).
+
+\begin{center}
+\begin{figure}[h]
+\centering{}%%\includegraphics[scale=0.65]{\string"Images/Fases AUP\string".png}\caption{Fases y disciplinas de la metodología AUP \cite{Cap3.AUPFases}.}
+\end{figure}
+
+\par\end{center}
+
+El eje vertical representa la dimensión dinámica, relativa al tiempo
+y el eje horizontal la dimensión estática.
+
+
+\section{Implementacion en el Proyecto de Pasantia}
+
+AUP es una metodología de cuatro fases, cada una compuesta por un
+conjunto de técnicas y disciplinas de desarrollo. Por ser una metodología
+ágil, estas técnicas y disciplinas pueden ser adaptadas a las necesidades,
+recursos e intereses del proyecto y de la empresa.
+
+Durante el desarrollo de este proyecto se llevaron a cabo las cuatro
+fases de la metodología: inicio, elaboración, construcción y transición.
+Las fases de inicio y elaboración se llevaron a cabo en una iteración,
+la fase de construcción en tres iteraciones por cada plataforma y
+la fase de transición en una iteración. 
+
+
+\subsection{Inicio (\textit{Inception})}
+
+Esta es la primera fase del ciclo de vida donde se identifica el alcance
+inicial del proyecto. El objetivo principal es archivar el consenso
+de los interesados del proyecto en relación a los objetivos del mismo
+para obtener financiamiento. \cite{Cap3.AUPFases}
+
+En el contexto de este proyecto los objetivos dispuestos para esta
+fase están centrados en la definición de los requerimientos del sistema.
+Las actividades realizadas comprenden la introducción a la empresa,
+investigación acerca de la situación actual, obtención y modelación
+inicial de los requerimientos, planteamiento y estudio de las herramientas
+a utilizar, elaboración de un plan de riesgos, elaboración inicial
+de un plan de pruebas, elaboración inicial del glosario y la planificación
+de actividades para las siguientes iteraciones. 
+
+
+\subsection{Elaboración (\textit{Elaboration})}
+
+La segunda fase consiste en probar la arquitectura potencial del sistema.
+Se trata de determinar que el equipo pueda desarrollar un sistema
+que satisfaga los requisitos, por lo que se realiza una construcción
+de extremo a extremo del esqueleto del trabajo, conocido como \textquotedblleft{}prototipo
+de la arquitectura\textquotedblright{}. 
+
+Los riesgos se detallan lo suficiente como para entender los riesgos
+de la arquitectura y para asegurar que exista una comprensión de los
+alcances de cada requerimiento para que la planificación posterior
+se puede llevar a cabo. {[}19{]}
+
+En este proyecto las actividades comprendidas durante esta fase involucran
+la identificación de los riesgos técnicos, el modelado de la arquitectura
+y diseños de prototipos, así como la refinación de documentos desarrollados
+en la fase anterior. 
+
+
+\subsection{Construcción (\textit{Construction})}
+
+Esta fase involucra la construcción de un software funcional sobre
+una base regular e incremental, las cuales cumplan con las prioridades
+más importantes para los involucrados o usuarios del proyecto. El
+objetivo de esta fase consiste en desarrollar el sistema hasta el
+punto que se encuentra listo para la pre-producción de pruebas. {[}19{]} 
+
+Para este proyecto esta fase presenta tres iteraciones: 
+\begin{itemize}
+\item Primera iteración:
+
+\begin{itemize}
+\item Diseño de un nuevo protocolo de comunicacion con el servidor.
+\item Diseño e implementación del mecanismo de obtención de datos.
+\end{itemize}
+\item Segunda iteración:
+
+\begin{itemize}
+\item Diseño e implementación de almacenamiento en cache.
+\item Diseño e implementación del funcionamiento al no tener red de datos.
+\end{itemize}
+\item Tercera iteración:
+
+\begin{itemize}
+\item Diseño e implementación de la lógica de retraso de peticiones.
+\end{itemize}
+\end{itemize}
+
+\subsection{Transición (\textit{Transition})}
+
+Esta última fase consiste en la validación y despliegue del sistema
+en su ambiente de producción. Durante esta fase deben hacerse pruebas
+extensivas, para asegurarse de que el sistema puede ser desplegado
+de manera segura y eficiente. {[}19{]}
+
+En el desarrollo de este proyecto en la fase de transición se realizaron
+las pruebas necesarias para comprobar el funcionamiento correcto de
+los componentes para las dos plataformas y la refinación de documentos.
+El alcance de este proyecto de pasantía sólo abarca hasta la generación
+de documentos, con la elaboración del informe de pasantía. En este
+sentido el proceso de puesta en producción queda fuera de las 20 semanas
+estipuladas. 
+
+\newpage{}

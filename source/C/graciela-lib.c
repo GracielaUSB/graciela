@@ -343,3 +343,37 @@ double _char2float (char x) {
 double _int2float (int x) {
   return (double)(x);
 }
+
+
+int _traceIntString (int x) {
+  printf("TRACE: %i\n", x);
+  return x;
+}
+double _traceFloatString (double x) {
+  printf("TRACE: %f\n", x);
+  return x;
+}
+char _traceCharString (char x) {
+  printf("TRACE: %c\n", x);
+  return x;
+}
+int _traceBoolString (int x) {
+  printf("TRACE: %s\n", x ? "true" : "false");
+  return x;
+}
+int _traceStringIntString (char* x, int y) {
+  printf("TRACE: (%s, %i)\n", x, y);
+  return y;
+}
+double _traceStringFloatString (char* x, double y) {
+  printf("TRACE: (%s, %f)\n", x, y);
+  return y;
+}
+char _traceStringCharString (char* x, char y) {
+  printf("TRACE: (%s, %c)\n", x, y);
+  return y;
+}
+int _traceStringBoolString (char* x, int y) {
+  printf("TRACE: (%s, %s)\n", x, y ? "true" : "false");
+  return y;
+}

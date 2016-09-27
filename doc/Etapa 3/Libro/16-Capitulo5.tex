@@ -1,0 +1,893 @@
+
+\chapter{Desarrollo}
+
+\thispagestyle{empty} 
+
+A continuación, se presenta el proceso de desarrollo de la pasantía.
+Se describen, de manera específica, cada una de las actividades realizadas
+en cada fase de AUP, las dificultades encontradas y las decisiones
+tomadas a lo largo del desarrollo. 
+
+
+\section{Face de Inicio}
+
+Los objetivos principales de la primera fase son la identificación
+del alcance inicial del proyecto y la modelación de los requerimientos
+especificados para el componente. Esta fase fue planificada para ser
+desarrollada en una iteración. 
+
+
+\subsection{Actividades propuestas dentro de la fase de inicio}
+
+Las actividades consideradas a llevar a cabo en la fase de inicio
+son las siguientes:
+\begin{enumerate}
+\item Introducción a la empresa.
+\item Investigación acerca la situación actual, lo que incluye: 
+
+\begin{enumerate}
+\item Investigación acerca la publicidad en dispositivos móviles. 
+\item Investigación acerca las formas de publicidad entregada por la empresa. 
+\item Investigación acerca de componentes de publicidad para móviles en
+el mercado.
+\item Investigación acerca del AdServer MobileX. 
+\item Investigación acerca del AdField MobileX.
+\end{enumerate}
+\item Modelación inicial de los requerimientos.
+\item Planteamiento y estudio de las herramientas a utilizar, así como de
+los usuarios involucrados. 
+\item Elaboración inicial de un Plan de Riesgos. 
+\item Planificación de las actividades para las siguientes iteraciones.
+\end{enumerate}
+
+\subsection{Modelado de Requerimientos de Alto Nivel}
+
+El objetivo del modelado de requerimientos es identificar las metas
+del negocio, desarrollar una visión común y determinar los requerimientos
+iniciales del componente en un alto nivel. 
+
+Para la determinación del alcance inicial del proyecto fue necesaria
+la construcción de un listado de requerimientos, con la finalidad
+de obtener una visión acerca de lo qué se pretendía lograr y la identificación
+de una solución viable. Debido a limitaciones de tiempo y por decisión
+de los dirigentes de la empresa donde fue desarrollado el proyecto
+de pasantía, el enfoque del desarrollo de este proyecto estuvo dirigido
+a requerimientos funcionales.
+
+Luego de establecer los requerimientos, estos se dividieron en tres
+categorías, dependiendo de la prioridad y las funcionalidades que
+se desean implementar. Las categorías son: Requerimientos Básicos,
+Requerimientos Avanzados y Requerimientos Adicionales.
+
+Los Requerimientos Básicos son aquellos que permiten hacer la solicitud
+de la publicidad y colocarla adecuadamente en los dispositivos portátiles.
+Además permiten hacer el reporte de las impresiones en pantalla y
+de los clics hechos soble la publicidad. Los siguientes requerimientos
+pertenecen a este grupo:
+\begin{itemize}
+\item Definir un nuevo protocolo de comunicación ligero.
+\item Mostrar de forma efectiva las formas de publicidad manejadas por la
+empresa.
+\item Notificar que se realizó la impresión de la creatividad.
+\item Notificar que se realizó clic en la creatividad y mostrar el contenido.
+\end{itemize}
+Los requerimientos Avanzados son aquellos que permiten reutilizar
+las publicidades descargadas mientras las mismas estén dentro del
+periodo de validez enviado por el servidor. Estos requerimientos ayudan
+a resta carga de trabajo al servidor y reducen el tiempo que tarda
+en aparecer la publicidad. Este estos requerimientos se encuentran:
+\begin{itemize}
+\item Definir mecanismo de almacenamiento.
+\item Definir mecanismo de rotación.
+\end{itemize}
+Los requerimientos Adicionales son aquellos que complementan los requerimientos
+Básicos y Avanzados para tener un componente que siga las reglas del
+negocio de la empresa.
+\begin{itemize}
+\item Definir mecanismo de colocación de creatividad si el dispositivo no
+tiene conexión a red de datos.
+\item Reducir el trabajo del servidor a la hora de decidir la creatividad
+a enviar.
+\item Reporte de la versión del componente y nombre de la aplicación.
+\item Permitir la segmentación de los usuarios.
+\item Definir mecanismo de segmentación por país y operadora.
+\end{itemize}
+La lista de estos requerimientos se encuentra contemplada en el Documento
+de Requerimientos del Software especificado en el Apéndice \ref{chap:Requerimientos}.Gracias
+a esta recaudacion se puede tener una idea general acerca las funcionalidades
+del componente sin enfocarse en los detalles de implementación, y
+de esta manera tener una mejor idea de qué es lo que se desea implementar.
+Esta forma de representación permite conocer lo que el usuario necesita
+sin dejar que las decisiones de implementación interfieran.
+
+
+\subsection{Hardware}
+
+Para el desarrollo del componente en iOS se utilizó como estación
+de trabajo una laptop MacBook, con acceso a internet, procesador Intel
+Core 2 Duo de 2 GHz, 1 GB de memoria RAM, 160 GB de disco duro y sistema
+operativo Mac OS X 10.6.8 Snow Leopard. 
+
+En el caso de la versión de Android, se utilizó una computadora de
+escritorio de marca Lenovo, con acceso a internet, procesador Intel
+Premium Dual de 2.40 GHz, 2 GB de memoria RAM, 150 GB de disco duro
+y sistema operativo de 32 bits Windows XP Professional Version 2002
+Service Pack 3. 
+
+
+\subsection{Software}
+
+El lenguaje utilizado para el desarrollo del componente en iOS fue
+Objective-C, usando como IDE (Entorno de Desarrollo Integrado) Xcode
+Versión 4.0. 
+
+En el caso del componente en Android, se usó como IDE Eclipse 3.7
+Indigo, con un plugin de Herramienta de Desarrollo de Android (Android
+Development Tools), y como lenguaje de programación Java. 
+
+
+\subsection{Usuarios que participan en el sistema}
+
+En el cuadro 5.1 se listan los usuarios que participan en el componente:
+
+\begin{table}[h]
+\textbf{\caption{Usuarios que participan en el Sistema}
+}
+
+\centering{}%
+\begin{longtable}{|c|>{\centering}p{11cm}|}
+\hline 
+\textbf{Nombre} & \textbf{Descripción}\tabularnewline
+\hline 
+{\footnotesize Administrador} & {\footnotesize Se encarga de administrar el sistema AdServer MobileX.}\tabularnewline
+\hline 
+{\footnotesize Desarrollador de Aplicaciones} & {\footnotesize Es el creador de la aplicación donde será desplegada
+la publicidad. Entre sus responsabilidades se encuentra el uso apropiado
+del componente, para que la publicidad se muestre de la mejor manera
+y se haga el reporte de manera apropiada.}\tabularnewline
+\hline 
+{\footnotesize Desarrollador del la Creatividad} & {\footnotesize Es el creador de la publicidad desplegada en las aplicaciones. }\tabularnewline
+\hline 
+{\footnotesize Desarrollador del Componente} & {\footnotesize Es el creador del componente para las plataformas móviles
+utilizadas en la empresa. Entre sus responsabilidades esta crear un
+componente portable, funcional y extensible que sea fácil de utilizar
+por el desarrollador de aplicaciones. }\tabularnewline
+\hline 
+\end{longtable}
+\end{table}
+
+
+
+\subsection{Riesgos}
+
+Se elaboró una lista de riesgos inicial para la identificación de
+riesgos y la mitigación temprana de los mismos, evitando retrasos
+en la terminación de los módulos del sistema. Entre los riesgos listados
+se encuentran: 
+\begin{itemize}
+\item Falla Física sobre la Máquina de Trabajo.
+\item Falta de Documentación sobre el Protocolo Actual.
+\item Falta de Documentación sobre el Componente Actual.
+\item Falta de Tiempo del Administrador del Servidor para Realizar Pruebas.
+\item Falta de Conocimientos sobre el Software a utilizar
+\item Falta de Planificación
+\end{itemize}
+El plan de riesgos final se encuentra anexado en el Apéndice \ref{chap:Documento-de-Lista}. 
+
+
+\subsection{Plan de Pruebas}
+
+Se realizó la versión inicial del plan de pruebas. Este documento
+incluye una recolección de las pruebas a realizar para la comprobación
+del correcto funcionamiento del componente.
+
+
+\section{Fase de Elaboración}
+
+El principal objetivo de esta fase es asegurar la factibilidad del
+componente a desarrollar, a través de un diseño de las funcionalidades
+a implementar. 
+
+Las principales actividades realizadas durante esta fase fueron el
+diseño de prototipos que cumplieran con los requerimientos iniciales
+especificados en la fase anterior (a partir de un modelado por lluvia
+de ideas), configuración del ambiente de desarrollo y la refinación
+de documentos realizados en la fase de inicio. 
+
+Para la realización de esta fase se realizó una investigación exhaustiva
+acerca el sistema MobileX, tanto del servidor como del cliente, con
+el objetivo de tener una idea acerca su funcionamiento, y las mejoras
+necesarias correspondientes al modelo de negocio de la empresa. Esta
+fase fue planificada para realizarse en una iteración. 
+
+
+\subsection{Modelado por Lluvia de Ideas}
+
+El modelado por lluvia de ideas es un método que comprende la presentación
+de un conjunto de ideas, que luego son analizadas para concluir la
+mejor solución de acuerdo a los requerimientos, procediendo a un refinamiento
+de casos de uso. Esta técnica se llevó a cabo para cada uno de los
+requerimientos iniciales: 
+
+
+\subsubsection{Definir un nuevo protocolo de comunicación ligero}
+
+Para la comuniación entre el AdServer MobileX y el componente AdField
+MobileX se usa XML-RPC. El componente envía un XML con el número de
+zona y una serie de datos vacios, y recibe un xml, con muchos datos
+que no utiliza. Como las aplicaciones en los dispositivos móviles
+se ven afectadas por la cantidad de datos que envían y reciben, el
+objetivo del nuevo protocolo es que sea lo más simple y reducido que
+se pueda.
+
+
+\subsubsection*{Mantener la comunicación con XML-RPC y reducir los datos enviados}
+
+Al evaluar la estructura XML que envía el componente al solicitar
+la publicidad vimos que actualmente la unica información importante
+es el número de zona. Los demás datos son vacíos y el servidor no
+hace uso de ellos. Así que se podría enviar el XML con ese único valor.
+
+Por otra parte, después de evaluar la estructura XML-RPC recibida,
+donde solo una pequeña parte servía para la impresión y el reporte
+de las creatividades, definimos una nueva respuesta que enviaría el
+servidor. La estructura nueva enviará unicamente los siguientes campos: 
+\begin{enumerate}
+\item Dirección url donde se encuentra la creatividad.
+\item Dirección url que será llamada cuando se muestre la creatividad en
+la aplicación.
+\item Dirección url que será llamada cuando se haga clic sobre la creatividad
+en la aplicación.
+\item Ancho que mide la creatividad.
+\item Alto que mide la creatividad.
+\item Identificador identificador del tipo de creatividad.
+\item Tipo de contenido.
+\item Tipo de campaña.
+\item Fecha de vencimiento.
+\item Tiempo en cache.
+\end{enumerate}
+
+\subsubsection*{Realizar la comunicacion mediante JSON-RPC y reducir los datos enviados}
+
+A pesar de que la cantidad de datos enviados por ambas partes se reduce
+con la solución propuesta anteriormente, JSON-RPC ofrece una comunicación
+mucho más ligera, por usar el formato JSON para codificar las estructuras.
+Por lo tanto esta solución es mucho mejor que la anterior. 
+
+
+\subsubsection*{Realizar la comunicacion mediante un híbrido del JSON-RPC}
+
+El AdServer MobileX es un servidor que realiza diversos servicios,
+por lo que se busca también quitarle un poco de carga. Enviar unos
+cuantos argumentos en un JSON generará que el servidor deba parsear
+esta estructura para obtener los datos que necesita para responder
+con la creatividad adecuada. Por lo tanto, después de varias discusiones
+con miembros de la empresa encargados del servidor, se decidió colocar
+los argumentos en la dirección url a la cual se realiza la peticion
+de publicidad. Por lo tanto, si se desea enviar un numero de zona,
+el url lucirá algo como:
+
+\begin{center}
+http://direccion.del.servidor/procedimientoremoto.php?zoneid=1
+\par\end{center}
+
+Se decidió que la respuesta del servidor fuera un JSON como se planteó
+anteriormente.
+
+Sin embargo, las plataformas iOS y Android no tienen una librería
+nativa para la decodificación de archivos JSON en las versiones mínimas
+que se desean soportar (estas versiones son la 3.2 para Android y
+la 3.0 para iOS). Por esta razón se deben buscar librerías de terceros
+que perminan hacer la decodificación.
+
+
+\subsubsection{Reducir el trabajo del servidor a la hora de decidir la creatividad
+a enviar}
+
+Por cada campaña, el servidor mantiene diversos tamaños de una misma
+creatividad, a fin de enviar al cliente el más apropiado para el dispositivo
+desde el cual está realizando la petición. Para tomar la decisión
+de que tamaño enviar, el servidor obtiene de los parámetros provenientes
+de la solicitud http el agente de usuario (user agent), posteriormente
+lo busca en una tabla, para obtener los tamaños de la pantalla soportados
+por el dispositivo. Gracias a los tamaños, busca una creatividad que
+sea menor al área de la pantalla del dispositivo. Si no encuentra
+el agente de usuario en la lista, envia una creatividad por defecto,
+la cual puede no ser la más apropiada para el dispositivo.
+
+La tabla con la lista de los agentes de usuario es llenada a mano
+por el administrador del servidor. Esta lista debe ser actualizada
+cada vez que sale un nuevo sistema operativo o un navegador (o una
+nueva versión de los que ya existen).
+
+La solución a este problema es que se envíe en los argumentos de la
+petición de publicidad el alto y el ancho de la pantalla del dispositvo,
+de manera de quitarle al servidor el paso de buscar en la lista. Por
+lo tanto, el url lucirá como: 
+
+\begin{center}
+http://direccion.del.servidor/procedimientoremoto.php?zoneid=1\&width=1\&height=1
+\par\end{center}
+
+
+\subsubsection{Reporte de la versión del componente y nombre de la aplicación}
+
+Para los datos estadísticos que maneja el servidor con respecto a
+la utilización del componente por parte de las diferentes plataformas
+y aplicaciones, se desea que el servidor reciba por parte del cliente
+el número de la versión del componente y el nombre de la aplicación
+que lo está usando. Después de discutir con otros miembros de la empresa
+especializados en el servidor, se decidió que la mejor manera de enviar
+estos datos es agregarlos al agente de usuario que se envía al servidor.
+Por lo tanto, un agente de usuario lucirá de la sigueinte manera:
+
+\begin{center}
+<Agente\_de\_Usuario> \textbf{MobileX/<Número\_Versión>} \textbf{<Nombre\_Aplicación>}
+\par\end{center}
+
+
+\subsubsection{Permitir la segmentación de los usuarios}
+
+El sistema AdServer MobileX permite el registro de usuarios a través
+de las aplicaciones para disfrutar de algunos servicios que ofrece.
+Al hacer este registro el servidor envía al cliente una cadena de
+caracteres que sirve para realizar la segmentación de los usuarios.
+Se desea que si se posee esta cookie, se pueda enviar al servidor,
+de manera de que pueda enviar inteligentemente la publicidad, es decir,
+si en una zona se tiene una publicidad de una zapatería para niños
+y otra de una tienda de deportes, se envíe la primera si la persona
+es una mujer entre los 30 y los 40 años, mientras que es mejor enviar
+la segunda si la persona es un hombre entre los 18 y los 60 años.
+
+Se decidió enviar este valor en la solicitud que se hace al servidor
+como un argumento más. Por lo tanto, el url lucirá como:
+
+\begin{center}
+http://direccion.del.servidor/procedimientoremoto.php?zoneid=1\&cookie=C00K13
+\par\end{center}
+
+
+\subsubsection{Definir mecanismo de segmentación por país y operadora\label{mcc-mnc}}
+
+Mobile Media Netowrks ofrece sus servicios a diferentes países de
+America Latina, por lo que es necesario lograr segmentar la entrega
+de las campañas por países, o por operadoras. Por ejemplo, una empresa
+de telefonía presente en varios países podría colocar una creatividad
+anunciando los nuevos precios de un determinado plan de datos. Como
+la moneda varía según el país, se desea que aparezca la creatividad
+con la moneda apropiada según la ubicación. Además, es probable que
+la empresa desee que esta campaña solo aparezca en dispositivos que
+pertenecen a esta misma operadora. 
+
+Una de las soluciones planteadas fue utilizar las cookies recibidas
+al realizar el registro, puesto que uno de los datos de la cookie
+es el país, sin embargo, esto no es viable porque muchas de las aplicaciones
+de móviles no tienen un mecanismo de registro.
+
+Otra de las posibles soluciones es utilizar las librerías nativas
+de los dispositivos para obtener el MCC y el MNC. El Código de País
+del Dispositivo (Mobile Country Code, o MCC) es un número único que
+se asigna a cada país. Por ejemplo, si el usuario está en Venezuela,
+su MCC es 734. Por otra parte, el Código de Red del Dispositivo (Mobile
+Network Code, o MNC) es un número único que se asigna a una operadora
+en un determinado país. Sin el MCC, no es posible saber cual operadora
+es la que se está consultando. Envíando el MCC y el MNC como argumentos
+tanto en la petición de publicidad como en el reporte de la impresión
+y el clic, el servidor puede generar estadísticas y reportes interesantes. 
+
+Sin embargo, en varias discusiones con otros miembros de la empresa
+relacionados a la administración del servidor y la colocación de la
+publicidad, se decidió también enviar el número ip del dispositivo.
+Esta decisión está derivada de que los portales web no pueden obtener
+el mcc, ni el mnc, por lo que se necesita que ellos también puedan
+enviar datos sobre su ubicación. La ventaja de usar el ip es que todos
+los dispositivos y portales web pueden enviar este dato, la desventaja
+es consultar el país a partir de un ip significa consulta una tabla
+de millones de filas. Por lo tanto, el servidor usará primero el MCC
+y el MNC si estos valores no son vacíos. 
+
+De esta manera, el url de solicitud lucirá como:
+
+\begin{center}
+http://direccion.del.servidor/procedimientoremoto.php?zoneid=1mcc=734\&mnc=4\&ip=192.168.0.0
+\par\end{center}
+
+
+\subsubsection{Mostrar de forma efectiva las formas de publicidad manejadas por
+la empresa}
+
+Mobile Media Networks maneja actualmente solo dos formatos de creatividades,
+estos son jpg y gif. En cualquier plataforma se pueden mostrar las
+imagenes planas sin ningún inconveniente (este es el caso de las imagenes
+jpg). Sin embargo, las plataformas iOS y Android no tienen una librería
+nativa para mostrar contenido animado (contenido gif) en las versiones
+mínimas que se desean soportar.Por lo tanto, se deben buscar librerías
+de terceros que permitan realizar la animación de las imagenes.
+
+
+\subsubsection{Notificar que se realizó la impresión de la creatividad}
+
+En el componente AdField, el reporte de la impresión de la creatividad
+se realiza haciendo una petición HTTP con la dirección url que envía
+el AdServer. Esta dirección es generada por el servidor, por lo que
+contiene los argumentos necesarios para hacer el reporte correcto.
+Si se le agregan argumentos extra, el servidor los ignora. Crear una
+nueva dirección a mano sería ineficiente.Por lo tanto, se usará la
+misma forma de reporte que el AdField.
+
+
+\subsubsection{Notificar que se realizó clic en la creatividad y mostrar el contenido}
+
+Al igual que la dirección de reporte, la dirección de clic es enviada
+por el servidor conteniendo todos los argumentos necesarios para mostrar
+el contenido del portal web asociado a la creatividad, así como la
+realización del reporte. Cuando se hace clic a la publicidad en una
+aplicación, la misma debería abrir un navegador web con la información
+detallada de lo que se quiere mostrar. Por ejemplo, si la creatividad
+es de un banco, al darle clic posiblemente lleve al portal web del
+mismo banco. El reporte se hace de la misma forma que en el caso de
+una impresión, es decir, mediante una petición HTTP.
+
+En las investigaciones hechas de las dos plataformas, se descubrió
+que ambas tienen una librería para poder mostrar en un navegador el
+contenido de una dirección url. Internamente la librería debe hacer
+una petición HTTP, así que no se requiere de ningún mecanismo extra
+para el reporte.
+
+
+\subsubsection{Definir mecanismo de almacenamiento}
+
+Tener un mecanismo de almacenamiento de las creatividades y sus datos
+asociados permite que la obtención de la publicidad sea más rápida,
+ya que se estaría sacando del mismo dispositivo, en lugar de depender
+de la conexión de datos y su velocidad. Ambas plataformas permiten
+almacenar elementos en el directorio propio de la aplicación, en un
+directorio cache, o mediante otros mecanismos propios como bases de
+datos o listas de preferencias. 
+
+Viendo las ventajas y desventajas de cada uno se decidió que las creatividades
+se guarden en el directorio cache. La ventaja es la rapidez de carga
+que se tendrá de la creatividad. La desventaja es que el directorio
+cache de la aplicación podría ser borrado por decisión del sistema
+operativo; sin embargo, esto no sería un problema, ya que la creatividad
+no es información sensible para la aplicación. 
+
+Con respecto al almacenamiento de las características de las creatividades
+almacenadas, se decidió tener una lista de preferencias. Ambas plataformas
+ofrecen librerías para el acceso y escritura de los datos, donde el
+usuario no tiene que manejar la estructura verdadera. Además, son
+apropiadas para mantener pocos datos almacenados. 
+
+
+\subsubsection{Definir mecanismo de rotación\label{rotacion}}
+
+Debido a que las creatividades y su información relacionada se desean
+almacenar en el dispositivo para quitarle carga al servidor y reducir
+el tiempo de espera por la publicidad, se necesita de un mecanismo
+que establezca cuando se debe pedir una nueva creatividad. El servidor
+enviará la fecha de expiración de la creatividad, cada vez que se
+va a mostrar, se chequea esta fecha. Si venció, la creatividad se
+descarta y se pide otra. En caso contrario se considera a la creatividad
+como vigente y se mostrará. 
+
+Además del tiempo de expiración, el servidor también envía el tiempo
+en cache, el cual determina el tiempo que debe usarse una creatividad
+antes de pedir otra nueva al servidor. Esto se hace porque la mayoría
+de las campañas duran más de una semana sin cambiar de creatividad,
+por lo que muchas veces se piden creatividades que ya se tienen almacenadas.
+Este tiempo le indica al cliente que no haga otra solicitud hasta
+que pase el tiempo enviado. 
+
+Cuando se pida una creatividad de cache, se revisará primero si es
+vigente, es decir, si no ha expirado. Si es vigente, se revisará si
+es válida. Ser válida significa que, desde el momento que se descargó,
+no se ha pasado el tiempo que envío el cache de espera (tiempo de
+cache). Por lo tanto, si la creatividad es válida, se mostrará, pero
+no se pedirán nuevas creatividades al servidor. De no ser válida (pero
+si vigente) se mostrará la creatividad pero se pedirá otra al servidor.
+Esta nueva creatividad se almacenará en cache como todas las anteriores,
+y se colocará al final de una cola creada con las listas de preferencias.
+La próxima vez que se ingrese a la aplicación, la creatividad que
+debe aparecer es la última descargada.
+
+\begin{figure}[h]
+\centering{}%%\includegraphics[scale=0.6]{Images/rotacion}\caption{Política de rotación de banners}
+\end{figure}
+
+
+
+\subsubsection{Definir mecanismo de colocación de creatividad si el dispositivo
+no tiene conexión a red de datos}
+
+Uno de los grandes problemas cuando los dispositivos no poseen red
+de datos es que en la aplicación queda un espacio inutilizado porque
+la creatividad no se muestra. Se puede aprovechar el hecho de tener
+un mecanismo de almancenamiento para evitar que esto suceda.
+
+
+\subsection{Refinamiento del Plan de Pruebas}
+
+En esta fase se realizó un refinamiento al plan de pruebas adaptado
+a las estructuras definidas en base a las secciones anteriores. El
+plan de pruebas puede ser visualizado en el apéndice F.
+
+
+\subsection{Riesgos Técnicos}
+
+Al finalizar esta fase se determinaron los riesgos técnicos relacionados
+con el diseño proveniente del modelado por lluvia de ideas:
+\begin{enumerate}
+\item Soporte del componente de nuevas formas publicitarias. Por ejemplo:
+Rich Media.
+\item Soporte del componente de nuevas necesidades del mercado.
+\end{enumerate}
+
+\section{Fase de Construcción}
+
+El objetivo de la fase de construcción es desarrollar los componentes
+publicitarios hasta el punto que se encuentre listo para la pre-producción
+de pruebas. El énfasis en las fases anteriores fue priorizar y comprender
+los requerimientos, utilizando el modelado para atacar una solución.
+En esta fase se recurre a la codificación, presentando primeras versiones
+del componente que muestra la publicidad en las aplicaciones. 
+
+Esta fase fue realizada en tres iteraciones por cada plataforma desarrollada. 
+
+A continuación se hace una descripción de las decisiones tomadas y
+los procedimientos establecidos, haciendo una distinción en el caso
+que amerite por plataforma, ya que en general el componente se comporta
+de igual manera en ambas plataformas..
+
+
+\subsection{Primera Iteración}
+
+
+\subsubsection{Diseño e implementación de un mecanismo para mostrar las creatividades}
+
+Antes de específicar como es el proceso de muestra de creatividades
+propio por plataforma, se debe mencionar que las interfaces de usuario
+no pueden tener componentes que se bloqueen por más de cierto tiempo,
+porque entorpecen el funcionamiento de la aplicación o causan que
+la aplicación se cierre forzosamente. Por lo tanto es necesario que
+desde el comienzo desde la primera llamada al componente, se cree
+un nuevo hilo de ejecución, que permita realizar toda la lógica del
+componente sin causar ningún efecto desfavorable a la aplicación principal\@.
+
+
+\subsubsection*{iOS}
+
+Una creatividad podría catalogar en iOS como una Vista de Imagen (Image
+View) sin embargo, el componente tendrá muchas más funcionalidades
+que una imagen normal. Investigando arduamente las formas de agregar
+componentes personalizados a la interfaz de usuario, se descubrió
+que la manera más sencilla es la creación de un delegado (Delegate)
+y controlador (Controller). 
+
+El programa delegado debe ser una extensión de una Vista Imagen, para
+luego poder asociar la Vista Imagen que se coloque en la interfaz
+de usuario a la nueva que se está definiendo. El delegado se encargará
+de realizar los siguientes pasos:
+\begin{enumerate}
+\item Agregar a la dirección url donde se solicita la publicidad los argumentos
+obligatorios y opcionales. El único argumento obligatorio es el número
+de zona. Los demás argumentos definidos en la lista de requerimientos
+serán opcionales.
+\item Establecer una conexión HTTP con el servidor.
+\item Obtener la respuesta del servidor, la cual está en formato JSON y
+aplicarle un decodificador.
+\item Tomar los campos obtenidos con el decodificador y enviarlo al controlador.
+\end{enumerate}
+Es importante resaltar que la versión de iOS que se quiere soportar
+no tiene un codificador/decodificador nativo de JSON, por lo que se
+usó la librería de terceros JSONKit. JSONKit está licenciado bajo
+BSD y Apache 2.0.\cite{Cap5.JSONKit}
+
+El programa controlador es el que se encargará de modificar la interfaz
+de usuario. A partir de los argumentos recibidos desde el programa
+delegado, deberá descargar la creatividad y colocarla de acuerdo a
+las dimensiones originales. Dado que las dos formas de creatividad
+que maneja actualmente la compañía son las imagenes en formato jpg
+y gif, el controlador debe colocar cualquiera de las dos sin problemas.
+La versión de iOS que se quiere soportar tampoco tiene una librería
+nativa para el manejo de imágenes tipo gif, por lo que se necesitó
+de una libreria de terceros, llamada Animated Gif \cite{Cap5.AnimatedGif},
+para poder colocarlos. Esta librería coloca cuadro por cuadro del
+gif, sin dejar el primero cuadro de base, como hacen otras librerías. 
+
+
+\subsubsection*{Android}
+
+Como se estableció anteriormente, el componente publicitario tiene
+una lógica oculta al usuario donde se implementan más funcionalidades
+que las obvias. Por lo tanto, aunque una creatividad podría catalogar
+como una Vista Imagen (Image View) en Android. Luego de realizar una
+investigación exhaustiva sobre las formas de agregar componentes personalizados
+a la interfaz de usuario, se descubrió que, en el caso de Android,
+la manera más simple es la creación de un componente de interfaz y
+un programa controlador.
+
+Un componente de interfaz en Android es codigo XML que establece las
+características de un componente. Cuando se tienen componentes personalizados,
+queda a cargo del programa controlador definir cual será el comportamiento
+del mismo. Para establecer cual será el controlador del componente
+personalizado, el nombre del mismo debe ser la ruta completa del nombre
+del programa que será el controlador.
+
+El programa controlador debe ser una extensión de una Vista, para
+poder realizar las modificaciones al componente personalizado. El
+programa controlador realizará las mismas ladores que el programa
+delegado de iOS definido en esta misma sección.
+
+Como el programa controlador se encargará de modificar la interfaz
+de usuario, debe ser capaz de mostrar en el mismo espacio cualquiera
+de las formas de publicidad manejadas por la empresa. Para la versión
+de Android que se quiere soportar no existe una librería nativa para
+el manejo de imágenes tipo gif, por lo que se necesitó de una libreria
+de terceros, llamada GifView \cite{Cap5.GifView}. Esta libreria coloca
+el primer cuadro fijo y coloca uno por uno los demás sobre este.
+
+
+\subsubsection{Diseño e implementación de un mecanismo para el reporte de la impresión}
+
+Tanto para iOS como para Android, el programa controlador debe ser
+el encargado de llamar a una función que realice una petición HTTP
+al servidor cuando la creatividad sea descargada y mostrada en la
+interfaz de usuario. Como la dirección url ya trae los argumentos
+que necesita el servidor para hacer el reporte correcto, solo se debe
+hacer la llamada.
+
+
+\subsubsection{Diseño e implementación de un mecanismo para el reporte del clic
+y la colocación apropiada del contenido}
+
+
+\subsubsection*{iOS}
+
+Con respecto al reporte del clic, este procedimiento es más delicado,
+no solo sirve realizar una petición HTTP, puesto que la dirección
+de clic trae como argumento la dirección del portal web al cual se
+redireccionará el navegador.
+
+Leyendo la documentación, no existe para la versión de iOS que se
+quiere soportar un componente que permita abrir un explorador dentro
+de la aplicación. Sin embargo, si se puede cargar la información en
+una Vista Web sencilla dentro de la aplicación o lanzar el explorador
+prederteminado. La ventaja de la primera opción es que no se abandona
+la aplicación al hacer clic sobre la creatividad, pero la Vista Web
+no provee las interfaz de un navegador. La ventaja del explorador
+es que se tienen todas las funciones de navegador que permiten al
+usuario disfrutar de una buena interfaz, pero el navegador se abre
+fuera de la aplicación. Se decidió utilizar la segunda opción. 
+
+Al lanzar un navegador con una dirección url, el mismo realizará la
+llamada HTTP, por lo que se estará reportando el clic automáticamente.
+
+
+\subsubsection*{Android}
+
+Al igual que en iOS, no existe un componente en Android que permita
+abrir un navegador dentro de la aplicación. Sin embargo, por la estructura
+de Android, no es necesario. Android maneja cada interfaz por medio
+de Actividades, cuando se quiere lanzar un navegador web, se crea
+una nueva actividad, que se empila en la lista de actividades. Si
+la persona decide salir del navegador, entonces este se quitará de
+la pila y la persona regresará a la pantalla donde estaba la aplicación
+antes de hacer clic en el banner. 
+
+A pesar de esta ventaja, se investigaron otras formas de colocar contenido
+web dentro de la aplicación. Al igual que iOS, Android tiene una Vista
+Web, la cual permite cargar de manera sencilla contenido web. Sin
+embargo, no se disfruta de la interfaz propia de un navegador y la
+implementación es muy básica así que el contenido no se ve atractivo.
+
+Por lo tanto, se decidió utilizar la primera opción, lanzar un navegador.
+Al hacer esto, se realizará la llamada HTTP, y por lo tanto, se reportará
+el clic automáticamente.
+
+
+\subsection{Segunda Iteración}
+
+
+\subsubsection{Diseño e implementación de un mecanismo de almacenamiento}
+
+El objetivo que se busca lograr al almacenar la publicidad en el dispositivo
+es reducir la cantidad de peticiones que se hacen al servidor. Además,
+se busca que el tiempo que transcurre entre que la aplicación se abre
+y la creatividad se muestre sea el mínimo. 
+
+Almacenar la publicidad implica no solo descargar la creatividad y
+almacenarla, sino también todos los datos asociados a ella. Por lo
+tanto se debe definir un mecanismo para el almacenamiento de la imagen
+y otro para los datos. 
+
+
+\subsubsection*{iOS}
+
+Para el caso del almacenamiento de las creatividades, se usará el
+directorio Cache de la aplicación, lo que permite un acceso rápido
+a los datos. El nombre del archivo corresponderá con identificador
+de la creatividad (bannerID) para poder acceder a él posteriormente.
+
+Con respecto a las características, necesitamos un mecanismo que permita
+almacenar arreglos, diccionarios y tipos de datos básicos. Las opciones
+que proporciona iOS para la persistencia de datos son:
+\begin{enumerate}
+\item \textit{NSUserDefaults}: Están basados en las listas de preferencias.
+Permite almacenar información sencilla, como las prefencias de los
+usuarios de una aplicación. 
+\item \textit{Plist}: Permite almacenar datos en una lista de preferencias.
+El acceso es más rápido que en las Preferencias de Usuarios (NSUserDefaults). 
+\item \textit{SQLite}: Es un archivo loca que actía como servidor de base
+de datos. No es útil si se quieren hacer muchos accesos concurrentes.
+\item \textit{Core Data}: Permite almacenar datos un poco más complejos.
+Usa SQLite como manejador de base de datos por defecto. 
+\end{enumerate}
+Los datos de la creatividad no son sensibles, es decir, la aplicación
+seguirá ejecutandose normalmente si se borran y no tienen información
+relevante sobre el usuario. De las cuatro opciones anteriores, la
+más cercana a las necesidades en la opción dos, utilizar una plist.
+Las listas de preferencias de iOS permiten almacenar tipos básicos
+de datos, así como arreglos y diccionarios.
+
+
+\subsubsection*{Android}
+
+Al igual que iOS, Android permite el almacenamiento de archivos en
+el directorio Cache de la aplicación, permitiendo un acceso rápido
+a los datos. De igual manera se usará el identificador de la creatividad
+(bannerID) como nombre del archivo.
+
+Las opciones del almacenamiento que ofrece Android son las siguientes:
+\begin{enumerate}
+\item \textit{Shared Preferences}: Permite almacenar datos privados de los
+tipos primitivos de la forma clave-valor.
+\item \textit{Internal Storage}: Permite almacenar datos privados en la
+memoria del dispositivo.
+\item \textit{External Storage}: Permite almacenar datos en memorias externas.
+\item \textit{SQLite Databases}: Permite almacenar datos en una base de
+datos privada.
+\item \textit{Network Connection}: Permite almacenar datos en un servidor
+propio.
+\end{enumerate}
+La opcion número uno es la que más se acerca a las necesidades del
+almacenamiento. El único problema es que solo permite almacenar los
+tipos de datos primitivos, es decir, no se pueden crear diccionarios
+ni arreglos, por lo que se debe disponer de más de un archivo de preferencias. 
+
+Por lo tanto, para una zona existirá un archivo principal, donde se
+guardarán los números identificadores de las creatividades descargadas,
+y un archivo adicional con las características y datos importantes
+de la creatividad en específico.
+
+
+\subsubsection{Diseño e implementación de un mecanismo de rotación}
+
+Tener un mecanismo de rotación de publicidad permite, en conjunto
+con el mecanismo de almacenamiento, reducir la cantidad de peticiones
+al servidor y reducir los tiempos de carga. No se debe confundir el
+termino rotación con el hecho de cambiar las creatividades en una
+pantalla cada cierto tiempo. Esto no fue definido como requerimiento,
+por lo tanto, no fue implementado. 
+
+La rotación de las creatividades debe hacerse en los archivos donde
+se mantiene la lógica de la persistencia. Es en estos archivos, mencionados
+en el punto anterior, donde están los datos que permiten saber cuales
+son las creatividades válidas. 
+
+Al momento de descargar una nueva publicidad, esta se debe colocar
+al final de la lista de creatividades, y si se llegó al máximo, borrar
+la primera de la lista y correr todas una posición. A pesar de que
+suena a que hay muchas creatividades almacenadas, realmente una zona
+tendrá máximo 2, la que se mostrará al abrir la aplicación y la que
+se descargará para ser mostrada la siguiente vez que se abra la aplicación.
+Además de mantener las listas en orden, uno de los datos que se deben
+almacenar de la creatividad y que es recibido por el servidor es el
+tiempo de descarga. Este tiempo, en conjunto con el Tiempo de Cache
+y la Fecha de Vencimiento que envía el servidor, permite saber si
+una creatividad es válida, vigente o si venció, como se explicó en
+la sección \ref{rotacion}.
+
+En el momento en que una creatividad esté vencida, o sea eliminada
+de la lista, se borrarán todos los datos y archivos relacionados a
+ella. Si la creatividad que se descarga nueva ya está en la lista,
+solo se colocará al final, pero no se descargarán las imágenes de
+nuevo.
+
+
+\subsection{Tercera Iteración}
+
+
+\subsubsection{Diseño e implementación de un mecanismo para el comportamiento cuando
+no se tiene red de datos}
+
+Existe la posibilidad de que un dispositivo móvil no tenga acceso
+a una red de datos en un momento en específico, pero esto no necesariamente
+causa que el usuario no pueda usar una aplicación. Muchas aplicaciones
+pueden ser usadas sin necesidad de tener internet. Sin embargo, cuando
+se diseña una aplicacion, se asigna un espacio de la interfaz de usuario
+para mostrar el contenido de la publicidad, y sin red de datos este
+espacio queda inutilizado. 
+
+Aprovechando el mecanismo de almacenamiento, se puede disponer de
+publicidad aunque no se tenga red de datos. Mientras que la creatividad
+que está almacenada no venza, podrá mostrarse, pero la funcionalidad
+del clic no servirá puesto que no hay internet.
+
+Se consideró el caso de querer conocer la cantidad de impresiones
+que se hacen aunque el dispositivo este sin red, por lo que se almacenará
+una nueva característica a la información almacenada. Una vez que
+se tenga acceso a la red, se enviará al servidor este dato. Esta característica
+es opcional, ya que hay aplicaciones que no funcionan sin red de datos
+y la publicidad que se mostró no es de relevancia en los reportes.
+
+
+\subsubsection*{iOS}
+
+A pesar de que Android tiene una librería para saber si en un determinado
+momento el dispositivo tiene conexión, iOS no cuenta con una para
+las versiones que se necesitan soportar. Para poder conocer el estado
+de la red, se necesitó utilizar un componente que no se encuentra
+en las librerías de iOS llamada Reachability, la cual es distribuida
+por Apple Inc.
+
+
+\subsubsection{Diseño e implementación de un mecanismo para la segmentación}
+
+El servidor ofrece como uno de sus servicios la posibilidad de que
+los usuarios se regristren. Al realizar el registo, el servidor retorna
+una cadena de caracteres o galleta (cookie), que contiene los datos
+de registro de una manera sencilla y corta. 
+
+El componente debe permitir agregar esta galleta a la petición que
+se le hará al servidor. Si el servidor recibe la galleta, podrá enviar
+una publicidad más apropiada al usuario. La solución propuesta es
+usar la lista de preferencias (plist) para almacenar este valor en
+el caso de iOS, y una lista de preferencias compartidas para Android.
+La galleta se almacenará bajo la etiqueta \textit{cookie, }permitiendo
+que el componente envíe la galleta que tenga almacenada en cada solicitud.
+
+Si no se tiene almacenada una galleta, el argumento en la solicitud
+será vacío, y por lo tanto el servidor lo ignorará. Si los registros
+cambian con el tiempo y el formato de la galleta también, solo se
+tendrá que sustituir el valor anterior por el nuevo. 
+
+Otro servicio que ofrece Mobile Media es enviar publicidad especifica
+unicamente a los dispositivos o portales que se encuentren en un país
+o que pertenezcan a una operadora. Para poder hacer esto, el componente
+debe enviar algún dato que permita conocer estos valores. Como se
+discutió en la sección \ref{mcc-mnc}, estos valores son el Código
+de País del Dispositivo (MCC), el Código de la Operadora del Dispositivo
+(MNC) y la dirección IP. Gracias a las librerías propias de las plataformas,
+estos datos se pueden obtener fácilmente.
+
+Por último, también es necesario conocer el dispositivo que realiza
+la solicitud, ya que el servidor ofrece el servicio de enviar una
+publicidad a un dispositivo en específico. Gracias al agente de usuario,
+podemos conocer cual es la marca y modelo del dispositivo. En un futuro,
+el agente de usuario también servirá para conocer si un dispositivo
+soporta formas de publicidad nuevas. 
+
+Además del agente de usuario se busca incluir también la versión del
+componente y el nombre de la aplicación, lo que generará estadísticas
+más robustas y la ventaja de enviar publicidad dirigida específicamente
+a los usuarios de cierta aplicación. Este mecanismo fue muy fácil
+de implementar, ya que tanto iOS como Android ofrecen librerías que
+permiten obtener estos valores rápidamente.
+
+
+\section{Fase de Transición}
+
+En esta última fase se realizaron las pruebas de revisión de ambos
+componentes a partir del plan de pruebas creado, dando como resultado
+un prototipo 100\% funcional para el componente AdView MobileX de
+Android y un prototipo 100\% funcional para el componente AdViewMobileX
+de iOS. 
+
+Por otra parte, se finalizó la documentación general de los componentes
+y el refinamiento de los documentos. También se realizaron los documentos
+de utilización del componente, los cuales se encuentran en los apéndices
+y .Así mismo se realizaron las presentaciones finales del componente
+a los involucrados con el mismo, entregando los artefactos que lo
+comprenden y toda la documentación descrita en este informe. 
+
+\newpage{}

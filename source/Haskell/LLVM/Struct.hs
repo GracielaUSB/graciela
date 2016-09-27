@@ -28,7 +28,7 @@ import           Data.Foldable                (toList)
 import           Data.List                    (sortOn)
 import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as Map
-import           Data.Semigroup ((<>))
+import           Data.Semigroup               ((<>))
 import           Data.Sequence                (Seq, ViewR ((:>)), viewr, (|>))
 import qualified Data.Sequence                as Seq
 import           Data.Text                    (Text, unpack)
@@ -108,7 +108,7 @@ defaultConstructor name structType typeMap = do
 
       defaultValue <- case expr of
         Nothing -> value filledT
-        Just e -> expression e
+        Just e  -> expression' e
 
       t' <- toLLVMType filledT
       addInstruction $ Do Store
@@ -136,10 +136,10 @@ defaultConstructor name structType typeMap = do
 
   where
     value t = case t of
-      GBool    -> pure . ConstantOperand $ C.Int 1 0
-      GChar    -> pure . ConstantOperand $ C.Int 8 0
-      GInt     -> pure . ConstantOperand $ C.Int 32 0
-      GFloat   -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      GBool          -> pure . ConstantOperand $ C.Int 1 0
+      GChar          -> pure . ConstantOperand $ C.Int 8 0
+      GInt           -> pure . ConstantOperand $ C.Int 32 0
+      GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 
@@ -154,7 +154,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
 
     let
       procName = (<> name) (case inv of
-          Invariant -> "inv-"
+          Invariant    -> "inv-"
           RepInvariant -> "repInv-")
 
     proc <- newLabel $ "proc" <> procName
@@ -163,7 +163,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     openScope
     name' <- insertVar "self"
     -- Evaluate the condition expression
-    condInv <- expression expr
+    condInv <- expression' expr
     -- Create both label
     trueLabel  <- newLabel "condTrue"
     falseLabel <- newLabel "condFalse"

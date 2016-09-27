@@ -98,10 +98,8 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
       boolean false true rexpr
 
     _ | binOp `elem` [Elem, NotElem] -> do
-        lOperand <- expr lexpr -- this is not a boolean since functors
-                               -- of boolean are not implemented
-        rOperand <- expr rexpr -- this isn't either, since it must be
-                               -- a functor
+        lOperand <- expr lexpr
+        rOperand <- expr rexpr
 
         item <- newLabel "item"
         addInstruction $ item := case expType lexpr of
@@ -124,13 +122,13 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
               GSet      _ -> isElemSetString
               GMultiset _ -> isElemMultisetString
               GSeq      _ -> isElemSeqString
-              _ -> internal "impossible type for elem argument"
+              _           -> internal "impossible type for elem argument"
           , arguments = (,[]) <$> [rOperand, LocalReference i64 item]
           , functionAttributes = []
           , metadata = [] }
 
         let [trueDest, falseDest] = [true, false] & case binOp of
-              Elem -> id
+              Elem    -> id
               NotElem -> reverse
 
         terminate CondBr
@@ -143,21 +141,27 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
       lOperand <- expr lexpr -- The operands can only be chars, ints
       rOperand <- expr rexpr -- or floats, nothing else
 
+      subst <- use substitutionTable
+      let
+        type' = case subst of
+          targs:_ -> fillType targs (expType lexpr <> expType rexpr)
+          []      -> expType lexpr <> expType rexpr
+
       comp <- newLabel "comp"
 
       let
-        compOp = case expType lexpr of
+        compOp = case type' of
           GFloat -> FCmp $ case binOp of
             LT -> OLT
             LE -> OLE
             GT -> OGT
             GE -> OGE
-          t | t `elem` [GInt, GChar] -> ICmp $ case binOp of
+          _ | type' `elem` [GInt, GChar, GBool] -> ICmp $ case binOp of
             LT -> SLT
             LE -> SLE
             GT -> SGT
             GE -> SGE
-          t -> internal "invalid comparison type"
+          _ -> internal $ "invalid comparison type " <> show type' <> " " <> show loc
 
       addInstruction $ comp := compOp lOperand rOperand []
 
@@ -171,8 +175,8 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
       subst <- use substitutionTable
       let
         type' = case subst of
-          t:_ -> fillType t (expType lexpr <> expType rexpr)
-          []  -> expType lexpr <> expType rexpr
+          targs:_ -> fillType targs (expType lexpr <> expType rexpr)
+          []      -> expType lexpr <> expType rexpr
 
       [lOperand, rOperand] <- [lexpr, rexpr] `forM` \x ->
         case type' of
@@ -295,7 +299,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function           = callable i1 $ unpack fName
+      , function           = callable i1 fName'
       , arguments          = recArgs <> arguments
       , functionAttributes = []
       , metadata           = [] }
@@ -311,8 +315,8 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
         subst <- use substitutionTable
         let
           type' = case subst of
-            t:_ -> fillType t expType
-            []  -> expType
+            targs:_ -> fillType targs expType
+            []      -> expType
 
         (,[]) <$> if
           | type' == GBool -> wrapBoolean' expr object obRef x
@@ -328,7 +332,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
               , metadata = [] }
             pure $ LocalReference type' label
 
-      basicT = GOneOf [ GChar, GInt, GFloat ]
+      basicT = GOneOf [ GChar, GInt, GFloat, GString ]
 
   Quantification {} -> boolQ expr boolean true false e
 
@@ -337,7 +341,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
 
     case trueBranch of
       Nothing -> abort Abort.If (pos loc)
-      Just e -> boolean true false e
+      Just e  -> boolean true false e
 
     where
       guard (left, right) = do

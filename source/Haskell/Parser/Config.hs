@@ -38,6 +38,15 @@ module Parser.Config
   , int2charString
   , char2floatString
   , int2floatString
+  -- * trace pseudo-function strings
+  , traceIntString
+  , traceFloatString
+  , traceCharString
+  , traceBoolString
+  , traceStringIntString
+  , traceStringFloatString
+  , traceStringCharString
+  , traceStringBoolString
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -104,11 +113,12 @@ defaultConfig = Config
       at "toInt"        ?= (toIntG       , [])
       at "toChar"       ?= (toCharG      , [])
       at "toFloat"      ?= (toFloatG     , [])
+      at "trace"        ?= (traceG       , [])
 
-    toIntG, toCharG, toFloatG        :: Seq Type -> Either Error (Type, Text, Bool)
-    absG, cardG, codomainG, domainG  :: Seq Type -> Either Error (Type, Text, Bool)
-    funcG, inverseG, multiplicityG   :: Seq Type -> Either Error (Type, Text, Bool)
-    relG, sqrtG, toMultisetG, toSetG :: Seq Type -> Either Error (Type, Text, Bool)
+    traceG, toIntG, toCharG, toFloatG :: Seq Type -> Either Error (Type, Text, Bool)
+    absG, cardG, codomainG, domainG   :: Seq Type -> Either Error (Type, Text, Bool)
+    funcG, inverseG, multiplicityG    :: Seq Type -> Either Error (Type, Text, Bool)
+    relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
 
     wrap defName (signatures, casts) = Definition
       { defLoc  = gracielaDef
@@ -129,6 +139,24 @@ defaultConfig = Config
       , fName   = undefined
       , nParams = undefined
       , nArgs   = undefined }
+
+    traceG [ GInt   ] = Right (GInt,   pack  traceIntString, False)
+    traceG [ GFloat ] = Right (GFloat, pack traceFloatString, False)
+    traceG [ GChar  ] = Right (GChar,  pack  traceCharString, False)
+    traceG [ GBool  ] = Right (GBool,  pack  traceBoolString, False)
+    traceG [ GString, GInt   ] = Right (GInt,   pack  traceStringIntString, False)
+    traceG [ GString, GFloat ] = Right (GFloat, pack traceStringFloatString, False)
+    traceG [ GString, GChar  ] = Right (GChar,  pack  traceStringCharString, False)
+    traceG [ GString, GBool  ] = Right (GBool,  pack  traceStringBoolString, False)
+    traceG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "toInt"
+      , pTypes = [GInt, GFloat, GChar, GBool]
+      , aType  = a }
+    traceG args = Left badNumArgs
+      { fName = "toInt"
+      , nParams = 1
+      , nArgs = length args}
 
     toIntG [ GFloat ] = Right (GInt, pack float2intString, True)
     toIntG [ GChar  ] = Right (GInt, pack  char2intString, False)
@@ -391,3 +419,13 @@ int2charString   = "_int2char"
 char2floatString, int2floatString :: String
 char2floatString = "_char2float"
 int2floatString  = "_int2float"
+
+traceIntString, traceFloatString, traceCharString, traceBoolString, traceStringIntString, traceStringFloatString, traceStringCharString, traceStringBoolString :: String
+traceIntString = "_traceIntString"
+traceFloatString = "_traceFloatString"
+traceCharString = "_traceCharString"
+traceBoolString = "_traceBoolString"
+traceStringIntString = "_traceStringIntString"
+traceStringFloatString = "_traceStringFloatString"
+traceStringCharString = "_traceStringCharString"
+traceStringBoolString = "_traceStringBoolString"

@@ -72,7 +72,7 @@ import           Prelude                                 hiding (Ordering (..))
 import           Debug.Trace
 
 boolean :: Name -> Name -> Expression -> LLVM ()
-boolean = boolean' expression object objectRef
+boolean = boolean' expression' object objectRef
 
 wrapBoolean :: Expression -> LLVM Operand
 wrapBoolean = wrapBoolean' expression object objectRef
@@ -374,7 +374,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       GChar  -> opInt 8  unOp innerOperand
       -- GBool  -> opBool  unOp innerOperand
       GFloat -> opFloat unOp innerOperand
-      t        -> error $ "tipo " <> show t <> " no soportado"
+      t      -> error $ "tipo " <> show t <> " no soportado"
 
     pure operand
 
@@ -678,7 +678,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
-      , function           = callable callType $ unpack fName
+      , function           = callable callType fName'
       , arguments          = recArgs <> arguments
       , functionAttributes = []
       , metadata           = [] }
@@ -695,7 +695,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
         (,[]) <$> if type' =:= basicT
           then
-            expression expr
+            expression' expr
           else do
             label <- newLabel "argCast"
             ref   <- objectRef (theObj exp') False
@@ -706,7 +706,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , type'    = type'
               , metadata = [] }
             pure $ LocalReference type' label
-      basicT = GOneOf [GBool,GChar,GInt,GFloat]
+      basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
 
   Quantification { } ->
     quantification expression boolean safeOperation e

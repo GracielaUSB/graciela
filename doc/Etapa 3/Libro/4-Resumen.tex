@@ -1,0 +1,54 @@
+\renewcommand{\thepage}{\Roman{page}}
+
+\setcounter{page}{4} 
+
+\begin{center}
+\textbf{\large Resumen}
+\par\end{center}{\large \par}
+
+\vspace{5mm}
+
+
+El presente proyecto de pasantía consiste en el diseño y la implementación
+de un componente publicitario para ser incluído en las aplicaciones
+desarrolladas para los sistemas operativos móviles iOS y Android.
+La empresa Mobile Media Networks C.A. tiene como objetivo ampliar
+su alcance publicitario correspondiente a la colocacion de campañas
+en aplicaciones móviles. Gracias al éxito de ventas de campañas publicitarias
+con la plataforma Blackberry, se desea llegar a los usuarios de otras
+tecnologías que están siendo cada vez más populares en Venezuela.
+Estas son iOS por la empresa Apple y Android de la empresa Google.
+Por lo tanto es necesario la creación de un componente nativo por
+cada plataforma que permita incluir de manera sencilla la publicidad
+en las aplicaciones.
+
+El componente actual, creado para aplicaciones de Blackberry, se comunica
+con el servidor mediante un protocolo que genera una respuesta muy
+pesada con información inutil para la colocación de la piblicidad.
+Por lo tanto el primer paso es el diseño de un nuevo protocolo que
+produzca una respuesta de menor tamaño y con la información mínima
+necesaria, lo que tendrá un impacto favorable tanto en espacio como
+en tiempo. Una vez tomada la decisión sobre la comunicación con el
+servidor, se realizará el diseño de los componentes, analizando el
+actual y considerando las posibles mejoras. El componente trabaja
+en conjunto con el AdServer MobileX, un servidor que se encarga de
+enviar la publicidad de manera inteligente. La realización de los
+cambios en el servidor para implementar la nueva comunicación no está
+en el alcance de este proyecto.
+
+El componente debe ser capaz de colocar en cualquier lugar de la pantalla
+del dispositivo la publicidad, sin importar el tipo de la imagen o
+su tamaño original. Además debe reportar al servidor cada vez que
+se mostró o que el usuario hizo clic sobre ella. La entrega oportuna
+de esta información es crucial para la venta apropiada de campañas
+a los clientes y la generación de reportes de las mismas. Finalmente,
+debe manejar problemas como fallas en la conexión, el almacenamiento
+o la posible sobrecarga del servidor, así como algunas necesidades
+nuevas que permiten segmentar la publicidad por país o por tipo de
+usuario. 
+
+\begin{onehalfspace}
+La metodología utilizada para la implementación de este proyecto es
+AUP, una metodología de tipo ágil, con un buen balance entre la planificación
+del proyecto y tiempos de desarrollo del software.\newpage{}\end{onehalfspace}
+
