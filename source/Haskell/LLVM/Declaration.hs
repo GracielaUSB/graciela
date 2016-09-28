@@ -111,8 +111,8 @@ alloc gtype lval = do
     , metadata      = [] }
 
   case gtype of
-    GFullDataType { typeName, types } -> do
-      types' <- mapM toLLVMType $ toList types
+    GFullDataType { typeName, typeArgs } -> do
+      types' <- mapM toLLVMType $ toList typeArgs
       let
         name'  = llvmName typeName types'
       cast <- newLabel "cast"

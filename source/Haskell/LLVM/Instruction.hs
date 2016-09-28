@@ -320,30 +320,50 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata           = []}
 
 
-  Read { file, vars } -> case file of
-    Nothing -> mapM_ readVarStdin vars
-    Just file' -> error "No se puede con archivos"
-
-    where
-      readVarStdin var = do
-        let
+  Read { file, vars } -> mapM_ readVar vars
+    where 
+      readVar var = do 
+        let 
           t = objType var
 
-          fread = case t of
+        (args, fread) <- case file of
+          Nothing -> pure . ([],) $ case t of
             T.GChar   -> readCharStd
             T.GFloat  -> readFloatStd
             T.GInt    -> readIntStd
             _         -> error ":D no se soporta este tipo: " <> show t
 
-        -- Call the C read function
+          Just file' -> do 
+            let 
+              fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $ 
+                        "__" <> (unpack file')
+
+            filePtr <- newLabel "filePtr"
+            addInstruction $ filePtr := Load 
+              { volatile  = False
+              , address   = fileRef
+              , maybeAtomicity = Nothing
+              , alignment = 4
+              , metadata  = [] }
+            
+            let filePtrOp = LocalReference (ptr i8) filePtr
+            
+            pure . ([(filePtrOp,[])], ) $ case t of
+                T.GChar   -> readFileChar
+                T.GFloat  -> readFileFloat
+                T.GInt    -> readFileInt
+                _         -> error ":D no se soporta este tipo: " <> show t
+
         type' <- toLLVMType t
+        
         readResult <- newLabel "readCall"
+        -- Call the C read function
         addInstruction $ readResult := Call
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable type' fread
-          , arguments          = []
+          , arguments          = args
           , functionAttributes = []
           , metadata           = [] }
 

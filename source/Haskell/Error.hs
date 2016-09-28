@@ -136,8 +136,7 @@ data Error
 
 instance ErrorComponent Error where
   representFail :: String -> Error
-  representFail e =
-    traceShow (showErrorComponent $ UnknownError e) (UnknownError e)
+  representFail = UnknownError
 
   {- Unused, just to remove the class warning-}
   representIndentation _ _ _ = UnknownError ""
@@ -169,23 +168,23 @@ instance ShowErrorComponent Error where
     BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
       "The parameter `" <> unpack paramName <>"` of the function `" <> unpack fName <>
       "` " <> showPos fPos <> " has type `" <> show pType <>
-      "`, but received an expression with type `" <> show aType <> "`."
+      "`,\n\tbut received an expression with type `" <> show aType <> "`."
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes = [pType], aType} ->
       "Parameter number " <> show paramNum <> " of the function `" <> unpack fName <>
       "` " <> showPos fPos <> " admits type `" <> show pType <>
-      "`, but received an expression of type `" <> show aType <> "`."
+      "`,\n\tbut received an expression of type `" <> show aType <> "`."
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes, aType} ->
       "Parameter number " <> show paramNum <> " of the procedure `" <> unpack fName <>
       "` " <> showPos fPos <> " admits one of the following types:" <>
       (unlines . fmap (("\t" <>) . show) . toList $ pTypes) <>
-      "`, but received an expression of type `" <> show aType <> "`."
+      "`,\n\tbut received an expression of type `" <> show aType <> "`."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
       "` " <> showPos pPos <> " has type `" <> show pType <>
-      "`, but received an expression with type `" <> show aType <> "`."
+      "`,\n\tbut received an expression with type `" <> show aType <> "`."
 
     BadReadArgument { aExpr } ->
       "The expression `" <> show aExpr <> "` is a constant expression."
@@ -274,8 +273,8 @@ prettyError (ParseError pos us ps xs) =
     then "unknown parse error\n"
     else
       let message =
-            [ messageItemsPretty "\t Found unexpected: " us
-            , messageItemsPretty "\t instead of: "  ps
+            [ messageItemsPretty "\tFound unexpected: " us
+            , messageItemsPretty "\tinstead of: "  ps
             , unlines . fmap ("\t"<>) $
               (showErrorComponent <$> Set.toAscList xs) ] :: [String]
       in concat message
@@ -287,11 +286,11 @@ messageItemsPretty :: ShowErrorComponent a
 messageItemsPretty prefix ts
   | Set.null ts = ""
   | otherwise =
-    let f = orList . NE.fromList . Set.toAscList . Set.map showErrorComponent
+    let f = orList . Set.toAscList . Set.map showErrorComponent
     in prefix <> f ts <> "\n"
 
 
-orList :: NonEmpty String -> String
-orList (x:|[])  = x
-orList (x:|[y]) = x <> " or " <> y
-orList xs       = intercalate ", " (NE.init xs) <> ", or " <> NE.last xs
+orList :: [String] -> String
+orList (x:[])  = x
+orList (x:[y]) = x <> " or " <> y
+orList xs      = intercalate ", " (init xs) <> ", or " <> (last xs)

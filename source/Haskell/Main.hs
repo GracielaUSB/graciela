@@ -195,7 +195,7 @@ main = do
           files = toList $ state ^. filesToRead
           -- types = state ^. typesTable
 
-        newast <- programToLLVM files {-types-} program
+        newast <- programToLLVM files program
 
         let
           lltName = case optOutName options of
@@ -237,7 +237,7 @@ main = do
           ExitFailure _ ->
             die "clang error"
 
-      Left message -> internal $ "No AST was generated: " <> show message
+      Left message -> putStrLn $ prettyError message
 
     else
       {- If any errors occurred during Parsing, they will be printed here-}

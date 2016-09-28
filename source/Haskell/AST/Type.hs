@@ -25,6 +25,7 @@ module  AST.Type
   , isDataType
   , basic
   , hasDT
+  , hasTypeVar
   , notIn
   , objMode
   ) where
@@ -103,7 +104,7 @@ data Type
 
   | GFullDataType
     { typeName :: Text
-    , types    :: TypeArgs }
+    , typeArgs :: TypeArgs }
   | GDataType
     { typeName :: Text
     , abstName :: Maybe Text
@@ -162,6 +163,13 @@ hasDT t@GFullDataType {} = Just t
 hasDT (GArray _ t) = hasDT t
 hasDT (GPointer t) = hasDT t
 hasDT _ = Nothing
+
+hasTypeVar GTypeVar{} = True
+hasTypeVar t@GDataType {typeArgs} = not (null typeArgs)
+hasTypeVar t@GFullDataType {typeArgs} = not (null typeArgs)
+hasTypeVar (GArray _ t) = hasTypeVar t
+hasTypeVar (GPointer t) = hasTypeVar t
+hasTypeVar _ = False
 
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
@@ -296,7 +304,7 @@ instance Show Type where
 
         GTuple    ts    ->
           "tuple (" <> (unwords . toList $ show' <$> ts) <> ")"
-        GTypeVar  i n   -> "`" <> unpack n <> "`" -- "#" <> show i <> " ("
+        GTypeVar  i n   -> unpack n
 
         GFullDataType n targs   ->
           unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")f"

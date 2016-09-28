@@ -11,13 +11,13 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "locale.h"
 #include "string.h"
 
-int8_t* _openFile(char* nombreArchivo) {
+int8_t* _openFile(char* name) {
   FILE* file;
 
-  file = fopen(nombreArchivo, "r");
+  file = fopen(name, "r");
   if(file == NULL)
   {
-    printf ("%s %s", "Error abriendo el archivo: ", nombreArchivo);
+    printf ("%s %s", "Error abriendo el archivo: ", name);
     exit(EXIT_FAILURE);
   }
   return (int8_t *) file;

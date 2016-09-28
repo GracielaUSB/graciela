@@ -30,7 +30,11 @@ main
   ; var i, j := 0, 0 : int
   ; var x : array [M, N] of int
   ; var y : int
+  ; var c : char
   ; y := 5
+
+  ; read(y) from "hola.txt"
+  ; read(y) from "hola.txt"
   ; writeln ("y: ", y)
   ; {inv   true    inv}
     {bound 6 - i bound}
@@ -54,6 +58,7 @@ main
   ; { {4} \ {4} == {}  }
   ; {〈1,2,3〉 ++ 〈x : int | 0 < x /\ x < 4 | x〉 == 〈1,2,3,1,2,3〉}
   ; { ⟅1,2,3⟆ union ⟅1,2,3⟆ == ⟅1,1,2,2,3,3⟆ }
+  // ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
   ; writeln (i mod 2 == 0 ==> x[1,1] > 0) // Test for jumping code
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet
   // ; i, j := 0, 0

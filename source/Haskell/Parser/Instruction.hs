@@ -322,7 +322,12 @@ reading = do
             { file
             , vars }}
   where
-    fileFrom = match TokFrom *> stringLit
+    fileFrom = do 
+      loc <- match TokFrom 
+      str <- lookAhead stringLit <|> 
+             (putError (pos loc) (UnknownError  "The name of a file must be a string") >> lookAhead stringLit)
+      expression
+      pure str
 
     read' _   Nothing = pure Nothing
     read' acc (Just Expression { exp' = Obj o @ Object { O.loc = Location (from, _), objType } })

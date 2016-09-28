@@ -14,6 +14,7 @@ module LLVM.State
   , fullDataTypes
   , pendingDataTypes
   , currentStruct
+  , stringIds
   , stringOps
   , boundOp
   , substitutionTable
@@ -48,6 +49,7 @@ data State = State
   , _fullDataTypes     :: Map Text (Struct, [TypeArgs])
   , _pendingDataTypes  :: Map Text (Struct, [TypeArgs])
   , _currentStruct     :: Maybe Struct
+  , _stringIds         :: Map Text Int
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
   , _substitutionTable :: [TypeArgs] }
@@ -66,6 +68,7 @@ initialState = State
   , _fullDataTypes     = Map.empty
   , _pendingDataTypes  = Map.empty
   , _currentStruct     = Nothing
+  , _stringIds         = Map.empty
   , _stringOps         = undefined
   , _boundOp           = Nothing
   , _substitutionTable = [] }

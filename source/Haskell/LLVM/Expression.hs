@@ -358,7 +358,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
   NullPtr ->
     case expType of
-      GPointer GAny -> pure .ConstantOperand . C.Null $ ptr i8
+      GPointer GAny -> pure . ConstantOperand . C.Null $ ptr i8
       _             -> ConstantOperand . C.Null  <$> toLLVMType expType
 
   StringLit { theStringId } ->

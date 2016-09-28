@@ -336,9 +336,9 @@ extern "C" {
         return (int8_t*) set;
     }
     
-    int _pairFunction(int8_t *ptr, t k){
+    t _pairFunction(int8_t *ptr, t k){
         Function *function = (Function*)ptr;
-        return (int)function->find(k)->second;
+        return (t)function->find(k)->second;
     }
     
     int8_t *_compositionFunction(int8_t *ptr1, int8_t *ptr2){

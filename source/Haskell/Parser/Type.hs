@@ -262,12 +262,23 @@ typeVarDeclaration = do
 
 typeVar :: Parser Type
 typeVar = do
+  pos   <- getPosition
   tname <- lookAhead identifier
   tvars <- use typeVars
+  existsDT' <- use existsDT
   case tname `elemIndex` tvars of
     Nothing -> do
       notFollowedBy identifier
       pure GUndef
-    Just i -> do
-      identifier
-      isPointer $ GTypeVar i tname
+    Just i 
+      | existsDT' -> do
+        identifier
+        isPointer $ GTypeVar i tname
+
+      | otherwise -> do 
+        Just (dt,_,_) <- use currentStruct
+        identifier
+        putError pos . UnknownError $ 
+          "To use a variable of type " <> show (GTypeVar i tname) <>
+          "\n\tone of the method parameter must be of type " <> show dt
+        pure $ GTypeVar i tname

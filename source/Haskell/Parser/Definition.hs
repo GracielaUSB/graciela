@@ -62,6 +62,26 @@ function = do
   match' TokArrow
   funcRetType <- type'
 
+  dt <- use currentStruct
+  goToDT <- case (dt, funcParams', funcName') of
+    (Just (dtType, _, procs), Just params, Just funcName) -> do
+      let
+        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        hasTV  = foldr ((||) . (\(_,pType) -> hasTypeVar pType)) False params
+        hasDT' = foldr ((||) . (\(_,pType) -> aux (hasDT pType))) False params
+      if hasTV || hasTypeVar funcRetType || hasDT'
+        then if hasDT'
+          then pure True
+          else do
+            putError from . UnknownError $
+                  "One of the parameters of the function `" <> unpack funcName <>
+                  "`\n\tmust have type " <> show dtType <> " when using Variable Types."
+            pure False
+      else do  
+        pure False
+
+    _ -> pure False
+
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Precondition was expected")
   postFrom <- getPosition
@@ -123,44 +143,34 @@ function = do
                 , funcRetType
                 , funcRecursive } }
 
-          -- Struct does not add their procs to the table
-          dt <- use currentStruct
+          if goToDT
+            then do 
+              let Just (_,_, procs) = dt
+              case funcName `Map.lookup` procs of
+                  Nothing -> do 
+                    currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
+                    pure $ Just def
+                  Just _  -> do 
+                    putError from . UnknownError $ 
+                      "Redefinition of function `" <> unpack funcName <> "`."
+                    pure Nothing
+          else do 
+            defs <- use definitions
+            case funcName `Map.lookup` defs of
+              _ -> do 
+                definitions %= Map.insert funcName def
+                pure $ Just def
+              Just _  -> do 
+                putError from . UnknownError $
+                  "Redefinition of function `" <> unpack funcName <> "`."
+                pure Nothing
+      else do
+        putError from BadFuncExpressionType
+          { fName = funcName
+          , fType = funcRetType
+          , eType = expType funcBody }
+        pure Nothing
 
-          case dt of
-            Just (dtType, _, procs) -> do
-              let
-                hasDT' = foldr ((||) . (\(_,pType) -> (Nothing /= hasDT pType) || isTypeVar pType)) False funcParams
-              case Seq.viewl funcParams of
-                (_, pType) :< _ | hasDT' -> do
-                  case hasDT pType of
-                    Just pType' -> if pType' =:= dtType
-                      then currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
-                      else putError from . UnknownError $
-                          "First parameter of function `" <> unpack (defName def) <>
-                          "` must have type " <> show dtType <> "."
-
-                    _ -> currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
-
-                _ -> case funcName `Map.lookup` procs of
-                  Nothing -> definitions %= Map.insert funcName def
-                  Just _  -> putError from . UnknownError $
-                    "Redefinition of procedure `" <> unpack funcName <> "`."
-
-            Nothing -> do
-              defs <- use definitions
-              case funcName `Map.lookup` defs of
-                Nothing -> definitions %= Map.insert funcName def
-                Just _  -> putError from . UnknownError $
-                  "Redefinition of procedure `" <> unpack funcName <> "`."
-
-          pure . Just $ def
-
-        else do
-          putError from BadFuncExpressionType
-            { fName = funcName
-            , fType = funcRetType
-            , eType = expType funcBody }
-          pure Nothing
     _ -> pure Nothing
 
 
@@ -211,6 +221,27 @@ procedure = do
   symbolTable %= openScope from
   params' <- parens doProcParams
 
+  dt <- use currentStruct
+  goToDT <- case (dt, params', procName') of
+    (Just (dtType, _, procs), Just params, Just procName) -> do
+      let
+        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        hasTV  = foldr ((||) . (\(_,pType,_) -> hasTypeVar pType)) False params
+        hasDT' = foldr ((||) . (\(_,pType,_) -> aux (hasDT pType))) False params
+      if hasTV || hasDT'
+        then if hasDT'
+          then pure True
+          else do
+            putError from . UnknownError $
+                  "One of the parameters of the procedure `" <> unpack procName <>
+                  "`\n\tmust have type " <> show dtType <> " when using Variable Types."
+            pure False
+      else do  
+        existsDT .= False
+        pure False
+
+    _ -> pure False
+
   decls'  <- declarationOrRead
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
@@ -242,7 +273,7 @@ procedure = do
     Just cr -> cr ^.crRecursive
 
   currentProc .= Nothing
-
+  existsDT .= True
   let
     loc = Location (from, to)
 
@@ -260,39 +291,30 @@ procedure = do
             , procBody = body
             , procParams = params
             , procRecursive }}
-
-      -- Struct does not add their procs to the table
-      dt <- use currentStruct
-
-      case dt of
-        Just (dtType, _, procs) -> do
-          let
-            hasDT' = foldr ((||) . (\(_,pType,_) -> (Nothing /= hasDT pType) || isTypeVar pType)) False params
-          case Seq.viewl params of
-            (_, pType, _) :< _ | hasDT' -> do
-              case hasDT pType of
-                Just pType' -> if pType' =:= dtType
-                  then currentStruct %= over _Just (_3 %~ (Map.insert procName def))
-                  else putError from . UnknownError $
-                      "First parameter of procedure `" <> unpack (defName def) <>
-                      "` must have type " <> show dtType <> " when using Variable Types."
-
-                _ -> currentStruct %= over _Just (_3 %~ (Map.insert procName def))
-
-
-            _ -> case procName `Map.lookup` procs of
-                Nothing -> definitions %= Map.insert procName def
-                Just _  -> putError from . UnknownError $
+      if goToDT
+        then do 
+          let Just (_,_, procs) = dt
+          case procName `Map.lookup` procs of
+              Nothing -> do 
+                currentStruct %= over _Just (_3 %~ (Map.insert procName def))
+                pure $ Just def
+              Just _  -> do 
+                putError from . UnknownError $ 
                   "Redefinition of procedure `" <> unpack procName <> "`."
-
-        Nothing -> do
+                pure Nothing
+        else do 
           defs <- use definitions
           case procName `Map.lookup` defs of
-            Nothing -> definitions %= Map.insert procName def
-            Just _  -> putError from . UnknownError $
-              "Redefinition of procedure `" <> unpack procName <> "`."
+            _ -> do 
+              definitions %= Map.insert procName def
+              pure $ Just def
+            Just _  -> do 
+              putError from . UnknownError $
+                "Redefinition of procedure `" <> unpack procName <> "`."
+              pure Nothing
+      
+ 
 
-      pure $ Just def
     _ -> pure Nothing
 
 doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty

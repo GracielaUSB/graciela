@@ -89,8 +89,8 @@ programToLLVM
     program = do
       S.structs .= structs
       fullDataTypes .= fullStructs
-
-      addStrings strings
+      stringIds .= strings
+      addStrings
 
       preDefinitions files
 
@@ -100,7 +100,7 @@ programToLLVM
       mapM_ (uncurry defineStruct) . Map.toList $ p
       mapM_ definition defs
 
-      mainDefinition insts
+      mainDefinition insts files
 
       use moduleDefs
       -- return $ definitions
@@ -122,8 +122,9 @@ programToLLVM
         crop <$> readProcess "/usr/bin/sw_vers" ["-productVersion"] []
       _        -> return ""
 
-    addStrings :: Map Text Int -> LLVM ()
-    addStrings strs = do
+    addStrings :: LLVM ()
+    addStrings = do
+      strs <- use stringIds
       ops <- mapM addString . sortOn snd . Map.toAscList $ strs
       stringOps .= listArray (0, Map.size strs - 1) ops
 

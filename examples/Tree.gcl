@@ -18,8 +18,8 @@ begin
 
   /* Node procedures */
   func elemNode (current : Node(T)*, x : T, b : int) ->  boolean
-     {pre  true pre}
-     {post  true post}
+     {pre  true  pre}
+     {post true post}
      {bound b bound}
      |[
       if current == null -> false
@@ -64,12 +64,18 @@ begin
   {coupinv true coupinv}
 
   /* BinaryTree procedures */
+  func chao (x : T) -> int
+    {pre  true pre}
+    {post  true post}
+    |[
+      1
+    ]|
   proc hola (in x : int)
   
     {pre true pre}
     {post true post}
     |[
-      write("Soy un simpatico numero: ",x)
+      write("Soy un simpatico número: ", x)
     ]|
 
   proc insert (inout t : BinaryTreeO(T), in x : T)
@@ -103,7 +109,7 @@ begin
        fi
      ; t.tam := t.tam + 1
     ]|
-
+    
     proc printf (in t : BinaryTreeO(T))
     
       {pre true pre}
@@ -125,10 +131,10 @@ main
      ; insert(bt, 123)
      // ; insert(bt, 10)
      // ; insert(bt, 10)
-     
      ; printf(bt)
      ; writeln("Size: ",bt.tam)
      ; hola(1)
+     ; write(chao(1))
     ]|
 
 end

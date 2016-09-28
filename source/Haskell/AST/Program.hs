@@ -17,6 +17,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (elems, foldrWithKey)
 import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
+import           Data.Set        (Set)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 

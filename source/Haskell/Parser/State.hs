@@ -16,6 +16,7 @@ module Parser.State
   , currentFunc
   , currentStruct
   , typeVars
+  , existsDT
   , dataTypes
   , fullDataTypes
   , initialState
@@ -75,6 +76,7 @@ data State = State
   , _currentFunc   :: Maybe CurrentFunc
   , _currentStruct :: Maybe (Type, Fields, Map Text Definition)
   , _typeVars      :: [Text]
+  , _existsDT          :: Bool
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
   , _stringIds     :: Map Text Int }
@@ -91,6 +93,7 @@ initialState path  = State
   , _currentProc   = Nothing
   , _currentFunc   = Nothing
   , _typeVars      = []
+  , _existsDT      = True
   , _dataTypes     = Map.empty
   , _fullDataTypes = Map.empty
   , _currentStruct = Nothing

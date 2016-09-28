@@ -229,8 +229,7 @@ TEST_CASE("Graciela Multiset"){
 TEST_CASE("Graciela Set"){
     /* Create set, insert element and is element */
     _initTrashCollector();
-    int x = -10, y = -10 >> 31;
-    printf("%d\n",y);
+  
     _openScope();
     Set s = _newSet();
     REQUIRE(_equalSet(_unionSet(s,s), s));

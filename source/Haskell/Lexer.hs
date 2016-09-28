@@ -164,7 +164,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "set"        TokSet
       <|> reserved "multiset"   TokMultiset
       <|> reserved "seq"        TokSeq
-      <|> reserved "rel"        TokRel
+      <|> reserved "relation"   TokRel
 
       <|> symbol   "\\"         TokSetMinus
       <|> reserved "union"      TokSetUnion

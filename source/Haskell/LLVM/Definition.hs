@@ -31,6 +31,7 @@ import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                        (use, (%=), (&), (.=))
 import           Control.Monad                       (foldM, unless, void)
+import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
@@ -53,6 +54,7 @@ import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Instruction
 import           LLVM.General.AST.IntegerPredicate   (IntegerPredicate (EQ, SGE, SLT))
+import           LLVM.General.AST.Linkage            (Linkage(Private))
 import           LLVM.General.AST.Name               (Name (..))
 import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
@@ -60,16 +62,19 @@ import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
 import           LLVM.General.AST.Type               (Type (..), double, i1,
                                                       i32, i64, i8, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
+import           LLVM.General.AST.Visibility         (Visibility(Default))
 import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
 {- Given the instruction block of the main program, construct the main LLVM function-}
-mainDefinition :: G.Instruction -> LLVM ()
-mainDefinition block = do
+mainDefinition :: G.Instruction -> [String] -> LLVM ()
+mainDefinition block files = do
   main <- newLabel "main"
 
   (main #)
+  mapM_ openFile files
+
   addInstruction $ Do Call
     { tailCallKind       = Nothing
     , callingConvention  = CC.C
@@ -99,6 +104,8 @@ mainDefinition block = do
     , functionAttributes = []
     , metadata           = [] }
 
+  mapM_ closeFile files
+  
   terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
@@ -109,6 +116,56 @@ mainDefinition block = do
     , returnType  = i32
     , basicBlocks = toList blocks'
     }
+
+  where
+    openFile file = do
+      let 
+        fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
+                  "__" <> file
+      
+      fileLabel <- newLabel "file"
+      strs <- use stringIds
+      let Just i = (pack file) `Map.lookup` strs
+      string <- (!i) <$> use stringOps
+      addInstruction $ fileLabel := Call
+        { tailCallKind       = Nothing
+        , callingConvention  = CC.C
+        , returnAttributes   = []
+        , function           = callable (ptr i8) openFileStr
+        , arguments          = [(string,[])]
+        , functionAttributes = []
+        , metadata           = [] }
+
+      addInstruction $ Do Store
+          { volatile = False
+          , address  = fileRef
+          , value    = LocalReference (ptr i8) fileLabel
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+    closeFile file = do 
+      let 
+        fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
+                  "__" <> file
+      filePtr <- newLabel "filePtr"
+      addInstruction $ filePtr := Load 
+        { volatile  = False
+        , address   = fileRef
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+      
+      addInstruction $ Do Call
+        { tailCallKind       = Nothing
+        , callingConvention  = CC.C
+        , returnAttributes   = []
+        , function           = callable voidType closeFileStr
+        , arguments          = [(LocalReference (ptr i8) filePtr,[])]
+        , functionAttributes = []
+        , metadata           = [] }
+
+  
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
@@ -531,7 +588,8 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 
 
 preDefinitions :: [String] -> LLVM ()
-preDefinitions files =
+preDefinitions files = do
+  mapM_ addFile files
   addDefinitions $ fromList
 
     [ -- Random
@@ -748,17 +806,18 @@ preDefinitions files =
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
 
-    , defineFunction openFileStr [Parameter (ptr i8) (Name "nombreArchivo") []] (ptr i8)
+    
 
     -- Malloc
     , defineFunction mallocString intParam (ptr i8)
     , defineFunction freeString [parameter ("x", ptr i8)] voidType
-    -- mapM_ addFile files
+    
 
-    -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr i8)]) intType
-    -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr i8)]) charType
-    -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr i8)]) floatType
-    -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr i8)]) voidType
+    , defineFunction readFileInt   [parameter ("file", ptr i8)] intType
+    , defineFunction readFileChar  [parameter ("file", ptr i8)] charType
+    , defineFunction readFileFloat [parameter ("file", ptr i8)] floatType
+    , defineFunction closeFileStr  [parameter ("file", ptr i8)] voidType
+    , defineFunction openFileStr   [parameter ("name", ptr i8)] (ptr i8)
     ]
 
   where
@@ -778,3 +837,18 @@ preDefinitions files =
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
     stringParam   = [Parameter stringType (Name "msg") [NoCapture]]
     overflow' n   = StructureType False [IntegerType n, boolType]
+    addFile file  = addDefinition $ LLVM.GlobalDefinition GlobalVariable 
+        { name            = Name ("__" <> file)
+        , linkage         = Private
+        , visibility      = Default
+        , dllStorageClass = Nothing
+        , threadLocalMode = Nothing
+        , addrSpace       = AddrSpace 0
+        , hasUnnamedAddr  = False
+        , isConstant      = False
+        , type'           = ptr i8
+        , initializer     = Just . C.Null $ ptr i8
+        , section         = Nothing
+        , comdat          = Nothing
+        , alignment       = 4
+      }
