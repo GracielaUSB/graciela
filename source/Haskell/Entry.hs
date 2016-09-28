@@ -10,9 +10,9 @@ module Entry
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
+import           AST.Type
 import           Location
 import           Treelike
-import           AST.Type
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
 import           Data.Semigroup ((<>))
@@ -23,13 +23,14 @@ import           Data.Text      (Text, unpack)
 data Entry'
   = Var
     { _varType  :: Type
-    , _varValue :: Maybe Expression }
+    , _varValue :: Maybe Expression
+    , _varConst :: Bool }
   | SelfVar -- Variables declared inside of a Data Type. these variables are only used inside invariants
     { _selfType  :: Type
     , _selfValue :: Maybe Expression }
-  | Const
-    { _constType  :: Type
-    , _constValue :: Value }
+  -- | Const
+  --   { _constType  :: Type
+  --   , _constValue :: Value }
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
@@ -50,24 +51,20 @@ makeLenses ''Entry
 instance Treelike Entry where
   toTree Entry { _entryName, _loc, _info } = case _info of
 
-    Var { _varType, _varValue } ->
-      Node ("Variable `" <> unpack _entryName <> "` " <> show _loc)
+    Var { _varType, _varValue, _varConst } ->
+      Node ((if _varConst then "Constant" else "Variable") <> " `" <>
+        unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _varType)
         , case _varValue of
-            Nothing     -> leaf "Not initialized"
-            Just value  -> Node "Initial value: " [toTree value] ]
+            Nothing    -> leaf "Not initialized"
+            Just value -> Node "Value: " [toTree value] ]
 
     SelfVar { _selfType, _selfValue } ->
       Node ("Self Variable `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf ("Type: " <> show _selfType)
         , case _selfValue of
-            Nothing     -> leaf "Not initialized"
-            Just value  -> Node "Initial value: " [toTree value] ]
-
-    Const { _constType, _constValue } ->
-      Node ("Constant `" <> unpack _entryName <> "` " <> show _loc)
-        [ leaf $  "Type: " <> show _constType
-        , Node "Value" [toTree _constValue] ]
+            Nothing    -> leaf "Not initialized"
+            Just value -> Node "Initial value: " [toTree value] ]
 
     Argument { _argMode, _argType } ->
       Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)

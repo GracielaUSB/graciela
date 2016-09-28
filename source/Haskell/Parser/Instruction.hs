@@ -184,9 +184,9 @@ assign = do
     checkType _   (Nothing, _) = pure Nothing
     checkType _   (_, Nothing) = pure Nothing
     checkType acc (Just lval, Just rval) = case (lval,rval) of
-      ( Expression { loc = Location (from1,_), expType = t1, exp' = Obj o},
+      ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
-        | notIn o ->
+        | notIn o && not expConst ->
           if (t1 =:= t2) && (isTypeVar t1 ||
             (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
             then case expr of
@@ -198,6 +198,11 @@ assign = do
                 show t2 <> " to a variable of type " <>
                 show t1 <> "."
               pure Nothing
+        | expConst -> do
+          putError from1 . UnknownError $
+            "The constant `" <> show o <> "` cannot be the target of an \
+            \assignment."
+          pure Nothing
         | otherwise -> do
           putError from1 . UnknownError $
             "The variable `" <> show o <> "` cannot be the target of an \
@@ -314,7 +319,7 @@ reading = do
             , vars }}
       else do
         case file of
-          Nothing -> pure ()
+          Nothing       -> pure ()
           Just fileName -> filesToRead %= Set.insert (unpack fileName)
         pure $ Just Instruction
           { instLoc = loc
@@ -680,7 +685,7 @@ procedureCall = do
   where
     hasDTType = getFirst . foldMap aux
     aux (Just Expression { expType = f } ) = First $ hasDT f
-    aux Nothing = First Nothing
+    aux Nothing                            = First Nothing
 
     checkType = checkType' (Array.listArray (0,-1) [])
 

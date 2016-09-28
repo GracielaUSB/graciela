@@ -75,7 +75,8 @@ function = do
         , _loc       = Location (idFrom, idTo)
         , _info      = Var
           { _varType  = funcRetType
-          , _varValue = Nothing }}
+          , _varValue = Nothing
+          , _varConst = False }}
 
   post'   <- postcond <!> (postFrom, UnknownError "Postcondition was expected")
   postTo <- getPosition

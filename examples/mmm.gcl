@@ -1,0 +1,26 @@
+program mmm.bin begin
+
+// func gcd (a : int, b : int) -> int
+//   {pre a > 0 /\ b > 0 pre}
+//   {post a mod gcd == 0 /\ b mod gcd == 0 /\ 
+//     !(% exist i : int | a min b < i /\ i < a max b | a mod i == 0 /\ b mod i == 0 %) post}
+//   {bound a + b bound}
+//   |[ if a == b -> a
+//      [] a >  b -> gcd (a-b, b)
+//      [] a <  b -> gcd (a, b-a)
+//      fi
+//   ]|
+
+main
+  |[ var x := (% min y : int | - 100 < y /\ y < 100 | y^2 + y + 99 %) : int
+  ;  writeln (x)
+  ;  writeln ("\t", 10^(-1))
+  ]|
+
+// var x := (% min y : int | -100 < y /\ y < 100 | y^2 + y + 99 %) : int
+
+  // |[ var x, y : int
+  // ;  read (x, y)
+  // ;  writeln ("gcd (", x, ", ", y, ") = ", gcd (x,y))
+  // ]|
+end

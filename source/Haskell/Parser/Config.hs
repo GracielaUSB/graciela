@@ -50,7 +50,7 @@ module Parser.Config
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
-import           AST.Expression        (Value (BoolV))
+import           AST.Expression        hiding (fName)
 import           AST.Struct
 import           AST.Type
 import           Entry
@@ -93,7 +93,14 @@ defaultConfig = Config
       at "char"    ?= (GChar,  gracielaDef)
 
     symbols =
-      [ ("otherwise", Const GBool (BoolV True)) ] :: [(Text, Entry')]
+      [ ("otherwise", Var
+        { _varType  = GBool
+        , _varValue = Just Expression
+          { loc      = gracielaDef
+          , expType  = GBool
+          , expConst = True
+          , exp'     = Value (BoolV True) }
+        , _varConst = True }) ] :: [(Text, Entry')]
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 

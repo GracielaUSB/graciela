@@ -356,7 +356,8 @@ collection = do
                 , _loc = Location (from, to)
                 , _info = Var
                   { _varType  = t
-                  , _varValue = Nothing }}
+                  , _varValue = Nothing
+                  , _varConst = True }}
               pure (var, t)
             else do
               putError from . UnknownError $
@@ -393,7 +394,7 @@ callOrVariable = do
   tok <- lookAhead anyToken
   case tok of
     TokLeftPar -> call name loc
-    _ -> variable name loc
+    _          -> variable name loc
 
 
 variable :: Text -> Location -> ParserExp (Maybe MetaExpr)
@@ -422,27 +423,25 @@ variable name (Location (from, to)) = do
   case entry of
 
     Left _ -> do
-
       putError from . UnknownError $
         "Variable `" <> unpack name <> "` not defined in this scope."
-
       pure Nothing
 
     Right entry -> case entry^.info of
-      Var { _varType } -> do
+      Var { _varType, _varConst } -> do
+        rangevars <- get
+
         let expr = Expression
               { E.loc
               , expType = _varType
-              , expConst = False
+              , expConst = _varConst || name `elem` rangevars
               , exp' = Obj
                 { theObj = Object
                   { O.loc
                   , objType = _varType
                   , obj' = Variable
                     { O.name = name
-                    , mode = Nothing}}}}
-
-        rangevars <- get
+                    , mode = Nothing }}}}
 
         let protorange = case rangevars of
               [] -> ProtoNothing
@@ -502,15 +501,15 @@ variable name (Location (from, to)) = do
 
         pure $ Just (expr, protorange, taint)
 
-      Const { _constType, _constValue } ->
-        let
-          expr = Expression
-            { E.loc
-            , expType  = _constType
-            , expConst = True
-            , exp' = Value _constValue }
-
-        in pure $ Just (expr, ProtoNothing, Taint False)
+      -- Const { _constType, _constValue } ->
+      --   let
+      --     expr = Expression
+      --       { E.loc
+      --       , expType  = _constType
+      --       , expConst = True
+      --       , exp' = Value _constValue }
+      --
+      --   in pure $ Just (expr, ProtoNothing, Taint False)
 
       Argument { _argMode, _argType } ->
         let
@@ -783,7 +782,7 @@ call fName (Location (from,_)) = do
   where
     hasDTType = getFirst . foldMap aux
     aux (Just (Expression { expType },_,_)) = First $ hasDT expType
-    aux Nothing = First Nothing
+    aux Nothing                             = First Nothing
     checkType = checkType' (Array.listArray (0,-1) [])
 
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
@@ -867,10 +866,10 @@ quantification = do
     Nothing -> pure Nothing
     Just t -> case body of
       Nothing -> pure Nothing
-      Just (theBody @ Expression { expType = bodyType }, _, taint1) ->
+      Just (theBody @ Expression { expType = bodyType, expConst = bodyConst }, _, taint1) ->
         case range of
           Nothing -> pure Nothing
-          Just (cond, protorange, taint0) ->
+          Just (cond@Expression {expConst = condConst}, protorange, taint0) ->
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing
@@ -883,7 +882,7 @@ quantification = do
                       , expType = case q of
                         Count -> GInt
                         _     -> newType
-                      , expConst = False
+                      , expConst = condConst && bodyConst
                       , exp' = Quantification
                         { qOp      = q
                         , qVar     = var
@@ -933,7 +932,8 @@ quantification = do
                 , _loc = Location (from, to)
                 , _info = Var
                   { _varType  = t
-                  , _varValue = Nothing }}
+                  , _varValue = Nothing
+                  , _varConst = True }}
               pure (var, Just t)
             else do
               putError from . UnknownError $
@@ -1407,8 +1407,8 @@ binary binOp opLoc
         taint = ltaint <> rtaint
 
         exp' = case (lexp, rexp) of
-          (Value v, Value w) ->
-            Value $ Op.binFunc binOp v w
+          -- (Value v, Value w) ->
+          --   Value $ Op.binFunc binOp v w
           _ -> Binary
             { binOp = Op.binSymbol binOp
             , lexpr = l
@@ -1484,8 +1484,8 @@ membership opLoc l r = binary Op.elem opLoc l r
 comparison :: Op.Bin -> Location
            -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
 comparison binOp opLoc
-  (Just (l @ Expression { expType = ltype }, _, Taint False))
-  (Just (r @ Expression { expType = rtype }, ProtoVar, _))
+  (Just (l @ Expression { expType = ltype, expConst = lc }, _, Taint False))
+  (Just (r @ Expression { expType = rtype, expConst = rc }, ProtoVar, _))
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
@@ -1506,7 +1506,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
-            , expConst = False
+            , expConst = lc && rc
             , exp'     = eSkip }
         in pure $ Just (expr, range, Taint True)
 
@@ -1520,8 +1520,8 @@ comparison binOp opLoc
       Expression { E.loc, expType, expConst, exp' = Unary op e }
 
 comparison binOp opLoc
-  (Just (l @ Expression { expType = ltype }, ProtoVar, _))
-  (Just (r @ Expression { expType = rtype }, _, Taint False))
+  (Just (l @ Expression { expType = ltype, expConst = lc }, ProtoVar, _))
+  (Just (r @ Expression { expType = rtype, expConst = rc }, _, Taint False))
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
@@ -1542,7 +1542,7 @@ comparison binOp opLoc
           expr = Expression
             { E.loc    = Location (from l, to r)
             , expType  = GBool
-            , expConst = False
+            , expConst = lc && rc
             , exp'     = eSkip }
         in pure $ Just (expr, range, Taint True)
 
@@ -1562,8 +1562,8 @@ pointRange :: Location
            -> Maybe MetaExpr -> Maybe MetaExpr
            -> ParserExp (Maybe MetaExpr)
 pointRange opLoc
-  (Just (l @ Expression { expType = ltype }, ProtoVar, ltaint))
-  (Just (r @ Expression { expType = rtype }, _, Taint False))
+  (Just (l @ Expression { expType = ltype, expConst = lc }, ProtoVar, ltaint))
+  (Just (r @ Expression { expType = rtype, expConst = rc }, _, Taint False))
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
@@ -1578,15 +1578,15 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
-          , expConst = False
+          , expConst = lc && rc
           , exp'     = eSkip }
       in pure $ Just (expr, ProtoQRange (PointRange r), Taint False)
 
     Right _ -> internal "impossible type equality"
 
 pointRange opLoc
-  (Just (l @ Expression { expType = rtype }, _, Taint False))
-  (Just (r @ Expression { expType = ltype }, ProtoVar, ltaint))
+  (Just (l @ Expression { expType = rtype, expConst = lc }, _, Taint False))
+  (Just (r @ Expression { expType = ltype, expConst = rc }, ProtoVar, ltaint))
   = case Op.binType Op.aeq ltype rtype of
     Left expected -> do
       let loc = Location (from l, to r)
@@ -1601,7 +1601,7 @@ pointRange opLoc
         expr = Expression
           { E.loc    = Location (from l, to r)
           , expType  = GBool
-          , expConst = False
+          , expConst = lc && rc
           , exp'     = eSkip }
       in pure $ Just (expr, ProtoQRange (PointRange l), Taint False)
 

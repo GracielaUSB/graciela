@@ -471,17 +471,17 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , metadata   = [] }
 
             isZero <- newLabel "divIsZero"
-            isn'tZero <- newLabel "divIsn'tZero"
+            isntZero <- newLabel "divIsntZero"
             terminate CondBr
               { condition = LocalReference i1 checkZero
               , trueDest  = isZero
-              , falseDest = isn'tZero
+              , falseDest = isntZero
               , metadata' = [] }
 
             (isZero #)
             abort Abort.DivisionByZero pos
 
-            (isn'tZero #)
+            (isntZero #)
             addInstruction $ label := SDiv
               { exact = True
               , operand0 = lOperand
@@ -497,17 +497,17 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , metadata   = [] }
 
             isZero <- newLabel "modIsZero"
-            isn'tZero <- newLabel "modIsn'tZero"
+            isntZero <- newLabel "modIsntZero"
             terminate CondBr
               { condition = LocalReference i1 checkZero
               , trueDest  = isZero
-              , falseDest = isn'tZero
+              , falseDest = isntZero
               , metadata' = [] }
 
             (isZero #)
             abort Abort.DivisionByZero pos
 
-            (isn'tZero #)
+            (isntZero #)
             addInstruction $ label := SRem
               { operand0 = lOperand
               , operand1 = rOperand
@@ -533,7 +533,21 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }
 
-          _ -> error "opInt"
+          Op.Power -> do
+            let posConstant =
+                  (,[]) . ConstantOperand . C.Int 32 . fromIntegral . unPos
+            addInstruction $ label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (IntegerType n) powIString
+              , arguments          =
+                [ (lOperand,[])
+                , (rOperand,[])
+                , posConstant . sourceLine $ pos
+                , posConstant . sourceColumn $ pos ]
+              , functionAttributes = []
+              , metadata           = [] }
 
         return $ LocalReference (IntegerType n) label
 
