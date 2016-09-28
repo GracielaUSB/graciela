@@ -428,6 +428,16 @@ variable name (Location (from, to)) = do
       pure Nothing
 
     Right entry -> case entry^.info of
+      Alias { _aliasType, _aliasValue } ->
+        let
+          expr = Expression
+            { E.loc
+            , expType  = _aliasType
+            , expConst = True
+            , exp' = Value _aliasValue }
+
+        in pure $ Just (expr, ProtoNothing, Taint False)
+
       Var { _varType, _varConst } -> do
         rangevars <- get
 
@@ -457,7 +467,7 @@ variable name (Location (from, to)) = do
 
         pure $ Just (expr, protorange, taint)
 
-      SelfVar { _selfType } -> do
+      SelfVar { _selfType, _selfConst } -> do
         struct <- lift $ use currentStruct
         let
           expr = case struct of
@@ -466,7 +476,7 @@ variable name (Location (from, to)) = do
                 Just (i, _, _) -> Expression
                   { loc
                   , expType  = _selfType
-                  , expConst = False
+                  , expConst = _selfConst
                   , exp'     = Obj
                     { theObj = Object
                       { loc
@@ -501,16 +511,6 @@ variable name (Location (from, to)) = do
                 else Taint False
 
         pure $ Just (expr, protorange, taint)
-
-      -- Const { _constType, _constValue } ->
-      --   let
-      --     expr = Expression
-      --       { E.loc
-      --       , expType  = _constType
-      --       , expConst = True
-      --       , exp' = Value _constValue }
-      --
-      --   in pure $ Just (expr, ProtoNothing, Taint False)
 
       Argument { _argMode, _argType } ->
         let

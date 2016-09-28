@@ -27,10 +27,11 @@ data Entry'
     , _varConst :: Bool }
   | SelfVar -- Variables declared inside of a Data Type. these variables are only used inside invariants
     { _selfType  :: Type
-    , _selfValue :: Maybe Expression }
-  -- | Const
-  --   { _constType  :: Type
-  --   , _constValue :: Value }
+    , _selfValue :: Maybe Expression
+    , _selfConst :: Bool }
+  | Alias
+    { _aliasType  :: Type
+    , _aliasValue :: Value }
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }

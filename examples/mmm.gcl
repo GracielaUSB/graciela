@@ -12,10 +12,15 @@ program mmm.bin begin
 //   ]|
 
 main
-  |[ const x := (% min y : int | - 100 < y /\ y < 100 | y^2 + y + 99 %) : int
-  ;  writeln (x)
-  // ;  writeln ("\t", 10^(10))
-  ;  writeln( (% forall i : int | 0 < i /\ i < 1000 /\ (% exist j : int | 1 < j /\ j < i | i mod j == 0 %) | i < 100 \/ trace(i) != i %) )
+  |[ writeln (
+      (% forall i : int 
+        | 0 < i /\ i < 100000 /\ 
+          !(% exist j : int 
+            | 1 < j /\ j < i 
+            | i mod j == 0 
+          %) 
+        | trace(i) == i
+      %))
   ]|
 
 // var x := (% min y : int | -100 < y /\ y < 100 | y^2 + y + 99 %) : int

@@ -91,14 +91,12 @@ declaration' allowedTypes isStruct = do
           redef <- redefinition (id, loc)
           unless redef  $ do
             let
-              info = if isStruct
-                then SelfVar t Nothing
-                else Var t Nothing False
+              info = (if isStruct then SelfVar else Var) t Nothing False
 
               entry = Entry
-                  { _entryName = id
-                  , _loc       = loc
-                  , _info      = info }
+                { _entryName = id
+                , _loc       = loc
+                , _info      = info }
             symbolTable %= insertSymbol id entry
 
         pure . Just $ Declaration
@@ -144,7 +142,7 @@ checkType :: Constness -> Type -> Bool
           -> Maybe (Seq (Text, Expression))
           -> ((Text, Location), Expression)
           -> Parser (Maybe (Seq (Text, Expression)))
-checkType True t _ pairs
+checkType True t isStruct pairs
   ((identifier, location), expr@Expression { expType, expConst, exp' }) = do
 
   let Location (from, _) = location
@@ -155,13 +153,13 @@ checkType True t _ pairs
       then pure Nothing
       else if expConst
         then do
-          let entry = Entry
-                { _entryName  = identifier
-                , _loc        = location
-                , _info       = Var
-                  { _varType  = t
-                  , _varValue = Just expr
-                  , _varConst = True }}
+          let
+            info val = (if isStruct then SelfVar else Var) t val True
+
+            entry = Entry
+              { _entryName  = identifier
+              , _loc        = location
+              , _info       = info (Just expr) }
           symbolTable %= insertSymbol identifier entry
           pure $ (|> (identifier, expr)) <$> pairs
         else do
@@ -209,9 +207,7 @@ checkType False t isStruct pairs
         then pure Nothing
         else do
           let
-            info = if isStruct
-              then SelfVar t
-              else \val -> Var t val False
+            info val = (if isStruct then SelfVar else Var) t val False
             expr' = case exp' of
               NullPtr {} -> expr{expType = t}
               _          -> expr

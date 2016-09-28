@@ -92,15 +92,10 @@ defaultConfig = Config
       at "boolean" ?= (GBool,  gracielaDef)
       at "char"    ?= (GChar,  gracielaDef)
 
-    symbols =
-      [ ("otherwise", Var
-        { _varType  = GBool
-        , _varValue = Just Expression
-          { loc      = gracielaDef
-          , expType  = GBool
-          , expConst = True
-          , exp'     = Value (BoolV True) }
-        , _varConst = True }) ] :: [(Text, Entry')]
+    symbols = Map.mapWithKey (,) $ Map.empty &~ do
+      at "otherwise" ?= Alias GBool (BoolV True)
+      at "MAX_INT"   ?= Alias GInt  (IntV  maxBound)
+      at "MIN_INT"   ?= Alias GInt  (IntV  minBound)
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 
