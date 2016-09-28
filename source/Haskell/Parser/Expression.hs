@@ -451,7 +451,7 @@ variable name (Location (from, to)) = do
 
         let taint = case rangevars of
               [] -> Taint False
-              _  -> if name `elem` rangevars
+              _  -> if name == head rangevars
                 then Taint True
                 else Taint False
 
@@ -495,7 +495,8 @@ variable name (Location (from, to)) = do
 
         let taint = case rangevars of
               [] -> Taint False
-              _  -> if name `elem` rangevars
+              -- _  -> if name `elem` rangevars
+              _  -> if name == head rangevars
                 then Taint True
                 else Taint False
 
