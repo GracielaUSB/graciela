@@ -80,6 +80,8 @@ data Abort
   | BadArrayArg        -- ^ A procedure/function was declared with an array of a given size,
                        -- but a different one was used at callsite. This check cannot always
                        -- be done at compile time.
+  | NegativeRoot       -- The function sqrt was called with a negative argument.
+  | NegativeExponent   -- The integer operation ^ was performed with a negative exponent.
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate abort.

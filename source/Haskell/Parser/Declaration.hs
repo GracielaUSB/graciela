@@ -37,7 +37,7 @@ import           Control.Monad             (foldM, forM_, unless, void, when,
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
 import           Data.Map                  as Map (lookup)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup            ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)
@@ -81,8 +81,8 @@ declaration' allowedTypes isStruct = do
   if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
     then do
       putError from . UnknownError $
-        "Se intentó declarar constante de tipo `" <> show t <>
-        "`, pero sólo se permiten constantes de tipos basicos."
+        "Se intentó declarar constante de tipo " <> show t <>
+        ", pero sólo se permiten constantes de tipos basicos."
       pure Nothing
     else case mvals of
       Nothing -> do
@@ -91,14 +91,12 @@ declaration' allowedTypes isStruct = do
           redef <- redefinition (id, loc)
           unless redef  $ do
             let
-              info = if isStruct
-                then SelfVar t Nothing
-                else Var t Nothing
+              info = (if isStruct then SelfVar else Var) t Nothing False
 
               entry = Entry
-                  { _entryName = id
-                  , _loc       = loc
-                  , _info      = info }
+                { _entryName = id
+                , _loc       = loc
+                , _info      = info }
             symbolTable %= insertSymbol id entry
 
         pure . Just $ Declaration
@@ -116,11 +114,10 @@ declaration' allowedTypes isStruct = do
         -- anyways, without errors in any.
         if length ids == length exprs
           then do
-            pairs <- foldM (checkType isConst t isStruct) Seq.empty $ Seq.zip ids exprs
-            pure $ if null pairs
-              then
-                Nothing
-              else Just Initialization
+            pairs' <- foldM (checkType isConst t isStruct) (Just Seq.empty) $ Seq.zip ids exprs
+            pure $ case pairs' of
+              Nothing -> Nothing
+              Just pairs -> Just Initialization
                 { declLoc   = location
                 , declType  = t
                 , declPairs = pairs }
@@ -142,46 +139,62 @@ assignment' = Just . sequence <$>
 
 
 checkType :: Constness -> Type -> Bool
-          -> Seq (Text, Expression)
+          -> Maybe (Seq (Text, Expression))
           -> ((Text, Location), Expression)
-          -> Parser (Seq (Text, Expression))
-checkType True t _ pairs
-  ((identifier, location), expr@Expression { expType, exp' }) = do
-
+          -> Parser (Maybe (Seq (Text, Expression)))
+checkType True t isStruct pairs
+  ((identifier, location), expr@Expression { expType, expConst, exp' }) = do
 
   let Location (from, _) = location
-  redef <- redefinition (identifier,location)
+  redef <- redefinition (identifier, location)
 
   if expType =:= t
-    then  if redef
-      then pure pairs
-      else case exp' of
-        Value v -> do
+    then if redef
+      then pure Nothing
+      else if expConst
+        then do
           let
-            expr' = case exp' of
-              NullPtr {} -> expr{expType = t}
-              _ -> expr
+            info val = (if isStruct then SelfVar else Var) t val True
 
             entry = Entry
               { _entryName  = identifier
               , _loc        = location
-              , _info       = Const
-                { _constType  = t
-                , _constValue = v }}
+              , _info       = info (Just expr) }
           symbolTable %= insertSymbol identifier entry
-          pure $ pairs |> (identifier, expr')
-        _       -> do
+          pure $ (|> (identifier, expr)) <$> pairs
+        else do
           putError from . UnknownError $
             "Trying to assign a non constant expression to the \
             \constant `" <> unpack identifier <> "`."
-          pure Seq.empty
+          pure Nothing
+
+      -- else case exp' of
+      --   Value v -> do
+      --     let
+      --       expr' = case exp' of
+      --         NullPtr {} -> expr { expType = t }
+      --         _ -> expr
+      --
+      --       entry = Entry
+      --         { _entryName  = identifier
+      --         , _loc        = location
+      --         , _info       = Const
+      --           { _constType  = t
+      --           , _constValue = v }}
+      --     symbolTable %= insertSymbol identifier entry
+      --     pure $ pairs |> (identifier, expr')
+      --   _       -> do
+      --     putError from . UnknownError $
+      --       "Trying to assign a non constant expression to the \
+      --       \constant `" <> unpack identifier <> "`."
+      --     pure Seq.empty
 
     else do
       putError from . UnknownError $
         "Trying to assign an expression with type " <> show expType <>
         " to the constant `" <> unpack identifier <> "`, of type " <>
         show t <> "."
-      pure Seq.empty
+      pure Nothing
 
 checkType False t isStruct pairs
   ((identifier, location), expr@Expression { loc, expType, exp' }) =
@@ -191,15 +204,13 @@ checkType False t isStruct pairs
     then do
       redef <- redefinition (identifier,location)
       if redef
-        then pure pairs
+        then pure Nothing
         else do
           let
-            info = if isStruct
-              then SelfVar t
-              else Var t
+            info val = (if isStruct then SelfVar else Var) t val False
             expr' = case exp' of
               NullPtr {} -> expr{expType = t}
-              _ -> expr
+              _          -> expr
 
             entry = Entry
               { _entryName  = identifier
@@ -207,14 +218,14 @@ checkType False t isStruct pairs
               , _info       = info (Just expr') }
 
           symbolTable %= insertSymbol identifier entry
-          pure $ pairs |> (identifier, expr')
+          pure $ (|> (identifier, expr')) <$> pairs
 
     else do
       putError from . UnknownError $
         "Trying to assign an expression with type " <> show expType <>
         " to the variable `" <> unpack identifier <> "`, of type " <>
         show t <> "."
-      pure Seq.empty
+      pure Nothing -- Seq.empty
 
 redefinition :: (Text, Location) -> Parser Bool
 redefinition (id, Location (from, _)) = do

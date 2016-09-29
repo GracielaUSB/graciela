@@ -211,6 +211,7 @@ typedef enum
   , A_OUT_OF_BOUNDS_INDEX
   , A_BAD_ARRAY_ARG
   , A_NEGATIVE_ROOT
+  , A_NEGATIVE_EXPONENT
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -250,6 +251,8 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tbad array argument, size mismatch.\n"); break;
     case A_NEGATIVE_ROOT:
       printf (":\n\tattempted to take the square root of a negative value.\n"); break;
+    case A_NEGATIVE_EXPONENT:
+      printf (":\n\tattempted to raise a number to a negative exponent.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
@@ -308,6 +311,35 @@ double _sqrt_f (double x, int line, int column) {
     _abort (A_NEGATIVE_ROOT, line, column);
   else
     return sqrt(x);
+}
+
+
+int _powInt (int x, int y, int line, int column) {
+  if (y < 0)
+    _abort (A_NEGATIVE_EXPONENT, line, column);
+  else if (y == 0)
+    return 1;
+  else if (y % 2 == 1) {
+    int tmp;
+    if (__builtin_smul_overflow(x, _powInt (x, y-1, line, column), &tmp)) {
+      // overflow
+      _abort (A_OVERFLOW, line, column);
+    } else {
+      // all ok
+      return tmp;
+    }
+  } else {
+    int tmp = _powInt (x, y / 2, line, column);
+    int tmp2;
+
+    if (__builtin_smul_overflow(tmp, tmp, &tmp2)) {
+      // overflow
+      _abort (A_OVERFLOW, line, column);
+    } else {
+      // all ok
+      return tmp2;
+    }
+  }
 }
 
 

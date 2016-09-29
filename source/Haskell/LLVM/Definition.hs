@@ -790,6 +790,11 @@ preDefinitions files = do
 
     , defineFunction minnumFstring  floatParams2 floatType
     , defineFunction maxnumFstring  floatParams2 floatType
+    , defineFunction powIString     [ parameter ("x", intType)
+                                    , parameter ("y", intType)
+                                    , parameter ("line", intType)
+                                    , parameter ("column", intType)]
+                                    intType
     , defineFunction powString      floatParams2 floatType
 
 

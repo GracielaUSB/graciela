@@ -95,7 +95,8 @@ function = do
         , _loc       = Location (idFrom, idTo)
         , _info      = Var
           { _varType  = funcRetType
-          , _varValue = Nothing }}
+          , _varValue = Nothing
+          , _varConst = False }}
 
   post'   <- postcond <!> (postFrom, UnknownError "Postcondition was expected")
   postTo <- getPosition
@@ -157,7 +158,7 @@ function = do
           else do 
             defs <- use definitions
             case funcName `Map.lookup` defs of
-              _ -> do 
+              Nothing -> do 
                 definitions %= Map.insert funcName def
                 pure $ Just def
               Just _  -> do 
@@ -305,7 +306,7 @@ procedure = do
         else do 
           defs <- use definitions
           case procName `Map.lookup` defs of
-            _ -> do 
+            Nothing -> do 
               definitions %= Map.insert procName def
               pure $ Just def
             Just _  -> do 

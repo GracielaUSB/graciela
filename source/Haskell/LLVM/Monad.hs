@@ -199,6 +199,8 @@ fabsString    :: String
 fabsString    = "llvm.fabs.f64"
 powString     :: String
 powString     = "llvm.pow.f64"
+powIString  :: String
+powIString  = "_powInt"
 
 minnumString  :: String
 minnumString  = "_min"

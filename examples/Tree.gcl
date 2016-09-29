@@ -41,7 +41,6 @@ begin
        fi
       
     ]|
-  
 end
 
 
@@ -64,13 +63,13 @@ begin
   {coupinv true coupinv}
 
   /* BinaryTree procedures */
-  func chao (x : T) -> int
+  func chao (x : int) -> int
     {pre  true pre}
     {post  true post}
     |[
       1
     ]|
-  proc hola (in x : int)
+  proc hola (in x : int, in b : (array[x] of int)*)
   
     {pre true pre}
     {post true post}
@@ -123,6 +122,8 @@ end
 
 main
     |[ var bt : BinaryTreeO(int)
+     ; var arr : (array[10] of int)*
+     ; new(arr)
      ; insert(bt, 1)
      ; insert(bt, -10)
      ; insert(bt, 10)
@@ -133,7 +134,8 @@ main
      // ; insert(bt, 10)
      ; printf(bt)
      ; writeln("Size: ",bt.tam)
-     ; hola(1)
+
+     ; hola(10,arr)
      ; write(chao(1))
     ]|
 

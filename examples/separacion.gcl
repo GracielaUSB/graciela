@@ -1,0 +1,48 @@
+program Separacion.bin begin
+
+abstract ATree (T)
+begin
+  var left    : *ATree(T); 
+  var right   : *ATree(T); 
+  var element : T;
+  
+  {inv left != null ==> left != right inv}
+
+  func pointers (a : Tree(T)*) -> Set of (Tree(T)*)
+end
+
+
+type Tree(T) implements ATree(T)
+begin
+  /* Tree variables */
+  {repinv pointers(right) intersect pointers(left) == {} repinv}
+  {coupinv true coupinv}
+  /* Tree procedures */
+  
+  func pointers (a : Tree(T)*) -> Set of (Tree(T)*)
+    {pre true pre}
+    {post true post}
+    |[ if a == null -> {}
+       [] pointers((*a).right) intersect pointers((*a).left) != {} -> abort
+       [] otherwise -> pointers((*a).right) union pointers((*a).left) union { a }
+       fi ]|
+
+  proc addRight (inout a : Tree(T)*, in b : Tree(T)*)
+    {pre true pre}
+    {post (*a).right == b post}
+    |[ free ((*a).right)
+    ;  (*a).right := b ]|
+end
+
+
+main
+  |[ a, b, c : Árbol(int)*
+  ;  new (a); new (b); new (c)
+  ;  (*a).right := b
+  ;  (*a).left  := c
+  ;  (*a).element := 5
+  // Todo va bien hasta ahora.
+  ;  addRight(a, c)
+  // Aquí falla el invariante; Abort.
+  ]|
+end

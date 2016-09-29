@@ -167,24 +167,24 @@ instance ShowErrorComponent Error where
 
     BadFunctionArgumentType { paramName, fName, fPos, pType, aType } ->
       "The parameter `" <> unpack paramName <>"` of the function `" <> unpack fName <>
-      "` " <> showPos fPos <> " has type `" <> show pType <>
-      "`,\n\tbut received an expression with type `" <> show aType <> "`."
+      "` " <> showPos fPos <> " has type " <> show pType <>
+      ",\n\tbut received an expression with type " <> show aType <> "."
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes = [pType], aType} ->
       "Parameter number " <> show paramNum <> " of the function `" <> unpack fName <>
-      "` " <> showPos fPos <> " admits type `" <> show pType <>
-      "`,\n\tbut received an expression of type `" <> show aType <> "`."
+      "` " <> showPos fPos <> " admits type " <> show pType <>
+      ",\n\tbut received an expression of type " <> show aType <> "."
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes, aType} ->
       "Parameter number " <> show paramNum <> " of the procedure `" <> unpack fName <>
       "` " <> showPos fPos <> " admits one of the following types:" <>
       (unlines . fmap (("\t" <>) . show) . toList $ pTypes) <>
-      "`,\n\tbut received an expression of type `" <> show aType <> "`."
+      "`,\n\tbut received an expression of type " <> show aType <> "."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>
-      "` " <> showPos pPos <> " has type `" <> show pType <>
-      "`,\n\tbut received an expression with type `" <> show aType <> "`."
+      "` " <> showPos pPos <> " has type " <> show pType <>
+      ",\n\tbut received an expression with type " <> show aType <> "."
 
     BadReadArgument { aExpr } ->
       "The expression `" <> show aExpr <> "` is a constant expression."

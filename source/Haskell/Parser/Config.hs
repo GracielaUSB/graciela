@@ -50,7 +50,7 @@ module Parser.Config
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
-import           AST.Expression        (Value (BoolV))
+import           AST.Expression        hiding (fName)
 import           AST.Struct
 import           AST.Type
 import           Entry
@@ -92,8 +92,10 @@ defaultConfig = Config
       at "boolean" ?= (GBool,  gracielaDef)
       at "char"    ?= (GChar,  gracielaDef)
 
-    symbols =
-      [ ("otherwise", Const GBool (BoolV True)) ] :: [(Text, Entry')]
+    symbols = Map.mapWithKey (,) $ Map.empty &~ do
+      at "otherwise" ?= Alias GBool (BoolV True)
+      at "MAX_INT"   ?= Alias GInt  (IntV  maxBound)
+      at "MIN_INT"   ?= Alias GInt  (IntV  minBound)
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 

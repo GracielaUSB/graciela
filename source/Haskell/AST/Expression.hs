@@ -60,12 +60,12 @@ instance Show BinaryOperator where
   show BEQ        = "(===)"
   show BNE        = "(!==)"
 
-  show AEQ = "(==)"
-  show ANE = "(!=)"
-  show LT  = "(<)"
-  show LE  = "(<=)"
-  show GT  = "(>)"
-  show GE  = "(>=)"
+  show AEQ          = "(==)"
+  show ANE          = "(!=)"
+  show LT           = "(<)"
+  show LE           = "(<=)"
+  show GT           = "(>)"
+  show GE           = "(>=)"
 
   show Elem         = "Member of (∈)"
   show NotElem      = "Not Member of (∉)"
@@ -253,87 +253,89 @@ eSkip = Value . BoolV  $ True
 
 
 instance (Show t, Show m) => Treelike (Expression' t m) where
-  toTree Expression { loc, expType, exp' } = case exp' of
-    NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
-    Value { theValue } -> leaf $
-      case theValue of
-        BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
-        CharV  v -> "Char Value `"  <> show v <> "` " <> show loc
-        IntV   v -> "Int Value `"   <> show v <> "` " <> show loc
-        FloatV v -> "Float Value `" <> show v <> "` " <> show loc
+  toTree Expression { loc, expType, expConst, exp' } =
+    let c = if expConst then "[const] " else "[var] "
+    in case exp' of
+      NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
+      Value { theValue } -> leaf $
+        case theValue of
+          BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
+          CharV  v -> "Char Value `"  <> show v <> "` " <> show loc
+          IntV   v -> "Int Value `"   <> show v <> "` " <> show loc
+          FloatV v -> "Float Value `" <> show v <> "` " <> show loc
 
-    StringLit { theStringId } -> leaf $
-      "String Literal #" <> show theStringId <> " " <> show loc
+      StringLit { theStringId } -> leaf $
+        "String Literal #" <> show theStringId <> " " <> show loc
 
-    Collection { colKind, colVar = Nothing, colElems } | null colElems ->
-      leaf $ "Empty " <> show expType <> " " <> show loc
+      Collection { colKind, colVar = Nothing, colElems } | null colElems ->
+        leaf $ "Empty " <> show expType <> " " <> show loc
 
-    Collection { colKind, colVar = Nothing, colElems } ->
-      Node (show expType <> " " <> show loc)
-        [ Node "Elements" (toForest colElems) ]
+      Collection { colKind, colVar = Nothing, colElems } ->
+        Node (show expType <> " " <> show loc)
+          [ Node "Elements" (toForest colElems) ]
 
-    Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
-      Node (show expType <> " " <> show loc)
-        [ Node "Variable"
-          [ leaf $ unpack name
-          , leaf $ "of type " <> show ty ]
-        , Node "Range" [toTree range]
-        , case cond of
-            Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
-            _ -> Node "Conditions" [ toTree cond]
-        , Node "Elements" (toForest colElems) ]
+      Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
+        Node (show expType <> " " <> show loc)
+          [ Node "Variable"
+            [ leaf $ unpack name
+            , leaf $ "of type " <> show ty ]
+          , Node "Range" [toTree range]
+          , case cond of
+              Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
+              _ -> Node "Conditions" [ toTree cond]
+          , Node "Elements" (toForest colElems) ]
 
-    Tuple { tupElems } ->
-      Node ("Tuple " <> show loc) (toForest tupElems)
+      Tuple { tupElems } ->
+        Node ("Tuple " <> c <> show loc) (toForest tupElems)
 
-    Obj { theObj } ->
-      Node ("Object " <> show expType <> " " <> show loc)
-        [ toTree theObj ]
+      Obj { theObj } ->
+        Node ("Object " <> show expType <> " " <> c <> show loc)
+          [ toTree theObj ]
 
-    Binary { binOp, lexpr, rexpr } ->
-      Node (show binOp <> " " <> show loc)
-        [ toTree lexpr
-        , toTree rexpr ]
+      Binary { binOp, lexpr, rexpr } ->
+        Node (show binOp <> " " <> c <> show loc)
+          [ toTree lexpr
+          , toTree rexpr ]
 
-    Unary { unOp, inner } ->
-      Node (show unOp <> " " <> show loc)
-        [ toTree inner ]
+      Unary { unOp, inner } ->
+        Node (show unOp <> " " <> c <> show loc)
+          [ toTree inner ]
 
-    I64Cast { inner } ->
-      Node ("I64Cast " <> show loc) [ toTree inner ]
+      I64Cast { inner } ->
+        Node ("I64Cast " <> show loc) [ toTree inner ]
 
-    FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
-      | fRecursiveCall && fRecursiveFunc ->
-        Node ("Recurse " <> show loc)
-          [ Node "Arguments" (toForest fArgs) ]
-      | otherwise ->
-        let rec = if fRecursiveFunc then "Recursive " else ""
-        in Node ("Call " <> rec <> "Func " <> unpack fName <> " " <> show loc)
-          [ Node "Arguments" (toForest fArgs) ]
+      FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
+        | fRecursiveCall && fRecursiveFunc ->
+          Node ("Recurse " <> c <> show loc)
+            [ Node "Arguments" (toForest fArgs) ]
+        | otherwise ->
+          let rec = if fRecursiveFunc then "Recursive " else ""
+          in Node ("Call " <> rec <> "Func " <> unpack fName <> " " <> c <> show loc)
+            [ Node "Arguments" (toForest fArgs) ]
 
-    Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
-      Node ("Quantification " <> show qOp <> " " <> show loc)
-        [ Node "Variable"
-          [ leaf $ unpack qVar
-          , leaf $ "of type " <> show qVarType ]
-        , Node "Range" [toTree qRange]
-        , case qCond of
-            Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
-            _ -> Node "Conditions" [ toTree qCond ]
-        , Node "Body" [ toTree qBody ] ]
+      Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
+        Node ("Quantification " <> show qOp <> " " <> c <> show loc)
+          [ Node "Variable"
+            [ leaf $ unpack qVar
+            , leaf $ "of type " <> show qVarType ]
+          , Node "Range" [toTree qRange]
+          , case qCond of
+              Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
+              _ -> Node "Conditions" [ toTree qCond ]
+          , Node "Body" [ toTree qBody ] ]
 
-    EConditional { eguards, trueBranch } ->
-      Node ("Conditional Expression " <> show loc) $
-        toList (g <$> eguards) <>
-        case trueBranch of
-          Just t  -> [ Node "True branch" [toTree t]]
-          Nothing -> []
+      EConditional { eguards, trueBranch } ->
+        Node ("Conditional Expression " <> c <> show loc) $
+          toList (g <$> eguards) <>
+          case trueBranch of
+            Just t  -> [ Node "True branch" [toTree t]]
+            Nothing -> []
 
-      where
-        g (lhs, rhs) =
-          Node "Guard"
-            [ Node "If"   [toTree lhs]
-            , Node "Then" [toTree rhs] ]
+        where
+          g (lhs, rhs) =
+            Node "Guard"
+              [ Node "If"   [toTree lhs]
+              , Node "Then" [toTree rhs] ]
 
 
 from :: Expression' t m -> SourcePos
@@ -344,28 +346,28 @@ to e =   let Location (_,t) = loc e in t
 
 
 prettyBinOp :: BinaryOperator -> String
-prettyBinOp Plus   = " + "
-prettyBinOp BMinus = " - "
-prettyBinOp Times  = " * "
-prettyBinOp Div    = " / "
-prettyBinOp Mod    = " mod "
-prettyBinOp Power  = " ^ "
-prettyBinOp Max    = " max "
-prettyBinOp Min    = " min "
+prettyBinOp Plus         = " + "
+prettyBinOp BMinus       = " - "
+prettyBinOp Times        = " * "
+prettyBinOp Div          = " / "
+prettyBinOp Mod          = " mod "
+prettyBinOp Power        = " ^ "
+prettyBinOp Max          = " max "
+prettyBinOp Min          = " min "
 
-prettyBinOp And        = " /\\ "
-prettyBinOp Or         = " \\/ "
-prettyBinOp Implies    = " ==> "
-prettyBinOp Consequent = " <== "
-prettyBinOp BEQ        = " === "
-prettyBinOp BNE        = " !== "
+prettyBinOp And          = " /\\ "
+prettyBinOp Or           = " \\/ "
+prettyBinOp Implies      = " ==> "
+prettyBinOp Consequent   = " <== "
+prettyBinOp BEQ          = " === "
+prettyBinOp BNE          = " !== "
 
-prettyBinOp AEQ = " == "
-prettyBinOp ANE = " != "
-prettyBinOp LT  = " < "
-prettyBinOp LE  = " <= "
-prettyBinOp GT  = " > "
-prettyBinOp GE  = " >= "
+prettyBinOp AEQ          = " == "
+prettyBinOp ANE          = " != "
+prettyBinOp LT           = " < "
+prettyBinOp LE           = " <= "
+prettyBinOp GT           = " > "
+prettyBinOp GE           = " >= "
 
 prettyBinOp Elem         = " ∈ "
 prettyBinOp NotElem      = " ∉ "
