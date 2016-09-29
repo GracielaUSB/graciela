@@ -54,7 +54,7 @@ import           LLVM.General.AST.Global             (Global (..),
                                                       functionDefaults)
 import           LLVM.General.AST.Instruction
 import           LLVM.General.AST.IntegerPredicate   (IntegerPredicate (EQ, SGE, SLT))
-import           LLVM.General.AST.Linkage            (Linkage(Private))
+import           LLVM.General.AST.Linkage            (Linkage (Private))
 import           LLVM.General.AST.Name               (Name (..))
 import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
@@ -62,7 +62,7 @@ import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
 import           LLVM.General.AST.Type               (Type (..), double, i1,
                                                       i32, i64, i8, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
-import           LLVM.General.AST.Visibility         (Visibility(Default))
+import           LLVM.General.AST.Visibility         (Visibility (Default))
 import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -105,7 +105,7 @@ mainDefinition block files = do
     , metadata           = [] }
 
   mapM_ closeFile files
-  
+
   terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
@@ -119,10 +119,10 @@ mainDefinition block files = do
 
   where
     openFile file = do
-      let 
+      let
         fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
                   "__" <> file
-      
+
       fileLabel <- newLabel "file"
       strs <- use stringIds
       let Just i = (pack file) `Map.lookup` strs
@@ -144,18 +144,18 @@ mainDefinition block files = do
           , alignment = 4
           , metadata  = [] }
 
-    closeFile file = do 
-      let 
+    closeFile file = do
+      let
         fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
                   "__" <> file
       filePtr <- newLabel "filePtr"
-      addInstruction $ filePtr := Load 
+      addInstruction $ filePtr := Load
         { volatile  = False
         , address   = fileRef
         , maybeAtomicity = Nothing
         , alignment = 4
         , metadata  = [] }
-      
+
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
@@ -165,7 +165,7 @@ mainDefinition block files = do
         , functionAttributes = []
         , metadata           = [] }
 
-  
+
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
@@ -814,11 +814,11 @@ preDefinitions files = do
     , defineFunction readIntStd    [] intType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
-    
+
     -- Malloc
     , defineFunction mallocString intParam (ptr i8)
     , defineFunction freeString [parameter ("x", ptr i8)] voidType
-    
+
 
     , defineFunction readFileInt   [parameter ("file", ptr i8)] intType
     , defineFunction readFileChar  [parameter ("file", ptr i8)] charType
@@ -844,7 +844,7 @@ preDefinitions files = do
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
     stringParam   = [Parameter stringType (Name "msg") [NoCapture]]
     overflow' n   = StructureType False [IntegerType n, boolType]
-    addFile file  = addDefinition $ LLVM.GlobalDefinition GlobalVariable 
+    addFile file  = addDefinition $ LLVM.GlobalDefinition GlobalVariable
         { name            = Name ("__" <> file)
         , linkage         = Private
         , visibility      = Default

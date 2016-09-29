@@ -1,8 +1,0 @@
-program Program.bin begin
-main
-  |[ var a : (array[10,10] of int)*
-   ; skip
-   ; new (a)
-   ; free (a)
-  ]|
-end

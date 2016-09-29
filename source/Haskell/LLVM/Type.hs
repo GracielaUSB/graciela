@@ -70,7 +70,7 @@ toLLVMType (T.GArray dims t) = do
   inner <- toLLVMType t
   let arrT = iterate (LLVM.ArrayType 1) inner !! length dims
   pure LLVM.StructureType
-    { LLVM.isPacked     = False
+    { LLVM.isPacked     = True
     , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
 
 toLLVMType (GFullDataType n t) = do
