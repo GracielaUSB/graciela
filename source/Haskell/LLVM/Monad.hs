@@ -2,10 +2,12 @@
 
 module LLVM.Monad where
 --------------------------------------------------------------------------------
+import           Error                            (internal)
 import           LLVM.State                       hiding (State)
 import qualified LLVM.State                       as LLVM (State)
 --------------------------------------------------------------------------------
-import           Control.Lens                     (use, (%=), (+=), (.=), _head)
+import           Control.Lens                     (at, ix, use, (%=), (+=),
+                                                   (.=), (<<+=), (?=), _head)
 import           Control.Monad                    (when)
 import           Control.Monad.State.Class        (MonadState)
 import           Control.Monad.Trans.State.Strict (State)
@@ -105,18 +107,19 @@ terminate terminator = do
 --------------------------------------------------------------------------------
 
 newLabel :: String -> LLVM Name
+newLabel "" = internal "empty label, use newUnLabel"
 newLabel label = do
   ns <- use nameSupply
   case label `Map.lookup` ns of
     Nothing -> do
-      nameSupply %= Map.insert label 1
+      nameSupply . at label ?= 1
       pure . Name $ "." <> label
     Just i  -> do
-      nameSupply %= Map.insert label (succ i)
+      nameSupply . ix label %= succ
       pure . Name $ "." <> label <> "." <> show i
 
 newUnLabel :: LLVM Name
-newUnLabel = newLabel ""
+newUnLabel = UnName <$> (unnameSupply <<+= 1)
 --------------------------------------------------------------------------------
 
 callable :: Type -> String -> Either a Operand

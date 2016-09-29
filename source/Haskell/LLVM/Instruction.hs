@@ -9,8 +9,7 @@ import           AST.Expression                     (Expression' (..),
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
-import           AST.Object                         (Object' (..),
-                                                     Object'' (..))
+import           AST.Object                         hiding (indices)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           LLVM.Abort                         (abort)
@@ -27,7 +26,8 @@ import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use, (%=), (-=), (.=))
-import           Control.Monad                      (foldM, when, zipWithM_)
+import           Control.Monad                      (foldM, void, when,
+                                                     zipWithM_)
 import           Data.Foldable                      (toList)
 import           Data.Semigroup                     ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
@@ -49,7 +49,7 @@ import           LLVM.General.AST.IntegerPredicate  (IntegerPredicate (..))
 import           LLVM.General.AST.Name              (Name (..))
 import           LLVM.General.AST.Operand           (CallableOperand,
                                                      Operand (..))
-import           LLVM.General.AST.Type
+import           LLVM.General.AST.Type              hiding (void)
 --------------------------------------------------------------------------------
 import           Debug.Trace
 
@@ -180,7 +180,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
               t:_ -> fillType t (expType e)
               []  -> expType e
 
-        (,[]) <$> if mode == In && (type' =:= basicT)
+        (, []) <$> if mode == In && (type' =:= basicT)
           then expression' e
           else do
             label <- newLabel "argCast"
@@ -199,87 +199,257 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
     labelCast  <- newLabel "freeCast"
     labelNull  <- newLabel "freeNull"
     ref        <- objectRef idName False
-    type' <- toLLVMType (T.GPointer freeType)
+    type'      <- toLLVMType (T.GPointer freeType)
 
-    addInstruction $ labelLoad := Load
-      { volatile  = False
-      , address   = ref
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = [] }
+    case freeType of
+      GArray { dimensions, innerType } -> do
+        addInstruction $ labelLoad := Load
+          { volatile  = False
+          , address   = ref
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
 
-    addInstruction $ labelCast := BitCast
-      { operand0 = LocalReference type' labelLoad
-      , type'    = PointerType i8 (AddrSpace 0)
-      , metadata = [] }
+        iarrPtr <- newLabel "freeArrInternalPtr"
+        addInstruction $ iarrPtr := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference type' labelLoad
+          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , metadata = [] }
 
-    addInstruction $ Do Call
-      { tailCallKind       = Nothing
-      , callingConvention  = CC.C
-      , returnAttributes   = []
-      , function           = callable voidType freeString
-      , arguments          = [(LocalReference type' labelCast,[])]
-      , functionAttributes = []
-      , metadata           = [] }
+        inner <- toLLVMType innerType
 
-    addInstruction $ Do Store
-      { volatile = False
-      , address  = ref
-      , value    = ConstantOperand $ C.Null type'
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = [] }
+        let iarrT = iterate (ArrayType 1) inner !! length dimensions
 
-  New { idName,nType } -> do
-    labelCall  <- newLabel "newCall"
-    labelCast  <- newLabel "newCast"
-    ref        <- objectRef idName False-- The variable that is being mallocated
-    type'      <- toLLVMType (T.GPointer nType)
-    typeSize   <- sizeOf nType
+        iarr <- newLabel "freeArrInternal"
+        addInstruction $ iarr := Load
+          { volatile  = False
+          , address   = LocalReference (ptr iarrT) iarrPtr
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
 
-    addInstruction $ labelCall := Call
-      { tailCallKind       = Nothing
-      , callingConvention  = CC.C
-      , returnAttributes   = []
-      , function           = callable pointerType mallocString
-      , arguments          = [(ConstantOperand $ C.Int 32 (typeSize),[])]
-      , functionAttributes = []
-      , metadata           = [] }
+        iarrCast <- newLabel "freeArrInternalCast"
+        addInstruction $ iarrCast := BitCast
+          { operand0 = LocalReference (ptr iarrT) iarr
+          , type'    = pointerType
+          , metadata = [] }
 
-    addInstruction $ labelCast := BitCast
-      { operand0 = LocalReference pointerType labelCall
-      , type'    = type'
-      , metadata = [] }
-
-      -- Store the casted pointer in the variable
-    addInstruction $ Do Store
-      { volatile = False
-      , address  = ref
-      , value    = LocalReference type' labelCast
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = [] }
-
-    let call name = Do Call
+        addInstruction $ Do Call
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
-          , function           = callable voidType $ "init" <> name
-          , arguments          = [(LocalReference type' labelCast,[])]
+          , function           = callable voidType freeString
+          , arguments          = [(LocalReference pointerType iarrCast, [])]
           , functionAttributes = []
           , metadata           = [] }
 
+        addInstruction $ labelCast := BitCast
+          { operand0 = LocalReference type' labelLoad
+          , type'    = pointerType
+          , metadata = [] }
+
+        addInstruction $ Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType freeString
+          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = ref
+          , value    = ConstantOperand $ C.Null type'
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+      _ -> do
+
+        addInstruction $ labelLoad := Load
+          { volatile  = False
+          , address   = ref
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        addInstruction $ labelCast := BitCast
+          { operand0 = LocalReference type' labelLoad
+          , type'    = pointerType
+          , metadata = [] }
+
+        addInstruction $ Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType freeString
+          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = ref
+          , value    = ConstantOperand $ C.Null type'
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+  New { idName, nType } -> do
+    ref   <- objectRef idName False-- The variable that is being mallocated
+    type' <- ptr <$> toLLVMType nType
+
     case nType of
-      GFullDataType n t -> do
-        types <- mapM toLLVMType (toList t)
-        addInstruction $ call (llvmName n types)
+      T.GArray { dimensions, innerType } -> do
+        structSize <- sizeOf nType
 
-      GDataType n t _ -> do
-        subst:_ <- use substitutionTable
-        types <- mapM toLLVMType $ toList subst
-        addInstruction $ call (llvmName n types)
+        structCall <- newLabel "newArrStruct"
+        addInstruction $ structCall := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType mallocString
+          , arguments          = [(ConstantOperand $ C.Int 32 structSize, [])]
+          , functionAttributes = []
+          , metadata           = [] }
 
-      _ -> pure ()
+        structCast <- newLabel "newArrStructCast"
+        addInstruction $ structCast := BitCast
+          { operand0 = LocalReference pointerType structCall
+          , type'
+          , metadata = [] }
+
+        dims <- mapM expression dimensions
+        innerSize  <- sizeOf innerType
+        bytes <- foldM bytesAux (ConstantOperand (C.Int 32 innerSize)) dims
+
+        iarrCall <- newLabel "newArrInternal"
+        addInstruction $ iarrCall := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType mallocString
+          , arguments          = [(bytes, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        inner <- toLLVMType innerType
+
+        let iarrT = iterate (ArrayType 1) inner !! length dimensions
+
+        iarrCast <- newLabel "newArrInternalCast"
+        addInstruction $ iarrCast := BitCast
+          { operand0 = LocalReference pointerType iarrCall
+          , type'    = ptr iarrT
+          , metadata = [] }
+
+        arrPtr <- newUnLabel
+        addInstruction $ arrPtr := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference type' structCast
+          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , metadata = [] }
+
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = LocalReference (ptr iarrT) arrPtr
+          , value          = LocalReference (ptr iarrT) iarrCast
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+        void $ foldM (sizeAux (LocalReference type' structCast)) 0 dims
+
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = ref
+          , value    = LocalReference type' structCast
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+          where
+            bytesAux operand0 operand1 = do
+              result <- newUnLabel
+              addInstruction $ result := Mul
+                { operand0
+                , operand1
+                , nsw = False
+                , nuw = False
+                , metadata = [] }
+              pure $ LocalReference i32 result
+
+            sizeAux structRef n value = do
+              dimPtr <- newLabel "dimPtr"
+              addInstruction $ dimPtr := GetElementPtr
+                { inBounds = False
+                , address  = structRef
+                , indices  =
+                  [ ConstantOperand (C.Int 32 0)
+                  , ConstantOperand (C.Int 32 n) ]
+                , metadata = [] }
+
+              addInstruction $ Do Store
+                { volatile       = False
+                , address        = LocalReference i32 dimPtr
+                , value
+                , maybeAtomicity = Nothing
+                , alignment      = 4
+                , metadata       = [] }
+
+              pure $ n + 1
+
+      _ -> do
+        labelCall <- newLabel "newCall"
+        labelCast <- newLabel "newCast"
+
+        typeSize <- sizeOf nType
+
+        addInstruction $ labelCall := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType mallocString
+          , arguments          = [(ConstantOperand $ C.Int 32 typeSize, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        addInstruction $ labelCast := BitCast
+          { operand0 = LocalReference pointerType labelCall
+          , type'    = type'
+          , metadata = [] }
+
+          -- Store the casted pointer in the variable
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = ref
+          , value    = LocalReference type' labelCast
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        let call name = Do Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable voidType $ "init" <> name
+              , arguments          = [(LocalReference type' labelCast, [])]
+              , functionAttributes = []
+              , metadata           = [] }
+
+        case nType of
+          GFullDataType n t -> do
+            types <- mapM toLLVMType (toList t)
+            addInstruction $ call (llvmName n types)
+
+          GDataType n t _ -> do
+            subst:_ <- use substitutionTable
+            types <- mapM toLLVMType $ toList subst
+            addInstruction $ call (llvmName n types)
+
+          _ -> pure ()
 
 
   Write { ln, wexprs } -> do
@@ -320,6 +490,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata           = []}
 
 
+-- <<<<<<< HEAD
   Read { file, vars } -> mapM_ readVar vars
     where 
       readVar var = do 

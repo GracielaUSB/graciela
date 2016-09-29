@@ -109,7 +109,6 @@ object obj@Object { objType, obj' } = case obj' of
       return $ LocalReference t label
 
 
-
 -- Get the reference to the object.
 -- indicate that the object is not a deref, array access or field access inside a procedure
 objectRef :: Object -> Bool -> LLVM Operand
@@ -135,18 +134,33 @@ objectRef obj@(Object loc objType obj') flag = do
 
     Index inner indices -> do
       ref   <- objectRef inner True
-      label <- newLabel "idx"
-      inds <- zipWithM (idx ref) (toList indices) [0..]
-      addInstruction $ label := GetElementPtr
+
+      iarrPtrPtr <- newLabel "idxStruct"
+      addInstruction $ iarrPtrPtr := GetElementPtr
         { inBounds = False
         , address  = ref
-        , indices  =
-          ConstantOperand (C.Int 32 0) :
-          ConstantOperand (C.Int 32 . fromIntegral . length $ indices) :
-          inds
+        , indices  = ConstantOperand . C.Int 32 <$>
+          [0, fromIntegral . length $ indices]
         , metadata = [] }
 
-      pure . LocalReference objType' $ label
+      iarrPtr <- newLabel "idxArrPtr"
+      addInstruction $ iarrPtr := Load
+        { volatile       = True
+        , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      inds <- zipWithM (idx ref) (toList indices) [0..]
+
+      result <- newLabel "idxArr"
+      addInstruction $ result := GetElementPtr
+        { inBounds = False
+        , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
+        , indices  = ConstantOperand (C.Int 32 0) : inds
+        , metadata = [] }
+
+      pure . LocalReference objType' $ result
 
       where
         idx ref index n = do

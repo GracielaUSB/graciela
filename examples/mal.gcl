@@ -18,39 +18,48 @@ program mal.bin begin
 //   ; writeln ("So the average is: ", acc / (m*n))
 //   ⟧
 
-func middle (m : int, n : int, x : array [m, n] of int) -> int
-  {pre  true pre}
-  {post true post}
-  ⟦ (% sigma i : int | m/2 - 1 <= i /\ i <= m/2 + 1 |
-      (% sigma j : int | n/2 - 1 <= j /\ j <= n/2 + 1 |
-        x[i, j] %) %) ⟧
+// func middle (m : int, n : int, x : array [m, n] of int) -> int
+//   {pre  true pre}
+//   {post true post}
+//   ⟦ (% sigma i : int | m/2 - 1 <= i /\ i <= m/2 + 1 |
+//       (% sigma j : int | n/2 - 1 <= j /\ j <= n/2 + 1 |
+//         x[i, j] %) %) ⟧
 
 main
-  ⟦ const M, N := 6, 8 : int
-  ; var i, j := 0, 0 : int
-  ; var x : array [M, N] of int
+  ⟦ const M, N, Ñ := 6, 8, 6 : int
+  ; var i, j, k := 0, 0, 0 : int
+  ; var x : array [M, N, Ñ] of int
   ; var y : int
   ; var c : char
   ; y := 5
 
+<<<<<<< HEAD
   ; read(y) from "hola.txt"
   ; read(y) from "hola.txt"
   ; writeln ("y: ", y)
+=======
+>>>>>>> origin/fields
   ; {inv   true    inv}
-    {bound 6 - i bound}
-    do i < 6 -> {inv   true    inv}
-                {bound 8 - j bound}
-                do j < 8 -> x [i, j] := i + j
-                          ; write (i+j, " ")
-                          ; j := j + 1
+    {bound M - i bound}
+    do i < M -> {inv   true    inv}
+                {bound N - j bound}
+                do j < N -> {inv true inv}
+                            {bound Ñ - k bound}
+                            do k < Ñ -> x [i, j, k] := i + j + k
+                                      ; write (i+j+k, " ")
+                                      ; k := k + 1
+                            od
+                          ; k, j := 0, j + 1
+                          ; writeln()
                 od
               ; writeln()
-              ; j := 0
-              ; i := i + 1
+              ; writeln()
+              ; j, i := 0, i + 1
     od
-  ; writeln ("y: ", y)
-  ; writeln (middle(M, N, x))
+
+  // ; writeln (middle(M, N, x))
   // ; writeln ({x : int | 0 <=x /\ x <= 3 | x*1, x*2, x*3} == {'a'})
+<<<<<<< HEAD
   ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
   ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4〉  )
   ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4,5〉)
@@ -60,18 +69,36 @@ main
   ; { ⟅1,2,3⟆ union ⟅1,2,3⟆ == ⟅1,1,2,2,3,3⟆ }
   // ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
   ; writeln (i mod 2 == 0 ==> x[1,1] > 0) // Test for jumping code
+=======
+  // ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
+  // ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4>> )
+  // ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4,5>> )
+  // ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'c','b'>>)
+
+  // ; writeln (i mod 2 == 1 ==> x[1000,1000] > 0) // Test for jumping code
+>>>>>>> origin/fields
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet
-  // ; i, j := 0, 0
-  // ; {inv   true    inv}
-  //   {bound 6 - i bound}
-  //   do i < 6 -> {inv   true    inv}
-  //               {bound 8 - j bound}
-  //               do j < 8 -> writeln ("x[", i, ", ", j, "] = ", x[i, j])
-  //                         ; j := j + 1
-  //               od
-  //             ; j := 0
-  //             ; i := i + 1
-  //   od
+
+  ; writeln("-------------------------------------------------------")
+
+  ; i, j, k := 0, 0, 0
+  ; {inv   true    inv}
+    {bound M - i bound}
+    do i < M -> {inv   true    inv}
+                {bound N - j bound}
+                do j < N -> {inv true inv}
+                            {bound Ñ - k bound}
+                            do k < Ñ -> skip
+                                      ; write (x [i,j,k], " ")
+                                      ; k := k + 1
+                            od
+                          ; k, j := 0, j + 1
+                          ; writeln()
+                od
+              ; writeln()
+              ; writeln()
+              ; j, i := 0, i + 1
+    od
   ⟧
 
 end

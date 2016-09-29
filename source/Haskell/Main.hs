@@ -24,7 +24,7 @@ import           Data.Foldable              (toList)
 import           Data.List                  (nub)
 import           Data.Map.Strict            (showTree)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup             ((<>))
 import qualified Data.Sequence              as Seq (null)
 import           Data.Set                   (empty)
 import           Data.Text                  (Text, unpack)
@@ -200,7 +200,7 @@ main = do
         let
           lltName = case optOutName options of
             Nothing -> "a.t.ll"
-            Just n -> n <> ".t.ll"
+            Just n  -> n <> ".t.ll"
 
         {- And write it as IR on a ll file -}
         withContext $ \context ->
@@ -257,6 +257,6 @@ main = do
       "linux"   -> "/usr/local/lib/graciela-abstract-lib.so"
       "windows" -> undefined
     clang = case os of
-      "darwin" -> "/usr/local/bin/clang-3.5"
-      "linux"  -> "clang-3.5"
+      "darwin"  -> "/usr/local/bin/clang-3.5"
+      "linux"   -> "clang-3.5"
       "windows" -> undefined

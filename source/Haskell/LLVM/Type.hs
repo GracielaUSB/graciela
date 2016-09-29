@@ -33,7 +33,7 @@ import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup             ((<>))
 import           Data.Sequence              ((|>))
 import           Data.Text                  (Text, pack, unpack)
 import           Data.Word                  (Word32, Word64)
@@ -49,7 +49,7 @@ floatType, intType, charType, pointerType, ptrInt, voidType, boolType :: LLVM.Ty
 floatType   = double
 intType     = i32
 charType    = i8
-pointerType = i8
+pointerType = ptr i8
 ptrInt      = if arch == "x86_64" then i64 else i32
 voidType    = LLVM.VoidType
 boolType    = i1
@@ -71,7 +71,7 @@ toLLVMType (T.GArray dims t) = do
   let arrT = iterate (LLVM.ArrayType 1) inner !! length dims
   pure LLVM.StructureType
     { LLVM.isPacked     = False
-    , LLVM.elementTypes = reverse $ arrT : (toList dims $> i32) }
+    , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
 
 toLLVMType (GFullDataType n t) = do
   fdts <- use fullDataTypes
@@ -79,14 +79,14 @@ toLLVMType (GFullDataType n t) = do
   substs <- use substitutionTable
   let
     t' = case substs of
-      [] -> t
+      []        -> t
       (subst:_) -> fmap (fillType subst) t
   case n `Map.lookup` fdts of
     Nothing -> do
       Just ast@Struct{structFields} <- (n `Map.lookup`) <$> use structs
       case n `Map.lookup` pdt of
         Just (_, typeArgs) | t' `elem` typeArgs -> pure ()
-        _ -> pendingDT t' ast
+        _                  -> pendingDT t' ast
 
     Just (s, typeArgs) | t' `elem` typeArgs -> pure ()
     Just (s, typeArgs) -> pendingDT t' s
@@ -126,7 +126,7 @@ toLLVMType t@(GDataType name _ typeArgs) = do
 toLLVMType (GTypeVar i _) = do
   substs <- use substitutionTable
   case substs of
-    [] -> internal "subsitituting without substitution table."
+    []        -> internal "subsitituting without substitution table."
     (subst:_) -> toLLVMType $ subst ! i
 
 
@@ -149,10 +149,11 @@ sizeOf T.GChar         = pure 1
 sizeOf T.GInt          = pure 4
 sizeOf T.GFloat        = pure 8
 -- sizeOf (T.GArray sz t) = (fromIntegral sz *) <$> sizeOf t
-sizeOf (T.GArray sz t) = error
-  "internal error: sizeOf array; \
-  \cannot calculate size of array statically"
-sizeOf (T.GPointer t)  = pure $ if arch == "x86_64" then 8 else 4
+sizeOf (T.GArray sz t) = do
+  dimSize <- sizeOf T.GInt
+  ptrSize <- sizeOf $ T.GPointer GAny
+  pure $ (fromIntegral . length $ sz) * dimSize + ptrSize
+sizeOf (T.GPointer  t)  = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GSet      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GMultiset _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GSeq      _  ) = pure $ if arch == "x86_64" then 8 else 4

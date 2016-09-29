@@ -5,6 +5,7 @@ module LLVM.State
   ( State (..)
   , initialState
   , nameSupply
+  , unnameSupply
   , blockName
   , currentBlock
   , blocks
@@ -40,6 +41,7 @@ type Inst  = Named Instruction
 
 data State = State
   { _nameSupply        :: Map String Word
+  , _unnameSupply      :: Word
   , _blockName         :: Maybe Name              -- Cantidad de bloques básicos en el programa
   , _currentBlock      :: Seq (Named Instruction) -- Lista de instrucciones en el bloque básico actual
   , _blocks            :: Seq BasicBlock          -- Lista de bloques básicos en la definición actual
@@ -59,6 +61,7 @@ makeLenses ''State
 initialState :: State
 initialState = State
   { _nameSupply        = Map.empty
+  , _unnameSupply      = 1
   , _blockName         = Nothing
   , _currentBlock      = Seq.empty
   , _blocks            = Seq.empty
