@@ -479,7 +479,7 @@ extern "C" {
     /* Trash Collector */
 
     void _initTrashCollector(){
-        _stack = (int8_t*)(new stack<TrashCollector>);
+        _stack = (int8_t*)(new stack<TrashCollector*>);
     }
 
     void _openScope(){
