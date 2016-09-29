@@ -48,7 +48,7 @@ declaration Initialization { declType, declPairs } =
 
 {- Allocate a variable -}
 alloc :: G.Type -> Text -> LLVM ()
-alloc GArray { dimensions, innerType } lval = do
+alloc t@GArray { dimensions, innerType } lval = do
   name <- insertVar lval
 
   dims <- mapM expression dimensions
@@ -56,17 +56,47 @@ alloc GArray { dimensions, innerType } lval = do
   num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
 
   inner <- toLLVMType innerType
-  let arrT = iterate (ArrayType 1) inner !! length dimensions
+  garrT <- toLLVMType t
 
   addInstruction $ name := Alloca
-    { numElements    = Just num
-    , alignment      = 4
-    , metadata       = []
-    , allocatedType  = StructureType
-      { isPacked     = False
-      , elementTypes = reverse $ arrT : (toList dimensions $> i32) }}
+    { numElements   = Nothing
+    , alignment     = 4
+    , allocatedType = garrT
+    , metadata      = [] }
 
-  void $ foldM (sizeAux (LocalReference arrT name)) 0 dims
+  iarr <- newUnLabel
+  addInstruction $ iarr := Alloca
+    { numElements   = Just num
+    , alignment     = 4
+    , allocatedType = inner
+    , metadata      = [] }
+
+
+  let arrT = iterate (ArrayType 1) inner !! length dimensions
+
+  iarrCast <- newUnLabel
+  addInstruction $ iarrCast := BitCast
+    { operand0 = LocalReference (ptr inner) iarr
+    , type'    = ptr arrT
+    , metadata = [] }
+
+  arrPtr <- newUnLabel
+
+  addInstruction $ arrPtr := GetElementPtr
+    { inBounds = False
+    , address  = LocalReference garrT name
+    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+    , metadata = [] }
+
+  addInstruction $ Do Store
+    { volatile       = False
+    , address        = LocalReference (ptr arrT) arrPtr
+    , value          = LocalReference (ptr arrT) iarrCast
+    , maybeAtomicity = Nothing
+    , alignment      = 4
+    , metadata       = [] }
+
+  void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
 
   where
     numAux operand0 operand1 = do
@@ -148,10 +178,10 @@ alloc gtype lval = do
 
   where
     value t = case t of
-      GBool    -> pure . ConstantOperand $ C.Int 1 0
-      GChar    -> pure . ConstantOperand $ C.Int 8 0
-      GInt     -> pure . ConstantOperand $ C.Int 32 0
-      GFloat   -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      GBool          -> pure . ConstantOperand $ C.Int 1 0
+      GChar          -> pure . ConstantOperand $ C.Int 8 0
+      GInt           -> pure . ConstantOperand $ C.Int 32 0
+      GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 

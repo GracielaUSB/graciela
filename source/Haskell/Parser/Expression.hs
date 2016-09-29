@@ -1332,16 +1332,16 @@ deref = do
     Just (expr, _, taint) -> case expr of
       Expression
         { E.loc = Location (_, to)
-        , expType = GPointer pointerType
+        , expType = GPointer pointedType
         , exp' = Obj o } ->
           let expr = Expression
                 { E.loc = Location (from, to)
-                , expType = pointerType
+                , expType = pointedType
                 , expConst = False
                 , exp' = Obj
                   { theObj = Object
                     { O.loc = Location (from, to)
-                    , objType = pointerType
+                    , objType = pointedType
                     , obj' = Deref
                       { O.inner = o }}}}
           in pure $ Just (expr, ProtoNothing, taint)

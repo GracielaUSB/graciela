@@ -588,84 +588,84 @@ preDefinitions files =
                                  , parameter ("column", intType)]
                                  intType
     , defineFunction absFString               floatParam floatType
-    , defineFunction toSetMultiString         ptrParam   (ptr i8)
-    , defineFunction toSetSeqString           ptrParam   (ptr i8)
-    , defineFunction toSetFuncString          ptrParam   (ptr i8)
-    , defineFunction toSetRelString           ptrParam   (ptr i8)
-    , defineFunction toMultiSetString         ptrParam   (ptr i8)
-    , defineFunction toMultiSeqString         ptrParam   (ptr i8)
-    , defineFunction funcString               [ parameter ("x", ptr i8)
+    , defineFunction toSetMultiString         ptrParam   pointerType
+    , defineFunction toSetSeqString           ptrParam   pointerType
+    , defineFunction toSetFuncString          ptrParam   pointerType
+    , defineFunction toSetRelString           ptrParam   pointerType
+    , defineFunction toMultiSetString         ptrParam   pointerType
+    , defineFunction toMultiSeqString         ptrParam   pointerType
+    , defineFunction funcString               [ parameter ("x", pointerType)
                                               , parameter ("line", intType)
                                               , parameter ("column", intType)]
-                                              (ptr i8)
-    , defineFunction relString                ptrParam   (ptr i8)
-    , defineFunction cardSetString            ptrParam   (ptr i8)
-    , defineFunction cardMultiString          ptrParam   (ptr i8)
-    , defineFunction cardSeqString            ptrParam   (ptr i8)
-    , defineFunction cardFuncString           ptrParam   (ptr i8)
-    , defineFunction cardRelString            ptrParam   (ptr i8)
-    , defineFunction domainFuncString         ptrParam   (ptr i8)
-    , defineFunction domainRelString          ptrParam   (ptr i8)
-    , defineFunction codomainFuncString       ptrParam   (ptr i8)
-    , defineFunction codomainRelString        ptrParam   (ptr i8)
-    , defineFunction inverseFuncString        ptrParam   (ptr i8)
-    , defineFunction inverseRelString         ptrParam   (ptr i8)
+                                              pointerType
+    , defineFunction relString                ptrParam   pointerType
+    , defineFunction cardSetString            ptrParam   pointerType
+    , defineFunction cardMultiString          ptrParam   pointerType
+    , defineFunction cardSeqString            ptrParam   pointerType
+    , defineFunction cardFuncString           ptrParam   pointerType
+    , defineFunction cardRelString            ptrParam   pointerType
+    , defineFunction domainFuncString         ptrParam   pointerType
+    , defineFunction domainRelString          ptrParam   pointerType
+    , defineFunction codomainFuncString       ptrParam   pointerType
+    , defineFunction codomainRelString        ptrParam   pointerType
+    , defineFunction inverseFuncString        ptrParam   pointerType
+    , defineFunction inverseRelString         ptrParam   pointerType
     , defineFunction multiplicityMultiString  [ parameter ("item", i64)
-                                              , parameter ("cont", ptr i8) ]
+                                              , parameter ("cont", pointerType) ]
                                               intType
     , defineFunction multiplicitySeqString    [ parameter ("item", i64)
-                                              , parameter ("cont", ptr i8) ]
+                                              , parameter ("cont", pointerType) ]
                                               intType
 
     -- (Bi)Functors
-    , defineFunction newSetString             [] (ptr i8)
-    , defineFunction newSeqString             [] (ptr i8)
-    , defineFunction newMultisetString        [] (ptr i8)
+    , defineFunction newSetString             [] pointerType
+    , defineFunction newSeqString             [] pointerType
+    , defineFunction newMultisetString        [] pointerType
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
     , defineFunction openScopeString          [] voidType
 
-    , defineFunction equalSetString       [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
+    , defineFunction equalSetString       [ parameter ("ptr1", pointerType)
+                                          , parameter ("ptr2", pointerType)]
                                           boolType
-    , defineFunction equalSeqString       [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
+    , defineFunction equalSeqString       [ parameter ("ptr1", pointerType)
+                                          , parameter ("ptr2", pointerType)]
                                           boolType
-    , defineFunction equalMultisetString  [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
+    , defineFunction equalMultisetString  [ parameter ("ptr1", pointerType)
+                                          , parameter ("ptr2", pointerType)]
                                           boolType
 
-    , defineFunction subsetSetString        [ parameter ("ptr1", ptr i8)
-                                            , parameter ("ptr2", ptr i8)]
+    , defineFunction subsetSetString        [ parameter ("ptr1", pointerType)
+                                            , parameter ("ptr2", pointerType)]
                                             boolType
-    , defineFunction subsetMultisetString   [ parameter ("ptr1", ptr i8)
-                                            , parameter ("ptr2", ptr i8)]
+    , defineFunction subsetMultisetString   [ parameter ("ptr1", pointerType)
+                                            , parameter ("ptr2", pointerType)]
                                             boolType
-    , defineFunction ssubsetSetString       [ parameter ("ptr1", ptr i8)
-                                            , parameter ("ptr2", ptr i8)]
+    , defineFunction ssubsetSetString       [ parameter ("ptr1", pointerType)
+                                            , parameter ("ptr2", pointerType)]
                                             boolType
-    , defineFunction ssubsetMultisetString  [ parameter ("ptr1", ptr i8)
-                                            , parameter ("ptr2", ptr i8)]
+    , defineFunction ssubsetMultisetString  [ parameter ("ptr1", pointerType)
+                                            , parameter ("ptr2", pointerType)]
                                             boolType
 
-    , defineFunction insertSetString       [ parameter ("ptr", ptr i8)
+    , defineFunction insertSetString       [ parameter ("ptr", pointerType)
                                            , parameter ("x"  , i64)]
                                            voidType
-    , defineFunction insertSeqString       [ parameter ("ptr", ptr i8)
+    , defineFunction insertSeqString       [ parameter ("ptr", pointerType)
                                            , parameter ("x"  , i64)]
                                            voidType
-    , defineFunction insertMultisetString  [ parameter ("ptr", ptr i8)
+    , defineFunction insertMultisetString  [ parameter ("ptr", pointerType)
                                            , parameter ("x"  , i64)]
                                            voidType
 
 
-    , defineFunction isElemSetString [ parameter ("ptr", ptr i8)
+    , defineFunction isElemSetString [ parameter ("ptr", pointerType)
                                      , parameter ("x", i64)]
                                      boolType
-    , defineFunction isElemMultisetString [ parameter ("ptr", ptr i8)
+    , defineFunction isElemMultisetString [ parameter ("ptr", pointerType)
                                           , parameter ("x", i64)]
                                           boolType
-    , defineFunction isElemSeqString [ parameter ("ptr", ptr i8)
+    , defineFunction isElemSeqString [ parameter ("ptr", pointerType)
                                      , parameter ("x", i64)]
                                      boolType
 
@@ -727,17 +727,17 @@ preDefinitions files =
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
 
-    , defineFunction openFileStr [Parameter (ptr i8) (Name "nombreArchivo") []] (ptr i8)
+    , defineFunction openFileStr [Parameter pointerType (Name "nombreArchivo") []] pointerType
 
     -- Malloc
-    , defineFunction mallocString intParam (ptr i8)
-    , defineFunction freeString [parameter ("x", ptr i8)] voidType
+    , defineFunction mallocString intParam pointerType
+    , defineFunction freeString [parameter ("x", pointerType)] voidType
     -- mapM_ addFile files
 
-    -- addDefinition readFileInt    (createEmptyParameters [(Name "f", ptr i8)]) intType
-    -- addDefinition readFileChar   (createEmptyParameters [(Name "f", ptr i8)]) charType
-    -- addDefinition readFileFloat (createEmptyParameters [(Name "f", ptr i8)]) floatType
-    -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", ptr i8)]) voidType
+    -- addDefinition readFileInt    (createEmptyParameters [(Name "f", pointerType)]) intType
+    -- addDefinition readFileChar   (createEmptyParameters [(Name "f", pointerType)]) charType
+    -- addDefinition readFileFloat (createEmptyParameters [(Name "f", pointerType)]) floatType
+    -- addDefinition closeFileStr   (createEmptyParameters [(Name "f", pointerType)]) voidType
     ]
 
   where
@@ -751,7 +751,7 @@ preDefinitions files =
     charParam     = [parameter ("x",  charType)]
     boolParam     = [parameter ("x",  boolType)]
     floatParam    = [parameter ("x", floatType)]
-    ptrParam      = [parameter ("x",    ptr i8)]
+    ptrParam      = [parameter ("x",    pointerType)]
     intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
     charParams2   = fmap parameter [("x",  charType), ("y",  charType)]
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
