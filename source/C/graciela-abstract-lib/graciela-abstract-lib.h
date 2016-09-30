@@ -45,7 +45,6 @@ namespace glib {
     typedef vector<t>          Sequence;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
-    typedef stack<TrashCollector> stack;
 }
 
 extern "C" {

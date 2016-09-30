@@ -18,7 +18,7 @@ extern "C" {
     int8_t* _stack;
 
     void mark(TCTuple t){
-        ((stack<TrashCollector*>*)_stack)->top()->push_back(t);
+        ((stack<TrashCollector>*)_stack)->top().push_back(t);
     }
 
     /* Set */
@@ -479,19 +479,19 @@ extern "C" {
     /* Trash Collector */
 
     void _initTrashCollector(){
-        _stack = (int8_t*)(new stack<TrashCollector*>);
+        _stack = (int8_t*)(new stack<TrashCollector>);
     }
 
     void _openScope(){
-        TrashCollector *tc = new TrashCollector;
-        tc->reserve(64);
-        ((stack<TrashCollector*>*)_stack)->push(tc);
+        TrashCollector tc = TrashCollector();
+        tc.reserve(64);
+        ((stack<TrashCollector>*)_stack)->push(tc);
     }
 
     void _closeScope(){
-        TrashCollector* tc = ((stack<TrashCollector*>*)_stack)->top();
-        ((stack<TrashCollector*>*)_stack)->pop();
-        for (TrashCollector::iterator it = tc[0].begin(); it != tc[0].end(); ++it){
+        TrashCollector tc = ((stack<TrashCollector>*)_stack)->top();
+        ((stack<TrashCollector>*)_stack)->pop();
+        for (TrashCollector::iterator it = tc.begin(); it != tc.end(); ++it){
             switch (it->second) {
                 case SET: {
                     _freeSet(it->first);
@@ -519,17 +519,16 @@ extern "C" {
                 }
             }
         }
-        tc->clear();
-        delete tc;
+        tc.clear();
     }
 
     void _freeTrashCollector(){
-        for (int i = 0 ; i < ((stack<TrashCollector*>*)_stack)->size(); i++)
+        for (int i = 0 ; i < ((stack<TrashCollector>*)_stack)->size(); i++)
         {
             _closeScope();
         }
 
-        delete ((stack<TrashCollector*>*)_stack);
+        delete ((stack<TrashCollector>*)_stack);
     }
 }
 
