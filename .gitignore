@@ -23,3 +23,5 @@ cabal.config
 *.toc
 *.snm
 *.dSYM
+
+*.txt
