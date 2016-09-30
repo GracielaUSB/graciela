@@ -391,6 +391,8 @@ collection = do
 callOrVariable :: ParserExp (Maybe MetaExpr)
 callOrVariable = do
   (name, loc) <- identifierAndLoc
+             <|> ((pack "func",) <$> match TokFunc)
+             <|> ((pack "rel",)  <$> match TokRel)
   tok <- lookAhead anyToken
   case tok of
     TokLeftPar -> call name loc
