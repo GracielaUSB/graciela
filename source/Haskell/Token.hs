@@ -30,12 +30,13 @@ import           Text.Megaparsec    (ShowToken (..))
 -- | Representa un lexema junto con su posición de inicio y fin
 data TokenPos = TokenPos
   { start :: SourcePos
-  , end   :: SourcePos
   , tok   :: Token
-  } deriving (Eq)
+  , end   :: SourcePos
+  , next  :: SourcePos }
+  deriving (Eq)
 
 instance Show TokenPos where
-  show TokenPos { tok } = show tok
+  show TokenPos { tok } = show tok -- <> " " <> show (Location (start, end))
 
 instance Ord TokenPos where
   compare = compare `on` start

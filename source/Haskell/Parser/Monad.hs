@@ -264,7 +264,7 @@ pMatch' t = withRecovery recover (match t)
       -- Modify the error, so it knows the expected token (there is obviously a better way, IDK right now)
       let
         from :| _ = errorPos e
-        expected  = Set.singleton . Tokens . NE.fromList $ [TokenPos from from t]
+        expected  = Set.singleton . Tokens . NE.fromList $ [TokenPos from t from from]
         loc       = Location (pos, pos)
 
       errors %= (|> e { errorExpected = expected } )

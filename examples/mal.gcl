@@ -82,7 +82,7 @@ main
                 od
               ; writeln()
               ; writeln()
-              ; j, i := 0, i + (1)
+              ; j, i := 0, i + (1
               ; writeln()
     od
   ⟧

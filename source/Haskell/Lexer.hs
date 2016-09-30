@@ -62,7 +62,7 @@ sc = L.space (void spaceChar) lineComment blockComment
 
 
 lexeme :: Lexer Token -> Lexer TokenPos
-lexeme p = flip . TokenPos <$> getPosition <*> p <*> getPosition <* sc
+lexeme p = TokenPos <$> getPosition <*> p <*> (getPosition <* sc) <*> getPosition
 
 
 symbol :: String -> Token -> Lexer TokenPos
