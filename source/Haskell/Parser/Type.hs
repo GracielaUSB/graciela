@@ -34,7 +34,7 @@ import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
 import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
                                            lookup, null, singleton)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup    ((<>))
 import           Data.Text         (Text, pack, unpack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,
@@ -231,10 +231,9 @@ abstractType
   <|> do {match TokFunc; ba <- typeVar<|>type'; match TokArrow;   bb <- typeVar<|>type'; pure $ GFunc ba bb }
   <|> do {match TokRel;  ba <- typeVar<|>type'; match TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
 
-  <|> (GTuple <$> parens (typeVar `sepBy` match TokComma))
+  <|> do {match TokLeftPar; a <- typeVar; match TokComma; b <- typeVar; match TokRightPar; pure $ GTuple a b}
 
   <|> type'
-
 
 typeVarDeclaration  :: Parser Type
 typeVarDeclaration = do
@@ -270,15 +269,15 @@ typeVar = do
     Nothing -> do
       notFollowedBy identifier
       pure GUndef
-    Just i 
+    Just i
       | existsDT' -> do
         identifier
         isPointer $ GTypeVar i tname
 
-      | otherwise -> do 
+      | otherwise -> do
         Just (dt,_,_) <- use currentStruct
         identifier
-        putError pos . UnknownError $ 
+        putError pos . UnknownError $
           "To use a variable of type " <> show (GTypeVar i tname) <>
           "\n\tone of the method parameter must be of type " <> show dt
         pure $ GTypeVar i tname

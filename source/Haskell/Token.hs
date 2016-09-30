@@ -117,6 +117,8 @@ data Token
   | TokLeftSeq
   | TokRightSeq
 
+  | TokIndex
+
   | TokOpenBlock
   | TokCloseBlock
 
@@ -268,7 +270,7 @@ instance Show Token where
 
     TokAnd            -> "`/\\` - Conjunción Lógica"
     TokOr             -> "`\\/` - Disyunción Lógica"
-    TokNot            -> "`!` - Negación"
+    TokNot            -> "`~` - Negación"
 
     TokImplies        -> "`==>` - Implicación"
     TokConsequent     -> "`<==` - Consecuencia"
@@ -290,6 +292,8 @@ instance Show Token where
 
     TokLeftSeq        -> "`<<` - Signo de secuencia Izquierdo"
     TokRightSeq       -> "`>>` - Signo de secuencia Derecho"
+
+    TokIndex          -> "`!` - Sequence index"
 
     TokOpenBlock      -> "`|[` - Apertura de Bloque"
     TokCloseBlock     -> "`]|` - Cierre de Bloque"
@@ -333,15 +337,6 @@ instance Show Token where
     TokWriteln        -> "`writeln` - Escritor con Salto de Línea"
     TokRead           -> "`read` - Lector"
 
-    -- TokToInt          -> "`toInt` - Conversión a Entero"
-    -- TokToDouble       -> "`toDouble` - Conversión a Flotante"
-    -- TokToChar         -> "`toChar` - Conversión a Caracter"
-
-    -- TokMinInt         -> "`MIN_INT` - Mínimo Entero"
-    -- TokMinDouble      -> "`MIN_DOUBLE` - Mínimo Flotante"
-    -- TokMaxInt         -> "`MAX_INT` - Máximo Entero"
-    -- TokMaxDouble      -> "`MAX_DOUBLE` - Máximo Flotante"
-
     (TokBool    True) -> "`true` - Booleano"
     (TokBool   False) -> "`false` - Booleano"
     (TokChar       c) -> "" <> show c <> " - Caracter"
@@ -353,10 +348,6 @@ instance Show Token where
     TokArray          -> "`array` - Tipo Arreglo"
 
     (TokId         i) -> "\"" <> unpack i <> "\" - Identificador"
-
-    -- TokComment        -> "`//` - Comentatios"
-    -- EmptyToken        -> "Token Vacío"
-    -- (TokUnexpected e) -> show e <> " - Caracter no Permitido"
 
     -- V2.0
     TokType           -> "`type`"

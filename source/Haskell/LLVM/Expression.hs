@@ -66,7 +66,6 @@ import           LLVM.General.AST.Name                   (Name (..))
 import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
-import           LLVM.General.AST.Type                   as L (i64)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -627,7 +626,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
       opSet op lOperand rOperand = do
         label <- newLabel "setBinaryResult"
-        case op of 
+        case op of
           Op.Union -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
@@ -656,7 +655,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
       opMultiset op lOperand rOperand = do
         label <- newLabel "multisetBinaryResult"
-        case op of 
+        case op of
           Op.Union -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
@@ -685,7 +684,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
       opSeq op lOperand rOperand = do
         label <- newLabel "multisetBinaryResult"
-        case op of 
+        case op of
           Op.Concat -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C

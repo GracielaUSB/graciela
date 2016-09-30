@@ -236,7 +236,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "<"          TokLT
       <|> symbol   ">"          TokGT
 
-      <|> symbol   "!"          TokNot
+      <|> symbol   "~"          TokNot
       <|> symbol   "\172"       TokNot  -- ¬
 
       <|> symbol   "(%"         TokLeftPercent
@@ -273,16 +273,16 @@ token  =  reserved "program"    TokProgram
 
 
       -- V2.0
-      -- <|> emptyMultiset                     -- ⟅ ⟆ or {{ }}
       <|> symbol   "{{"         TokLeftBag
       <|> symbol   "\10181"     TokLeftBag  -- ⟅
       <|> symbol   "}}"         TokRightBag
       <|> symbol   "\10182"     TokRightBag -- ⟆
 
-      -- <|> emptySet                          -- { }
       <|> symbol   "\8709"      TokEmptySet -- ∅
       <|> symbol   "{"          TokLeftBrace
       <|> symbol   "}"          TokRightBrace
+
+      <|> symbol   "!"          TokIndex
       -- V2.0
 
       <|> symbol   "|"          TokPipe
@@ -300,7 +300,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "pi"         TokPi
       <|> symbol   "\8719"      TokPi       -- ∏
       <|> reserved "count"      TokCount
-      <|> symbol   "#"          TokHash     -- count quant and sequence access
+      <|> symbol   "#"          TokHash     -- count quant and cardinality operator
 
       <|> reserved "if"         TokIf
       <|> reserved "fi"         TokFi

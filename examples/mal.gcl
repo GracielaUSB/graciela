@@ -33,12 +33,6 @@ main
   ; var c : char
   ; y := 5
 
-<<<<<<< HEAD
-  ; read(y) from "hola.txt"
-  ; read(y) from "hola.txt"
-  ; writeln ("y: ", y)
-=======
->>>>>>> origin/fields
   ; {inv   true    inv}
     {bound M - i bound}
     do i < M -> {inv   true    inv}
@@ -59,24 +53,15 @@ main
 
   // ; writeln (middle(M, N, x))
   // ; writeln ({x : int | 0 <=x /\ x <= 3 | x*1, x*2, x*3} == {'a'})
-<<<<<<< HEAD
   ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
   ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4〉  )
   ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4,5〉)
   ; writeln (〈x : char | 'a' < x /\ x < 'd' | x〉 ==〈'c','b'〉  )
   ; { {4} \ {4} == {}  }
   ; {〈1,2,3〉 ++ 〈x : int | 0 < x /\ x < 4 | x〉 == 〈1,2,3,1,2,3〉}
-  ; { ⟅1,2,3⟆ union ⟅1,2,3⟆ == ⟅1,1,2,2,3,3⟆ }
+  ; { ⟅1, 2, 3, 3⟆ union ⟅1, 1, 2, 3⟆ == ⟅1, 1, 2, 3, 3⟆ }
   // ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
-  ; writeln (i mod 2 == 0 ==> x[1,1] > 0) // Test for jumping code
-=======
-  // ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
-  // ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4>> )
-  // ; writeln ( <<x : int | 0 < x /\ x < 5 | x >> == <<1,2,3,4,5>> )
-  // ; writeln ( <<x : char | 'a' < x /\ x < 'd' | x >> == <<'c','b'>>)
-
-  // ; writeln (i mod 2 == 1 ==> x[1000,1000] > 0) // Test for jumping code
->>>>>>> origin/fields
+  ; writeln (i mod 2 == 1 /*=== False */ ==> x[100,100,100] > 0) // Test for jumping code
   // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet
 
   ; writeln("-------------------------------------------------------")
@@ -97,7 +82,8 @@ main
                 od
               ; writeln()
               ; writeln()
-              ; j, i := 0, i + 1
+              ; j, i := 0, i + (1)
+              ; writeln()
     od
   ⟧
 

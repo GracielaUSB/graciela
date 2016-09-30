@@ -44,21 +44,21 @@ data BinaryOperator
   deriving (Eq)
 
 instance Show BinaryOperator where
-  show Plus   = "(+)"
-  show BMinus = "(-)"
-  show Times  = "(*)"
-  show Div    = "(/)"
-  show Mod    = "mod"
-  show Power  = "(^)"
-  show Max    = "max"
-  show Min    = "min"
+  show Plus         = "(+)"
+  show BMinus       = "(-)"
+  show Times        = "(*)"
+  show Div          = "(/)"
+  show Mod          = "mod"
+  show Power        = "(^)"
+  show Max          = "max"
+  show Min          = "min"
 
-  show And        = "(/\\)"
-  show Or         = "(\\/)"
-  show Implies    = "(==>)"
-  show Consequent = "(<==)"
-  show BEQ        = "(===)"
-  show BNE        = "(!==)"
+  show And          = "(/\\)"
+  show Or           = "(\\/)"
+  show Implies      = "(==>)"
+  show Consequent   = "(<==)"
+  show BEQ          = "(===)"
+  show BNE          = "(!==)"
 
   show AEQ          = "(==)"
   show ANE          = "(!=)"
@@ -89,12 +89,13 @@ instance Show BinaryOperator where
 
 
 
-data UnaryOperator = UMinus | Not | Pred | Succ
+data UnaryOperator = UMinus | Not | Card | Pred | Succ
   deriving (Eq)
 
 instance Show UnaryOperator where
   show UMinus = "(-)"
   show Not    = "not"
+  show Card   = "(#)"
   show Pred   = "pred"
   show Succ   = "succ"
 
@@ -195,7 +196,9 @@ data Expression'' t m
       -- ^ the (optional) variable's name, type, range and condition.
     , colElems :: Seq (Expression' t m) }
 
-  | Tuple { tupElems :: Seq (Expression' t m) }
+  | Tuple
+    { left  :: Expression' t m
+    , right :: Expression' t m }
 
   | Obj { theObj :: Object' t m (Expression' t m) }
 
@@ -285,8 +288,10 @@ instance (Show t, Show m) => Treelike (Expression' t m) where
               _ -> Node "Conditions" [ toTree cond]
           , Node "Elements" (toForest colElems) ]
 
-      Tuple { tupElems } ->
-        Node ("Tuple " <> c <> show loc) (toForest tupElems)
+      Tuple { left, right } ->
+        Node ("Tuple " <> c <> show loc)
+          [ Node "left"  [ toTree left  ]
+          , Node "right" [ toTree right ] ]
 
       Obj { theObj } ->
         Node ("Object " <> show expType <> " " <> c <> show loc)

@@ -29,12 +29,13 @@ module  AST.Type
   , notIn
   , objMode
   ) where
--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 import           AST.Expression (Expression' (..), Expression'' (..),
                                  QRange' (..), Value (..))
 import           AST.Object     (Object' (..), Object'' (..))
 import qualified AST.Object     as O (inner)
--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+import           Control.Lens   (both, (%~), (&))
 import           Data.Array     (Array (..), bounds, (!))
 import           Data.Foldable  (toList)
 import           Data.Int       (Int32)
@@ -48,15 +49,16 @@ import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Synonyms
 
 type Expression = Expression' Type ArgMode
 type QRange     = QRange' Type ArgMode
 type Object     = Object' Type ArgMode Expression
--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 objMode (Object _ _ Variable { mode }) = mode
-objMode (Object _ _ o) = objMode (O.inner o)
+objMode (Object _ _ o)                 = objMode (O.inner o)
 
 notIn obj = objMode obj /= Just In
 -------------------------------------------------------------------------------------
@@ -87,7 +89,7 @@ data Type
   | GSeq      { innerType :: Type } -- ^ Sequence (ordered set) type.
   | GFunc     Type Type -- ^ Func type, for abstract functions.
   | GRel      Type Type -- ^ Relation type.
-  | GTuple    (Seq Type)     -- ^ N-tuple type.
+  | GTuple    Type Type -- ^ 2-tuple type.
   | GTypeVar  Int Text            -- ^ A named type variable.
 
   | GAny                          -- ^ Any type, for full polymorphism.
@@ -144,7 +146,7 @@ fillType typeArgs (GFunc t1 t2) =
    GFunc (fillType typeArgs t1) (fillType typeArgs t2)
 fillType typeArgs (GRel t1 t2) =
    GRel (fillType typeArgs t1) (fillType typeArgs t2)
-fillType typeArgs (GTuple ts) = GTuple (fmap (fillType typeArgs) ts)
+fillType typeArgs (GTuple a b) = GTuple (fillType typeArgs a) (fillType typeArgs b)
 
 fillType _ t = t
 
@@ -155,21 +157,21 @@ isTypeVar t = case t of
 
 isDataType t = case t of
   GFullDataType {} -> True
-  GDataType {} -> True
-  _ -> False
+  GDataType {}     -> True
+  _                -> False
 
-hasDT t@GDataType {} = Just t
+hasDT t@GDataType {}     = Just t
 hasDT t@GFullDataType {} = Just t
-hasDT (GArray _ t) = hasDT t
-hasDT (GPointer t) = hasDT t
-hasDT _ = Nothing
+hasDT (GArray _ t)       = hasDT t
+hasDT (GPointer t)       = hasDT t
+hasDT _                  = Nothing
 
-hasTypeVar GTypeVar{} = True
-hasTypeVar t@GDataType {typeArgs} = not (null typeArgs)
+hasTypeVar GTypeVar{}                 = True
+hasTypeVar t@GDataType {typeArgs}     = not (null typeArgs)
 hasTypeVar t@GFullDataType {typeArgs} = not (null typeArgs)
-hasTypeVar (GArray _ t) = hasTypeVar t
-hasTypeVar (GPointer t) = hasTypeVar t
-hasTypeVar _ = False
+hasTypeVar (GArray _ t)               = hasTypeVar t
+hasTypeVar (GPointer t)               = hasTypeVar t
+hasTypeVar _                          = False
 
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
@@ -242,12 +244,11 @@ instance Semigroup Type where
     (_, GUndef) -> GUndef
     (e, f)      -> GRel e f
 
-  GTuple as   <> GTuple bs   = if length as == length bs
-    then let cs = Seq.zipWith (<>) as bs
-      in if GUndef `elem` cs
-        then GUndef
-        else GTuple cs
-    else GUndef
+  GTuple a0 a1 <> GTuple b0 b1 =
+    let (c0, c1) = (a0 <> b0, a1 <> b1)
+    in if c0 == GUndef || c1 == GUndef
+      then GUndef
+      else GTuple c0 c1
 
   a@(GTypeVar ai an) <> GTypeVar bi bn =
     if ai == bi && an == bn then a else GUndef
@@ -302,8 +303,8 @@ instance Show Type where
         GFunc     ta tb -> "function " <> show' ta <> " -> " <> show' tb
         GRel      ta tb -> "relation " <> show' ta <> " -> " <> show' tb
 
-        GTuple    ts    ->
-          "tuple (" <> (unwords . toList $ show' <$> ts) <> ")"
+        GTuple      a b ->
+          "tuple (" <> show' a <> ", " <> show' b <> ")"
         GTypeVar  i n   -> unpack n
 
         GFullDataType n targs   ->

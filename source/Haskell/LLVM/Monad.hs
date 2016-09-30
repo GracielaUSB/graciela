@@ -232,6 +232,13 @@ readFileChar  = "_readFileChar"
 readFileFloat :: String
 readFileFloat = "_readFileDouble"
 
+cardSetString, cardMultiString, cardSeqString, cardFuncString, cardRelString :: String
+cardSetString = "_card_set"
+cardMultiString = "_card_multiset"
+cardSeqString = "_card_seq"
+cardFuncString = "_card_func"
+cardRelString = "_card_rel"
+
 safeAdd       :: Word32 -> String
 safeAdd n     = "llvm.sadd.with.overflow.i" <> show n
 safeSub       :: Word32 -> String

@@ -18,11 +18,11 @@ module Parser.Config
   , toMultiSeqString
   , funcString
   , relString
-  , cardSetString
-  , cardMultiString
-  , cardSeqString
-  , cardFuncString
-  , cardRelString
+  -- , cardSetString
+  -- , cardMultiString
+  -- , cardSeqString
+  -- , cardFuncString
+  -- , cardRelString
   , domainFuncString
   , domainRelString
   , codomainFuncString
@@ -101,8 +101,6 @@ defaultConfig = Config
 
     nativeFunctions = Map.mapWithKey wrap $ Map.empty &~ do
       at "abs"          ?= (absG         , [])
-      at "card"         ?= (cardG        , [])
-      at "cardinality"  ?= (cardG        , [])
       at "codomain"     ?= (codomainG    , [])
       at "domain"       ?= (domainG      , [])
       at "func"         ?= (funcG        , [])
@@ -118,7 +116,7 @@ defaultConfig = Config
       at "trace"        ?= (traceG       , [])
 
     traceG, toIntG, toCharG, toFloatG :: Seq Type -> Either Error (Type, Text, Bool)
-    absG, cardG, codomainG, domainG   :: Seq Type -> Either Error (Type, Text, Bool)
+    absG, codomainG, domainG          :: Seq Type -> Either Error (Type, Text, Bool)
     funcG, inverseG, multiplicityG    :: Seq Type -> Either Error (Type, Text, Bool)
     relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
 
@@ -222,8 +220,8 @@ defaultConfig = Config
 
     toSetG [ GMultiset a ] = Right (GSet a, pack toSetMultiString, False)
     toSetG [ GSeq a      ] = Right (GSet a, pack toSetSeqString, False)
-    toSetG [ GFunc a b   ] = Right (GSet (GTuple [a, b]), pack toSetFuncString, False)
-    toSetG [ GRel  a b   ] = Right (GSet (GTuple [a, b]), pack toSetRelString, False)
+    toSetG [ GFunc a b   ] = Right (GSet (GTuple a b), pack toSetFuncString, False)
+    toSetG [ GRel  a b   ] = Right (GSet (GTuple a b), pack toSetRelString, False)
     toSetG [ a ] = Left badArg
       { paramNum = 1
       , fName = "toSet"
@@ -252,49 +250,29 @@ defaultConfig = Config
       , nParams = 1
       , nArgs = length args}
 
-    funcG [ GSet (GTuple [a, b]) ] = Right (GFunc    a    b, pack funcString, True)
-    funcG [ GSet GAny            ] = Right (GFunc GAny GAny, pack funcString, True)
+    funcG [ GSet (GTuple a b) ] = Right (GFunc    a    b, pack funcString, True)
+    funcG [ GSet GAny         ] = Right (GFunc GAny GAny, pack funcString, True)
     funcG [ a ] = Left badArg
       { paramNum = 1
       , fName = "func"
       , pTypes =
-        [ GTuple [GUnsafeName "a", GUnsafeName "b"] ]
+        [ GTuple (GUnsafeName "a") (GUnsafeName "b") ]
       , aType = a }
     funcG args = Left badNumArgs
       { fName = "func"
       , nParams = 1
       , nArgs = length args}
 
-    relG [ GSet (GTuple [a, b]) ] = Right (GRel    a    b, pack relString, False)
-    relG [ GSet GAny            ] = Right (GRel GAny GAny, pack relString, False)
+    relG [ GSet (GTuple a b) ] = Right (GRel    a    b, pack relString, False)
+    relG [ GSet GAny         ] = Right (GRel GAny GAny, pack relString, False)
     relG [ a ] = Left badArg
       { paramNum = 1
       , fName  = "rel"
       , pTypes =
-        [ GTuple [GUnsafeName "a", GUnsafeName "b"] ]
+        [ GTuple (GUnsafeName "a") (GUnsafeName "b") ]
       , aType = a }
     relG args = Left badNumArgs
       { fName = "rel"
-      , nParams = 1
-      , nArgs = length args}
-
-    cardG [ GSet a      ] = Right (GInt, pack cardSetString, False)
-    cardG [ GMultiset a ] = Right (GInt, pack cardMultiString, False)
-    cardG [ GSeq a      ] = Right (GInt, pack cardSeqString, False)
-    cardG [ GFunc a b   ] = Right (GInt, pack cardFuncString, False)
-    cardG [ GRel  a b   ] = Right (GInt, pack cardRelString, False)
-    cardG [ a ] = Left badArg
-      { paramNum = 1
-      , fName = "card"
-      , pTypes =
-        [ GSet      (GUnsafeName "a")
-        , GMultiset (GUnsafeName "a")
-        , GSeq      (GUnsafeName "a")
-        , GFunc     (GUnsafeName "a") (GUnsafeName "b")
-        , GRel      (GUnsafeName "a") (GUnsafeName "b") ]
-      , aType = a }
-    cardG args = Left badNumArgs
-      { fName = "card"
       , nParams = 1
       , nArgs = length args}
 
@@ -390,13 +368,6 @@ toMultiSeqString = "_seq_to_multiset"
 funcString, relString :: String
 funcString = "_func"
 relString = "_rel"
-
-cardSetString, cardMultiString, cardSeqString, cardFuncString, cardRelString :: String
-cardSetString = "_card_set"
-cardMultiString = "_card_multiset"
-cardSeqString = "_card_seq"
-cardFuncString = "_card_func"
-cardRelString = "_card_rel"
 
 domainFuncString, domainRelString, codomainFuncString, codomainRelString :: String
 domainFuncString = "_domain_func"

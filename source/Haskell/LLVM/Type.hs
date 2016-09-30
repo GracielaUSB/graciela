@@ -133,14 +133,18 @@ toLLVMType (GTypeVar i _) = do
 toLLVMType GAny            = internal "GAny is not a valid type"
 
 -- Unsupported Types
-toLLVMType (GSet      _ ) = pure . ptr $ i8
-toLLVMType (GMultiset _ ) = pure . ptr $ i8
-toLLVMType (GFunc   _ _ ) = pure . ptr $ i8
-toLLVMType (GRel    _ _ ) = pure . ptr $ i8
-toLLVMType (GSeq      _ ) = pure . ptr $ i8
-toLLVMType (GTuple    _ ) = pure . ptr $ i8
+toLLVMType (GSet      _) = pure . ptr $ i8
+toLLVMType (GMultiset _) = pure . ptr $ i8
+toLLVMType (GFunc   _ _) = pure . ptr $ i8
+toLLVMType (GRel    _ _) = pure . ptr $ i8
+toLLVMType (GSeq      _) = pure . ptr $ i8
+toLLVMType (GTuple  a b) = do
+  a' <- toLLVMType a
+  b' <- toLLVMType b
+  pure LLVM.StructureType
+    { LLVM.isPacked = True
+    , LLVM.elementTypes = [] }
 toLLVMType t = error $ show t
-
 
 
 sizeOf :: T.Type -> LLVM Integer
@@ -159,7 +163,7 @@ sizeOf (GMultiset _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GSeq      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
-sizeOf (GTuple    _  ) = pure $ if arch == "x86_64" then 8 else 4
+sizeOf (GTuple    _ _) = pure 16
 sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
 sizeOf (T.GDataType name _ _) = do
   typeargs <- head <$> use substitutionTable
