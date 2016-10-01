@@ -187,8 +187,7 @@ assign = do
       ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
         | notIn o && not expConst ->
-          if (t1 =:= t2) && (isTypeVar t1 ||
-            (t1 =:= GOneOf [GInt, GFloat, GBool, GChar, GPointer GAny]))
+          if t1 =:= t2 && assignable t1
             then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
               _       -> pure $ (|> (o, rval)) <$> acc
@@ -212,6 +211,11 @@ assign = do
         putError from $ UnknownError
           "An expression cannot be the target of an assignment."
         pure Nothing
+
+    assignable a = case a of
+      (GTuple _) -> False
+      (GArray _ _) -> False
+      _ -> True
 
 random :: Parser (Maybe Instruction)
 random = do

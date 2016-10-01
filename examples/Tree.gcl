@@ -2,6 +2,8 @@ program Tree.bin begin
 
 abstract ANode(T)
 begin
+  var s : set of int;
+  var b : set of int;
   {inv true inv}   
 end
 
@@ -14,7 +16,8 @@ begin
 
   {repinv true repinv}
 
-  {coupinv true coupinv}
+  where { s := {1,2,3}; b := {} }
+
 
   /* Node procedures */
   func elemNode (current : Node(T)*, x : T, b : int) ->  boolean
@@ -60,7 +63,6 @@ begin
   
   {repinv 0 <= tam /\ tam <= MAX repinv}
 
-  {coupinv true coupinv}
 
   /* BinaryTree procedures */
   func chao (x : int) -> int

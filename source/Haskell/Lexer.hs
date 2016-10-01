@@ -141,8 +141,8 @@ token  =  reserved "program"    TokProgram
       <|> reserved "abstract"   TokAbstract
       <|> reserved "{repinv"    TokLeftRep
       <|> reserved "repinv}"    TokRightRep
-      <|> reserved "{coupinv"   TokLeftAcopl
-      <|> symbol   "coupinv}"   TokRightAcopl
+      -- <|> reserved "{coupinv"   TokLeftAcopl
+      -- <|> symbol   "coupinv}"   TokRightAcopl
 
       <|> reserved "elem"       TokElem
       <|> symbol   "\8712"      TokElem    -- ∈
@@ -221,8 +221,8 @@ token  =  reserved "program"    TokProgram
       -- V2.0
       <|> symbol   "<<"         TokLeftSeq
       <|> symbol   ">>"         TokRightSeq
-      <|> symbol   "\12296"     TokLeftSeq -- 〈
-      <|> symbol   "\12297"     TokRightSeq -- 〉
+      <|> symbol   "\12296"     TokLeftSeq  -- 〈
+      <|> symbol   "\12297"     TokRightSeq --  〉
       -- V2.0
 
       <|> symbol   "=="         TokAEQ
@@ -321,6 +321,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "false"      (TokBool False)
 
       <|> reserved "null"       TokNull
+      <|> reserved "where"      TokWhere
 
       <|> charLit
       <|> try floatLit

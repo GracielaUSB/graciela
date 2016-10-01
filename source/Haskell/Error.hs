@@ -204,12 +204,12 @@ instance ShowErrorComponent Error where
 
       in "Type `" <> unpack dtName <> "` is implementing `" <>
           unpack absName <> "` with " <> t len dtTypes <>
-          "\n\tbut expected " <> t lenNeeded abstypes
+          "\n\tbut expected " <> t lenNeeded abstypes <> "."
 
 
 
     EmptyBlock ->
-      "Instruction blocks must contain at least one instruccion"
+      "Instruction blocks must contain at least one instruccion."
 
     NoDoInvariant ->
       "Missing invariant of instruction `do`."
@@ -218,26 +218,26 @@ instance ShowErrorComponent Error where
       "Missing bound of instruction `do`."
 
     NoAbstractInvariant { aName } ->
-      "Missing invariant in abstract type `" <> unpack aName <> "`"
+      "Missing invariant in abstract type `" <> unpack aName <> "`."
 
     NoTypeRepInv { tName } ->
-      "Missing representation invariant in type `" <> unpack tName <> "`"
+      "Missing representation invariant in type `" <> unpack tName <> "`."
 
     NoTypeCoupInv { tName } ->
-      "Missing couple invariant in type `" <> unpack tName <> "`"
+      "Missing couple invariant in type `" <> unpack tName <> "`."
 
     NoProcBody { pName } ->
       "Procedure `" <> unpack pName <> "` has not instruction block.\n" <>
-      "Possible solution: Declare a instruction block using `|[` and `]|`"
+      "Possible solution: Declare a instruction block using `|[` and `]|`."
 
     NoProcPrecondition { pName } ->
-      "Missing precondition of procedure `" <> unpack pName <> "`"
+      "Missing precondition of procedure `" <> unpack pName <> "`."
 
     NoProcPostcondition { pName } ->
-      "Missing postcondition of procedure `" <> unpack pName <> "`"
+      "Missing postcondition of procedure `" <> unpack pName <> "`."
 
     NotInScope { sName } ->
-      "Not in the scope: `" <> unpack sName <> "`"
+      "Not in the scope: `" <> unpack sName <> "`."
 
     UndefinedFunction { fName, fArgs } ->
       "Undefined function `" <> unpack fName <> "(" <>
@@ -251,7 +251,7 @@ instance ShowErrorComponent Error where
       "Undefined symbol named `" <> unpack sName <> "`."
 
     UndefinedType { tName } ->
-      "Undefined type `" <> unpack tName <> "`"
+      "Undefined type `" <> unpack tName <> "`."
 
     UnexpectedToken { uts } ->
       (\x -> "Unexpected " <> show x) `concatMap` uts

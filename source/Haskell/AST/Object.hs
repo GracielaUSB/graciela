@@ -39,7 +39,6 @@ data Object' t m e
     , obj'    :: Object'' t m e }
   deriving (Eq)
 
-
 instance Show e => Show (Object' t m e) where
   show Object { loc, objType, obj' } = case obj' of
     Variable {name} -> unpack name

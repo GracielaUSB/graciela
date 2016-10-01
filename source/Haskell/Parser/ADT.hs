@@ -10,6 +10,8 @@ import           AST.Declaration
 import           AST.Definition
 import           AST.Expression      (Expression' (..))
 import           AST.Instruction
+import           AST.Object
+import qualified AST.Object          as O (Object'(loc))
 import           AST.Struct
 import           AST.Type
 import           Entry
@@ -26,7 +28,7 @@ import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens        (over, use, (%=), (.=), (.~), _2, _Just)
-import           Control.Monad       (foldM, unless, void, when, zipWithM_)
+import           Control.Monad       (foldM, unless, void, when, zipWithM_, forM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       (toList)
@@ -34,15 +36,17 @@ import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
 import           Data.Map            (Map)
 import qualified Data.Map            as Map (empty, fromList, insert, lookup,
-                                             size)
-import           Data.Maybe          (catMaybes, isNothing)
-import           Data.Semigroup ((<>))
+                                             size, toList, keysSet, filter)
+import           Data.Maybe          (catMaybes, isNothing, isJust)
+import qualified Data.Set            as Set (fromList, difference)
+import           Data.Semigroup      ((<>))
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
 import           Data.Text           (Text, pack, unpack)
+import           Prelude             hiding (lookup)
 import           Text.Megaparsec     (eof, getPosition, manyTill, optional,
-                                      (<|>))
+                                      (<|>), between)
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 import           Debug.Trace
@@ -164,8 +168,9 @@ dataType = do
       let
         Just name         = name'
         Just abstractName = abstractName'
-
+      -- Get the struct of the abstract data type that is being implemented
       abstractAST <- getStruct abstractName
+
       case abstractAST of
         Nothing -> do
           putError from . UnknownError $
@@ -182,7 +187,6 @@ dataType = do
           currentStruct .= Just (dtType, Map.empty, Map.empty)
 
           decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
-
           fields' <- case decls' of
             Nothing -> pure Map.empty
             Just decls -> toFields (fromIntegral $ Map.size structFields) name dtType decls
@@ -206,27 +210,26 @@ dataType = do
 
           currentStruct %= over _Just (_2 .~ fields)
 
+          -- Invariants
           repinv'  <- repInv
-          coupinv' <- coupInv
+          couple'  <- optional coupleInv
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
 
           procs   <- catMaybes . toList <$> many (procedure <|> function)
-
           match' TokEnd
+          
           to <- getPosition
           st <- use symbolTable
-
           symbolTable %= closeScope to
           abstractAST <- getStruct abstractName
           mapM_ (checkProc abstractTypes procs name abstractName) structProcs
 
-          case (decls', repinv', coupinv') of
+          case (decls', repinv', couple') of
 
-            (Just decls, Just repinv, Just coupinv) -> do
+            (Just decls, Just repinv, Just couple'') -> do
               {- Different number of type arguments -}
-
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
 
@@ -243,11 +246,38 @@ dataType = do
                     , abstractTypes
                     , inv = inv struct'
                     , repinv
-                    , coupinv }}
+                    , couple = couple''}}
               dataTypes %= Map.insert name struct
               typeVars .= []
               currentStruct .= Nothing
 
+            (Just decls, Just repinv, Nothing ) -> do
+              {- Different number of type arguments -}
+              when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
+                name structTypes abstractName absTypes lenActual lenNeeded
+
+              let Just Struct{ structLoc, structFields } = abstractAST 
+              forM_ (Map.toList structFields) $ \(name, (_, t, _)) -> 
+                when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
+                  "Expected couple for highlevel variable `" <> unpack name <> "`."
+
+              let
+                struct = Struct
+                  { structBaseName = name
+                  , structFields   = fields
+                  , structSt       = st
+                  , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
+                  , structLoc      = Location(from,to)
+                  , structTypes    = types
+                  , struct'        = DataType
+                    { abstract     = abstractName
+                    , abstractTypes
+                    , inv = inv struct'
+                    , repinv
+                    , couple = Seq.empty}}
+              dataTypes %= Map.insert name struct
+              typeVars .= []
+              currentStruct .= Nothing
 
             _ -> pure ()
 
@@ -264,7 +294,7 @@ dataType = do
         "The procedure named `" <> unpack name <> "` " <>
         showPos pos <> "` in the Abstract Type `" <> unpack abstractName <>
         "`\n\tneeds to be implemented inside the Type `" <>
-        unpack dtName <> "`"
+        unpack dtName <> "`."
       where
         -- Check if the both abstract and the one implementing the abstract procedure,
         -- have the same header
@@ -286,7 +316,7 @@ dataType = do
                 else putError pos2 . UnknownError $
                     "The prodecure `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
-                    showPos pos1
+                    showPos pos1 <> "."
               pure True
 
         (=-=) abstDef@Definition{def' = AbstractFunctionDef{}}
@@ -305,12 +335,12 @@ dataType = do
                 then putError pos2 . UnknownError $
                     "The prodecure `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
-                    showPos pos1
+                    showPos pos1 <> "."
               else if retT /= abstractRetT
                 then putError pos2 . UnknownError $
                     "The return type of function `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
-                    showPos pos1 <> ".\n\tExpected " <> show abstractRetT
+                    showPos pos1 <> ".\n\tExpected " <> show abstractRetT <> "."
               else zipWithM_ (checkFParams pos1) params1 params2
               pure True
 
@@ -327,11 +357,11 @@ dataType = do
         checkParams pos (name1, t1', mode1) (name2, t2, mode2) = do
           when (name1 /= name2) . putError pos . UnknownError $
             "Parameter named `" <> unpack name2 <>
-            "` was declared as `" <> unpack name1 <> "`"
+            "` was declared as `" <> unpack name1 <> "`."
 
           when (mode1 /= mode2) . putError pos . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has mode " <>
-            show mode2 <>" but expected mode " <> show mode1
+            show mode2 <>" but expected mode " <> show mode1 <> "."
 
           let
             t1 = case t1' of
@@ -340,7 +370,48 @@ dataType = do
 
           unless (t1 =:= t2) . putError pos . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has type " <>
-            show t2 <>" but expected type " <> show t1
+            show t2 <>" but expected type " <> show t1 <> "."
+
+coupleInv :: Parser (Seq Instruction)
+coupleInv = do
+  loc <- match TokWhere
+  between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
+  where 
+    aux pos = do
+      insts' <- sequence <$> assign `sepBy` match TokSemicolon
+      case insts' of
+        Just insts | not (null insts) -> do
+          Just (GDataType{abstName = Just abstName}, _, _) <- use currentStruct
+          Just (Struct{structFields})  <- getStruct abstName
+          let 
+            auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
+
+          assigned <- Set.fromList <$> mapM (check structFields) auxInsts
+
+          let 
+            needed = Map.keysSet . Map.filter (\(_,t,_) -> t =:= highLevel) $ structFields
+            left   = needed `Set.difference` assigned
+
+          when (not (null left)) . forM_ left $ \name -> putError pos . UnknownError $ 
+              "The variable `" <> unpack name <> "` has to be coupled."
+          
+          pure insts
+        Just _ -> putError pos (UnknownError "Empty coupling relation.") >> pure Seq.empty
+        _ -> pure Seq.empty      
+
+    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = do
+      let 
+        Object{ objType, obj' = Member{ fieldName }} = innerVar obj
+      
+      unless (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) .
+        putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack fieldName <> "`."
+
+      pure fieldName
+
+    innerVar :: Object -> Object
+    innerVar obj@Object{ objType, obj'} = if objType =:= highLevel
+      then obj 
+      else innerVar (inner obj') 
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt

@@ -54,7 +54,7 @@ defineStruct :: Text -> (Struct, [TypeArgs]) -> LLVM ()
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
   Struct {structBaseName,structTypes, structFields, structProcs, struct'} -> case struct' of
-    DataType {abstract, abstractTypes, inv, repinv, coupinv} ->
+    DataType {abstract, abstractTypes, inv, repinv, couple} ->
       forM_ typeMaps $ \typeMap -> do
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
@@ -88,7 +88,7 @@ defaultConstructor name structType typeMap = do
   Just Struct { structFields } <- use currentStruct
 
   openScope
-  selfName <- insertVar "self"
+  selfName <- insertVar "_self"
 
   let
     self = LocalReference structType selfName
@@ -161,7 +161,7 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
     (proc #)
 
     openScope
-    name' <- insertVar "self"
+    name' <- insertVar "_self"
     -- Evaluate the condition expression
     condInv <- expression' expr
     -- Create both label

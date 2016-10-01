@@ -488,7 +488,7 @@ variable name (Location (from, to)) = do
                           { loc
                           , objType = GDataType structName' abstract t
                           , obj' = Variable
-                            { O.name = pack "self"
+                            { O.name = pack "_self"
                             , mode = Nothing }}}}}}
 
                 Nothing -> error $ "Internal error: Data Type variable `" <>

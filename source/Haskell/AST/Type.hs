@@ -24,6 +24,7 @@ module  AST.Type
   , isTypeVar
   , isDataType
   , basic
+  , highLevel
   , hasDT
   , hasTypeVar
   , notIn
@@ -49,6 +50,7 @@ import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
 -------------------------------------------------------------------------------------
+import Debug.Trace 
 
 type Expression = Expression' Type ArgMode
 type QRange     = QRange' Type ArgMode
@@ -173,6 +175,8 @@ hasTypeVar _ = False
 
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
+highLevel = GOneOf [GSet GAny, GMultiset GAny, GSeq GAny, GFunc GAny GAny, GRel GAny GAny]
+
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool
 a =:= b = a <> b /= GUndef
@@ -211,7 +215,7 @@ instance Semigroup Type where
   GUndef      <> a           = GUndef
   a           <> GUndef      = a
 
-  GSet a      <> GSet b      = case a <> b of
+  GSet a      <> GSet b      = case  a <> b of
     GUndef -> GUndef
     c      -> GSet c
   GMultiset a <> GMultiset b = case a <> b of
@@ -307,7 +311,7 @@ instance Show Type where
         GTypeVar  i n   -> unpack n
 
         GFullDataType n targs   ->
-          unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")f"
+          unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")"
 
         GDataType n na targs -> unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")"
 

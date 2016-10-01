@@ -6,7 +6,6 @@ module Parser.Assertion
   , postcond
   , invariant
   , repInv
-  , coupInv
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
@@ -66,11 +65,9 @@ assert open close = between (match open) (match' close) assert'
       void . manyTill anyToken . lookAhead . match $ close
       pure Nothing
 
-
-precond, postcond, assertion, invariant, repInv, coupInv :: Parser (Maybe Expression)
+precond, postcond, assertion, invariant, repInv :: Parser (Maybe Expression)
 precond   = assert TokLeftPre   TokRightPre
 postcond  = assert TokLeftPost  TokRightPost
-assertion = assert TokLeftBrace TokRightBrace {-TokLeftA-} {-TokRightA-}
+assertion = assert TokLeftBrace TokRightBrace
 invariant = assert TokLeftInv   TokRightInv
 repInv    = assert TokLeftRep   TokRightRep
-coupInv   = assert TokLeftAcopl TokRightAcopl

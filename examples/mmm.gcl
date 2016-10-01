@@ -7,52 +7,10 @@ main
   ;  var aa := 4444444 : int
   ;  const M, N, Ñ := 6, 8, 6 : int
   ;  var i, j, k := 0, 0, 0 : int
-  ;  var x : (array [M, N, Ñ] of int)*
-
-  ;  skip
-
-  ;  new (x)
-  ;  {inv   true    inv}
-     {bound M - i bound}
-     do i < M -> {inv   true    inv}
-                 {bound N - j bound}
-                 do j < N -> {inv true inv}
-                             {bound Ñ - k bound}
-                             do k < Ñ -> * x [i, j, k] := i + j + k
-                                       // ; write (i+j+k, " ")
-                                       ; k := k + 1
-                             od
-                           ; k, j := 0, j + 1
-                           // ; writeln()
-                 od
-               // ; writeln()
-               // ; writeln()
-               ; j, i := 0, i + 1
-     od
-
-
-  ;  writeln("-------------------------------------------------------")
-
-  ;  i, j, k := 0, 0, 0
-  ;  {inv   true    inv}
-     {bound M - i bound}
-     do i < M -> {inv   true    inv}
-                 {bound N - j bound}
-                 do j < N -> {inv true inv}
-                             {bound Ñ - k bound}
-                             do k < Ñ -> skip
-                                       ; write (* x [i,j,k], " ")
-                                       ; k := k + 1
-                             od
-                           ; k, j := 0, j + 1
-                           ; writeln()
-                 od
-               ; writeln()
-               ; writeln()
-               ; j, i := 0, i + 1
-     od
-
-  ; free (x)
+  ; var a : (array[100,100,100] of int)*
+  ; new (a)
+  ; skip
+  ; free(a)
   ]|
 
 end

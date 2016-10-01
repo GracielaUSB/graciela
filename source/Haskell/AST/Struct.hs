@@ -32,7 +32,7 @@ data Struct'
     , abstractTypes :: TypeArgs
     , inv           :: Expression
     , repinv        :: Expression
-    , coupinv       :: Expression }
+    , couple        :: Seq Instruction }
 
 data Struct
   = Struct
@@ -59,11 +59,11 @@ instance Treelike Struct where
           ,-} Node "Invariant" [toTree inv]
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
-      DataType { abstract, repinv, coupinv } ->
+      DataType { abstract, repinv, couple } ->
         Node ("Type " <> unpack structBaseName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
           [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
           ,-} Node "Representation Invariant" [toTree repinv]
-          , Node "Coupling Invariant" [toTree coupinv]
+          , Node "Couple" (toForest couple)
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]

@@ -76,7 +76,7 @@ data State = State
   , _currentFunc   :: Maybe CurrentFunc
   , _currentStruct :: Maybe (Type, Fields, Map Text Definition)
   , _typeVars      :: [Text]
-  , _existsDT          :: Bool
+  , _existsDT      :: Bool
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
   , _stringIds     :: Map Text Int }
