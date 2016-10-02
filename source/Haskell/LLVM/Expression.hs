@@ -894,7 +894,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , returnAttributes   = []
             , function           = callable (ptr i8) $ case lType of 
               GMultiset (GTuple _ _) -> multisetPairSumString
-              otherwise              -> multisetPairSumString
+              otherwise              -> multisetSumString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }

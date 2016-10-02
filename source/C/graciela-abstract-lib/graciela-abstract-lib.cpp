@@ -366,8 +366,8 @@ extern "C" {
   
   int8_t* _unionMultisetPair(int8_t *ptr1, int8_t * ptr2) {
     MultisetPair *set1   = (MultisetPair*)ptr1,
-    *set2   = (MultisetPair*)ptr2,
-    *newSet = (MultisetPair*)_newMultisetPair();
+                 *set2   = (MultisetPair*)ptr2,
+                 *newSet = (MultisetPair*)_newMultisetPair();
     
     set_union(set1->begin(), set1->end(),
               set2->begin(), set2->end(),
@@ -378,8 +378,8 @@ extern "C" {
   
   int8_t* _sumMultisetPair(int8_t* ptr1, int8_t* ptr2){
     MultisetPair *set1   = (MultisetPair*)ptr1,
-    *set2   = (MultisetPair*)ptr2,
-    *newSet = (MultisetPair*)_newMultisetPair();
+                 *set2   = (MultisetPair*)ptr2,
+                 *newSet = (MultisetPair*)_newMultisetPair();
     
     for (MultisetPair::iterator it = set1->begin() ; it != set1->end(); ++it){
       newSet->insert(*it);
@@ -393,8 +393,8 @@ extern "C" {
   }
   int8_t* _intersectMultisetPair(int8_t *ptr1, int8_t * ptr2) {
     MultisetPair *set1   = (MultisetPair*)ptr1,
-    *set2   = (MultisetPair*)ptr2,
-    *newSet = (MultisetPair*)_newMultisetPair();
+                 *set2   = (MultisetPair*)ptr2,
+                 *newSet = (MultisetPair*)_newMultisetPair();
     
     set_intersection(set1->begin(), set1->end(),
                      set2->begin(), set2->end(),
@@ -405,8 +405,8 @@ extern "C" {
   
   int8_t* _differenceMultisetPair(int8_t *ptr1, int8_t * ptr2) {
     MultisetPair *set1   = (MultisetPair*)ptr1,
-    *set2   = (MultisetPair*)ptr2,
-    *newSet = (MultisetPair*)_newMultisetPair();
+                 *set2   = (MultisetPair*)ptr2,
+                 *newSet = (MultisetPair*)_newMultisetPair();
     
     set_difference(set1->begin(), set1->end(),
                    set2->begin(), set2->end(),
@@ -417,7 +417,7 @@ extern "C" {
   
   int _includesMultisetPair(int8_t* ptr1, int8_t* ptr2){
     MultisetPair *set1 = (MultisetPair*)ptr1,
-    *set2 = (MultisetPair*)ptr2;
+                 *set2 = (MultisetPair*)ptr2;
     
     return includes(set1->begin(), set1->end(),
                     set2->begin(), set2->end());
@@ -425,7 +425,7 @@ extern "C" {
   
   int _includesSMultisetPair(int8_t* ptr1, int8_t* ptr2){
     MultisetPair *set1 = (MultisetPair*)ptr1,
-    *set2 = (MultisetPair*)ptr2;
+                 *set2 = (MultisetPair*)ptr2;
     
     return includes(set1->begin(), set1->end(),
                     set2->begin(), set2->end())
