@@ -81,6 +81,10 @@ addInstructions insts =
 addInstruction :: Inst -> LLVM ()
 addInstruction inst =
   currentBlock %= (|> inst)
+
+pushbackInstruction :: Inst -> LLVM ()
+pushbackInstruction inst =
+  pendingInsts %= (|> inst)
 --------------------------------------------------------------------------------
 
 terminate :: Terminator -> LLVM ()
@@ -135,45 +139,86 @@ newSetString = "_newSet"
 newSeqString = "_newSequence"
 newMultisetString = "_newMultiset"
 
+newSetPairString,newMultisetPairString, newSeqPairString :: String
+newSetPairString      = "_newSetPair"
+newMultisetPairString = "_newMultisetPair"
+newSeqPairString      = "_newSequencePair"
+
 equalSetString, equalSeqString, equalMultisetString :: String
 equalSetString      = "_equalSet"
 equalSeqString      = "_equalSequence"
 equalMultisetString = "_equalMultiset"
+equalFuncString     = "_equalFunction"
+equalRelString      = "_equalRelation"
+equalSetPairString      = "_equalSetPair"
+equalSeqPairString      = "_equalSequencePair"
+equalMultisetPairString = "_equalMultisetPair"
+equalTupleString        = "_equalTuple"
 
-subsetSetString, subsetMultisetString :: String
-subsetSetString      = "_subsetSet"
-subsetMultisetString = "_subsetMultiset"
+sizeSetString, sizeSeqString, sizeMultisetString, sizeRelString, sizeFuncString :: String
+sizeSetString      = "_sizeSet"
+sizeSeqString      = "_sizeSequence"
+sizeMultisetString = "_sizeMultiset"
+sizeRelString      = "_sizeRelation"
+sizeFuncString     = "_sizeFunction"
 
-ssubsetSetString, ssubsetMultisetString :: String
-ssubsetSetString      = "_ssubsetSet"
-ssubsetMultisetString = "_ssubsetMultiset"
+supersetSetString, supersetMultisetString :: String
+supersetSetString      = "_includesSet"
+supersetMultisetString = "_includesMultiset"
+supersetSetPairString      = "_includesSetPair"
+supersetMultisetPairString = "_includesMultisetPair"
+
+ssupersetSetString, ssupersetMultisetString :: String
+ssupersetSetString      = "_includesSSet"
+ssupersetMultisetString = "_includesSMultiset"
+ssupersetSetPairString  = "_includesSSetPair"
+ssupersetMultisetPairString = "_includesSMultisetPair"
 
 insertSetString, insertSeqString, insertMultisetString :: String
 insertSetString      = "_insertSet"
 insertSeqString      = "_insertSequence"
 insertMultisetString = "_insertMultiset"
 
+insertSetPairString, insertMultisetPairString, insertSeqPairString:: String 
+insertSetPairString      = "_insertSetPair"
+insertMultisetPairString = "_insertMultisetPair"
+insertSeqPairString      = "_insertSequencePair"
+
+
 isElemSetString, isElemMultisetString, isElemSeqString :: String
 isElemSetString      = "_isElemSet"
 isElemMultisetString = "_isElemMultiset"
-isElemSeqString      = "_isElemSeq"
+isElemSeqString      = "_isElemSequence"
+isElemSetPairString      = "_isElemSetPair"
+isElemMultisetPairString = "_isElemMultisetPair"
+isElemSeqPairString      = "_isElemSequencePair"
 
 
 unionSetString, unionMultisetString :: String
 unionSetString      = "_unionSet"
 unionMultisetString = "_unionMultiset"
+unionSetPairString      = "_unionSetPair"
+unionMultisetPairString = "_unionMultisetPair"
 
 intersectSetString, intersectMultisetString :: String
 intersectSetString      = "_intersectSet"
 intersectMultisetString = "_intersectMultiset"
+intersectSetPairString      = "_intersectSetPair"
+intersectMultisetPairString = "_intersectMultisetPair"
 
 differenceSetString, differenceMultisetString :: String
 differenceSetString      = "_differenceSet"
 differenceMultisetString = "_differenceMultiset"
+differenceSetPairString      = "_differenceSetPair"
+differenceMultisetPairString = "_differenceMultisetPair"
 
-concatSequenceString :: String
-concatSequenceString = "_concatSequence"
-
+multisetSumString, concatSequenceString :: String
+multisetSumString        = "_sumMultiset" 
+concatSequenceString     = "_concatSequence"
+multisetPairSumString    = "_sumMultisetPair" 
+concatSequencePairString = "_concatSequencePair"
+atSequenceString         = "_atSequence"
+atSequencePairString     = "_atSequencePair"
 
 freeString    :: String
 freeString    = "_free"
@@ -231,6 +276,7 @@ readFileChar  :: String
 readFileChar  = "_readFileChar"
 readFileFloat :: String
 readFileFloat = "_readFileDouble"
+
 
 safeAdd       :: Word32 -> String
 safeAdd n     = "llvm.sadd.with.overflow.i" <> show n

@@ -28,6 +28,8 @@ module Parser.Operator
   , bifuncAt
   -- * sequence concatenation operator
   , concat
+  -- * functor cardinality operator
+  , card
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression (BinaryOperator (..), Expression' (..),
@@ -183,7 +185,7 @@ or'
       (Value (BoolV False), _) -> rexp               -- false \/ y ===  y
       (_, Value (BoolV True) ) -> Value (BoolV True) -- x \/ true  === true
       (_, Value (BoolV False)) -> lexp               -- x \/ false ===  x
-      (_,_) -> Binary Or l r
+      (_,_)                    -> Binary Or l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 and'
@@ -195,7 +197,7 @@ and'
       (Value (BoolV False), _) -> Value (BoolV False) -- false /\ y === false
       (_, Value (BoolV True) ) -> lexp                -- x /\ true  ===  x
       (_, Value (BoolV False)) -> Value (BoolV False) -- x /\ false === false
-      (_,_) -> Binary And l r
+      (_,_)                    -> Binary And l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 implies'
@@ -207,7 +209,7 @@ implies'
       (Value (BoolV False), _) -> Value (BoolV True) -- false ==> y === true
       (_, Value (BoolV True) ) -> Value (BoolV True) -- x ==> true  === true
       (_, Value (BoolV False)) -> Unary Not l        -- x ==> false === !x
-      (_,_) -> Binary Implies l r
+      (_,_)                    -> Binary Implies l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 consequent'
@@ -219,7 +221,7 @@ consequent'
       (_, Value (BoolV False)) -> Value (BoolV True) -- x <== false === true
       (Value (BoolV True),  _) -> Value (BoolV True) -- true  <== y === true
       (Value (BoolV False), _) -> Unary Not l        -- false <== y === !y
-      (_,_) -> Binary Consequent l r
+      (_,_)                    -> Binary Consequent l r
   in Expression { loc = loc l <> loc r, expType = GBool, expConst = lc && rc, exp'}
 
 beq'
@@ -300,6 +302,9 @@ compOpType' t@(GFunc t1 t2)  (GFunc t3 t4)  = if t1 =:= t3 && t2 =:= t4
 compOpType' t@(GRel t1 t2)   (GRel t3 t4)   = if t1 =:= t3 && t2 =:= t4
   then Right GBool
   else Left $ show (t, t)
+compOpType' t@(GTuple t1 t2) (GTuple t3 t4) = if t1 =:= t3 && t2 =:= t4
+  then Right GBool
+  else Left $ show (t, t)
 
 compOpType' t      _      = if t =:= basic
   then Left $
@@ -350,10 +355,10 @@ setSetPre _ _ = internal "bad set-set precalc"
 setSetType :: BinaryOpType
 setSetType t1@(GSet _) t2@(GSet _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  t3 -> Right t3
+  t3     -> Right t3
 setSetType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  t3 -> Right t3
+  t3     -> Right t3
 setSetType _ _ = let t = GUnsafeName "t" in Left $
   show (GSet t, GSet t) <> ", or " <>
   show (GMultiset t, GMultiset t)
@@ -370,10 +375,10 @@ setRelPre _ _ = internal "bad set rel precalc"
 setRelType :: BinaryOpType
 setRelType t1@(GSet _) t2@(GSet _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  _ -> Right GBool
+  _      -> Right GBool
 setRelType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  _ -> Right GBool
+  _      -> Right GBool
 setRelType _ _ = let t = GUnsafeName "t" in Left $
   show (GSet t, GSet t) <> ", or " <>
   show (GMultiset t, GMultiset t)
@@ -391,7 +396,7 @@ multiPre _ _ = internal "bad set-set precalc"
 multiType :: BinaryOpType
 multiType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  t3 -> Right t3
+  t3     -> Right t3
 multiType _ _ = let t = GUnsafeName "t" in Left $
   show (GMultiset t, GMultiset t)
 
@@ -417,16 +422,16 @@ bifuncAtPre _ _ = internal "bad bifuncAt operator precalc"
 bifuncAtType :: BinaryOpType
 bifuncAtType (GFunc a b) c = case a <> c of
   GUndef -> Left $ show (GFunc a b, a)
-  _ -> Right b
+  _      -> Right b
 bifuncAtType (GRel a b) c = case a <> c of
   GUndef -> Left $ show (GFunc a b, a)
-  _ -> Right $ GSet b
+  _      -> Right $ GSet b
 bifuncAtType _ _ = let [s, t] = GUnsafeName <$> ["s", "t"] in Left $
   show (GFunc s t, s) <> ", or " <>
   show (GRel  s t, s)
 
 bifuncAt :: Bin
-bifuncAt  = Bin SeqAt bifuncAtType bifuncAtPre
+bifuncAt  = Bin BifuncAt bifuncAtType bifuncAtPre
 --------------------------------------------------------------------------------
 
 concatPre :: (Value -> Value -> Value)
@@ -435,9 +440,24 @@ concatPre _ _ = internal "bad concat operator precalc"
 concatType :: BinaryOpType
 concatType t1@(GSeq a) t2 = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
-  t3 -> Right t3
+  t3     -> Right t3
 concatType _ _ = let t = GUnsafeName "t" in Left $
   show (GSeq t, GSeq t)
 
 concat :: Bin
 concat  = Bin Concat concatType concatPre
+
+--------------------------------------------------------------------------------
+functorUPre :: Value -> Value
+functorUPre _ = internal "bad functorUn precalc"
+
+functorUnType :: UnaryOpType
+functorUnType GSet      {} = Right GInt
+functorUnType GSeq      {} = Right GInt
+functorUnType GMultiset {} = Right GInt
+functorUnType GRel      {} = Right GInt
+functorUnType GFunc     {} = Right GInt
+functorUnType _            = Left $ show GBool
+
+card :: Un
+card = Un Card functorUnType functorUPre

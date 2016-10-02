@@ -52,8 +52,8 @@ alloc t@GArray { dimensions, innerType } lval = do
   name <- insertVar lval
 
   dims <- mapM expression dimensions
-
-  num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
+  innerSize <- sizeOf innerType
+  num <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
 
   inner <- toLLVMType innerType
   garrT <- toLLVMType t
@@ -157,6 +157,15 @@ alloc gtype lval = do
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType $ "init" <> name'
+        , arguments          = [(LocalReference (ptr t) cast,[])]
+        , functionAttributes = []
+        , metadata           = [] }
+
+      pushbackInstruction $ Do Call
+        { tailCallKind       = Nothing
+        , callingConvention  = CC.C
+        , returnAttributes   = []
+        , function           = callable voidType $ "destroy" <> name'
         , arguments          = [(LocalReference (ptr t) cast,[])]
         , functionAttributes = []
         , metadata           = [] }

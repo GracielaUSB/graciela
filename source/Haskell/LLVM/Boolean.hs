@@ -136,7 +136,6 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
           , trueDest
           , falseDest
           , metadata' = [] }
-
     _ | binOp `elem` [LT, LE, GT, GE] -> do
       lOperand <- expr lexpr -- The operands can only be chars, ints
       rOperand <- expr rexpr -- or floats, nothing else
@@ -182,7 +181,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
         case type' of
           GBool -> wrapBoolean' expr object obRef x
 
-          _ |  type' =:= GOneOf [f GAny | f <- [GSet, GMultiset, GSeq]]
+          _ |  type' =:= highLevel || type' =:= GTuple GAny GAny
             || type' `elem` [GInt, GChar, GFloat] -> expr x
 
           _ | type' =:= GPointer GAny -> do
@@ -210,7 +209,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
             , operand1 = rOperand
             , metadata = [] }
 
-        _ |  type' =:= GOneOf [f GAny | f <- [GSet, GMultiset, GSeq]] -> do
+        _ |  type' =:= highLevel || type' =:= GTuple GAny GAny -> do
           addInstruction $ comp := Call
             { tailCallKind = Nothing
             , callingConvention = CC.C
@@ -219,6 +218,9 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
               GSet      _ -> equalSetString
               GMultiset _ -> equalMultisetString
               GSeq      _ -> equalSeqString
+              GFunc   _ _ -> equalFuncString
+              GRel    _ _ -> equalRelString
+              GTuple  _ _ -> equalTupleString
             , arguments = (,[]) <$> [lOperand, rOperand]
             , functionAttributes = []
             , metadata = [] }
@@ -238,19 +240,19 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
       comp <- newLabel "setComp"
 
       let [lOp', rOp'] = [lOp, rOp] & if
-            | binOp `elem` [Subset, SSubset] -> id
-            | binOp `elem` [Superset, SSuperset] -> reverse
+            | binOp `elem` [Subset, SSubset] -> reverse
+            | binOp `elem` [Superset, SSuperset] -> id
       addInstruction $ comp := Call
         { tailCallKind = Nothing
         , callingConvention = CC.C
         , returnAttributes = []
         , function = callable i1 $ case expType lexpr of
           GSet      _ -> if
-            | binOp `elem` [Subset, Superset] -> subsetSetString
-            | binOp `elem` [SSubset, SSuperset] -> ssubsetSetString
+            | binOp `elem` [Subset, Superset]   -> supersetSetString
+            | binOp `elem` [SSubset, SSuperset] -> ssupersetSetString
           GMultiset _ -> if
-            | binOp `elem` [Subset, Superset] -> subsetMultisetString
-            | binOp `elem` [SSubset, SSuperset] -> ssubsetMultisetString
+            | binOp `elem` [Subset, Superset]   -> supersetMultisetString
+            | binOp `elem` [SSubset, SSuperset] -> ssupersetMultisetString
         , arguments = (,[]) <$> [lOp', rOp']
         , functionAttributes = []
         , metadata = [] }
@@ -262,7 +264,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
         , metadata' = [] }
 
     SeqAt -> internal
-      "boolean sequences are not implemented so # can't produce a boolean"
+      "boolean sequences are not implemented so ! can't produce a boolean"
 
     BifuncAt -> internal
       "boolean funcs/rels are not implemented so @ can't produce a boolean"

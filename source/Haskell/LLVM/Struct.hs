@@ -8,22 +8,25 @@ module LLVM.Struct
 --------------------------------------------------------------------------------
 import           AST.Declaration              (Declaration (..))
 import           AST.Expression               (Expression' (..))
+import qualified AST.Instruction              as G (Instruction)
 import           AST.Struct                   (Struct (..), Struct' (..))
 import           AST.Type
 import           LLVM.Abort                   (abort, abortString)
 import qualified LLVM.Abort                   as Abort (Abort (Invariant, RepInvariant))
 import           LLVM.Definition
 import           LLVM.Expression
+import           LLVM.Instruction             (instruction)
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                 (warn)
 import qualified LLVM.Warning                 as Warning (Warning (Invariant, Pre, RepInvariant))
 import           Location
+import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses, use, (%=), (+=),
                                                (.=))
-import           Control.Monad                (forM_, when)
+import           Control.Monad                (forM_, when, unless, foldM, void)
 import           Data.Foldable                (toList)
 import           Data.List                    (sortOn)
 import           Data.Map.Strict              (Map)
@@ -36,6 +39,7 @@ import           LLVM.General.AST             (BasicBlock (..), Definition (..),
                                                Parameter (..), Terminator (..),
                                                functionDefaults)
 import qualified LLVM.General.AST.Constant    as C (Constant (..))
+import qualified LLVM.General.AST.CallingConvention  as CC
 import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
 import           LLVM.General.AST.Global      (Global (basicBlocks, name, parameters, returnType),
                                                functionDefaults)
@@ -43,7 +47,8 @@ import           LLVM.General.AST.Instruction (Instruction (..), Named (..),
                                                Terminator (..))
 import           LLVM.General.AST.Name        (Name (..))
 import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
-import           LLVM.General.AST.Type        as LLVM
+import qualified LLVM.General.AST.Type        as LLVM
+import           LLVM.General.AST.Type        hiding (void)
 --------------------------------------------------------------------------------
 
 import           Debug.Trace
@@ -60,7 +65,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         currentStruct .= Just ast
 
         type' <- Just . StructureType True <$>
-                mapM  (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
+          mapM (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
 
         types <- mapM toLLVMType structTypes
         let
@@ -70,8 +75,10 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         moduleDefs %= (|> TypeDefinition (Name name) type')
 
         defaultConstructor name structType typeMap
+        defaultDestructor name structType typeMap
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
+        defineCouple couple name structType
 
         mapM_ definition structProcs
 
@@ -96,30 +103,89 @@ defaultConstructor name structType typeMap = do
   forM_ (toList structFields) $ \(field, t, expr) -> do
     let
       filledT = fillType typeMap t
-    when (filledT =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny]) $ do
+    case filledT of 
+      t | t =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
 
-      member <- newLabel $ "member" <> show field
+        member <- newLabel $ "member" <> show field
 
-      addInstruction $ member := GetElementPtr
+        addInstruction $ member := GetElementPtr
+            { inBounds = False
+            , address  = self
+            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , metadata = []}
+
+        defaultValue <- case expr of
+          Nothing -> value filledT
+          Just e  -> expression' e
+
+        t' <- toLLVMType filledT
+        addInstruction $ Do Store
+            { volatile = False
+            , address  = LocalReference t' member
+            , value    = defaultValue
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = []
+            }
+
+    -----------------------------------------------------------------------------
+      t@GArray { dimensions, innerType } -> do
+        name <- newUnLabel
+
+        dims <- mapM expression dimensions
+
+        innerSize <- sizeOf innerType
+        num <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
+
+        inner <- toLLVMType innerType
+        garrT <- toLLVMType t
+
+        addInstruction $ name := GetElementPtr
+            { inBounds = False
+            , address  = self
+            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , metadata = []}
+
+        iarr <- newUnLabel
+
+        addInstruction $ iarr := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType mallocString
+          , arguments          = [(num, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        let arrT = iterate (ArrayType 1) inner !! length dimensions
+
+        iarrCast <- newUnLabel
+        addInstruction $ iarrCast := BitCast
+          { operand0 = LocalReference (ptr inner) iarr
+          , type'    = ptr arrT
+          , metadata = [] }
+
+        arrPtr <- newUnLabel
+
+        addInstruction $ arrPtr := GetElementPtr
           { inBounds = False
-          , address  = self
-          , indices  = ConstantOperand . C.Int 32 <$> [0, field]
-          , metadata = []}
+          , address  = LocalReference garrT name
+          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , metadata = [] }
 
-      defaultValue <- case expr of
-        Nothing -> value filledT
-        Just e  -> expression' e
-
-      t' <- toLLVMType filledT
-      addInstruction $ Do Store
-          { volatile = False
-          , address  = LocalReference t' member
-          , value    = defaultValue
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = LocalReference (ptr arrT) arrPtr
+          , value          = LocalReference (ptr arrT) iarrCast
           , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = []
-          }
+          , alignment      = 4
+          , metadata       = [] }
+
+        void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
+
+      _ -> pure ()
     pure ()
+
   terminate $ Ret Nothing []
   closeScope
 
@@ -135,12 +201,156 @@ defaultConstructor name structType typeMap = do
         , basicBlocks = toList blocks' }
 
   where
+    numAux operand0 operand1 = do
+      result <- newUnLabel
+      addInstruction $ result := Mul
+        { operand0
+        , operand1
+        , nsw = False
+        , nuw = False
+        , metadata = [] }
+      pure $ LocalReference i32 result
+
+    sizeAux ref n value = do
+      dimPtr <- newLabel "dimPtr"
+      addInstruction $ dimPtr := GetElementPtr
+        { inBounds = False
+        , address  = ref
+        , indices  =
+          [ ConstantOperand (C.Int 32 0)
+          , ConstantOperand (C.Int 32 n) ]
+        , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile       = False
+        , address        = LocalReference i32 dimPtr
+        , value
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      pure $ n + 1
+
     value t = case t of
       GBool          -> pure . ConstantOperand $ C.Int 1 0
       GChar          -> pure . ConstantOperand $ C.Int 8 0
       GInt           -> pure . ConstantOperand $ C.Int 32 0
       GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
+
+defaultDestructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
+defaultDestructor name structType typeMap = do
+  let
+    procName = "destroy" <> name
+  proc <- newLabel procName
+
+  (proc #)
+
+  Just Struct { structFields } <- use currentStruct
+
+  openScope
+  selfName <- insertVar "_self"
+
+  let
+    self = LocalReference structType selfName
+
+  forM_ (toList structFields) $ \(field, t, expr) -> do
+    let
+      filledT = fillType typeMap t
+    case filledT of 
+      t@GArray { dimensions, innerType } -> do
+        garrT <- toLLVMType t
+        inner <- toLLVMType innerType
+        let iarrT = iterate (ArrayType 1) inner !! length dimensions
+
+        arrStruct <- newLabel "arrStruct"
+
+        addInstruction $ arrStruct := GetElementPtr
+            { inBounds = False
+            , address  = self
+            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , metadata = []}
+
+        arrPtr <- newLabel "arrPtr"
+        addInstruction $ arrPtr := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference garrT arrStruct
+          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , metadata = [] }
+
+        iarr <- newLabel "freeArrInternal"
+        addInstruction $ iarr := Load
+          { volatile  = False
+          , address   = LocalReference (ptr iarrT) arrPtr
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        iarrCast <- newLabel "freeArrInternalCast"
+        addInstruction $ iarrCast := BitCast
+          { operand0 = LocalReference (ptr iarrT) iarr
+          , type'    = pointerType
+          , metadata = [] }
+
+        addInstruction $ Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType freeString
+          , arguments          = [(LocalReference pointerType iarrCast, [])]
+          , functionAttributes = []
+          , metadata = [] } 
+
+      _ -> pure ()
+
+  terminate $ Ret Nothing []
+  closeScope
+
+  blocks' <- use blocks
+  blocks .= Seq.empty
+
+  let selfParam = Parameter (ptr structType) selfName []
+
+  addDefinition $ GlobalDefinition functionDefaults
+        { name        = Name procName
+        , parameters  = ([selfParam],False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks' }
+
+
+
+
+defineCouple :: Seq G.Instruction
+             -> String 
+             -> LLVM.Type
+             -> LLVM ()
+defineCouple insts name t = do
+  let
+    procName = "couple-" <> name
+
+  proc <- newLabel $ "proc" <> procName
+  (proc #)
+
+  openScope
+  name' <- insertVar "_self"
+  mapM_ instruction insts
+
+  terminate $ Ret Nothing []
+  closeScope
+
+  blocks' <- use blocks
+  blocks .= Seq.empty
+
+  let
+    selfParam    = Parameter (ptr t) name' []
+
+  addDefinition $ GlobalDefinition functionDefaults
+        { name        = Name procName
+        , parameters  = ([selfParam],False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks' }
+
+
 
 
 defineStructInv :: Invariant

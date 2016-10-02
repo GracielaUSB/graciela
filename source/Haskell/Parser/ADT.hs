@@ -399,19 +399,14 @@ coupleInv = do
         Just _ -> putError pos (UnknownError "Empty coupling relation.") >> pure Seq.empty
         _ -> pure Seq.empty      
 
-    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = do
-      let 
-        Object{ objType, obj' = Member{ fieldName }} = innerVar obj
-      
-      unless (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) .
-        putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack fieldName <> "`."
-
-      pure fieldName
-
-    innerVar :: Object -> Object
-    innerVar obj@Object{ objType, obj'} = if objType =:= highLevel
-      then obj 
-      else innerVar (inner obj') 
+    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = case obj of 
+        Object{ objType, obj' = Member{ fieldName }} -> do
+          unless (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) .
+            putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack fieldName <> "`."
+          pure fieldName
+        Object{ objType, obj' = Variable{ name }} -> do
+          putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack name <> "`."
+          pure name
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt

@@ -105,11 +105,13 @@ mainDefinition block files = do
     , metadata           = [] }
 
   mapM_ closeFile files
-
+  pending <- use pendingInsts
+  addInstructions pending
   terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
   blocks .= Seq.empty
+  pendingInsts .= Seq.empty
   addDefinition $ LLVM.GlobalDefinition functionDefaults
     { name        = Name "main"
     , parameters  = ([], False)
@@ -120,7 +122,7 @@ mainDefinition block files = do
   where
     openFile file = do
       let
-        fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
+        fileRef = ConstantOperand . C.GlobalReference pointerType . Name $
                   "__" <> file
 
       fileLabel <- newLabel "file"
@@ -131,7 +133,7 @@ mainDefinition block files = do
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
-        , function           = callable (ptr i8) openFileStr
+        , function           = callable pointerType openFileStr
         , arguments          = [(string,[])]
         , functionAttributes = []
         , metadata           = [] }
@@ -139,14 +141,14 @@ mainDefinition block files = do
       addInstruction $ Do Store
           { volatile = False
           , address  = fileRef
-          , value    = LocalReference (ptr i8) fileLabel
+          , value    = LocalReference pointerType fileLabel
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
 
     closeFile file = do
       let
-        fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
+        fileRef = ConstantOperand . C.GlobalReference pointerType . Name $
                   "__" <> file
       filePtr <- newLabel "filePtr"
       addInstruction $ filePtr := Load
@@ -161,7 +163,7 @@ mainDefinition block files = do
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType closeFileStr
-        , arguments          = [(LocalReference (ptr i8) filePtr,[])]
+        , arguments          = [(LocalReference pointerType filePtr,[])]
         , functionAttributes = []
         , metadata           = [] }
 
@@ -323,6 +325,8 @@ definition
         , metadata' = [] }
 
       (yesPost #)
+      pending <- use pendingInsts
+      addInstructions pending
       terminate Ret
         { returnOperand = Just returnOperand
         , metadata' = [] }
@@ -337,6 +341,7 @@ definition
       let name = Name $ unpack defName <> postFix
       blocks' <- use blocks
       blocks .= Seq.empty
+      pendingInsts .= Seq.empty
 
       addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
@@ -380,18 +385,24 @@ definition
           let
             dts = filter getDTs . toList $ procParams
 
-          postFix <- llvmName (pack "-" <> structBaseName) <$> mapM toLLVMType structTypes
+          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
 
           cond <- precondition pre
 
+          mapM_ (callCouple    ("couple" <> postFix)) dts
           mapM_ (callInvariant ("inv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv" <> postFix) cond) dts
 
           instruction procBody
 
+          mapM_ (callCouple    ("couple" <> postFix)) dts
           mapM_ (callInvariant ("inv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv" <> postFix) cond) dts
           postcondition post
+
+          
+          pending <- use pendingInsts
+          addInstructions pending
 
           blocks' <- use blocks
 
@@ -403,6 +414,7 @@ definition
             }
 
       blocks .= Seq.empty
+      pendingInsts .= Seq.empty
       closeScope
 
     GracielaFunc {} -> pure ()
@@ -476,6 +488,19 @@ definition
           pure $ n + 1
 
     arrAux _ = pure ()
+
+    callCouple funName (name, t, _) = do
+      type' <- toLLVMType t
+      name' <- getVariableName name
+
+      addInstruction $ Do Call
+        { tailCallKind       = Nothing
+        , callingConvention  = CC.C
+        , returnAttributes   = []
+        , function           = callable voidType funName
+        , arguments          = [(LocalReference type' name',[])]
+        , functionAttributes = []
+        , metadata           = [] }
 
     callInvariant funName cond (name, t, _) = do
 
@@ -645,6 +670,7 @@ preDefinitions files = do
                                  , parameter ("line", intType)
                                  , parameter ("column", intType)]
                                  intType
+
     , defineFunction absFString               floatParam floatType
     , defineFunction toSetMultiString         ptrParam   pointerType
     , defineFunction toSetSeqString           ptrParam   pointerType
@@ -652,110 +678,128 @@ preDefinitions files = do
     , defineFunction toSetRelString           ptrParam   pointerType
     , defineFunction toMultiSetString         ptrParam   pointerType
     , defineFunction toMultiSeqString         ptrParam   pointerType
-    , defineFunction funcString               [ parameter ("x", pointerType)
-                                              , parameter ("line", intType)
-                                              , parameter ("column", intType)]
-                                              pointerType
-    , defineFunction relString                ptrParam   pointerType
-    , defineFunction cardSetString            ptrParam   pointerType
-    , defineFunction cardMultiString          ptrParam   pointerType
-    , defineFunction cardSeqString            ptrParam   pointerType
-    , defineFunction cardFuncString           ptrParam   pointerType
-    , defineFunction cardRelString            ptrParam   pointerType
-    , defineFunction domainFuncString         ptrParam   pointerType
-    , defineFunction domainRelString          ptrParam   pointerType
-    , defineFunction codomainFuncString       ptrParam   pointerType
-    , defineFunction codomainRelString        ptrParam   pointerType
-    , defineFunction inverseFuncString        ptrParam   pointerType
-    , defineFunction inverseRelString         ptrParam   pointerType
-    , defineFunction multiplicityMultiString  [ parameter ("item", i64)
-                                              , parameter ("cont", pointerType) ]
-                                              intType
-    , defineFunction multiplicitySeqString    [ parameter ("item", i64)
-                                              , parameter ("cont", pointerType) ]
-                                              intType
 
+--------------------------------------------------------------------------------
 
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
     , defineFunction openScopeString          [] voidType
 
     -- (Bi)Functors
-    , defineFunction newSetString             [] (ptr i8)
-    , defineFunction newSeqString             [] (ptr i8)
-    , defineFunction newMultisetString        [] (ptr i8)
+    , defineFunction newSetString             [] pointerType
+    , defineFunction newSeqString             [] pointerType
+    , defineFunction newMultisetString        [] pointerType
+
+    , defineFunction newSetPairString         [] pointerType
+    , defineFunction newMultisetPairString    [] pointerType
+    , defineFunction newSeqPairString         [] pointerType
 
 --------------------------------------------------------------------------------
-    , defineFunction equalSetString       [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
-                                          boolType
-    , defineFunction equalSeqString       [ parameter ("ptr1", pointerType)
-                                          , parameter ("ptr2", pointerType)]
-                                          boolType
-    , defineFunction equalMultisetString  [ parameter ("ptr1", pointerType)
-                                          , parameter ("ptr2", pointerType)]
-                                          boolType
+
+    , defineFunction equalSetString            ptrParam2 boolType
+    , defineFunction equalSeqString            ptrParam2 boolType
+    , defineFunction equalMultisetString       ptrParam2 boolType
+ 
+    , defineFunction equalSetPairString        ptrParam2 boolType
+    , defineFunction equalSeqPairString        ptrParam2 boolType
+    , defineFunction equalMultisetPairString   ptrParam2 boolType
+ 
+    , defineFunction equalFuncString           ptrParam2 boolType
+    , defineFunction equalRelString            ptrParam2 boolType
+
+    , defineFunction equalTupleString            [ parameter ("x", ptr tupleType)
+                                               , parameter ("y", ptr tupleType)] 
+                                               boolType
 --------------------------------------------------------------------------------
-    , defineFunction subsetSetString        [ parameter ("ptr1", pointerType)
-                                            , parameter ("ptr2", pointerType)]
-                                            boolType
-    , defineFunction subsetMultisetString   [ parameter ("ptr1", pointerType)
-                                            , parameter ("ptr2", pointerType)]
-                                            boolType
-    , defineFunction ssubsetSetString       [ parameter ("ptr1", pointerType)
-                                            , parameter ("ptr2", pointerType)]
-                                            boolType
-    , defineFunction ssubsetMultisetString  [ parameter ("ptr1", pointerType)
-                                            , parameter ("ptr2", pointerType)]
-                                            boolType
+    , defineFunction sizeSetString             ptrParam intType
+    , defineFunction sizeSeqString             ptrParam intType
+    , defineFunction sizeMultisetString        ptrParam intType
+    , defineFunction sizeRelString             ptrParam intType
+    , defineFunction sizeFuncString            ptrParam intType                                        
 --------------------------------------------------------------------------------
-    , defineFunction insertSetString       [ parameter ("ptr", pointerType)
+    , defineFunction supersetSetString         ptrParam2 boolType
+    , defineFunction supersetMultisetString    ptrParam2 boolType
+    , defineFunction ssupersetSetString        ptrParam2 boolType
+    , defineFunction ssupersetMultisetString   ptrParam2 boolType
 
-                                           , parameter ("x"  , i64)]
-                                           voidType
-    , defineFunction insertSeqString       [ parameter ("ptr", pointerType)
-                                           , parameter ("x"  , i64)]
-                                           voidType
-    , defineFunction insertMultisetString  [ parameter ("ptr", pointerType)
-                                           , parameter ("x"  , i64)]
-                                           voidType
-
-
-
-    , defineFunction isElemSetString [ parameter ("ptr", pointerType)
-
-                                     , parameter ("x", i64)]
-                                     boolType
-    , defineFunction isElemMultisetString [ parameter ("ptr", pointerType)
-                                          , parameter ("x", i64)]
-                                          boolType
-    , defineFunction isElemSeqString [ parameter ("ptr", pointerType)
-                                     , parameter ("x", i64)]
-                                     boolType
+    , defineFunction supersetSetPairString         ptrParam2 boolType
+    , defineFunction supersetMultisetPairString    ptrParam2 boolType
+    , defineFunction ssupersetSetPairString        ptrParam2 boolType
+    , defineFunction ssupersetMultisetPairString   ptrParam2 boolType
 --------------------------------------------------------------------------------
-    , defineFunction unionSetString      [ parameter ("ptr1", ptr i8)
-                                         , parameter ("ptr2", ptr i8)]
-                                         (ptr i8)
-    , defineFunction intersectSetString  [ parameter ("ptr1", ptr i8)
-                                         , parameter ("ptr2", ptr i8)]
-                                         (ptr i8)
-    , defineFunction differenceSetString [ parameter ("ptr1", ptr i8)
-                                         , parameter ("ptr2", ptr i8)]
-                                         (ptr i8)
+    , defineFunction insertSetString           ptri64Param voidType
+    , defineFunction insertSeqString           ptri64Param voidType
+    , defineFunction insertMultisetString      ptri64Param voidType
 
-    , defineFunction unionMultisetString  [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
-                                          (ptr i8)
-    , defineFunction intersectMultisetString  [ parameter ("ptr1", ptr i8)
-                                              , parameter ("ptr2", ptr i8)]
-                                              (ptr i8)
-    , defineFunction differenceMultisetString [ parameter ("ptr1", ptr i8)
-                                              , parameter ("ptr2", ptr i8)]
-                                              (ptr i8)
+    , defineFunction insertSetPairString       ptrTupleParam voidType
+    , defineFunction insertSeqPairString       ptrTupleParam voidType
+    , defineFunction insertMultisetPairString  ptrTupleParam voidType
 --------------------------------------------------------------------------------
-    , defineFunction concatSequenceString [ parameter ("ptr1", ptr i8)
-                                          , parameter ("ptr2", ptr i8)]
-                                          (ptr i8)
+
+    , defineFunction isElemSetString          ptri64Param boolType
+    , defineFunction isElemMultisetString     ptri64Param boolType
+    , defineFunction isElemSeqString          ptri64Param boolType
+
+    , defineFunction isElemSetPairString      ptrTupleParam boolType
+    , defineFunction isElemMultisetPairString ptrTupleParam boolType
+    , defineFunction isElemSeqPairString      ptrTupleParam boolType
+--------------------------------------------------------------------------------
+    , defineFunction unionSetString           ptrParam2 pointerType
+    , defineFunction intersectSetString       ptrParam2 pointerType
+    , defineFunction differenceSetString      ptrParam2 pointerType
+
+    , defineFunction unionSetPairString       ptrParam2 pointerType
+    , defineFunction intersectSetPairString   ptrParam2 pointerType
+    , defineFunction differenceSetPairString  ptrParam2 pointerType
+
+    , defineFunction unionMultisetString      ptrParam2 pointerType
+    , defineFunction intersectMultisetString  ptrParam2 pointerType
+    , defineFunction differenceMultisetString ptrParam2 pointerType
+
+    , defineFunction unionMultisetPairString      ptrParam2 pointerType
+    , defineFunction intersectMultisetPairString  ptrParam2 pointerType
+    , defineFunction differenceMultisetPairString ptrParam2 pointerType
+--------------------------------------------------------------------------------
+    , defineFunction multisetSumString            ptrParam2 pointerType
+    , defineFunction concatSequenceString         ptrParam2 pointerType
+
+    , defineFunction multiplicityMultiString      ptri64Param intType
+    , defineFunction multiplicitySeqString        ptri64Param intType
+
+    , defineFunction multisetPairSumString        ptrParam2 pointerType
+    , defineFunction concatSequencePairString     ptrParam2 pointerType
+
+    , defineFunction multiplicityMultiPairString  ptrTupleParam intType
+    , defineFunction multiplicitySeqPairString    ptrTupleParam intType
+
+    , defineFunction atSequenceString             [ parameter ("x", pointerType)
+                                                  , parameter ("y", intType)
+                                                  , parameter ("line", intType)
+                                                  , parameter ("column", intType)] 
+                                                  i64
+    , defineFunction atSequencePairString         [ parameter ("x", pointerType)
+                                                  , parameter ("y", intType)
+                                                  , parameter ("line", intType)
+                                                  , parameter ("column", intType)] 
+                                                  tupleType
+
+--------------------------------------------------------------------------------
+    , defineFunction relString                ptrParam   pointerType
+    , defineFunction funcString               [ parameter ("x", pointerType)
+                                              , parameter ("line", intType)
+                                              , parameter ("column", intType)]
+                                              pointerType
+
+    , defineFunction domainFuncString         ptrParam    pointerType
+    , defineFunction domainRelString          ptrParam    pointerType
+    
+    , defineFunction codomainFuncString       ptri64Param pointerType
+    , defineFunction codomainRelString        ptri64Param pointerType
+
+    , defineFunction inverseFuncString        ptrParam    pointerType
+    , defineFunction inverseRelString         ptrParam    pointerType
+
+    
 --------------------------------------------------------------------------------
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)
@@ -816,15 +860,15 @@ preDefinitions files = do
     , defineFunction readFloatStd  [] floatType
 
     -- Malloc
-    , defineFunction mallocString intParam (ptr i8)
-    , defineFunction freeString [parameter ("x", ptr i8)] voidType
+    , defineFunction mallocString intParam pointerType
+    , defineFunction freeString [parameter ("x", pointerType)] voidType
 
 
-    , defineFunction readFileInt   [parameter ("file", ptr i8)] intType
-    , defineFunction readFileChar  [parameter ("file", ptr i8)] charType
-    , defineFunction readFileFloat [parameter ("file", ptr i8)] floatType
-    , defineFunction closeFileStr  [parameter ("file", ptr i8)] voidType
-    , defineFunction openFileStr   [parameter ("name", ptr i8)] (ptr i8)
+    , defineFunction readFileInt   [parameter ("file", pointerType)] intType
+    , defineFunction readFileChar  [parameter ("file", pointerType)] charType
+    , defineFunction readFileFloat [parameter ("file", pointerType)] floatType
+    , defineFunction closeFileStr  [parameter ("file", pointerType)] voidType
+    , defineFunction openFileStr   [parameter ("name", pointerType)] pointerType
     ]
 
   where
@@ -834,11 +878,14 @@ preDefinitions files = do
       , returnType  = t
       , basicBlocks = [] }
     parameter (name, t) = Parameter t (Name name) []
-    intParam      = [parameter ("x",   intType)]
-    charParam     = [parameter ("x",  charType)]
-    boolParam     = [parameter ("x",  boolType)]
-    floatParam    = [parameter ("x", floatType)]
-    ptrParam      = [parameter ("x",    pointerType)]
+    intParam      = [parameter ("x",     intType)]
+    charParam     = [parameter ("x",    charType)]
+    boolParam     = [parameter ("x",    boolType)]
+    floatParam    = [parameter ("x",   floatType)]
+    ptrParam      = [parameter ("x", pointerType)]
+    ptrParam2     = [parameter ("x", pointerType), parameter ("y", pointerType)]
+    ptri64Param   = [parameter ("x", pointerType), parameter ("y", i64)]
+    ptrTupleParam = [parameter ("x", pointerType), parameter ("y", ptr tupleType)]
     intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
     charParams2   = fmap parameter [("x",  charType), ("y",  charType)]
     floatParams2  = fmap parameter [("x", floatType), ("y", floatType)]
@@ -853,8 +900,8 @@ preDefinitions files = do
         , addrSpace       = AddrSpace 0
         , hasUnnamedAddr  = False
         , isConstant      = False
-        , type'           = ptr i8
-        , initializer     = Just . C.Null $ ptr i8
+        , type'           = pointerType
+        , initializer     = Just . C.Null $ pointerType
         , section         = Nothing
         , comdat          = Nothing
         , alignment       = 4

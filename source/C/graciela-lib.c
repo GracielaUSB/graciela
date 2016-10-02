@@ -256,7 +256,7 @@ void _abort (abort_t reason, int line, int column) {
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
-  exit (1);
+  exit (EXIT_FAILURE);
 }
 
 typedef enum

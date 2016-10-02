@@ -12,6 +12,7 @@
 #ifdef __cplusplus
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <set>
 #include <map>
 #include <stack>
@@ -28,12 +29,14 @@ using namespace std;
 namespace glib {
     
     typedef enum{
-        SET      = 0,
-        MULTISET = 1,
-        FUNCTION = 2,
-        RELATION = 3,
-        SEQUENCE = 4,
-        SETPAIR  = 5
+      SET           = 0,
+      MULTISET      = 1,
+      FUNCTION      = 2,
+      RELATION      = 3,
+      SEQUENCE      = 4,
+      SETPAIR       = 5,
+      MULTISETPAIR  = 6,
+      SEQUENCEPAIR  = 7
     } type;
 
     typedef map<t,t>           Function;
@@ -42,7 +45,9 @@ namespace glib {
     typedef set<Tuple>         SetPair;
     typedef set<Tuple>         Relation;
     typedef multiset<t>        Multiset;
+    typedef multiset<Tuple>    MultisetPair;
     typedef vector<t>          Sequence;
+    typedef vector<Tuple>      SequencePair;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
 }
@@ -74,18 +79,20 @@ extern "C" {
     int8_t*  _intersectSet(int8_t* ptr1, int8_t* ptr2);
     int8_t*  _differenceSet(int8_t* ptr1, int8_t* ptr2);
     int      _includesSet(int8_t* ptr1, int8_t* ptr2);
+    int      _includesSSet(int8_t* ptr1, int8_t* ptr2);
     void     _freeSet(int8_t* ptr);
     /* SetPair */
     
     int8_t* _newSetPair();
     int     _equalSetPair(int8_t *ptr1, int8_t* ptr2);
-    void    _insertSetPair(int8_t *ptr, gtuple x);
-    int     _sizeSetPair(int8_t *ptr);
-    int     _isElemSetPair(int8_t *ptr, gtuple x);
+    void    _insertSetPair(int8_t *ptr, gtuple* x);
+//    int     _sizeSetPair(int8_t *ptr);
+    int     _isElemSetPair(int8_t *ptr, gtuple* x);
     int8_t* _unionSetPair(int8_t *ptr1, int8_t * ptr2);
     int8_t* _intersectSetPair(int8_t *ptr1, int8_t * ptr2);
     int8_t* _differenceSetPair(int8_t *ptr1, int8_t * ptr2);
     int     _includesSetPair(int8_t* ptr1, int8_t* ptr2);
+    int     _includesSSetPair(int8_t* ptr1, int8_t* ptr2);
     void    _freeSetPair(int8_t* ptr);
 
     /* Multiset */
@@ -96,11 +103,26 @@ extern "C" {
     int     _sizeMultiset(int8_t* ptr);
     int     _countMultiset(int8_t* ptr, t x);
     int8_t* _unionMultiset(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _sumMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _intersectMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _differenceMultiset(int8_t* ptr1, int8_t* ptr2);
     int     _includesMultiset(int8_t* ptr1, int8_t* ptr2);
     void    _freeMultiset(int8_t* ptr);
-    
+
+    /* MultisetPair */
+    int8_t* _newMultisetPair();
+    int     _equalMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    void    _insertMultisetPair(int8_t* ptr, gtuple* x);
+    int     _isElemMultisetPair(int8_t* ptr, gtuple* x);
+//    int     _sizeMultisetPair(int8_t* ptr);
+    int     _countMultisetPair(int8_t* ptr, gtuple* x);
+    int8_t* _unionMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _sumMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _intersectMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _differenceMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    int     _includesMultisetPair(int8_t* ptr1, int8_t* ptr2);
+    void    _freeMultisetPair(int8_t* ptr);
+  
     /* Function */
     int8_t* _newFunction();
     int     _equalFunction(int8_t* ptr1, int8_t* ptr2);
@@ -129,10 +151,25 @@ extern "C" {
     int     _isElemSequence(int8_t* ptr, t x);
     void    _insertSequence(int8_t* ptr, t x);
     int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2);
+    int     _countSequence(int8_t* ptr, t x);
     int     _sizeSequence(int8_t* ptr);
+    gtuple  _atSequencePair(int8_t*ptr, int pos, int line, int col);
     void    _freeSequence(int8_t* ptr);
-    
-    /* TrashCollector 
+
+    /* SequencePair */
+    int8_t* _newSequencePair();
+    int     _equalSequencePair(int8_t* ptr1, int8_t* ptr2);
+    int     _isElemSequencePair(int8_t* ptr, gtuple* x);
+    void    _insertSequencePair(int8_t* ptr, gtuple* x);
+    int8_t* _concatSequencePair(int8_t* ptr1, int8_t* ptr2);
+    int     _countSequencePair(int8_t* ptr, gtuple* x);
+//    int     _sizeSequencePair(int8_t* ptr);
+    gtuple  _atSequencePair(int8_t*ptr, int pos, int line, int col);
+    void    _freeSequencePair(int8_t* ptr);
+  
+    /* Tuple */
+    int _equalTuple(gtuple* x, gtuple* y);
+    /* TrashCollector
      *  Every pointer to a type created (set, multiset, ...) is
      *  store inside a vector of pointer, to be freed when freeGarbage()
      *  is called.

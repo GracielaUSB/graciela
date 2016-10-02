@@ -19,10 +19,9 @@ import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
 import           AST.Type                  (ArgMode (..), Expression, Object,
                                             QRange, Type (..), fillType, hasDT,
-                                            (=:=))
+                                            isTypeVar, (=:=))
 import           Entry                     (Entry (..), Entry' (..), info)
-import           Error                     (Error (..))
-import           Error                     (internal)
+import           Error                     (Error (..), internal)
 import           Lexer
 import           Location
 import           Parser.Config
@@ -97,12 +96,11 @@ expr = pure . (view _1 <$>) =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
-metaexpr =
-  makeExprParser term operator
+metaexpr = makeExprParser term operator
 
 
 term :: ParserExp (Maybe MetaExpr)
-term =  parens metaexpr
+term =  tuple
     <|> callOrVariable
     <|> bool
     <|> nullptr
@@ -193,6 +191,52 @@ term =  parens metaexpr
           , exp'     = StringLit strId }
 
       pure $ Just (expr, ProtoNothing, Taint False)
+
+
+tuple :: ParserExp (Maybe MetaExpr)
+tuple = do
+  Location (from, _) <- match TokLeftPar
+  elems <- sequence <$>
+    (metaexpr `followedBy` oneOf ([TokComma, TokRightPar] :: Seq Token)) `sepBy` match TokComma
+  Location (_, to) <- match TokRightPar
+
+  case elems of
+    Nothing -> pure Nothing
+    Just [] -> do
+      putError from . UnknownError $
+        "Expected expression."
+      pure Nothing
+    Just [e]      -> pure $ Just e
+    Just [(e0, _, t0), (e1, _, t1)]
+      | allowed e0 && allowed e1 ->
+        let expr = Expression
+              { E.loc    = Location (from, to)
+              , expType  = GTuple (expType e0) (expType e1)
+              , expConst = expConst e0 && expConst e1
+              , exp'     = Tuple e0 e1 }
+        in pure $ Just (expr , ProtoNothing, t0 <> t1)
+      | otherwise -> do
+        unless (allowed e0) . putError (pos . E.loc $ e0) . UnknownError $
+          if expType e0 =:= GTuple GAny GAny
+            then "Cannot build tuple of tuples."
+            else "Cannot build tuple of " <> show (expType e0)
+
+        unless (allowed e1) . putError (pos . E.loc $ e1) . UnknownError $
+          if expType e1 =:= GTuple GAny GAny
+            then "Cannot build tuple of tuples."
+            else "Cannot build tuple of " <> show (expType e1)
+
+        pure Nothing
+
+    Just exps -> do
+      putError from . UnknownError $
+        show (length exps) <> "-Tuples are not supported."
+      pure Nothing
+
+    where
+      allowed = allowed' . expType
+      allowed' = (||) <$> isTypeVar <*>
+        (=:= GOneOf [GBool, GChar, GInt, GFloat, GPointer GAny])
 
 
 collection :: ParserExp (Maybe MetaExpr)
@@ -326,9 +370,7 @@ collection = do
     allowedCollTypes  = GOneOf
       [ GInt
       , GChar
-      , GTuple $ Seq.fromList
-        [ GOneOf [GInt, GChar]
-        , GOneOf [GInt, GChar, GFloat]] ]
+      , GTuple (GOneOf [GInt, GChar]) (GOneOf [GInt, GChar, GFloat]) ]
 
     declaration = do
       from <- getPosition
@@ -391,6 +433,8 @@ collection = do
 callOrVariable :: ParserExp (Maybe MetaExpr)
 callOrVariable = do
   (name, loc) <- identifierAndLoc
+             <|> ((pack "func",) <$> match TokFunc)
+             <|> ((pack "rel",)  <$> match TokRel)
   tok <- lookAhead anyToken
   case tok of
     TokLeftPar -> call name loc
@@ -1118,30 +1162,30 @@ operator =
   , {-Level 2-}
     [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 3-}
-    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+    [ Prefix  (foldr1 (>=>) <$> some (match TokHash  <&> unary Op.card)) ]
   , {-Level 4-}
-    [ Prefix (match TokNot        <&> unary Op.not    )
-    , Prefix (match TokMinus      <&> unary Op.uMinus ) ]
+    [ Prefix  (foldr1 (>=>) <$> some (match TokNot   <&> unary Op.not   ))
+    , Prefix  (foldr1 (>=>) <$> some (match TokMinus <&> unary Op.uMinus)) ]
   , {-Level 5-}
-    [ InfixR (match TokPower      <&> binary Op.power ) ]
+    [ InfixR (match TokPower      <&> binary Op.power) ]
   , {-Level 6-}
-    [ InfixL (match TokTimes      <&> binary Op.times )
-    , InfixL (match TokDiv        <&> binary' Op.div  )
-    , InfixL (match TokMod        <&> binary' Op.mod  ) ]
+    [ InfixL (match TokTimes      <&> binary Op.times)
+    , InfixL (match TokDiv        <&> binary' Op.div )
+    , InfixL (match TokMod        <&> binary' Op.mod ) ]
   , {-Level 7-}
-    [ InfixL (match TokPlus         <&> binary Op.plus       )
-    , InfixL (match TokMinus        <&> binary Op.bMinus     )
-    , InfixL (match TokSetUnion     <&> binary Op.union      )
-    , InfixL (match TokMultisetSum  <&> binary Op.multisum   )
-    , InfixL (match TokSetIntersect <&> binary Op.intersect  )
-    , InfixL (match TokSetMinus     <&> binary Op.difference )
-    , InfixL (match TokConcat       <&> binary Op.concat     ) ]
+    [ InfixL (match TokPlus         <&> binary Op.plus      )
+    , InfixL (match TokMinus        <&> binary Op.bMinus    )
+    , InfixL (match TokSetUnion     <&> binary Op.union     )
+    , InfixL (match TokMultisetSum  <&> binary Op.multisum  )
+    , InfixL (match TokSetIntersect <&> binary Op.intersect )
+    , InfixL (match TokSetMinus     <&> binary Op.difference)
+    , InfixL (match TokConcat       <&> binary Op.concat    ) ]
   , {-Level 8-}
-    [ InfixL (match TokMax        <&> binary Op.max    )
-    , InfixL (match TokMin        <&> binary Op.min    ) ]
+    [ InfixL (match TokMax        <&> binary Op.max)
+    , InfixL (match TokMin        <&> binary Op.min) ]
   , {-Level 9-}
-    [ InfixL (match TokHash       <&> binary Op.seqAt    )
-    , InfixL (match TokAtSign     <&> binary Op.bifuncAt ) ]
+    [ InfixL (match TokIndex      <&> binary Op.seqAt   )
+    , InfixL (match TokAtSign     <&> binary Op.bifuncAt) ]
   , {-Level 10-}
     [ InfixN (match TokElem       <&> membership             )
     , InfixN (match TokNotElem    <&> binary Op.notElem      )
@@ -1154,18 +1198,18 @@ operator =
     , InfixN (match TokSuperset   <&> binary     Op.superset )
     , InfixN (match TokSSuperset  <&> binary     Op.ssuperset) ]
   , {-Level 11-}
-    [ InfixN (match TokAEQ        <&> pointRange    )
-    , InfixN (match TokANE        <&> binary Op.ane ) ]
+    [ InfixN (match TokAEQ        <&> pointRange   )
+    , InfixN (match TokANE        <&> binary Op.ane) ]
   , {-Level 12-}
-    [ InfixR (match TokAnd        <&> conjunction ) ]
+    [ InfixR (match TokAnd        <&> conjunction) ]
   , {-Level 13-}
-    [ InfixR (match TokOr         <&> binary' Op.or ) ]
+    [ InfixR (match TokOr         <&> binary' Op.or) ]
   , {-Level 14-}
-    [ InfixR (match TokImplies    <&> binary' Op.implies    )
-    , InfixL (match TokConsequent <&> binary' Op.consequent ) ]
+    [ InfixR (match TokImplies    <&> binary' Op.implies   )
+    , InfixL (match TokConsequent <&> binary' Op.consequent) ]
   , {-Level 15-}
-    [ InfixN (match TokBEQ        <&> binary' Op.beq )
-    , InfixN (match TokBNE        <&> binary' Op.bne ) ]
+    [ InfixN (match TokBEQ        <&> binary' Op.beq)
+    , InfixN (match TokBNE        <&> binary' Op.bne) ]
   ]
 
 
@@ -1436,7 +1480,7 @@ binary' binOp opLoc
     Left expected -> do
       putError (from l) . UnknownError $
         ("Operator `" <> show (Op.binSymbol' binOp) <> "` at " <> show opLoc <>
-          " expected two expressions of types " <> expected <>
+          "\n\texpected two expressions of types " <> expected <>
           ", but received " <> show (ltype, rtype) <> ".")
       pure Nothing
 

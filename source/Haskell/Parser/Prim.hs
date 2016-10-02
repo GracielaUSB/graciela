@@ -23,7 +23,7 @@ import qualified Text.Megaparsec.Prim as Prim
 -- as its Stream.
 instance Prim.Stream [TokenPos] where
   type Token [TokenPos] = TokenPos
-  uncons [] = Nothing
+  uncons []     = Nothing
   uncons (t:ts) = Just (t, ts)
   {-# INLINE uncons #-}
   updatePos _ _ _ TokenPos {start, end} = (start, end)

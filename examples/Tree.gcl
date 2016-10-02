@@ -2,7 +2,7 @@ program Tree.bin begin
 
 abstract ANode(T)
 begin
-  var s : set of int;
+  var s : seq of int;
   var b : set of int;
   {inv true inv}   
 end
@@ -16,7 +16,7 @@ begin
 
   {repinv true repinv}
 
-  where { s := {1,2,3}; b := {} }
+  where { s := << 1,2,3,4 >>; b := {1,2,3} }
 
 
   /* Node procedures */
@@ -51,6 +51,7 @@ abstract ATree(T)
 begin
   /* ATree variables */
   const MAX := 100 : int;
+  var s1,s2,s3 : seq of int;
   {inv true inv}
   /* ATree procedures */
 end
@@ -60,9 +61,15 @@ begin
   /* BinaryTree variables */
   var tam := 0 : int;
   var root     : Node(T)*;
+  var a, b : array[3] of int;
   
-  {repinv 0 <= tam /\ tam <= MAX repinv}
+  {repinv s1 ++ s2 == s3 repinv}
 
+  where { 
+    s1 := << 1,2,3 >>;
+    s2 := << 4,5,6 >>;
+    s3 := << 1,2,3,4,5,6 >>
+  }
 
   /* BinaryTree procedures */
   func chao (x : int) -> int
@@ -108,6 +115,8 @@ begin
                 ; i := i + 1
              od
        fi
+     ; t.a[1] := 10
+     ; writeln(t.a[1])
      ; t.tam := t.tam + 1
     ]|
     

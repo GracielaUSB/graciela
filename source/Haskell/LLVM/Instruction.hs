@@ -275,6 +275,27 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , alignment = 4
           , metadata  = [] }
 
+        let call name = Do Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable voidType $ "destroy" <> name
+              , arguments          = [(LocalReference type' labelLoad, [])]
+              , functionAttributes = []
+              , metadata           = [] }
+
+        case freeType of
+          GFullDataType n t -> do
+            types <- mapM toLLVMType (toList t)
+            addInstruction $ call (llvmName n types)
+
+          GDataType n t _ -> do
+            subst:_ <- use substitutionTable
+            types <- mapM toLLVMType $ toList subst
+            addInstruction $ call (llvmName n types)
+
+          _ -> pure ()
+
         addInstruction $ labelCast := BitCast
           { operand0 = LocalReference type' labelLoad
           , type'    = pointerType
@@ -490,7 +511,6 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata           = []}
 
 
--- <<<<<<< HEAD
   Read { file, vars } -> mapM_ readVar vars
     where 
       readVar var = do 

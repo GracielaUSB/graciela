@@ -213,7 +213,7 @@ assign = do
         pure Nothing
 
     assignable a = case a of
-      (GTuple _) -> False
+      (GTuple _ _) -> False
       (GArray _ _) -> False
       _ -> True
 

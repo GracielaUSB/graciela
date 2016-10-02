@@ -15,7 +15,7 @@ import           AST.Expression                          (CollectionKind (..),
                                                           QuantOperator (..))
 import qualified AST.Expression                          as E (Expression' (expType))
 import           AST.Type                                (Expression, QRange,
-                                                          Type (..))
+                                                          Type (..), (=:=))
 import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
@@ -24,6 +24,7 @@ import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
 import           Control.Monad                           (unless, when)
+import           Data.Sequence                           (viewl, ViewL ((:<)))
 import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
@@ -614,13 +615,13 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
 
 collection expression boolean e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Collection { colKind, colVar = Nothing, colElems } -> do
-      theSet <- empty colKind
+      theSet <- empty colKind colElems 
       unless (null colElems) $
         mapM_ (callInsert colKind theSet) colElems
       pure theSet
 
   Collection { colKind, colVar = Just (name, ty, range, cond), colElems } -> case range of
-    EmptyRange -> empty colKind
+    EmptyRange -> empty colKind colElems 
 
     PointRange { thePoint } -> do
       let range' = ExpRange
@@ -640,7 +641,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
         GSeq t -> t
         GMultiset t -> t
 
-      theSet <- empty colKind
+      theSet <- empty colKind colElems
 
       cEnd <- newLabel "cEnd"
 
@@ -748,46 +749,80 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
              \Collection Expression"
 
   where
-    empty colKind = do
+    empty colKind colElems = do
+
       theSet <- newLabel "theSet"
       t <- toLLVMType expType
+      case viewl colElems of 
+        t' :< _ | E.expType t' =:= GTuple GAny GAny -> 
+          addInstruction $ theSet := Call
+            { tailCallKind = Nothing
+            , callingConvention = CC.C
+            , returnAttributes = []
+            , function = callable t $ case colKind of
+              Set      -> newSetPairString
+              Multiset -> newMultisetPairString
+              Sequence -> newSeqPairString
+            , arguments = []
+            , functionAttributes = []
+            , metadata = [] }
 
-      addInstruction $ theSet := Call
-        { tailCallKind = Nothing
-        , callingConvention = CC.C
-        , returnAttributes = []
-        , function = callable t $ case colKind of
-          Set      -> newSetString
-          Multiset -> newMultisetString
-          Sequence -> newSeqString
-        , arguments = []
-        , functionAttributes = []
-        , metadata = [] }
+        otherwise ->
+          addInstruction $ theSet := Call
+            { tailCallKind = Nothing
+            , callingConvention = CC.C
+            , returnAttributes = []
+            , function = callable t $ case colKind of
+              Set      -> newSetString
+              Multiset -> newMultisetString
+              Sequence -> newSeqString
+            , arguments = []
+            , functionAttributes = []
+            , metadata = [] }
 
       pure $ LocalReference t theSet
 
-    callInsert colKind theSet expr = do
-      expr' <- expression expr
-      t <- toLLVMType expType
-      value <- newLabel "item"
-      addInstruction . (value :=) $ case E.expType expr of
-        GFloat -> BitCast
-          { operand0 = expr'
-          , type' = i64
-          , metadata = [] }
-        _ -> SExt
-          { operand0 = expr'
-          , type' = i64
+    callInsert colKind theSet expr 
+      | E.expType expr =:= GTuple GAny GAny = do
+
+        expr' <- expression expr
+        t <- toLLVMType expType
+
+        addInstruction $ Do Call
+          { tailCallKind = Nothing
+          , callingConvention = CC.C
+          , returnAttributes = []
+          , function = callable t $ case colKind of
+            Set      -> insertSetPairString
+            Multiset -> insertMultisetPairString
+            Sequence -> insertSeqPairString
+          , arguments = (,[]) <$> [theSet, expr']
+          , functionAttributes = []
           , metadata = [] }
 
-      addInstruction $ Do Call
-        { tailCallKind = Nothing
-        , callingConvention = CC.C
-        , returnAttributes = []
-        , function = callable t $ case colKind of
-          Set      -> insertSetString
-          Multiset -> insertMultisetString
-          Sequence -> insertSeqString
-        , arguments = (,[]) <$> [theSet, LocalReference i64 value]
-        , functionAttributes = []
-        , metadata = [] }
+      | otherwise = do
+        
+        expr' <- expression expr
+        t <- toLLVMType expType
+        value <- newLabel "item_2"
+        addInstruction . (value :=) $ case E.expType expr of
+          GFloat -> BitCast
+            { operand0 = expr'
+            , type' = i64
+            , metadata = [] }
+          _ -> ZExt
+            { operand0 = expr'
+            , type' = i64
+            , metadata = [] }
+
+        addInstruction $ Do Call
+          { tailCallKind = Nothing
+          , callingConvention = CC.C
+          , returnAttributes = []
+          , function = callable t $ case colKind of
+            Set      -> insertSetString
+            Multiset -> insertMultisetString
+            Sequence -> insertSeqString
+          , arguments = (,[]) <$> [theSet, LocalReference i64 value]
+          , functionAttributes = []
+          , metadata = [] }

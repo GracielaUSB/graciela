@@ -14,7 +14,7 @@ import           AST.Expression                          (CollectionKind (..),
                                                           Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import qualified AST.Expression                          as E (loc)
+import qualified AST.Expression                          as E (loc, Expression'(expType))
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type
@@ -30,8 +30,11 @@ import           LLVM.Quantification                     (collection,
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
-                                                          toLLVMType)
+                                                          toLLVMType, pointerType,
+                                                          tupleType)
 import           Location
+import           Parser.Config                           (codomainFuncString, 
+                                                          codomainRelString)
 import           SymbolTable
 import           Treelike                                (drawTree, toTree)
 --------------------------------------------------------------------------------
@@ -66,7 +69,6 @@ import           LLVM.General.AST.Name                   (Name (..))
 import           LLVM.General.AST.Operand                (CallableOperand,
                                                           Operand (..))
 import           LLVM.General.AST.Type
-import           LLVM.General.AST.Type                   as L (i64)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 import           Debug.Trace
@@ -375,6 +377,73 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       GPointer GAny -> pure . ConstantOperand . C.Null $ ptr i8
       _             -> ConstantOperand . C.Null  <$> toLLVMType expType
 
+  t@Tuple { left, right } -> do
+    l <- expression left
+    r <- expression right
+
+    lBitcast <- newLabel "lBitcast"
+    rBitcast <- newLabel "rBitcast"
+    tuple    <- newLabel "tuple"
+    lPtr     <- newLabel "lPtr"
+    rPtr     <- newLabel "rPtr"
+    tupleT   <- toLLVMType $ expType
+
+    addInstruction . (lBitcast :=) $ case E.expType left of
+      GFloat -> BitCast
+        { operand0 = l
+        , type' = i64
+        , metadata = [] }
+      _ -> ZExt
+        { operand0 = l
+        , type' = i64
+        , metadata = [] }
+
+    addInstruction . (rBitcast :=) $ case E.expType right of
+      GFloat -> BitCast
+        { operand0 = r
+        , type' = i64
+        , metadata = [] }
+      _ -> ZExt
+        { operand0 = r
+        , type' = i64
+        , metadata = [] }
+    
+    addInstruction $ tuple := Alloca
+      { allocatedType = tupleT
+      , numElements   = Nothing
+      , alignment     = 4
+      , metadata      = [] }
+
+    addInstruction $ lPtr := GetElementPtr
+      { inBounds = False
+      , address  = LocalReference tupleT tuple
+      , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+      , metadata = [] }
+
+    addInstruction $ rPtr := GetElementPtr
+      { inBounds = False
+      , address  = LocalReference tupleT tuple
+      , indices  = ConstantOperand . C.Int 32 <$> [0, 1]
+      , metadata = [] }
+
+    addInstruction $ Do Store
+      { volatile = False
+      , address  = LocalReference i64 lPtr
+      , value    = LocalReference i64 lBitcast
+      , maybeAtomicity = Nothing
+      , alignment = 4
+      , metadata  = [] } 
+
+    addInstruction $ Do Store
+      { volatile = False
+      , address  = LocalReference i64 rPtr
+      , value    = LocalReference i64 rBitcast
+      , maybeAtomicity = Nothing
+      , alignment = 4
+      , metadata  = [] } 
+
+    pure $ LocalReference tupleT tuple
+
   StringLit { theStringId } ->
     (! theStringId) <$> use stringOps
 
@@ -384,11 +453,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     innerOperand <- expression inner
 
     operand <- case expType of
-      GInt   -> opInt 32  unOp innerOperand
-      GChar  -> opInt 8  unOp innerOperand
-      -- GBool  -> opBool  unOp innerOperand
-      GFloat -> opFloat unOp innerOperand
-      t      -> error $ "tipo " <> show t <> " no soportado"
+      GInt        -> opInt 32  unOp innerOperand
+      GChar       -> opInt 8  unOp innerOperand
+      GFloat      -> opFloat unOp innerOperand
+      -- GSet _      -> opSet unOp innerOperand
+      -- GMultiset _ -> opMultiset unOp innerOperand
+      -- GSeq _      -> opSeq unOp innerOperand
+      t           -> error $ "tipo " <> show t <> " no soportado"
 
     pure operand
 
@@ -412,21 +483,75 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             Op.Pred   ->
               safeOperation n label safeSub innerOperand one pos
 
+            Op.Card -> addInstruction $ label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) $ case E.expType inner of 
+                GSet _      -> sizeSetString
+                GMultiset _ -> sizeMultisetString
+                GSeq _      -> sizeSeqString
+                GRel _ _    -> sizeRelString
+                GFunc _ _   -> sizeFuncString
+              , arguments          = [(innerOperand,[])]
+              , functionAttributes = []
+              , metadata           = [] }            
+
         return $ LocalReference (IntegerType n) label
 
       opFloat :: Op.UnaryOperator -> Operand -> LLVM Operand
       opFloat op innerOperand = do
         label <- newLabel "opFloat"
-        let
-          insts = case op of
-            Op.UMinus -> Seq.singleton $ label := FMul
-                    { fastMathFlags = NoFastMathFlags
-                    , operand0 = innerOperand
-                    , operand1 = ConstantOperand . C.Float $ LLVM.Double (-1.0)
-                    , metadata = []}
+        addInstruction $ label := FMul
+          { fastMathFlags = NoFastMathFlags
+          , operand0 = innerOperand
+          , operand1 = ConstantOperand . C.Float $ LLVM.Double (-1.0)
+          , metadata = []}
 
-        addInstructions insts
         return $ LocalReference floatType label
+
+      -- opSet :: Op.UnaryOperator -> Operand -> LLVM Operand
+      -- opSet op innerOperand = do
+      --   label <- newLabel "opSet"
+      --   addInstruction $ label := Call
+      --     { tailCallKind       = Nothing
+      --     , callingConvention  = CC.C
+      --     , returnAttributes   = []
+      --     , function           = callable (ptr i8) sizeSetString
+      --     , arguments          = [(innerOperand,[])]
+      --     , functionAttributes = []
+      --     , metadata           = [] }
+
+      --   return $ LocalReference floatType label
+
+      -- opMultiset :: Op.UnaryOperator -> Operand -> LLVM Operand
+      -- opMultiset op innerOperand = do
+      --   label <- newLabel "opMultiset"
+      --   addInstruction $ label := Call
+      --     { tailCallKind       = Nothing
+      --     , callingConvention  = CC.C
+      --     , returnAttributes   = []
+      --     , function           = callable (ptr i8) sizeMultisetString
+      --     , arguments          = [(innerOperand,[])]
+      --     , functionAttributes = []
+      --     , metadata           = [] }
+
+      --   return $ LocalReference floatType label
+
+      -- opSeq :: Op.UnaryOperator -> Operand -> LLVM Operand
+      -- opSeq op innerOperand = do
+      --   label <- newLabel "opSeq"
+      --   addInstruction $ label := Call
+      --     { tailCallKind       = Nothing
+      --     , callingConvention  = CC.C
+      --     , returnAttributes   = []
+      --     , function           = callable (ptr i8) sizeSeqString
+      --     , arguments          = [(innerOperand,[])]
+      --     , functionAttributes = []
+      --     , metadata           = [] }
+
+      --   return $ LocalReference floatType label
+      
 
       callUnaryFunction :: String -> Operand -> Instruction
       callUnaryFunction fun innerOperand =
@@ -458,6 +583,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         GSet _      -> opSet
         GMultiset _ -> opMultiset
         GSeq _      -> opSeq
+        GTuple _ _  -> opTuple
         t      -> error $
           "internal error: type " <> show t <> " not supported"
 
@@ -566,6 +692,54 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }
 
+          Op.SeqAt -> do 
+            let 
+              SourcePos _ x y = pos 
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+            
+            seqAt <- newLabel "seqAt"
+            addInstruction $ seqAt := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) atSequenceString
+              , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+              , functionAttributes = []
+              , metadata           = [] }
+
+            addInstruction $ label := Trunc
+              { operand0 = LocalReference i64 seqAt
+              , type'    = IntegerType n
+              , metadata = [] }
+
+          Op.BifuncAt -> do
+            rCast <- newLabel "rightCast"
+            addInstruction $ rCast := case rType of
+              GFloat -> BitCast
+                { operand0 = rOperand
+                , type' = i64
+                , metadata = [] }
+              _ -> ZExt
+                { operand0 = rOperand
+                , type' = i64
+                , metadata = [] }
+
+            bifuncAt <- newLabel "bifuncAt"
+            addInstruction $ bifuncAt := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) codomainRelString
+              , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
+              , functionAttributes = []
+              , metadata           = [] }
+
+            addInstruction $ label := Trunc
+              { operand0 = LocalReference i64 bifuncAt
+              , type'    = IntegerType n
+              , metadata = [] }
+
         return $ LocalReference (IntegerType n) label
 
       opFloat op lOperand rOperand = do
@@ -627,12 +801,14 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
       opSet op lOperand rOperand = do
         label <- newLabel "setBinaryResult"
-        case op of 
+        case op of
           Op.Union -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) unionSetString
+            , function           = callable (ptr i8) $ case lType of 
+              GSet (GTuple _ _) -> unionSetPairString
+              otherwise         -> unionSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
@@ -640,7 +816,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) intersectSetString
+            , function           = callable (ptr i8) $ case lType of 
+              GSet (GTuple _ _) -> intersectSetPairString
+              otherwise         -> intersectSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
@@ -648,20 +826,45 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) differenceSetString
+            , function           = callable (ptr i8) $ case lType of 
+              GSet (GTuple _ _) -> differenceSetPairString
+              otherwise         -> differenceSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
-        return $ LocalReference floatType label
+          Op.BifuncAt -> do 
+            rCast <- newLabel "rightCast"
+            addInstruction $ rCast := case rType of
+              GFloat -> BitCast
+                { operand0 = rOperand
+                , type' = i64
+                , metadata = [] }
+              _ -> ZExt
+                { operand0 = rOperand
+                , type' = i64
+                , metadata = [] }
+
+            addInstruction $ label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) codomainRelString
+              , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
+              , functionAttributes = []
+              , metadata           = [] }
+          _ -> error $ show op
+        return $ LocalReference pointerType label
 
       opMultiset op lOperand rOperand = do
         label <- newLabel "multisetBinaryResult"
-        case op of 
+        case op of
           Op.Union -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) unionMultisetString
+            , function           = callable (ptr i8) $ case lType of 
+              GMultiset (GTuple _ _) -> unionMultisetPairString
+              otherwise              -> unionMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
@@ -669,7 +872,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) intersectMultisetString
+            , function           = callable (ptr i8) $ case lType of 
+              GMultiset (GTuple _ _) -> intersectMultisetPairString
+              otherwise              -> intersectMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
@@ -677,25 +882,74 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) differenceMultisetString
+            , function           = callable (ptr i8) $ case lType of 
+              GMultiset (GTuple _ _) -> differenceMultisetPairString
+              otherwise              -> differenceMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
-        return $ LocalReference floatType label
+          Op.MultisetSum -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) $ case lType of 
+              GMultiset (GTuple _ _) -> multisetPairSumString
+              otherwise              -> multisetPairSumString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+
+        return $ LocalReference pointerType label
 
       opSeq op lOperand rOperand = do
-        label <- newLabel "multisetBinaryResult"
-        case op of 
+        label <- newLabel "sequenceBinaryResult"
+        case op of
           Op.Concat -> addInstruction $ label := Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) concatSequenceString
+            , function           = callable (ptr i8) $ case lType of 
+              GSeq (GTuple _ _) -> concatSequencePairString
+              otherwise         -> concatSequenceString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
 
-        return $ LocalReference floatType label
+        return $ LocalReference pointerType label
+
+      opTuple op lOperand rOperand = do
+        label <- newLabel "tupleBinaryResult"
+        case op of
+          Op.SeqAt -> do 
+            let 
+              SourcePos _ x y = pos 
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+            seqAt <- newLabel "seqAt"
+            addInstruction $ seqAt := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) atSequencePairString
+              , arguments          = [(lOperand,[]), (rOperand,[]), (line,[]), (col,[])]
+              , functionAttributes = []
+              , metadata           = [] }
+                        
+            addInstruction $ label := Alloca
+              { allocatedType = tupleType
+              , numElements   = Nothing
+              , alignment     = 4
+              , metadata      = [] }
+
+            addInstruction $ Do Store
+              { volatile = False
+              , address  = LocalReference tupleType label
+              , value    = LocalReference tupleType seqAt
+              , maybeAtomicity = Nothing
+              , alignment = 4
+              , metadata  = [] } 
+
+            return $ LocalReference tupleType label
 
   EConditional { eguards, trueBranch } -> do
     entry  <- newLabel "ifExpEntry"
@@ -796,7 +1050,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             t:_ -> fillType t expType
             []  -> expType
 
-        (,[]) <$> if type' =:= basicT
+        (,[]) <$> if type' =:= basicT || type' =:= highLevel
           then
             expression' expr
           else do
