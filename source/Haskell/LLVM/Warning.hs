@@ -21,6 +21,7 @@ data Warning
   | Post        -- ^ A postcondition failed after its precondition failed as well.
   | Invariant
   | RepInvariant
+  | CoupInvariant
   -- | Forall      -- ^ A universal quantifier returned false.
   -- | Existential -- ^ An existential quantifier returned false.
   deriving (Eq, Ord, Show, Enum)

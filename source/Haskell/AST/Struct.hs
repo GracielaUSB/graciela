@@ -16,13 +16,13 @@ import           Control.Lens    ((%~), _2)
 import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map (lookup)
+import qualified Data.Map.Strict as Map (lookup, toList)
 import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
-type Fields = Map Text (Integer, Type, Maybe Expression)
+type Fields = Map Text (Integer, Type, Bool, Maybe Expression)
 
 data Struct'
   = AbstractDataType
@@ -32,6 +32,7 @@ data Struct'
     , abstractTypes :: TypeArgs
     , inv           :: Expression
     , repinv        :: Expression
+    , coupinv       :: Expression
     , couple        :: Seq Instruction }
 
 data Struct
@@ -39,6 +40,7 @@ data Struct
     { structBaseName :: Text
     , structTypes    :: [Type]
     , structFields   :: Fields
+    , structAFields  :: Fields
     , structProcs    :: Map Text Definition
     , structLoc      :: Location
     , structSt       :: SymbolTable
@@ -55,15 +57,22 @@ instance Treelike Struct where
 
       AbstractDataType { inv } ->
         Node ("Abstract Type " <> unpack structBaseName <> " (" <> intercalate "," (fmap show structTypes) <> ") " <> show structLoc)
-          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
-          ,-} Node "Invariant" [toTree inv]
+          [ Node "Declarations" $ fields <$> (Map.toList structFields)
+          , Node "Invariant" [toTree inv]
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
-      DataType { abstract, repinv, couple } ->
+      DataType { abstract, repinv, coupinv, couple } ->
         Node ("Type " <> unpack structBaseName <> " (" <> intercalate "," (fmap show structTypes) <>
               ") implements " <> unpack abstract <> " " <> show structLoc)
-          [ {-Node "Declarations" $ fmap (toTree . snd) . toList $ structFields TODO
-          ,-} Node "Representation Invariant" [toTree repinv]
+          [ Node "Declarations" $ fields <$> (Map.toList structFields)
+          , Node "Representation Invariant" [toTree repinv]
+          , Node "Couple Invariant" [toTree coupinv]
           , Node "Couple" (toForest couple)
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
+    where 
+      fields (name, (_, t, _, maybeExpr)) = 
+        Node (unpack name) $ [leaf (show t)] <> 
+          case maybeExpr of
+            Just e -> [toTree e]
+            _      -> []

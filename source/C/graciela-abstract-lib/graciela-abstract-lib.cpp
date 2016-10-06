@@ -157,7 +157,6 @@ extern "C" {
   
   void _insertSetPair(int8_t *ptr, gtuple *x){
     SetPair *s = (SetPair*) ptr;
-    
     s->insert(Tuple(x->a,x->b));
   }
   
@@ -172,8 +171,8 @@ extern "C" {
   
   int8_t* _unionSetPair(int8_t *ptr1, int8_t * ptr2) {
     SetPair *set1   = (SetPair*)ptr1,
-    *set2   = (SetPair*)ptr2,
-    *newset = (SetPair*)_newSet();
+            *set2   = (SetPair*)ptr2,
+            *newset = (SetPair*)_newSet();
     
     set_union(set1->begin(), set1->end(),
               set2->begin(), set2->end(),
@@ -184,8 +183,8 @@ extern "C" {
   
   int8_t* _intersectSetPair(int8_t *ptr1, int8_t * ptr2) {
     SetPair *set1   = (SetPair*)ptr1,
-    *set2   = (SetPair*)ptr2,
-    *newset = (SetPair*)_newSet();
+            *set2   = (SetPair*)ptr2,
+            *newset = (SetPair*)_newSet();
     
     set_intersection(set1->begin(), set1->end(),
                      set2->begin(), set2->end(),
@@ -221,7 +220,7 @@ extern "C" {
     // a ⊃ b  ≡ a ⊇ b ∧ |a| > |b|
     return includes(set1->begin(), set1->end(),
                     set2->begin(), set2->end())
-    and set1->size() > set2->size();
+           and set1->size() > set2->size();
   }
 
   void _freeSetPair(int8_t* ptr) {
@@ -512,6 +511,67 @@ extern "C" {
 
       return (int8_t*)newFunc;
   }
+  
+  int8_t* _toSetFunction(int8_t* ptr1){
+    Function* func = (Function*) ptr1;
+    SetPair* set = (SetPair*) _newSetPair();
+    
+    for(Function::iterator it = func->begin(); it != func->end(); ++it){
+      set->insert(Tuple(it->first, it->second));
+    }
+    return (int8_t*) set;
+  }
+  
+  int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, int line, int col){
+    Function *func1    = (Function*)ptr1,
+             *func2    = (Function*)ptr2,
+             *newFunc = (Function*)_newMultisetPair();
+    
+    for(Function::iterator it = func1->begin(); it != func1->end(); ++it){
+      newFunc->insert(Tuple(it->first, it->second));
+    }
+    
+    for(Function::iterator it = func2->begin(); it != func2->end(); ++it){
+      if (newFunc->find(it->first) != newFunc->end()){
+        printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
+        printf (":\n\tDuplicate value in domain.\n");
+        _freeTrashCollector();
+        exit(EXIT_FAILURE);
+      } else {
+        newFunc->insert(Tuple(it->first, it->second));
+      }
+      
+    }
+    
+    return (int8_t*)newFunc;
+  }
+
+  
+
+  
+  int8_t* _intersectFunction(int8_t* ptr1, int8_t* ptr2){
+    Relation *func1   = (Relation*)ptr1,
+             *func2   = (Relation*)ptr2,
+             *newfunc = (Relation*)_newRelation();
+    
+    set_intersection(func1->begin(), func1->end(),
+                     func2->begin(), func2->end(),
+                     inserter(*newfunc, newfunc->begin()));
+    
+    return (int8_t*)newfunc;
+  }
+  
+  int8_t* _differenceFunction(int8_t* ptr1, int8_t* ptr2){
+    Relation *func1   = (Relation*)ptr1,
+             *func2   = (Relation*)ptr2,
+             *newfunc = (Relation*)_newRelation();
+    
+    set_difference(func1->begin(), func1->end(),
+                   func2->begin(), func2->end(),
+                   inserter(*newfunc, newfunc->begin()));
+    
+    return (int8_t*)newfunc;
+  }
 
   void _freeFunction(int8_t* ptr) {
       delete (Function*)ptr;
@@ -584,6 +644,10 @@ extern "C" {
       }
 
       return (int8_t*)newRel;
+  }
+  
+  int8_t* _toSetRelation(int8_t* ptr1){
+    return ptr1;
   }
 
   void _freeRelation(int8_t* ptr) {

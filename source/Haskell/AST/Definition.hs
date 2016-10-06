@@ -32,7 +32,8 @@ data Definition'
     , procParams    :: Seq (Text, Type, ArgMode)
     , procRecursive :: Bool }
   | AbstractProcedureDef
-    { abstParams :: Seq (Text, Type, ArgMode) }
+    { abstParams :: Seq (Text, Type, ArgMode)
+    , abstPDecl  :: Seq Declaration }
   | AbstractFunctionDef
     { abstFParams :: Seq (Text, Type)
     , funcRetType :: Type }

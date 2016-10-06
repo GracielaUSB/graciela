@@ -6,6 +6,7 @@ module Parser.Assertion
   , postcond
   , invariant
   , repInv
+  , coupInv
   ) where
 --------------------------------------------------------------------------------
 import           AST.Expression
@@ -71,3 +72,4 @@ postcond  = assert TokLeftPost  TokRightPost
 assertion = assert TokLeftBrace TokRightBrace
 invariant = assert TokLeftInv   TokRightInv
 repInv    = assert TokLeftRep   TokRightRep
+coupInv   = assert TokLeftAcopl TokRightAcopl

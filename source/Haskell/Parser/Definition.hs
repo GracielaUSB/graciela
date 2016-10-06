@@ -17,6 +17,7 @@ import           Error
 import           Location
 import           Parser.Assertion    hiding (bound)
 import qualified Parser.Assertion    as A (bound)
+import           Parser.Declaration
 import           Parser.Expression
 import           Parser.Instruction
 import           Parser.Monad
@@ -67,8 +68,8 @@ function = do
     (Just (dtType, _, procs), Just params, Just funcName) -> do
       let
         aux = (\case; Just t -> t =:= dtType; _ -> False)
-        hasTV  = foldr ((||) . (\(_,pType) -> hasTypeVar pType)) False params
-        hasDT' = foldr ((||) . (\(_,pType) -> aux (hasDT pType))) False params
+        hasTV  = any (hasTypeVar  . snd) params
+        hasDT' = any (aux . hasDT . snd) params
       if hasTV || hasTypeVar funcRetType || hasDT'
         then if hasDT'
           then pure True
@@ -227,8 +228,8 @@ procedure = do
     (Just (dtType, _, procs), Just params, Just procName) -> do
       let
         aux = (\case; Just t -> t =:= dtType; _ -> False)
-        hasTV  = foldr ((||) . (\(_,pType,_) -> hasTypeVar pType)) False params
-        hasDT' = foldr ((||) . (\(_,pType,_) -> aux (hasDT pType))) False params
+        hasTV  = any (\(_,pType,_) -> hasTypeVar  pType) params
+        hasDT' = any (\(_,pType,_) -> aux $ hasDT pType) params
       if hasTV || hasDT'
         then if hasDT'
           then pure True
@@ -411,6 +412,8 @@ procedureDeclaration = do
   symbolTable %= openScope from
   params' <- parens $ doProcParams
 
+  decls'  <- sequence <$> abstractDeclaration False `endBy` match' TokSemicolon
+  
   prePos <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
   postPos <- getPosition
@@ -420,14 +423,14 @@ procedureDeclaration = do
   let loc = Location (from,to)
 
   symbolTable %= closeScope to
-  case (procName', params', pre', post') of
-    (Just procName, Just params, Just pre, Just post) -> do
+  case (procName', params', pre', post', decls') of
+    (Just procName, Just params, Just pre, Just post, Just decls) -> do
       pure . Just $ Definition
           { defLoc   = loc
           , defName  = procName
           , pre
           , post
           , bound = Nothing
-          , def' = AbstractProcedureDef params }
+          , def' = AbstractProcedureDef params decls }
 
     _ -> pure Nothing

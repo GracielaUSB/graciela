@@ -51,7 +51,7 @@ abstract ATree(T)
 begin
   /* ATree variables */
   const MAX := 100 : int;
-  var s1,s2,s3 : seq of int;
+  var s1,s2,s3     : seq of int;
   {inv true inv}
   /* ATree procedures */
 end

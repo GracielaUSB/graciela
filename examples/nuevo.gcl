@@ -1,37 +1,43 @@
 program nuevo.bin begin
 
-func gcd (A:int, B:int) -> int
-  {pre A >= 0 /\ B >= 0 pre}
-  {post A mod gcd == 0 /\ B mod gcd == 0 /\
-    !(%exist i : int | A min B < i /\ i < A max B | A mod i == 0 /\ B mod i == 0 %) post}
-  {bound A + B bound}
-  |[ if A == B -> A
-     [] A >  B -> gcd (A-B, B)
-     [] A <  B -> gcd (A, B-A)
-     fi
-  ]|
+abstract A(T)
+begin
+  /* A variables */
+  const MAX := 100 : int;
+  
+  {inv true inv}
+  proc name ()
+    var s : set of int;
+    {pre s == {} pre}
+    {post true post}
 
+  /* A procedures and functions */   
+end
 
-proc gcdDo (in A : int, in B : int, out Z : int)
+type B(T) implements A(T)
+begin
+  /* B variables */
+  const MAX := 100 : int;
+  var a : array[MAX] of int;
+  
+  {repinv true repinv}
 
-  var a, b, x, y, u, v := A, B, 1, 0, 0, 1 : int;
+  {coupinv true coupinv}
 
-  {pre A >= 0 /\ B >= 0 pre}
-  {post Z == gcd (A,B) post}
-  |[ {inv true inv}
-     {bound b bound}
-     do b ≠ 0 -> var q, r := a / b, a mod b : int
-               ; a, b, x, y, u, v := b, r, u, v, x - q*u, y - q*v
-     od
-   ; Z := x*A + y*B
-  ]|
+  /* B procedures and functions */
+  proc name ()
+    {pre true pre}
+    {post true post}
+    |[
+      skip
+    ]|
+  
+
+   
+end
 
 main
-  |[ var A, B, Z : int
-   ; read(A, B)
-   ; gcdDo (A, B, Z)
-   ; if Z == gcd(A,B) -> writeln(Z, " == ", gcd(A,B))
-     [] otherwise     -> abort
-     fi
+  |[ var a : B(int);
+    skip
   ]|
 end

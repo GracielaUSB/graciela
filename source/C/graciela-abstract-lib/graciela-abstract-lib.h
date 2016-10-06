@@ -132,6 +132,10 @@ extern "C" {
     int8_t* _domFunction(int8_t* ptr);
     t       _pairFunction(int8_t* ptr, t k);
     int8_t* _compositionFunction(int8_t *ptr1, int8_t *ptr2);
+    int8_t* _toSetFunction(int8_t* ptr1);
+    int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, int line, int col);
+    int8_t* _intersectFunction(int8_t* ptr1, int8_t* ptr2);
+    int8_t* _differenceFunction(int8_t* ptr1, int8_t* ptr2);
     void    _freeFunction(int8_t* ptr);
     
     /* Relation */
@@ -153,7 +157,7 @@ extern "C" {
     int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2);
     int     _countSequence(int8_t* ptr, t x);
     int     _sizeSequence(int8_t* ptr);
-    gtuple  _atSequencePair(int8_t*ptr, int pos, int line, int col);
+    t       _atSequence(int8_t*ptr, int pos, int line, int col);
     void    _freeSequence(int8_t* ptr);
 
     /* SequencePair */
@@ -169,9 +173,9 @@ extern "C" {
   
     /* Tuple */
     int _equalTuple(gtuple* x, gtuple* y);
-    /* TrashCollector
-     *  Every pointer to a type created (set, multiset, ...) is
-     *  store inside a vector of pointer, to be freed when freeGarbage()
+    /* TrashCollector (Yet Another Garbage Collector)
+     *  Every pointer created (set, multiset, ...) is
+     *  stored inside a vector of pointers, to be freed when freeTrashCollector()
      *  is called.
      */
     void _initTrashCollector();

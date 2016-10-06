@@ -8,6 +8,7 @@ import           AST.Declaration                    (Declaration (..))
 import           AST.Expression                     (Expression' (..))
 import           AST.Type                           (Expression, Type (..),
                                                      isDataType, (=:=))
+import           AST.Struct                     (Struct(..), Struct'(..))
 import qualified AST.Type                           as G (Type)
 import           LLVM.Abort
 import           LLVM.Expression
@@ -19,6 +20,7 @@ import           SymbolTable
 import           Control.Lens                       (use, (%=), (.=))
 import           Control.Monad                      (foldM, void, when,
                                                      zipWithM_)
+import qualified Data.Array                         as Array (listArray)
 import           Data.Foldable                      (toList)
 import           Data.Functor                       (($>))
 import           Data.Semigroup                     ((<>))
@@ -195,10 +197,26 @@ alloc gtype lval = do
 
 
 {- Store an expression in a variable memory -}
-initialize :: G.Type -> (Text, Expression) -> LLVM ()
-initialize gtype (lval, expr) = do
+initialize :: G.Type -> (Text, (Expression,Bool)) -> LLVM ()
+initialize gtype (lval, (expr,_)) = do
+  cs <- use currentStruct
+  let 
+    type' = case cs of 
+      Just Struct{structBaseName, structTypes, struct' = DataType{abstract}} -> 
+        let 
+          ta = Array.listArray (0, length structTypes - 1) structTypes
+          dt = GDataType
+            { typeName = structBaseName
+            , abstName = Just abstract
+            , typeArgs = ta }
+        in
+          if gtype =:= dt 
+            then gtype <> dt
+            else gtype
+      _ -> gtype
+
   name <- insertVar lval
-  t    <- toLLVMType gtype
+  t    <- toLLVMType type'
 
   addInstruction $ name := Alloca
     { allocatedType = t
