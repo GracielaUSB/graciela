@@ -51,7 +51,7 @@ import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
 -------------------------------------------------------------------------------------
-import Debug.Trace 
+import           Debug.Trace
 -- Synonyms
 type Expression = Expression' Type ArgMode
 type QRange     = QRange' Type ArgMode

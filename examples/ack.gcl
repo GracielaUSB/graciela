@@ -1,6 +1,6 @@
 program ack.bin begin
 
-proc show (in k : int, in x : array [m, n] of int)
+proc show (in k : int,  in m : int, in n : int, in x : array [m, n] of int)
   {pre true pre}
   {post true post}
   ⟦ writeln (k, m, n) ⟧
@@ -9,6 +9,9 @@ main
   ⟦ var i, j := 0, 0 : int
   ; var x : array [6, 8] of int
   ; var y : int
+
+  ; writeln({} == {})
+
   ; y := 5
   ; writeln ("y: ", y)
   ; {inv   true    inv}
@@ -22,7 +25,7 @@ main
               ; i := i + 1
     od
   ; writeln ("y: ", y)
-  ; show (3, x)
+  ; show (3, 6, 8, x)
   // ; i, j := 0, 0
   // ; {inv   true    inv}
   //   {bound 6 - i bound}

@@ -78,8 +78,7 @@ import           Text.Megaparsec.Pos   (unsafePos)
 data Config = Config
   { nativeTypes     :: Map Text (Type, Location)
   , nativeFunctions :: Map Text Definition
-  , nativeSymbols   :: SymbolTable
-  }
+  , nativeSymbols   :: SymbolTable }
 
 defaultConfig :: Config
 defaultConfig = Config
@@ -323,8 +322,8 @@ defaultConfig = Config
     multiplicityG [ a, b ] = case b of
       GMultiset b' -> if b' =:= a
         then Right (GInt
-                   , pack $ if b' =:= GTuple GAny GAny 
-                      then multiplicityMultiPairString 
+                   , pack $ if b' =:= GTuple GAny GAny
+                      then multiplicityMultiPairString
                       else multiplicityMultiString
                    , False)
         else Left badArg
@@ -335,8 +334,8 @@ defaultConfig = Config
           , aType = a }
       GSeq      b' -> if b' =:= a
         then Right (GInt
-                   , pack $ if b' =:= GTuple GAny GAny 
-                      then multiplicitySeqPairString 
+                   , pack $ if b' =:= GTuple GAny GAny
+                      then multiplicitySeqPairString
                       else multiplicitySeqString
                    , False)
         else Left badArg

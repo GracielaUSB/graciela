@@ -23,7 +23,7 @@ module Parser.Operator
   -- * multiset operators
   , multisum
   -- * sequence access operator
-  , seqAt
+  -- , seqAt
   -- * bifunctor access operator
   , bifuncAt
   -- * sequence concatenation operator
@@ -404,16 +404,16 @@ multisum :: Bin
 multisum  = Bin MultisetSum multiType multiPre
 --------------------------------------------------------------------------------
 
-seqAtPre :: (Value -> Value -> Value)
-seqAtPre _ _ = internal "bad seqAt operator precalc"
-
-seqAtType :: BinaryOpType
-seqAtType (GSeq t1) GInt = Right t1
-seqAtType _ _ = let t = GUnsafeName "t" in Left $
-  show (GSeq t, GInt)
-
-seqAt :: Bin
-seqAt  = Bin SeqAt seqAtType seqAtPre
+-- seqAtPre :: (Value -> Value -> Value)
+-- seqAtPre _ _ = internal "bad seqAt operator precalc"
+--
+-- seqAtType :: BinaryOpType
+-- seqAtType (GSeq t1) GInt = Right t1
+-- seqAtType _ _ = let t = GUnsafeName "t" in Left $
+--   show (GSeq t, GInt)
+--
+-- seqAt :: Bin
+-- seqAt  = Bin SeqAt seqAtType seqAtPre
 --------------------------------------------------------------------------------
 
 bifuncAtPre :: (Value -> Value -> Value)

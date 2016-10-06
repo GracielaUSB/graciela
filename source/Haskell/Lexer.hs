@@ -282,7 +282,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "{"          TokLeftBrace
       <|> symbol   "}"          TokRightBrace
 
-      <|> symbol   "!"          TokIndex
+      -- <|> symbol   "!"          TokIndex
       -- V2.0
 
       <|> symbol   "|"          TokPipe

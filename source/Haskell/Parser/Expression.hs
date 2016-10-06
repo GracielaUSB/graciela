@@ -1184,8 +1184,8 @@ operator =
     [ InfixL (match TokMax        <&> binary Op.max)
     , InfixL (match TokMin        <&> binary Op.min) ]
   , {-Level 9-}
-    [ InfixL (match TokIndex      <&> binary Op.seqAt   )
-    , InfixL (match TokAtSign     <&> binary Op.bifuncAt) ]
+    -- [ InfixL (match TokIndex      <&> binary Op.seqAt   )
+    [ InfixL (match TokAtSign     <&> binary Op.bifuncAt) ]
   , {-Level 10-}
     [ InfixN (match TokElem       <&> membership             )
     , InfixN (match TokNotElem    <&> binary Op.notElem      )
@@ -1217,7 +1217,7 @@ subindex :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 subindex = do
   from' <- getPosition
   -- subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
-  subindices' <- between
+  subindices' <- (match TokSepGuards >> pure Seq.empty) <|> between
     (match TokLeftBracket)
     (match' TokRightBracket)
     (subAux `sepBy` match TokComma)
@@ -1234,8 +1234,13 @@ subindex = do
             putError (pos loc) . UnknownError $
               "Missing dimensions in array access."
             pure Nothing
+          GSeq t -> do
+            putError (pos loc) . UnknownError $
+              "Missing dimension in sequence access."
+            pure Nothing
           _ -> do
-            putError (pos loc) . UnknownError $ "Cannot subindex non-array."
+            putError (pos loc) . UnknownError $
+              "Unexpected subindex. Can only access arrays and sequences."
             pure Nothing
         Nothing -> pure Nothing
       else pure $ \case
@@ -1257,7 +1262,7 @@ subindex = do
                 else
                   let
                     taint = foldMap (view _3) subs <> taint1
-                    expr = Expression
+                    expr1 = Expression
                       { E.loc = Location (from, to)
                       , expType = innerType
                       , expConst = False
@@ -1268,8 +1273,33 @@ subindex = do
                           , obj' = Index
                             { O.inner = o
                             , indices = view _1 <$> subs }}}}
-                  in pure $ Just (expr, ProtoNothing, taint)
-
+                  in pure $ Just (expr1, ProtoNothing, taint)
+          Expression
+            { E.loc = Location (from, _)
+            , expType = GSeq t
+            , expConst = seqConst
+            , exp' } -> do
+              let
+                lsubs = length subs
+              if lsubs /= 1
+                then do
+                  putError from . UnknownError $
+                    "Attempted to index sequence with a " <> show lsubs <>
+                    "-dimensional subindex. All sequences are 1-dimensional."
+                  pure Nothing
+              else
+                let
+                  [(subexp, _, subtaint)] = subs
+                  taint = subtaint <> taint1
+                  expr1 = Expression
+                    { E.loc    = Location (from, to)
+                    , expType  = t
+                    , expConst = seqConst && expConst subexp
+                    , exp' = Binary
+                      { binOp = SeqAt
+                      , lexpr = expr
+                      , rexpr = subexp }}
+                in pure $ Just (expr1, ProtoNothing, taint)
           _ -> do
             putError (pos . E.loc $ expr) . UnknownError $
               "Cannot subindex non-array."

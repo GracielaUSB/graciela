@@ -235,6 +235,7 @@ data Expression'' t m
   | EConditional
     { eguards    :: Seq (Expression' t m, Expression' t m)
     , trueBranch :: Maybe (Expression' t m) }
+
   deriving (Eq)
 
 data Expression' t m
