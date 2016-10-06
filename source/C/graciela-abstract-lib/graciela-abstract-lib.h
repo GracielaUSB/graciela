@@ -130,7 +130,7 @@ extern "C" {
     int     _sizeFunction(int8_t *ptr);
     int     _isElemFunction(int8_t* ptr, t key, t value);
     int8_t* _domFunction(int8_t* ptr);
-    t       _pairFunction(int8_t* ptr, t k);
+    t       _pairFunction(int8_t* ptr, t k, int line, int col);
     int8_t* _compositionFunction(int8_t *ptr1, int8_t *ptr2);
     int8_t* _toSetFunction(int8_t* ptr1);
     int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, int line, int col);

@@ -302,7 +302,7 @@ extern "C" {
       Multiset *set1   = (Multiset*)ptr1,
                *set2   = (Multiset*)ptr2,
                *newSet = (Multiset*)_newMultiset();
-
+    
       set_difference(set1->begin(), set1->end(),
                      set2->begin(), set2->end(),
                      inserter(*newSet, newSet->begin()));
@@ -494,9 +494,17 @@ extern "C" {
       return (int8_t*) set;
   }
 
-  t _pairFunction(int8_t *ptr, t k){
-      Function *function = (Function*)ptr;
+  t _pairFunction(int8_t *ptr, t k, int line, int col){
+    Function *function    = (Function*)ptr;
+    Function::iterator it = function->find(k);
+    if (it == function->end()){
+      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
+      printf (":\n\tValue not in domain\n");
+      exit(EXIT_FAILURE);
+    } else {
       return (t)function->find(k)->second;
+    }
+    
   }
 
   int8_t *_compositionFunction(int8_t *ptr1, int8_t *ptr2){

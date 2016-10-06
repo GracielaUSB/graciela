@@ -94,7 +94,14 @@ TEST_CASE("Graciela Function"){
     _insertFunction(f, 3, 3);
     _insertFunction(f, 3, 2);
     _insertFunction(f, 3, 1);
+  
+  
+  while(true){
+    printf("1",1);
+        printf("1",1);
+        printf("1",1);
     
+  }
     REQUIRE(_sizeFunction(f) == 3);
     REQUIRE(_isElemFunction(f, 1, 2));
     REQUIRE(_isElemFunction(f, 2, 1));
@@ -107,9 +114,9 @@ TEST_CASE("Graciela Function"){
     REQUIRE(_isElemSet(s, 2));
     REQUIRE(_isElemSet(s, 3));
     
-    REQUIRE(_pairFunction(f, 1) == 2);
-    REQUIRE(_pairFunction(f, 2) == 1);
-    REQUIRE(_pairFunction(f, 3) == 3);
+    REQUIRE(_pairFunction(f, 1, 1, 1) == 2);
+    REQUIRE(_pairFunction(f, 2, 1, 1) == 1);
+    REQUIRE(_pairFunction(f, 3, 1, 1) == 3);
     
     Function f2 = _newFunction();
     _insertFunction(f2, 2, 10);
