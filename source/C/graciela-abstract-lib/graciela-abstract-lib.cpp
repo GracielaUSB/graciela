@@ -532,7 +532,8 @@ extern "C" {
     }
     
     for(Function::iterator it = func2->begin(); it != func2->end(); ++it){
-      if (newFunc->find(it->first) != newFunc->end()){
+      if (newFunc->find(it->first) != newFunc->end() ||
+          (newFunc->find(it->first) == newFunc->end() && newFunc->find(it->first) != newFunc->end()){
         printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
         printf (":\n\tDuplicate value in domain.\n");
         _freeTrashCollector();

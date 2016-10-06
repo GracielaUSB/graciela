@@ -588,7 +588,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         GMultiset _ -> opMultiset
         GSeq _      -> opSeq
         GFunc _ _   -> opFunc
-        GRel _ _   -> opRel
+        GRel _ _    -> opRel
         GTuple _ _  -> opTuple
         t      -> error $
           "internal error: type " <> show t <> " not supported"
@@ -958,21 +958,15 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , metadata           = [] } 
         pure $ LocalReference pointerType label
 
-      opFunc op lOperand rOperand = do
+      opRel op lOperand rOperand = do
         label <- newLabel "funcBinaryResult"
         case op of
-          Op.Union -> do 
-            let 
-              SourcePos _ x y = pos 
-              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
-
-            addInstruction $ label := Call
+          Op.Union -> addInstruction $ label := Call
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
               , function           = callable (ptr i8) unionSetPairString
-              , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+              , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
           Op.Intersection -> addInstruction $ label := Call
