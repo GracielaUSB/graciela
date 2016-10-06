@@ -250,7 +250,7 @@ extern "C" {
       return (int) ((Multiset*) ptr)->size();
   }
 
-  int _countMultiset(int8_t *ptr, t x){
+  int _countMultiset(t x, int8_t *ptr){
       Multiset *s = (Multiset*) ptr;
       return (int) s->count(x);
   }
@@ -298,7 +298,7 @@ extern "C" {
       Multiset *set1   = (Multiset*)ptr1,
                *set2   = (Multiset*)ptr2,
                *newSet = (Multiset*)_newMultiset();
-    
+
       set_difference(set1->begin(), set1->end(),
                      set2->begin(), set2->end(),
                      inserter(*newSet, newSet->begin()));
@@ -354,7 +354,7 @@ extern "C" {
 //    return (int) ((MultisetPair*) ptr)->size();
 //  }
 
-  int _countMultisetPair(int8_t *ptr, gtuple* x){
+  int _countMultisetPair(gtuple* x, int8_t *ptr){
     MultisetPair *s = (MultisetPair*) ptr;
     return (int) s->count(Tuple(x->a,x->b));
   }
@@ -500,7 +500,7 @@ extern "C" {
     } else {
       return (t)function->find(k)->second;
     }
-    
+
   }
 
   int8_t *_compositionFunction(int8_t *ptr1, int8_t *ptr2){
@@ -680,7 +680,7 @@ extern "C" {
       }
       return false;
   }
-  int _countSequence(int8_t* ptr, t x){
+  int _countSequence(t x, int8_t* ptr){
     Sequence* seq = (Sequence*)ptr;
     int i = 0;
     for (Sequence::iterator it = seq->begin(); it != seq->end(); ++it) {
@@ -751,7 +751,7 @@ extern "C" {
     }
     return false;
   }
-  int _countSequencePair(int8_t* ptr, gtuple* x){
+  int _countSequencePair(gtuple* x, int8_t* ptr){
     SequencePair* seq = (SequencePair*)ptr;
     int i = 0;
     for (SequencePair::iterator it = seq->begin(); it != seq->end(); ++it) {

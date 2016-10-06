@@ -14,7 +14,8 @@ import           AST.Expression                          (CollectionKind (..),
                                                           Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import qualified AST.Expression                          as E (loc, Expression'(expType))
+import qualified AST.Expression                          as E (Expression' (expType),
+                                                               loc)
 import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type
@@ -30,10 +31,10 @@ import           LLVM.Quantification                     (collection,
 import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
-                                                          toLLVMType, pointerType,
-                                                          tupleType)
+                                                          pointerType,
+                                                          toLLVMType, tupleType)
 import           Location
-import           Parser.Config                           (codomainFuncString, 
+import           Parser.Config                           (codomainFuncString,
                                                           codomainRelString)
 import           SymbolTable
 import           Treelike                                (drawTree, toTree)
@@ -407,7 +408,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         { operand0 = r
         , type' = i64
         , metadata = [] }
-    
+
     addInstruction $ tuple := Alloca
       { allocatedType = tupleT
       , numElements   = Nothing
@@ -432,7 +433,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       , value    = LocalReference i64 lBitcast
       , maybeAtomicity = Nothing
       , alignment = 4
-      , metadata  = [] } 
+      , metadata  = [] }
 
     addInstruction $ Do Store
       { volatile = False
@@ -440,7 +441,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       , value    = LocalReference i64 rBitcast
       , maybeAtomicity = Nothing
       , alignment = 4
-      , metadata  = [] } 
+      , metadata  = [] }
 
     pure $ LocalReference tupleT tuple
 
@@ -453,13 +454,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     innerOperand <- expression inner
 
     operand <- case expType of
-      GInt        -> opInt 32  unOp innerOperand
-      GChar       -> opInt 8  unOp innerOperand
-      GFloat      -> opFloat unOp innerOperand
+      GInt   -> opInt 32  unOp innerOperand
+      GChar  -> opInt 8  unOp innerOperand
+      GFloat -> opFloat unOp innerOperand
       -- GSet _      -> opSet unOp innerOperand
       -- GMultiset _ -> opMultiset unOp innerOperand
       -- GSeq _      -> opSeq unOp innerOperand
-      t           -> error $ "tipo " <> show t <> " no soportado"
+      t      -> error $ "tipo " <> show t <> " no soportado"
 
     pure operand
 
@@ -487,7 +488,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case E.expType inner of 
+              , function           = callable (ptr i8) $ case E.expType inner of
                 GSet _      -> sizeSetString
                 GMultiset _ -> sizeMultisetString
                 GSeq _      -> sizeSeqString
@@ -495,7 +496,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
                 GFunc _ _   -> sizeFuncString
               , arguments          = [(innerOperand,[])]
               , functionAttributes = []
-              , metadata           = [] }            
+              , metadata           = [] }
 
         pure $ LocalReference (IntegerType n) label
 
@@ -551,7 +552,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       --     , metadata           = [] }
 
       --   pure $ LocalReference floatType label
-      
+
 
       callUnaryFunction :: String -> Operand -> Instruction
       callUnaryFunction fun innerOperand =
@@ -698,19 +699,19 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }
 
-          Op.SeqAt -> do 
-            let 
-              SourcePos _ x y = pos 
+          Op.SeqAt -> do
+            let
+              SourcePos _ x y = pos
               line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
               col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
-            
+
             seqAt <- newLabel "seqAt"
             addInstruction $ seqAt := Call
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
               , function           = callable (ptr i8) atSequenceString
-              , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+              , arguments          = (,[]) <$> [lOperand, rOperand, line, col]
               , functionAttributes = []
               , metadata           = [] }
 
@@ -720,6 +721,11 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , metadata = [] }
 
           Op.BifuncAt -> do
+            let
+              SourcePos _ x y = pos
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+
             rCast <- newLabel "rightCast"
             addInstruction $ rCast := case rType of
               GFloat -> BitCast
@@ -737,7 +743,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , callingConvention  = CC.C
               , returnAttributes   = []
               , function           = callable i64 codomainFuncString
-              , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
+              , arguments          = (,[]) <$> [lOperand, LocalReference i64 rCast, line, col]
               , functionAttributes = []
               , metadata           = [] }
 
@@ -812,7 +818,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GSet (GTuple _ _) -> unionSetPairString
               otherwise         -> unionSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -822,7 +828,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GSet (GTuple _ _) -> intersectSetPairString
               otherwise         -> intersectSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -832,13 +838,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GSet (GTuple _ _) -> differenceSetPairString
               otherwise         -> differenceSetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
-          Op.BifuncAt -> do 
+          Op.BifuncAt -> do
             rCast <- newLabel "rightCast"
             addInstruction $ rCast := case rType of
               GFloat -> BitCast
@@ -868,7 +874,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GMultiset (GTuple _ _) -> unionMultisetPairString
               otherwise              -> unionMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -878,7 +884,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GMultiset (GTuple _ _) -> intersectMultisetPairString
               otherwise              -> intersectMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -888,7 +894,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GMultiset (GTuple _ _) -> differenceMultisetPairString
               otherwise              -> differenceMultisetString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -898,7 +904,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GMultiset (GTuple _ _) -> multisetPairSumString
               otherwise              -> multisetSumString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -914,7 +920,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) $ case lType of 
+            , function           = callable (ptr i8) $ case lType of
               GSeq (GTuple _ _) -> concatSequencePairString
               otherwise         -> concatSequenceString
             , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -926,9 +932,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       opFunc op lOperand rOperand = do
         label <- newLabel "funcBinaryResult"
         case op of
-          Op.Union -> do 
-            let 
-              SourcePos _ x y = pos 
+          Op.Union -> do
+            let
+              SourcePos _ x y = pos
               line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
               col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
 
@@ -955,7 +961,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , function           = callable (ptr i8) differenceFunctionString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
         pure $ LocalReference pointerType label
 
       opRel op lOperand rOperand = do
@@ -984,15 +990,15 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , function           = callable (ptr i8) differenceSetPairString
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
         pure $ LocalReference pointerType label
 
       opTuple op lOperand rOperand = do
         label <- newLabel "tupleBinaryResult"
         case op of
-          Op.SeqAt -> do 
-            let 
-              SourcePos _ x y = pos 
+          Op.SeqAt -> do
+            let
+              SourcePos _ x y = pos
               line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
               col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
             seqAt <- newLabel "seqAt"
@@ -1004,7 +1010,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , arguments          = [(lOperand,[]), (rOperand,[]), (line,[]), (col,[])]
               , functionAttributes = []
               , metadata           = [] }
-                        
+
             addInstruction $ label := Alloca
               { allocatedType = tupleType
               , numElements   = Nothing
@@ -1017,7 +1023,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , value    = LocalReference tupleType seqAt
               , maybeAtomicity = Nothing
               , alignment = 4
-              , metadata  = [] } 
+              , metadata  = [] }
 
             pure $ LocalReference tupleType label
 
@@ -1120,11 +1126,12 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             t:_ -> fillType t expType
             []  -> expType
 
-        (,[]) <$> if type' =:= basicT || type' =:= highLevel
+        (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
           then
             expression' expr
           else do
             label <- newLabel "argCast"
+            traceM . drawTree . toTree $ expr
             ref   <- objectRef (theObj exp') False
 
             type' <- ptr <$> toLLVMType type'
@@ -1140,6 +1147,31 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
   Collection { } ->
     collection expression boolean e
+
+  I64Cast { inner = inner @ Expression {expType = iType} } -> do
+    i <- expression' inner
+
+    subst <- use substitutionTable
+    let
+      type' = case subst of
+        targs:_ -> fillType targs iType
+        []      -> iType
+
+    t <- newUnLabel
+
+    case type' of
+      GTuple a b -> pure i
+      _ -> do
+        addInstruction $ t := case type' of
+          GFloat -> BitCast
+            { operand0 = i
+            , type' = i64
+            , metadata = [] }
+          _ -> ZExt
+            { operand0 = i
+            , type' = i64
+            , metadata = [] }
+        pure $ LocalReference i64 t
 
   -- Dummy operand
   _ -> do

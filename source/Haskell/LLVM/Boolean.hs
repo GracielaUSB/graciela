@@ -111,7 +111,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
             { operand0 = lOperand
             , type' = i64
             , metadata = [] }
-          lType | lType `elem` [ GInt, GChar ] -> SExt
+          lType | lType `elem` [ GInt, GChar ] -> ZExt
             { operand0 = lOperand
             , type' = i64
             , metadata = [] }

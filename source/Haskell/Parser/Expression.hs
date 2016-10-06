@@ -61,8 +61,7 @@ import           Text.Megaparsec           (between, getPosition, lookAhead,
 import           Debug.Trace
 
 expression :: Parser (Maybe Expression)
-expression =
-  evalStateT expr []
+expression = evalStateT expr []
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -111,9 +110,7 @@ term =  tuple
     <|> string
     <|> quantification
     <|> ifExp
-
   where
-
     bool :: ParserExp (Maybe MetaExpr)
     bool = do
       from <- getPosition
@@ -196,7 +193,7 @@ tuple :: ParserExp (Maybe MetaExpr)
 tuple = do
   Location (from, _) <- match TokLeftPar
   elems <- sequence <$>
-    (metaexpr `followedBy` oneOf ([TokComma, TokRightPar] :: Seq Token)) `sepBy` match TokComma
+    ((metaexpr >>= filterRawName) `followedBy` oneOf ([TokComma, TokRightPar] :: Seq Token)) `sepBy` match TokComma
   Location (_, to) <- match TokRightPar
 
   case elems of
@@ -470,10 +467,6 @@ variable = do
           , exp' = RawName name }
       in pure $ Just (expr, ProtoNothing, Taint False)
 
-      -- putError from . UnknownError $
-      --   "Variable `" <> unpack name <> "` not defined in this scope."
-      -- pure Nothing
-
     Right entry -> case entry^.info of
       Alias { _aliasType, _aliasValue } ->
         let
@@ -576,6 +569,17 @@ variable = do
                   , mode   = Just _argMode }}}}
 
         in pure $ Just (expr, ProtoNothing, Taint False)
+
+
+filterRawName :: Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
+filterRawName Nothing = pure Nothing
+filterRawName je@(Just (e, _, _)) = if expType e == GRawName
+  then do
+    let RawName name = exp' e
+    putError (pos . E.loc $ e) . UnknownError $
+      "Variable `" <> unpack name <> "` not defined in this scope."
+    pure Nothing
+  else pure je
 
 
 quantification :: ParserExp (Maybe MetaExpr)
@@ -890,57 +894,71 @@ operator =
   , {-Level 3-}
     [ Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 4-}
-    [ Prefix  (foldr1 (>=>) <$> some (match TokHash  <&> unary Op.card)) ]
+    [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
   , {-Level 5-}
-    [ Prefix  (foldr1 (>=>) <$> some (match TokNot   <&> unary Op.not   ))
-    , Prefix  (foldr1 (>=>) <$> some (match TokMinus <&> unary Op.uMinus)) ]
+    [ Prefix  (foldr1 (>=>) <$> some (TokNot   --> unary Op.not   ))
+    , Prefix  (foldr1 (>=>) <$> some (TokMinus --> unary Op.uMinus)) ]
   , {-Level 6-}
-    [ InfixR (match TokPower      <&> binary Op.power) ]
+    [ InfixR (TokPower        ==> binary Op.power) ]
   , {-Level 7-}
-    [ InfixL (match TokTimes      <&> binary Op.times)
-    , InfixL (match TokDiv        <&> binary' Op.div )
-    , InfixL (match TokMod        <&> binary' Op.mod ) ]
+    [ InfixL (TokTimes        ==> binary Op.times)
+    , InfixL (TokDiv          ==> binary' Op.div )
+    , InfixL (TokMod          ==> binary' Op.mod ) ]
   , {-Level 8-}
-    [ InfixL (match TokPlus         <&> binary Op.plus      )
-    , InfixL (match TokMinus        <&> binary Op.bMinus    )
-    , InfixL (match TokSetUnion     <&> binary Op.union     )
-    , InfixL (match TokMultisetSum  <&> binary Op.multisum  )
-    , InfixL (match TokSetIntersect <&> binary Op.intersect )
-    , InfixL (match TokSetMinus     <&> binary Op.difference)
-    , InfixL (match TokConcat       <&> binary Op.concat    ) ]
+    [ InfixL (TokPlus         ==> binary Op.plus      )
+    , InfixL (TokMinus        ==> binary Op.bMinus    )
+    , InfixL (TokSetUnion     ==> binary Op.union     )
+    , InfixL (TokMultisetSum  ==> binary Op.multisum  )
+    , InfixL (TokSetIntersect ==> binary Op.intersect )
+    , InfixL (TokSetMinus     ==> binary Op.difference)
+    , InfixL (TokConcat       ==> binary Op.concat    ) ]
   , {-Level 9-}
-    [ InfixL (match TokMax        <&> binary Op.max)
-    , InfixL (match TokMin        <&> binary Op.min) ]
+    [ InfixL (TokMax          ==> binary Op.max)
+    , InfixL (TokMin          ==> binary Op.min) ]
   , {-Level 10-}
-    [ InfixN (match TokElem       <&> membership             )
-    , InfixN (match TokNotElem    <&> binary Op.notElem      )
-    , InfixN (match TokLT         <&> comparison Op.lt       )
-    , InfixN (match TokLE         <&> comparison Op.le       )
-    , InfixN (match TokGT         <&> comparison Op.gt       )
-    , InfixN (match TokGE         <&> comparison Op.ge       )
-    , InfixN (match TokSubset     <&> binary     Op.subset   )
-    , InfixN (match TokSSubset    <&> binary     Op.ssubset  )
-    , InfixN (match TokSuperset   <&> binary     Op.superset )
-    , InfixN (match TokSSuperset  <&> binary     Op.ssuperset) ]
+    [ InfixN (TokElem         ==> membership             )
+    , InfixN (TokNotElem      ==> binary Op.notElem      )
+    , InfixN (TokLT           ==> comparison Op.lt       )
+    , InfixN (TokLE           ==> comparison Op.le       )
+    , InfixN (TokGT           ==> comparison Op.gt       )
+    , InfixN (TokGE           ==> comparison Op.ge       )
+    , InfixN (TokSubset       ==> binary     Op.subset   )
+    , InfixN (TokSSubset      ==> binary     Op.ssubset  )
+    , InfixN (TokSuperset     ==> binary     Op.superset )
+    , InfixN (TokSSuperset    ==> binary     Op.ssuperset) ]
   , {-Level 11-}
-    [ InfixN (match TokAEQ        <&> pointRange   )
-    , InfixN (match TokANE        <&> binary Op.ane) ]
+    [ InfixN (TokAEQ          ==> pointRange   )
+    , InfixN (TokANE          ==> binary Op.ane) ]
   , {-Level 12-}
-    [ InfixR (match TokAnd        <&> conjunction) ]
+    [ InfixR (TokAnd          ==> conjunction) ]
   , {-Level 13-}
-    [ InfixR (match TokOr         <&> binary' Op.or) ]
+    [ InfixR (TokOr           ==> binary' Op.or) ]
   , {-Level 14-}
-    [ InfixR (match TokImplies    <&> binary' Op.implies   )
-    , InfixL (match TokConsequent <&> binary' Op.consequent) ]
+    [ InfixR (TokImplies      ==> binary' Op.implies   )
+    , InfixL (TokConsequent   ==> binary' Op.consequent) ]
   , {-Level 15-}
-    [ InfixN (match TokBEQ        <&> binary' Op.beq)
-    , InfixN (match TokBNE        <&> binary' Op.bne) ]
+    [ InfixN (TokBEQ          ==> binary' Op.beq)
+    , InfixN (TokBNE          ==> binary' Op.bne) ]
   ]
+
+token --> unaryOp = do
+  loc <- match token
+  pure $ \i -> do
+    i' <- filterRawName i
+    unaryOp loc i'
+
+token ==> binaryOp = do
+  loc <- match token
+  pure $ \l r -> do
+    l' <- filterRawName l
+    r' <- filterRawName r
+    binaryOp loc l' r'
+
 
 call :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 call = do
   args <- between (match TokLeftPar) (match' TokRightPar) $
-    metaexpr `sepBy` match TokComma
+    (metaexpr >>= filterRawName) `sepBy` match TokComma
   to <- getPosition
 
   pure $ \case
@@ -1298,10 +1316,10 @@ subindex = do
 
   let subindices = sequence subindices'
 
-  case subindices of
-    Nothing -> pure (\_ -> pure Nothing)
+  pure $ filterRawName >=> case subindices of
+    Nothing -> const $ pure Nothing
     Just subs -> if null subs
-      then pure $ \case
+      then \case
         Just (Expression { expType, loc }, _, _) -> case expType of
           GArray _ _ -> do
             putError (pos loc) . UnknownError $
@@ -1316,7 +1334,7 @@ subindex = do
               "Unexpected subindex. Can only access arrays and sequences."
             pure Nothing
         Nothing -> pure Nothing
-      else pure $ \case
+      else \case
         Nothing -> pure Nothing
         Just (expr, _, taint1) -> case expr of
           Expression
@@ -1382,7 +1400,7 @@ subindex = do
   where
     subAux :: ParserExp (Maybe MetaExpr)
     subAux = do
-      e <- metaexpr
+      e <- metaexpr >>= filterRawName
       case e of
         je@(Just (Expression { expType = GInt }, _, _)) -> pure je
         Just (Expression { expType, loc }, _, _) -> do
@@ -1402,14 +1420,14 @@ dotField = do
 
   to <- getPosition
 
-  case fieldName' of
-    Nothing -> pure (\_ -> pure Nothing)
-    Just fieldName -> pure $ \case
+  pure $ filterRawName >=> case fieldName' of
+    Nothing -> const $ pure Nothing
+    Just fieldName -> \case
       Nothing -> pure Nothing
       Just (e@Expression { exp', loc }, _, taint) -> do
         let Location (from,_) = loc
         case exp' of
-          (Obj obj) -> do
+          (Obj obj) ->
             case objType obj of
               GDataType n _ typeArgs-> do
                 cstruct <- lift $ use currentStruct
@@ -1428,8 +1446,7 @@ dotField = do
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
                 case n `Map.lookup` dts of
-                  Nothing -> do
-                    pure Nothing
+                  Nothing -> pure Nothing
                   Just Struct { structFields } ->
                     let structFields' = fillTypes typeArgs structFields
                     in aux obj (objType obj) loc fieldName structFields' taint
@@ -1473,7 +1490,7 @@ deref = do
   from <- getPosition
   void $ match TokTimes
 
-  pure $ \case
+  pure $ filterRawName >=> \case
     Nothing -> pure Nothing
 
     Just (expr, _, taint) -> case expr of

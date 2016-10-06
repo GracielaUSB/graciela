@@ -27,7 +27,7 @@ typedef int64_t t;
 #ifdef __cplusplus
 using namespace std;
 namespace glib {
-    
+
     typedef enum{
       SET           = 0,
       MULTISET      = 1,
@@ -54,21 +54,21 @@ namespace glib {
 
 extern "C" {
 #endif
-    
+
     typedef struct gtuple {
         int64_t a;
         int64_t b;
     } gtuple;
-    
+
     typedef struct Iterator {
         t       data;
         int8_t* it;
         int8_t* type;
     }Iterator;
-    
+
     Iterator *_first(int8_t *ptr);
     Iterator *_next(Iterator* i);
-    
+
     /* Set */
     int8_t*  _newSet();
     int      _equalSet(int8_t* ptr1, int8_t* ptr2);
@@ -82,7 +82,7 @@ extern "C" {
     int      _includesSSet(int8_t* ptr1, int8_t* ptr2);
     void     _freeSet(int8_t* ptr);
     /* SetPair */
-    
+
     int8_t* _newSetPair();
     int     _equalSetPair(int8_t *ptr1, int8_t* ptr2);
     void    _insertSetPair(int8_t *ptr, gtuple* x);
@@ -101,7 +101,7 @@ extern "C" {
     void    _insertMultiset(int8_t* ptr, t x);
     int     _isElemMultiset(int8_t* ptr, t x);
     int     _sizeMultiset(int8_t* ptr);
-    int     _countMultiset(int8_t* ptr, t x);
+    int     _countMultiset(t x, int8_t* ptr);
     int8_t* _unionMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _sumMultiset(int8_t* ptr1, int8_t* ptr2);
     int8_t* _intersectMultiset(int8_t* ptr1, int8_t* ptr2);
@@ -115,14 +115,14 @@ extern "C" {
     void    _insertMultisetPair(int8_t* ptr, gtuple* x);
     int     _isElemMultisetPair(int8_t* ptr, gtuple* x);
 //    int     _sizeMultisetPair(int8_t* ptr);
-    int     _countMultisetPair(int8_t* ptr, gtuple* x);
+    int     _countMultisetPair(gtuple* x, int8_t* ptr);
     int8_t* _unionMultisetPair(int8_t* ptr1, int8_t* ptr2);
     int8_t* _sumMultisetPair(int8_t* ptr1, int8_t* ptr2);
     int8_t* _intersectMultisetPair(int8_t* ptr1, int8_t* ptr2);
     int8_t* _differenceMultisetPair(int8_t* ptr1, int8_t* ptr2);
     int     _includesMultisetPair(int8_t* ptr1, int8_t* ptr2);
     void    _freeMultisetPair(int8_t* ptr);
-  
+
     /* Function */
     int8_t* _newFunction();
     int     _equalFunction(int8_t* ptr1, int8_t* ptr2);
@@ -137,7 +137,7 @@ extern "C" {
     int8_t* _intersectFunction(int8_t* ptr1, int8_t* ptr2);
     int8_t* _differenceFunction(int8_t* ptr1, int8_t* ptr2);
     void    _freeFunction(int8_t* ptr);
-    
+
     /* Relation */
     int8_t* _newRelation();
     int     _equalRelation(int8_t* ptr1, int8_t* ptr2);
@@ -148,14 +148,14 @@ extern "C" {
     int8_t* _pairRelation(int8_t* ptr, t key);
     int8_t* _compositionRelation(int8_t *ptr1, int8_t *ptr2);
     void    _freeRelation(int8_t* ptr);
-    
+
     /* Sequence */
     int8_t* _newSequence();
     int     _equalSequence(int8_t* ptr1, int8_t* ptr2);
     int     _isElemSequence(int8_t* ptr, t x);
     void    _insertSequence(int8_t* ptr, t x);
     int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2);
-    int     _countSequence(int8_t* ptr, t x);
+    int     _countSequence(t x, int8_t* ptr);
     int     _sizeSequence(int8_t* ptr);
     t       _atSequence(int8_t*ptr, int pos, int line, int col);
     void    _freeSequence(int8_t* ptr);
@@ -166,11 +166,11 @@ extern "C" {
     int     _isElemSequencePair(int8_t* ptr, gtuple* x);
     void    _insertSequencePair(int8_t* ptr, gtuple* x);
     int8_t* _concatSequencePair(int8_t* ptr1, int8_t* ptr2);
-    int     _countSequencePair(int8_t* ptr, gtuple* x);
+    int     _countSequencePair(gtuple* x, int8_t* ptr);
 //    int     _sizeSequencePair(int8_t* ptr);
     gtuple  _atSequencePair(int8_t*ptr, int pos, int line, int col);
     void    _freeSequencePair(int8_t* ptr);
-  
+
     /* Tuple */
     int _equalTuple(gtuple* x, gtuple* y);
     /* TrashCollector (Yet Another Garbage Collector)
@@ -182,7 +182,7 @@ extern "C" {
     void _openScope();
     void _closeScope();
     void _freeTrashCollector();
-    
+
 #ifdef __cplusplus
 }
 #endif
