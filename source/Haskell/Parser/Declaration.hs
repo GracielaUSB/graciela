@@ -240,7 +240,16 @@ info' isStruct pos name t expr constness = if isStruct
       f = (fromIntegral (length fields), t, constness, expr)
       fields' = Map.insert name f fields
     case name `Map.lookup` fields of
-      Just (_,t', _, _) | t' =:= t -> pure ()
+      Just (_,t', c, _) 
+        | traceShowId c /= traceShowId constness -> 
+          let 
+            aux a = if a then "constant" else "variable"
+          in
+            putError pos . UnknownError $ 
+            "Redefinition of member `" <> unpack name <> "` as " <> aux constness <> 
+            ",\n\tbut defined in abstract type as " <> aux c <> "."
+        | t' =:= t -> do traceM "Hola"; pure ()
+
       Just _ -> putError pos . UnknownError $ 
         "Ambigous redefinition of variable `" <> unpack name <> "` defined in abstract type"
       _ -> currentStruct %= over _Just (_2 .~ fields')
