@@ -264,7 +264,7 @@ dataType = do
 
       ok <- or <$> mapM (abstractProc =-=) procs
 
-      unless ok .putError pos . UnknownError $
+      unless ok . putError pos . UnknownError $
         "The procedure named `" <> unpack name <> "` " <>
         showPos pos <> "` in the Abstract Type `" <> unpack abstractName <>
         "`\n\tneeds to be implemented inside the Type `" <>
