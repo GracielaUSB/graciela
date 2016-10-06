@@ -454,8 +454,10 @@ extern "C" {
   int8_t *_funcFromSet(int8_t* setPtr, int line, int col){
       SetPair* set   = (SetPair*)setPtr;
       Function *func = (Function*)_newFunction();
-      for(SetPair::iterator it = set->begin(); it != set->end(); ++it){
-        if (func->find(it->first) != func->end()){
+
+    for(SetPair::iterator it = set->begin(); it != set->end(); ++it){
+        Function::iterator it2 = func->find(it->first);
+        if (it2 != func->end() || (it2 == func->end() && it2->second == it->second)) {
           printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
           printf (":\n\tDuplicate value in domain.\n");
           _freeTrashCollector();
@@ -532,8 +534,8 @@ extern "C" {
     }
     
     for(Function::iterator it = func2->begin(); it != func2->end(); ++it){
-      if (newFunc->find(it->first) != newFunc->end() ||
-          (newFunc->find(it->first) == newFunc->end() && newFunc->find(it->first) != newFunc->end()){
+      Function::iterator it2 = newFunc->find(it->first);
+      if (it2 != newFunc->end() || (it2 == newFunc->end() && it2->second == it->second)){
         printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
         printf (":\n\tDuplicate value in domain.\n");
         _freeTrashCollector();

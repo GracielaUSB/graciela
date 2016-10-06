@@ -16,8 +16,8 @@ abstract Diccionario (T0, T1) begin
     var conoc' := d.conoc : set of T0;
 
     {pre c ∉ d.conoc ∧ #d.conoc < d.MAX pre}
-    {post d.conoc == conoc' ∪ {c} /\ (% forall i : T0 | 0 <= i /\ i < n | i == i%)
-        ∧ d.tabla == d.tabla ∪ func({(c, v)}) post}
+    {post d.conoc == conoc' ∪ {c}
+        ∧ d.tabla == tabla' ∪ func({(c, v)}) post}
 
   proc eliminar (inout d : Diccionario(T0,T1), in c : T0)
     var tabla' := d.tabla : func T0 -> T1;
@@ -84,7 +84,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     var clave'        : array[d.MAX] of T0;
     var valor'        : array[d.MAX] of T1;
 
-    {pre ¬(% ∃ i : int | 0 ≤ i ∧ i < d.tam /\ | d.clave[i] == c %) ∧ d.tam < d.MAX pre}
+    {pre ¬(% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) ∧ d.tam < d.MAX pre}
 
     {post d.tam == tam' + 1 ∧ d.clave[tam'] == c ∧  d.valor[tam'] == v 
               ∧ (% forall i : int | 0 ≤ i ∧ i < tam' | d.clave[i] == clave'[i]
@@ -174,6 +174,7 @@ main
    ; buscar(d,1,r) 
    ; writeln(b, " -> ", r)
    ; eliminar(d,1)
+   ; writeln(<<1,2,3>>!1)
    ; existe(d,1,b)
    ; if     b     -> buscar(d,1,r) 
                    ; writeln(b, " ->", r)
