@@ -10,7 +10,7 @@ main
   ; var x : array [6, 8] of int
   ; var y : int
 
-  ; writeln({} == {})
+  ; writeln(func({})(2))
 
   ; y := 5
   ; writeln ("y: ", y)
