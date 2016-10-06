@@ -177,9 +177,9 @@ instance ShowErrorComponent Error where
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes, aType} ->
       "Parameter number " <> show paramNum <> " of the procedure `" <> unpack fName <>
-      "` " <> showPos fPos <> " admits one of the following types:" <>
-      (unlines . fmap (("\t" <>) . show) . toList $ pTypes) <>
-      "`,\n\tbut received an expression of type " <> show aType <> "."
+      "` " <> showPos fPos <> " admits one of the following types:\n" <>
+      (unlines . fmap (("\t * " <>) . show) . toList $ pTypes) <>
+      "\tbut received an expression of type " <> show aType <> "."
 
     BadProcedureArgumentType { paramName, pName, pPos, pType, aType} ->
       "The parameter `" <> unpack paramName <>"` of the procedure `" <> unpack pName <>

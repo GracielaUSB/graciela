@@ -102,7 +102,11 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
         rOperand <- expr rexpr
 
         item <- newLabel "item"
-        addInstruction $ item := case expType lexpr of
+        substs <- use substitutionTable
+        lType' <- case substs of 
+          subst : _ -> pure $ fillType subst (expType lexpr)
+          _         -> pure $ expType lexpr
+        addInstruction $ item := case lType' of
           GFloat -> BitCast
             { operand0 = lOperand
             , type' = i64

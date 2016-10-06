@@ -14,13 +14,10 @@ program List.bin begin
 
   end
 
-  type Node(T) implements ANode(T)
-  begin
-
+  type Node(T) implements ANode(T) begin
     {repinv true repinv}
-
-    {coupinv true coupinv}
-    func hola (i : T) -> int
+    
+    func hola (i : int) -> int
       {pre  true pre}
       {post  true post}
       |[
@@ -49,7 +46,6 @@ program List.bin begin
     proc hola(in n : Node(T)*)
       {pre  n != null  pre}
       {post n != null post}
-
       |[ if n == null   -> skip
          fi        
       ]|
@@ -84,9 +80,13 @@ program List.bin begin
      var tam := 0 : int;
      var first    : Node(T)*;
     
-    {repinv 0 <= tam /\ tam <= MAX repinv}
+    {repinv first != null 
+        ==> (% forall i : int 
+               | 0 <= i /\ i < tam-1 
+               | items!i <= items!i+1 
+            %) repinv}
   
-    {coupinv true coupinv}
+    where { items := << x : int | 0 <= x /\ x < tam /\ first != null | atNode(first,x) >> }
   
     /* ListO procedures */
 
@@ -170,7 +170,7 @@ program List.bin begin
 
     {repinv 0 <= tam /\ tam <= MAX repinv}
 
-    {coupinv true coupinv}
+    where { items := <<x : int | 0 <= x /\ x < tam /\ first != null | atNode(first,x)>> }
 
     proc insert (inout l : List(T), in x : T)
       {pre true pre}
@@ -266,6 +266,6 @@ main
 
    ; freeList(l)
    ; freeList(lo)
-
+   ; write(toChar(toFloat(toChar(toInt(false)))))
   ]|
 end

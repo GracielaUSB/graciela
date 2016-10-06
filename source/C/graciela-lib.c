@@ -212,6 +212,8 @@ typedef enum
   , A_BAD_ARRAY_ARG
   , A_NEGATIVE_ROOT
   , A_NEGATIVE_EXPONENT
+  , A_BAD_ABSTRACT_COUPLE
+  , A_COUPINVARIANT
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -253,6 +255,10 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tattempted to take the square root of a negative value.\n"); break;
     case A_NEGATIVE_EXPONENT:
       printf (":\n\tattempted to raise a number to a negative exponent.\n"); break;
+    case A_BAD_ABSTRACT_COUPLE: 
+      printf (":\n\tthe abstract precondition was falsified.\n\tThe procedure doesn't implement the abstract type \n"); break;
+    case A_COUPINVARIANT:
+      printf (":\n\tthe coupling invariant was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
@@ -264,7 +270,8 @@ typedef enum
   , W_PRE
   , W_POST
   , W_INVARIANT
-  , W_REPINVARIENT
+  , W_REPINVARIANT
+  , W_COUPINVARIANT
   } warning_t;
 
 void _warn (warning_t reason, int line, int column) {
@@ -278,21 +285,23 @@ void _warn (warning_t reason, int line, int column) {
       printf (":\n\tthe postcondition was falsified.\n"); break;
     case W_INVARIANT:
       printf (":\n\tthe invariant was falsified.\n"); break;
-    case W_REPINVARIENT:
+    case W_REPINVARIANT:
       printf (":\n\tthe representation invariant was falsified.\n"); break;
+    case W_COUPINVARIANT:
+      printf (":\n\tthe coupling invariant was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason.\n"); break;
   }
 }
 
 int _abs_i (int x, int line, int column) {
-  if (x < 0)
+  if (x < 0){
     if (x == INT_MIN)
       _abort (A_OVERFLOW, line, column);
-    else
-      return (-x);
-  else
+    return (-x);
+  } else {
     return x;
+  }
 }
 
 double _abs_f (double x) {
@@ -302,15 +311,13 @@ double _abs_f (double x) {
 int _sqrt_i (int x, int line, int column) {
   if (x < 0)
     _abort (A_NEGATIVE_ROOT, line, column);
-  else
-    return floor(sqrt(x));
+  return floor(sqrt(x));
 }
 
 double _sqrt_f (double x, int line, int column) {
   if (x < 0)
     _abort (A_NEGATIVE_ROOT, line, column);
-  else
-    return sqrt(x);
+  return sqrt(x);
 }
 
 
@@ -321,33 +328,29 @@ int _powInt (int x, int y, int line, int column) {
     return 1;
   else if (y % 2 == 1) {
     int tmp;
-    if (__builtin_smul_overflow(x, _powInt (x, y-1, line, column), &tmp)) {
+    if (__builtin_smul_overflow(x, _powInt (x, y-1, line, column), &tmp))
       // overflow
       _abort (A_OVERFLOW, line, column);
-    } else {
-      // all ok
-      return tmp;
-    }
+    // all ok
+    return tmp;
   } else {
     int tmp = _powInt (x, y / 2, line, column);
     int tmp2;
 
-    if (__builtin_smul_overflow(tmp, tmp, &tmp2)) {
+    if (__builtin_smul_overflow(tmp, tmp, &tmp2))
       // overflow
       _abort (A_OVERFLOW, line, column);
-    } else {
-      // all ok
-      return tmp2;
-    }
+    // all ok
+    return tmp2;
   }
+  return 0;
 }
 
 
 int _float2int (double x, int line, int column) {
-  if (-2147483648.49 <= x && x <= 2147483647.49)
-    return (x >= 0 ? (int)(x+0.5) : (int)(x-0.5));
-  else
+  if (-2147483648.49 > x || x > 2147483647.49)
     _abort (A_OVERFLOW, line, column);
+  return (x >= 0 ? (int)(x+0.5) : (int)(x-0.5));
 }
 
 int _char2int (char x) {
@@ -355,17 +358,15 @@ int _char2int (char x) {
 }
 
 char _float2char (double x, int line, int column) {
-  if (0.0 <= x && x <= 255.49)
-    return (char)(x+0.5);
-  else
+  if (0.0 > x || x > 255.49)
     _abort (A_OVERFLOW, line, column);
+  return (char)(x+0.5);
 }
 
 char _int2char (int x, int line, int column) {
-  if (0 <= x && x <= 255)
-    return (char)(x);
-  else
+  if (0 > x || x > 255)
     _abort (A_OVERFLOW, line, column);
+  return (char)x;
 }
 
 double _char2float (char x) {

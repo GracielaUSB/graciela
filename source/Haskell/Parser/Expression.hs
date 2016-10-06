@@ -422,13 +422,20 @@ collection = do
         Just (e, _, _) -> case acc of
           Nothing -> pure Nothing
           Just (els, t) -> case t <> expType e of
-            GUndef -> do
-              putError pos . UnknownError $
-                "Unexpected expression of type " <> show (expType e) <> ",\
-                \expected instead an expression of type " <> show t <> "."
-              pure Nothing
+            GUndef -> if isTypeVar (expType e) || isTupleTypeVar (expType e) 
+              then do
+                pure $ Just (els |> e, expType e)
+              else do
+                putError pos . UnknownError $
+                  "Unexpected expression of type " <> show (expType e) <> ",\
+                  \expected instead an expression of type " <> show t <> "."
+                pure Nothing
             newType -> pure $ Just (els |> e, newType)
-
+      where 
+        isTupleTypeVar t = case t of 
+          GTuple t1 t2 | (isTypeVar t1 || t1 =:= GOneOf [GInt, GChar])
+                      && (isTypeVar t1 || t1 =:= GOneOf [GInt, GChar, GFloat]) -> True
+          _ -> False  
 
 callOrVariable :: ParserExp (Maybe MetaExpr)
 callOrVariable = do
@@ -447,10 +454,11 @@ variable name (Location (from, to)) = do
 
   let loc = Location (from, to)
 
-  maybeStruct <- lift (use currentStruct)
+  maybeStruct <- lift $ use currentStruct
+  coup <- lift $ use coupling
 
   abstractSt <- case maybeStruct of
-    Just (GDataType _ (Just abstName) _, _, _) -> do
+    Just (GDataType _ (Just abstName) _, _, _) | coup -> do
       adt <- getStruct abstName
       case adt of
         Just abst -> do
@@ -461,8 +469,9 @@ variable name (Location (from, to)) = do
 
   let
     entry = case name `lookup` st of
-      Left _ -> name `lookup` abstractSt
-      x      -> x
+      Left _  -> name `lookup` abstractSt
+      x       -> x
+
 
   case entry of
 
@@ -517,7 +526,7 @@ variable name (Location (from, to)) = do
           expr = case struct of
             Just (GDataType structName' abstract t, mapTypes, _) ->
               case name `Map.lookup` mapTypes of
-                Just (i, _, _) -> Expression
+                Just (i, _, _, _) -> Expression
                   { loc
                   , expType  = _selfType
                   , expConst = _selfConst
@@ -1342,12 +1351,12 @@ dotField = do
   where
     aux o oType loc fieldName structFields taint =
       case fieldName `Map.lookup` structFields of
-        Just (i, t, _) ->
+        Just (i, t, c, _) ->
           let
             expr = Expression
               { loc
               , expType  = t
-              , expConst = False
+              , expConst = c
               , exp'     = Obj
                 { theObj = Object
                   { loc

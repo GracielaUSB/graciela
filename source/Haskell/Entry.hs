@@ -66,7 +66,10 @@ instance Treelike Entry where
         , case _selfValue of
             Nothing    -> leaf "Not initialized"
             Just value -> Node "Initial value: " [toTree value] ]
-
+    Alias { _aliasType, _aliasValue } ->
+      Node ("Alias") 
+        [ leaf ("Type: " <> show _aliasType)
+        , leaf ("Value: " <> show _aliasValue)]
     Argument { _argMode, _argType } ->
       Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ "Type: " <> show _argType

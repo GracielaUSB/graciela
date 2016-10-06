@@ -31,12 +31,12 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%=))
+import           Control.Lens              (use, (%=), over, (.~), _2, _Just)
 import           Control.Monad             (foldM, forM_, unless, void, when,
                                             zipWithM_)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
-import           Data.Map                  as Map (lookup)
+import           Data.Map                  as Map (lookup, insert)
 import           Data.Semigroup            ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
@@ -60,8 +60,8 @@ dataTypeDeclaration = declaration' type' True
 
 
 -- Accept both, polymorphic and abstract types (set, function, ...)
-abstractDeclaration :: Parser (Maybe Declaration)
-abstractDeclaration = declaration' abstractType True
+abstractDeclaration :: Bool -> Parser (Maybe Declaration)
+abstractDeclaration = declaration' abstractType
 
 declaration' :: Parser Type -> Bool -> Parser (Maybe Declaration)
 declaration' allowedTypes isStruct = do
@@ -87,17 +87,16 @@ declaration' allowedTypes isStruct = do
     else case mvals of
       Nothing -> do
         -- Values were optional, and were not given
-        forM_ ids $ \(id, loc) -> do
-          redef <- redefinition (id, loc)
+        forM_ ids $ \(name, loc) -> do
+          redef <- redefinition (name, loc)
           unless redef  $ do
+            info <- info' isStruct from name t Nothing False
             let
-              info = (if isStruct then SelfVar else Var) t Nothing False
-
               entry = Entry
-                { _entryName = id
+                { _entryName = name
                 , _loc       = loc
                 , _info      = info }
-            symbolTable %= insertSymbol id entry
+            symbolTable %= insertSymbol name entry
 
         pure . Just $ Declaration
           { declLoc  = location
@@ -139,103 +138,78 @@ assignment' = Just . sequence <$>
 
 
 checkType :: Constness -> Type -> Bool
-          -> Maybe (Seq (Text, Expression))
+          -> Maybe (Seq (Text, (Expression,Bool)))
           -> ((Text, Location), Expression)
-          -> Parser (Maybe (Seq (Text, Expression)))
+          -> Parser (Maybe (Seq (Text, (Expression,Bool))))
 checkType True t isStruct pairs
-  ((identifier, location), expr@Expression { expType, expConst, exp' }) = do
+  ((name, location), expr@Expression { expType, expConst, exp' }) = do
 
   let Location (from, _) = location
-  redef <- redefinition (identifier, location)
+  redef <- redefinition (name, location)
 
   if expType =:= t
-    then if redef
-      then pure Nothing
-      else if expConst
-        then do
-          let
-            info val = (if isStruct then SelfVar else Var) t val True
-
-            entry = Entry
-              { _entryName  = identifier
-              , _loc        = location
-              , _info       = info (Just expr) }
-          symbolTable %= insertSymbol identifier entry
-          pure $ (|> (identifier, expr)) <$> pairs
-        else do
-          putError from . UnknownError $
-            "Trying to assign a non constant expression to the \
-            \constant `" <> unpack identifier <> "`."
-          pure Nothing
-
-      -- else case exp' of
-      --   Value v -> do
-      --     let
-      --       expr' = case exp' of
-      --         NullPtr {} -> expr { expType = t }
-      --         _ -> expr
-      --
-      --       entry = Entry
-      --         { _entryName  = identifier
-      --         , _loc        = location
-      --         , _info       = Const
-      --           { _constType  = t
-      --           , _constValue = v }}
-      --     symbolTable %= insertSymbol identifier entry
-      --     pure $ pairs |> (identifier, expr')
-      --   _       -> do
-      --     putError from . UnknownError $
-      --       "Trying to assign a non constant expression to the \
-      --       \constant `" <> unpack identifier <> "`."
-      --     pure Seq.empty
-
+    then if expConst
+      then do 
+        info <- info' isStruct from name t (Just expr) True
+        let
+          entry = Entry
+            { _entryName  = name
+            , _loc        = location
+            , _info       = info }
+        unless redef $ symbolTable %= insertSymbol name entry
+        pure $ (|> (name, (expr, True))) <$> pairs
     else do
       putError from . UnknownError $
-        "Trying to assign an expression with type " <> show expType <>
-        " to the constant `" <> unpack identifier <> "`, of type " <>
-        show t <> "."
+        "Trying to assign a non constant expression to the \
+        \constant `" <> unpack name <> "`."
       pure Nothing
 
+  else do
+    putError from . UnknownError $
+      "Trying to assign an expression with type " <> show expType <>
+      " to the constant `" <> unpack name <> "`, of type " <>
+      show t <> "."
+    pure Nothing
+
 checkType False t isStruct pairs
-  ((identifier, location), expr@Expression { loc, expType, exp' }) =
+  ((name, location), expr@Expression { loc, expType, exp' }) =
 
   let Location (from, _) = location
   in if expType =:= t
     then do
-      redef <- redefinition (identifier,location)
-      if redef
-        then pure Nothing
-        else do
-          let
-            info val = (if isStruct then SelfVar else Var) t val False
-            expr' = case exp' of
-              NullPtr {} -> expr{expType = t}
-              _          -> expr
+      redef <- redefinition (name,location)
+      
+      let
+        expr' = case exp' of
+          NullPtr {} -> expr{expType = t}
+          _          -> expr
+      unless redef $ do
+        info <- info' isStruct from name t (Just expr') False
+        let 
+          entry = Entry
+            { _entryName  = name
+            , _loc        = location
+            , _info       = info }
 
-            entry = Entry
-              { _entryName  = identifier
-              , _loc        = location
-              , _info       = info (Just expr') }
-
-          symbolTable %= insertSymbol identifier entry
-          pure $ (|> (identifier, expr')) <$> pairs
+        symbolTable %= insertSymbol name entry
+      pure $ (|> (name, (expr',False))) <$> pairs
 
     else do
       putError from . UnknownError $
         "Trying to assign an expression with type " <> show expType <>
-        " to the variable `" <> unpack identifier <> "`, of type " <>
+        " to the variable `" <> unpack name <> "`, of type " <>
         show t <> "."
       pure Nothing -- Seq.empty
 
 redefinition :: (Text, Location) -> Parser Bool
-redefinition (id, Location (from, _)) = do
+redefinition (varName, Location (from, _)) = do
   st <- use symbolTable
-  let local = isLocal id st
+  let local = isLocal varName st
 
   if local
     then do
       putError from . UnknownError $
-         "Redefinition of variable `" <> unpack id <> "`"
+         "Redefinition of variable `" <> unpack varName <> "`"
       pure True
     else do
       maybeStruct <- use currentStruct
@@ -244,12 +218,31 @@ redefinition (id, Location (from, _)) = do
           adt <- getStruct abstName
           case adt of
             Just abst -> do
-              if isLocal id . structSt $ abst
+              if isLocal varName . structSt $ abst
                 then do
-                  putError from . UnknownError $
-                    "Redefinition of variable `" <> unpack id <>
-                    "`. Was defined in Abstract Type `" <> unpack abstName <> "`"
-                  pure True
+                  -- putError from . UnknownError $
+                  --   "Redefinition of variable `" <> unpack varName <>
+                  --   "`. Was defined in Abstract Type `" <> unpack abstName <> "`"
+                  pure False --
                 else pure False
             _ -> pure False
         _ -> pure False
+
+
+
+info' :: Bool -> SourcePos -> Text 
+      -> Type -> Maybe Expression -> Bool 
+      -> Parser Entry'
+info' isStruct pos name t expr constness = if isStruct 
+  then do
+    Just (_ , fields, _) <- use currentStruct
+    let 
+      f = (fromIntegral (length fields), t, constness, expr)
+      fields' = Map.insert name f fields
+    case name `Map.lookup` fields of
+      Just (_,t', _, _) | t' =:= t -> pure ()
+      Just _ -> putError pos . UnknownError $ 
+        "Ambigous redefinition of variable `" <> unpack name <> "` defined in abstract type"
+      _ -> currentStruct %= over _Just (_2 .~ fields')
+    pure $ SelfVar t expr constness
+  else pure $ Var t expr constness

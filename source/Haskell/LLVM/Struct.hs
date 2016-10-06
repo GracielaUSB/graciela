@@ -12,7 +12,7 @@ import qualified AST.Instruction              as G (Instruction)
 import           AST.Struct                   (Struct (..), Struct' (..))
 import           AST.Type
 import           LLVM.Abort                   (abort, abortString)
-import qualified LLVM.Abort                   as Abort (Abort (Invariant, RepInvariant))
+import qualified LLVM.Abort                   as Abort (Abort (..))
 import           LLVM.Definition
 import           LLVM.Expression
 import           LLVM.Instruction             (instruction)
@@ -20,7 +20,7 @@ import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                 (warn)
-import qualified LLVM.Warning                 as Warning (Warning (Invariant, Pre, RepInvariant))
+import qualified LLVM.Warning                 as Warning (Warning (..))
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
@@ -58,14 +58,16 @@ data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 defineStruct :: Text -> (Struct, [TypeArgs]) -> LLVM ()
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
-  Struct {structBaseName,structTypes, structFields, structProcs, struct'} -> case struct' of
-    DataType {abstract, abstractTypes, inv, repinv, couple} ->
+  Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
+    DataType {abstract, abstractTypes, inv, repinv, coupinv, couple} ->
       forM_ typeMaps $ \typeMap -> do
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
 
+        let 
+          fields = toList structFields <> toList structAFields
         type' <- Just . StructureType True <$>
-          mapM (toLLVMType . (\(_,x,_) -> x)) (sortOn (\(i,_,_) -> i) . toList $ structFields)
+          mapM (toLLVMType . (\(_,x,_,_) -> x)) (sortOn (\(i,_,_,_) -> i) fields)
 
         types <- mapM toLLVMType structTypes
         let
@@ -76,6 +78,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
+        defineStructInv CoupInvariant name structType coupinv
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
         defineCouple couple name structType
@@ -92,15 +95,16 @@ defaultConstructor name structType typeMap = do
 
   (proc #)
 
-  Just Struct { structFields } <- use currentStruct
+  Just Struct { structFields, structAFields } <- use currentStruct
 
   openScope
   selfName <- insertVar "_self"
 
   let
     self = LocalReference structType selfName
+    fields = toList structFields <> toList structAFields
 
-  forM_ (toList structFields) $ \(field, t, expr) -> do
+  forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
     case filledT of 
@@ -246,15 +250,16 @@ defaultDestructor name structType typeMap = do
 
   (proc #)
 
-  Just Struct { structFields } <- use currentStruct
+  Just Struct { structFields, structAFields } <- use currentStruct
 
   openScope
   selfName <- insertVar "_self"
 
   let
     self = LocalReference structType selfName
+    fields = toList structFields <> toList structAFields
 
-  forM_ (toList structFields) $ \(field, t, expr) -> do
+  forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
     case filledT of 
@@ -358,14 +363,13 @@ defineStructInv :: Invariant
                 -> LLVM.Type
                 -> Expression
                 -> LLVM ()
-defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
-  | inv == CoupInvariant = undefined
-  | otherwise = do
+defineStructInv inv name t expr@ Expression {loc = Location(pos,_)} = do
 
     let
       procName = (<> name) (case inv of
-          Invariant    -> "inv-"
-          RepInvariant -> "repInv-")
+          CoupInvariant -> "coupInv-"
+          Invariant     -> "inv-"
+          RepInvariant  -> "repInv-")
 
     proc <- newLabel $ "proc" <> procName
     (proc #)
@@ -397,14 +401,16 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)}
 
     (precondTrue #)
     case inv of
-      Invariant    -> abort Abort.Invariant pos
-      RepInvariant -> abort Abort.RepInvariant pos
+      CoupInvariant -> abort Abort.CoupInvariant pos
+      Invariant     -> abort Abort.Invariant pos
+      RepInvariant  -> abort Abort.RepInvariant pos
 
     (precondFalse #)
 
     case inv of
-      Invariant    -> warn Warning.Invariant pos
-      RepInvariant -> warn Warning.RepInvariant pos
+      CoupInvariant -> warn Warning.CoupInvariant pos
+      Invariant     -> warn Warning.Invariant pos
+      RepInvariant  -> warn Warning.RepInvariant pos
 
     terminate Br
         { dest      = trueLabel

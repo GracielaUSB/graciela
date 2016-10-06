@@ -24,7 +24,7 @@ data Declaration
   | Initialization
     { declLoc   :: Location
     , declType  :: Type
-    , declPairs :: Seq (Text, Expression) }
+    , declPairs :: Seq (Text, (Expression,Bool)) }
 
 instance Treelike Declaration where
   toTree Declaration { declLoc, declType, declIds } =
@@ -38,6 +38,6 @@ instance Treelike Declaration where
       (fmap pair . toList $ declPairs)
 
     where
-      pair (identifier, expr) =
+      pair (identifier, (expr,_)) =
         Node (unpack identifier <> " :=")
           [toTree expr]

@@ -359,6 +359,12 @@ setSetType t1@(GSet _) t2@(GSet _) = case t1 <> t2 of
 setSetType t1@(GMultiset _) t2@(GMultiset _) = case t1 <> t2 of
   GUndef -> Left $ show (t1, t1)
   t3     -> Right t3
+setSetType t1@(GRel _ _) t2@(GRel _ _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3     -> Right t3
+setSetType t1@(GFunc _ _) t2@(GFunc _ _) = case t1 <> t2 of
+  GUndef -> Left $ show (t1, t1)
+  t3     -> Right t3
 setSetType _ _ = let t = GUnsafeName "t" in Left $
   show (GSet t, GSet t) <> ", or " <>
   show (GMultiset t, GMultiset t)

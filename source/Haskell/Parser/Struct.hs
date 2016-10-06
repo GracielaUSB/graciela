@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parser.ADT
+module Parser.Struct
     ( abstractDataType
     , dataType
     ) where
@@ -26,8 +26,9 @@ import           Parser.State
 import           Parser.Type
 import           SymbolTable
 import           Token
+import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens        (over, use, (%=), (.=), (.~), _2, _Just)
+import           Control.Lens        (over, use, (%=), (.=), (.~), _2, _Just, (^.))
 import           Control.Monad       (foldM, unless, void, when, zipWithM_, forM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
@@ -76,13 +77,11 @@ abstractDataType = do
     currentStruct .= Just (abstractType, Map.empty, Map.empty)
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
-    decls' <- sequence <$> (abstractDeclaration `endBy` match' TokSemicolon)
+    decls' <- sequence <$> (abstractDeclaration True `endBy` match' TokSemicolon)
 
-    fields <- case decls' of
-      Nothing    -> pure Map.empty
-      Just decls -> toFields 0 abstractName abstractType decls
+    cs <- use currentStruct
 
-    currentStruct %= over _Just (_2 .~ fields)
+    let fields = cs ^. _Just . _2
 
     inv'   <- invariant
     procs' <- sequence <$> many (procedureDeclaration <|> functionDeclaration)
@@ -100,45 +99,19 @@ abstractDataType = do
 
         let struct = Struct
                 { structBaseName   = abstractName
-                , structFields = fields
-                , structProcs  = Map.fromList $
+                , structFields  = fields
+                , structAFields = Map.empty
+                , structProcs   = Map.fromList $
                   (\d@Definition { defName } -> (defName, d)) <$> toList procs
-                , structLoc    = loc
-                , structSt     = st
-                , structTypes  = atypes
-                , struct'      = AbstractDataType inv
+                , structLoc     = loc
+                , structSt      = st
+                , structTypes   = atypes
+                , struct'       = AbstractDataType inv
                 }
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
     typeVars .= []
     currentStruct .= Nothing
-
-
-
-toFields :: Integer -> Text -> Type
-         -> Seq Declaration
-         -> Parser (Map Text (Integer, Type, Maybe Expression))
-toFields n name dt s = Map.fromList . zipWith f [n..] . toList . F.concat <$> mapM toField' s
-  where
-    toField' Declaration{ declLoc = Location(pos,_), declType, declIds } = do
-      when (recursiveDecl declType dt) .
-        putError pos . UnknownError $ "Recursive definition. A Data\
-          \ Type cannot contain a field of itself."
-
-      pure . zip (toList declIds) $ repeat (declType, Nothing)
-
-    toField' Initialization{ declLoc = Location(pos,_), declType, declPairs } = do
-      when (recursiveDecl declType dt) .
-        putError pos . UnknownError $ "Recursive definition. A Data\
-          \ Type cannot contain a field of itself."
-      let
-        names = fmap fst  (toList declPairs)
-        exprs = fmap snd  (toList declPairs)
-
-      pure . zip names . zip (repeat declType) $ fmap Just exprs
-
-    f n (name, (t,e)) = (name, (n,t,e))
-
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
 dataType :: Parser ()
@@ -184,20 +157,20 @@ dataType = do
           let
             dtType   = GDataType name abstractName' typeArgs
             typeArgs = Array.listArray (0, length types - 1) types
-          currentStruct .= Just (dtType, Map.empty, Map.empty)
-
-          decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
-          fields' <- case decls' of
-            Nothing -> pure Map.empty
-            Just decls -> toFields (fromIntegral $ Map.size structFields) name dtType decls
-
-          let
             lenNeeded = length structTypes
             lenActual = length absTypes
+            abstFields = fillTypes abstractTypes structFields
 
             abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
+          currentStruct .= Just (dtType, abstFields, Map.empty)
 
-            adtToDt (i,t,e) = (i, f t, e)
+          decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
+          cs <- use currentStruct
+          
+          let 
+            allFields = cs ^. _Just . _2
+
+            adtToDt (i,t,c,e) = (i, f t, c, e)
 
             f t = case t of
                 GDataType _ _ _ -> t <> GDataType name abstractName' typeArgs
@@ -205,14 +178,11 @@ dataType = do
                 GPointer t -> GPointer (f t)
                 _ -> t
 
-            fields = fmap adtToDt $ fillTypes abstractTypes structFields <> fields'
-
-
-          currentStruct %= over _Just (_2 .~ fields)
-
-          -- Invariants
           repinv'  <- repInv
-          couple'  <- optional coupleInv
+          coupling .= True
+          coupinv' <- coupInv
+          couple'  <- optional coupleRel
+          coupling .= False
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
@@ -226,9 +196,9 @@ dataType = do
           abstractAST <- getStruct abstractName
           mapM_ (checkProc abstractTypes procs name abstractName) structProcs
 
-          case (decls', repinv', couple') of
+          case (decls', repinv', coupinv', couple') of
 
-            (Just decls, Just repinv, Just couple'') -> do
+            (Just decls, Just repinv, Just coupinv, Just couple'') -> do
               {- Different number of type arguments -}
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
@@ -236,7 +206,8 @@ dataType = do
               let
                 struct = Struct
                   { structBaseName = name
-                  , structFields   = fields
+                  , structFields   = allFields
+                  , structAFields  = Map.empty
                   , structSt       = st
                   , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
                   , structLoc      = Location(from,to)
@@ -246,25 +217,27 @@ dataType = do
                     , abstractTypes
                     , inv = inv struct'
                     , repinv
+                    , coupinv
                     , couple = couple''}}
               dataTypes %= Map.insert name struct
               typeVars .= []
               currentStruct .= Nothing
 
-            (Just decls, Just repinv, Nothing ) -> do
+            (Just decls, Just repinv, Just coupinv, Nothing ) -> do
               {- Different number of type arguments -}
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
 
               let Just Struct{ structLoc, structFields } = abstractAST 
-              forM_ (Map.toList structFields) $ \(name, (_, t, _)) -> 
+              forM_ (Map.toList structFields) $ \(name, (_, t, _,_)) -> 
                 when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
-                  "Expected couple for highlevel variable `" <> unpack name <> "`."
+                  "Expected couple for abstract variable `" <> unpack name <> "`."
 
               let
                 struct = Struct
                   { structBaseName = name
-                  , structFields   = fields
+                  , structFields   = allFields
+                  , structAFields  = Map.empty
                   , structSt       = st
                   , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
                   , structLoc      = Location(from,to)
@@ -274,6 +247,7 @@ dataType = do
                     , abstractTypes
                     , inv = inv struct'
                     , repinv
+                    , coupinv
                     , couple = Seq.empty}}
               dataTypes %= Map.insert name struct
               typeVars .= []
@@ -372,8 +346,8 @@ dataType = do
             "Parameter named `" <> unpack name2 <> "` has type " <>
             show t2 <>" but expected type " <> show t1 <> "."
 
-coupleInv :: Parser (Seq Instruction)
-coupleInv = do
+coupleRel :: Parser (Seq Instruction)
+coupleRel = do
   loc <- match TokWhere
   between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
   where 
@@ -389,7 +363,7 @@ coupleInv = do
           assigned <- Set.fromList <$> mapM (check structFields) auxInsts
 
           let 
-            needed = Map.keysSet . Map.filter (\(_,t,_) -> t =:= highLevel) $ structFields
+            needed = Map.keysSet . Map.filter (\(_,t,_,_) -> t =:= highLevel) $ structFields
             left   = needed `Set.difference` assigned
 
           when (not (null left)) . forM_ left $ \name -> putError pos . UnknownError $ 

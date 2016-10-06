@@ -168,8 +168,8 @@ hasDT (GPointer t)       = hasDT t
 hasDT _                  = Nothing
 
 hasTypeVar GTypeVar{}                 = True
-hasTypeVar t@GDataType {typeArgs}     = not (null typeArgs)
-hasTypeVar t@GFullDataType {typeArgs} = not (null typeArgs)
+hasTypeVar t@GDataType {typeArgs}     = any hasTypeVar typeArgs
+hasTypeVar t@GFullDataType {typeArgs} = any hasTypeVar typeArgs
 hasTypeVar (GArray _ t)               = hasTypeVar t
 hasTypeVar (GPointer t)               = hasTypeVar t
 hasTypeVar _                          = False

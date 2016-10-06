@@ -10,7 +10,7 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression' (..))
 import qualified AST.Instruction                     as G (Instruction)
-import           AST.Struct                          (Struct (..))
+import           AST.Struct                          (Struct (..), Struct'(..))
 import           AST.Type                            (Expression, (=:=))
 import qualified AST.Type                            as T
 import           Error                               (internal)
@@ -380,24 +380,46 @@ definition
             , returnType  = voidType
             , basicBlocks = toList blocks' }
 
-        Just Struct { structBaseName, structTypes } -> do
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
 
           let
             dts = filter getDTs . toList $ procParams
 
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
 
-          cond <- precondition pre
+          abstractStruct <- (Map.lookup abstract) <$> use structs
 
+          let 
+            maybeProc = case abstractStruct of 
+              Just Struct {structProcs} -> defName `Map.lookup` structProcs
+              Nothing -> error "Internal error: Missing Abstract Data Type." 
+
+          
+          cond <- precondition pre
           mapM_ (callCouple    ("couple" <> postFix)) dts
-          mapM_ (callInvariant ("inv" <> postFix) cond) dts
-          mapM_ (callInvariant ("repInv" <> postFix) cond) dts
+
+          case maybeProc of 
+            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
+              mapM_ declaration abstPDecl
+              preconditionAbstract cond pre'
+            _ -> pure ()
+
+          mapM_ (callInvariant ("inv"     <> postFix) cond) dts
+          mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
+          mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
+
 
           instruction procBody
 
-          mapM_ (callCouple    ("couple" <> postFix)) dts
-          mapM_ (callInvariant ("inv" <> postFix) cond) dts
-          mapM_ (callInvariant ("repInv" <> postFix) cond) dts
+          mapM_ (callCouple    ("couple"  <> postFix)) dts
+          mapM_ (callInvariant ("inv"     <> postFix) cond) dts
+          mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
+          mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
+
+          case maybeProc of 
+            Just Definition{post= post'} -> postconditionAbstract cond post'
+            _ -> pure ()
+
           postcondition post
 
           
@@ -550,13 +572,72 @@ precondition expr@ Expression {loc = Location (pos,_) } = do
 
     pure cond
 
-postcondition :: Expression -> LLVM ()
+preconditionAbstract :: Operand -> Expression -> LLVM ()
+preconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+  -- Create both labels
+  evaluate   <- newLabel "evaluate"
+  trueLabel  <- newLabel "precondAbstTrue"
+  falseLabel <- newLabel "precondAbstFalse"
+  -- Evaluate the condition expression
+  cond <- wrapBoolean expr
+
+  terminate CondBr
+    { condition = precond
+    , trueDest  = evaluate
+    , falseDest = trueLabel
+    , metadata' = [] }
+
+  -- Add the conditional branch
+  (evaluate #)
+  terminate CondBr
+    { condition = cond
+    , trueDest  = trueLabel
+    , falseDest = falseLabel
+    , metadata' = [] }
+  -- Set the false label to the warning, then continue normally
+  (falseLabel #)
+  abort Abort.BadAbstractCouple pos
+
+  -- And the true label to the next instructions
+  (trueLabel #)
+
+postconditionAbstract :: Operand -> Expression -> LLVM ()
+postconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+  -- Create both labels
+  evaluate   <- newLabel "evaluate"
+  trueLabel  <- newLabel "precondAbstTrue"
+  falseLabel <- newLabel "precondAbstFalse"
+  -- Evaluate the condition expression
+  cond <- wrapBoolean expr
+
+  terminate CondBr
+    { condition = precond
+    , trueDest  = evaluate
+    , falseDest = trueLabel
+    , metadata' = [] }
+
+  -- Add the conditional branch
+  (evaluate #)
+  terminate CondBr
+    { condition = cond
+    , trueDest  = trueLabel
+    , falseDest = falseLabel
+    , metadata' = [] }
+  -- Set the false label to the warning, then continue normally
+  (falseLabel #)
+  abort Abort.BadAbstractCouple pos
+
+  -- And the true label to the next instructions
+  (trueLabel #)
+
+postcondition ::Expression -> LLVM ()
 postcondition expr@ Expression {loc = Location(pos,_)} = do
   -- Evaluate the condition expression
   cond <- wrapBoolean expr
   -- Create both labels
   trueLabel  <- newLabel "postcondTrue"
   falseLabel <- newLabel "postcondFalse"
+
   -- Create the conditional branch
   terminate CondBr
     { condition = cond
@@ -570,47 +651,6 @@ postcondition expr@ Expression {loc = Location(pos,_)} = do
 
   (trueLabel #)
   terminate $ Ret Nothing []
-
-  -- nextLabel <- newLabel
-  -- (nextLabel #)
-
-
--- createParameters :: [(Name, Type)]
---                  -> [[LLVM.ParameterAttribute]]
---                  -> ([LLVM.Parameter], Bool)
--- createParameters names attrs = (zipWith parameters' names attrs, False)
---   where
---     parameters' (name, t) attr = LLVM.Parameter t name attr
-
---     parameters' (name, t) = LLVM.Parameter t name []
-
--- createDef :: Definition -> LLVM ()
--- createDef Definition { name, st, params, def' } = case def' of
---   ProcedureDef { constDec, pre, procbody, post } -> do
---     let name' = TE.unpack name
---     let args  = map (\(id, _) -> (TE.unpack id, fromJust $ checkSymbol id st)) params
---     let args' = ([LLVM.Parameter t (Name id) [] | (id, t) <- convertParams args], False)
---     retTy <- retVoid
---     addArgOperand args
---     mapM_ accToAlloca constDec
---     createState name' pre
---     createInstruction procbody
---     retVarOperand $ reverse args
---     createState name' post
---     addBasicBlock retTy
---     addDefinition name' args' voidType
---     where
---       parameters' params = [LLVM.Parameter t (Name id) [] | (id, t) <- convertParams params]
-
---   FunctionDef { funcbody, retType } -> do
---     let args' = ([Parameter t (Name id) [] | (id, t) <- convertFuncParams params], False)
---     mapM_ addFuncParam params
---     exp'  <- createExpression funcbody
---     n <- newLabel
---     let retTy = n := Ret (Just exp') []
---     addBasicBlock retTy
---     addDefinition (TE.unpack name) args' (toType retType)
-
 
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
@@ -759,6 +799,15 @@ preDefinitions files = do
     , defineFunction unionMultisetPairString      ptrParam2 pointerType
     , defineFunction intersectMultisetPairString  ptrParam2 pointerType
     , defineFunction differenceMultisetPairString ptrParam2 pointerType
+
+    , defineFunction unionFunctionString      [ parameter ("x", pointerType)
+                                              , parameter ("y", pointerType)
+                                              , parameter ("line", intType)
+                                              , parameter ("column", intType)]  
+                                              pointerType
+    , defineFunction intersectFunctionString  ptrParam2 pointerType
+    , defineFunction differenceFunctionString ptrParam2 pointerType
+
 --------------------------------------------------------------------------------
     , defineFunction multisetSumString            ptrParam2 pointerType
     , defineFunction concatSequenceString         ptrParam2 pointerType
@@ -793,7 +842,7 @@ preDefinitions files = do
     , defineFunction domainFuncString         ptrParam    pointerType
     , defineFunction domainRelString          ptrParam    pointerType
     
-    , defineFunction codomainFuncString       ptri64Param pointerType
+    , defineFunction codomainFuncString       ptri64Param i64
     , defineFunction codomainRelString        ptri64Param pointerType
 
     , defineFunction inverseFuncString        ptrParam    pointerType

@@ -87,7 +87,7 @@ toLLVMType (GFullDataType n t) = do
       (subst:_) -> fmap (fillType subst) t
   case n `Map.lookup` fdts of
     Nothing -> do
-      Just ast@Struct{structFields} <- (n `Map.lookup`) <$> use structs
+      Just ast@Struct{} <- (n `Map.lookup`) <$> use structs
       case n `Map.lookup` pdt of
         Just (_, typeArgs) | t' `elem` typeArgs -> pure ()
         _                  -> pendingDT t' ast
@@ -102,10 +102,12 @@ toLLVMType (GFullDataType n t) = do
 
 
   where
-    pendingDT t' s@Struct{ structFields } = do
+    pendingDT t' s@Struct{ structFields, structAFields } = do
+      let 
+        fields = toList structFields <> toList structAFields
       type' <- Just . LLVM.StructureType True <$>
-                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_) -> x))
-                  (sortOn (\(i,_,_) -> i) . toList $ structFields)
+                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_,_) -> x))
+                  (sortOn (\(i,_,_,_) -> i) $ fields)
       let
         fAlter = \case
           Nothing               -> Just (s, [t'])
@@ -180,10 +182,11 @@ sizeOf t = error $ "internal error: getting size of an unknow type " <> show t
 getStructSize name typeArgs = do
   structs' <- use structs
   case name `Map.lookup` structs' of
-    Just Struct { structFields, structTypes } -> do
+    Just Struct { structFields, structAFields, structTypes } -> do
 
       let
-        types' = fillType typeArgs . (\(_,x,_) -> x) <$> toList structFields
+        fields = toList structFields <> toList structAFields
+        types' = fillType typeArgs . (\(_,x,_,_) -> x) <$> fields
 
       sum <$> mapM sizeOf types'
 

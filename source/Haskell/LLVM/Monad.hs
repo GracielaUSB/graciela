@@ -195,22 +195,25 @@ isElemSeqPairString      = "_isElemSequencePair"
 
 
 unionSetString, unionMultisetString :: String
-unionSetString      = "_unionSet"
-unionMultisetString = "_unionMultiset"
+unionSetString          = "_unionSet"
+unionMultisetString     = "_unionMultiset"
 unionSetPairString      = "_unionSetPair"
 unionMultisetPairString = "_unionMultisetPair"
+unionFunctionString     = "_unionFunction"
 
 intersectSetString, intersectMultisetString :: String
-intersectSetString      = "_intersectSet"
-intersectMultisetString = "_intersectMultiset"
+intersectSetString          = "_intersectSet"
+intersectMultisetString     = "_intersectMultiset"
 intersectSetPairString      = "_intersectSetPair"
 intersectMultisetPairString = "_intersectMultisetPair"
+intersectFunctionString     = "_intersectFunction"
 
 differenceSetString, differenceMultisetString :: String
-differenceSetString      = "_differenceSet"
-differenceMultisetString = "_differenceMultiset"
+differenceSetString          = "_differenceSet"
+differenceMultisetString     = "_differenceMultiset"
 differenceSetPairString      = "_differenceSetPair"
 differenceMultisetPairString = "_differenceMultisetPair"
+differenceFunctionString     = "_differenceFunction"
 
 multisetSumString, concatSequenceString :: String
 multisetSumString        = "_sumMultiset" 

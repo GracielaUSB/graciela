@@ -9,11 +9,11 @@ module Parser.Program
 -------------------------------------------------------------------------------
 import           AST.Program
 import           Location           (Location (..))
-import           Parser.ADT
 import           Parser.Definition
 import           Parser.Instruction (block)
 import           Parser.Monad       hiding (sepBy1)
 import           Parser.State
+import           Parser.Struct
 import           SymbolTable        (closeScope, openScope)
 import           Token
 import           AST.Type

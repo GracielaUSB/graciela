@@ -141,8 +141,8 @@ token  =  reserved "program"    TokProgram
       <|> reserved "abstract"   TokAbstract
       <|> reserved "{repinv"    TokLeftRep
       <|> reserved "repinv}"    TokRightRep
-      -- <|> reserved "{coupinv"   TokLeftAcopl
-      -- <|> symbol   "coupinv}"   TokRightAcopl
+      <|> reserved "{coupinv"   TokLeftAcopl
+      <|> symbol   "coupinv}"   TokRightAcopl
 
       <|> reserved "elem"       TokElem
       <|> symbol   "\8712"      TokElem    -- ∈

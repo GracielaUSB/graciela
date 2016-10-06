@@ -90,7 +90,7 @@ object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
   Variable { mode } | mode == Just In
-    || (isJust mode && not (objType =:= basic)) -> objectRef obj False
+    || (isJust mode && not (objType =:= basic) && not (isTypeVar objType)) -> objectRef obj False
     -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
@@ -108,7 +108,7 @@ object obj@Object { objType, obj' } = case obj' of
                   , metadata  = [] }
 
       -- The reference to where the variable value was loaded (e.g. %12)
-      return $ LocalReference t label
+      pure $ LocalReference t label
 
 
 -- Get the reference to the object.
@@ -276,7 +276,7 @@ objectRef obj@(Object loc objType obj') flag = do
 
       (falseLabel #)
 
-      return . LocalReference objType' $ labelLoad
+      pure . LocalReference objType' $ labelLoad
 
 
     Member { inner, field } -> do
@@ -297,7 +297,7 @@ objectRef obj@(Object loc objType obj') flag = do
   --
   --   getIndices (indices,ref) obj = do
   --     ref <- objectRef obj False
-  --     return (reverse indices, Just ref)
+  --     pure (reverse indices, Just ref)
 
 
 
@@ -497,7 +497,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }            
 
-        return $ LocalReference (IntegerType n) label
+        pure $ LocalReference (IntegerType n) label
 
       opFloat :: Op.UnaryOperator -> Operand -> LLVM Operand
       opFloat op innerOperand = do
@@ -508,7 +508,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
           , operand1 = ConstantOperand . C.Float $ LLVM.Double (-1.0)
           , metadata = []}
 
-        return $ LocalReference floatType label
+        pure $ LocalReference floatType label
 
       -- opSet :: Op.UnaryOperator -> Operand -> LLVM Operand
       -- opSet op innerOperand = do
@@ -522,7 +522,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       --     , functionAttributes = []
       --     , metadata           = [] }
 
-      --   return $ LocalReference floatType label
+      --   pure $ LocalReference floatType label
 
       -- opMultiset :: Op.UnaryOperator -> Operand -> LLVM Operand
       -- opMultiset op innerOperand = do
@@ -536,7 +536,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       --     , functionAttributes = []
       --     , metadata           = [] }
 
-      --   return $ LocalReference floatType label
+      --   pure $ LocalReference floatType label
 
       -- opSeq :: Op.UnaryOperator -> Operand -> LLVM Operand
       -- opSeq op innerOperand = do
@@ -550,7 +550,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       --     , functionAttributes = []
       --     , metadata           = [] }
 
-      --   return $ LocalReference floatType label
+      --   pure $ LocalReference floatType label
       
 
       callUnaryFunction :: String -> Operand -> Instruction
@@ -574,8 +574,12 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     rOperand <- expression rexpr
 
     -- Get the type of the left expr. Used at bool operator to know the type when comparing.
+    substs <- use substitutionTable
     let
-      op = case expType of
+      expType' = case substs of
+        []        -> expType
+        (subst:_) -> fillType subst expType
+      op = case expType' of
         GInt        -> opInt 32
         GChar       -> opInt 8
         -- GBool  -> opBool
@@ -583,6 +587,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         GSet _      -> opSet
         GMultiset _ -> opMultiset
         GSeq _      -> opSeq
+        GFunc _ _   -> opFunc
+        GRel _ _   -> opRel
         GTuple _ _  -> opTuple
         t      -> error $
           "internal error: type " <> show t <> " not supported"
@@ -730,7 +736,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) codomainRelString
+              , function           = callable i64 codomainFuncString
               , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -740,7 +746,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , type'    = IntegerType n
               , metadata = [] }
 
-        return $ LocalReference (IntegerType n) label
+        pure $ LocalReference (IntegerType n) label
 
       opFloat op lOperand rOperand = do
         label <- newLabel "floatBinaryResult"
@@ -797,7 +803,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , metadata           = [] }
 
           _ -> error "opFloat"
-        return $ LocalReference floatType label
+        pure $ LocalReference floatType label
 
       opSet op lOperand rOperand = do
         label <- newLabel "setBinaryResult"
@@ -853,7 +859,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }
           _ -> error $ show op
-        return $ LocalReference pointerType label
+        pure $ LocalReference pointerType label
 
       opMultiset op lOperand rOperand = do
         label <- newLabel "multisetBinaryResult"
@@ -899,7 +905,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-        return $ LocalReference pointerType label
+        pure $ LocalReference pointerType label
 
       opSeq op lOperand rOperand = do
         label <- newLabel "sequenceBinaryResult"
@@ -915,7 +921,77 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-        return $ LocalReference pointerType label
+        pure $ LocalReference pointerType label
+
+      opFunc op lOperand rOperand = do
+        label <- newLabel "funcBinaryResult"
+        case op of
+          Op.Union -> do 
+            let 
+              SourcePos _ x y = pos 
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+
+            addInstruction $ label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) unionFunctionString
+              , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+              , functionAttributes = []
+              , metadata           = [] }
+          Op.Intersection -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) intersectFunctionString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Difference -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) differenceFunctionString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] } 
+        pure $ LocalReference pointerType label
+
+      opFunc op lOperand rOperand = do
+        label <- newLabel "funcBinaryResult"
+        case op of
+          Op.Union -> do 
+            let 
+              SourcePos _ x y = pos 
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+
+            addInstruction $ label := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) unionSetPairString
+              , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+              , functionAttributes = []
+              , metadata           = [] }
+          Op.Intersection -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) intersectSetPairString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] }
+          Op.Difference -> addInstruction $ label := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable (ptr i8) differenceSetPairString
+            , arguments          = [(lOperand,[]), (rOperand,[])]
+            , functionAttributes = []
+            , metadata           = [] } 
+        pure $ LocalReference pointerType label
 
       opTuple op lOperand rOperand = do
         label <- newLabel "tupleBinaryResult"
@@ -949,7 +1025,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , alignment = 4
               , metadata  = [] } 
 
-            return $ LocalReference tupleType label
+            pure $ LocalReference tupleType label
 
   EConditional { eguards, trueBranch } -> do
     entry  <- newLabel "ifExpEntry"
@@ -1075,4 +1151,4 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
   _ -> do
     traceM . drawTree . toTree $ e
     traceM "I don't know how to generate code for:"
-    return . ConstantOperand $ C.Int 32 10
+    pure . ConstantOperand $ C.Int 32 10
