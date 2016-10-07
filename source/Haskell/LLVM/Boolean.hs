@@ -11,6 +11,7 @@ module LLVM.Boolean
 --------------------------------------------------------------------------------
 import           AST.Expression                          as Op
 import           AST.Type
+import           Common
 import           Error                                   hiding (fArgs, fName)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
@@ -38,7 +39,6 @@ import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type                   (i1, i64, ptr)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 boolean' :: (Expression -> LLVM Operand) -- ^ non-boolean expression code generator
          -> (Object -> LLVM Operand) -- ^ object code generator (both boolean and non-boolean)
@@ -103,7 +103,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = let boolean =
 
         item <- newLabel "item"
         substs <- use substitutionTable
-        lType' <- case substs of 
+        lType' <- case substs of
           subst : _ -> pure $ fillType subst (expType lexpr)
           _         -> pure $ expType lexpr
         addInstruction $ item := case lType' of

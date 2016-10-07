@@ -20,6 +20,7 @@ import           AST.Struct                (Struct (..), fillTypes)
 import           AST.Type                  (ArgMode (..), Expression, Object,
                                             QRange, Type (..), fillType, hasDT,
                                             isTypeVar, (=:=))
+import           Common
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..), internal)
 import           Lexer
@@ -58,7 +59,6 @@ import           Text.Megaparsec           (between, getPosition, lookAhead,
                                             manyTill, optional,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 expression :: Parser (Maybe Expression)
 expression = evalStateT expr []
@@ -90,7 +90,7 @@ type MetaExpr = (Expression, ProtoRange, Taint)
 type ParserExp = StateT [ Text ] Parser
 
 expr :: ParserExp (Maybe Expression)
-expr = pure . (view _1 <$>) =<< metaexpr
+expr = pure . (view _1 <$>) =<< filterRawName =<< metaexpr
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
@@ -237,9 +237,9 @@ tuple = do
 
 collection :: ParserExp (Maybe MetaExpr)
 collection = do
-  (colKind, Location (from,_)) <-  (Set,)      <$> match TokLeftBrace
-                               <|> (Multiset,) <$> match TokLeftBag
-                               <|> (Sequence,) <$> match TokLeftSeq
+  (colKind, Location (from,_)) <- (Set,)      <$> match TokLeftBrace
+                              <|> (Multiset,) <$> match TokLeftBag
+                              <|> (Sequence,) <$> match TokLeftSeq
 
   mvrc <- optional (varAndRange from)
   melems <- elems $ case colKind of
@@ -423,7 +423,7 @@ collection = do
                 pure $ Just (els |> e, expType e)
               else do
                 putError pos . UnknownError $
-                  "Unexpected expression of type " <> show (expType e) <> ",\
+                  "Unexpected expression of type " <> show (expType e) <> ", \
                   \expected instead an expression of type " <> show t <> "."
                 pure Nothing
             newType -> pure $ Just (els |> e, newType)
@@ -885,14 +885,13 @@ ifExp = do
 
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
-  [ {-Level 0-}
-    [ Postfix (foldr1 (>=>) <$> some call) ]
-  , {-Level 1-}
+  [ {-Level 1-}
     [ Postfix (foldr1 (>=>) <$> some dotField) ]
   , {-Level 2-}
-    [ Prefix  (foldr1 (>=>) <$> some deref) ]
+    [ Postfix (foldr1 (>=>) <$> some call)
+    , Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 3-}
-    [ Postfix (foldr1 (>=>) <$> some subindex) ]
+    [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 4-}
     [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
   , {-Level 5-}
@@ -1307,10 +1306,7 @@ call = do
 subindex :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 subindex = do
   from' <- getPosition
-  -- subind <- between (match TokLeftBracket) (match' TokRightBracket) metaexpr
-  subindices' <- (match TokSepGuards >> pure Seq.empty) <|> between
-    (match TokLeftBracket)
-    (match' TokRightBracket)
+  subindices' <- between (match TokLeftBracket) (match' TokRightBracket)
     (subAux `sepBy` match TokComma)
   to <- getPosition
 
@@ -1320,7 +1316,7 @@ subindex = do
     Nothing -> const $ pure Nothing
     Just subs -> if null subs
       then \case
-        Just (Expression { expType, loc }, _, _) -> case expType of
+        Just (e@Expression { expType, loc }, _, _) -> case expType of
           GArray _ _ -> do
             putError (pos loc) . UnknownError $
               "Missing dimensions in array access."
@@ -1331,7 +1327,7 @@ subindex = do
             pure Nothing
           _ -> do
             putError (pos loc) . UnknownError $
-              "Unexpected subindex. Can only access arrays and sequences."
+              "Unexpected subindex. Can only access arrays and sequences.\n" <> drawTree (toTree e)
             pure Nothing
         Nothing -> pure Nothing
       else \case
@@ -1402,7 +1398,8 @@ subindex = do
     subAux = do
       e <- metaexpr >>= filterRawName
       case e of
-        je@(Just (Expression { expType = GInt }, _, _)) -> pure je
+        je@(Just (Expression { expType = GInt }, _, _)) -> do
+          pure je
         Just (Expression { expType, loc }, _, _) -> do
           putError (pos loc) . UnknownError $
             "Cannot use expression of type " <> show expType <>

@@ -11,9 +11,10 @@ import           AST.Definition
 import           AST.Expression      (Expression' (..))
 import           AST.Instruction
 import           AST.Object
-import qualified AST.Object          as O (Object'(loc))
+import qualified AST.Object          as O (Object' (loc))
 import           AST.Struct
 import           AST.Type
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -28,29 +29,30 @@ import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens        (over, use, (%=), (.=), (.~), _2, _Just, (^.))
-import           Control.Monad       (foldM, unless, void, when, zipWithM_, forM_)
+import           Control.Lens        (over, use, (%=), (.=), (.~), (^.), _2,
+                                      _Just)
+import           Control.Monad       (foldM, forM_, unless, void, when,
+                                      zipWithM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       (toList)
 import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
 import           Data.Map            (Map)
-import qualified Data.Map            as Map (empty, fromList, insert, lookup,
-                                             size, toList, keysSet, filter)
-import           Data.Maybe          (catMaybes, isNothing, isJust)
-import qualified Data.Set            as Set (fromList, difference)
+import qualified Data.Map            as Map (empty, filter, fromList, insert,
+                                             keysSet, lookup, size, toList)
+import           Data.Maybe          (catMaybes, isJust, isNothing)
 import           Data.Semigroup      ((<>))
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
+import qualified Data.Set            as Set (difference, fromList)
 import           Data.Text           (Text, pack, unpack)
 import           Prelude             hiding (lookup)
-import           Text.Megaparsec     (eof, getPosition, manyTill, optional,
-                                      (<|>), between)
+import           Text.Megaparsec     (between, eof, getPosition, manyTill,
+                                      optional, (<|>))
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
-import           Debug.Trace
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
 
@@ -63,7 +65,7 @@ abstractDataType = do
       t <- optional . parens $ (typeVarDeclaration `sepBy` match TokComma)
       case t of
         Just s -> pure $ toList s
-        _ -> pure []
+        _      -> pure []
 
   if isNothing abstractName'
   then
@@ -124,7 +126,7 @@ dataType = do
       t <- optional . parens $ typeVarDeclaration `sepBy` match TokComma
       case t of
         Just s -> pure $ toList s
-        _ -> pure []
+        _      -> pure []
 
   match' TokImplements
   abstractName' <- safeIdentifier
@@ -132,7 +134,7 @@ dataType = do
       t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
       case t of
         Just s -> pure $ toList s
-        _ -> pure []
+        _      -> pure []
 
   if isNothing name' || isNothing abstractName'
     then
@@ -166,17 +168,17 @@ dataType = do
 
           decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
           cs <- use currentStruct
-          
-          let 
+
+          let
             allFields = cs ^. _Just . _2
 
             adtToDt (i,t,c,e) = (i, f t, c, e)
 
             f t = case t of
                 GDataType _ _ _ -> t <> GDataType name abstractName' typeArgs
-                GArray s t -> GArray s (f t)
-                GPointer t -> GPointer (f t)
-                _ -> t
+                GArray s t      -> GArray s (f t)
+                GPointer t      -> GPointer (f t)
+                _               -> t
 
           repinv'  <- repInv
           coupling .= True
@@ -189,7 +191,7 @@ dataType = do
 
           procs   <- catMaybes . toList <$> many (procedure <|> function)
           match' TokEnd
-          
+
           to <- getPosition
           st <- use symbolTable
           symbolTable %= closeScope to
@@ -228,8 +230,8 @@ dataType = do
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
 
-              let Just Struct{ structLoc, structFields } = abstractAST 
-              forM_ (Map.toList structFields) $ \(name, (_, t, _,_)) -> 
+              let Just Struct{ structLoc, structFields } = abstractAST
+              forM_ (Map.toList structFields) $ \(name, (_, t, _,_)) ->
                 when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
                   "Expected couple for abstract variable `" <> unpack name <> "`."
 
@@ -340,7 +342,7 @@ dataType = do
           let
             t1 = case t1' of
               GTypeVar i _ -> abTypes' ! i
-              _ -> t1'
+              _            -> t1'
 
           unless (t1 =:= t2) . putError pos . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has type " <>
@@ -350,30 +352,30 @@ coupleRel :: Parser (Seq Instruction)
 coupleRel = do
   loc <- match TokWhere
   between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
-  where 
+  where
     aux pos = do
       insts' <- sequence <$> assign `sepBy` match TokSemicolon
       case insts' of
         Just insts | not (null insts) -> do
           Just (GDataType{abstName = Just abstName}, _, _) <- use currentStruct
           Just (Struct{structFields})  <- getStruct abstName
-          let 
+          let
             auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
 
           assigned <- Set.fromList <$> mapM (check structFields) auxInsts
 
-          let 
+          let
             needed = Map.keysSet . Map.filter (\(_,t,_,_) -> t =:= highLevel) $ structFields
             left   = needed `Set.difference` assigned
 
-          when (not (null left)) . forM_ left $ \name -> putError pos . UnknownError $ 
+          when (not (null left)) . forM_ left $ \name -> putError pos . UnknownError $
               "The variable `" <> unpack name <> "` has to be coupled."
-          
+
           pure insts
         Just _ -> putError pos (UnknownError "Empty coupling relation.") >> pure Seq.empty
-        _ -> pure Seq.empty      
+        _ -> pure Seq.empty
 
-    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = case obj of 
+    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = case obj of
         Object{ objType, obj' = Member{ fieldName }} -> do
           unless (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) .
             putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack fieldName <> "`."
@@ -384,4 +386,4 @@ coupleRel = do
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
-recursiveDecl t dt = t =:= dt
+recursiveDecl t dt                = t =:= dt

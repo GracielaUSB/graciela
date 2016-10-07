@@ -174,7 +174,6 @@ token  =  reserved "program"    TokProgram
 
       <|> reserved "msum"       TokMultisetSum
       <|> symbol   "\8846"      TokMultisetSum -- ⊎
-      <|> symbol   "@"          TokAtSign
       <|> symbol   "++"         TokConcat
       <|> symbol   "\10746"     TokConcat -- ⧺
       <|> reserved "subset"     TokSubset
@@ -281,8 +280,6 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\8709"      TokEmptySet -- ∅
       <|> symbol   "{"          TokLeftBrace
       <|> symbol   "}"          TokRightBrace
-
-      -- <|> symbol   "!"          TokIndex
       -- V2.0
 
       <|> symbol   "|"          TokPipe

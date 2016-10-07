@@ -116,8 +116,6 @@ data Token
   | TokLeftSeq
   | TokRightSeq
 
-  -- | TokIndex
-
   | TokOpenBlock
   | TokCloseBlock
 
@@ -199,7 +197,6 @@ data Token
   | TokSetIntersect
 
   | TokMultisetSum
-  | TokAtSign
   | TokConcat
   | TokSubset
   | TokSSubset
@@ -293,8 +290,6 @@ instance Show Token where
     TokLeftSeq        -> "`<<` - Signo de secuencia Izquierdo"
     TokRightSeq       -> "`>>` - Signo de secuencia Derecho"
 
-    -- TokIndex          -> "`!` - Sequence index"
-
     TokOpenBlock      -> "`|[` - Apertura de Bloque"
     TokCloseBlock     -> "`]|` - Cierre de Bloque"
 
@@ -365,7 +360,6 @@ instance Show Token where
     TokSetIntersect   -> "`intersect` - Intersección de conjuntos"
 
     TokMultisetSum    -> "`msum` - Multiset sum"
-    TokAtSign         -> "`@` - func and rel access "
     TokConcat         -> "`++` - sequence concatenation"
     TokSubset         -> "`subset`"
     TokSSubset        -> "`ssubset` - strict subset "

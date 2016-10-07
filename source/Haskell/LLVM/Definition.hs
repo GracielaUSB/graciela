@@ -13,6 +13,7 @@ import qualified AST.Instruction                     as G (Instruction)
 import           AST.Struct                          (Struct (..), Struct' (..))
 import           AST.Type                            (Expression, (=:=))
 import qualified AST.Type                            as T
+import           Common
 import           Error                               (internal)
 import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (..))
@@ -65,7 +66,6 @@ import qualified LLVM.General.AST.Type               as LLVM (Type)
 import           LLVM.General.AST.Visibility         (Visibility (Default))
 import           Prelude                             hiding (Ordering (EQ))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 {- Given the instruction block of the main program, construct the main LLVM function-}
 mainDefinition :: G.Instruction -> [String] -> LLVM ()

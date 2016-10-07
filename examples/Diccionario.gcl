@@ -25,11 +25,11 @@ abstract Diccionario (T0, T1) begin
    
     {pre c ∈ d.conoc pre}
     {post d.conoc == conoc' \ {c} 
-        ∧ d.tabla == tabla' \ func({(c, tabla'@c)}) post}
+        ∧ d.tabla == tabla' \ func({(c, tabla'(c))}) post}
 
   proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
     {pre  c ∈ d.conoc pre}
-    {post v == d.tabla@c post}
+    {post v == d.tabla(c) post}
 
   proc existe (in d : Diccionario(T0,T1), in c : T0, out e : boolean)
     {pre true pre}
@@ -174,7 +174,7 @@ main
    ; buscar(d,1,r) 
    ; writeln(b, " -> ", r)
    ; eliminar(d,1)
-   ; writeln(<<1,2,3>>!1)
+   ; writeln(<<1,2,3>>[1])
    ; existe(d,1,b)
    ; if     b     -> buscar(d,1,r) 
                    ; writeln(b, " ->", r)

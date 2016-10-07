@@ -12,6 +12,7 @@ module Parser.Definition
 import           AST.Definition
 import           AST.Expression
 import           AST.Type
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -42,8 +43,6 @@ import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
                                       optional, try, withRecovery, (<|>))
 --------------------------------------------------------------------------------
-import           Debug.Trace
-
 
 function :: Parser (Maybe Definition)
 function = do
@@ -78,7 +77,7 @@ function = do
                   "One of the parameters of the function `" <> unpack funcName <>
                   "`\n\tmust have type " <> show dtType <> " when using Variable Types."
             pure False
-      else do  
+      else do
         pure False
 
     _ -> pure False
@@ -146,23 +145,23 @@ function = do
                 , funcRecursive } }
 
           if goToDT
-            then do 
+            then do
               let Just (_,_, procs) = dt
               case funcName `Map.lookup` procs of
-                  Nothing -> do 
+                  Nothing -> do
                     currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
                     pure $ Just def
-                  Just _  -> do 
-                    putError from . UnknownError $ 
+                  Just _  -> do
+                    putError from . UnknownError $
                       "Redefinition of function `" <> unpack funcName <> "`."
                     pure Nothing
-          else do 
+          else do
             defs <- use definitions
             case funcName `Map.lookup` defs of
-              Nothing -> do 
+              Nothing -> do
                 definitions %= Map.insert funcName def
                 pure $ Just def
-              Just _  -> do 
+              Just _  -> do
                 putError from . UnknownError $
                   "Redefinition of function `" <> unpack funcName <> "`."
                 pure Nothing
@@ -238,7 +237,7 @@ procedure = do
                   "One of the parameters of the procedure `" <> unpack procName <>
                   "`\n\tmust have type " <> show dtType <> " when using Variable Types."
             pure False
-      else do  
+      else do
         existsDT .= False
         pure False
 
@@ -294,28 +293,28 @@ procedure = do
             , procParams = params
             , procRecursive }}
       if goToDT
-        then do 
+        then do
           let Just (_,_, procs) = dt
           case procName `Map.lookup` procs of
-              Nothing -> do 
+              Nothing -> do
                 currentStruct %= over _Just (_3 %~ (Map.insert procName def))
                 pure $ Just def
-              Just _  -> do 
-                putError from . UnknownError $ 
+              Just _  -> do
+                putError from . UnknownError $
                   "Redefinition of procedure `" <> unpack procName <> "`."
                 pure Nothing
-        else do 
+        else do
           defs <- use definitions
           case procName `Map.lookup` defs of
-            Nothing -> do 
+            Nothing -> do
               definitions %= Map.insert procName def
               pure $ Just def
-            Just _  -> do 
+            Just _  -> do
               putError from . UnknownError $
                 "Redefinition of procedure `" <> unpack procName <> "`."
               pure Nothing
-      
- 
+
+
 
     _ -> pure Nothing
 
@@ -413,7 +412,7 @@ procedureDeclaration = do
   params' <- parens $ doProcParams
 
   decls'  <- sequence <$> abstractDeclaration False `endBy` match' TokSemicolon
-  
+
   prePos <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
   postPos <- getPosition

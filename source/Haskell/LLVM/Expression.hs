@@ -20,6 +20,7 @@ import           AST.Object                              (Object' (..),
                                                           Object'' (..))
 import           AST.Type
 import qualified AST.Type                                as G (Type)
+import           Common
 import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
@@ -72,7 +73,6 @@ import           LLVM.General.AST.Operand                (CallableOperand,
 import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 boolean :: Name -> Name -> Expression -> LLVM ()
 boolean = boolean' expression' object objectRef
@@ -1131,7 +1131,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             expression' expr
           else do
             label <- newLabel "argCast"
-            traceM . drawTree . toTree $ expr
             ref   <- objectRef (theObj exp') False
 
             type' <- ptr <$> toLLVMType type'
@@ -1174,7 +1173,5 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
         pure $ LocalReference i64 t
 
   -- Dummy operand
-  _ -> do
-    traceM . drawTree . toTree $ e
-    traceM "I don't know how to generate code for:"
-    pure . ConstantOperand $ C.Int 32 10
+  _ -> internal $
+    "I don't know how to generate code for: " <> (drawTree . toTree $ e)

@@ -32,6 +32,7 @@ import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Expression, Object,
                                          Type (..), fillType, hasDT, isTypeVar,
                                          notIn, (=:=))
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -65,8 +66,6 @@ import           Text.Megaparsec        (between, eitherP, getPosition,
                                          lookAhead, notFollowedBy, optional,
                                          try, (<|>))
 -------------------------------------------------------------------------------
-import           Debug.Trace
-
 
 instruction :: Parser (Maybe Instruction)
 instruction
@@ -215,7 +214,7 @@ assign = do
     assignable a = case a of
       (GTuple _ _) -> False
       (GArray _ _) -> False
-      _ -> True
+      _            -> True
 
 random :: Parser (Maybe Instruction)
 random = do
@@ -331,9 +330,9 @@ reading = do
             { file
             , vars }}
   where
-    fileFrom = do 
-      loc <- match TokFrom 
-      str <- lookAhead stringLit <|> 
+    fileFrom = do
+      loc <- match TokFrom
+      str <- lookAhead stringLit <|>
              (putError (pos loc) (UnknownError  "The name of a file must be a string") >> lookAhead stringLit)
       expression
       pure str
