@@ -155,6 +155,10 @@ equalSeqPairString      = "_equalSequencePair"
 equalMultisetPairString = "_equalMultisetPair"
 equalTupleString        = "_equalTuple"
 
+evalFuncString, evalRelString :: String
+evalFuncString     = "_pairFunction"
+evalRelString      = "_pairRelation"
+
 sizeSetString, sizeSeqString, sizeMultisetString, sizeRelString, sizeFuncString :: String
 sizeSetString      = "_sizeSet"
 sizeSeqString      = "_sizeSequence"
@@ -222,6 +226,7 @@ multisetPairSumString    = "_sumMultisetPair"
 concatSequencePairString = "_concatSequencePair"
 atSequenceString         = "_atSequence"
 atSequencePairString     = "_atSequencePair"
+
 
 freeString    :: String
 freeString    = "_free"

@@ -886,25 +886,24 @@ ifExp = do
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
   [ {-Level 0-}
-    [ Postfix (foldr1 (>=>) <$> some call) ]
-  , {-Level 1-}
     [ Postfix (foldr1 (>=>) <$> some dotField) ]
+  , {-Level 1-}
+    [ Postfix (foldr1 (>=>) <$> some call)
+    , Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
-    [ Prefix  (foldr1 (>=>) <$> some deref) ]
+    [ Prefix  (foldr1 (>=>) <$> some deref) ]  
   , {-Level 3-}
-    [ Postfix (foldr1 (>=>) <$> some subindex) ]
-  , {-Level 4-}
     [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
-  , {-Level 5-}
-    [ Prefix  (foldr1 (>=>) <$> some (TokNot   --> unary Op.not   ))
+  {-Level 4-}
+  , [ Prefix  (foldr1 (>=>) <$> some (TokNot   --> unary Op.not   ))
     , Prefix  (foldr1 (>=>) <$> some (TokMinus --> unary Op.uMinus)) ]
-  , {-Level 6-}
+  , {-Level 5-}
     [ InfixR (TokPower        ==> binary Op.power) ]
-  , {-Level 7-}
+  , {-Level 6-}
     [ InfixL (TokTimes        ==> binary Op.times)
     , InfixL (TokDiv          ==> binary' Op.div )
     , InfixL (TokMod          ==> binary' Op.mod ) ]
-  , {-Level 8-}
+  , {-Level 7-}
     [ InfixL (TokPlus         ==> binary Op.plus      )
     , InfixL (TokMinus        ==> binary Op.bMinus    )
     , InfixL (TokSetUnion     ==> binary Op.union     )
@@ -912,10 +911,10 @@ operator =
     , InfixL (TokSetIntersect ==> binary Op.intersect )
     , InfixL (TokSetMinus     ==> binary Op.difference)
     , InfixL (TokConcat       ==> binary Op.concat    ) ]
-  , {-Level 9-}
+  , {-Level 8-}
     [ InfixL (TokMax          ==> binary Op.max)
     , InfixL (TokMin          ==> binary Op.min) ]
-  , {-Level 10-}
+  , {-Level 9-}
     [ InfixN (TokElem         ==> membership             )
     , InfixN (TokNotElem      ==> binary Op.notElem      )
     , InfixN (TokLT           ==> comparison Op.lt       )
@@ -926,17 +925,17 @@ operator =
     , InfixN (TokSSubset      ==> binary     Op.ssubset  )
     , InfixN (TokSuperset     ==> binary     Op.superset )
     , InfixN (TokSSuperset    ==> binary     Op.ssuperset) ]
-  , {-Level 11-}
+  , {-Level 10-}
     [ InfixN (TokAEQ          ==> pointRange   )
     , InfixN (TokANE          ==> binary Op.ane) ]
-  , {-Level 12-}
+  , {-Level 11-}
     [ InfixR (TokAnd          ==> conjunction) ]
-  , {-Level 13-}
+  , {-Level 12-}
     [ InfixR (TokOr           ==> binary' Op.or) ]
-  , {-Level 14-}
+  , {-Level 13-}
     [ InfixR (TokImplies      ==> binary' Op.implies   )
     , InfixL (TokConsequent   ==> binary' Op.consequent) ]
-  , {-Level 15-}
+  , {-Level 14-}
     [ InfixN (TokBEQ          ==> binary' Op.beq)
     , InfixN (TokBNE          ==> binary' Op.bne) ]
   ]
@@ -1329,7 +1328,7 @@ subindex = do
             putError (pos loc) . UnknownError $
               "Missing dimension in sequence access."
             pure Nothing
-          _ -> do
+          t | traceShowId(t) == t -> do
             putError (pos loc) . UnknownError $
               "Unexpected subindex. Can only access arrays and sequences."
             pure Nothing

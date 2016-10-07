@@ -742,7 +742,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable i64 codomainFuncString
+              , function           = callable i64 evalFuncString
               , arguments          = (,[]) <$> [lOperand, LocalReference i64 rCast, line, col]
               , functionAttributes = []
               , metadata           = [] }
@@ -860,7 +860,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) codomainRelString
+              , function           = callable (ptr i8) evalRelString
               , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
               , functionAttributes = []
               , metadata           = [] }

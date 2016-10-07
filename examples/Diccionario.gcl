@@ -25,11 +25,11 @@ abstract Diccionario (T0, T1) begin
    
     {pre c ∈ d.conoc pre}
     {post d.conoc == conoc' \ {c} 
-        ∧ d.tabla == tabla' \ func({(c, tabla'@c)}) post}
+        ∧ d.tabla == tabla' \ func({(c, tabla'(c))}) post}
 
   proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
     {pre  c ∈ d.conoc pre}
-    {post v == d.tabla@c post}
+    {post v == d.tabla(c) post}
 
   proc existe (in d : Diccionario(T0,T1), in c : T0, out e : boolean)
     {pre true pre}
@@ -95,7 +95,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
       
     ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
       {bound d.tam - i bound} 
-      do i < d.tam -> if d.clave[i] != c -> i := i + 1
+      do i < d.tam -> if c != c -> i := i + 1
                       [] otherwise       -> i := d.tam
                       fi
       od
@@ -158,7 +158,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
       {bound d.tam - i bound} 
       do i < d.tam -> if d.clave[i] != c -> i := i+1
-                      []otherwise        -> e, i := true, d.tam
+                      [] otherwise       -> e, i := true, d.tam
                       fi
       od
     ⟧

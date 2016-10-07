@@ -851,11 +851,14 @@ preDefinitions files = do
     , defineFunction domainFuncString         ptrParam    pointerType
     , defineFunction domainRelString          ptrParam    pointerType
 
-    , defineFunction codomainFuncString       [ parameter ("x", pointerType)
+    , defineFunction codomainFuncString       ptrParam    pointerType
+    , defineFunction codomainRelString        ptrParam    pointerType
+
+    , defineFunction evalFuncString           [ parameter ("x", pointerType)
                                               , parameter ("y", i64)
                                               , parameter ("line", intType)
                                               , parameter ("column", intType)]  i64
-    , defineFunction codomainRelString        ptri64Param pointerType
+    , defineFunction evalRelString            ptri64Param pointerType
 
     , defineFunction inverseFuncString        ptrParam    pointerType
     , defineFunction inverseRelString         ptrParam    pointerType

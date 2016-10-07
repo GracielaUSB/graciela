@@ -18,7 +18,7 @@ type B(T) implements A(T)
 begin
   /* B variables */
   const MAX := 100 : int;
-  var a : array[MAX] of int;
+  var a : array[MAX] of int*;
   
   {repinv true repinv}
 
@@ -37,7 +37,10 @@ begin
 end
 
 main
-  |[ var a : B(int);
-    skip
+  |[ var a : B(int)
+   ; var i := 1 : int
+   ; var ar : array[10] of int
+   ; write(*a.a[1])
+   ; i := i + 1
   ]|
 end

@@ -392,10 +392,10 @@ funcString = "_funcFromSet"
 relString = "_relationFromSet"
 
 domainFuncString, domainRelString, codomainFuncString, codomainRelString :: String
-domainFuncString = "_domFunction"
-domainRelString = "_domRelation"
-codomainFuncString = "_pairFunction"
-codomainRelString = "_pairRelation"
+domainFuncString   = "_domFunction"
+domainRelString    = "_domRelation"
+codomainFuncString = "_codomainFunction" 
+codomainRelString  = "_codomainRelation"
 
 inverseFuncString, inverseRelString :: String
 inverseFuncString = "_inverse_func"
