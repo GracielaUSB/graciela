@@ -30,8 +30,8 @@ import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Expression, Object,
-                                         Type (..), fillType, hasDT, isTypeVar,
-                                         notIn, (=:=))
+                                         Type (..), fillType, hasDT, notIn,
+                                         (=:=))
 import           Common
 import           Entry
 import           Error
@@ -281,16 +281,14 @@ write = do
   where
     write' _   Nothing = pure Nothing
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
-      | expType =:= writable || isTypeVar expType = do
+      | expType =:= writable = do
           pure $ (|> e) <$> acc
       | otherwise = do
         putError from . UnknownError $
           "Cannot write expression of type " <> show expType <> "."
         pure Nothing
 
-    writable = GOneOf [GBool, GChar, GInt, GFloat, GString ]
-
-      -- TODO How will this interact with polymorphism?
+    writable = GOneOf [GBool, GChar, GInt, GFloat, GString, GATypeVar ]
 
 
 -- | Parse the `read` instruction.

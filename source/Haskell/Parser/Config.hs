@@ -319,13 +319,13 @@ defaultConfig = Config
       , nParams = 1
       , nArgs = length args}
 
-    multiplicityG [ a, b ] = if a =:= basic || a =:= GTuple GAny GAny || isTypeVar a
+    multiplicityG [ a, b ] = if a =:= GOneOf [basic, GATuple, GATypeVar]
       then
         case b of
           GMultiset b' -> if b' =:= a
             then Right (GInt
                        , pack $ case b' of
-                          GTuple _ _ ->  multiplicityMultiPairString
+                          GTuple _ _ -> multiplicityMultiPairString
                           _          -> multiplicityMultiString
                        , False)
             else Left badArg
@@ -337,7 +337,7 @@ defaultConfig = Config
           GSeq      b' -> if b' =:= a
             then Right (GInt
                        , pack $ case b' of
-                          GTuple _ _ ->  multiplicitySeqPairString
+                          GTuple _ _ -> multiplicitySeqPairString
                           _          -> multiplicitySeqString
                        , False)
             else Left badArg

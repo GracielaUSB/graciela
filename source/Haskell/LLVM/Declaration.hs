@@ -8,7 +8,7 @@ import           AST.Declaration                    (Declaration (..))
 import           AST.Expression                     (Expression' (..))
 import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type                           (Expression, Type (..),
-                                                     isDataType, (=:=))
+                                                     (=:=))
 import qualified AST.Type                           as G (Type)
 import           Common
 import           LLVM.Abort

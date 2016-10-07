@@ -19,7 +19,7 @@ import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
 import           AST.Type                  (ArgMode (..), Expression, Object,
                                             QRange, Type (..), fillType, hasDT,
-                                            isTypeVar, (=:=))
+                                            (=:=))
 import           Common
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..), internal)
@@ -231,8 +231,7 @@ tuple = do
 
     where
       allowed = allowed' . expType
-      allowed' = (||) <$> isTypeVar <*>
-        (=:= GOneOf [GBool, GChar, GInt, GFloat, GPointer GAny])
+      allowed' = (=:= GOneOf [GBool, GChar, GInt, GFloat, GATypeVar, GPointer GAny])
 
 
 collection :: ParserExp (Maybe MetaExpr)
@@ -362,11 +361,16 @@ collection = do
               pure $ Just (var, varTy, qrange, cond)
 
     quantifiableTypes, allowedCollTypes :: Type
-    quantifiableTypes = GOneOf [ GInt, GChar ]
+    quantifiableTypes = GOneOf [ GInt, GChar, GBool, GFloat, GATypeVar ]
     allowedCollTypes  = GOneOf
       [ GInt
       , GChar
-      , GTuple (GOneOf [GInt, GChar]) (GOneOf [GInt, GChar, GFloat]) ]
+      , GBool
+      , GFloat
+      , GATypeVar
+      , GTuple
+        (GOneOf [GInt, GChar, GBool, GFloat, GATypeVar])
+        (GOneOf [GInt, GChar, GBool, GFloat, GATypeVar]) ]
 
     declaration = do
       from <- getPosition
@@ -418,10 +422,7 @@ collection = do
         Just (e, _, _) -> case acc of
           Nothing -> pure Nothing
           Just (els, t) -> case t <> expType e of
-            GUndef -> if isTypeVar (expType e) || isTupleTypeVar (expType e)
-              then do
-                pure $ Just (els |> e, expType e)
-              else do
+            GUndef -> do
                 putError pos . UnknownError $
                   "Unexpected expression of type " <> show (expType e) <> ", \
                   \expected instead an expression of type " <> show t <> "."
@@ -429,8 +430,8 @@ collection = do
             newType -> pure $ Just (els |> e, newType)
       where
         isTupleTypeVar t = case t of
-          GTuple t1 t2 | (isTypeVar t1 || t1 =:= GOneOf [GInt, GChar])
-                      && (isTypeVar t1 || t1 =:= GOneOf [GInt, GChar, GFloat]) -> True
+          GTuple t1 t2 | (t1 =:= GOneOf [GInt, GChar, GATypeVar])
+                      && (t1 =:= GOneOf [GInt, GChar, GFloat, GATypeVar]) -> True
           _ -> False
 
 variable :: ParserExp (Maybe MetaExpr)
@@ -679,7 +680,7 @@ quantification = do
               <|> (match TokMin                       $> (Minimum,   numeric))
               <|> ((match TokCount <|> match TokHash) $> (Count,     GBool))
 
-    quantifiableTypes = GOneOf [ GInt, GChar ]
+    quantifiableTypes = GOneOf [ GInt, GChar, GBool, GFloat, GATypeVar ]
 
     declaration = do
       from <- getPosition
@@ -1648,6 +1649,7 @@ comparison :: Op.Bin -> Location
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc }, _, Taint False))
   (Just (r @ Expression { expType = rtype, expConst = rc }, ProtoVar, _))
+    | rtype =:= GOneOf [GChar, GInt]
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
@@ -1684,6 +1686,7 @@ comparison binOp opLoc
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc }, ProtoVar, _))
   (Just (r @ Expression { expType = rtype, expConst = rc }, _, Taint False))
+    | ltype =:= GOneOf [GBool, GInt]
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)

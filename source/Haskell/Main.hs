@@ -222,6 +222,7 @@ main = do
               <> assembly
               <> [lltName]
               <> ["-o", outName]
+              <> ["-lm"]
               <> [lib         | not $ optLLVM options || optAssembly options]
               <> [abstractLib | not $ optLLVM options || optAssembly options]
         (exitCode, out, errs) <- readProcessWithExitCode clang args ""

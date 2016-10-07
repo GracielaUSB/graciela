@@ -1,0 +1,6 @@
+program ranges.bin begin
+main
+  |[ 
+  writeln({1.0} ∪ {4.0} ∪ {9.0} == { i : int | 0 < i /\ i < 4 | trace(toFloat (i)^2.0) })
+  ]|
+end

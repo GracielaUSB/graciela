@@ -21,8 +21,8 @@ module  AST.Type
   , QRange
   , (=:=)
   , fillType
-  , isTypeVar
-  , isDataType
+  -- , isTypeVar
+  -- , isDataType
   , basic
   , highLevel
   , hasDT
@@ -92,7 +92,9 @@ data Type
   | GFunc     Type Type -- ^ Func type, for abstract functions.
   | GRel      Type Type -- ^ Relation type.
   | GTuple    Type Type -- ^ 2-tuple type.
+  | GATuple             -- ^ Used to match with tuples.
   | GTypeVar  Int Text            -- ^ A named type variable.
+  | GATypeVar                     -- ^ Used to match with type variables.
 
   | GAny                          -- ^ Any type, for full polymorphism.
   | GOneOf    [Type]           -- ^ Any type within a collection, for
@@ -113,6 +115,8 @@ data Type
     { typeName :: Text
     , abstName :: Maybe Text
     , typeArgs :: TypeArgs }
+  | GADataType -- ^ Used to match with both kinds of Data Types
+
   | GPointer Type -- ^ Pointer type.
 
   | GArray
@@ -155,14 +159,14 @@ fillType typeArgs (GTuple a b) = GTuple (fillType typeArgs a) (fillType typeArgs
 fillType _ t = t
 
 
-isTypeVar t = case t of
-  GTypeVar _ _ -> True
-  _            -> False
-
-isDataType t = case t of
-  GFullDataType {} -> True
-  GDataType {}     -> True
-  _                -> False
+-- isTypeVar t = case t of
+--   GTypeVar _ _ -> True
+--   _            -> False
+--
+-- isDataType t = case t of
+--   GFullDataType {} -> True
+--   GDataType {}     -> True
+--   _                -> False
 
 hasDT t@GDataType {}     = Just t
 hasDT t@GFullDataType {} = Just t
@@ -256,8 +260,16 @@ instance Semigroup Type where
       then GUndef
       else GTuple c0 c1
 
+  a@(GTuple _ _) <> GATuple = a
+  GATuple <> a@(GTuple _ _) = a
+  GATuple <> GATuple = GATuple
+
   a@(GTypeVar ai an) <> GTypeVar bi bn =
     if ai == bi && an == bn then a else GUndef
+
+  a@(GTypeVar _ _) <> GATypeVar = a
+  GATypeVar <> a@(GTypeVar _ _) = a
+  GATypeVar <> GATypeVar = GATypeVar
 
   GFullDataType a fs <> GFullDataType b fs' =
     if a == b  && fs == fs'
@@ -284,6 +296,12 @@ instance Semigroup Type where
 
   GFullDataType a fs <> GDataType b _ _=
     if a == b then GFullDataType a fs else GUndef
+
+  a@(GFullDataType _ _) <> GADataType = a
+  GADataType <> a@(GFullDataType _ _) = a
+  a@(GDataType _ _ _) <> GADataType = a
+  GADataType <> a@(GDataType _ _ _) = a
+  GADataType <> GADataType = GADataType
 
   GUnsafeName a <> GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
@@ -324,5 +342,9 @@ instance Show Type where
         GUnsafeName t     -> unpack t
 
         GRawName -> "Function Identifier"
+
+        GATypeVar  -> "a type variable"
+        GADataType -> "a data type"
+        GATuple    -> "a tuple"
 
         I64               -> "64-bit int"

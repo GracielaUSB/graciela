@@ -18,8 +18,7 @@ module LLVM.Type
 where
 --------------------------------------------------------------------------------
 import           AST.Struct                 (Struct (..))
-import           AST.Type                   as T (Type (..), fillType,
-                                                  isTypeVar)
+import           AST.Type                   as T (Type (..), fillType, (=:=))
 import           AST.Type                   (Expression)
 import           Error                      (internal)
 import           LLVM.Monad
@@ -103,7 +102,7 @@ toLLVMType (GFullDataType n t) = do
 
   where
     pendingDT t' s@Struct{ structFields, structAFields } = do
-      let 
+      let
         fields = toList structFields <> toList structAFields
       type' <- Just . LLVM.StructureType True <$>
                 mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_,_) -> x))
@@ -120,7 +119,7 @@ toLLVMType (GFullDataType n t) = do
 toLLVMType t@(GDataType name _ typeArgs) = do
   maybeStruct <- use currentStruct
   case maybeStruct of
-    Nothing | isTypeVar t -> error $ show t <> "   Esto no deberia ocurrir :D"
+    Nothing | t =:= GATypeVar -> internal $ show t <> "   Esto no deberia ocurrir :D"
     Just struct -> do
       types <- mapM toLLVMType (structTypes struct)
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types

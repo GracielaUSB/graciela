@@ -54,7 +54,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
       ForAll -> terminate $ Br true  []
       Exists -> terminate $ Br false []
 
-    PointRange { thePoint } ->
+    PointRange { thePoint } -> -- FIXME: Cannot use the general case when the quantifier is float
       boolQ expr boolean true false e
         { exp' = exp'
           { qRange = ExpRange
@@ -175,6 +175,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
         abort Abort.EmptyRange pos
+        newUnLabel >>= (#)
         ConstantOperand . C.Undef  <$> toLLVMType expType
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
@@ -350,7 +351,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           , nuw = False
           , operand0 = LocalReference qType prevIterator
           , operand1 = ConstantOperand $
-            C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
+            C.Int (case qVarType of GInt -> 32; GChar -> 8; GBool -> 1) 1
           , metadata = [] }
         addInstruction $ Do Store
           { volatile = False
