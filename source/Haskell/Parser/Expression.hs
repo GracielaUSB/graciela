@@ -674,8 +674,8 @@ quantification = do
 
     quantifier =  (match TokForall                    $> (ForAll,    GBool))
               <|> (match TokExist                     $> (Exists,    GBool))
-              <|> (match TokPi                        $> (Product,   numeric))
-              <|> (match TokSigma                     $> (Summation, numeric))
+              <|> (match TokProduct                   $> (Product,   numeric))
+              <|> (match TokSum                       $> (Summation, numeric))
               <|> (match TokMax                       $> (Maximum,   numeric))
               <|> (match TokMin                       $> (Minimum,   numeric))
               <|> ((match TokCount <|> match TokHash) $> (Count,     GBool))

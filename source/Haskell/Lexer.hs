@@ -292,10 +292,10 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\8707"      TokExist    -- ∃
       <|> reserved "notexist"   TokNotExist
       <|> symbol   "\8708"      TokNotExist -- ∄
-      <|> reserved "sigma"      TokSigma
-      <|> symbol   "\8721"      TokSigma    -- ∑
-      <|> reserved "pi"         TokPi
-      <|> symbol   "\8719"      TokPi       -- ∏
+      <|> reserved "sum"        TokSum
+      <|> symbol   "\8721"      TokSum      -- ∑
+      <|> reserved "product"    TokProduct
+      <|> symbol   "\8719"      TokProduct  -- ∏
       <|> reserved "count"      TokCount
       <|> symbol   "#"          TokHash     -- count quant and cardinality operator
 

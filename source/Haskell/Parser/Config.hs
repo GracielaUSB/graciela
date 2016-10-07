@@ -18,11 +18,6 @@ module Parser.Config
   , toMultiSeqString
   , funcString
   , relString
-  -- , cardSetString
-  -- , cardMultiString
-  -- , cardSeqString
-  -- , cardFuncString
-  -- , cardRelString
   , domainFuncString
   , domainRelString
   , codomainFuncString
@@ -94,9 +89,13 @@ defaultConfig = Config
       at "char"    ?= (GChar,  gracielaDef)
 
     symbols = Map.mapWithKey (,) $ Map.empty &~ do
-      at "otherwise" ?= Alias GBool (BoolV True)
-      at "MAX_INT"   ?= Alias GInt  (IntV  maxBound)
-      at "MIN_INT"   ?= Alias GInt  (IntV  minBound)
+      at "otherwise" ?= Alias GBool  (BoolV True)
+      at "MAX_INT"   ?= Alias GInt   (IntV maxBound)
+      at "MIN_INT"   ?= Alias GInt   (IntV minBound)
+      at "pi"        ?= Alias GFloat (FloatV pi)
+      at "\960"      ?= Alias GFloat (FloatV pi)
+      at "tau"       ?= Alias GFloat (FloatV (2*pi))
+      at "\964"      ?= Alias GFloat (FloatV (2*pi))
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 
