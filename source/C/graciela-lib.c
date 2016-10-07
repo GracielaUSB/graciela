@@ -255,12 +255,12 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tattempted to take the square root of a negative value.\n"); break;
     case A_NEGATIVE_EXPONENT:
       printf (":\n\tattempted to raise a number to a negative exponent.\n"); break;
-    case A_BAD_ABSTRACT_COUPLE: 
-      printf (":\n\tthe abstract precondition was falsified.\n\tThe procedure doesn't implement the abstract type \n"); break;
+    case A_BAD_ABSTRACT_COUPLE:
+      printf (":\n\tthe abstract precondition was falsified.\n\tThe procedure doesn't implement the abstract type.\n"); break;
     case A_COUPINVARIANT:
       printf (":\n\tthe coupling invariant was falsified.\n"); break;
     default:
-      printf (":\n\tunknown reason.\n"); break;
+      printf (":\n\tunknown reason <%d>.\n", reason); break;
   }
   exit (EXIT_FAILURE);
 }

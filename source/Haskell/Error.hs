@@ -176,7 +176,7 @@ instance ShowErrorComponent Error where
       ",\n\tbut received an expression of type " <> show aType <> "."
 
     BadFunctionArgumentType' { paramNum, fName, fPos, pTypes, aType} ->
-      "Parameter number " <> show paramNum <> " of the procedure `" <> unpack fName <>
+      "Parameter number " <> show paramNum <> " of the function `" <> unpack fName <>
       "` " <> showPos fPos <> " admits one of the following types:\n" <>
       (unlines . fmap (("\t * " <>) . show) . toList $ pTypes) <>
       "\tbut received an expression of type " <> show aType <> "."

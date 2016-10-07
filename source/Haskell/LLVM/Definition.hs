@@ -10,7 +10,7 @@ import           AST.Declaration                     (Declaration)
 import           AST.Definition
 import           AST.Expression                      (Expression' (..))
 import qualified AST.Instruction                     as G (Instruction)
-import           AST.Struct                          (Struct (..), Struct'(..))
+import           AST.Struct                          (Struct (..), Struct' (..))
 import           AST.Type                            (Expression, (=:=))
 import qualified AST.Type                            as T
 import           Error                               (internal)
@@ -389,16 +389,16 @@ definition
 
           abstractStruct <- (Map.lookup abstract) <$> use structs
 
-          let 
-            maybeProc = case abstractStruct of 
+          let
+            maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
-              Nothing -> error "Internal error: Missing Abstract Data Type." 
+              Nothing -> error "Internal error: Missing Abstract Data Type."
 
-          
+
           cond <- precondition pre
           mapM_ (callCouple    ("couple" <> postFix)) dts
 
-          case maybeProc of 
+          case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
               mapM_ declaration abstPDecl
               preconditionAbstract cond pre'
@@ -416,13 +416,13 @@ definition
           mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
 
-          case maybeProc of 
+          case maybeProc of
             Just Definition{post= post'} -> postconditionAbstract cond post'
-            _ -> pure ()
+            _                            -> pure ()
 
           postcondition post
 
-          
+
           pending <- use pendingInsts
           addInstructions pending
 
@@ -739,23 +739,23 @@ preDefinitions files = do
     , defineFunction equalSetString            ptrParam2 boolType
     , defineFunction equalSeqString            ptrParam2 boolType
     , defineFunction equalMultisetString       ptrParam2 boolType
- 
+
     , defineFunction equalSetPairString        ptrParam2 boolType
     , defineFunction equalSeqPairString        ptrParam2 boolType
     , defineFunction equalMultisetPairString   ptrParam2 boolType
- 
+
     , defineFunction equalFuncString           ptrParam2 boolType
     , defineFunction equalRelString            ptrParam2 boolType
 
     , defineFunction equalTupleString            [ parameter ("x", ptr tupleType)
-                                               , parameter ("y", ptr tupleType)] 
+                                               , parameter ("y", ptr tupleType)]
                                                boolType
 --------------------------------------------------------------------------------
     , defineFunction sizeSetString             ptrParam intType
     , defineFunction sizeSeqString             ptrParam intType
     , defineFunction sizeMultisetString        ptrParam intType
     , defineFunction sizeRelString             ptrParam intType
-    , defineFunction sizeFuncString            ptrParam intType                                        
+    , defineFunction sizeFuncString            ptrParam intType
 --------------------------------------------------------------------------------
     , defineFunction supersetSetString         ptrParam2 boolType
     , defineFunction supersetMultisetString    ptrParam2 boolType
@@ -803,7 +803,7 @@ preDefinitions files = do
     , defineFunction unionFunctionString      [ parameter ("x", pointerType)
                                               , parameter ("y", pointerType)
                                               , parameter ("line", intType)
-                                              , parameter ("column", intType)]  
+                                              , parameter ("column", intType)]
                                               pointerType
     , defineFunction intersectFunctionString  ptrParam2 pointerType
     , defineFunction differenceFunctionString ptrParam2 pointerType
@@ -812,24 +812,33 @@ preDefinitions files = do
     , defineFunction multisetSumString            ptrParam2 pointerType
     , defineFunction concatSequenceString         ptrParam2 pointerType
 
-    , defineFunction multiplicityMultiString      ptri64Param intType
-    , defineFunction multiplicitySeqString        ptri64Param intType
+    , defineFunction multiplicityMultiString      [ parameter ("x", i64)
+                                                  , parameter ("y", pointerType)]
+                                                  intType
+    , defineFunction multiplicitySeqString        [ parameter ("x", i64)
+                                                  , parameter ("y", pointerType)]
+                                                  intType
 
     , defineFunction multisetPairSumString        ptrParam2 pointerType
     , defineFunction concatSequencePairString     ptrParam2 pointerType
 
-    , defineFunction multiplicityMultiPairString  ptrTupleParam intType
-    , defineFunction multiplicitySeqPairString    ptrTupleParam intType
+    , defineFunction multiplicityMultiPairString  [ parameter ("x", ptr tupleType)
+                                                  , parameter ("y", pointerType)]
+                                                  intType
+
+    , defineFunction multiplicitySeqPairString    [ parameter ("x", ptr tupleType)
+                                                  , parameter ("y", pointerType)]
+                                                  intType
 
     , defineFunction atSequenceString             [ parameter ("x", pointerType)
                                                   , parameter ("y", intType)
                                                   , parameter ("line", intType)
-                                                  , parameter ("column", intType)] 
+                                                  , parameter ("column", intType)]
                                                   i64
     , defineFunction atSequencePairString         [ parameter ("x", pointerType)
                                                   , parameter ("y", intType)
                                                   , parameter ("line", intType)
-                                                  , parameter ("column", intType)] 
+                                                  , parameter ("column", intType)]
                                                   tupleType
 
 --------------------------------------------------------------------------------
@@ -841,14 +850,17 @@ preDefinitions files = do
 
     , defineFunction domainFuncString         ptrParam    pointerType
     , defineFunction domainRelString          ptrParam    pointerType
-    
-    , defineFunction codomainFuncString       ptri64Param i64
+
+    , defineFunction codomainFuncString       [ parameter ("x", pointerType)
+                                              , parameter ("y", i64)
+                                              , parameter ("line", intType)
+                                              , parameter ("column", intType)]  i64
     , defineFunction codomainRelString        ptri64Param pointerType
 
     , defineFunction inverseFuncString        ptrParam    pointerType
     , defineFunction inverseRelString         ptrParam    pointerType
 
-    
+
 --------------------------------------------------------------------------------
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)

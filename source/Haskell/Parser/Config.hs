@@ -78,8 +78,7 @@ import           Text.Megaparsec.Pos   (unsafePos)
 data Config = Config
   { nativeTypes     :: Map Text (Type, Location)
   , nativeFunctions :: Map Text Definition
-  , nativeSymbols   :: SymbolTable
-  }
+  , nativeSymbols   :: SymbolTable }
 
 defaultConfig :: Config
 defaultConfig = Config
@@ -320,38 +319,51 @@ defaultConfig = Config
       , nParams = 1
       , nArgs = length args}
 
-    multiplicityG [ a, b ] = case b of
-      GMultiset b' -> if b' =:= a
-        then Right (GInt
-                   , pack $ if b' =:= GTuple GAny GAny 
-                      then multiplicityMultiPairString 
-                      else multiplicityMultiString
-                   , False)
-        else Left badArg
-          { paramNum = 2
+    multiplicityG [ a, b ] = if a =:= basic || a =:= GTuple GAny GAny || isTypeVar a
+      then
+        case b of
+          GMultiset b' -> if b' =:= a
+            then Right (GInt
+                       , pack $ case b' of
+                          GTuple _ _ ->  multiplicityMultiPairString
+                          _          -> multiplicityMultiString
+                       , False)
+            else Left badArg
+              { paramNum = 2
+              , fName = "multiplicity"
+              , pTypes =
+                [ GMultiset a ]
+              , aType = a }
+          GSeq      b' -> if b' =:= a
+            then Right (GInt
+                       , pack $ case b' of
+                          GTuple _ _ ->  multiplicitySeqPairString
+                          _          -> multiplicitySeqString
+                       , False)
+            else Left badArg
+              { paramNum = 2
+              , fName = "multiplicity"
+              , pTypes =
+                [ GSeq a ]
+              , aType = a }
+          _ -> Left badArg
+            { paramNum = 2
+            , fName = "multiplicity"
+            , pTypes =
+              [ GSeq a
+              , GMultiset a ]
+            , aType = a }
+      else
+        Left badArg
+          { paramNum = 1
           , fName = "multiplicity"
           , pTypes =
-            [ GMultiset a ]
+            [ GInt
+            , GChar
+            , GFloat
+            , GBool
+            , GTuple (GTypeVar 1 "a") (GTypeVar 2 "b")]
           , aType = a }
-      GSeq      b' -> if b' =:= a
-        then Right (GInt
-                   , pack $ if b' =:= GTuple GAny GAny 
-                      then multiplicitySeqPairString 
-                      else multiplicitySeqString
-                   , False)
-        else Left badArg
-          { paramNum = 2
-          , fName = "multiplicity"
-          , pTypes =
-            [ GSeq a ]
-          , aType = a }
-      _ -> Left badArg
-        { paramNum = 2
-        , fName = "multiplicity"
-        , pTypes =
-          [ GSeq a
-          , GMultiset a ]
-        , aType = a }
     multiplicityG args = Left badNumArgs
       { fName = "multiplicity"
       , nParams = 2
@@ -391,11 +403,11 @@ inverseRelString = "_inverse_rel"
 
 multiplicityMultiString, multiplicitySeqString :: String
 multiplicityMultiString = "_countMultiset"
-multiplicitySeqString = "_countSeq"
+multiplicitySeqString   = "_countSeq"
 
 multiplicitySeqPairString, multiplicityMultiPairString :: String
-multiplicitySeqPairString   = "_countMultisetPair"
-multiplicityMultiPairString = "_countSequencePair"
+multiplicitySeqPairString   = "_countSequencePair"
+multiplicityMultiPairString = "_countMultisetPair"
 
 float2intString, char2intString   :: String
 float2intString  = "_float2int"

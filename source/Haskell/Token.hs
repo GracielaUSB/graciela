@@ -30,8 +30,8 @@ import           Text.Megaparsec    (ShowToken (..))
 data TokenPos = TokenPos
   { start :: SourcePos
   , end   :: SourcePos
-  , tok   :: Token
-  } deriving (Eq)
+  , tok   :: Token }
+  deriving (Eq)
 
 instance Show TokenPos where
   show TokenPos { tok } = show tok
@@ -116,7 +116,7 @@ data Token
   | TokLeftSeq
   | TokRightSeq
 
-  | TokIndex
+  -- | TokIndex
 
   | TokOpenBlock
   | TokCloseBlock
@@ -293,7 +293,7 @@ instance Show Token where
     TokLeftSeq        -> "`<<` - Signo de secuencia Izquierdo"
     TokRightSeq       -> "`>>` - Signo de secuencia Derecho"
 
-    TokIndex          -> "`!` - Sequence index"
+    -- TokIndex          -> "`!` - Sequence index"
 
     TokOpenBlock      -> "`|[` - Apertura de Bloque"
     TokCloseBlock     -> "`]|` - Cierre de Bloque"

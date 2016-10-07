@@ -51,7 +51,7 @@ import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
 -------------------------------------------------------------------------------------
-import Debug.Trace 
+import           Debug.Trace
 -- Synonyms
 type Expression = Expression' Type ArgMode
 type QRange     = QRange' Type ArgMode
@@ -118,6 +118,8 @@ data Type
     { dimensions :: Seq Expression
     , innerType  :: Type
     } -- ^ Sized array type.
+
+  | GRawName
 
   | I64 -- ^ Used for casts
   deriving (Eq)
@@ -319,4 +321,7 @@ instance Show Type where
         GOneOf       as -> "one of " <> show as
 
         GUnsafeName t     -> unpack t
+
+        GRawName -> "Function Identifier"
+
         I64               -> "64-bit int"
