@@ -494,6 +494,15 @@ extern "C" {
       return (int8_t*) set;
   }
 
+  int8_t *_codomainFunction(int8_t *ptr){
+    Function *function = (Function*)ptr;
+    Set      *set = (Set*)_newSet();
+    for(Function::iterator it = function->begin(); it != function->end(); ++it){
+      set->insert(it->second);
+    }
+    return (int8_t*)set;
+  }
+
   t _pairFunction(int8_t *ptr, t k, int line, int col){
     Function *function    = (Function*)ptr;
     Function::iterator it = function->find(k);
@@ -628,6 +637,15 @@ extern "C" {
           set->insert(it->first);
       }
       return (int8_t*) set;
+  }
+  
+  int8_t* _codomainRelation(int8_t *ptr){
+    Relation *rel = (Relation*)ptr;
+    Set      *set = (Set*)_newSet();
+    for(Relation::iterator it = rel->begin(); it != rel->end(); ++it){
+      set->insert(it->second);
+    }
+    return (int8_t*) set;
   }
 
   int8_t* _pairRelation(int8_t *ptr, t key){

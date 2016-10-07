@@ -170,6 +170,7 @@ main
    ; var r : int
    ; crear(100,d)
    ; agregar(d, 1, 2)
+   ; write(multiplicity(1, {{1,1,1}}))
    ; existe(d,1,b)
    ; buscar(d,1,r) 
    ; writeln(b, " -> ", r)
