@@ -14,6 +14,7 @@ import           AST.Expression    (Expression' (..), Expression'' (Value),
                                     Value (..))
 import           AST.Struct
 import           AST.Type
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -40,7 +41,6 @@ import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,
                                     notFollowedBy, optional, try, (<|>))
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 basicType :: Parser Type
 basicType = do

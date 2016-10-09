@@ -35,6 +35,7 @@ import           AST.Expression (Expression' (..), Expression'' (..),
                                  QRange' (..), Value (..))
 import           AST.Object     (Object' (..), Object'' (..))
 import qualified AST.Object     as O (inner)
+import           Common
 --------------------------------------------------------------------------------
 import           Control.Lens   (both, (%~), (&))
 import           Data.Array     (Array (..), bounds, (!))
@@ -50,8 +51,8 @@ import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text, pack, takeWhile, unpack)
 import           Prelude        hiding (takeWhile)
--------------------------------------------------------------------------------------
-import           Debug.Trace
+--------------------------------------------------------------------------------
+
 -- Synonyms
 type Expression = Expression' Type ArgMode
 type QRange     = QRange' Type ArgMode
@@ -313,9 +314,9 @@ instance Show Type where
         GTypeVar  i n   -> unpack n
 
         GFullDataType n targs   ->
-          unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")"
+          unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
 
-        GDataType n na targs -> unpack n <> "(" <> unwords (fmap show' (toList targs)) <> ")"
+        GDataType n na targs -> unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

@@ -5,6 +5,7 @@ module Main where
 --------------------------------------------------------------------------------
 import           AST.Program
 import           AST.Type
+import           Common
 import           Error
 import           Lexer
 import           LLVM.Program
@@ -54,7 +55,6 @@ import           Text.Megaparsec            (ParsecT, parseErrorPretty,
                                              sourceColumn, sourceLine)
 import           Text.Megaparsec.Error      (ParseError, errorPos)
 --------------------------------------------------------------------------------
-import           Debug.Trace
 -- Options -----------------------------
 version :: String
 version = "graciela 0.1.0.0"

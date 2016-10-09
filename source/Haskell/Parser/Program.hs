@@ -8,6 +8,8 @@ module Parser.Program
 
 -------------------------------------------------------------------------------
 import           AST.Program
+import           AST.Type
+import           Common
 import           Location           (Location (..))
 import           Parser.Definition
 import           Parser.Instruction (block)
@@ -16,7 +18,6 @@ import           Parser.State
 import           Parser.Struct
 import           SymbolTable        (closeScope, openScope)
 import           Token
-import           AST.Type
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
 import qualified Control.Monad      as M
@@ -24,12 +25,11 @@ import           Data.Either
 import           Data.Foldable      (toList)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
-import           Data.Semigroup ((<>))
+import           Data.Semigroup     ((<>))
 import qualified Data.Sequence      as Seq (empty, fromList)
 import qualified Data.Text          as T (intercalate)
 import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>))
 -------------------------------------------------------------------------------
-import           Debug.Trace
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
 program :: Parser (Maybe Program)
@@ -67,7 +67,7 @@ program = do
       dts     <- use dataTypes
       fdts    <- use fullDataTypes
       strings <- use stringIds
-      
+
       pure $ Just Program
         { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)

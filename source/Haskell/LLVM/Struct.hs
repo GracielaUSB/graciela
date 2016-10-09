@@ -6,52 +6,57 @@ module LLVM.Struct
   ( defineStruct
   ) where
 --------------------------------------------------------------------------------
-import           AST.Declaration              (Declaration (..))
-import           AST.Expression               (Expression' (..))
-import qualified AST.Instruction              as G (Instruction)
-import           AST.Struct                   (Struct (..), Struct' (..))
+import           AST.Declaration                    (Declaration (..))
+import           AST.Expression                     (Expression' (..))
+import qualified AST.Instruction                    as G (Instruction)
+import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type
-import           LLVM.Abort                   (abort, abortString)
-import qualified LLVM.Abort                   as Abort (Abort (..))
+import           Common
+import           LLVM.Abort                         (abort, abortString)
+import qualified LLVM.Abort                         as Abort (Abort (..))
 import           LLVM.Definition
 import           LLVM.Expression
-import           LLVM.Instruction             (instruction)
+import           LLVM.Instruction                   (instruction)
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
-import           LLVM.Warning                 (warn)
-import qualified LLVM.Warning                 as Warning (Warning (..))
+import           LLVM.Warning                       (warn)
+import qualified LLVM.Warning                       as Warning (Warning (..))
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens                 (makeLenses, use, (%=), (+=),
-                                               (.=))
-import           Control.Monad                (forM_, when, unless, foldM, void)
-import           Data.Foldable                (toList)
-import           Data.List                    (sortOn)
-import           Data.Map.Strict              (Map)
-import qualified Data.Map.Strict              as Map
-import           Data.Semigroup               ((<>))
-import           Data.Sequence                (Seq, ViewR ((:>)), viewr, (|>))
-import qualified Data.Sequence                as Seq
-import           Data.Text                    (Text, unpack)
-import           LLVM.General.AST             (BasicBlock (..), Definition (..),
-                                               Parameter (..), Terminator (..),
-                                               functionDefaults)
-import qualified LLVM.General.AST.Constant    as C (Constant (..))
-import qualified LLVM.General.AST.CallingConvention  as CC
-import qualified LLVM.General.AST.Float       as LLVM (SomeFloat (Double))
-import           LLVM.General.AST.Global      (Global (basicBlocks, name, parameters, returnType),
-                                               functionDefaults)
-import           LLVM.General.AST.Instruction (Instruction (..), Named (..),
-                                               Terminator (..))
-import           LLVM.General.AST.Name        (Name (..))
-import           LLVM.General.AST.Operand     (CallableOperand, Operand (..))
-import qualified LLVM.General.AST.Type        as LLVM
-import           LLVM.General.AST.Type        hiding (void)
+import           Control.Lens                       (makeLenses, use, (%=),
+                                                     (+=), (.=))
+import           Control.Monad                      (foldM, forM_, unless, void,
+                                                     when)
+import           Data.Foldable                      (toList)
+import           Data.List                          (sortOn)
+import           Data.Map.Strict                    (Map)
+import qualified Data.Map.Strict                    as Map
+import           Data.Semigroup                     ((<>))
+import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
+                                                     (|>))
+import qualified Data.Sequence                      as Seq
+import           Data.Text                          (Text, unpack)
+import           LLVM.General.AST                   (BasicBlock (..),
+                                                     Definition (..),
+                                                     Parameter (..),
+                                                     Terminator (..),
+                                                     functionDefaults)
+import qualified LLVM.General.AST.CallingConvention as CC
+import qualified LLVM.General.AST.Constant          as C (Constant (..))
+import qualified LLVM.General.AST.Float             as LLVM (SomeFloat (Double))
+import           LLVM.General.AST.Global            (Global (basicBlocks, name, parameters, returnType),
+                                                     functionDefaults)
+import           LLVM.General.AST.Instruction       (Instruction (..),
+                                                     Named (..),
+                                                     Terminator (..))
+import           LLVM.General.AST.Name              (Name (..))
+import           LLVM.General.AST.Operand           (CallableOperand,
+                                                     Operand (..))
+import           LLVM.General.AST.Type              hiding (void)
+import qualified LLVM.General.AST.Type              as LLVM
 --------------------------------------------------------------------------------
-
-import           Debug.Trace
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
@@ -64,7 +69,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
 
-        let 
+        let
           fields = toList structFields <> toList structAFields
         type' <- Just . StructureType True <$>
           mapM (toLLVMType . (\(_,x,_,_) -> x)) (sortOn (\(i,_,_,_) -> i) fields)
@@ -107,7 +112,7 @@ defaultConstructor name structType typeMap = do
   forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
-    case filledT of 
+    case filledT of
       t | t =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
 
         member <- newLabel $ "member" <> show field
@@ -262,7 +267,7 @@ defaultDestructor name structType typeMap = do
   forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
-    case filledT of 
+    case filledT of
       t@GArray { dimensions, innerType } -> do
         garrT <- toLLVMType t
         inner <- toLLVMType innerType
@@ -304,7 +309,7 @@ defaultDestructor name structType typeMap = do
           , function           = callable voidType freeString
           , arguments          = [(LocalReference pointerType iarrCast, [])]
           , functionAttributes = []
-          , metadata = [] } 
+          , metadata = [] }
 
       _ -> pure ()
 
@@ -326,7 +331,7 @@ defaultDestructor name structType typeMap = do
 
 
 defineCouple :: Seq G.Instruction
-             -> String 
+             -> String
              -> LLVM.Type
              -> LLVM ()
 defineCouple insts name t = do

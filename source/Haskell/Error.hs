@@ -6,6 +6,7 @@ module Error where
 --------------------------------------------------------------------------------
 import           AST.Expression        (Expression' (expType))
 import           AST.Type              (Expression, Type (..))
+import           Common
 import           Data.Semigroup        ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
@@ -21,7 +22,6 @@ import           Data.Sequence         (Seq)
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 internal :: String -> a
 internal = error . ("internal error: " <>)

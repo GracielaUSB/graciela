@@ -6,10 +6,11 @@ module LLVM.Declaration
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
 import           AST.Expression                     (Expression' (..))
+import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type                           (Expression, Type (..),
                                                      isDataType, (=:=))
-import           AST.Struct                     (Struct(..), Struct'(..))
 import qualified AST.Type                           as G (Type)
+import           Common
 import           LLVM.Abort
 import           LLVM.Expression
 import           LLVM.Monad
@@ -39,7 +40,6 @@ import           LLVM.General.AST.Operand           (CallableOperand,
                                                      Operand (..))
 import           LLVM.General.AST.Type              (Type (..), i32, ptr)
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 declaration :: Declaration -> LLVM ()
 declaration Declaration { declType, declIds } =
@@ -200,17 +200,17 @@ alloc gtype lval = do
 initialize :: G.Type -> (Text, (Expression,Bool)) -> LLVM ()
 initialize gtype (lval, (expr,_)) = do
   cs <- use currentStruct
-  let 
-    type' = case cs of 
-      Just Struct{structBaseName, structTypes, struct' = DataType{abstract}} -> 
-        let 
+  let
+    type' = case cs of
+      Just Struct{structBaseName, structTypes, struct' = DataType{abstract}} ->
+        let
           ta = Array.listArray (0, length structTypes - 1) structTypes
           dt = GDataType
             { typeName = structBaseName
             , abstName = Just abstract
             , typeArgs = ta }
         in
-          if gtype =:= dt 
+          if gtype =:= dt
             then gtype <> dt
             else gtype
       _ -> gtype

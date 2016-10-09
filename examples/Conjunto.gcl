@@ -1,0 +1,221 @@
+program Conjunto.bin begin
+  
+  abstract ConjuntoA(T) begin
+    const MAX := 100 : int;
+    var   contenido  : set of T;
+    
+    {inv MAX > 0 ∧ #contenido <= MAX inv}
+
+    proc crear ( in m : int, out c : ConjuntoA(T) )
+      {pre  m > 0  pre}
+      {post c.MAX == m ∧ c.contenido == ∅ post}
+
+    proc agregar (inout c : ConjuntoA(T), in x : T )
+      var contenido' := c.contenido : set of T;
+      {pre  x ∈ c.contenido ==> #c.contenido < c.MAX pre} 
+      {post c.contenido == contenido' ∪ {x} post}
+    
+    proc eliminar ( inout c : ConjuntoA(T), in x : T ) 
+      var contenido' := c.contenido : set of T;
+      {pre true pre}
+      {post c.contenido == contenido' \ {x} post}
+    
+    proc extraer (in c : ConjuntoA(T), out x : T ) 
+      {pre c.contenido != ∅ pre}
+      {post x ∈ c.contenido post}
+    
+    proc pertenece (in c : ConjuntoA(T), in x : T, out p : boolean) 
+      {pre true pre}
+      {post p ≡ x ∈ c.contenido post}
+    
+    proc vacio ( in c : ConjuntoA(T), out v : boolean) 
+      {pre true pre}
+      {post v ≡ (c.contenido == ∅) post}
+    
+    proc unir( in c0 : ConjuntoA(T)
+             , in c1 : ConjuntoA(T)
+             , in  m : int
+             , out c : ConjuntoA(T))
+      {pre #c0.contenido + #c1.contenido <= m pre}
+      {post c.MAX == m ∧ c.contenido == c0.contenido ∪ c1.contenido post}
+    
+    proc intersectar( in c0 : ConjuntoA(T)
+                    , in c1 : ConjuntoA(T)
+                    , in  m : int
+                    , out c : ConjuntoA(T))
+      {pre #c0.contenido <= m ∧ #c1.contenido <= m pre}
+      {post c.MAX == m ∧ c.contenido == c0.contenido ∩ c1.contenido post}
+    
+    proc restar( in c0 : ConjuntoA(T)
+               , in c1 : ConjuntoA(T)
+               , in  m : int
+               , out c : ConjuntoA(T))
+      {pre #c0.contenido <= m pre}
+      {post c.MAX == m ∧ c.contenido == c0.contenido \ c1.contenido post}
+
+  end
+
+  type Conjunto(T) implements ConjuntoA(T) begin
+    const MAX := 100 : int;
+    var   elems      : array[MAX] of T;
+    var   tam        : int;
+    
+    {repinv MAX > 0 ∧ 0 <= tam ∧ tam <= MAX ∧ 
+              (%∀ i : int | 0 <= i ∧ i < tam | 
+                (% ∀ j : int | 0 <= j ∧ j < tam | 
+                  i != j ==> elems[i] != elems[j]%) %) repinv}
+
+    {coupinv true coupinv}
+
+    where { contenido := {i : int | 0 <= i ∧ i < tam | elems[i]} }
+
+    proc copiarElems(in c : Conjunto(T), in m : int, out elems' : array[m] of T)
+      {pre m > 0 pre}
+      {post (% forall i : int | 0 <= i /\ i < c.tam | c.elems[i] == elems'[i] %) post}
+      |[ var i := 0 : int
+       ; {inv true inv}
+         {bound c.tam - i bound}
+         do i < c.tam -> elems'[i], i := c.elems[i], i+1 od
+      ]|
+    proc crear ( in m : int, out c : Conjunto(T) )
+      {pre m > 0 pre}
+      {post c.MAX == m ∧ c.tam == 0 post}
+      |[ c.tam := 0 ]|
+
+    proc agregar (inout c : Conjunto(T),  in x : T)
+      var tam' := c.tam : int;
+      var elems'        : array[c.MAX] of T;
+      {pre ¬ (% ∃ i : int | 0 <=  i ∧ i < c.tam | c.elems[i] == x %) ==> c.tam < c.MAX pre} 
+      
+      {post ((% ∃ i : int | 0 <=  i ∧ i < tam' | elems'[i] == x %) ==> 
+                  c.tam == tam' 
+                ∧ (% ∀ j : int | 0 <= j ∧ j < c.tam | c.elems[j] == elems'[j] %)) 
+          ∧ 
+            (¬(%∃ i : int | 0 <= i ∧ i < tam' | elems'[i] == x %) ==>
+                  c.tam == tam' + 1
+                ∧ (% ∀ j : int | 0 <= j ∧ j < tam' | c.elems[j] == elems'[j] %)
+                ∧ c.elems[tam'] == x)
+      post}
+      |[ var i := 0 : int
+       ; copiarElems(c, c.MAX, elems')
+       ; if c.tam == 0 -> c.tam, c.elems[0] := c.tam + 1, x
+         [] otherwise  
+            -> {inv true inv}
+               {bound c.tam - i bound}
+               do i < c.tam 
+                  -> if c.elems[i] == x -> i := c.tam
+                     [] i == c.tam-1    -> c.elems[i+1] := x
+                                         ; c.tam := c.tam+1
+                                         ; i     := c.tam
+                     [] otherwise       -> i := i + 1
+                     fi
+               od
+         fi
+      ]|
+
+    proc eliminar (inout c : Conjunto(T),  in x : T )
+      var tam' := c.tam : int;
+      var elems'        : array[c.MAX] of T;
+
+      {pre true pre}
+      {post (¬(% ∃ i : int | 0 <= i ∧ i < tam' | elems'[i] == x %) ==>
+                c.tam == tam'
+              ∧ (% ∀ j : int | 0 <= j ∧ j < c.tam | c.elems[j] == elems'[j] %))
+          ∧ 
+            ( (% ∃ i : int | 0 <= i ∧ i < tam' | elems'[i] == x %) ==>
+                c.tam == tam' - 1 
+              ∧ (% ∃ i : int | 0 <= i ∧ i < tam' | 
+                    elems'[i] == x  ∧ c.elems[i] == elems'[tam'-1]  
+                  ∧ (% ∀ j : int | 0 <= j ∧ j < tam'-1 ∧ j != i | c.elems[j] == elems'[j] %)
+                %))
+      post}
+      |[
+        skip
+      ]|
+
+    proc extraer (in c : Conjunto(T),  out x : T )
+      {pre c.tam > 0 pre}
+      {post (% ∃i : int | 0 <= i ∧ i < c.tam | c.elems[i] == x %) post}
+      |[
+        skip
+      ]|
+
+    proc pertenece (in c : Conjunto(T),  in x : T,  out p : boolean) 
+      {pre true pre}
+      {post p ≡ (% ∃ i : int | 0 <= i ∧ i < c.tam | c.elems[i] == x %) post}
+      |[
+        skip
+      ]|
+
+    proc vacio ( in c : Conjunto(T),  out v : boolean ) 
+      {pre true pre}
+      {post v ≡ c.tam == 0 post}
+      |[
+        skip
+      ]|
+
+    proc unir(in c0 : Conjunto(T), in c1 : Conjunto(T), in m : int, out c : Conjunto(T)) 
+      {pre c0.tam + c1.tam <= m pre}
+      {post c.MAX == m 
+          ∧ {i : int | 0 <= i ∧ i < c.tam | c.elems[i]} ==
+                {i : int | 0 <= i ∧ i < c0.tam | c0.elems[i]}
+              ∪ {i : int | 0 <= i ∧ i < c1.tam | c1.elems[i]} 
+      post}
+      |[
+        skip
+      ]|
+
+    proc intersectar(in c0 : Conjunto(T), in c1 : Conjunto(T), in m : int, out c : Conjunto(T))  
+      {pre  c0.tam <= m ∧ c1.tam <= m pre}
+      {post c.MAX == m
+          ∧ {i : int | 0 <= i ∧ i < c.tam | c.elems[i]} ==
+                {i : int | 0 <= i ∧ i < c0.tam | c0.elems[i]}
+              ∩ {i : int | 0 <= i ∧ i < c1.tam | c1.elems[i]} 
+      post}
+      |[
+        skip
+      ]|
+
+    proc restar(in c0 : Conjunto(T), in c1 : Conjunto(T), in m : int, out c : Conjunto(T)) 
+      {pre c0.tam  <= m pre}
+      {post c.MAX == m
+          ∧ {i : int | 0 <= i ∧ i < c.tam | c.elems[i]} ==
+                {i : int | 0 <= i ∧ i < c0.tam | c0.elems[i]}
+              \ {i : int | 0 <= i ∧ i < c1.tam | c1.elems[i]} 
+      post}
+      |[
+        skip
+      ]|
+
+    proc mostrar(in c : Conjunto(T))
+      
+      {pre true pre}
+      {post true post}
+      |[ var i := 0 : int
+       ; write("{")
+       ; {inv true inv}
+         {bound c.tam - i bound}
+         do i < c.tam -> write(c.elems[i])
+                       ; write(if i != c.tam-1 -> "," [] otherwise -> "" fi)
+                       ; i:= i+1 
+         od
+       ; writeln("}")
+      ]|
+    
+
+  end
+
+main
+  |[ var c : Conjunto(int)
+   ; crear(100, c)
+   ; mostrar(c)
+   ; agregar(c, 1)
+   ; agregar(c, 2)
+   ; agregar(c, 3)
+   ; agregar(c, 1)
+   ; agregar(c, 2)
+   ; agregar(c, 3)
+   ; mostrar(c)
+   ; skip
+  ]|
+end

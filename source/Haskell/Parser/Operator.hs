@@ -22,10 +22,6 @@ module Parser.Operator
   , ssubset, ssuperset, subset, superset
   -- * multiset operators
   , multisum
-  -- * sequence access operator
-  -- , seqAt
-  -- * bifunctor access operator
-  -- , bifuncAt
   -- * sequence concatenation operator
   , concat
   -- * functor cardinality operator
@@ -36,6 +32,7 @@ import           AST.Expression (BinaryOperator (..), Expression' (..),
                                  Expression'' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
 import           AST.Type       (Expression, Type (..), basic, (=:=))
+import           Common
 import           Error          (internal)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
@@ -45,8 +42,6 @@ import           Data.Semigroup ((<>))
 import           Prelude        hiding (Ordering (..), and, concat, div, elem,
                                  max, min, mod, not, notElem, or)
 import qualified Prelude        as P (div, max, min, mod, not, or)
-
-import           Debug.Trace
 --------------------------------------------------------------------------------
 chr' :: Int32 -> Char
 chr' = chr . fromIntegral . (`P.mod` 256)
@@ -408,36 +403,6 @@ multiType _ _ = let t = GUnsafeName "t" in Left $
 
 multisum :: Bin
 multisum  = Bin MultisetSum multiType multiPre
---------------------------------------------------------------------------------
-
--- seqAtPre :: (Value -> Value -> Value)
--- seqAtPre _ _ = internal "bad seqAt operator precalc"
---
--- seqAtType :: BinaryOpType
--- seqAtType (GSeq t1) GInt = Right t1
--- seqAtType _ _ = let t = GUnsafeName "t" in Left $
---   show (GSeq t, GInt)
---
--- seqAt :: Bin
--- seqAt  = Bin SeqAt seqAtType seqAtPre
---------------------------------------------------------------------------------
-
--- bifuncAtPre :: (Value -> Value -> Value)
--- bifuncAtPre _ _ = internal "bad bifuncAt operator precalc"
---
--- bifuncAtType :: BinaryOpType
--- bifuncAtType (GFunc a b) c = case a <> c of
---   GUndef -> Left $ show (GFunc a b, a)
---   _      -> Right b
--- bifuncAtType (GRel a b) c = case a <> c of
---   GUndef -> Left $ show (GFunc a b, a)
---   _      -> Right $ GSet b
--- bifuncAtType _ _ = let [s, t] = GUnsafeName <$> ["s", "t"] in Left $
---   show (GFunc s t, s) <> ", or " <>
---   show (GRel  s t, s)
---
--- bifuncAt :: Bin
--- bifuncAt  = Bin BifuncAt bifuncAtType bifuncAtPre
 --------------------------------------------------------------------------------
 
 concatPre :: (Value -> Value -> Value)

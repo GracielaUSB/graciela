@@ -5,8 +5,8 @@ abstract Diccionario (T0, T1) begin
   var conoc : set of T0;
   var tabla : func T0 -> T1;
 
-  {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}
-
+  {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}  
+  
   proc crear (in m : int, out d : Diccionario(T0,T1))
     {pre m > 0 pre}
     {post d.MAX == m ∧ d.conoc == ∅ ∧ d.tabla == func(∅) post}
@@ -28,12 +28,12 @@ abstract Diccionario (T0, T1) begin
         ∧ d.tabla == tabla' \ func({(c, tabla'(c))}) post}
 
   proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
-    {pre  c ∈ d.conoc pre}
+    {pre  c ∈ d.conoc  pre}
     {post v == d.tabla(c) post}
 
   proc existe (in d : Diccionario(T0,T1), in c : T0, out e : boolean)
     {pre true pre}
-    {post e === c ∈ d.conoc post}
+    {post e ≡ c ∈ d.conoc post}
 end
 
 
@@ -44,9 +44,8 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
   var   tam        : int;
 
   {repinv MAX > 0 ∧ 0 ≤ tam ∧ tam ≤ MAX  ∧
-    (%forall i : int | 0 ≤ i ∧ i ≤ tam
-      | (%forall j : int | 0 ≤ j ∧ j ≤ tam ∧ i != j
-      | clave[i] != clave[j] %)
+    (% ∀ i : int | 0 ≤ i ∧ i < tam
+      | (% ∀ j : int | 0 ≤ j ∧ j < tam ∧ i != j | clave[i] != clave[j] %)
     %)
   repinv}
 
@@ -63,7 +62,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
                         , out valor' : array[m] of T1)
     {pre true pre}
     {post (% forall i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == clave'[i] 
-                                                 ∧ d.valor[i] == valor'[i]  %) post}
+                                                ∧ d.valor[i] == valor'[i]  %) post}
     ⟦ var i : int
     ; i := 0
     ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
@@ -88,15 +87,15 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
 
     {post d.tam == tam' + 1 ∧ d.clave[tam'] == c ∧  d.valor[tam'] == v 
               ∧ (% forall i : int | 0 ≤ i ∧ i < tam' | d.clave[i] == clave'[i]
-                                                      ∧  d.valor[i] == valor'[i] %) post}
+                                                     ∧ d.valor[i] == valor'[i] %) post}
     ⟦ var i : int
     ; copiarClaveValor(d, d.MAX, clave', valor')
     ; i := 0
       
     ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
       {bound d.tam - i bound} 
-      do i < d.tam -> if c != c -> i := i + 1
-                      [] otherwise       -> i := d.tam
+      do i < d.tam -> if c != c    -> i := i + 1
+                      [] otherwise -> i := d.tam
                       fi
       od
 
@@ -112,32 +111,32 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
 
     {pre (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) pre}
     {post d.tam == tam' - 1
-         ∧ ¬(% ∃ i  : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %)
-         ∧  (% forall j : int | k ≤ j ∧ j < d.tam | d.clave[j] == clave'[j+1] 
-                                                  ∧ d.valor[j] == valor'[j+1] %) post}
-    ⟦ var i : int
-    ; var encontrado : boolean
+         ∧ (% ∃ i : int | 0 ≤ i ∧ i < tam' | 
+              clave'[i]  == c
+            ∧ d.clave[i] == clave'[tam'-1]
+            ∧ d.valor[i] == valor'[tam'-1]
+            ∧ (% forall j : int | 0 ≤ j ∧ j < d.tam-1 ∧ j != i |
+                     d.clave[j] == clave'[j] 
+                   ∧ d.valor[j] == valor'[j] %) %) post}
+    ⟦ var i := 0 : int
     ; copiarClaveValor(d, d.MAX, clave', valor')
-    ; i := 0
 
-    ; {inv 0 ≤ i ∧ i ≤ d.tam - 1 inv}
-      {bound d.tam - i - 1  bound} 
-      do i < d.tam - 1 -> if d.clave[i] != c ∧ ¬encontrado -> skip
-                          [] encontrado      -> d.clave[i] := d.clave[i+1] 
-                                              ; d.valor[i] := d.valor[i+1]
-                          [] d.clave[i] == c -> d.clave[i] := d.clave[i+1]
-                                              ; d.valor[i] := d.valor[i+1]
-                                              ; encontrado, k := true, i
-                          fi
-                        ; i := i + 1  
+    ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
+      {bound d.tam - i  bound} 
+      do i < d.tam -> if d.clave[i] != c -> i := i + 1
+                      [] d.clave[i] == c -> d.clave[i] := d.clave[d.tam - 1]
+                                          ; d.valor[i] := d.valor[d.tam - 1]
+                                          ; i := d.tam
+                      fi
       od
-
+    ; writeln(d.tam)
     ; d.tam := d.tam - 1
+    ; writeln(d.tam)
     ⟧
 
   proc buscar ( in d : Dicc(T0,T1), in c : T0 , out v : T1 )
-    {pre  (% ∃ i : int | 0 ≤ i ∧ i ≤ d.tam | d.clave[i] == c %) pre}
-    {post (% ∃ i : int | 0 ≤ i ∧ i ≤ d.tam | d.clave[i] == c ∧ d.valor[i] == v %) post}
+    {pre  (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) pre}
+    {post (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c ∧ d.valor[i] == v %) post}
     ⟦ var i : int
     ; i := 0
       
@@ -164,23 +163,34 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     ⟧
 end
 
+proc rec (in i : int)
+
+  {pre  true  pre}
+  {post true post}
+  {bound i bound}
+  |[ if i > 0     -> writeln(i); rec(i-1)
+     [] otherwise -> writeln(i);
+     fi
+  ]|
+
+
 main
   |[ var d : Dicc(int, int)
    ; var b : boolean
    ; var r : int
    ; crear(100,d)
    ; agregar(d, 1, 2)
-   ; write(multiplicity(1, {{1,1,1}}))
+   ; agregar(d, 2, 4)
+   ; agregar(d, 3, 8)
    ; existe(d,1,b)
    ; buscar(d,1,r) 
    ; writeln(b, " -> ", r)
    ; eliminar(d,1)
-   ; writeln(<<1,2,3>>!1)
-   ; existe(d,1,b)
+   ; rec(1)
+   // ; existe(d,1,b)
    ; if     b     -> buscar(d,1,r) 
                    ; writeln(b, " ->", r)
      [] otherwise -> writeln("Soy estupido, no hay 1") 
      fi
-   
   ]|
 end

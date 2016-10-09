@@ -1,6 +1,8 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE TupleSections            #-}
+
 
 module Parser.Definition
   ( function
@@ -12,6 +14,7 @@ module Parser.Definition
 import           AST.Definition
 import           AST.Expression
 import           AST.Type
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -42,8 +45,6 @@ import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
                                       optional, try, withRecovery, (<|>))
 --------------------------------------------------------------------------------
-import           Debug.Trace
-
 
 function :: Parser (Maybe Definition)
 function = do
@@ -78,7 +79,7 @@ function = do
                   "One of the parameters of the function `" <> unpack funcName <>
                   "`\n\tmust have type " <> show dtType <> " when using Variable Types."
             pure False
-      else do  
+      else do
         pure False
 
     _ -> pure False
@@ -146,23 +147,23 @@ function = do
                 , funcRecursive } }
 
           if goToDT
-            then do 
+            then do
               let Just (_,_, procs) = dt
               case funcName `Map.lookup` procs of
-                  Nothing -> do 
+                  Nothing -> do
                     currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
                     pure $ Just def
-                  Just _  -> do 
-                    putError from . UnknownError $ 
+                  Just _  -> do
+                    putError from . UnknownError $
                       "Redefinition of function `" <> unpack funcName <> "`."
                     pure Nothing
-          else do 
+          else do
             defs <- use definitions
             case funcName `Map.lookup` defs of
-              Nothing -> do 
+              Nothing -> do
                 definitions %= Map.insert funcName def
                 pure $ Just def
-              Just _  -> do 
+              Just _  -> do
                 putError from . UnknownError $
                   "Redefinition of function `" <> unpack funcName <> "`."
                 pure Nothing
@@ -238,7 +239,7 @@ procedure = do
                   "One of the parameters of the procedure `" <> unpack procName <>
                   "`\n\tmust have type " <> show dtType <> " when using Variable Types."
             pure False
-      else do  
+      else do
         existsDT .= False
         pure False
 
@@ -294,28 +295,28 @@ procedure = do
             , procParams = params
             , procRecursive }}
       if goToDT
-        then do 
+        then do
           let Just (_,_, procs) = dt
           case procName `Map.lookup` procs of
-              Nothing -> do 
+              Nothing -> do
                 currentStruct %= over _Just (_3 %~ (Map.insert procName def))
                 pure $ Just def
-              Just _  -> do 
-                putError from . UnknownError $ 
+              Just _  -> do
+                putError from . UnknownError $
                   "Redefinition of procedure `" <> unpack procName <> "`."
                 pure Nothing
-        else do 
+        else do
           defs <- use definitions
           case procName `Map.lookup` defs of
-            Nothing -> do 
+            Nothing -> do
               definitions %= Map.insert procName def
               pure $ Just def
-            Just _  -> do 
+            Just _  -> do
               putError from . UnknownError $
                 "Redefinition of procedure `" <> unpack procName <> "`."
               pure Nothing
-      
- 
+
+
 
     _ -> pure Nothing
 
@@ -380,10 +381,22 @@ functionDeclaration = do
   match' TokArrow
   retType <- type'
 
-  prePos  <- getPosition
-  pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
-  postPos <- getPosition
-  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
+  dt <- use currentStruct
+  case (dt, params', funcName') of
+    (Just (dtType, _, procs), Just params, Just funcName) -> do
+      let
+        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        hasTV  = any (\(_,pType) -> hasTypeVar  pType) params
+        hasDT' = any (\(_,pType) -> aux $ hasDT pType) params
+      when ((hasTV || hasTypeVar retType) && not hasDT') .
+        putError from . UnknownError $
+          "One of the parameters of the abstract function `" <> unpack funcName <>
+          "`\n\tmust have type " <> show dtType <> " when using Variable Types."
+
+    _ -> pure ()
+
+  pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
+  post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 
   to   <- getPosition
   let loc = Location (from,to)
@@ -413,15 +426,29 @@ procedureDeclaration = do
   params' <- parens $ doProcParams
 
   decls'  <- sequence <$> abstractDeclaration False `endBy` match' TokSemicolon
-  
-  prePos <- getPosition
-  pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
-  postPos <- getPosition
-  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
+
+  dt <- use currentStruct
+  case (dt, params', procName') of
+    (Just (dtType, _, procs), Just params, Just procName) -> do
+      let
+        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        hasTV  = any (\(_,pType,_) -> hasTypeVar  pType) params
+        hasDT' = any (\(_,pType,_) -> aux $ hasDT pType) params
+      if hasTV && not hasDT'
+        then putError from . UnknownError $
+          "One of the parameters of the abstract procedure `" <> unpack procName <>
+          "`\n\tmust have type " <> show dtType <> " when using Variable Types."
+      else do
+        existsDT .= False
+    _ -> pure ()
+
+   
+  pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
+  post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 
   to   <- getPosition
   let loc = Location (from,to)
-
+  existsDT .= True
   symbolTable %= closeScope to
   case (procName', params', pre', post', decls') of
     (Just procName, Just params, Just pre, Just post, Just decls) -> do

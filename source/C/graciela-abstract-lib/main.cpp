@@ -18,6 +18,7 @@ typedef int8_t* Function;
 typedef int8_t* TrashCollector;
 
 
+
 TEST_CASE("Graciela Relation"){
     _initTrashCollector();
     _openScope();
@@ -95,13 +96,6 @@ TEST_CASE("Graciela Function"){
     _insertFunction(f, 3, 2);
     _insertFunction(f, 3, 1);
   
-  
-  while(true){
-    printf("1",1);
-        printf("1",1);
-        printf("1",1);
-    
-  }
     REQUIRE(_sizeFunction(f) == 3);
     REQUIRE(_isElemFunction(f, 1, 2));
     REQUIRE(_isElemFunction(f, 2, 1));
@@ -137,6 +131,18 @@ TEST_CASE("Graciela Function"){
     
     s = _compositionRelation(f2, f);
     REQUIRE(_sizeFunction(s) == 0);
+  Set set = _newSetPair();
+  gtuple t1 = {1,2};
+  gtuple t2 = {2,4};
+  gtuple t3 = {3,8};
+  gtuple t4 = {4,16};
+  _insertSetPair(set, &t1);
+  _insertSetPair(set, &t2);
+  _insertSetPair(set, &t3);
+  _insertSetPair(set, &t4);
+  
+  Function fun = _funcFromSet(set, 1, 1);
+  
     _freeTrashCollector();
 }
 
@@ -155,8 +161,8 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_sizeMultiset(s) == 5);
     REQUIRE(_isElemMultiset(s, 1));
     REQUIRE(_isElemMultiset(s, 2));
-    REQUIRE(_countMultiset(s, 1) == 2);
-    REQUIRE(_countMultiset(s, 2) == 3);
+    REQUIRE(_countMultiset(1,s) == 2);
+    REQUIRE(_countMultiset(2,s) == 3);
     
     Multiset s2 = _newMultiset();
     _insertMultiset(s2, 2);
@@ -175,18 +181,18 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_isElemMultiset(unionS, 1));
     REQUIRE(_isElemMultiset(unionS, 2));
     REQUIRE(_isElemMultiset(unionS, 3));
-    REQUIRE(_countMultiset(unionS, 1) == 2);
-    REQUIRE(_countMultiset(unionS, 2) == 3);
-    REQUIRE(_countMultiset(unionS, 3) == 2);
+    REQUIRE(_countMultiset(1,unionS) == 2);
+    REQUIRE(_countMultiset(2,unionS) == 3);
+    REQUIRE(_countMultiset(3,unionS) == 2);
 
     unionS = _unionMultiset(s2, s);
     REQUIRE(_sizeMultiset(unionS) == 7);
     REQUIRE(_isElemMultiset(unionS, 1));
     REQUIRE(_isElemMultiset(unionS, 2));
     REQUIRE(_isElemMultiset(unionS, 3));
-    REQUIRE(_countMultiset(unionS, 1) == 2);
-    REQUIRE(_countMultiset(unionS, 2) == 3);
-    REQUIRE(_countMultiset(unionS, 3) == 2);
+    REQUIRE(_countMultiset(1,unionS) == 2);
+    REQUIRE(_countMultiset(2,unionS) == 3);
+    REQUIRE(_countMultiset(3,unionS) == 2);
 
     
     
@@ -197,12 +203,12 @@ TEST_CASE("Graciela Multiset"){
     Multiset intersectS = _intersectMultiset(s, s2);
     REQUIRE(_sizeMultiset(intersectS) == 3);
     REQUIRE(_isElemMultiset(intersectS, 2));
-    REQUIRE(_countMultiset(intersectS, 2) == 3);
+    REQUIRE(_countMultiset(2,intersectS) == 3);
 
     intersectS = _intersectMultiset(s2, s);
     REQUIRE(_sizeMultiset(intersectS) == 3);
     REQUIRE(_isElemMultiset(intersectS, 2));
-    REQUIRE(_countMultiset(intersectS, 2) == 3);
+    REQUIRE(_countMultiset(2,intersectS) == 3);
     
     /* {1,1,2,2,2} ∩ {} */
     intersectS = _intersectMultiset(s, empty);
@@ -214,21 +220,21 @@ TEST_CASE("Graciela Multiset"){
     /* {1,1,2,2,2} \ {}  */
     Multiset differenceS = _differenceMultiset(s, empty);
     REQUIRE(_sizeMultiset(differenceS) == 5);
-    REQUIRE(_countMultiset(differenceS, 1) == 2);
-    REQUIRE(_countMultiset(differenceS, 2) == 3);
+    REQUIRE(_countMultiset(1,differenceS) == 2);
+    REQUIRE(_countMultiset(2,differenceS) == 3);
     differenceS = _differenceMultiset(empty, s);
     REQUIRE(_sizeMultiset(differenceS) == 0);
     
     /* {1,1,2,2,2} \ {2,2,2,2,2,3,3} = {1,1} */
     differenceS = _differenceMultiset(s, s2);
     REQUIRE(_sizeMultiset(differenceS) == 2);
-    REQUIRE(_countMultiset(differenceS, 1) == 2);
+    REQUIRE(_countMultiset(1,differenceS) == 2);
     
     /* {2,2,2,2,2,3,3} \ {1,1,2,2,2} = {2,2,3,3} */
     differenceS = _differenceMultiset(s2, s);
     REQUIRE(_sizeMultiset(differenceS) == 4);
-    REQUIRE(_countMultiset(differenceS, 2) == 2);
-    REQUIRE(_countMultiset(differenceS, 3) == 2);
+    REQUIRE(_countMultiset(2,differenceS) == 2);
+    REQUIRE(_countMultiset(3,differenceS) == 2);
     
     _freeTrashCollector();
 }

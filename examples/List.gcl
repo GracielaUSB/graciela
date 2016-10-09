@@ -256,7 +256,7 @@ main
    // ; writeln("Tamaño: ",(*l).tam)
 
    ; writeln(elemNode(l.first, 1, l.tam))
-
+   ; 
    ; writeln("Lista Normal")
    ; print(l)
    ; writeln("Lista Normal -> Elemento 0 y 2: ", at(l,0), ", ", at(l,2))

@@ -16,6 +16,7 @@ import           AST.Expression                          (CollectionKind (..),
 import qualified AST.Expression                          as E (Expression' (expType))
 import           AST.Type                                (Expression, QRange,
                                                           Type (..), (=:=))
+import           Common
 import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
@@ -24,7 +25,7 @@ import           LLVM.Type
 import           Location
 --------------------------------------------------------------------------------
 import           Control.Monad                           (unless, when)
-import           Data.Sequence                           (viewl, ViewL ((:<)))
+import           Data.Sequence                           (ViewL ((:<)), viewl)
 import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
@@ -39,7 +40,6 @@ import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type                   (i1, i64)
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 boolQ :: Num a
       => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
@@ -615,13 +615,13 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
 
 collection expression boolean e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Collection { colKind, colVar = Nothing, colElems } -> do
-      theSet <- empty colKind colElems 
+      theSet <- empty colKind colElems
       unless (null colElems) $
         mapM_ (callInsert colKind theSet) colElems
       pure theSet
 
   Collection { colKind, colVar = Just (name, ty, range, cond), colElems } -> case range of
-    EmptyRange -> empty colKind colElems 
+    EmptyRange -> empty colKind colElems
 
     PointRange { thePoint } -> do
       let range' = ExpRange
@@ -637,8 +637,8 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
       h <- expression high
 
       cType <- toLLVMType $ case expType of
-        GSet t -> t
-        GSeq t -> t
+        GSet t      -> t
+        GSeq t      -> t
         GMultiset t -> t
 
       theSet <- empty colKind colElems
@@ -753,8 +753,8 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
 
       theSet <- newLabel "theSet"
       t <- toLLVMType expType
-      case viewl colElems of 
-        t' :< _ | E.expType t' =:= GTuple GAny GAny -> 
+      case viewl colElems of
+        t' :< _ | E.expType t' =:= GTuple GAny GAny ->
           addInstruction $ theSet := Call
             { tailCallKind = Nothing
             , callingConvention = CC.C
@@ -782,7 +782,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
 
       pure $ LocalReference t theSet
 
-    callInsert colKind theSet expr 
+    callInsert colKind theSet expr
       | E.expType expr =:= GTuple GAny GAny = do
 
         expr' <- expression expr
@@ -801,7 +801,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
           , metadata = [] }
 
       | otherwise = do
-        
+
         expr' <- expression expr
         t <- toLLVMType expType
         value <- newLabel "item_2"

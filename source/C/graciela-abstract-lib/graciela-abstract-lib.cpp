@@ -15,10 +15,37 @@ extern "C" {
 
   using namespace glib;
 
-  int8_t* _stack;
+  stack<TrashCollector>* _stack;
+//  int precondition = 0;
+  
+  void abortAbstract(abortEnum reason, int line, int col, int pos = 0, int size = 0){
+  
+    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
+
+    switch (reason) {
+      case A_DUPLICATE_DOMAIN:
+        printf (":\n\tDuplicate value in domain.\n");
+        break;
+      case A_NOT_IN_DOMAIN:
+        printf (":\n\tValue not in domain\n");
+        break;
+      case A_NEGATIVE_POS:
+        printf (":\n\tTrying to access negative position `%d` in a sequence.\n", pos);
+        break;
+      case A_BAD_POS:
+        printf (":\n\tTrying to access the position `%d` of a sequence of size `%d`.\n", pos, size);
+        break;
+      default:
+        break;
+    }
+  
+    _freeTrashCollector();
+    exit(EXIT_FAILURE);
+
+  }
 
   void mark(TCTuple t){
-      ((stack<TrashCollector>*)_stack)->top().push_back(t);
+      _stack->top().push_back(t);
   }
 
   /* Set */
@@ -453,13 +480,10 @@ extern "C" {
 
     for(SetPair::iterator it = set->begin(); it != set->end(); ++it){
         Function::iterator it2 = func->find(it->first);
-        if (it2 != func->end() || (it2 == func->end() && it2->second == it->second)) {
-          printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-          printf (":\n\tDuplicate value in domain.\n");
-          _freeTrashCollector();
-          exit(EXIT_FAILURE);
+        if (it2 != func->end()) {
+          abortAbstract(A_DUPLICATE_DOMAIN, line, col);
         } else {
-          func->insert(*it);
+          func->insert(Tuple(it->first,it->second));
         }
       }
       return (int8_t*)func;
@@ -503,12 +527,9 @@ extern "C" {
     Function *function    = (Function*)ptr;
     Function::iterator it = function->find(k);
     if (it == function->end()){
-      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-      printf (":\n\tValue not in domain\n");
-      exit(EXIT_FAILURE);
-    } else {
-      return (t)function->find(k)->second;
+      abortAbstract(A_NOT_IN_DOMAIN, line, col);
     }
+    return (t)function->find(k)->second;
 
   }
 
@@ -548,11 +569,10 @@ extern "C" {
 
     for(Function::iterator it = func2->begin(); it != func2->end(); ++it){
       Function::iterator it2 = newFunc->find(it->first);
-      if (it2 != newFunc->end() || (it2 == newFunc->end() && it2->second == it->second)){
-        printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-        printf (":\n\tDuplicate value in domain.\n");
-        _freeTrashCollector();
-        exit(EXIT_FAILURE);
+      if (it2 != newFunc->end()){
+        if (it2->second != it->second){
+          abortAbstract(A_DUPLICATE_DOMAIN, line, col);
+        }
       } else {
         newFunc->insert(Tuple(it->first, it->second));
       }
@@ -728,19 +748,12 @@ extern "C" {
   t _atSequence(int8_t*ptr, int pos, int line, int col){
     Sequence* seq = (Sequence*)ptr;
     if (pos < 0){
-      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-      printf (":\n\tTrying to access negative position `%d` in a sequence.\n", pos);
-      _freeTrashCollector();
-      exit(EXIT_FAILURE);
+      abortAbstract(A_NEGATIVE_POS, line, col);
     }
     else if (pos >= seq->size()){
-      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-      printf (":\n\tTrying to access the position `%d` of a sequence of size `%lu`.\n", pos, seq->size());
-      _freeTrashCollector();
-      exit(EXIT_FAILURE);
-    } else {
-      return (*seq)[pos];
+      abortAbstract(A_BAD_POS, line, col);
     }
+    return (*seq)[pos];
   }
 
   void _freeSequence(int8_t* ptr) {
@@ -785,8 +798,8 @@ extern "C" {
 
   int8_t* _concatSequencePair(int8_t* ptr1, int8_t* ptr2){
     SequencePair *seq1   = (SequencePair*)ptr1,
-    *seq2   = (SequencePair*)ptr2,
-    *newSeq = (SequencePair*)_newSequencePair();
+                 *seq2   = (SequencePair*)ptr2,
+                 *newSeq = (SequencePair*)_newSequencePair();
     newSeq->insert( newSeq->end(), seq1->begin(), seq1->end());
     newSeq->insert( newSeq->end(), seq2->begin(), seq2->end());
     return (int8_t*)newSeq;
@@ -798,16 +811,15 @@ extern "C" {
 
   gtuple _atSequencePair(int8_t*ptr, int pos, int line, int col){
     SequencePair* seq = (SequencePair*)ptr;
-    if (pos < 0 or pos >= seq->size()){
-      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
-      printf (":\n\tDuplicate value in the domain of the function.\n");
-      _freeTrashCollector();
-      exit(EXIT_FAILURE);
-    } else {
-      Tuple t = (*seq)[pos];
-      gtuple tuple = {t.first, t.second};
-      return tuple;
+    if (pos < 0){
+      abortAbstract(A_NEGATIVE_POS, line, col,pos);
     }
+    else if (pos >= seq->size()){
+      abortAbstract(A_BAD_POS, line, col,pos,(int)seq->size());
+    }
+    Tuple t = (*seq)[pos];
+    gtuple tuple = {t.first, t.second};
+    return tuple;
   }
 
   void _freeSequencePair(int8_t* ptr) {
@@ -818,7 +830,7 @@ extern "C" {
   /* Trash Collector */
 
   void _initTrashCollector(){
-      _stack = (int8_t*)(new stack<TrashCollector>);
+      _stack = new stack<TrashCollector>;
   }
 
   void _openScope(){
@@ -828,8 +840,8 @@ extern "C" {
   }
 
   void _closeScope(){
-      TrashCollector tc = ((stack<TrashCollector>*)_stack)->top();
-      ((stack<TrashCollector>*)_stack)->pop();
+      TrashCollector tc = _stack->top();
+      _stack->pop();
       for (TrashCollector::iterator it = tc.begin(); it != tc.end(); ++it){
           switch (it->second) {
               case SET: {
@@ -870,12 +882,12 @@ extern "C" {
   }
 
   void _freeTrashCollector(){
-      for (int i = 0 ; i < ((stack<TrashCollector>*)_stack)->size(); i++)
+      for (int i = 0 ; i < (_stack)->size(); i++)
       {
           _closeScope();
       }
 
-      delete ((stack<TrashCollector>*)_stack);
+      delete (_stack);
   }
 }
 

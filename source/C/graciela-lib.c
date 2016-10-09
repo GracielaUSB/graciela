@@ -10,6 +10,7 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "wchar.h"
 #include "locale.h"
 #include "string.h"
+#include "graciela-abstract-lib/graciela-abstract-lib.h"
 
 int8_t* _openFile(char* name) {
   FILE* file;
@@ -262,6 +263,7 @@ void _abort (abort_t reason, int line, int column) {
     default:
       printf (":\n\tunknown reason <%d>.\n", reason); break;
   }
+  _freeTrashCollector();
   exit (EXIT_FAILURE);
 }
 

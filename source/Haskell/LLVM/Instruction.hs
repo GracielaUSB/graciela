@@ -12,6 +12,8 @@ import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         hiding (indices)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
+import           Common
+import           Error                              (internal)
 import           LLVM.Abort                         (abort)
 import qualified LLVM.Abort                         as Abort (Abort (..))
 import           LLVM.Boolean
@@ -29,6 +31,7 @@ import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, void, when,
                                                      zipWithM_)
 import           Data.Foldable                      (toList)
+import           Data.Maybe                         (fromMaybe)
 import           Data.Semigroup                     ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
@@ -51,7 +54,6 @@ import           LLVM.General.AST.Operand           (CallableOperand,
                                                      Operand (..))
 import           LLVM.General.AST.Type              hiding (void)
 --------------------------------------------------------------------------------
-import           Debug.Trace
 
 guard :: Name -> Name -> Guard -> LLVM Name
 guard finish checkLabel (expr, decls, insts) = do
@@ -153,21 +155,29 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     (exit #)
 
-  ProcedureCall { pName, pArgs, pStructArgs } -> do
-    args <- mapM createArg pArgs
+  ProcedureCall { pName, pArgs, pStructArgs, pRecursiveCall, pRecursiveProc } -> do
+    args <- toList <$> mapM createArg pArgs
 
     pName' <- case pStructArgs of
       Just (structBaseName, typeArgs) -> do
         llvmName (pName <> pack "-" <> structBaseName) <$>
           mapM toLLVMType (toList typeArgs)
       _ -> pure . unpack $ pName
+    
+    recArgs <- fmap (,[]) <$> if pRecursiveCall
+      then do
+        boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
+        pure [ConstantOperand $ C.Int 1 1, boundOperand]
+      else if pRecursiveProc
+        then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+        else pure []
 
     addInstruction $ Do Call
       { tailCallKind       = Nothing
       , callingConvention  = CC.C
       , returnAttributes   = []
       , function           = callable voidType pName'
-      , arguments          = toList args
+      , arguments          = recArgs <> args
       , functionAttributes = []
       , metadata           = [] }
     where
@@ -512,41 +522,41 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
 
   Read { file, vars } -> mapM_ readVar vars
-    where 
-      readVar var = do 
-        let 
+    where
+      readVar var = do
+        let
           t = objType var
 
         (args, fread) <- case file of
           Nothing -> pure . ([],) $ case t of
-            T.GChar   -> readCharStd
-            T.GFloat  -> readFloatStd
-            T.GInt    -> readIntStd
-            _         -> error ":D no se soporta este tipo: " <> show t
+            T.GChar  -> readCharStd
+            T.GFloat -> readFloatStd
+            T.GInt   -> readIntStd
+            _        -> error ":D no se soporta este tipo: " <> show t
 
-          Just file' -> do 
-            let 
-              fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $ 
+          Just file' -> do
+            let
+              fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
                         "__" <> (unpack file')
 
             filePtr <- newLabel "filePtr"
-            addInstruction $ filePtr := Load 
+            addInstruction $ filePtr := Load
               { volatile  = False
               , address   = fileRef
               , maybeAtomicity = Nothing
               , alignment = 4
               , metadata  = [] }
-            
+
             let filePtrOp = LocalReference (ptr i8) filePtr
-            
+
             pure . ([(filePtrOp,[])], ) $ case t of
-                T.GChar   -> readFileChar
-                T.GFloat  -> readFileFloat
-                T.GInt    -> readFileInt
-                _         -> error ":D no se soporta este tipo: " <> show t
+                T.GChar  -> readFileChar
+                T.GFloat -> readFileFloat
+                T.GInt   -> readFileInt
+                _        -> error ":D no se soporta este tipo: " <> show t
 
         type' <- toLLVMType t
-        
+
         readResult <- newLabel "readCall"
         -- Call the C read function
         addInstruction $ readResult := Call
@@ -675,7 +685,5 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
   Skip -> pure ()
 
-  _ -> do
-    traceM . drawTree . toTree $ i
-    traceM "I don't know how to generate code for:"
-    error "Unimplemented instruction"
+  _ -> internal $
+    "I don't know how to generate code for:" <> (drawTree . toTree $ i)

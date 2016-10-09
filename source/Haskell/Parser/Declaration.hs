@@ -21,6 +21,7 @@ import           AST.Expression            (Expression' (..),
                                             Expression'' (NullPtr, Value))
 import           AST.Struct                (Struct (..))
 import           AST.Type
+import           Common
 import           Entry
 import           Error
 import           Location
@@ -31,21 +32,21 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (use, (%=), over, (.~), _2, _Just)
+import           Control.Lens              (over, use, (%=), (.~), _2, _Just)
 import           Control.Monad             (foldM, forM_, unless, void, when,
                                             zipWithM_)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
-import           Data.Map                  as Map (lookup, insert)
+import           Data.Map                  as Map (insert, lookup)
 import           Data.Semigroup            ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)
-import           Debug.Trace
 import           Prelude                   hiding (lookup)
 import           Text.Megaparsec           (getPosition, lookAhead,
                                             notFollowedBy, optional, try, (<|>))
 --------------------------------------------------------------------------------
+
 type Constness = Bool
 -- | Se encarga del parseo de las variables y su almacenamiento en
 -- la tabla de simbolos.
@@ -149,7 +150,7 @@ checkType True t isStruct pairs
 
   if expType =:= t
     then if expConst
-      then do 
+      then do
         info <- info' isStruct from name t (Just expr) True
         let
           entry = Entry
@@ -178,14 +179,14 @@ checkType False t isStruct pairs
   in if expType =:= t
     then do
       redef <- redefinition (name,location)
-      
+
       let
         expr' = case exp' of
           NullPtr {} -> expr{expType = t}
           _          -> expr
       unless redef $ do
         info <- info' isStruct from name t (Just expr') False
-        let 
+        let
           entry = Entry
             { _entryName  = name
             , _loc        = location
@@ -230,27 +231,27 @@ redefinition (varName, Location (from, _)) = do
 
 
 
-info' :: Bool -> SourcePos -> Text 
-      -> Type -> Maybe Expression -> Bool 
+info' :: Bool -> SourcePos -> Text
+      -> Type -> Maybe Expression -> Bool
       -> Parser Entry'
-info' isStruct pos name t expr constness = if isStruct 
+info' isStruct pos name t expr constness = if isStruct
   then do
     Just (_ , fields, _) <- use currentStruct
-    let 
+    let
       f = (fromIntegral (length fields), t, constness, expr)
       fields' = Map.insert name f fields
     case name `Map.lookup` fields of
-      Just (_,t', c, _) 
-        | c /= constness -> 
-          let 
+      Just (_,t', c, _)
+        | c /= constness ->
+          let
             aux a = if a then "constant" else "variable"
           in
-            putError pos . UnknownError $ 
-            "Redefinition of member `" <> unpack name <> "` as " <> aux constness <> 
+            putError pos . UnknownError $
+            "Redefinition of member `" <> unpack name <> "` as " <> aux constness <>
             ",\n\tbut defined in abstract type as " <> aux c <> "."
         | t' =:= t -> pure ()
 
-      Just _ -> putError pos . UnknownError $ 
+      Just _ -> putError pos . UnknownError $
         "Ambigous redefinition of variable `" <> unpack name <> "` defined in abstract type"
       _ -> currentStruct %= over _Just (_2 .~ fields')
     pure $ SelfVar t expr constness

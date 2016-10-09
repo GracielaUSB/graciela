@@ -38,7 +38,9 @@ main
 
   ; test(k)
 
-  ; writeln(sqrt(3))
+  ; y := wwwwwww
+
+  ; writeln(true elem {true, false})
 
   ; y := 5
   ; writeln ("y: ", y)

@@ -50,6 +50,13 @@ namespace glib {
     typedef vector<Tuple>      SequencePair;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
+  
+  typedef enum{
+    A_DUPLICATE_DOMAIN = 0,
+    A_NOT_IN_DOMAIN    = 1,
+    A_NEGATIVE_POS     = 2,
+    A_BAD_POS          = 3
+  } abortEnum;
 }
 
 extern "C" {
@@ -129,6 +136,7 @@ extern "C" {
     void    _insertFunction(int8_t* ptr, t key, t value);
     int     _sizeFunction(int8_t *ptr);
     int     _isElemFunction(int8_t* ptr, t key, t value);
+    int8_t* _funcFromSet(int8_t* setPtr, int line, int col);
     int8_t* _domFunction(int8_t* ptr);
     int8_t* _codomainRelation(int8_t *ptr);
     t       _pairFunction(int8_t* ptr, t k, int line, int col);
@@ -145,6 +153,7 @@ extern "C" {
     void    _insertRelation(int8_t* ptr, t key, t value);
     int     _sizeRelation(int8_t *ptr);
     int     _isElemRelation(int8_t* ptr, t key, t value);
+    int8_t* _relationFromSet(int8_t* setPtr);
     int8_t* _domRelation(int8_t* ptr);
     int8_t* _codomainRelation(int8_t *ptr);
     int8_t* _pairRelation(int8_t* ptr, t key);
@@ -175,7 +184,7 @@ extern "C" {
 
     /* Tuple */
     int _equalTuple(gtuple* x, gtuple* y);
-    /* TrashCollector (Yet Another Garbage Collector)
+    /*  TrashCollector (Yet Another Garbage Collector)
      *  Every pointer created (set, multiset, ...) is
      *  stored inside a vector of pointers, to be freed when freeTrashCollector()
      *  is called.
