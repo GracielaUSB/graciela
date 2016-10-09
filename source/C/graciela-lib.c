@@ -215,6 +215,7 @@ typedef enum
   , A_NEGATIVE_EXPONENT
   , A_BAD_ABSTRACT_COUPLE
   , A_COUPINVARIANT
+  , A_ABSTRACT_POST
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
@@ -260,6 +261,8 @@ void _abort (abort_t reason, int line, int column) {
       printf (":\n\tthe abstract precondition was falsified.\n\tThe procedure doesn't implement the abstract type.\n"); break;
     case A_COUPINVARIANT:
       printf (":\n\tthe coupling invariant was falsified.\n"); break;
+    case A_ABSTRACT_POST:
+      printf (":\n\tthe abstract postcondition was falsified.\n"); break;
     default:
       printf (":\n\tunknown reason <%d>.\n", reason); break;
   }

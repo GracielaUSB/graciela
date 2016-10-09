@@ -129,8 +129,20 @@ program Conjunto.bin begin
                   ∧ (% ∀ j : int | 0 <= j ∧ j < tam'-1 ∧ j != i | c.elems[j] == elems'[j] %)
                 %))
       post}
-      |[
-        skip
+      |[ var i := 0 : int
+       ; copiarElems(c, c.MAX, elems')
+       ; if c.tam == 0 -> c.tam, c.elems[0] := c.tam + 1, x
+         [] otherwise  
+            -> {inv true inv}
+               {bound c.tam - i bound}
+               do i < c.tam 
+                  -> if c.elems[i] == x -> c.elems[i] := c.elems[c.tam-1]
+                                         ; c.tam := c.tam -1
+                                         ; i := c.tam
+                     [] otherwise       -> i := i + 1
+                     fi
+               od
+         fi
       ]|
 
     proc extraer (in c : Conjunto(T),  out x : T )

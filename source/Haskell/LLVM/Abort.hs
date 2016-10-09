@@ -84,6 +84,7 @@ data Abort
   | NegativeExponent   -- The integer operation ^ was performed with a negative exponent.
   | BadAbstractCouple  -- If the precondition do not fails, but the abstract pre fails, then its a bad couple
   | CoupInvariant
+  | AbstractPost
   deriving (Eq, Ord, Show, Enum)
 
 -- | Generates a call to the appropriate abort.

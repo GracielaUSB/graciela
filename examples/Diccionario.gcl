@@ -91,16 +91,20 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     ⟦ var i : int
     ; copiarClaveValor(d, d.MAX, clave', valor')
     ; i := 0
-      
-    ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
-      {bound d.tam - i bound} 
-      do i < d.tam -> if c != c    -> i := i + 1
-                      [] otherwise -> i := d.tam
-                      fi
-      od
-
-    ; d.clave[d.tam], d.valor[d.tam] := c, v
-    ; d.tam := d.tam + 1
+    
+    ; if d.tam == 0 -> d.clave[d.tam], d.valor[d.tam] := c, v
+                     ; d.tam := d.tam + 1
+      [] otherwise 
+          -> {inv 0 ≤ i ∧ i ≤ d.tam inv}
+             {bound d.tam - i bound} 
+             do i < d.tam -> if d.clave[i] == c -> i := d.tam
+                             [] i == d.tam - 1  -> d.clave[d.tam], d.valor[d.tam] := c, v
+                                                 ; d.tam := d.tam + 1
+                                                 ; i := d.tam
+                             [] otherwise       -> i := i + 1
+                             fi
+             od
+      fi
     ⟧
 
   proc eliminar (inout d : Dicc(T0,T1), in c : T0)
@@ -163,16 +167,14 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     ⟧
 end
 
-proc rec (in i : int)
-
-  {pre  true  pre}
-  {post true post}
+func rec ( i : int) -> int
+  {pre  true   pre}
+  {post false post}
   {bound i bound}
-  |[ if i > 0     -> writeln(i); rec(i-1)
-     [] otherwise -> writeln(i);
+  |[ if i > 0     -> rec(i-1)
+     [] otherwise -> 1
      fi
   ]|
-
 
 main
   |[ var d : Dicc(int, int)
@@ -186,7 +188,7 @@ main
    ; buscar(d,1,r) 
    ; writeln(b, " -> ", r)
    ; eliminar(d,1)
-   ; rec(1)
+   ; writeln("Jamon = ",rec(1))
    // ; existe(d,1,b)
    ; if     b     -> buscar(d,1,r) 
                    ; writeln(b, " ->", r)

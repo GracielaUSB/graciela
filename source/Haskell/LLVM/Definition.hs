@@ -181,108 +181,16 @@ definition
       openScope
 
       params <- mapM makeParam' . toList $ funcParams
-
       mapM_ arrAux' funcParams
 
-      yesPre <- newLabel $ "func" <> unpack defName <> "PreYes"
-      noPre  <- newLabel $ "func" <> unpack defName <> "PreNo"
+      preOperand <- precondition pre
 
-      preOperand <- wrapBoolean pre
-
-      terminate CondBr
-        { condition = preOperand
-        , trueDest  = yesPre
-        , falseDest = noPre
-        , metadata' = []}
-
-      (noPre #)
-      warn Warning.Pre (let Location (pos, _) = loc pre in pos)
-      terminate Br
-        { dest      = yesPre
-        , metadata' = [] }
-
-      (yesPre #)
-
-      params' <- if funcRecursive
-        then do
-          let
-            boundExp = fromMaybe
-              (internal "boundless recursive function.")
-              bound
-            hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
-            oldBound = Name $ "." <> unpack defName <> "OldBound"
-
-          funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
-          boundOperand <- expression boundExp
-
-          gte0 <- newLabel "funcBoundGte0"
-          addInstruction $ gte0 := ICmp
-            { iPredicate = SGE
-            , operand0   = boundOperand
-            , operand1   = ConstantOperand $ C.Int 32 0
-            , metadata   = [] }
-          yesGte0 <- newLabel "funcGte0Yes"
-          noGte0  <- newLabel "funcGte0No"
-          terminate CondBr
-            { condition = LocalReference boolType gte0
-            , trueDest  = yesGte0
-            , falseDest = noGte0
-            , metadata' = [] }
-
-          (noGte0 #)
-          abort Abort.NegativeBound
-            (let Location (pos, _) = loc boundExp in pos)
-
-          (yesGte0 #)
-          yesOld <- newLabel "funcOldBoundYes"
-          noOld  <- newLabel "funcOldBoundNo"
-          terminate CondBr
-            { condition = LocalReference boolType hasOldBound
-            , trueDest  = yesOld
-            , falseDest = noOld
-            , metadata' = [] }
-
-          (noOld #)
-          terminate Br
-            { dest = funcBodyLabel
-            , metadata' = [] }
-
-          (yesOld #)
-          ltOld <- newLabel "funcLtOld"
-          addInstruction $ ltOld := ICmp
-            { iPredicate = SLT
-            , operand0   = boundOperand
-            , operand1   = LocalReference intType oldBound
-            , metadata   = [] }
-          yesLtOld <- newLabel "funcLtOldBoundYes"
-          noLtOld  <- newLabel "funcLtOldBoundNo"
-          terminate CondBr
-            { condition = LocalReference boolType ltOld
-            , trueDest  = yesLtOld
-            , falseDest = noLtOld
-            , metadata' = [] }
-
-          (noLtOld #)
-          abort Abort.NondecreasingBound
-            (let Location (pos, _) = loc boundExp in pos)
-
-          (yesLtOld #)
-          terminate Br
-            { dest = funcBodyLabel
-            , metadata' = [] }
-
-          (funcBodyLabel #)
-
-          boundOp .= Just boundOperand
-          pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
-
-        else pure []
+      params' <- recursiveParams funcRecursive
 
       returnOperand <- expression' funcBody
+      returnVar     <- insertVar defName
+      returnType    <- toLLVMType funcRetType
 
-      returnVar <- insertVar defName
-
-      returnType <- toLLVMType funcRetType
       addInstruction $ returnVar := Alloca
         { allocatedType = returnType
         , numElements   = Nothing
@@ -297,36 +205,11 @@ definition
         , alignment = 4
         , metadata  = [] }
 
-      postOperand <- expression' post
-      yesPost <- newLabel "funcPostYes"
-      noPost  <- newLabel "funcPostNo"
-      terminate CondBr
-        { condition = postOperand
-        , trueDest  = yesPost
-        , falseDest = noPost
-        , metadata' = [] }
+      postcondition preOperand post
 
-      (noPost #)
-      yesPreNoPost  <- newLabel "funcPreYesPostNo"
-      noPreNoPost <- newLabel "funcPreNoPostNo"
-      terminate CondBr
-        { condition = preOperand
-        , trueDest  = yesPreNoPost
-        , falseDest = noPreNoPost
-        , metadata' = [] }
-
-      (yesPreNoPost #)
-      abort Abort.Post (let Location (pos, _) = loc post in pos)
-
-      (noPreNoPost #)
-      warn Warning.Post (let Location (pos, _) = loc post in pos)
-      terminate Br
-        { dest      = yesPost
-        , metadata' = [] }
-
-      (yesPost #)
       pending <- use pendingInsts
       addInstructions pending
+
       terminate Ret
         { returnOperand = Just returnOperand
         , metadata' = [] }
@@ -354,7 +237,6 @@ definition
 
     ProcedureDef { procDecl, procParams, procBody, procRecursive } -> do
       proc <- newLabel $ "proc" <> unpack defName
-
       (proc #)
 
       openScope
@@ -364,103 +246,22 @@ definition
 
       mapM_ arrAux procParams
       cond <- precondition pre
-      params' <- if procRecursive
-        then do
-          let
-            boundExp = fromMaybe
-              (internal "boundless recursive function.")
-              bound
-            hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
-            oldBound = Name $ "." <> unpack defName <> "OldBound"
-
-          funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
-          boundOperand <- expression boundExp
-
-          gte0 <- newLabel "funcBoundGte0"
-          addInstruction $ gte0 := ICmp
-            { iPredicate = SGE
-            , operand0   = boundOperand
-            , operand1   = ConstantOperand $ C.Int 32 0
-            , metadata   = [] }
-          yesGte0 <- newLabel "funcGte0Yes"
-          noGte0  <- newLabel "funcGte0No"
-          terminate CondBr
-            { condition = LocalReference boolType gte0
-            , trueDest  = yesGte0
-            , falseDest = noGte0
-            , metadata' = [] }
-
-          (noGte0 #)
-          abort Abort.NegativeBound
-            (let Location (pos, _) = loc boundExp in pos)
-
-          (yesGte0 #)
-          yesOld <- newLabel "funcOldBoundYes"
-          noOld  <- newLabel "funcOldBoundNo"
-          terminate CondBr
-            { condition = LocalReference boolType hasOldBound
-            , trueDest  = yesOld
-            , falseDest = noOld
-            , metadata' = [] }
-
-          (noOld #)
-          terminate Br
-            { dest = funcBodyLabel
-            , metadata' = [] }
-
-          (yesOld #)
-          ltOld <- newLabel "funcLtOld"
-          addInstruction $ ltOld := ICmp
-            { iPredicate = SLT
-            , operand0   = boundOperand
-            , operand1   = LocalReference intType oldBound
-            , metadata   = [] }
-          yesLtOld <- newLabel "funcLtOldBoundYes"
-          noLtOld  <- newLabel "funcLtOldBoundNo"
-          terminate CondBr
-            { condition = LocalReference boolType ltOld
-            , trueDest  = yesLtOld
-            , falseDest = noLtOld
-            , metadata' = [] }
-
-          (noLtOld #)
-          abort Abort.NondecreasingBound
-            (let Location (pos, _) = loc boundExp in pos)
-
-          (yesLtOld #)
-          terminate Br
-            { dest = funcBodyLabel
-            , metadata' = [] }
-
-          (funcBodyLabel #)
-
-          boundOp .= Just boundOperand
-          pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
-
-        else pure []
+      
+      params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
-      case cs of
+      pName <- case cs of
         Nothing -> do
-
           instruction procBody
           postcondition cond post
-
           blocks' <- use blocks
-
-          addDefinition $ LLVM.GlobalDefinition functionDefaults
-            { name        = Name $ unpack defName
-            , parameters  = (params' <> params,False)
-            , returnType  = voidType
-            , basicBlocks = toList blocks' }
+          pure $ unpack defName
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
-
           let
             dts = filter getDTs . toList $ procParams
 
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
-
           abstractStruct <- (Map.lookup abstract) <$> use structs
 
           let
@@ -468,43 +269,42 @@ definition
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
 
+            (aPre, aPost, aDecls) = case maybeProc of
+              Just Definition{ pre, post, def'} -> (pre, post, abstPDecl def')
+              _ -> internal "Mission abstract data type."
+          
           mapM_ (callCouple    ("couple" <> postFix)) dts
-
-          case maybeProc of
-            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
-              mapM_ declaration abstPDecl
-              preconditionAbstract cond pre'
-            _ -> pure ()
-
+          mapM_ declaration aDecls
+          preconditionAbstract cond aPre
           mapM_ (callInvariant ("inv"     <> postFix) cond) dts
           mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
 
           instruction procBody
 
-          mapM_ (callCouple    ("couple"  <> postFix)) dts
+          mapM_ (callCouple    ("couple"  <> postFix)     ) dts
           mapM_ (callInvariant ("inv"     <> postFix) cond) dts
           mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
-
-          case maybeProc of
-            Just Definition{post= post'} -> postconditionAbstract cond post'
-            _                            -> pure ()
-
+          postconditionAbstract cond aPost
           postcondition cond post
 
 
           pending <- use pendingInsts
           addInstructions pending
 
-          blocks' <- use blocks
+          pure $ unpack defName <> postFix
 
-          addDefinition $ LLVM.GlobalDefinition functionDefaults
-            { name        = Name (unpack defName <> postFix)
-            , parameters  = (params' <> params,False)
-            , returnType  = voidType
-            , basicBlocks = toList blocks'
-            }
+      terminate $ Ret Nothing []
+
+      blocks' <- use blocks
+
+      addDefinition $ LLVM.GlobalDefinition functionDefaults
+        { name        = Name pName
+        , parameters  = (params' <> params,False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks'
+        }
 
       blocks .= Seq.empty
       pendingInsts .= Seq.empty
@@ -613,125 +413,199 @@ definition
       T.GDataType {} -> True
       _              -> False
 
+    recursiveParams isRecursive = if isRecursive
+      then do
+        let
+          boundExp = fromMaybe
+            (internal "boundless recursive function.")
+            bound
+          hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
+          oldBound = Name $ "." <> unpack defName <> "OldBound"
 
-declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
-declarationsOrRead (Left decl)   = declaration decl
-declarationsOrRead (Right read') = instruction read'
+        funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
+        boundOperand <- expression boundExp
 
-precondition :: Expression -> LLVM Operand
-precondition expr@ Expression {loc = Location (pos,_) } = do
-    -- Create both labels
-    trueLabel  <- newLabel "precondTrue"
-    falseLabel <- newLabel "precondFalse"
-    -- Evaluate the condition expression
-    cond <- wrapBoolean expr
-    -- Add the conditional branch
-    terminate CondBr
-      { condition = cond
-      , trueDest  = trueLabel
-      , falseDest = falseLabel
-      , metadata' = [] }
-    -- Set the false label to the warning, then continue normally
-    (falseLabel #)
-    warn Warning.Pre pos
-    terminate Br
-      { dest      = trueLabel
-      , metadata' = [] }
+        gte0 <- newLabel "funcBoundGte0"
+        addInstruction $ gte0 := ICmp
+          { iPredicate = SGE
+          , operand0   = boundOperand
+          , operand1   = ConstantOperand $ C.Int 32 0
+          , metadata   = [] }
+        yesGte0 <- newLabel "funcGte0Yes"
+        noGte0  <- newLabel "funcGte0No"
+        terminate CondBr
+          { condition = LocalReference boolType gte0
+          , trueDest  = yesGte0
+          , falseDest = noGte0
+          , metadata' = [] }
 
-    -- And the true label to the next instructions
-    (trueLabel #)
+        (noGte0 #)
+        abort Abort.NegativeBound
+          (let Location (pos, _) = loc boundExp in pos)
 
-    pure cond
+        (yesGte0 #)
+        yesOld <- newLabel "funcOldBoundYes"
+        noOld  <- newLabel "funcOldBoundNo"
+        terminate CondBr
+          { condition = LocalReference boolType hasOldBound
+          , trueDest  = yesOld
+          , falseDest = noOld
+          , metadata' = [] }
 
-preconditionAbstract :: Operand -> Expression -> LLVM ()
-preconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
-  -- Create both labels
-  evaluate   <- newLabel "evaluate"
-  trueLabel  <- newLabel "precondAbstTrue"
-  falseLabel <- newLabel "precondAbstFalse"
-  -- Evaluate the condition expression
-  cond <- wrapBoolean expr
+        (noOld #)
+        terminate Br
+          { dest = funcBodyLabel
+          , metadata' = [] }
 
-  terminate CondBr
-    { condition = precond
-    , trueDest  = evaluate
-    , falseDest = trueLabel
-    , metadata' = [] }
+        (yesOld #)
+        ltOld <- newLabel "funcLtOld"
+        addInstruction $ ltOld := ICmp
+          { iPredicate = SLT
+          , operand0   = boundOperand
+          , operand1   = LocalReference intType oldBound
+          , metadata   = [] }
+        yesLtOld <- newLabel "funcLtOldBoundYes"
+        noLtOld  <- newLabel "funcLtOldBoundNo"
+        terminate CondBr
+          { condition = LocalReference boolType ltOld
+          , trueDest  = yesLtOld
+          , falseDest = noLtOld
+          , metadata' = [] }
 
-  -- Add the conditional branch
-  (evaluate #)
-  terminate CondBr
-    { condition = cond
-    , trueDest  = trueLabel
-    , falseDest = falseLabel
-    , metadata' = [] }
-  -- Set the false label to the warning, then continue normally
-  (falseLabel #)
-  abort Abort.BadAbstractCouple pos
+        (noLtOld #)
+        abort Abort.NondecreasingBound
+          (let Location (pos, _) = loc boundExp in pos)
 
-  -- And the true label to the next instructions
-  (trueLabel #)
+        (yesLtOld #)
+        terminate Br
+          { dest = funcBodyLabel
+          , metadata' = [] }
 
-postconditionAbstract :: Operand -> Expression -> LLVM ()
-postconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
-  -- Create both labels
-  evaluate   <- newLabel "evaluate"
-  trueLabel  <- newLabel "precondAbstTrue"
-  falseLabel <- newLabel "precondAbstFalse"
+        (funcBodyLabel #)
 
-  terminate CondBr
-    { condition = precond
-    , trueDest  = evaluate
-    , falseDest = trueLabel
-    , metadata' = [] }
+        boundOp .= Just boundOperand
+        pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
 
+      else pure []
+
+    declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
+    declarationsOrRead (Left decl)   = declaration decl
+    declarationsOrRead (Right read') = instruction read'
+
+    precondition :: Expression -> LLVM Operand
+    precondition expr@ Expression {loc = Location (pos,_) } = do
+        -- Create both labels
+        trueLabel  <- newLabel "precondTrue"
+        falseLabel <- newLabel "precondFalse"
+        -- Evaluate the condition expression
+        cond <- wrapBoolean expr
+        -- Add the conditional branch
+        terminate CondBr
+          { condition = cond
+          , trueDest  = trueLabel
+          , falseDest = falseLabel
+          , metadata' = [] }
+        -- Set the false label to the warning, then continue normally
+        (falseLabel #)
+        warn Warning.Pre pos
+        terminate Br
+          { dest      = trueLabel
+          , metadata' = [] }
+
+        -- And the true label to the next instructions
+        (trueLabel #)
+
+        pure cond
+
+    preconditionAbstract :: Operand -> Expression -> LLVM ()
+    preconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+      -- Create both labels
+      evaluate   <- newLabel "evaluate"
+      trueLabel  <- newLabel "precondAbstTrue"
+      falseLabel <- newLabel "precondAbstFalse"
+      -- Evaluate the condition expression
+      cond <- wrapBoolean expr
+
+      terminate CondBr
+        { condition = precond
+        , trueDest  = evaluate
+        , falseDest = trueLabel
+        , metadata' = [] }
+
+      -- Add the conditional branch
+      (evaluate #)
+      terminate CondBr
+        { condition = cond
+        , trueDest  = trueLabel
+        , falseDest = falseLabel
+        , metadata' = [] }
+      -- Set the false label to the warning, then continue normally
+      (falseLabel #)
+      abort Abort.BadAbstractCouple pos
+
+      -- And the true label to the next instructions
+      (trueLabel #)
+
+    postconditionAbstract :: Operand -> Expression -> LLVM ()
+    postconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+      -- Create both labels
+      evaluate   <- newLabel "evaluate"
+      trueLabel  <- newLabel "precondAbstTrue"
+      falseLabel <- newLabel "precondAbstFalse"
+
+      terminate CondBr
+        { condition = precond
+        , trueDest  = evaluate
+        , falseDest = trueLabel
+        , metadata' = [] }
+
+      
+      (evaluate #)
+      -- Evaluate the condition expression
+      cond <- wrapBoolean expr
+      -- Add the conditional branch
+      terminate CondBr
+        { condition = cond
+        , trueDest  = trueLabel
+        , falseDest = falseLabel
+        , metadata' = [] }
+      -- Set the false label to the warning, then continue normally
+      (falseLabel #)
+      abort Abort.AbstractPost pos
+
+      -- And the true label to the next instructions
+      (trueLabel #)
+
+    postcondition :: Operand -> Expression -> LLVM ()
+    postcondition precond expr@ Expression {loc = Location(pos,_)} = do
+      -- Create both labels
+      evaluate   <- newLabel "evaluate"
+      trueLabel  <- newLabel "postcondTrue"
+      falseLabel <- newLabel "postcondFalse"
+
+      -- Create the conditional branch
+      terminate CondBr
+        { condition = precond
+        , trueDest  = evaluate
+        , falseDest = trueLabel
+        , metadata' = [] }
+
+      (evaluate #)
+      -- Evaluate the condition expression
+      cond <- wrapBoolean expr
+      -- Add the conditional branch
+      terminate CondBr
+        { condition = cond
+        , trueDest  = trueLabel
+        , falseDest = falseLabel
+        , metadata' = [] }
+      -- Set the false label to the warning, then continue normally
+      (falseLabel #)
+      abort Abort.Post pos
+      -- And the true label to the next instructions
+
+      (trueLabel #)
   
-  (evaluate #)
-  -- Evaluate the condition expression
-  cond <- wrapBoolean expr
-  -- Add the conditional branch
-  terminate CondBr
-    { condition = cond
-    , trueDest  = trueLabel
-    , falseDest = falseLabel
-    , metadata' = [] }
-  -- Set the false label to the warning, then continue normally
-  (falseLabel #)
-  abort Abort.BadAbstractCouple pos
-
-  -- And the true label to the next instructions
-  (trueLabel #)
-
-postcondition :: Operand -> Expression -> LLVM ()
-postcondition precond expr@ Expression {loc = Location(pos,_)} = do
-  -- Create both labels
-  evaluate   <- newLabel "evaluate"
-  trueLabel  <- newLabel "postcondTrue"
-  falseLabel <- newLabel "postcondFalse"
-
-  -- Create the conditional branch
-  terminate CondBr
-    { condition = precond
-    , trueDest  = evaluate
-    , falseDest = trueLabel
-    , metadata' = [] }
-
-  (evaluate #)
-  -- Evaluate the condition expression
-  cond <- wrapBoolean expr
-  -- Add the conditional branch
-  terminate CondBr
-    { condition = cond
-    , trueDest  = trueLabel
-    , falseDest = falseLabel
-    , metadata' = [] }
-  -- Set the false label to the warning, then continue normally
-  (falseLabel #)
-  abort Abort.Post pos
-  -- And the true label to the next instructions
-
-  (trueLabel #)
-  terminate $ Ret Nothing []
 
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
