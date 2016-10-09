@@ -54,7 +54,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
       ForAll -> terminate $ Br true  []
       Exists -> terminate $ Br false []
 
-    PointRange { thePoint } ->
+    PointRange { thePoint } -> -- FIXME: Cannot use the general case when the quantifier is float
       boolQ expr boolean true false e
         { exp' = exp'
           { qRange = ExpRange
@@ -68,7 +68,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
 
         checkRange <- newLabel "qCheckRange"
         addInstruction $ checkRange := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = l
           , operand1   = h
           , metadata   = [] }
@@ -133,6 +133,22 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
           , operand1 = ConstantOperand $
             C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
           , metadata = [] }
+
+        l0 <- newUnLabel
+        addInstruction $ l0 := ICmp
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
+          , operand0   = LocalReference t nextIterator
+          , operand1   = l
+          , metadata   = [] }
+
+        l1 <- newUnLabel
+        terminate $ CondBr
+          { condition = LocalReference i1 l0
+          , trueDest  = case qOp of ForAll -> true; Exists -> false
+          , falseDest = l1
+          , metadata' = [] }
+
+        (l1 #)
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference t iterator
@@ -143,7 +159,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
 
         bound <- newLabel "qBound"
         addInstruction $ bound := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
@@ -175,6 +191,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
         abort Abort.EmptyRange pos
+        newUnLabel >>= (#)
         ConstantOperand . C.Undef  <$> toLLVMType expType
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
@@ -196,7 +213,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
 
         checkRange <- newLabel "qCheckRange"
         addInstruction $ checkRange := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = l
           , operand1   = h
           , metadata   = [] }
@@ -350,8 +367,9 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           , nuw = False
           , operand0 = LocalReference qType prevIterator
           , operand1 = ConstantOperand $
-            C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
+            C.Int (case qVarType of GInt -> 32; GChar -> 8; GBool -> 1) 1
           , metadata = [] }
+
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference t iterator
@@ -361,8 +379,23 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           , metadata  = [] }
 
         bound <- newLabel "qBound"
+        l0 <- newUnLabel
+        addInstruction $ l0 := ICmp
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
+          , operand0   = LocalReference t nextIterator
+          , operand1   = l
+          , metadata   = [] }
+
+        l1 <- newUnLabel
+        terminate $ CondBr
+          { condition = LocalReference i1 l0
+          , trueDest  = qEnd
+          , falseDest = l1
+          , metadata' = [] }
+
+        (l1 #)
         addInstruction $ bound := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
@@ -415,12 +448,13 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
 
         checkRange <- newLabel "qCheckRange"
         addInstruction $ checkRange := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = l
           , operand1   = h
           , metadata   = [] }
         rangeEmpty    <- newLabel "qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
+
         terminate CondBr
           { condition = LocalReference i1 checkRange
           , trueDest  = rangeNotEmpty
@@ -548,6 +582,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           , operand1 = ConstantOperand $
             C.Int (case qVarType of GInt -> 32; GChar -> 8) 1
           , metadata = [] }
+
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference t iterator
@@ -556,10 +591,25 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           , alignment = 4
           , metadata  = [] }
 
-        bound <- newLabel "qBound"
+        l0 <- newUnLabel
+        addInstruction $ l0 := ICmp
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
+          , operand0   = LocalReference t nextIterator
+          , operand1   = l
+          , metadata   = [] }
+
         endLoad <- newLabel "qEndLoad"
+        l1 <- newUnLabel
+        terminate $ CondBr
+          { condition = LocalReference i1 l0
+          , trueDest  = endLoad
+          , falseDest = l1
+          , metadata' = [] }
+
+        (l1 #)
+        bound <- newLabel "qBound"
         addInstruction $ bound := ICmp
-          { iPredicate = SLE
+          { iPredicate = case qVarType of GBool -> ULE; _ -> SLE
           , operand0   = LocalReference t nextIterator
           , operand1   = h
           , metadata   = [] }
@@ -589,7 +639,8 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
           { type'          = qType
           , incomingValues =
             [ (ConstantOperand $ v0 qOp expType, rangeEmpty)
-            , (LocalReference qType finalVal,    endLoad) ]
+            , (LocalReference qType finalVal,    endLoad)
+            , (LocalReference qType finalVal,    getNext) ]
           , metadata       = [] }
 
         pure $ LocalReference qType result
@@ -647,7 +698,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
 
       checkRange <- newLabel "cCheckRange"
       addInstruction $ checkRange := ICmp
-        { iPredicate = SLE
+        { iPredicate = case ty of GBool -> ULE; _ -> SLE
         , operand0   = l
         , operand1   = h
         , metadata   = [] }
@@ -718,6 +769,22 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
         , operand1 = ConstantOperand $
           C.Int (case ty of GInt -> 32; GChar -> 8) 1
         , metadata = [] }
+
+      l0 <- newUnLabel
+      addInstruction $ l0 := ICmp
+        { iPredicate = case ty of GBool -> ULE; _ -> SLE
+        , operand0   = LocalReference t nextIterator
+        , operand1   = l
+        , metadata   = [] }
+
+      l1 <- newUnLabel
+      terminate $ CondBr
+        { condition = LocalReference i1 l0
+        , trueDest  = cEnd
+        , falseDest = l1
+        , metadata' = [] }
+
+      (l1 #)
       addInstruction $ Do Store
         { volatile = False
         , address  = LocalReference t iterator
@@ -729,7 +796,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
       bound <- newLabel "cBound"
       endLoad <- newLabel "cEndLoad"
       addInstruction $ bound := ICmp
-        { iPredicate = SLE
+        { iPredicate = case ty of GBool -> ULE; _ -> SLE
         , operand0   = LocalReference t nextIterator
         , operand1   = h
         , metadata   = [] }

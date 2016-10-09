@@ -78,7 +78,7 @@ boolean :: Name -> Name -> Expression -> LLVM ()
 boolean = boolean' expression' object objectRef
 
 wrapBoolean :: Expression -> LLVM Operand
-wrapBoolean = wrapBoolean' expression object objectRef
+wrapBoolean = wrapBoolean' expression' object objectRef
 
 expression' :: Expression -> LLVM Operand
 expression' e@Expression { expType } = if expType == GBool
@@ -91,7 +91,7 @@ object obj@Object { objType, obj' } = case obj' of
   -- If the variable is marked as In, mean it was passed to the
   -- procedure as a constant so doesn't need to be loaded
   Variable { mode } | mode == Just In
-    || (isJust mode && not (objType =:= basic) && not (isTypeVar objType)) -> objectRef obj False
+    || (isJust mode && not (objType =:= GOneOf [basic, GATypeVar])) -> objectRef obj False
     -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
 
   -- If not marked as In, just load the content of the variable
@@ -1142,10 +1142,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
 
   Quantification { } ->
-    quantification expression boolean safeOperation e
+    quantification expression' boolean safeOperation e
 
   Collection { } ->
-    collection expression boolean e
+    collection expression' boolean e
 
   I64Cast { inner = inner @ Expression {expType = iType} } -> do
     i <- expression' inner

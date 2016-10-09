@@ -222,8 +222,8 @@ main = do
               <> assembly
               <> [lltName]
               <> ["-o", outName]
-              <> [lib         | not $ optLLVM options || optAssembly options]
-              <> [abstractLib | not $ optLLVM options || optAssembly options]
+              <> [l | l <- [math, lib, abstractLib]
+                    , not $ optLLVM options || optAssembly options ]
         (exitCode, out, errs) <- readProcessWithExitCode clang args ""
 
         putStr out
@@ -248,6 +248,7 @@ main = do
   where
     mTake Nothing  xs = xs
     mTake (Just n) xs = take n xs
+    math = "-lm"
     lib  = case os of
       "darwin"  -> "/usr/local/lib/graciela-lib.so"
       "linux"   -> "/usr/local/lib/graciela-lib.so"

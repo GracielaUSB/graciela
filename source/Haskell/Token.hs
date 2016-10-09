@@ -136,8 +136,8 @@ data Token
   | TokForall
   | TokExist
   | TokNotExist
-  | TokSigma
-  | TokPi
+  | TokSum
+  | TokProduct
   | TokCount
   | TokHash
 
@@ -310,8 +310,8 @@ instance Show Token where
     TokForall         -> "`forall` - Para Todo"
     TokExist          -> "`exist` - Existencial"
     TokNotExist       -> "`not-exist` - Existencial Negado"
-    TokSigma          -> "`sigma` - Sumatoria"
-    TokPi             -> "`pi` - Productoria"
+    TokSum            -> "`sum` - summation"
+    TokProduct        -> "`product`"
     TokCount          -> "`count` - Cuenta"
     TokHash           -> "`#` - number sign"
 

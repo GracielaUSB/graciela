@@ -202,7 +202,7 @@ type' =  parenType
               let
                 types = Array.listArray (0, plen - 1) . toList $ fullTypes
 
-              unless (any isTypeVar fullTypes) $ do
+              unless (any (=:= GATypeVar) fullTypes) $ do
                 let
                   fAlter = \case
                     Nothing               -> Just (ast, [types])
