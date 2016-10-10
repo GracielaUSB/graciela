@@ -268,14 +268,13 @@ definition
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
-
-            (aPre, aPost, aDecls) = case maybeProc of
-              Just Definition{ pre, post, def'} -> (pre, post, abstPDecl def')
-              _ -> internal "Mission abstract data type."
           
           mapM_ (callCouple    ("couple" <> postFix)) dts
-          mapM_ declaration aDecls
-          preconditionAbstract cond aPre
+          case maybeProc of
+            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
+              mapM_ declaration abstPDecl
+              preconditionAbstract cond pre'
+            _ -> pure ()
           mapM_ (callInvariant ("inv"     <> postFix) cond) dts
           mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
@@ -286,7 +285,9 @@ definition
           mapM_ (callInvariant ("inv"     <> postFix) cond) dts
           mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
-          postconditionAbstract cond aPost
+          case maybeProc of
+            Just Definition{post = post'} -> postconditionAbstract cond post'
+            _                            -> pure ()
           postcondition cond post
 
 
