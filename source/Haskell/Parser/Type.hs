@@ -144,19 +144,22 @@ type' =  parenType
 
     userDefined = do
       from <- getPosition
-      id <- lookAhead identifier
-      t  <- getStruct id
+      name <- lookAhead identifier
+      t  <- getStruct name
 
       case t of
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (GDataType name abstract _, _, _) -> do
-              if name == id
+            Just (GDataType dtName abstract _, _, _) -> do
+              if dtName == name
                 then do
                   identifier
-                  t <- parens $ type' `sepBy` match TokComma
-                  let typeargs = Array.listArray (0, length t - 1) (toList t)
+                  t <- (optional . parens $ type' `sepBy` match TokComma)
+                        >>= \case
+                          Just s -> pure $ toList s
+                          _      -> pure []
+                  let typeargs = Array.listArray (0, length t - 1) t
                   isPointer $ GDataType name abstract typeargs
                 else do
                   notFollowedBy identifier

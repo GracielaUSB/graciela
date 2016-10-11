@@ -1,5 +1,20 @@
 program Dicc.bin begin
 
+abstract ab begin
+  /* ab variables */
+   
+  
+  {inv true inv}
+
+  /* ab procedures and functions */
+  proc jamon (in a : ab)
+  
+    {pre true pre}
+    {post true post}
+  
+end
+
+
 abstract Diccionario (T0, T1) begin
   const MAX := 100 : int;
   var conoc : set of T0;

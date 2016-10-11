@@ -157,28 +157,18 @@ dataType = do
 
           symbolTable %= openScope from
           let
-            dtType   = GDataType name abstractName' typeArgs
-            typeArgs = Array.listArray (0, length types - 1) types
-            lenNeeded = length structTypes
-            lenActual = length absTypes
+            dtType     = GDataType name abstractName' typeArgs
+            typeArgs   = Array.listArray (0, length types - 1) types
+            lenNeeded  = length structTypes
+            lenActual  = length absTypes
             abstFields = fillTypes abstractTypes structFields
 
             abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
+
           currentStruct .= Just (dtType, abstFields, Map.empty)
 
           decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
-          cs <- use currentStruct
-
-          let
-            allFields = cs ^. _Just . _2
-
-            adtToDt (i,t,c,e) = (i, f t, c, e)
-
-            f t = case t of
-                GDataType _ _ _ -> t <> GDataType name abstractName' typeArgs
-                GArray s t      -> GArray s (f t)
-                GPointer t      -> GPointer (f t)
-                _               -> t
+          allFields <- (\cs -> cs ^. _Just . _2) <$> use currentStruct
 
           repinv'  <- repInv
           coupling .= True
@@ -189,7 +179,7 @@ dataType = do
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
 
-          procs   <- catMaybes . toList <$> many (procedure <|> function)
+          procs <- catMaybes . toList <$> many (procedure <|> function)
           match' TokEnd
 
           to <- getPosition
@@ -198,12 +188,21 @@ dataType = do
           abstractAST <- getStruct abstractName
           mapM_ (checkProc from abstractTypes procs name abstractName) structProcs
 
-          case (decls', repinv', coupinv', couple') of
+          case (decls', repinv', coupinv') of
 
-            (Just decls, Just repinv, Just coupinv, Just couple'') -> do
+            (Just decls, Just repinv, Just coupinv) -> do
               {- Different number of type arguments -}
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
+
+              couple <- case couple' of 
+                Just c -> pure c
+                Nothing -> do
+                  let Just Struct{ structLoc, structFields } = abstractAST
+                  forM_ (Map.toList structFields) $ \(name, (_, t, _,_)) ->
+                    when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
+                      "Expected couple for abstract variable `" <> unpack name <> "`."
+                  pure Seq.empty
 
               let
                 struct = Struct
@@ -220,41 +219,11 @@ dataType = do
                     , inv = inv struct'
                     , repinv
                     , coupinv
-                    , couple = couple''}}
+                    , couple }}
               dataTypes %= Map.insert name struct
               typeVars .= []
               currentStruct .= Nothing
-
-            (Just decls, Just repinv, Just coupinv, Nothing ) -> do
-              {- Different number of type arguments -}
-              when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
-                name structTypes abstractName absTypes lenActual lenNeeded
-
-              let Just Struct{ structLoc, structFields } = abstractAST
-              forM_ (Map.toList structFields) $ \(name, (_, t, _,_)) ->
-                when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
-                  "Expected couple for abstract variable `" <> unpack name <> "`."
-
-              let
-                struct = Struct
-                  { structBaseName = name
-                  , structFields   = allFields
-                  , structAFields  = Map.empty
-                  , structSt       = st
-                  , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
-                  , structLoc      = Location(from,to)
-                  , structTypes    = types
-                  , struct'        = DataType
-                    { abstract     = abstractName
-                    , abstractTypes
-                    , inv = inv struct'
-                    , repinv
-                    , coupinv
-                    , couple = Seq.empty}}
-              dataTypes %= Map.insert name struct
-              typeVars .= []
-              currentStruct .= Nothing
-
+            
             _ -> pure ()
 
   where
@@ -272,7 +241,7 @@ dataType = do
         "`\n\tneeds to be implemented inside the Type `" <>
         unpack dtName <> "`."
       where
-        -- Check if the both abstract and the one implementing the abstract procedure,
+        -- Check if the both procedures, the abstract and the one implementing the abstract procedure,
         -- have the same header
         (=-=) :: Definition
               -> Definition
@@ -282,8 +251,8 @@ dataType = do
           | defName def /= defName abstDef = pure False
           | otherwise = do
               let
-                Location(pos1,_) = defLoc abstDef
-                Location(pos2,_) = defLoc def
+                pos1    = pos . defLoc $ abstDef
+                pos2    = pos . defLoc $ def
                 params1 = toList . abstParams . def' $ abstDef
                 params2 = toList . procParams . def' $ def
 
@@ -369,7 +338,7 @@ coupleRel = do
             needed = Map.keysSet . Map.filter (\(_,t,_,_) -> t =:= highLevel) $ structFields
             left   = needed `Set.difference` assigned
 
-          when (not (null left)) . forM_ left $ \name -> putError pos . UnknownError $
+          unless (null left) . forM_ left $ \name -> putError pos . UnknownError $
               "The variable `" <> unpack name <> "` has to be coupled."
 
           pure insts
