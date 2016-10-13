@@ -12,8 +12,8 @@ begin
   var things : array [MAX] of T;
 
   {repinv true repinv}
-  {coupinv (% forall i : T | i elem things | i == things[0] %) coupinv}
-  where { kkk := <<i : int | 0 <= i /\ i < ab.MAX | ab.things[i] >> }
+  {coupinv (% forall i : T | i elem kkk | i == things[0] %) coupinv}
+  where { kkk := <<i : int | 0 <= i /\ i < MAX | things[i]>> }
 
   proc stuff (inout ab : b(T))
     var ELVALOR : T;

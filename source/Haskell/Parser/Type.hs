@@ -96,7 +96,7 @@ type' =  parenType
     arraySize :: Parser (Maybe Expression)
     arraySize = do
       pos <- getPosition
-      expr <- expression
+      expr <- expression `followedBy` oneOf [TokComma, TokRightBracket]
       case expr of
         Nothing ->
           pure Nothing
@@ -107,24 +107,6 @@ type' =  parenType
                 "A negative dimension was given in the array declaration."
               pure Nothing
             _ -> pure . Just $ e
-          _ -> do
-            putError pos . UnknownError $
-              "Array dimension must be an integer constant expression."
-            pure Nothing
-
-    sizeExpr = do
-      pos <- getPosition
-      expr <- expression `followedBy` oneOf [TokComma, TokRightBracket]
-      case expr of
-        Nothing ->
-          pure Nothing
-        Just e@Expression { exp' } -> case exp' of
-          Value (IntV i) -> if i <= 0
-            then do
-              putError pos . UnknownError $
-                "A negative dimension was given in the array declaration."
-              pure Nothing
-            else pure . Just . Right $ e
           _ -> do
             putError pos . UnknownError $
               "Array dimension must be an integer constant expression."

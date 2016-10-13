@@ -30,6 +30,7 @@ import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Monad
 import qualified Parser.Operator           as Op
 import           Parser.State              hiding (State)
+import {-# SOURCE #-} Parser.Type          (type')
 import           SymbolTable               (closeScope, defocus, emptyGlobal,
                                             insertSymbol, lookup, openScope)
 import           Token
@@ -383,34 +384,25 @@ collection = do
 
       var <- identifier
       void $ match TokColon
-      tname <- identifier
+      t <- lift type'
 
       to <- getPosition
-
       let loc = Location (from, to)
 
-      typeEntry <- Map.lookup tname <$> lift (asks nativeTypes)
-
-      case typeEntry of
-        Nothing -> do
-          putError from . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
+      if t =:= quantifiableTypes
+        then do
+          lift $ symbolTable %= insertSymbol var Entry
+            { _entryName = var
+            , _loc = loc
+            , _info = Var
+              { _varType  = t
+              , _varValue = Nothing
+              , _varConst = True }}
+          pure (var, t)
+        else do
+          putError from . UnknownError $
+            "type " <> show t <> " is not quantifiable."
           pure (var, GUndef)
-
-        Just (t, _) ->
-          if t =:= quantifiableTypes
-            then do
-              lift $ symbolTable %= insertSymbol var Entry
-                { _entryName = var
-                , _loc = Location (from, to)
-                , _info = Var
-                  { _varType  = t
-                  , _varValue = Nothing
-                  , _varConst = True }}
-              pure (var, t)
-            else do
-              putError from . UnknownError $
-                "type `" <> unpack tname <> "` is not quantifiable."
-              pure (var, GUndef)
 
     elems :: Token -> ParserExp (Maybe (Seq Expression, Type))
     elems close =  lookAhead (match close) *> pure (Just (Seq.empty, GAny))
@@ -588,7 +580,6 @@ filterRawName je@(Just (e, _, _)) = if expType e == GRawName
     pure Nothing
   else pure je
 
-
 quantification :: ParserExp (Maybe MetaExpr)
 quantification = do
   from <- getPosition
@@ -596,7 +587,7 @@ quantification = do
   lift $ symbolTable %= openScope from
 
   (q, allowedBType) <- quantifier
-  (var, mvart) <- declaration
+  (var, vart) <- declaration
   void $ match TokPipe
 
   modify (var:)
@@ -644,9 +635,9 @@ quantification = do
   to <- getPosition
   lift $ symbolTable %= closeScope to
 
-  case mvart of
-    Nothing -> pure Nothing
-    Just t -> case body of
+  case vart of
+    GUndef -> pure Nothing
+    t -> case body of
       Nothing -> pure Nothing
       Just (theBody @ Expression { expType = bodyType, expConst = bodyConst }, _, taint1) ->
         case range of
@@ -693,35 +684,25 @@ quantification = do
 
       var <- identifier
       void $ match TokColon
-      tname <- identifier
+      t <- lift type'
 
       to <- getPosition
-
       let loc = Location (from, to)
 
-      typeEntry <- Map.lookup tname <$> lift (asks nativeTypes)
-
-      case typeEntry of
-        Nothing -> do
-          putError from . UnknownError $ ("type `" <> unpack tname <> "` does not exist" )
-          pure (var, Nothing)
-
-        Just (t,_) ->
-          if t =:= quantifiableTypes
-            then do
-              lift $ symbolTable %= insertSymbol var Entry
-                { _entryName = var
-                , _loc = Location (from, to)
-                , _info = Var
-                  { _varType  = t
-                  , _varValue = Nothing
-                  , _varConst = True }}
-              pure (var, Just t)
-            else do
-              putError from . UnknownError $
-                "type `" <> unpack tname <> "` is not quantifiable"
-              pure (var, Nothing)
-
+      if t =:= quantifiableTypes
+        then do
+          lift $ symbolTable %= insertSymbol var Entry
+            { _entryName = var
+            , _loc = loc
+            , _info = Var
+              { _varType  = t
+              , _varValue = Nothing
+              , _varConst = True }}
+          pure (var, t)
+        else do
+          putError from . UnknownError $
+            "type " <> show t <> " is not quantifiable."
+          pure (var, GUndef)
 
 data IfBuilder
   = IfGuards     (Seq (Expression, Expression)) (Maybe Expression)
