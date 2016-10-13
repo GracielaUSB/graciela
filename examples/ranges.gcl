@@ -1,7 +1,6 @@
 program ranges.bin begin
 main
   |[ writeln( 
-     (% # i : int | MAX_INT <= i /\ i <= MAX_INT /\ i > 100 | true %) ==
-      # { i : int | MAX_INT <= i /\ i <= MAX_INT /\ i > 100 | i }
+     (% # i : int | MIN_INT <= i /\ i <= MIN_INT | true %) max 1000
   ) ]|
 end

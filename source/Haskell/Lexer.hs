@@ -120,7 +120,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "in"         TokIn
       <|> reserved "out"        TokOut
       <|> reserved "inout"      TokInOut
-      <|> reserved "ref"        TokRef
+      -- <|> reserved "ref"        TokRef
       <|> symbol   ":="         TokAssign
       <|> symbol   "\8788"      TokAssign -- ≔
 
@@ -212,11 +212,6 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "!=="        TokBNE
       <|> symbol   "\8802"      TokBNE   -- ≢
 
-      <|> symbol   "==>"        TokImplies
-      <|> symbol   "\8658"      TokImplies    -- ⇒
-      <|> symbol   "<=="        TokConsequent
-      <|> symbol   "\8656"      TokConsequent -- ⇐
-
       -- V2.0
       <|> symbol   "<<"         TokLeftSeq
       <|> symbol   ">>"         TokRightSeq
@@ -235,7 +230,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "<"          TokLT
       <|> symbol   ">"          TokGT
 
-      <|> symbol   "~"          TokNot
+      <|> symbol   "!"          TokNot
       <|> symbol   "\172"       TokNot  -- ¬
 
       <|> symbol   "(%"         TokLeftPercent
