@@ -344,11 +344,17 @@ collection = do
                 "` is bounded."
               pure Nothing
             ProtoNothing -> do
-              putError rfrom . UnknownError $
-                "Bad collection range. Range must be a boolean expression \
-                \in Conjunctive Normal Form where the variable `" <> unpack var <>
-                "` is bounded."
+              putError rfrom . UnknownError $ case varTy of
+                GFloat ->
+                  "Bad collection range. Can only build ranges over integral types."
+                _ ->
+                  "Bad collection range. Range must be a boolean expression \
+                  \in Conjunctive Normal Form where the variable `" <>
+                  unpack var <> "` is bounded."
               pure Nothing
+
+
+
             ProtoLow _ -> do
               putError rfrom . UnknownError $
                 "Bad collection range. No upper bound was given."
@@ -892,7 +898,7 @@ operator =
     [ Postfix (foldr1 (>=>) <$> some call)
     , Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
-    [ Prefix  (foldr1 (>=>) <$> some deref) ]  
+    [ Prefix  (foldr1 (>=>) <$> some deref) ]
   , {-Level 3-}
     [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
   , {-Level 4-}

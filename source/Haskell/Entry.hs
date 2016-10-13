@@ -11,11 +11,11 @@ module Entry
 --------------------------------------------------------------------------------
 import           AST.Expression
 import           AST.Type
+import           Common
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens   (makeLenses)
-import           Data.Semigroup ((<>))
 import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ instance Treelike Entry where
             Nothing    -> leaf "Not initialized"
             Just value -> Node "Initial value: " [toTree value] ]
     Alias { _aliasType, _aliasValue } ->
-      Node ("Alias") 
+      Node ("Alias")
         [ leaf ("Type: " <> show _aliasType)
         , leaf ("Value: " <> show _aliasValue)]
     Argument { _argMode, _argType } ->

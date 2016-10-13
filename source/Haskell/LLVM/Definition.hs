@@ -30,6 +30,7 @@ import qualified Location                            as L (pos)
 import           Parser.Config
 import           Treelike
 --------------------------------------------------------------------------------
+import           Common                              ((<>))
 import           Control.Lens                        (use, (%=), (&), (.=))
 import           Control.Monad                       (foldM, unless, void)
 import           Data.Array                          ((!))
@@ -37,7 +38,6 @@ import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
 import           Data.Maybe                          (fromMaybe)
-import           Data.Semigroup                      ((<>))
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
 import           Data.Text                           (Text, pack, unpack)
@@ -246,7 +246,7 @@ definition
 
       mapM_ arrAux procParams
       cond <- precondition pre
-      
+
       params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
@@ -268,7 +268,7 @@ definition
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
-          
+
           mapM_ (callCouple    ("couple" <> postFix)) dts
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
@@ -287,7 +287,7 @@ definition
           mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract cond post'
-            _                            -> pure ()
+            _                             -> pure ()
           postcondition cond post
 
 
@@ -560,7 +560,7 @@ definition
         , falseDest = trueLabel
         , metadata' = [] }
 
-      
+
       (evaluate #)
       -- Evaluate the condition expression
       cond <- wrapBoolean expr
@@ -606,7 +606,7 @@ definition
       -- And the true label to the next instructions
 
       (trueLabel #)
-  
+
 
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
@@ -876,6 +876,7 @@ preDefinitions files = do
 
     -- Read
     , defineFunction readIntStd    [] intType
+    , defineFunction readBoolStd   [] boolType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
 
@@ -885,6 +886,7 @@ preDefinitions files = do
 
 
     , defineFunction readFileInt   [parameter ("file", pointerType)] intType
+    , defineFunction readFileBool  [parameter ("file", pointerType)] boolType
     , defineFunction readFileChar  [parameter ("file", pointerType)] charType
     , defineFunction readFileFloat [parameter ("file", pointerType)] floatType
     , defineFunction closeFileStr  [parameter ("file", pointerType)] voidType

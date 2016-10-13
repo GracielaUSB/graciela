@@ -6,6 +6,7 @@ import           Error                            (internal)
 import           LLVM.State                       hiding (State)
 import qualified LLVM.State                       as LLVM (State)
 --------------------------------------------------------------------------------
+import           Common                           ((<>))
 import           Control.Lens                     (at, ix, use, (%=), (+=),
                                                    (.=), (<<+=), (?=), _head)
 import           Control.Monad                    (when)
@@ -14,7 +15,6 @@ import           Control.Monad.Trans.State.Strict (State)
 import           Data.Foldable                    (toList)
 import qualified Data.Map.Strict                  as Map (empty, insert, lookup)
 import           Data.Maybe                       (fromMaybe)
-import           Data.Semigroup                   ((<>))
 import           Data.Sequence                    (Seq, (|>))
 import qualified Data.Sequence                    as Seq
 import           Data.Text                        (Text, unpack)
@@ -183,7 +183,7 @@ insertSetString      = "_insertSet"
 insertSeqString      = "_insertSequence"
 insertMultisetString = "_insertMultiset"
 
-insertSetPairString, insertMultisetPairString, insertSeqPairString:: String 
+insertSetPairString, insertMultisetPairString, insertSeqPairString:: String
 insertSetPairString      = "_insertSetPair"
 insertMultisetPairString = "_insertMultisetPair"
 insertSeqPairString      = "_insertSequencePair"
@@ -220,9 +220,9 @@ differenceMultisetPairString = "_differenceMultisetPair"
 differenceFunctionString     = "_differenceFunction"
 
 multisetSumString, concatSequenceString :: String
-multisetSumString        = "_sumMultiset" 
+multisetSumString        = "_sumMultiset"
 concatSequenceString     = "_concatSequence"
-multisetPairSumString    = "_sumMultisetPair" 
+multisetPairSumString    = "_sumMultisetPair"
 concatSequencePairString = "_concatSequencePair"
 atSequenceString         = "_atSequence"
 atSequencePairString     = "_atSequencePair"
@@ -269,6 +269,8 @@ maxnumFstring = "_maxF"
 
 readIntStd    :: String
 readIntStd    = "_readIntStd"
+readBoolStd   :: String
+readBoolStd   = "_readBoolStd"
 readCharStd   :: String
 readCharStd   = "_readCharStd"
 readFloatStd  :: String
@@ -276,6 +278,8 @@ readFloatStd  = "_readDoubleStd"
 
 openFileStr   :: String
 openFileStr   = "_openFile"
+readFileBool  :: String
+readFileBool  = "_readFileBool"
 readFileInt   :: String
 readFileInt   = "_readFileInt"
 closeFileStr  :: String

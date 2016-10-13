@@ -33,7 +33,7 @@ import           Data.Foldable                      (toList)
 import           Data.List                          (sortOn)
 import           Data.Map.Strict                    (Map)
 import qualified Data.Map.Strict                    as Map
-import           Data.Semigroup                     ((<>))
+import           Common                             ((<>))
 import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
                                                      (|>))
 import qualified Data.Sequence                      as Seq

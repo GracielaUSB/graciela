@@ -11,7 +11,7 @@ import           SymbolTable
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable   (toList)
-import           Data.Semigroup  ((<>))
+import           Common          ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Sequence   as Seq (zip)
 import           Data.Text       (Text, pack, unpack)

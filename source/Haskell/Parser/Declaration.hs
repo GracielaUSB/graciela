@@ -38,7 +38,7 @@ import           Control.Monad             (foldM, forM_, unless, void, when,
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
 import           Data.Map                  as Map (insert, lookup)
-import           Data.Semigroup            ((<>))
+import           Common                    ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)

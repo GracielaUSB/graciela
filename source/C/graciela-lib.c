@@ -57,6 +57,32 @@ int _readFileInt(int8_t* file) {
   return n;
 }
 
+int _readFileBool(int8_t* file) {
+  FILE* f = (FILE*) file;
+
+  int n;
+  int r = fscanf(f, "%d", &n);
+
+  if (r == EOF)
+  {
+    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
+    exit(EXIT_FAILURE);
+  }
+  if (r == 0)
+  {
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
+    exit(EXIT_FAILURE);
+  }
+
+  if (n != 0 && n != 1)
+  {
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
+    exit(EXIT_FAILURE);
+  }
+
+  return n;
+}
+
 char _readFileChar(int8_t* file) {
   FILE* f = (FILE*) file;
   char n;
@@ -99,18 +125,28 @@ int _readIntStd () {
   int  n;
   char c;
 
-  scanf("%d", &n);
-  scanf("%c", &c);
+  scanf("%d%c", &n, &c);
   return n;
 }
 
+int _readBoolStd () {
+  int  n;
+  char c;
+
+  scanf("%d%c", &n, &c);
+  if (n != 0 && n != 1)
+  {
+    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
+    exit(EXIT_FAILURE);
+  }
+  return n;
+}
 
 char _readCharStd () {
   char n;
   char c;
 
-  scanf("%c", &n);
-  scanf("%c", &c);
+  scanf("%c%c", &n, &c);
   return n;
 }
 
@@ -119,8 +155,7 @@ double _readDoubleStd () {
   double n;
   char   c;
 
-  scanf("%lf", &n);
-  scanf("%c" , &c);
+  scanf("%lf%c", &n, &c);
   return n;
 }
 

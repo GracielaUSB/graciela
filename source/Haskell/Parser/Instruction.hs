@@ -56,7 +56,7 @@ import           Data.Foldable          (asum, toList)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (find)
 import qualified Data.Map.Strict        as Map (lookup)
-import           Data.Monoid            (First (..), (<>))
+import           Data.Monoid            (First (..))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
 import qualified Data.Set               as Set
@@ -356,8 +356,7 @@ reading = do
         "Cannot read expression `" <> show expr <> "`."
       pure Nothing
 
-    readable = GOneOf [GInt, GFloat, GChar]
-      -- TODO Maybe Booleans too?
+    readable = GOneOf [GInt, GFloat, GChar, GBool, GATypeVar]
 
 
 newOrFree :: Token

@@ -60,7 +60,7 @@ import           Control.Lens          (at, (&~), (?=))
 import           Data.Foldable         (foldl')
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict       as Map (empty, fromList, mapWithKey)
-import           Data.Semigroup        ((<>))
+import           Common                ((<>))
 import           Data.Sequence         (Seq)
 import qualified Data.Sequence         as Seq (empty)
 import           Data.Set              (Set)
@@ -393,7 +393,7 @@ relString = "_relationFromSet"
 domainFuncString, domainRelString, codomainFuncString, codomainRelString :: String
 domainFuncString   = "_domFunction"
 domainRelString    = "_domRelation"
-codomainFuncString = "_codomainFunction" 
+codomainFuncString = "_codomainFunction"
 codomainRelString  = "_codomainRelation"
 
 inverseFuncString, inverseRelString :: String

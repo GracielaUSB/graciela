@@ -15,18 +15,18 @@ module AST.Expression
   , eSkip
   ) where
 --------------------------------------------------------------------------------
-import           AST.Object     (Object')
+import           AST.Object    (Object')
+import           Common
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Array     (Array)
-import           Data.Foldable  (toList)
-import           Data.Int       (Int32)
-import           Data.List      (intercalate)
-import           Data.Semigroup ((<>))
-import           Data.Sequence  (Seq)
-import           Data.Text      (Text, unpack)
-import           Prelude        hiding (Ordering (..))
+import           Data.Array    (Array)
+import           Data.Foldable (toList)
+import           Data.Int      (Int32)
+import           Data.List     (intercalate)
+import           Data.Sequence (Seq)
+import           Data.Text     (Text, unpack)
+import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 data BinaryOperator
@@ -107,14 +107,14 @@ data QuantOperator
   | Count
   deriving (Eq)
 
-instance Show QuantOperator where
-  show ForAll    = "Forall (∀)"
-  show Exists    = "Exists (∃)"
-  show Summation = "Summation (∑)"
-  show Product   = "Product (∏)"
-  show Minimum   = "Minimum (min)"
-  show Maximum   = "Maximum (max)"
-  show Count     = "Count (#)"
+instance Show QuantOperator where   -- mempty
+  show ForAll    = "Forall (∀)"     -- True
+  show Exists    = "Exists (∃)"     -- False
+  show Summation = "Summation (∑)"  -- 0, \0, 0.0
+  show Product   = "Product (∏)"    -- 1, \1, 1.0
+  show Minimum   = "Minimum (min)"  -- ERROR
+  show Maximum   = "Maximum (max)"  -- ERROR
+  show Count     = "Count (#)"      -- 0
 
 
 data QRange' t m

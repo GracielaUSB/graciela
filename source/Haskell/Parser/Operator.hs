@@ -38,7 +38,6 @@ import           Error          (internal)
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
 import           Data.Int       (Int32)
-import           Data.Semigroup ((<>))
 import           Prelude        hiding (Ordering (..), and, concat, div, elem,
                                  max, min, mod, not, notElem, or)
 import qualified Prelude        as P (div, max, min, mod, not, or)

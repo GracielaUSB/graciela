@@ -4,13 +4,13 @@ module AST.Declaration where
 --------------------------------------------------------------------------------
 import           AST.Expression
 import           AST.Type       (Expression, Object, Type)
+import           Common
 import           Location
 import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable  (toList)
-import           Data.Semigroup ((<>))
 import           Data.Sequence  (Seq)
 import           Data.Text      (Text, unpack)
 --------------------------------------------------------------------------------
