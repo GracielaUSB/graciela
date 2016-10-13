@@ -7,6 +7,7 @@ import           AST.Definition  (Definition)
 import           AST.Instruction (Instruction)
 import           AST.Type        (Expression, Type (GTypeVar), TypeArgs,
                                   fillType)
+import           Common
 import           Location
 import           SymbolTable
 import           Token
@@ -17,7 +18,6 @@ import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (lookup, toList)
-import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
@@ -70,9 +70,9 @@ instance Treelike Struct where
           , Node "Couple" (toForest couple)
           , Node "Procedures" . fmap toTree . toList $ structProcs
           ]
-    where 
-      fields (name, (_, t, _, maybeExpr)) = 
-        Node (unpack name) $ [leaf (show t)] <> 
+    where
+      fields (name, (_, t, _, maybeExpr)) =
+        Node (unpack name) $ [leaf (show t)] <>
           case maybeExpr of
             Just e -> [toTree e]
             _      -> []

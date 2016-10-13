@@ -32,10 +32,10 @@ end
 
 type Queue(T) implements AQueue(T)
 begin
-  const MAX := 100 : int;
-  var elems : array [MAX] of T;
-  var first, last : int;
-  var empty := true : boolean; // Should this be necessary?
+  const MAX       := 100  : int;
+  var first, last := 0, 0 : int;
+  var empty       := true : boolean;
+  var elems               : array [MAX] of T;
 
   {repinv 
     MAX > 0 /\ 0 <= (first min last) /\ (first max last) < MAX /\ 
@@ -74,12 +74,6 @@ begin
        do i < n -> elems_0[i] := c.elems[(i + c.first) mod c.MAX]
                  ; i := i + 1
        od 
-    ]|
-
-  proc create (in m : int, out c : Queue(T))
-    {pre m > 0 pre}
-    {post c.MAX == m /\ c.first == 0 /\ c.last == 0 /\ c.empty post}
-    |[ c.first, c.last, c.empty := 0, 0, true
     ]|
 
   proc enqueue (inout c : Queue(T), in x : T)

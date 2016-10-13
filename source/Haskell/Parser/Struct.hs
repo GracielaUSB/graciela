@@ -42,7 +42,7 @@ import           Data.Map            (Map)
 import qualified Data.Map            as Map (empty, filter, fromList, insert,
                                              keysSet, lookup, size, toList)
 import           Data.Maybe          (catMaybes, isJust, isNothing)
-import           Data.Semigroup      ((<>))
+import           Common              ((<>))
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)

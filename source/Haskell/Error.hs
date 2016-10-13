@@ -7,7 +7,7 @@ module Error where
 import           AST.Expression        (Expression' (expType))
 import           AST.Type              (Expression, Type (..))
 import           Common
-import           Data.Semigroup        ((<>))
+import           Common                ((<>))
 import           Data.Text             (Text, unpack)
 import           Location
 import           Text.Megaparsec       hiding (Token)

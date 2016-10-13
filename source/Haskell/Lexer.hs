@@ -25,7 +25,7 @@ import           Token
 import           Control.Monad         (void)
 import           Data.Functor          (($>))
 import           Data.Int              (Int32)
-import           Data.Semigroup        ((<>))
+import           Common                ((<>))
 import           Data.Text             (Text, pack)
 import           Prelude               hiding (lex)
 import           Text.Megaparsec       (Dec, ParseError, Parsec, alphaNumChar,

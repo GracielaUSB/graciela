@@ -1,6 +1,41 @@
 program ranges.bin begin
+
+abstract a(T)
+begin
+  var kkk : seq of T;
+  {inv true inv}
+end
+
+type b(T) implements a(T)
+begin
+  const MAX := 2 : int;
+  var things : array [MAX] of T;
+
+  {repinv true repinv}
+  {coupinv (% forall i : T | i elem things | i == things[0] %) coupinv}
+  where { kkk := <<i : int | 0 <= i /\ i < ab.MAX | ab.things[i] >> }
+
+  proc stuff (inout ab : b(T))
+    var ELVALOR : T;
+    {pre true pre}
+    {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
+    |[ var i := 0 : int
+    ;  var x : T
+    ;  read(ELVALOR)
+    ;  {inv true inv}
+       {bound ab.MAX - i bound}
+       do i < ab.MAX -> read(x)
+                  ; ab.things[i] := x
+                  ; writeln(ab.things[i])
+                  ; i := i + 1
+       od
+    ]|   
+end
+
 main
-  |[ writeln( 
-     (% # i : int | MIN_INT <= i /\ i <= MIN_INT | true %) max 1000
-  ) ]|
+  |[ var w : b (boolean)
+  ;  stuff(w)
+  //writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
+  //;  writeln(#{i : boolean | false <= i /\ i <= true | i})
+  ]|
 end

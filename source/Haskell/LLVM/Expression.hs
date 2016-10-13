@@ -46,7 +46,7 @@ import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Foldable                           (toList)
 import           Data.Maybe                              (fromMaybe, isJust)
-import           Data.Semigroup                          ((<>))
+import           Common                                  ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  empty,

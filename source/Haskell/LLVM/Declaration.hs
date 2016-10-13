@@ -24,7 +24,7 @@ import           Control.Monad                      (foldM, void, when,
 import qualified Data.Array                         as Array (listArray)
 import           Data.Foldable                      (toList)
 import           Data.Functor                       (($>))
-import           Data.Semigroup                     ((<>))
+import           Common                             ((<>))
 import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton)

@@ -5,12 +5,11 @@ module AST.Object
   , Object'' (..)
   ) where
 --------------------------------------------------------------------------------
--- import           AST.Type      (ArgMode (..), Type', TypeArgs')
+import           Common
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
-import           Data.Semigroup ((<>))
 import           Data.Sequence (Seq)
 import           Data.Text     (Text, unpack)
 --------------------------------------------------------------------------------
@@ -41,10 +40,10 @@ data Object' t m e
 
 instance Show e => Show (Object' t m e) where
   show Object { loc, objType, obj' } = case obj' of
-    Variable {name} -> unpack name
+    Variable {name}           -> unpack name
     Member {inner, fieldName} -> show inner <> "." <> unpack fieldName
-    Index { inner, indices } -> show inner <> show (toList indices)
-    Deref {inner}        -> "*" <> show inner
+    Index { inner, indices }  -> show inner <> show (toList indices)
+    Deref {inner}             -> "*" <> show inner
 
 instance (Show m, Treelike e) => Treelike (Object' t m e) where
   toTree Object { loc, objType, obj' } = case obj' of

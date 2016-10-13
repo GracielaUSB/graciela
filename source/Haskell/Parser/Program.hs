@@ -25,7 +25,7 @@ import           Data.Either
 import           Data.Foldable      (toList)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
-import           Data.Semigroup     ((<>))
+import           Common             ((<>))
 import qualified Data.Sequence      as Seq (empty, fromList)
 import qualified Data.Text          as T (intercalate)
 import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>))

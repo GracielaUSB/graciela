@@ -20,7 +20,7 @@ import           Location
 import           Data.Function      (on)
 import           Data.Int           (Int32)
 import           Data.List.NonEmpty (toList)
-import           Data.Semigroup     ((<>))
+import           Common             ((<>))
 import           Data.Text          (Text, unpack)
 import           Text.Megaparsec    (ShowToken (..))
 --------------------------------------------------------------------------------

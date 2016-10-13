@@ -39,6 +39,7 @@ module SymbolTable
   , root
   ) where
 --------------------------------------------------------------------------------
+import           Common
 import           Entry
 import           Location
 import           Treelike
@@ -46,7 +47,6 @@ import           Treelike
 import           Data.List       (sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq, ViewL ((:<)), ViewR ((:>)), (<|), (><),
                                   (|>))
 import qualified Data.Sequence   as Seq
@@ -77,7 +77,7 @@ lookup' :: Text -> Scope -> Either Text Entry
 lookup' key Scope { sEntries } =
   case Map.lookup key sEntries of
     Just entry' -> Right entry'
-    Nothing    -> Left "Not found."
+    Nothing     -> Left "Not found."
 
 
 insert' :: Text -> Entry -> Scope -> Scope
@@ -195,13 +195,13 @@ defocus = fst
 ---- Using the table ---------
 isSymbol :: Text -> SymbolTable -> Bool
 isSymbol key st = case lookup key st of
-  Left _ -> False
+  Left _  -> False
   Right _ -> True
 
 
 isLocal ::  Text -> SymbolTable -> Bool
 isLocal key st = case local key st of
-  Left _ -> False
+  Left _  -> False
   Right _ -> True
 
 

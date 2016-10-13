@@ -54,12 +54,41 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
       ForAll -> terminate $ Br true  []
       Exists -> terminate $ Br false []
 
-    PointRange { thePoint } -> -- FIXME: Cannot use the general case when the quantifier is float
-      boolQ expr boolean true false e
-        { exp' = exp'
-          { qRange = ExpRange
-            { low  = thePoint
-            , high = thePoint }}}
+    PointRange { thePoint } -> case qVarType of
+      GFloat -> do
+        p <- expr thePoint
+
+        openScope
+        iterator <- insertVar qVar
+        t        <- toLLVMType qVarType
+        addInstruction $ iterator := Alloca
+          { allocatedType = t
+          , numElements   = Nothing
+          , alignment     = 4
+          , metadata      = [] }
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t iterator
+          , value    = p
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        yesCond <- newUnLabel
+        boolean yesCond (case qOp of ForAll -> true; Exists -> false) qCond
+
+        (yesCond #)
+        boolean true false qBody
+
+        closeScope
+
+      _ | qVarType `elem` [GInt, GChar, GBool] ->
+        boolQ expr boolean true false e
+          { exp' = exp'
+            { qRange = ExpRange
+              { low  = thePoint
+              , high = thePoint }}}
+      _ -> internal $ "bad point range type " <> show qVarType
 
     ExpRange { low, high }
       | qOp `elem` [ForAll, Exists] -> do
@@ -168,6 +197,8 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
           , trueDest  = loop
           , falseDest = case qOp of ForAll -> true; Exists -> false
           , metadata' = [] }
+
+        closeScope
 
     SetRange { theSet } -> internal "set iteration not implemented yet"
 

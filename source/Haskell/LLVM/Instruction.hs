@@ -27,12 +27,12 @@ import qualified LLVM.Warning                       as Warning (Warning (Manual)
 import           Location
 import           Treelike
 --------------------------------------------------------------------------------
+import           Common                             ((<>))
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Control.Monad                      (foldM, void, when,
                                                      zipWithM_)
 import           Data.Foldable                      (toList)
 import           Data.Maybe                         (fromMaybe)
-import           Data.Semigroup                     ((<>))
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
@@ -163,7 +163,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
         llvmName (pName <> pack "-" <> structBaseName) <$>
           mapM toLLVMType (toList typeArgs)
       _ -> pure . unpack $ pName
-    
+
     recArgs <- fmap (,[]) <$> if pRecursiveCall
       then do
         boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
@@ -524,20 +524,26 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
   Read { file, vars } -> mapM_ readVar vars
     where
       readVar var = do
+        st <- use substitutionTable
+
         let
-          t = objType var
+          t' = objType var
+          t = case st of
+            (ta:_) -> fillType ta t'
+            _      -> t'
 
         (args, fread) <- case file of
           Nothing -> pure . ([],) $ case t of
             T.GChar  -> readCharStd
             T.GFloat -> readFloatStd
             T.GInt   -> readIntStd
-            _        -> error ":D no se soporta este tipo: " <> show t
+            T.GBool  -> readBoolStd
+            _        -> internal "Unsupported read " <> show t
 
           Just file' -> do
             let
               fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
-                        "__" <> (unpack file')
+                        "__" <> unpack file'
 
             filePtr <- newLabel "filePtr"
             addInstruction $ filePtr := Load
@@ -553,6 +559,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
                 T.GChar  -> readFileChar
                 T.GFloat -> readFileFloat
                 T.GInt   -> readFileInt
+                T.GBool  -> readFileBool
                 _        -> error ":D no se soporta este tipo: " <> show t
 
         type' <- toLLVMType t

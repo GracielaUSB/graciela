@@ -7,6 +7,7 @@ import           AST.Expression  hiding (loc)
 import           AST.Instruction (Instruction)
 import           AST.Struct      (Struct)
 import           AST.Type
+import           Common
 import           Location
 import           SymbolTable
 import           Token
@@ -15,7 +16,6 @@ import           Treelike
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (elems, foldrWithKey)
-import           Data.Semigroup ((<>))
 import           Data.Sequence   (Seq)
 import           Data.Set        (Set)
 import           Data.Text       (Text, unpack)

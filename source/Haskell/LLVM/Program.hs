@@ -10,6 +10,7 @@ import           AST.Program
 import qualified AST.Program                             as P (structs)
 import           AST.Type
 import qualified AST.Type                                as G (Type)
+import           Common
 import           LLVM.Abort
 import           LLVM.Definition                         (definition,
                                                           mainDefinition,
@@ -31,7 +32,6 @@ import           Data.Map.Strict                         (Map)
 import qualified Data.Map.Strict                         as Map (keys, size,
                                                                  toAscList,
                                                                  toList)
-import           Data.Semigroup ((<>))
 import           Data.Sequence                           (fromList, singleton)
 import           Data.Text                               (Text, unpack)
 import           Data.Text.Encoding                      (encodeUtf8)
