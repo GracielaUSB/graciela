@@ -1,0 +1,106 @@
+program queue.bin begin
+
+abstract AQueue(T)
+begin
+  const MAX := 100 : int;
+  var contents : seq of T;
+  
+  {inv MAX > 0 /\ #contents < MAX inv}
+
+  proc create (in m : int, out c : AQueue(T))
+    {pre m > 0 pre}
+    {post c.MAX == m /\ c.contents == <<>> post}
+
+  proc enqueue (inout c : AQueue(T), in x : T )
+    var contents_0 := c.contents : seq of T;
+    {pre #c.contents < c.MAX pre}
+    {post c.contents == contents_0 ++ <<x>> post}
+
+  // proc dequeue (inout c : AQueue(T) )
+  //   var tail := <<i : int | 1 <= i /\ i < #c.contents | c.contents[i]>>;
+  //   {pre c.contents != <<>> pre}
+  //   {post c.contents == tail post}
+
+  // proc first (in c : AQueue(T), out x : T )
+  //   {pre c.contents != <<>> pre}
+  //   {post x == c.contents[0] post}
+
+  // proc empty (in c : AQueue(T), out v : boolean )
+  //   {pre true pre}
+  //   {post v ≡ (c.contents == <<>>) post}
+end
+
+type Queue(T) implements AQueue(T)
+begin
+  const MAX := 100 : int;
+  var elems : array [MAX] of T;
+  var first, last : int;
+  var empty := true : boolean; // Should this be necessary?
+
+  {repinv 
+    MAX > 0 /\ 0 <= (first min last) /\ (first max last) < MAX /\ 
+    empty ==> first == last 
+  repinv}
+
+  {coupinv true coupinv}
+
+  where {contents := if first < last \/ empty -> <<i : int | first <= i /\ i < last | elems[i]>> 
+                     [] first >= last ->         <<i : int | first <= i /\ i < last + MAX | elems[i mod MAX]>> 
+                     fi }
+
+  func numElems (c : Queue(T)) -> int
+    {pre true pre}
+    {post numElems > 0 /\ numElems <= c.MAX post}
+    |[ if c.empty -> 0
+       [] c.first == c.last /\ !c.empty -> c.MAX
+       [] c.first <  c.last -> c.last - c.first
+       [] c.first >  c.last -> c.last + c.MAX - c.first
+       fi ]|
+
+  proc aux_copy 
+    ( in c : Queue(T)
+    , out elems_0 : array[numElems(c)] of T )
+    {pre true pre}
+    {post 
+      (% forall i : int 
+      | 0 <= i /\ i < numElems(c) 
+      | elems_0[i] == c.elems[(i + c.first) mod c.MAX]
+      %)
+    post}
+    |[ var i, n : int
+    ;  i, n := 0, numElems(c)
+    ;  {inv 0 ≤ i ∧ i ≤ n inv}
+       {bound n - i bound} 
+       do i < n -> elems_0[i] := c.elems[(i + c.first) mod c.MAX]
+                 ; i := i + 1
+       od 
+    ]|
+
+  proc create (in m : int, out c : Queue(T))
+    {pre m > 0 pre}
+    {post c.MAX == m /\ c.first == 0 /\ c.last == 0 /\ c.empty post}
+    |[ c.first, c.last, c.empty := 0, 0, true
+    ]|
+
+  proc enqueue (inout c : Queue(T), in x : T)
+    var first_0, last_0 := c.first, c.last : int;
+    var n_0 := numElems(c) : int;
+    var elems_0 : array[3] of T;
+    {pre c.first != c.last \/ c.empty pre}
+    {post 
+      c.first == first_0 /\ c.last == (last_0 + 1) mod c.MAX /\ !c.empty /\ 
+      c.elems[last_0] == x /\
+      (% forall i : int | 0 <= i /\ i < n_0 | c.elems[(i + first_0) mod c.MAX] == elems_0[i] %)
+    post}
+    |[ c.elems[c.last] := x
+    ;  c.last := (c.last + 1) mod c.MAX
+    ]|
+   
+end
+
+main
+  |[ var q : Queue (int)
+  ;  create (100, q)
+  ;  writeln ("created!")
+  ]|
+end
