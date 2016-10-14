@@ -71,9 +71,8 @@ module Parser.Monad
 --------------------------------------------------------------------------------
 import           AST.Struct
 import           AST.Type                   (Type)
-import           Error
 import           Common
-import           Location
+import           Error
 import           Parser.Config              (Config (..), defaultConfig)
 import           Parser.Prim                ()
 import           Parser.State               hiding (State)
@@ -102,6 +101,7 @@ import           Text.Megaparsec            (ErrorItem (..), ParseError (..),
                                              lookAhead, manyTill, withRecovery,
                                              (<|>))
 import qualified Text.Megaparsec            as Mega (runParserT)
+import           Text.Megaparsec.Error      (parseErrorTextPretty)
 import           Text.Megaparsec.Prim       (MonadParsec (..))
 --------------------------------------------------------------------------------
 
@@ -238,7 +238,7 @@ pRecover :: MonadParser m
 pRecover follow e = do
   pos <- getPosition
 
-  putError pos . UnexpectedToken $ errorUnexpected e
+  putError pos . UnknownError . init $ parseErrorTextPretty e
 
   void $ anyToken `manyTill` (void (lookAhead follow) <|> eof)
 

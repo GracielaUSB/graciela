@@ -7,10 +7,10 @@ module Common
   , foldM, forM, forM_, unless, void, when, zipWithM, zipWithM_, (>=>)
   , lift
   , Int32
-  -- , trace, traceM, traceShow, traceShowId, traceShowM
+  , trace, traceM, traceShow, traceShowId, traceShowM
   ) where
 
--- import Debug.Trace    (trace, traceM, traceShow, traceShowId, traceShowM)
+import Debug.Trace    (trace, traceM, traceShow, traceShowId, traceShowM)
 import           Control.Monad             (foldM, forM, forM_, unless, void,
                                             when, zipWithM, zipWithM_, (>=>))
 import           Control.Monad.Trans.Class (lift)
