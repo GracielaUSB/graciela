@@ -37,7 +37,7 @@ import           Control.Monad       (join, liftM5, when)
 import           Data.Functor        (void, ($>))
 import qualified Data.Map.Strict     as Map (insert, lookup)
 import           Data.Maybe          (isJust, isNothing)
-import           Common              ((<>))
+
 import           Data.Sequence       (Seq, ViewL (..), (|>))
 import qualified Data.Sequence       as Seq (empty, viewl)
 import           Data.Text           (Text, unpack)

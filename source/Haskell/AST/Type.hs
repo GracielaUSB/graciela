@@ -16,13 +16,8 @@ module  AST.Type
   ( ArgMode (..)
   , Type (..)
   , TypeArgs
-  , Expression
-  , Object
-  , QRange
   , (=:=)
   , fillType
-  -- , isTypeVar
-  -- , isDataType
   , basic
   , highLevel
   , hasDT
@@ -31,37 +26,25 @@ module  AST.Type
   , objMode
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression (Expression' (..), Expression'' (..),
-                                 QRange' (..), Value (..))
-import           AST.Object     (Object' (..), Object'' (..))
+import           AST.Expression (Expression (..), Expression' (..), Value (..))
+import           AST.Object     (Object (..), Object' (..))
 import qualified AST.Object     as O (inner)
 import           Common
 --------------------------------------------------------------------------------
-import           Control.Lens   (both, (%~), (&))
-import           Data.Array     (Array (..), bounds, (!))
-import           Data.Foldable  (toList)
-import           Data.Int       (Int32)
+import           Data.Array     (Array, bounds, (!))
 import           Data.Ix        (inRange)
 import           Data.List      (intercalate, nub)
-import           Data.Map       (Map)
-import           Data.Map       as Map (elems)
-import           Data.Monoid    (Monoid (..))
-import           Data.Semigroup (Semigroup (..))
 import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
-import           Data.Text      (Text, pack, takeWhile, unpack)
+import           Data.Text      (Text, unpack)
 import           Prelude        hiding (takeWhile)
 --------------------------------------------------------------------------------
 
--- Synonyms
-type Expression = Expression' Type ArgMode
-type QRange     = QRange' Type ArgMode
-type Object     = Object' Type ArgMode Expression
---------------------------------------------------------------------------------
-
+objMode :: Object -> Maybe ArgMode
 objMode (Object _ _ Variable { mode }) = mode
 objMode (Object _ _ o)                 = objMode (O.inner o)
 
+notIn :: Object -> Bool
 notIn obj = objMode obj /= Just In
 -------------------------------------------------------------------------------------
 

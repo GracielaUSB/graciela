@@ -8,12 +8,9 @@ import           AST.Instruction (Instruction)
 import           AST.Struct      (Struct)
 import           AST.Type
 import           Common
-import           Location
 import           SymbolTable
 import           Token
-import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (elems, foldrWithKey)
 import           Data.Sequence   (Seq)

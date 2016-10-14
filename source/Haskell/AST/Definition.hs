@@ -3,18 +3,14 @@
 module AST.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
-import           AST.Instruction (Instruction (..), Instruction' (..))
-import           AST.Type        (ArgMode (..), Expression, Type (..))
+import           AST.Expression  (Expression)
+import           AST.Instruction (Instruction (..))
+import           AST.Type        (ArgMode (..), Type (..))
+import           Common
 import           Error           (Error)
-import           Location
-import           SymbolTable
-import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Foldable   (toList)
-import           Common          ((<>))
 import           Data.Sequence   (Seq)
-import           Data.Sequence   as Seq (zip)
-import           Data.Text       (Text, pack, unpack)
+import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Definition'
@@ -91,5 +87,5 @@ instance Treelike Definition where
       showFPs :: Seq (Text, Type) -> [Tree String]
       showFPs = fmap (\(n,t) -> leaf (unpack n <> " : " <> show t)) . toList
       boundNode = case bound of
-        Just b -> Node "Bound" [toTree b]
+        Just b  -> Node "Bound" [toTree b]
         Nothing -> leaf "Not bounded"

@@ -31,17 +31,14 @@ module Parser.State
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
-import           AST.Expression        (Value (BoolV))
 import           AST.Struct
 import           AST.Type
-import           Entry
 import           Error
 import           Location
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
-import           Data.Foldable         (foldl')
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict       as Map (empty, fromList)
 import           Data.Sequence         (Seq)

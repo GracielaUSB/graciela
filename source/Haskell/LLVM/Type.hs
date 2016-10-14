@@ -14,13 +14,12 @@ module LLVM.Type
   , toLLVMType
   , sizeOf
   , llvmName
-  )
-where
+  ) where
 --------------------------------------------------------------------------------
+import           AST.Expression             (Expression)
 import           AST.Struct                 (Struct (..))
 import           AST.Type                   as T (Type (..), fillType, (=:=))
-import           AST.Type                   (Expression)
-import           Error                      (internal)
+import           Common
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
                                              moduleDefs, pendingDataTypes,
@@ -33,7 +32,6 @@ import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
-import           Common                     ((<>))
 import           Data.Sequence              ((|>))
 import           Data.Text                  (Text, pack, unpack)
 import           Data.Word                  (Word32, Word64)

@@ -10,7 +10,7 @@ module Parser.Type
 --------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition    (Definition (..), Definition' (..))
-import           AST.Expression    (Expression' (..), Expression'' (Value),
+import           AST.Expression    (Expression (..), Expression' (Value),
                                     Value (..))
 import           AST.Struct
 import           AST.Type
@@ -28,14 +28,13 @@ import           SymbolTable       (insertSymbol, local, lookup)
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens      (use, (%=), (<>=))
-import           Control.Monad     (unless)
 import qualified Data.Array        as Array (listArray)
 import           Data.Foldable     (asum, toList)
 import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
 import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
                                            lookup, null, singleton)
-import           Common            ((<>))
+
 import           Data.Text         (Text, pack, unpack)
 import           Prelude           hiding (lookup)
 import           Text.Megaparsec   (between, getPosition, lookAhead,

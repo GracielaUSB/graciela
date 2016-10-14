@@ -11,30 +11,28 @@ module Parser.Expression
   ( expression
   ) where
 --------------------------------------------------------------------------------
+import {-# SOURCE #-} Parser.Type          (type')
+--------------------------------------------------------------------------------
 import           AST.Definition
 import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
-import           AST.Type                  (ArgMode (..), Expression, Object,
-                                            QRange, Type (..), fillType, hasDT,
-                                            (=:=))
+import           AST.Type                  (ArgMode (..), Type (..),
+                                            fillType, hasDT, (=:=))
 import           Common
 import           Entry                     (Entry (..), Entry' (..), info)
-import           Error                     (Error (..), internal)
+import           Error                     (Error (..))
 import           Lexer
-import           Location
 import           Parser.Config
 import           Parser.ExprM              (Operator (..), makeExprParser)
 import           Parser.Monad
 import qualified Parser.Operator           as Op
 import           Parser.State              hiding (State)
-import {-# SOURCE #-} Parser.Type          (type')
 import           SymbolTable               (closeScope, defocus, emptyGlobal,
                                             insertSymbol, lookup, openScope)
 import           Token
-import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens              (elements, use, view, (%%=), (%=),
                                             (%~), (&), (&~), (.=), (<&>), (^.),
@@ -353,12 +351,9 @@ collection = do
                   \in Conjunctive Normal Form where the variable `" <>
                   unpack var <> "` is bounded."
               pure Nothing
-
-
-
-            ProtoLow _ -> do
+            ProtoLow l -> do
               putError rfrom . UnknownError $
-                "Bad collection range. No upper bound was given."
+                "Bad collection range. No upper bound was given." <> drawTree (toTree l)
               pure Nothing
             ProtoHigh _ -> do
               putError rfrom . UnknownError $
@@ -1636,7 +1631,7 @@ comparison :: Op.Bin -> Location
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc }, _, Taint False))
   (Just (r @ Expression { expType = rtype, expConst = rc }, ProtoVar, _))
-    | rtype =:= GOneOf [GChar, GInt]
+    | rtype =:= GOneOf [GBool, GChar, GInt]
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)
@@ -1673,7 +1668,7 @@ comparison binOp opLoc
 comparison binOp opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc }, ProtoVar, _))
   (Just (r @ Expression { expType = rtype, expConst = rc }, _, Taint False))
-    | ltype =:= GOneOf [GBool, GInt]
+    | ltype =:= GOneOf [GBool, GChar, GInt]
   = case Op.binType binOp ltype rtype of
       Left expected -> do
         let loc = Location (from l, to r)

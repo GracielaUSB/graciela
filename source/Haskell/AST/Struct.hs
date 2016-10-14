@@ -2,22 +2,17 @@
 
 module AST.Struct where
 --------------------------------------------------------------------------------
-import           AST.Declaration (Declaration)
 import           AST.Definition  (Definition)
+import           AST.Expression  (Expression)
 import           AST.Instruction (Instruction)
-import           AST.Type        (Expression, Type (GTypeVar), TypeArgs,
-                                  fillType)
+import           AST.Type        (Type, TypeArgs, fillType)
 import           Common
-import           Location
 import           SymbolTable
-import           Token
-import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens    ((%~), _2)
-import           Data.Foldable   (toList)
 import           Data.List       (intercalate)
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map (lookup, toList)
+import qualified Data.Map.Strict as Map (toList)
 import           Data.Sequence   (Seq)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ module LLVM.Struct
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
-import           AST.Expression                     (Expression' (..))
+import           AST.Expression                     (Expression (..))
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type
@@ -27,13 +27,10 @@ import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                       (makeLenses, use, (%=),
                                                      (+=), (.=))
-import           Control.Monad                      (foldM, forM_, unless, void,
-                                                     when)
-import           Data.Foldable                      (toList)
 import           Data.List                          (sortOn)
 import           Data.Map.Strict                    (Map)
 import qualified Data.Map.Strict                    as Map
-import           Common                             ((<>))
+
 import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
                                                      (|>))
 import qualified Data.Sequence                      as Seq

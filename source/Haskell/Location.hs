@@ -43,7 +43,7 @@ instance Show Location where
 
 instance Semigroup Location where
   Location (from0, to0) <> Location (from1, to1)
-    = Location (from0 `min'` from1, to1 `max'` to1)
+    = Location (from0 `min'` from1, to0 `max'` to1)
     where
       SourcePos fn l0 c0 `min'` SourcePos _ l1 c1
         | l0 < l1 || l0 == l1 && c0 < c1 = SourcePos fn l0 c0

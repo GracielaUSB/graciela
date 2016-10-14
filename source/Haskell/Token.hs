@@ -15,14 +15,12 @@ module Token
   , showPos
   )where
 --------------------------------------------------------------------------------
-import           Location
+import           Common
 --------------------------------------------------------------------------------
-import           Data.Function      (on)
-import           Data.Int           (Int32)
-import           Data.List.NonEmpty (toList)
-import           Common             ((<>))
-import           Data.Text          (Text, unpack)
-import           Text.Megaparsec    (ShowToken (..))
+import           Data.Function   (on)
+import           Data.Int        (Int32)
+import           Data.Text       (Text, unpack)
+import           Text.Megaparsec (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
 

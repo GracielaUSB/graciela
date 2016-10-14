@@ -1,30 +1,5 @@
 program mal.bin begin
 
-// proc avg (in x : array [m, n] of int)
-//   {pre true pre}
-//   {post true post}
-//   ⟦ var acc  := 0    : int
-//   ; var i, j := 0, 0 : int
-//   ; writeln ("ok so I'll take the average of an [", m, " x ", n, "] matrix.")
-//   ; {inv true inv}
-//     {bound m - i bound}
-//     do i < m -> {inv true inv}
-//                 {bound n - j bound}
-//                 do j < n -> acc := acc + x [i, j]
-//                           ; j := j + 1
-//                 od
-//               ; i, j := i + 1, 0
-//     od
-//   ; writeln ("So the average is: ", acc / (m*n))
-//   ⟧
-
-// func middle (m : int, n : int, x : array [m, n] of int) -> int
-//   {pre  true pre}
-//   {post true post}
-//   ⟦ (% sigma i : int | m/2 - 1 <= i /\ i <= m/2 + 1 |
-//       (% sigma j : int | n/2 - 1 <= j /\ j <= n/2 + 1 |
-//         x[i, j] %) %) ⟧
-
 main
   ⟦ const M, N, Ñ := 6, 8, 6 : int
   ; var i, j, k := 0, 0, 0 : int
@@ -51,40 +26,43 @@ main
               ; j, i := 0, i + 1
     od
 
-  // ; writeln (middle(M, N, x))
-  // ; writeln ({x : int | 0 <=x /\ x <= 3 | x*1, x*2, x*3} == {'a'})
-  ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )
-  ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4〉  )
-  ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4,5〉)
-  ; writeln (〈x : char | 'a' < x /\ x < 'd' | x〉 ==〈'c','b'〉  )
-  ; { {4} \ {4} == {}  }
-  ; {〈1,2,3〉 ++ 〈x : int | 0 < x /\ x < 4 | x〉 == 〈1,2,3,1,2,3〉}
-  ; { ⟅1, 2, 3, 3⟆ union ⟅1, 1, 2, 3⟆ == ⟅1, 1, 2, 3, 3⟆ }
-  // ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
-  ; writeln (i mod 2 == 1 /*=== False */ ==> x[100,100,100] > 0) // Test for jumping code
-  // ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet
+   ; { {4} \ {4} == {}  }
+   ; {〈1,2,3〉 ++ 〈x : int | 0 < x /\ x < 4 | x〉 == 〈1,2,3,1,2,3〉}
+   ; { ⟅1, 2, 3, 3⟆ union ⟅1, 1, 2, 3⟆ == ⟅1, 1, 2, 3, 3⟆ }
+   ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
 
-  ; writeln("-------------------------------------------------------")
 
-  ; i, j, k := 0, 0, 0
-  ; {inv   true    inv}
-    {bound M - i bound}
-    do i < M -> {inv   true    inv}
-                {bound N - j bound}
-                do j < N -> {inv true inv}
-                            {bound Ñ - k bound}
-                            do k < Ñ -> skip
-                                      ; write (x [i,j,k], " ")
-                                      ; k := k + 1
-                            od
-                          ; k, j := 0, j + 1
-                          ; writeln()
-                od
-              ; writeln()
-              ; writeln()
-              ; j, i := 0, i +1
-              ; writeln()
-    od
+;         {0 elem {x : int | 0 <= x /\ x < 5 | x, x+10} } 
+; writeln (0 elem {x : int | x < 5 /\ 0 < x | x, x+10})   
+
+; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )     
+; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4〉  )  
+; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4,5〉) 
+; writeln (i mod 2 == 1 /*=== False */ ==> x[100,100,100] > 0) // Test for jumping code  --LOOP
+// ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet  --LOOP
+; writeln (〈x : char | 'a' < x /\ x < 'd' | x〉 ==〈'c','b'〉  ) // -- NO UPPER BOUND WAS GIVEN
+
+  // ; writeln("-------------------------------------------------------")
+
+  // ; i, j, k := 0, 0, 0
+  // ; {inv   true    inv}
+  //   {bound M - i bound}
+  //   do i < M -> {inv   true    inv}
+  //               {bound N - j bound}
+  //               do j < N -> {inv true inv}
+  //                           {bound Ñ - k bound}
+  //                           do k < Ñ -> skip
+  //                                     ; write (x [i,j,k], " ")
+  //                                     ; k := k + 1
+  //                           od
+  //                         ; k, j := 0, j + 1
+  //                         ; writeln()
+  //               od
+  //             ; writeln()
+  //             ; writeln()
+  //             ; j, i := 0, i +1
+  //             ; writeln()
+  //   od
   ⟧
 
 end

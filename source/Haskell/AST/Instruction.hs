@@ -3,17 +3,12 @@
 module AST.Instruction where
 --------------------------------------------------------------------------------
 import           AST.Declaration (Declaration)
-import           AST.Expression  (expType)
-import           AST.Type        (ArgMode, Expression, Object, Type, TypeArgs)
+import           AST.Expression  (Expression, expType)
+import           AST.Object      (Object)
+import           AST.Type        (ArgMode, Type, TypeArgs)
 import           Common
-import           Location
-import           SymbolTable
-import           Token
-import           Treelike
 --------------------------------------------------------------------------------
-import           Data.Foldable   (toList)
 import           Data.Sequence   (Seq)
-import qualified Data.Sequence   as Seq (zipWith)
 import           Data.Text       (Text, unpack)
 --------------------------------------------------------------------------------
 

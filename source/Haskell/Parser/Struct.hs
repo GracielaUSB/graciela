@@ -8,10 +8,10 @@ module Parser.Struct
 -------------------------------------------------------------------------------
 import           AST.Declaration
 import           AST.Definition
-import           AST.Expression      (Expression' (..))
+import           AST.Expression      (Expression (..))
 import           AST.Instruction
 import           AST.Object
-import qualified AST.Object          as O (Object' (loc))
+import qualified AST.Object          as O (Object (loc))
 import           AST.Struct
 import           AST.Type
 import           Common
@@ -31,18 +31,15 @@ import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens        (over, use, (%=), (.=), (.~), (^.), _2,
                                       _Just)
-import           Control.Monad       (foldM, forM_, unless, void, when,
-                                      zipWithM_)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
-import           Data.Foldable       (toList)
 import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
 import           Data.Map            (Map)
 import qualified Data.Map            as Map (empty, filter, fromList, insert,
                                              keysSet, lookup, size, toList)
 import           Data.Maybe          (catMaybes, isJust, isNothing)
-import           Common              ((<>))
+
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
