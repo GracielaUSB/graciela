@@ -1,52 +1,50 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module AST.Object
-  ( Object' (..)
-  , Object'' (..)
+  ( Object (..)
+  , Object' (..)
   ) where
 --------------------------------------------------------------------------------
-import           Common
-import           Location
-import           Treelike
+import {-# SOURCE #-} AST.Type (Type, ArgMode)
+import {-# SOURCE #-} AST.Expression (Expression)
 --------------------------------------------------------------------------------
-import           Data.Foldable (toList)
+import           Common
+--------------------------------------------------------------------------------
 import           Data.Sequence (Seq)
 import           Data.Text     (Text, unpack)
 --------------------------------------------------------------------------------
 
-data Object'' t m e
+data Object'
   = Variable
     { name :: Text
-    , mode :: Maybe m }
+    , mode :: Maybe ArgMode }
   | Member
-    { inner     :: Object' t m e
+    { inner     :: Object
     , field     :: Integer
     , fieldName :: Text  }
   | Index
-    { inner   :: Object' t m e
-    , indices :: Seq e }
+    { inner   :: Object
+    , indices :: Seq Expression }
   | Deref
-    { inner :: Object' t m e }
+    { inner :: Object }
   deriving (Eq)
 
-{- The type variable in `Object' e` allows us to separate this code from
- - the code in `Expression` without creating a cycle. -}
-data Object' t m e
+data Object
   = Object
     { loc     :: Location
-    , objType :: t
-    , obj'    :: Object'' t m e }
+    , objType :: Type
+    , obj'    :: Object' }
   deriving (Eq)
 
-instance Show e => Show (Object' t m e) where
-  show Object { loc, objType, obj' } = case obj' of
+instance Show Object where
+  show Object { obj' } = case obj' of
     Variable {name}           -> unpack name
     Member {inner, fieldName} -> show inner <> "." <> unpack fieldName
     Index { inner, indices }  -> show inner <> show (toList indices)
     Deref {inner}             -> "*" <> show inner
 
-instance (Show m, Treelike e) => Treelike (Object' t m e) where
-  toTree Object { loc, objType, obj' } = case obj' of
+instance Treelike Object where
+  toTree Object { loc, obj' } = case obj' of
 
     Variable { name, mode } ->
       leaf $ "Variable "<> argmode <> " `" <> unpack name <> "` " <> show loc

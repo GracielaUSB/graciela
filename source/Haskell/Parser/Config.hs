@@ -60,7 +60,7 @@ import           Control.Lens          (at, (&~), (?=))
 import           Data.Foldable         (foldl')
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict       as Map (empty, fromList, mapWithKey)
-import           Common                ((<>))
+
 import           Data.Sequence         (Seq)
 import qualified Data.Sequence         as Seq (empty)
 import           Data.Set              (Set)

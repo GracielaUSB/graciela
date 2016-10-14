@@ -8,15 +8,15 @@ module LLVM.Definition where
 --------------------------------------------------------------------------------
 import           AST.Declaration                     (Declaration)
 import           AST.Definition
-import           AST.Expression                      (Expression' (..))
+import           AST.Expression                      (Expression (..))
 import qualified AST.Instruction                     as G (Instruction)
 import           AST.Struct                          (Struct (..), Struct' (..))
-import           AST.Type                            (Expression, (=:=))
+import           AST.Type                            ((=:=))
 import qualified AST.Type                            as T
 import           Common
-import           Error                               (internal)
 import           LLVM.Abort                          (abort, abortString)
 import qualified LLVM.Abort                          as Abort (Abort (..))
+import           LLVM.Boolean
 import           LLVM.Declaration                    (declaration)
 import           LLVM.Expression
 import           LLVM.Instruction
@@ -30,9 +30,7 @@ import qualified Location                            as L (pos)
 import           Parser.Config
 import           Treelike
 --------------------------------------------------------------------------------
-import           Common                              ((<>))
 import           Control.Lens                        (use, (%=), (&), (.=))
-import           Control.Monad                       (foldM, unless, void)
 import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)

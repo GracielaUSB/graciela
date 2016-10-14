@@ -5,9 +5,12 @@
 {-# LANGUAGE TupleSections     #-}
 
 module LLVM.Boolean
-  ( boolean'
-  , wrapBoolean'
+  ( boolean
+  , wrapBoolean
   ) where
+--------------------------------------------------------------------------------
+import {-# SOURCE #-} LLVM.Expression (expression)
+import {-# SOURCE #-} LLVM.Object     (object, objectRef)
 --------------------------------------------------------------------------------
 import           AST.Expression                          as Op
 import           AST.Type
@@ -19,12 +22,8 @@ import           LLVM.Monad
 import           LLVM.Quantification
 import           LLVM.State
 import           LLVM.Type
-import           Location
 --------------------------------------------------------------------------------
-import           Common                                  ((<>))
 import           Control.Lens                            (use, (&))
-import           Control.Monad                           (forM)
-import           Data.Foldable                           (toList)
 import           Data.Maybe                              (fromMaybe)
 import           Data.Text                               (unpack)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
@@ -40,14 +39,14 @@ import           LLVM.General.AST.Type                   (i1, i64, ptr)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
-boolean' :: (Expression -> LLVM Operand) -- ^ non-boolean expression code generator
-         -> (Object -> LLVM Operand) -- ^ object code generator (both boolean and non-boolean)
-         -> (Object -> Bool -> LLVM Operand) -- ^ object ref code generator (both boolean and non-boolean)
-         -> Name -- ^ true destination
+boolean :: --(Expression -> LLVM Operand) -- ^ non-boolean expression code generator
+        -- -> (Object -> LLVM Operand) -- ^ object code generator (both boolean and non-boolean)
+        -- -> (Object -> Bool -> LLVM Operand) -- ^ object ref code generator (both boolean and non-boolean)
+          Name -- ^ true destination
          -> Name -- ^ false destination
          -> Expression -- ^ boolean expression
          -> LLVM ()
-boolean' expr object obRef true false e@Expression { loc, exp' } = do
+boolean true false e@Expression { loc, exp' } = do
   st <- use substitutionTable
   let
     t' = expType e
@@ -58,7 +57,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
     then internal
       "attempted to generate non-boolean expression with `boolean` \
       \instead of `expression`"
-  else let boolean = boolean' expr object obRef in case exp' of
+  else case exp' of
     NullPtr -> internal "Null ptr cannot be boolean"
 
     Value { theValue = BoolV b } ->
@@ -105,8 +104,8 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
         boolean false true rexpr
 
       _ | binOp `elem` [Elem, NotElem] -> do
-          lOperand <- expr lexpr
-          rOperand <- expr rexpr
+          lOperand <- expression lexpr
+          rOperand <- expression rexpr
 
           item <- newLabel "item"
           substs <- use substitutionTable
@@ -148,8 +147,8 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
             , falseDest
             , metadata' = [] }
       _ | binOp `elem` [LT, LE, GT, GE] -> do
-        lOperand <- expr lexpr -- The operands can only be chars, ints
-        rOperand <- expr rexpr -- or floats, nothing else
+        lOperand <- expression lexpr -- The operands can only be chars, ints
+        rOperand <- expression rexpr -- or floats, nothing else
 
         subst <- use substitutionTable
         let
@@ -190,14 +189,14 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
 
         [lOperand, rOperand] <- [lexpr, rexpr] `forM` \x ->
           case type' of
-            GBool -> wrapBoolean' expr object obRef x
+            GBool -> wrapBoolean x
 
             _ |  type' =:= highLevel || type' =:= GTuple GAny GAny
-              || type' `elem` [GInt, GChar, GFloat] -> expr x
+              || type' `elem` [GInt, GChar, GFloat] -> expression x
 
             _ | type' =:= GPointer GAny -> do
               cast <- newLabel "ptrEqCast"
-              operand0 <- expr x
+              operand0 <- expression x
               addInstruction $ cast := PtrToInt
                 { operand0
                 , type'    = i64
@@ -246,7 +245,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
           , metadata' = [] }
 
       _ | binOp `elem` [Subset, SSubset, Superset, SSuperset] -> do
-        [lOp, rOp] <- mapM expr [lexpr, rexpr]
+        [lOp, rOp] <- mapM expression [lexpr, rexpr]
 
         comp <- newLabel "setComp"
 
@@ -332,11 +331,11 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
               []      -> expType
 
           (,[]) <$> if
-            | type' == GBool -> wrapBoolean' expr object obRef x
-            | type' =:= basicT -> expr x
+            | type' == GBool -> wrapBoolean x
+            | type' =:= basicT -> expression x
             | otherwise -> do
               label <- newLabel "argCast"
-              ref   <- obRef (theObj exp') False
+              ref   <- objectRef (theObj exp') False
 
               type' <- ptr <$> toLLVMType type'
               addInstruction $ label := BitCast
@@ -347,7 +346,7 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
 
         basicT = GOneOf [ GChar, GInt, GFloat, GString ]
 
-    Quantification {} -> boolQ expr boolean true false e
+    Quantification {} -> boolQ true false e
 
     EConditional { eguards, trueBranch } -> do
       mapM_ guard eguards
@@ -368,17 +367,17 @@ boolean' expr object obRef true false e@Expression { loc, exp' } = do
 
           (no #)
 
-wrapBoolean' :: (Expression -> LLVM Operand)
-            -> (Object -> LLVM Operand) -- ^ object code generator (both boolean and non-boolean)
-            -> (Object -> Bool -> LLVM Operand) -- ^ object ref code generator (both boolean and non-boolean)
-            -> Expression
+wrapBoolean :: --(Expression -> LLVM Operand)
+          --  -> (Object -> LLVM Operand) -- ^ object code generator (both boolean and non-boolean)
+          --  -> (Object -> Bool -> LLVM Operand) -- ^ object ref code generator (both boolean and non-boolean)
+             Expression
             -> LLVM Operand
-wrapBoolean' expr object obRef e@Expression { expType } = do
+wrapBoolean e@Expression { expType } = do
   st <- use substitutionTable
   let
     t = case st of
       (ta:_) -> fillType ta expType
-      _      -> t
+      _      -> expType
   if t /= GBool
     then internal $
       "attempted to generate non-boolean expression with `wrapBoolean` \
@@ -390,7 +389,7 @@ wrapBoolean' expr object obRef e@Expression { expType } = do
       terminate $ Br begin []
 
       (begin #)
-      boolean' expr object obRef true false e
+      boolean true false e
 
       (true #)
       terminate $ Br end []

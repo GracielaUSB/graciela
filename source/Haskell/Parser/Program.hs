@@ -20,12 +20,10 @@ import           SymbolTable        (closeScope, openScope)
 import           Token
 -------------------------------------------------------------------------------
 import           Control.Lens       (use, (%=))
-import qualified Control.Monad      as M
 import           Data.Either
-import           Data.Foldable      (toList)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
-import           Common             ((<>))
+
 import qualified Data.Sequence      as Seq (empty, fromList)
 import qualified Data.Text          as T (intercalate)
 import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>))

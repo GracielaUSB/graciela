@@ -22,7 +22,6 @@ import           LLVM.Struct                             (defineStruct)
 import           LLVM.Type                               (intType)
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad                           (void)
 import           Control.Monad.Trans.State.Strict        (evalState)
 import           Data.Array                              (listArray)
 import qualified Data.ByteString                         as BS (unpack)

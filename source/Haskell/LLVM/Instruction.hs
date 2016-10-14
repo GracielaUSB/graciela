@@ -4,8 +4,8 @@
 
 module LLVM.Instruction where
 --------------------------------------------------------------------------------
-import           AST.Expression                     (Expression' (..),
-                                                     Expression'' (..))
+import           AST.Expression                     (Expression (..),
+                                                     Expression' (..))
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
@@ -13,25 +13,19 @@ import           AST.Object                         hiding (indices)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           Common
-import           Error                              (internal)
 import           LLVM.Abort                         (abort)
 import qualified LLVM.Abort                         as Abort (Abort (..))
 import           LLVM.Boolean
 import           LLVM.Declaration
 import           LLVM.Expression
 import           LLVM.Monad
+import           LLVM.Object                        (objectRef)
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                       (warn)
 import qualified LLVM.Warning                       as Warning (Warning (Manual))
-import           Location
-import           Treelike
 --------------------------------------------------------------------------------
-import           Common                             ((<>))
 import           Control.Lens                       (use, (%=), (-=), (.=))
-import           Control.Monad                      (foldM, void, when,
-                                                     zipWithM_)
-import           Data.Foldable                      (toList)
 import           Data.Maybe                         (fromMaybe)
 import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
@@ -496,19 +490,23 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , functionAttributes = []
       , metadata           = [] }
     where
-      write (operand, t) = do
+      write (operand, t') = do
         -- Build the operand of the expression
 
-        t <- toLLVMType t
+        st <- use substitutionTable
+        let
+          t = case st of
+            ta:_ -> fillType ta t'
+            _    -> t'
 
         let
         -- Call the correct C write function
           fun = callable voidType $ case t of
-            t' | t' == boolType   -> writeBString
-            t' | t' == charType   -> writeCString
-            t' | t' == floatType  -> writeFString
-            t' | t' == intType    -> writeIString
-            t' | t' == stringType -> writeSString
+            GBool   -> writeBString
+            GChar   -> writeCString
+            GFloat  -> writeFString
+            GInt    -> writeIString
+            GString -> writeSString
             _         -> error
               "internal error: attempted to write non-basic type."
         addInstruction $ Do Call

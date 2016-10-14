@@ -28,19 +28,18 @@ module Parser.Operator
   , card
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression (BinaryOperator (..), Expression' (..),
-                                 Expression'' (Binary, Unary, Value),
+import           AST.Expression (BinaryOperator (..), Expression (..),
+                                 Expression' (Binary, Unary, Value),
                                  UnaryOperator (..), Value (..))
-import           AST.Type       (Expression, Type (..), basic, (=:=))
+import           AST.Type       (Type (..), basic, (=:=))
 import           Common
-import           Error          (internal)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
 import           Data.Int       (Int32)
 import           Prelude        hiding (Ordering (..), and, concat, div, elem,
                                  max, min, mod, not, notElem, or)
-import qualified Prelude        as P (div, max, min, mod, not, or)
+import qualified Prelude        as P (div, max, min, mod, not)
 --------------------------------------------------------------------------------
 chr' :: Int32 -> Char
 chr' = chr . fromIntegral . (`P.mod` 256)

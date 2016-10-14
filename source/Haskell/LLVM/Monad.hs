@@ -2,14 +2,13 @@
 
 module LLVM.Monad where
 --------------------------------------------------------------------------------
-import           Error                            (internal)
+import           Common
 import           LLVM.State                       hiding (State)
 import qualified LLVM.State                       as LLVM (State)
 --------------------------------------------------------------------------------
-import           Common                           ((<>))
+
 import           Control.Lens                     (at, ix, use, (%=), (+=),
                                                    (.=), (<<+=), (?=), _head)
-import           Control.Monad                    (when)
 import           Control.Monad.State.Class        (MonadState)
 import           Control.Monad.Trans.State.Strict (State)
 import           Data.Foldable                    (toList)

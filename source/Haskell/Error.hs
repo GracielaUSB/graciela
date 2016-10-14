@@ -4,27 +4,19 @@
 
 module Error where
 --------------------------------------------------------------------------------
-import           AST.Expression        (Expression' (expType))
-import           AST.Type              (Expression, Type (..))
+import           AST.Expression        (Expression (expType))
+import           AST.Type              (Type (..))
 import           Common
-import           Common                ((<>))
 import           Data.Text             (Text, unpack)
-import           Location
 import           Text.Megaparsec       hiding (Token)
 import           Text.Megaparsec.Error
 import           Token
 --------------------------------------------------------------------------------
-import           Data.Foldable         (toList)
 import           Data.List             (intercalate)
-import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty    as NE
 import           Data.Sequence         (Seq)
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
-
-internal :: String -> a
-internal = error . ("internal error: " <>)
 
 data Error
   = BadAssertType

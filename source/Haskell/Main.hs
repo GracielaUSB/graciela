@@ -17,7 +17,6 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
-import           Control.Monad              (unless, void, when, (>=>))
 import           Control.Monad.Identity     (Identity, runIdentity)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT)
 import           Control.Monad.Trans.State  (runState)
@@ -25,7 +24,7 @@ import           Data.Foldable              (toList)
 import           Data.List                  (nub)
 import           Data.Map.Strict            (showTree)
 import           Data.Maybe                 (fromMaybe)
-import           Common                     ((<>))
+
 import qualified Data.Sequence              as Seq (null)
 import           Data.Set                   (empty)
 import           Data.Text                  (Text, unpack)

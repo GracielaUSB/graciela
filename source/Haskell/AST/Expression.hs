@@ -3,9 +3,9 @@
 
 module AST.Expression
   ( BinaryOperator (..)
-  , Expression'' (..)
   , Expression' (..)
-  , QRange' (..)
+  , Expression (..)
+  , QRange (..)
   , QuantOperator (..)
   , UnaryOperator (..)
   , Value (..)
@@ -15,13 +15,12 @@ module AST.Expression
   , eSkip
   ) where
 --------------------------------------------------------------------------------
-import           AST.Object    (Object')
+import {-# SOURCE #-} AST.Type (Type)
+--------------------------------------------------------------------------------
+import           AST.Object    (Object)
 import           Common
-import           Location
-import           Treelike
 --------------------------------------------------------------------------------
 import           Data.Array    (Array)
-import           Data.Foldable (toList)
 import           Data.Int      (Int32)
 import           Data.List     (intercalate)
 import           Data.Sequence (Seq)
@@ -117,19 +116,19 @@ instance Show QuantOperator where   -- mempty
   show Count     = "Count (#)"      -- 0
 
 
-data QRange' t m
+data QRange
   = ExpRange -- Both limits are included, i.e. low <= var <= high
-    { low  :: Expression' t m
-    , high :: Expression' t m }
+    { low  :: Expression
+    , high :: Expression }
   -- | Works for Multiset as well
   | SetRange
-    { theSet :: Expression' t m }
+    { theSet :: Expression }
   | PointRange
-    { thePoint :: Expression' t m }
+    { thePoint :: Expression }
   | EmptyRange
   deriving (Eq)
 
-instance Show t => Show (QRange' t m) where
+instance Show QRange where
   show = \case
     ExpRange { low, high } ->
       unwords [ "from", show low, "to", show high ]
@@ -141,7 +140,7 @@ instance Show t => Show (QRange' t m) where
       "Empty range"
 
 
-instance (Show t, Show m) => Treelike (QRange' t m) where
+instance Treelike QRange where
   toTree ExpRange { low, high } =
     Node "Exp Range"
       [ Node "From" [toTree low]
@@ -184,7 +183,7 @@ data CollectionKind
   deriving (Eq, Show)
 
 
-data Expression'' t m
+data Expression'
   = NullPtr
   | Value { theValue :: Value }
 
@@ -192,73 +191,73 @@ data Expression'' t m
 
   | Collection
     { colKind  :: CollectionKind
-    , colVar   :: Maybe (Text, t, QRange' t m, Expression' t m)
+    , colVar   :: Maybe (Text, Type, QRange, Expression)
       -- ^ the (optional) variable's name, type, range and condition.
-    , colElems :: Seq (Expression' t m) }
+    , colElems :: Seq Expression }
 
   | Tuple
-    { left  :: Expression' t m
-    , right :: Expression' t m }
+    { left  :: Expression
+    , right :: Expression }
 
-  | Obj { theObj :: Object' t m (Expression' t m) }
+  | Obj { theObj :: Object }
 
   | Binary
     { binOp :: BinaryOperator
-    , lexpr :: Expression' t m
-    , rexpr :: Expression' t m }
+    , lexpr :: Expression
+    , rexpr :: Expression }
 
   | Unary
     { unOp  :: UnaryOperator
-    , inner :: Expression' t m }
+    , inner :: Expression }
 
   -- | Cast to an i64 (used for polymorphic functions)
   | I64Cast
-    { inner :: Expression' t m }
+    { inner :: Expression }
 
   -- | Llamada a funcion.
   | FunctionCall
     { fName          :: Text
-    , fArgs          :: Seq (Expression' t m)
+    , fArgs          :: Seq Expression
     , fRecursiveCall :: Bool
     , fRecursiveFunc :: Bool
-    , fStructArgs    :: Maybe (Text, Array Int t) }
+    , fStructArgs    :: Maybe (Text, Array Int Type) }
 
   | Quantification
     { qOp      :: QuantOperator
     , qVar     :: Text
-    , qVarType :: t
-    , qRange   :: QRange' t m
-    , qCond    :: Expression' t m
-    , qBody    :: Expression' t m }
+    , qVarType :: Type
+    , qRange   :: QRange
+    , qCond    :: Expression
+    , qBody    :: Expression }
 
    -- | Expresión If.
   | EConditional
-    { eguards    :: Seq (Expression' t m, Expression' t m)
-    , trueBranch :: Maybe (Expression' t m) }
+    { eguards    :: Seq (Expression, Expression)
+    , trueBranch :: Maybe Expression }
 
   | RawName
     { theName :: Text }
   deriving (Eq)
 
-data Expression' t m
+data Expression
   = Expression
     { loc      :: Location
-    , expType  :: t
+    , expType  :: Type
     , expConst :: Bool
-    , exp'     :: Expression'' t m }
+    , exp'     :: Expression' }
 
-instance (Eq t, Eq m) => Eq (Expression' t m) where
+instance Eq Expression where
   (==)
     (Expression _loc0 expType0 expConst0 exp'0)
     (Expression _loc1 expType1 expConst1 exp'1)
     = expType0 == expType1 && expConst0 == expConst1 && exp'0 == exp'1
 
 
-eSkip :: Expression'' t m
+eSkip :: Expression'
 eSkip = Value . BoolV  $ True
 
 
-instance (Show t, Show m) => Treelike (Expression' t m) where
+instance Treelike Expression where
   toTree Expression { loc, expType, expConst, exp' } =
     let c = if expConst then "[const] " else "[var] "
     in case exp' of
@@ -273,14 +272,14 @@ instance (Show t, Show m) => Treelike (Expression' t m) where
       StringLit { theStringId } -> leaf $
         "String Literal #" <> show theStringId <> " " <> show loc
 
-      Collection { colKind, colVar = Nothing, colElems } | null colElems ->
+      Collection { {-colKind,-} colVar = Nothing, colElems } | null colElems ->
         leaf $ "Empty " <> show expType <> " " <> show loc
 
-      Collection { colKind, colVar = Nothing, colElems } ->
+      Collection { {-colKind,-} colVar = Nothing, colElems } ->
         Node (show expType <> " " <> show loc)
           [ Node "Elements" (toForest colElems) ]
 
-      Collection { colKind, colVar = Just (name, ty, range, cond), colElems } ->
+      Collection { {-colKind,-} colVar = Just (name, ty, range, cond), colElems } ->
         Node (show expType <> " " <> show loc)
           [ Node "Variable"
             [ leaf $ unpack name
@@ -345,55 +344,67 @@ instance (Show t, Show m) => Treelike (Expression' t m) where
               [ Node "If"   [toTree lhs]
               , Node "Then" [toTree rhs] ]
 
+      RawName { theName } -> internal $ "A fugitive Raw Name, `" <> unpack theName <> "`"
 
-from :: Expression' t m -> SourcePos
+
+from :: Expression -> SourcePos
 from e = let Location (f,_) = loc e in f
 
-to :: Expression' t m -> SourcePos
+to :: Expression -> SourcePos
 to e =   let Location (_,t) = loc e in t
 
 
 prettyBinOp :: BinaryOperator -> String
-prettyBinOp Plus         = " + "
-prettyBinOp BMinus       = " - "
-prettyBinOp Times        = " * "
-prettyBinOp Div          = " / "
-prettyBinOp Mod          = " mod "
-prettyBinOp Power        = " ^ "
-prettyBinOp Max          = " max "
-prettyBinOp Min          = " min "
+prettyBinOp = \case
+  Plus         -> " + "
+  BMinus       -> " - "
+  Times        -> " * "
+  Div          -> " / "
+  Mod          -> " mod "
+  Power        -> " ^ "
+  Max          -> " max "
+  Min          -> " min "
 
-prettyBinOp And          = " /\\ "
-prettyBinOp Or           = " \\/ "
-prettyBinOp Implies      = " ==> "
-prettyBinOp Consequent   = " <== "
-prettyBinOp BEQ          = " === "
-prettyBinOp BNE          = " !== "
+  And          -> " /\\ "
+  Or           -> " \\/ "
+  Implies      -> " ==> "
+  Consequent   -> " <== "
+  BEQ          -> " === "
+  BNE          -> " !== "
 
-prettyBinOp AEQ          = " == "
-prettyBinOp ANE          = " != "
-prettyBinOp LT           = " < "
-prettyBinOp LE           = " <= "
-prettyBinOp GT           = " > "
-prettyBinOp GE           = " >= "
+  AEQ          -> " == "
+  ANE          -> " != "
+  LT           -> " < "
+  LE           -> " <= "
+  GT           -> " > "
+  GE           -> " >= "
 
-prettyBinOp Elem         = " ∈ "
-prettyBinOp NotElem      = " ∉ "
-prettyBinOp Difference   = " ∖ "
-prettyBinOp Intersection = " ∩ "
-prettyBinOp Union        = " ∪ "
+  Elem         -> " ∈ "
+  NotElem      -> " ∉ "
+  Difference   -> " ∖ "
+  Intersection -> " ∩ "
+  Union        -> " ∪ "
+
+  Subset       -> " ⊆ "
+  SSubset      -> " ⊂ "
+  Superset     -> " ⊇ "
+  SSuperset    -> " ⊃ "
+
+  MultisetSum  -> " ⊎ "
+  SeqAt        -> " [] "
+  BifuncAt     -> " () "
+  Concat       -> " ⧺ "
 
 prettyUnOp :: UnaryOperator -> String
--- prettyUnOp Abs    = "abs"
-prettyUnOp UMinus = " - "
-prettyUnOp Not    = " not "
--- prettyUnOp Sqrt   = "sqrt"
-prettyUnOp Pred   = "pred"
-prettyUnOp Succ   = "succ"
+prettyUnOp = \case
+  UMinus -> " - "
+  Not    -> " not "
+  Card   -> " # "
+  Pred   -> "pred"
+  Succ   -> "succ"
 
-
-instance Show t => Show (Expression' t m) where
-  show Expression { loc, expType, exp' } = case exp' of
+instance Show Expression where
+  show Expression { exp' } = case exp' of
     NullPtr -> "null"
     Value { theValue } -> show theValue
 
@@ -456,3 +467,5 @@ instance Show t => Show (Expression' t m) where
       where
         showG (lhs, rhs) =
           show lhs <> " -> " <> show rhs <> "[]"
+
+    _ -> "Show not yet implemented for this expression"

@@ -22,16 +22,15 @@ module Parser.Instruction
 -------------------------------------------------------------------------------
 import           AST.Declaration        (Declaration)
 import           AST.Definition         (Definition (..), Definition' (..))
-import           AST.Expression         (Expression' (..), Expression'' (..))
+import           AST.Expression         (Expression (..), Expression' (..))
 import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
 import           AST.Object
 import qualified AST.Object             as O (loc)
 import           AST.Struct             (Struct (..))
-import           AST.Type               (ArgMode (..), Expression, Object,
-                                         Type (..), fillType, hasDT, notIn,
-                                         (=:=))
+import           AST.Type               (ArgMode (..), Type (..), fillType,
+                                         hasDT, notIn, (=:=))
 import           Common
 import           Entry
 import           Error
@@ -51,8 +50,7 @@ import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
 import qualified Data.Array             as Array (listArray)
-import           Data.Foldable          (foldMap)
-import           Data.Foldable          (asum, toList)
+import           Data.Foldable          (asum, foldMap)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (find)
 import qualified Data.Map.Strict        as Map (lookup)

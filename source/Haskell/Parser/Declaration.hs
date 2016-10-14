@@ -17,8 +17,8 @@ module Parser.Declaration
     where
 -------------------------------------------------------------------------------
 import           AST.Declaration           (Declaration (..))
-import           AST.Expression            (Expression' (..),
-                                            Expression'' (NullPtr, Value))
+import           AST.Expression            (Expression (..),
+                                            Expression' (NullPtr, Value))
 import           AST.Struct                (Struct (..))
 import           AST.Type
 import           Common
@@ -38,7 +38,6 @@ import           Control.Monad             (foldM, forM_, unless, void, when,
 import           Control.Monad.Trans.Class (lift)
 import           Data.Functor              (($>))
 import           Data.Map                  as Map (insert, lookup)
-import           Common                    ((<>))
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
 import           Data.Text                 (Text, unpack)

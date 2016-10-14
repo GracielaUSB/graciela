@@ -72,6 +72,7 @@ module Parser.Monad
 import           AST.Struct
 import           AST.Type                   (Type)
 import           Error
+import           Common
 import           Location
 import           Parser.Config              (Config (..), defaultConfig)
 import           Parser.Prim                ()
@@ -81,16 +82,14 @@ import           Token                      (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
 import           Control.Lens               (use, view, (%=), (<~), _1, _2)
-import           Control.Monad              (MonadPlus, void)
+import           Control.Monad              (MonadPlus)
 import           Control.Monad.Identity     (Identity (..))
 import           Control.Monad.Reader       (MonadReader (..), asks)
 import           Control.Monad.State        (MonadState)
-import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Except (ExceptT (..), catchE, runExceptT,
                                              throwE)
 import           Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
 import           Control.Monad.Trans.State  (StateT (..), evalStateT)
-import           Data.Int                   (Int32)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NE (fromList)
 import qualified Data.Map.Strict            as Map (empty, lookup)

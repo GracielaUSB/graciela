@@ -9,27 +9,26 @@ module LLVM.Expression
 where
 --------------------------------------------------------------------------------
 import           AST.Expression                          (CollectionKind (..),
+                                                          Expression (..),
                                                           Expression' (..),
-                                                          Expression'' (..),
                                                           Value (..))
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import qualified AST.Expression                          as E (Expression' (expType),
+import qualified AST.Expression                          as E (Expression (expType),
                                                                loc)
-import           AST.Object                              (Object' (..),
-                                                          Object'' (..))
+import           AST.Object                              (Object (..),
+                                                          Object' (..))
 import           AST.Type
 import qualified AST.Type                                as G (Type)
 import           Common
-import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
-import           LLVM.Boolean                            (boolean',
-                                                          wrapBoolean')
+import           LLVM.Boolean                            (boolean, wrapBoolean)
 import           LLVM.Monad
 import           LLVM.Quantification                     (collection,
                                                           quantification)
 import           LLVM.State
+import           LLVM.Object                             (object, objectRef)
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
                                                           pointerType,
@@ -41,12 +40,9 @@ import           SymbolTable
 import           Treelike                                (drawTree, toTree)
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
-import           Control.Monad                           (foldM, when, zipWithM)
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
-import           Data.Foldable                           (toList)
 import           Data.Maybe                              (fromMaybe, isJust)
-import           Common                                  ((<>))
 import           Data.Sequence                           ((|>))
 import qualified Data.Sequence                           as Seq (ViewR ((:>)),
                                                                  empty,
@@ -74,238 +70,30 @@ import           LLVM.General.AST.Type
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
-boolean :: Name -> Name -> Expression -> LLVM ()
-boolean = boolean' expression' object objectRef
-
-wrapBoolean :: Expression -> LLVM Operand
-wrapBoolean = wrapBoolean' expression' object objectRef
-
 expression' :: Expression -> LLVM Operand
-expression' e@Expression { expType } = if expType == GBool
-  then wrapBoolean e
-  else expression e
+expression' e@Expression { expType } = do
+  st <- use substitutionTable
+  let
+    t = case st of
+      ta:_ -> fillType ta expType
+      _    -> expType
+
+  if t == GBool
+    then wrapBoolean e { expType = t }
+    else expression e { expType = t }
 --------------------------------------------------------------------------------
-
-object :: Object -> LLVM Operand
-object obj@Object { objType, obj' } = case obj' of
-  -- If the variable is marked as In, mean it was passed to the
-  -- procedure as a constant so doesn't need to be loaded
-  Variable { mode } | mode == Just In
-    || (isJust mode && not (objType =:= GOneOf [basic, GATypeVar])) -> objectRef obj False
-    -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
-
-  -- If not marked as In, just load the content of the variable
-  _ -> do
-      label <- newLabel "varObj"
-      -- Make a reference to the variable that will be loaded (e.g. %a)
-      addrToLoad <- objectRef obj False
-      t <- toLLVMType objType
-
-      -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
-      addInstruction $ label := Load { volatile  = False
-                  , address   = addrToLoad
-                  , maybeAtomicity = Nothing
-                  , alignment = 4
-                  , metadata  = [] }
-
-      -- The reference to where the variable value was loaded (e.g. %12)
-      pure $ LocalReference t label
-
-
--- Get the reference to the object.
--- indicate that the object is not a deref, array access or field access inside a procedure
-objectRef :: Object -> Bool -> LLVM Operand
-objectRef obj@(Object loc objType obj') flag = do
-  objType' <- toLLVMType objType
-  case obj' of
-
-    Variable { name , mode } -> do
-      name' <- getVariableName name
-      if isJust mode && not flag
-        then case objType of
-          GPointer t -> do
-            label <- newLabel "loadRef"
-            addInstruction $ label := Load
-              { volatile  = False
-              , address   = LocalReference objType' name'
-              , maybeAtomicity = Nothing
-              , alignment = 4
-              , metadata  = [] }
-            pure $ LocalReference objType' label
-          _ -> pure $ LocalReference objType' name'
-        else pure $ LocalReference objType' name'
-
-    Index inner indices -> do
-      ref   <- objectRef inner True
-
-      iarrPtrPtr <- newLabel "idxStruct"
-      addInstruction $ iarrPtrPtr := GetElementPtr
-        { inBounds = False
-        , address  = ref
-        , indices  = ConstantOperand . C.Int 32 <$>
-          [0, fromIntegral . length $ indices]
-        , metadata = [] }
-
-      iarrPtr <- newLabel "idxArrPtr"
-      addInstruction $ iarrPtr := Load
-        { volatile       = True
-        , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
-        , maybeAtomicity = Nothing
-        , alignment      = 4
-        , metadata       = [] }
-
-      inds <- zipWithM (idx ref) (toList indices) [0..]
-
-      result <- newLabel "idxArr"
-      addInstruction $ result := GetElementPtr
-        { inBounds = False
-        , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
-        , indices  = ConstantOperand (C.Int 32 0) : inds
-        , metadata = [] }
-
-      pure . LocalReference objType' $ result
-
-      where
-        idx ref index n = do
-          e <- expression index
-
-          chkGEZ <- newLabel "idxChkGEZ"
-          addInstruction $ chkGEZ := ICmp
-            { iPredicate = SGE
-            , operand0   = e
-            , operand1   = ConstantOperand (C.Int 32 0)
-            , metadata   = [] }
-
-          gez <- newLabel "idxGEZ"
-          notGez <- newLabel "idxNotGEZ"
-          terminate CondBr
-            { condition = LocalReference i1 chkGEZ
-            , trueDest  = gez
-            , falseDest = notGez
-            , metadata' = [] }
-
-          (notGez #)
-          abort Abort.NegativeIndex (pos . E.loc $ index)
-
-          (gez #)
-          bndPtr <- newLabel "idxBoundPtr"
-          addInstruction $ bndPtr := GetElementPtr
-            { inBounds = False
-            , address  = ref
-            , indices  =
-              [ ConstantOperand (C.Int 32 0)
-              , ConstantOperand (C.Int 32 n)]
-            , metadata = [] }
-
-          bnd <- newLabel "idxBound"
-          addInstruction $ bnd :=  Load
-            { volatile       = False
-            , address        = LocalReference i32 bndPtr
-            , maybeAtomicity = Nothing
-            , alignment      = 4
-            , metadata       = [] }
-
-          chkInBound <- newLabel "idxChkInBound"
-          addInstruction $ chkInBound := ICmp
-            { iPredicate = SLT
-            , operand0   = e
-            , operand1   = LocalReference i32 bnd
-            , metadata   = [] }
-
-          inBound <- newLabel "idxInBound"
-          notInBound <- newLabel "idxNotInBound"
-          terminate CondBr
-            { condition = LocalReference i1 chkInBound
-            , trueDest  = inBound
-            , falseDest = notInBound
-            , metadata' = [] }
-
-          (notInBound #)
-          abort Abort.OutOfBoundsIndex (pos . E.loc $ index)
-
-          (inBound #)
-          pure e
-
-
-    Deref inner -> do
-      ref        <- objectRef inner True
-      labelLoad  <- newLabel "derefLoad"
-      labelCast  <- newLabel "derefCast"
-      labelNull  <- newLabel "derefNull"
-      labelCond  <- newLabel "derefCond"
-      trueLabel  <- newLabel "derefNullTrue"
-      falseLabel <- newLabel "derefNullFalse"
-      let
-        Location (pos,_) = loc
-
-      addInstruction $ labelLoad := Load
-        { volatile  = False
-        , address   = ref
-        , maybeAtomicity = Nothing
-        , alignment = 4
-        , metadata  = [] }
-
-      {- Generate assembly to verify if a pointer is NULL, when accessing to the pointed memory.
-         In that case, abort the program giving the source line of the bad access instead of letting
-         the OS ends the process
-      -}
-      addInstruction $ labelCast := PtrToInt
-        { operand0 = LocalReference objType' labelLoad
-        , type'    = i64
-        , metadata = [] }
-
-      addInstruction $ labelNull := PtrToInt
-        { operand0 = ConstantOperand . C.Null $ ptr objType'
-        , type'    = i64
-        , metadata = [] }
-
-      addInstruction $ labelCond := ICmp
-        { iPredicate = EQ
-        , operand0   = LocalReference i64 labelCast
-        , operand1   = LocalReference i64 labelNull
-        , metadata   = [] }
-
-      terminate CondBr
-        { condition = LocalReference boolType labelCond
-        , trueDest  = trueLabel
-        , falseDest = falseLabel
-        , metadata' = [] }
-
-
-      (trueLabel #)
-      abort Abort.NullPointerAccess pos
-
-      (falseLabel #)
-
-      pure . LocalReference objType' $ labelLoad
-
-
-    Member { inner, field } -> do
-      ref <- objectRef inner True
-      label <- newLabel $ "member" <> show field
-      addInstruction $ label := GetElementPtr
-          { inBounds = False
-          , address  = ref
-          , indices  = ConstantOperand . C.Int 32 <$> [0, field]
-          , metadata = []}
-      pure . LocalReference objType' $ label
-
-  -- where
-  --   getIndices :: ([Operand], Maybe Operand) -> Object -> LLVM ([Operand], Maybe Operand)
-  --   getIndices (indices,ref) (Object _ _ (Index inner index)) = do
-  --     index' <- expression index
-  --     getIndices (index':indices,ref) inner
-  --
-  --   getIndices (indices,ref) obj = do
-  --     ref <- objectRef obj False
-  --     pure (reverse indices, Just ref)
-
-
 
 -- LLVM offers a set of secure operations that know when an int operation reach an overflow
 -- llvm.sadd.with.overflow.i32 (fun == intAdd)
 -- llvm.ssub.with.overflow.i32 (fun == intSub)
 -- llvm.smul.with.overflow.i32 (fun == intMul)
+safeOperation :: Word32
+              -> Name
+              -> (Word32 -> String)
+              -> Operand
+              -> Operand
+              -> SourcePos
+              -> LLVM ()
 safeOperation n label fun lOperand rOperand pos = do
   labelOp       <- newLabel "safeOp"
   labelCond     <- newLabel "safeCond"
@@ -1142,10 +930,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
 
   Quantification { } ->
-    quantification expression' boolean safeOperation e
+    quantification e
 
   Collection { } ->
-    collection expression' boolean e
+    collection e
 
   I64Cast { inner = inner @ Expression {expType = iType} } -> do
     i <- expression' inner

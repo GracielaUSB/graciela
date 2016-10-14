@@ -2,29 +2,28 @@
 {-# LANGUAGE PostfixOperators #-}
 {-# LANGUAGE TupleSections    #-}
 
-
 module LLVM.Quantification
   ( quantification
   , boolQ
-  , collection) where
+  , collection
+  ) where
+--------------------------------------------------------------------------------
+import {-# SOURCE #-} LLVM.Expression (expression, safeOperation)
+import {-# SOURCE #-} LLVM.Boolean    (boolean)
 --------------------------------------------------------------------------------
 import           AST.Expression                          (CollectionKind (..),
+                                                          Expression (..),
                                                           Expression' (..),
-                                                          Expression'' (..),
-                                                          QRange' (..),
+                                                          QRange (..),
                                                           QuantOperator (..))
-import qualified AST.Expression                          as E (Expression' (expType))
-import           AST.Type                                (Expression, QRange,
-                                                          Type (..), (=:=))
+import qualified AST.Expression                          as E (Expression (expType))
+import           AST.Type                                (Type (..), (=:=))
 import           Common
-import           Error                                   (internal)
 import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (EmptyRange))
 import           LLVM.Monad
 import           LLVM.Type
-import           Location
 --------------------------------------------------------------------------------
-import           Control.Monad                           (unless, when)
 import           Data.Sequence                           (ViewL ((:<)), viewl)
 import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
@@ -42,14 +41,11 @@ import           LLVM.General.AST.Type                   (i1, i8, i64, ptr)
 import           Prelude                                 hiding (EQ)
 --------------------------------------------------------------------------------
 
-boolQ :: Num a
-      => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
-      -> (Name -> Name -> Expression -> LLVM ()) -- ^ The boolean expression llvm-generator
-      -> Name -- ^ true destination
+boolQ :: Name -- ^ true destination
       -> Name -- ^ false destination
       -> Expression -- ^ The Quantification for which to generate code
       -> LLVM ()
-boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
     EmptyRange -> case qOp of
       ForAll -> terminate $ Br true  []
@@ -57,7 +53,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
 
     PointRange { thePoint } -> case qVarType of
       GFloat -> do
-        p <- expr thePoint
+        p <- expression thePoint
 
         openScope
         iterator <- insertVar qVar
@@ -84,7 +80,7 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
         closeScope
 
       _ | qVarType `elem` [GInt, GChar, GBool] ->
-        boolQ expr boolean true false e
+        boolQ true false e
           { exp' = exp'
             { qRange = ExpRange
               { low  = thePoint
@@ -93,8 +89,8 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
 
     ExpRange { low, high }
       | qOp `elem` [ForAll, Exists] -> do
-        l <- expr low
-        h <- expr high
+        l <- expression low
+        h <- expression high
 
         checkRange <- newLabel "qCheckRange"
         addInstruction $ checkRange := ICmp
@@ -407,19 +403,9 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
   _ -> internal "boolQ only admits Quantification Expression"
 
 
-quantification :: Num a
-               => (Expression -> LLVM Operand) -- ^ The expression llvm-generator
-               -> (Name -> Name -> Expression -> LLVM ()) -- ^ The boolean expression llvm-generator
-               -> (a
-                 -> Name
-                 -> (Word32 -> String)
-                 -> Operand
-                 -> Operand
-                 -> SourcePos
-                 -> LLVM ()) -- ^ The safe operation llvm-generator
-               -> Expression -- ^ The Quantification for which to generate code
+quantification :: Expression -- ^ The Quantification for which to generate code
                -> LLVM Operand
-quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } -> case qRange of
     EmptyRange
       | qOp `elem` [ Minimum, Maximum ] -> do
@@ -429,7 +415,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
     PointRange { thePoint } ->
-      quantification expr boolean safe e
+      quantification e
         { exp' = exp'
           { qRange = ExpRange
             { low = thePoint
@@ -437,8 +423,8 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
 
     ExpRange { low, high }
       | qOp `elem` [Maximum, Minimum]   -> do
-        l <- expr low
-        h <- expr high
+        l <- expression low
+        h <- expression high
 
         qType <- toLLVMType expType
 
@@ -512,7 +498,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
         boolean accum getNext qCond
 
         (accum #)
-        e <- expr qBody
+        e <- expression qBody
 
         oldValid <- newLabel "qOldValid"
         addInstruction $ oldValid := Load
@@ -672,8 +658,8 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
         pure $ LocalReference qType result
 
       | qOp `elem` [Summation, Product, Count] -> do
-        l <- expr low
-        h <- expr high
+        l <- expression low
+        h <- expression high
 
         qType <- toLLVMType expType
 
@@ -743,7 +729,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
         boolean accum getNext qCond
 
         (accum #)
-        e <- expr qBody
+        e <- expression qBody
         oldPartial <- newLabel "qOldPartial"
         addInstruction $ oldPartial := Load
           { volatile       = False
@@ -778,7 +764,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
                 , operand1 = ConstantOperand $ C.Int 32 1
                 , metadata = [] }
 
-            _ -> safe
+            _ -> safeOperation
               (case expType of GInt -> 32; GChar -> 8)
               newPartial
               (case qOp of Summation -> safeAdd; Product -> safeMul)
@@ -897,7 +883,7 @@ quantification expr boolean safe e@Expression { loc = Location (pos, _), E.expTy
     v0 Minimum   _      = undefined
     v0 Maximum   _      = undefined
 
-collection expression boolean e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
+collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp' of
   Collection { colKind, colVar = Nothing, colElems } -> do
       theSet <- empty colKind colElems
       unless (null colElems) $
@@ -912,7 +898,7 @@ collection expression boolean e@Expression { loc = Location (pos, _), E.expType,
             { low = thePoint
             , high = thePoint }
 
-      collection expression boolean e
+      collection e
         { exp' = exp'
           { colVar = Just (name, ty, range', cond) }}
 

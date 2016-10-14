@@ -5,10 +5,10 @@ module LLVM.Declaration
   ) where
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
-import           AST.Expression                     (Expression' (..))
+import           AST.Expression                     (Expression,
+                                                     Expression' (..))
 import           AST.Struct                         (Struct (..), Struct' (..))
-import           AST.Type                           (Expression, Type (..),
-                                                     (=:=))
+import           AST.Type                           (Type (..), (=:=))
 import qualified AST.Type                           as G (Type)
 import           Common
 import           LLVM.Abort
@@ -19,12 +19,10 @@ import           LLVM.Type
 import           SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use, (%=), (.=))
-import           Control.Monad                      (foldM, void, when,
-                                                     zipWithM_)
 import qualified Data.Array                         as Array (listArray)
 import           Data.Foldable                      (toList)
 import           Data.Functor                       (($>))
-import           Common                             ((<>))
+
 import           Data.Sequence                      (Seq)
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton)
