@@ -677,6 +677,19 @@ preDefinitions files = do
 
 --------------------------------------------------------------------------------
 
+
+    , defineFunction firstSetString           ptrParam (ptr iterator)
+    , defineFunction nextSetString            [parameter ("x", (ptr iterator))] 
+                                              (ptr iterator) 
+    
+    , defineFunction firstMultisetString      ptrParam (ptr iterator)
+    , defineFunction nextMultisetString       [parameter ("x", (ptr iterator))] 
+                                              (ptr iterator) 
+    
+    , defineFunction firstSequenceString      ptrParam (ptr iterator)
+    , defineFunction nextSequenceString       [parameter ("x", (ptr iterator))] 
+                                              (ptr iterator) 
+
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
     , defineFunction openScopeString          [] voidType

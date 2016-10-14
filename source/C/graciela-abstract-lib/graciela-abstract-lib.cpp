@@ -1,5 +1,5 @@
 //
-//  graciela-abstract-lib.
+//  graciela-abstract-lib.cpp
 //  graciela-abstract-lib
 //
 //  Created by Carlos Spaggiari Roa on 8/24/16.
@@ -55,7 +55,7 @@ extern "C" {
       return (int8_t*)set;
   }
 
-  Iterator * _first(int8_t *ptr){
+  Iterator * _firstSet(int8_t *ptr){
       Set* set = (Set*)ptr;
 
       Set::iterator *it =(Set::iterator*)malloc (sizeof(Set::iterator));
@@ -67,29 +67,104 @@ extern "C" {
       }
       else {
           Iterator *i = (Iterator*)malloc(sizeof(Iterator));
+          mark(TCTuple((int8_t*) i, ITERATOR));
           i->data = data;
           i->it = (int8_t*) it;
           i->type = ptr;
           return i;
       }
   }
-  Iterator *_next(Iterator* i){
+  Iterator *_nextSet(Iterator* i){
       Set::iterator *next = (Set::iterator*)i->it;
       Set* type = (Set*)i->type;
 
       *next = ++(*next);
       if (*next != type->end()) {
           Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
+          mark(TCTuple((int8_t*) _i, ITERATOR));
           _i->data = **next;
           _i->it = (int8_t*) next;
           _i->type = i->type;
-          free(i);
           return _i;
       } else {
           free(i->it);
-          free(i);
           return NULL;
       }
+  }
+
+  Iterator * _firstMultiset(int8_t *ptr){
+    Multiset* set = (Multiset*)ptr;
+    
+    Multiset::iterator *it =(Multiset::iterator*)malloc (sizeof(Multiset::iterator));
+    *it = set->begin();
+    t data = **it;
+    if (set->begin() == set->end()){
+      free(it);
+      return NULL;
+    }
+    else {
+      Iterator *i = (Iterator*)malloc(sizeof(Iterator));
+      mark(TCTuple((int8_t*) i, ITERATOR));
+      i->data = data;
+      i->it = (int8_t*) it;
+      i->type = ptr;
+      return i;
+    }
+  }
+  Iterator *_nextMultiset(Iterator* i){
+    Multiset::iterator *next = (Multiset::iterator*)i->it;
+    Multiset* type = (Multiset*)i->type;
+    
+    *next = ++(*next);
+    if (*next != type->end()) {
+      Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
+      mark(TCTuple((int8_t*) _i, ITERATOR));
+      _i->data = **next;
+      _i->it = (int8_t*) next;
+      _i->type = i->type;
+      return _i;
+    } else {
+      free(i->it);
+      return NULL;
+    }
+  }
+  
+  Iterator * _firstSequence(int8_t *ptr){
+    Sequence* set = (Sequence*)ptr;
+    
+    Sequence::iterator *it =(Sequence::iterator*)malloc (sizeof(Sequence::iterator));
+    *it = set->begin();
+    t data = **it;
+    if (set->begin() == set->end()){
+      free(it);
+      return NULL;
+    }
+    else {
+      Iterator *i = (Iterator*)malloc(sizeof(Iterator));
+      mark(TCTuple((int8_t*) i, ITERATOR));
+      i->data = data;
+      i->it = (int8_t*) it;
+      i->type = ptr;
+      return i;
+    }
+  }
+  
+  Iterator *_nextSequence(Iterator* i){
+    Sequence::iterator *next = (Sequence::iterator*)i->it;
+    Sequence* type = (Sequence*)i->type;
+    
+    *next = ++(*next);
+    if (*next != type->end()) {
+      Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
+      mark(TCTuple((int8_t*) _i, ITERATOR));
+      _i->data = **next;
+      _i->it = (int8_t*) next;
+      _i->type = i->type;
+      return _i;
+    } else {
+      free(i->it);
+      return NULL;
+    }
   }
 
   int _equalSet(int8_t *ptr1, int8_t* ptr2){
@@ -876,6 +951,10 @@ extern "C" {
                 _freeSequencePair(it->first);
                 break;
               }
+              case ITERATOR: {
+                free((Iterator*)it->first);
+                break;
+            }
           }
       }
       tc.clear();

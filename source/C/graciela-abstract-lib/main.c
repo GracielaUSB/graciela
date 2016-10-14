@@ -1,5 +1,5 @@
 //
-//  main.cpp
+//  main.c
 //  graciela-abstract-lib
 //
 //  Created by Carlos Spaggiari Roa on 8/20/16.
@@ -13,49 +13,51 @@
 
 
 int main() {
-//    initTC();
-//    openScope();
+    _initTrashCollector();
+    _openScope();
 
-  printf("hola\n");
-    int8_t *a = newSet();
+//  printf("hola\n");
+    int8_t *a = _newSet();
 
-    int8_t *func = newFunction();
-    insertFunction(func, 1, 2);
-    insertFunction(func, 1, 12);
-    printf("(1,2)@func  == %s\n",isElemFunction(func, 1,2)?"True":"False");
-    printf("(1,12)@func == %s\n",isElemFunction(func, 1,12)?"True":"False");
-    
-    openScope();
-    int8_t *rel = newRelation();
-    insertRelation(rel, 1, 2);
-    insertRelation(rel, 10, 12);
-    printf("(1,2)@rel  == %s\n",isElemRelation(rel, 1,2)?"True":"False");
-    printf("(1,12)@rel == %s\n",isElemRelation(rel, 1,12)?"True":"False");
-    
-    struct Iterator *it = first(rel);
+//    int8_t *func = _newFunction();
+//    _insertFunction(func, 1, 2);
+//    _insertFunction(func, 1, 12);
+//    printf("(1,2)@func  == %s\n",_isElemFunction(func, 1,2)?"True":"False");
+//    printf("(1,12)@func == %s\n",_isElemFunction(func, 1,12)?"True":"False");
+//    
+//    _openScope();
+//    int8_t *rel = _newRelation();
+//    _insertRelation(rel, 1, 2);
+//    _insertRelation(rel, 10, 12);
+//    printf("(1,2)@rel  == %s\n",_isElemRelation(rel, 1,2)?"True":"False");
+//    printf("(1,12)@rel == %s\n",_isElemRelation(rel, 1,12)?"True":"False");
+//    
+//
+//    _closeScope();
+//    
+    _insertSet(a,1);
+    _insertSet(a,2);
+    _insertSet(a,3);
+    _insertSet(a,5);
+    _insertSet(a,6);
+    _insertSet(a,7);
+    struct Iterator *it = _firstSet(a);
     while (it != NULL){
-        printf("%lli\n",it->data);
-        it = next(it);
+      printf("%lli\n",it->data);
+      it = _nextSet(it);
     }
-    closeScope();
-    
-    insertSet(a,1);
-    insertSet(a,2);
-    insertSet(a,3);
-        insertSet(a,5);
-        insertSet(a,6);
-        insertSet(a,7);
-    printf("%s\n",isElemSet(a, 1)?"True":"False");
-    
-    int8_t *mul = newMultiset();
-    insertMultiset(mul, 1);
-    insertMultiset(mul, 2);
-    insertMultiset(mul, 3);
-    insertMultiset(mul, 4);
-    insertMultiset(mul, 5);
-    printf("%d <- \n",isElemMultiset(mul, 1));
+//    
+//    printf("%s\n",_isElemSet(a, 1)?"True":"False");
+//    
+//    int8_t *mul = _newMultiset();
+//    _insertMultiset(mul, 1);
+//    _insertMultiset(mul, 2);
+//    _insertMultiset(mul, 3);
+//    _insertMultiset(mul, 4);
+//    _insertMultiset(mul, 5);
+//    printf("%d <- \n",_isElemMultiset(mul, 1));
 
     
-    freeTrashCollector();
+    _freeTrashCollector();
     return 0;
 }

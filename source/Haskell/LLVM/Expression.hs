@@ -324,7 +324,7 @@ safeOperation n label fun lOperand rOperand pos = do
     , functionAttributes = []
     , metadata           = [] }
 
-  addInstruction $ label     := ExtractValue
+  addInstruction $ label := ExtractValue
     { aggregate = LocalReference safeStruct labelOp
     , indices'  = [0]
     , metadata  = [] }

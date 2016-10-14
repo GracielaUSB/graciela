@@ -1,5 +1,5 @@
 //
-//  Header.h
+//  graciela-abstract-lib.h
 //  graciela-abstract-lib
 //
 //  Created by Carlos Spaggiari Roa on 8/20/16.
@@ -36,7 +36,8 @@ namespace glib {
       SEQUENCE      = 4,
       SETPAIR       = 5,
       MULTISETPAIR  = 6,
-      SEQUENCEPAIR  = 7
+      SEQUENCEPAIR  = 7,
+      ITERATOR      = 8
     } type;
 
     typedef map<t,t>           Function;
@@ -73,8 +74,16 @@ extern "C" {
         int8_t* type;
     }Iterator;
 
-    Iterator *_first(int8_t *ptr);
-    Iterator *_next(Iterator* i);
+    Iterator *_firstSet(int8_t *ptr);
+    Iterator *_nextSet(Iterator* i);
+  
+    Iterator *_firstMuliset(int8_t *ptr);
+    Iterator *_nextMultiset(Iterator* i);
+  
+    Iterator *_firstSequence(int8_t *ptr);
+    Iterator *_nextSequence(Iterator* i);
+  
+
 
     /* Set */
     int8_t*  _newSet();

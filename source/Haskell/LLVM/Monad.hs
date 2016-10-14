@@ -129,6 +129,18 @@ newUnLabel = UnName <$> (unnameSupply <<+= 1)
 callable :: Type -> String -> Either a Operand
 callable t = Right . ConstantOperand . GlobalReference t . Name
 
+firstSetString, nextSetString :: String
+firstSetString = "_firstSet"
+nextSetString = "_nextSet"
+
+firstMultisetString, nextMultisetString :: String
+firstMultisetString = "_firstMultiset"
+nextMultisetString = "_nextMultiset"
+
+firstSequenceString, nextSequenceString :: String
+firstSequenceString = "_firstSequence"
+nextSequenceString = "_nextSequence"
+
 initTrashCollectorString, freeTrashCollectorString, openScopeString :: String
 initTrashCollectorString = "_initTrashCollector"
 freeTrashCollectorString = "_freeTrashCollector"

@@ -28,7 +28,7 @@ import           Control.Monad                           (unless, when)
 import           Data.Sequence                           (ViewL ((:<)), viewl)
 import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
-import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef))
+import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef, Null))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
 import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OGT, OLT))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
@@ -38,7 +38,8 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
 import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1, i64)
+import           LLVM.General.AST.Type                   (i1, i8, i64, ptr)
+import           Prelude                                 hiding (EQ)
 --------------------------------------------------------------------------------
 
 boolQ :: Num a
@@ -200,7 +201,208 @@ boolQ expr boolean true false e@Expression { loc = Location (pos, _), E.expType,
 
         closeScope
 
-    SetRange { theSet } -> internal "set iteration not implemented yet"
+    SetRange { theSet = theSet@Expression{ expType = setType } } -> do
+      set   <- expr theSet
+      empty <- newLabel "emptySet"
+
+      addInstruction $ empty := Call
+        { tailCallKind = Nothing
+        , callingConvention = CC.C
+        , returnAttributes = []
+        , function = callable (ptr i8) $ case setType of
+          GSet      _ -> newSetString
+          GMultiset _ -> newMultisetString
+          GSeq      _ -> newSeqString
+        , arguments = []
+        , functionAttributes = []
+        , metadata = [] }
+
+      checkRange <- newLabel "qCheckRange"
+      addInstruction $ checkRange := Call
+            { tailCallKind = Nothing
+            , callingConvention = CC.C
+            , returnAttributes = []
+            , function = callable boolType $ case setType of
+              GSet      _ -> equalSetString
+              GMultiset _ -> equalMultisetString
+              GSeq      _ -> equalSeqString
+            , arguments = (,[]) <$> [set, LocalReference (ptr i8) empty]
+            , functionAttributes = []
+            , metadata = [] }
+
+      rangeNotEmpty <- newLabel "qRangeNotEmpty"
+      terminate CondBr
+        { condition = LocalReference i1 checkRange
+        , trueDest  = case qOp of
+          ForAll -> true
+          Exists -> false
+        , falseDest = rangeNotEmpty
+        , metadata' = [] }
+
+      (rangeNotEmpty #)
+      openScope
+
+      iteratorStruct <- newLabel "iteratorStruct"
+      addInstruction $ iteratorStruct  := Call
+        { tailCallKind = Nothing
+        , callingConvention = CC.C
+        , returnAttributes = []
+        , function = callable (ptr iterator) $ case setType of
+              GSet      _ -> firstSetString
+              GMultiset _ -> firstMultisetString
+              GSeq      _ -> firstSequenceString
+        , arguments = [(set,[])]
+        , functionAttributes = []
+        , metadata = [] }
+
+      iteratorVar <- insertVar qVar
+      t        <- toLLVMType qVarType
+      addInstruction $ iteratorVar := Alloca
+        { allocatedType = t
+        , numElements   = Nothing
+        , alignment     = 4
+        , metadata      = [] }
+
+      first <- newLabel "firstElementPtr"
+      addInstruction $ first := GetElementPtr
+        { inBounds = False
+        , address  = LocalReference (ptr iterator) iteratorStruct
+        , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+        , metadata = [] }
+
+      firstValue <- newLabel "firstElementValue"
+      addInstruction $ firstValue := Load
+          { volatile       = False
+          , address        = LocalReference (ptr i64) first
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+      cast <- newLabel "castFirstElement"
+      addInstruction . (cast :=) $ case qVarType of
+        GFloat -> BitCast
+          { operand0 = LocalReference i64 firstValue
+          , type' = floatType
+          , metadata = [] }
+        _ -> Trunc
+          { operand0 = LocalReference i64 firstValue
+          , type' = t
+          , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference t iteratorVar
+        , value    = LocalReference t cast
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      loop <- newLabel "qLoop"
+      terminate Br
+        { dest      = loop
+        , metadata' = [] }
+
+      (loop #)
+      accum <- newLabel "qBody"
+      getNext <- newLabel "qNext"
+
+      boolean accum getNext qCond
+
+      (accum #)
+      let (true', false') = case qOp of
+            ForAll -> (getNext, false)
+            Exists -> (true,  getNext)
+      boolean true' false' qBody
+
+      (getNext #)
+
+
+      nextIterator <- newLabel "qNextIterator"
+      addInstruction $ nextIterator := Call
+        { tailCallKind = Nothing
+        , callingConvention = CC.C
+        , returnAttributes = []
+        , function = callable (ptr iterator) $ case setType of
+              GSet      _ -> nextSetString
+              GMultiset _ -> nextMultisetString
+              GSeq      _ -> nextSequenceString
+        , arguments = [(LocalReference (ptr iterator) iteratorStruct, [])]
+        , functionAttributes = []
+        , metadata = [] }
+
+
+
+      l0 <- newUnLabel
+      addInstruction $ l0 := ICmp
+        { iPredicate = EQ
+        , operand0   = LocalReference (ptr iterator) nextIterator
+        , operand1   = ConstantOperand . C.Null $ ptr iterator
+        , metadata   = [] }
+
+      l1 <- newUnLabel
+      terminate $ CondBr
+        { condition = LocalReference i1 l0
+        , trueDest  = case qOp of ForAll -> true; Exists -> false
+        , falseDest = l1
+        , metadata' = [] }
+
+      (l1 #)
+      newIteratorPtr <- newLabel "newIteratorPtr"
+      addInstruction $ newIteratorPtr := Load
+        { volatile       = False
+        , address        = LocalReference (ptr i64) nextIterator
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference (ptr iterator) iteratorStruct
+        , value    = LocalReference (ptr iterator) newIteratorPtr
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      next <- newLabel "nextElementPtr"
+      addInstruction $ next := GetElementPtr
+        { inBounds = False
+        , address  = LocalReference (ptr iterator) iteratorStruct
+        , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+        , metadata = [] }
+
+      nextValue <- newLabel "nextElementValue"
+      addInstruction $ nextValue := Load
+          { volatile       = False
+          , address        = LocalReference (ptr i64) next
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+      nextCast <- newLabel "castNextElement"
+      addInstruction . (nextCast :=) $ case qVarType of
+        GFloat -> BitCast
+          { operand0 = LocalReference i64 nextValue
+          , type' = t
+          , metadata = [] }
+        _ -> Trunc
+          { operand0 = LocalReference i64 nextValue
+          , type' = t
+          , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference t iteratorVar
+        , value    = LocalReference t nextCast
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = [] }
+
+      terminate Br
+        { dest      = loop
+        , metadata' = [] }
+
+      closeScope
+
 
   _ -> internal "boolQ only admits Quantification Expression"
 

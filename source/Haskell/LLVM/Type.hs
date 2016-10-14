@@ -11,6 +11,7 @@ module LLVM.Type
   , boolType
   , stringType
   , tupleType
+  , iterator
   , toLLVMType
   , sizeOf
   , llvmName
@@ -57,6 +58,10 @@ stringType  = ptr i8
 tupleType   = LLVM.StructureType
                 { LLVM.isPacked = True
                 , LLVM.elementTypes = [i64,i64] }
+iterator    = LLVM.StructureType
+                { LLVM.isPacked = False
+                , LLVM.elementTypes = [i64, ptr i8, ptr i8]
+                }
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type

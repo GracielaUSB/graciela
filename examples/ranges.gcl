@@ -2,25 +2,25 @@ program ranges.bin begin
 
 abstract a(T)
 begin
-  var kkk : seq of T;
+  var kkk : seq of int;
   {inv true inv}
 end
 
 type b(T) implements a(T)
 begin
   const MAX := 2 : int;
-  var things : array [MAX] of T;
+  var things : array [MAX] of int;
 
   {repinv true repinv}
-  {coupinv (% forall i : T | i elem kkk | i == things[0] %) coupinv}
-  where { kkk := <<i : int | 0 <= i /\ i < MAX | things[i]>> }
+  {coupinv (% forall i : int | i elem kkk | trace(i) == i %) coupinv}
+  where { kkk := <<1,2,3>> }
 
   proc stuff (inout ab : b(T))
-    var ELVALOR : T;
+    var ELVALOR : int;
     {pre true pre}
     {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
     |[ var i := 0 : int
-    ;  var x : T
+    ;  var x : int
     ;  read(ELVALOR)
     ;  {inv true inv}
        {bound ab.MAX - i bound}
@@ -34,6 +34,10 @@ end
 
 main
   |[ var w : b (boolean)
+  ;  var bo : boolean
+  ;  w.things[0] := 199
+  ;  w.things[1] := 212
+
   ;  stuff(w)
   //writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
   //;  writeln(#{i : boolean | false <= i /\ i <= true | i})

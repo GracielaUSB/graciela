@@ -1,5 +1,5 @@
 //
-//  main.
+//  main.cpp
 //  TestSuite
 //
 //  Created by Carlos Spaggiari Roa on 8/30/16.

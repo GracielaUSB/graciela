@@ -1,26 +1,11 @@
 program Dicc.bin begin
 
-abstract ab begin
-  /* ab variables */
-   
-  
-  {inv true inv}
-
-  /* ab procedures and functions */
-  proc jamon (in a : ab)
-  
-    {pre true pre}
-    {post true post}
-  
-end
-
-
 abstract Diccionario (T0, T1) begin
   const MAX := 100 : int;
   var conoc : set of T0;
   var tabla : func T0 -> T1;
 
-  {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}  
+  {repinv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) repinv}  
   
   proc crear (in m : int, out d : Diccionario(T0,T1))
     {pre m > 0 pre}
@@ -131,7 +116,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     {pre (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) pre}
     {post d.tam == tam' - 1
          ∧ (% ∃ i : int | 0 ≤ i ∧ i < tam' | 
-              clave'[i]  == c
+               clave'[i] == c
             ∧ d.clave[i] == clave'[tam'-1]
             ∧ d.valor[i] == valor'[tam'-1]
             ∧ (% forall j : int | 0 ≤ j ∧ j < d.tam-1 ∧ j != i |
@@ -184,7 +169,7 @@ end
 
 func rec ( i : int) -> int
   {pre  true   pre}
-  {post false post}
+  {post true post}
   {bound i bound}
   |[ if i > 0     -> rec(i-1)
      [] otherwise -> 1
@@ -192,20 +177,20 @@ func rec ( i : int) -> int
   ]|
 
 main
-  |[ var d : Dicc(int, int)
+  |[ var d : Dicc(char, char)
    ; var b : boolean
-   ; var r : int
+   ; var r : char
    ; crear(100,d)
-   ; agregar(d, 1, 2)
-   ; agregar(d, 2, 4)
-   ; agregar(d, 3, 8)
-   ; existe(d,1,b)
-   ; buscar(d,1,r) 
+   ; agregar(d, 'c', '$')
+   ; agregar(d, 'a', '%')
+   ; agregar(d, 'b', '&')
+   ; existe(d,'c',b)
+   ; buscar(d,'c',r) 
    ; writeln(b, " -> ", r)
-   ; eliminar(d,1)
+   ; eliminar(d,'a')
    ; writeln("Jamon = ",rec(1))
    // ; existe(d,1,b)
-   ; if     b     -> buscar(d,1,r) 
+   ; if     b     -> buscar(d,'c',r) 
                    ; writeln(b, " ->", r)
      [] otherwise -> writeln("Soy estupido, no hay 1") 
      fi
