@@ -21,7 +21,6 @@ module Lexer
 import           Common
 import           Token
 --------------------------------------------------------------------------------
-import           Data.Int              (Int32)
 import           Data.Text             (Text, pack)
 import           Prelude               hiding (lex)
 import           Text.Megaparsec       (Dec, Parsec, alphaNumChar, anyChar,
@@ -158,8 +157,10 @@ token  =  reserved "program"    TokProgram
       -- V2.0
       <|> reserved "set"        TokSet
       <|> reserved "multiset"   TokMultiset
-      <|> reserved "seq"        TokSeq
-      <|> reserved "rel"        TokRel
+      <|> reserved "sequence"   TokSequence
+      -- <|> reserved "rel"        TokRel
+      <|> reserved "function"   TokFunction
+      <|> reserved "relation"   TokRelation
 
       <|> symbol   "\\"         TokSetMinus
       <|> reserved "union"      TokSetUnion
@@ -217,6 +218,8 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "=="         TokAEQ
       <|> symbol   "!="         TokANE
       <|> symbol   "\8800"      TokANE   -- ≠
+
+      <|> symbol   "="          TokBadEQ
 
       <|> symbol   "<="         TokLE
       <|> symbol   "\8804"      TokLE   -- ≤

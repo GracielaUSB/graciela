@@ -431,7 +431,6 @@ variable :: ParserExp (Maybe MetaExpr)
 variable = do
   (name, loc) <- identifierAndLoc
              <|> ((pack "func",) <$> match TokFunc)
-             <|> ((pack "rel",)  <$> match TokRel)
 
   st <- lift (use symbolTable)
 
@@ -865,7 +864,6 @@ ifExp = do
                               , ifTaint   = ifTaint <> taint0 <> taint1
                               , ifConst   = ifConst && expConst l && expConst r }
 
-
 operator :: [[ Operator ParserExp (Maybe MetaExpr) ]]
 operator =
   [ {-Level 0-}
@@ -910,7 +908,8 @@ operator =
     , InfixN (TokSSuperset    ==> binary     Op.ssuperset) ]
   , {-Level 10-}
     [ InfixN (TokAEQ          ==> pointRange   )
-    , InfixN (TokANE          ==> binary Op.ane) ]
+    , InfixN (TokANE          ==> binary Op.ane)
+    , InfixN (TokBadEQ        ==> badEQ        ) ]
   , {-Level 11-}
     [ InfixR (TokAnd          ==> conjunction) ]
   , {-Level 12-}
@@ -1704,6 +1703,13 @@ comparison binOp opLoc
 
 comparison binOp opLoc l r = binary binOp opLoc l r
 
+badEQ :: Location
+      -> a -> b
+      -> ParserExp (Maybe MetaExpr)
+badEQ (Location (from,_)) _ _ = do
+  putError from . UnknownError $
+    "Graciela doesn't have operator `=`. Use `==` instead."
+  pure Nothing
 
 pointRange :: Location
            -> Maybe MetaExpr -> Maybe MetaExpr

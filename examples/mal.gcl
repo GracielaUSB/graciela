@@ -31,6 +31,7 @@ main
    ; { ⟅1, 2, 3, 3⟆ union ⟅1, 1, 2, 3⟆ == ⟅1, 1, 2, 3, 3⟆ }
    ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
 
+// ; writeln ((% max i : float | i == 3.14 | i %)) -- NOt implemented yet
 
 ;         {0 elem {x : int | 0 <= x /\ x < 5 | x, x+10} } 
 ; writeln (0 elem {x : int | x < 5 /\ 0 < x | x, x+10})   
@@ -38,9 +39,9 @@ main
 ; writeln ( 0 elem {x : int | 0 < x /\ x < 5 | x, x+10} )     
 ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4〉  )  
 ; writeln (〈x : int  |  0  < x /\ x <  5  | x〉 ==〈1,2,3,4,5〉) 
-; writeln (i mod 2 == 1 /*=== False */ ==> x[100,100,100] > 0) // Test for jumping code  --LOOP
-// ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet  --LOOP
-; writeln (〈x : char | 'a' < x /\ x < 'd' | x〉 ==〈'c','b'〉  ) // -- NO UPPER BOUND WAS GIVEN
+; writeln (i mod 2 == 1 /*=== False */ ==> x[100,100,100] > 0) // Test for jumping code  
+// ; writeln ((% forall i : int | i elem <<>> | i > 0 %)) // Quant over set not implemented yet  
+; writeln (〈x : char | 'a' < x /\ x < 'd' | x〉 ==〈'c','b'〉  ) 
 
   // ; writeln("-------------------------------------------------------")
 

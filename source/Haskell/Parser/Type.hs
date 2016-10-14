@@ -207,10 +207,10 @@ abstractType :: Parser Type
 abstractType
    =  do {match TokSet;      match TokOf; GSet      <$> (typeVar<|>type') }
   <|> do {match TokMultiset; match TokOf; GMultiset <$> (typeVar<|>type') }
-  <|> do {match TokSeq;      match TokOf; GSeq      <$> (typeVar<|>type') }
+  <|> do {match TokSequence; match TokOf; GSeq      <$> (typeVar<|>type') }
 
-  <|> do {match TokFunc; ba <- typeVar<|>type'; match TokArrow;   bb <- typeVar<|>type'; pure $ GFunc ba bb }
-  <|> do {match TokRel;  ba <- typeVar<|>type'; match TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
+  <|> do {match TokFunction; ba <- typeVar<|>type'; match TokArrow;   bb <- typeVar<|>type'; pure $ GFunc ba bb }
+  <|> do {match TokRelation; ba <- typeVar<|>type'; match TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
 
   <|> do {match TokLeftPar; a <- typeVar; match TokComma; b <- typeVar; match TokRightPar; pure $ GTuple a b}
 
