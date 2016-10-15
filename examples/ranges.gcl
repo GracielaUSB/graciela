@@ -2,7 +2,7 @@ program ranges.bin begin
 
 abstract a(T)
 begin
-  var kkk : seq of int;
+  var kkk : sequence of int;
   {inv true inv}
 end
 
@@ -12,8 +12,8 @@ begin
   var things : array [MAX] of int;
 
   {repinv true repinv}
-  {coupinv (% forall i : int | i elem kkk | trace(i) == i %) coupinv}
-  where { kkk := <<1,2,3>> }
+  {coupinv trace((% # i : int | i elem kkk | i == 1 %)) == 1 coupinv}
+  where { kkk := <<1,2,1,1,1,1,2,1,3>> }
 
   proc stuff (inout ab : b(T))
     var ELVALOR : int;
@@ -37,7 +37,6 @@ main
   ;  var bo : boolean
   ;  w.things[0] := 199
   ;  w.things[1] := 212
-
   ;  stuff(w)
   //writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
   //;  writeln(#{i : boolean | false <= i /\ i <= true | i})
