@@ -220,7 +220,7 @@ data Token
 
 -- | Instancia 'Show' para los tokens
 instance Show Token where
-  show = \case
+  show = ("token \ESC[0;33;1m" <>) . (<> "\ESC[m") . \case
     TokProgram        -> "program"
     TokMain           -> "main"
     TokBegin          -> "begin"
@@ -337,11 +337,11 @@ instance Show Token where
 
     (TokBool    True) -> "true"
     (TokBool   False) -> "false"
-    (TokChar       c) -> "char constant " <> show c
-    (TokInteger    n) -> "int constant " <> show n
-    (TokBadInteger n) -> "out of range int constant " <> show n
-    (TokFloat      n) -> "float constant " <> show n
-    (TokString     s) -> "string " <> show s
+    (TokChar       c) -> show c
+    (TokInteger    n) -> show n
+    (TokBadInteger n) -> "\ESC[0;31m" <> show n <> "\ESC[m, out of range integer."
+    (TokFloat      n) -> show n
+    (TokString     s) -> show s
 
     TokArray          -> "array"
 

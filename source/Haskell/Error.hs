@@ -20,56 +20,46 @@ import qualified Data.Set              as Set
 
 data Error
   = BadAssertType
-    { aType :: Type
-    }
+    { aType :: Type }
   | BadBoundType
-    { bType :: Type
-    }
+    { bType :: Type }
   |BadFuncExpressionType
     { fName :: Text
     , fType :: Type
-    , eType :: Type
-    }
+    , eType :: Type }
   | BadFuncNumberOfArgs
     { fName   :: Text
     , fPos    :: SourcePos
     , nParams :: Int
-    , nArgs   :: Int
-    }
+    , nArgs   :: Int }
   | BadProcNumberOfArgs
     { pName   :: Text
     , pPos    :: SourcePos
     , nParams :: Int
-    , nArgs   :: Int
-    }
+    , nArgs   :: Int }
   | BadFunctionArgumentType
     { paramName :: Text
     , fName     :: Text
     , fPos      :: SourcePos
     , pType     :: Type
-    , aType     :: Type
-    }
+    , aType     :: Type }
   | BadFunctionArgumentType'
     { paramNum :: Int
     , fName    :: Text
     , fPos     :: SourcePos
     , pTypes   :: Seq Type
-    , aType    :: Type
-    }
+    , aType    :: Type }
   | BadProcedureArgumentType
     { paramName :: Text
     , pName     :: Text
     , pPos      :: SourcePos
     , pType     :: Type
-    , aType     :: Type
-    }
+    , aType     :: Type }
   | BadReadArgument
-    { aExpr :: Expression
-    }
+    { aExpr :: Expression }
   | BadReadArgumentType
     { aExpr :: Expression
-    , aType :: Type
-    }
+    , aType :: Type }
   | BadNumberOfTypeArgs
     { dtName    :: Text
     , dtTypes   :: [Type]
@@ -84,46 +74,31 @@ data Error
   | NoDoBound
 
   | NoAbstractInvariant
-    { aName :: Text
-    }
+    { aName :: Text }
   | NoTypeRepInv
-    { tName :: Text
-    }
+    { tName :: Text }
   | NoTypeCoupInv
-    { tName :: Text
-    }
+    { tName :: Text }
   | NoProcBody
-    { pName :: Text
-    }
+    { pName :: Text }
   | NoProcPrecondition
-    { pName :: Text
-    }
+    { pName :: Text }
   | NoProcPostcondition
-    { pName :: Text
-    }
+    { pName :: Text }
   | NotInScope
-    { sName :: Text
-    }
+    { sName :: Text }
   | UndefinedFunction
     { fName :: Text
-    , fArgs :: Seq Expression
-    }
+    , fArgs :: Seq Expression }
   | UndefinedProcedure
     { pName :: Text
-    , pArgs :: Seq Expression
-    }
+    , pArgs :: Seq Expression }
   | UndefinedSymbol
-    { sName :: Text
-    }
+    { sName :: Text }
   | UndefinedType
-    { tName :: Text
-    }
-  | UnexpectedToken
-    { uts :: Set (ErrorItem TokenPos)
-    }
+    { tName :: Text }
   | UnknownError
-    { emsg :: String
-    }
+    { emsg :: String }
   deriving (Show, Eq)
 
 instance ErrorComponent Error where
@@ -198,8 +173,6 @@ instance ShowErrorComponent Error where
           unpack absName <> "` with " <> t len dtTypes <>
           "\n\tbut expected " <> t lenNeeded abstypes <> "."
 
-
-
     EmptyBlock ->
       "Instruction blocks must contain at least one instruccion."
 
@@ -244,9 +217,6 @@ instance ShowErrorComponent Error where
 
     UndefinedType { tName } ->
       "Undefined type `" <> unpack tName <> "`."
-
-    UnexpectedToken { uts } ->
-      (\x -> "Unexpected " <> show x) `concatMap` uts
 
     UnknownError {emsg} -> emsg
 

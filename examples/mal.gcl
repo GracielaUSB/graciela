@@ -33,6 +33,8 @@ main
 
 // ; writeln ((% max i : float | i == 3.14 | i %)) -- NOt implemented yet
 
+; writeln ( (3,))
+
 ;         {0 elem {x : int | 0 <= x /\ x < 5 | x, x+10} } 
 ; writeln (0 elem {x : int | x < 5 /\ 0 < x | x, x+10})   
 
