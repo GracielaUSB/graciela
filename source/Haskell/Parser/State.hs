@@ -72,7 +72,7 @@ data State = State
   , _filesToRead   :: Set String
   , _currentProc   :: Maybe CurrentProc
   , _currentFunc   :: Maybe CurrentFunc
-  , _currentStruct :: Maybe (Type, Fields, Map Text Definition)
+  , _currentStruct :: Maybe (Type, Fields, Map Text Definition, Fields)
   , _coupling      :: Bool
   , _typeVars      :: [Text]
   , _existsDT      :: Bool

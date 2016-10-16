@@ -270,7 +270,7 @@ instance Semigroup Type where
       else GUndef
 
   t@(GDataType a _ ta) <> GDataType b _ tb =
-    if a == b && ta == tb
+    if a == b
       then t
       else GUndef
 

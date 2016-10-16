@@ -32,7 +32,7 @@ import           Parser.Type
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (over, use, (%=), (.~), _2, _Just)
+import           Control.Lens              (over, use, (%=), (.~), _2, _Just, _4)
 import           Control.Monad             (foldM, forM_, unless, void, when,
                                             zipWithM_)
 import           Control.Monad.Trans.Class (lift)
@@ -214,7 +214,7 @@ redefinition (varName, Location (from, _)) = do
     else do
       maybeStruct <- use currentStruct
       case maybeStruct of
-        Just (GDataType _ (Just abstName) _, _, _) -> do
+        Just (GDataType _ (Just abstName) _, _, _, _) -> do
           adt <- getStruct abstName
           case adt of
             Just abst -> do
@@ -235,12 +235,13 @@ info' :: Bool -> SourcePos -> Text
       -> Parser Entry'
 info' isStruct pos name t expr constness = if isStruct
   then do
-    Just (_ , fields, _) <- use currentStruct
+    Just (_ , fields, _, dFields) <- use currentStruct
     let
-      f = (fromIntegral (length fields), t, constness, expr)
-      fields' = Map.insert name f fields
+      f l = (fromIntegral l, t, constness, expr)
+      fields'    = Map.insert name (f $ length fields) fields 
+      dFields' l = Map.insert name (f l) dFields
     case name `Map.lookup` fields of
-      Just (_,t', c, _)
+      Just (p, t', c, _)
         | c /= constness ->
           let
             aux a = if a then "constant" else "variable"
@@ -248,7 +249,7 @@ info' isStruct pos name t expr constness = if isStruct
             putError pos . UnknownError $
             "Redefinition of member `" <> unpack name <> "` as " <> aux constness <>
             ",\n\tbut defined in abstract type as " <> aux c <> "."
-        | t' =:= t -> pure ()
+        | t' =:= t -> currentStruct %= over _Just (_4 .~ dFields' p)
 
       Just _ -> putError pos . UnknownError $
         "Ambigous redefinition of variable `" <> unpack name <> "` defined in abstract type"

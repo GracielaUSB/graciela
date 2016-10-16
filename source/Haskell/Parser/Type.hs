@@ -132,7 +132,7 @@ type' =  parenType
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (GDataType dtName abstract _, _, _) -> do
+            Just (GDataType dtName abstract _, _, _, _) -> do
               if dtName == name
                 then do
                   identifier
@@ -259,7 +259,7 @@ typeVar = do
         isPointer $ GTypeVar i tname
 
       | otherwise -> do
-        Just (dt,_,_) <- use currentStruct
+        Just (dt,_,_,_) <- use currentStruct
         identifier
         putError pos . UnknownError $
           "To use a variable of type " <> show (GTypeVar i tname) <>

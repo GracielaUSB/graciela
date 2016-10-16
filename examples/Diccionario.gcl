@@ -3,16 +3,16 @@ program Dicc.bin begin
 abstract Diccionario (T0, T1) begin
   const MAX := 100 : int;
   var conoc : set of T0;
-  var tabla : func T0 -> T1;
+  var tabla : function T0 -> T1;
 
-  {repinv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) repinv}  
+  {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}  
   
   proc crear (in m : int, out d : Diccionario(T0,T1))
     {pre m > 0 pre}
     {post d.MAX == m ∧ d.conoc == ∅ ∧ d.tabla == func(∅) post}
 
   proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
-    var tabla' := d.tabla : func T0 -> T1;
+    var tabla' := d.tabla : function T0 -> T1;
     var conoc' := d.conoc : set of T0;
 
     {pre c ∉ d.conoc ∧ #d.conoc < d.MAX pre}
@@ -20,7 +20,7 @@ abstract Diccionario (T0, T1) begin
         ∧ d.tabla == tabla' ∪ func({(c, v)}) post}
 
   proc eliminar (inout d : Diccionario(T0,T1), in c : T0)
-    var tabla' := d.tabla : func T0 -> T1;
+    var tabla' := d.tabla : function T0 -> T1;
     var conoc' := d.conoc : set of T0;
    
     {pre c ∈ d.conoc pre}
@@ -180,6 +180,7 @@ main
   |[ var d : Dicc(char, char)
    ; var b : boolean
    ; var r : char
+   ; write(d.MAX)
    ; crear(100,d)
    ; agregar(d, 'c', '$')
    ; agregar(d, 'a', '%')

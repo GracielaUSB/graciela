@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
+{-# LANGUAGE TupleSections         #-}
 
 module LLVM.Definition where
 --------------------------------------------------------------------------------
@@ -185,7 +186,45 @@ definition
 
       params' <- recursiveParams funcRecursive
 
-      returnOperand <- expression' funcBody
+      cs <- use currentStruct
+      let 
+        dts  = filter (\(_, t) -> t =:= T.GADataType) . toList $ funcParams
+        body = do
+          mapM_ (callInvariant' "inv"     preOperand) dts
+          mapM_ (callInvariant' "coupInv" preOperand) dts
+          mapM_ (callInvariant' "repInv"  preOperand) dts
+          expression' funcBody
+
+      (postFix, returnOperand) <- case cs of
+        Nothing -> do
+          mapM_ (callCouple' "couple") dts
+          ("",) <$> body
+
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
+          abstractStruct <- (Map.lookup abstract) <$> use structs
+          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          
+          let 
+            maybeProc = case abstractStruct of
+              Just Struct {structProcs} -> defName `Map.lookup` structProcs
+              Nothing -> error "Internal error: Missing Abstract Data Type."
+
+          mapM_ (callCouple' "couple") dts
+
+          case maybeProc of
+            Just Definition{ pre = pre'} ->
+              traceM "siii" >>
+              preconditionAbstract preOperand pre' pos
+            _ -> traceM "Nooo" >> pure ()
+          
+          returnOp <- body
+
+          case maybeProc of
+            Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
+            _                             -> pure ()
+          
+          pure (postFix, returnOp)
+      
       returnVar     <- insertVar defName
       returnType    <- toLLVMType funcRetType
 
@@ -211,13 +250,6 @@ definition
       terminate Ret
         { returnOperand = Just returnOperand
         , metadata' = [] }
-
-      postFix <- do
-        cs <- use currentStruct
-        case cs of
-          Nothing -> pure ""
-          Just Struct { structBaseName, structTypes } ->
-            llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
 
       let name = Name $ unpack defName <> postFix
       blocks' <- use blocks
@@ -248,52 +280,53 @@ definition
       params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
+      let 
+        dts  = filter (\(_, t, _) -> t =:= T.GADataType) . toList $ procParams
+        body = do 
+          mapM_ (callInvariant "inv"     cond) dts
+          mapM_ (callInvariant "coupInv" cond) dts
+          mapM_ (callInvariant "repInv"  cond) dts
+
+          instruction procBody
+
+          mapM_ (callCouple    "couple"      ) dts
+          mapM_ (callInvariant "inv"     cond) dts
+          mapM_ (callInvariant "coupInv" cond) dts
+          mapM_ (callInvariant "repInv"  cond) dts
+
       pName <- case cs of
         Nothing -> do
-          instruction procBody
-          postcondition cond post
-          blocks' <- use blocks
+          mapM_ (callCouple "couple") dts
+          body 
           pure $ unpack defName
 
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
-          let
-            dts = filter getDTs . toList $ procParams
-
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do           
           abstractStruct <- (Map.lookup abstract) <$> use structs
-
+          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
 
-          mapM_ (callCouple    ("couple" <> postFix)) dts
+          mapM_ (callCouple "couple") dts
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
               mapM_ declaration abstPDecl
-              preconditionAbstract cond pre'
+              preconditionAbstract cond pre' pos
             _ -> pure ()
-          mapM_ (callInvariant ("inv"     <> postFix) cond) dts
-          mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
-          mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
+          
+          body
 
-          instruction procBody
-
-          mapM_ (callCouple    ("couple"  <> postFix)     ) dts
-          mapM_ (callInvariant ("inv"     <> postFix) cond) dts
-          mapM_ (callInvariant ("coupInv" <> postFix) cond) dts
-          mapM_ (callInvariant ("repInv"  <> postFix) cond) dts
           case maybeProc of
-            Just Definition{post = post'} -> postconditionAbstract cond post'
+            Just Definition{post = post'} -> postconditionAbstract cond post' pos
             _                             -> pure ()
-          postcondition cond post
-
-
-          pending <- use pendingInsts
-          addInstructions pending
-
+          
           pure $ unpack defName <> postFix
-
+      
+      postcondition cond post
+      pending <- use pendingInsts
+      addInstructions pending
+      
       terminate $ Ret Nothing []
 
       blocks' <- use blocks
@@ -381,36 +414,40 @@ definition
 
     arrAux _ = pure ()
 
+    callCouple' funcName (name, t) = callCouple funcName (name, t, T.In)  
+
     callCouple funName (name, t, _) = do
       type' <- toLLVMType t
+      postFix <- llvmName ("-" <> T.typeName t) <$> 
+                    (mapM toLLVMType . toList $ T.typeArgs t)
       name' <- getVariableName name
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
-        , function           = callable voidType funName
+        , function           = callable voidType (funName <> postFix)
         , arguments          = [(LocalReference type' name',[])]
         , functionAttributes = []
         , metadata           = [] }
+    
+    callInvariant' fn c (n, t) = callInvariant fn c (n, t, T.In)
 
     callInvariant funName cond (name, t, _) = do
 
       type' <- toLLVMType t
+      postFix <- llvmName ("-" <> T.typeName t) <$> 
+                    (mapM toLLVMType . toList $ T.typeArgs t)
       name' <- getVariableName name
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
-        , function           = callable voidType funName
+        , function           = callable voidType (funName <> postFix)
         , arguments          = [(LocalReference type' name',[]), (cond,[])]
         , functionAttributes = []
-        , metadata           = [] }
-
-    getDTs (_, t, _) = case t of
-      T.GDataType {} -> True
-      _              -> False
+        , metadata           = [] }    
 
     recursiveParams isRecursive = if isRecursive
       then do
@@ -516,8 +553,8 @@ definition
 
         pure cond
 
-    preconditionAbstract :: Operand -> Expression -> LLVM ()
-    preconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+    preconditionAbstract :: Operand -> Expression -> SourcePos -> LLVM ()
+    preconditionAbstract precond expr pos = do
       -- Create both labels
       evaluate   <- newLabel "evaluate"
       trueLabel  <- newLabel "precondAbstTrue"
@@ -545,8 +582,8 @@ definition
       -- And the true label to the next instructions
       (trueLabel #)
 
-    postconditionAbstract :: Operand -> Expression -> LLVM ()
-    postconditionAbstract precond expr@ Expression {loc = Location (pos,_) } = do
+    postconditionAbstract :: Operand -> Expression -> SourcePos -> LLVM ()
+    postconditionAbstract precond expr pos = do
       -- Create both labels
       evaluate   <- newLabel "evaluate"
       trueLabel  <- newLabel "precondAbstTrue"

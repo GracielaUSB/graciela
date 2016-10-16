@@ -571,7 +571,7 @@ procedureCall = do
                       nParams = length procParams
                       typeArgs = case cs of
                           Nothing -> typeArgs'
-                          Just (GDataType _ _ dtArgs,_,_) ->
+                          Just (GDataType _ _ dtArgs, _, _, _) ->
                             fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
@@ -598,7 +598,7 @@ procedureCall = do
                     return Nothing
 
           Just t@(GDataType name _ _) -> do
-            Just (GDataType {typeArgs}, _, structProcs) <- use currentStruct
+            Just (GDataType {typeArgs}, _, structProcs, _) <- use currentStruct
             case procName `Map.lookup` structProcs of
               Just Definition { def' = ProcedureDef { procParams }} -> do
                 let
@@ -649,7 +649,7 @@ procedureCall = do
                   typeArgs <- use typeVars
                   case cs' of
                     Nothing -> pure Nothing
-                    Just (GDataType name _ _, _, _) -> pure . Just $
+                    Just (GDataType name _ _, _, _, _) -> pure . Just $
                       ( name
                       , Array.listArray (0, length typeArgs - 1) $
                         zipWith GTypeVar [0..] typeArgs)
@@ -695,7 +695,9 @@ procedureCall = do
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
     checkType' typeArgs pName pPos acc
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
-        if expType =:= fillType typeArgs pType
+        let 
+          fType = fillType typeArgs pType
+        in if expType =:= fType
           then case exp' of
             Obj {}
               | mode `elem` [Out, InOut] ->
@@ -711,7 +713,7 @@ procedureCall = do
               pure Nothing
           else do
             putError from $
-              BadProcedureArgumentType name pName pPos (fillType typeArgs pType) expType
+              BadProcedureArgumentType name pName pPos fType expType
             pure Nothing
 
 

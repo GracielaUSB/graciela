@@ -52,7 +52,9 @@ instance Treelike Definition where
         in Node (rec <> "Function " <> unpack defName <> " -> " <> show funcRetType <> " " <> show defLoc)
           [ Node "Parameters" (showFPs funcParams)
           , boundNode
-          , Node "Body" [toTree funcBody] ]
+          , Node "Body" [toTree funcBody] 
+          , Node "Precondition" [toTree pre]
+          , Node "Postcondition" [toTree post] ]
 
       GracielaFunc { } ->
         leaf $ "Graciela native function `" <> unpack defName <> "`"

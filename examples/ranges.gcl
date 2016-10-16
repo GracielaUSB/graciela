@@ -1,43 +1,77 @@
 program ranges.bin begin
 
-abstract a(T)
-begin
-  var kkk : sequence of int;
-  {inv true inv}
-end
+  abstract a(T)
+  begin
+    var kkk : sequence of int;
+    {inv false inv}
 
-type b(T) implements a(T)
-begin
-  const MAX := 2 : int;
-  var things : array [MAX] of int;
+    func hola ( x : a(T), b : int ) -> int
+     {pre true pre}
+     {post true post}
+  end
 
-  {repinv true repinv}
-  {coupinv trace((% # i : int | i elem kkk | i == 1 %)) == 1 coupinv}
-  where { kkk := <<1,2,1,1,1,1,2,1,3>> }
+  type c(T) implements a(T)
+  begin
+    /* c variables T*/ 
+    const jamon := 2 : int;
 
-  proc stuff (inout ab : b(T))
-    var ELVALOR : int;
+    {repinv jamon != 2 repinv}
+    {coupinv true coupinv}
+    where { kkk := <<>> }
+
+    func hola ( x : c(T), b : int ) -> int
+         {pre  trace(false) pre}
+         {post b > 10 post}
+         |[ 1 ]|
+
+  end
+
+  type b(T) implements a(T)
+  begin
+    const MAX := 2 : int;
+    var things : array [MAX] of int;
+
+    {repinv MAX != 2 repinv}
+    {coupinv (% # i : int | i elem kkk | i == 1 %) == 6 coupinv}
+    where { kkk := <<1,2,1,1,1,1,2,1,3>> }
+
+    // proc stuff (inout ab : b(T), inout b : c(T))
+    //   var ELVALOR : int;
+    //   {pre true pre}
+    //   {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
+    //   |[ var i := 0 : int
+    //   ;  var x : int
+    //   ;  read(ELVALOR)
+    //   ;  {inv true inv}
+    //      {bound ab.MAX - i bound}
+    //      do i < ab.MAX -> read(x)
+    //                 ; ab.things[i] := x
+    //                 ; writeln(ab.things[i])
+    //                 ; i := i + 1
+    //      od
+    //   ]|
+
+    func hola ( x : b(T), b : int ) -> int
+         {pre  trace(true) pre}
+         {post trace(b > 1) post}
+         |[
+           1
+         ]|   
+  end
+
+  proc prueba (in x : b(boolean))
     {pre true pre}
-    {post (% forall i : int | 0 <= i /\ i < ab.MAX | ab.things[i] == ELVALOR %) post}
-    |[ var i := 0 : int
-    ;  var x : int
-    ;  read(ELVALOR)
-    ;  {inv true inv}
-       {bound ab.MAX - i bound}
-       do i < ab.MAX -> read(x)
-                  ; ab.things[i] := x
-                  ; writeln(ab.things[i])
-                  ; i := i + 1
-       od
-    ]|   
-end
-
+    {post true post}
+    |[ write(x.MAX) ]|
 main
-  |[ var w : b (boolean)
+  |[ var w  : b (boolean)
   ;  var bo : boolean
+  ;  var z  : c(boolean)
+  ;  write(# w.kkk)
   ;  w.things[0] := 199
   ;  w.things[1] := 212
-  ;  stuff(w)
+  // ;  prueba(w)
+  ;  write(hola(w,10));
   //writeln(#{i : float | 0.0 <= i /\ i <= 3.0 | i})
   //;  writeln(#{i : boolean | false <= i /\ i <= true | i})
   ]|

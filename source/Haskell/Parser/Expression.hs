@@ -45,7 +45,7 @@ import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
 import qualified Data.Array                as Array (listArray)
 import           Data.Foldable             (foldl')
 import           Data.Functor              (($>))
-import qualified Data.Map.Strict           as Map (insert, lookup, size)
+import qualified Data.Map.Strict           as Map (insert, lookup, size, empty)
 import           Data.Maybe                (catMaybes, fromJust)
 import           Data.Monoid               (First (..))
 import           Data.Semigroup            (Semigroup (..))
@@ -438,7 +438,7 @@ variable = do
   coup <- lift $ use coupling
 
   abstractSt <- case maybeStruct of
-    Just (GDataType _ (Just abstName) _, _, _) | coup -> do
+    Just (GDataType _ (Just abstName) _, _, _, _) | coup -> do
       adt <- getStruct abstName
       case adt of
         Just abst -> pure $ structSt abst
@@ -504,7 +504,7 @@ variable = do
         struct <- lift $ use currentStruct
         let
           expr = case struct of
-            Just (GDataType structName' abstract t, mapTypes, _) ->
+            Just (GDataType structName' abstract t, mapTypes, _, _) ->
               case name `Map.lookup` mapTypes of
                 Just (i, _, _, _) -> Expression
                   { loc
@@ -1118,7 +1118,7 @@ call = do
                               nParams = length funcParams
                               typeArgs = case cs of
                                   Nothing -> typeArgs'
-                                  Just (GDataType _ _ dtArgs,_,_) ->
+                                  Just (GDataType _ _ dtArgs, _, _, _) ->
                                     fmap (fillType dtArgs) typeArgs'
 
                             when (nArgs /= nParams) . putError from . UnknownError $
@@ -1152,7 +1152,7 @@ call = do
                             return Nothing
 
                   Just t@(GDataType name _ _) -> do
-                    Just (GDataType {typeArgs}, _, structProcs) <- lift $ use currentStruct
+                    Just (GDataType {typeArgs}, _, structProcs, _) <- lift $ use currentStruct
                     case fName `Map.lookup` structProcs of
                       Just Definition {def' =
                         FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
@@ -1216,7 +1216,7 @@ call = do
                           typeArgs <- lift $ use typeVars
                           case cs' of
                             Nothing -> pure Nothing
-                            Just (GDataType name _ _, _, _) -> pure $ Just
+                            Just (GDataType name _ _, _, _, _) -> pure $ Just
                               ( name
                               , Array.listArray (0, length typeArgs - 1) $
                                 zipWith GTypeVar [0..] typeArgs)
@@ -1411,24 +1411,24 @@ dotField = do
               GDataType n _ typeArgs-> do
                 cstruct <- lift $ use currentStruct
                 case cstruct of
-                  Just (GDataType name _ _, structFields, _)
+                  Just (GDataType name _ _, structFields, _, _)
                     | name == n ->
-                      aux obj (objType obj) loc fieldName structFields taint
+                      aux obj (objType obj) loc fieldName structFields Map.empty taint
                   _ -> do
                     structs <- lift $ use dataTypes
                     case n `Map.lookup` structs of
-                      Just Struct { structFields } ->
+                      Just Struct { structFields, structAFields } ->
                         let structFields' = fillTypes typeArgs structFields
-                        in aux obj (objType obj) loc fieldName structFields' taint
+                        in aux obj (objType obj) loc fieldName structFields' Map.empty  taint
                       _ -> internal "GDataType without struct."
 
               GFullDataType n typeArgs -> do
                 dts <- lift $ use dataTypes
                 case n `Map.lookup` dts of
                   Nothing -> pure Nothing
-                  Just Struct { structFields } ->
+                  Just Struct { structFields, structAFields } ->
                     let structFields' = fillTypes typeArgs structFields
-                    in aux obj (objType obj) loc fieldName structFields' taint
+                    in aux obj (objType obj) loc fieldName structFields' structAFields taint
               t -> do
                 putError from' . UnknownError $
                   "Bad field access. Cannot access an expression \
@@ -1439,7 +1439,7 @@ dotField = do
               "Bad field access. Cannot access an expression."
             pure Nothing
   where
-    aux o oType loc fieldName structFields taint =
+    aux o oType loc fieldName structFields structAFields taint = do
       case fieldName `Map.lookup` structFields of
         Just (i, t, c, _) ->
           let
@@ -1456,13 +1456,20 @@ dotField = do
                     , field = i
                     , fieldName }}}}
           in pure $ Just (expr, ProtoNothing, taint)
-        Nothing -> do
-          let Location (pos, _) = loc
-          putError pos . UnknownError $
-            "Bad field access. Object of type " <> show oType <>
-            "` does not have a field named `" <>
-            unpack fieldName <> "`"
-          pure Nothing
+        Nothing -> case fieldName `Map.lookup` structAFields of 
+          Just _ -> do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Bad field access. Cannot access the abstract field `" <>
+              unpack fieldName <> "`\n\toutside the abstract defnition or couple relation"
+            pure Nothing
+          Nothing -> do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Bad field access. Object of type " <> show oType <>
+              "` does not have a field named `" <>
+              unpack fieldName <> "`"
+            pure Nothing
 
 deref :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
 deref = do

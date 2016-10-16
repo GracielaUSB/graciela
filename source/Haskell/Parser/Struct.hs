@@ -30,14 +30,15 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens        (over, use, (%=), (.=), (.~), (^.), _2,
-                                      _Just)
+                                      _Just, _4)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
-import           Data.Map            (Map)
-import qualified Data.Map            as Map (empty, filter, fromList, insert,
-                                             keysSet, lookup, size, toList)
+import           Data.Map.Strict     (Map)
+import qualified Data.Map.Strict     as Map (empty, filter, fromList, insert,
+                                             keysSet, lookup, size, toList,
+                                             difference, union)
 import           Data.Maybe          (catMaybes, isJust, isNothing)
 
 import           Data.Sequence       (Seq, ViewL (..))
@@ -73,14 +74,15 @@ abstractDataType = do
       abstractType = GDataType abstractName Nothing typeArgs
       Just abstractName = abstractName'
 
-    currentStruct .= Just (abstractType, Map.empty, Map.empty)
+    currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
     decls' <- sequence <$> (abstractDeclaration True `endBy` match' TokSemicolon)
 
     cs <- use currentStruct
 
-    let fields = cs ^. _Just . _2
+    let 
+      fields  = cs ^. _Just . _2
 
     inv'   <- invariant
     procs' <- sequence <$> many (procedureDeclaration <|> functionDeclaration)
@@ -162,10 +164,14 @@ dataType = do
 
             abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
 
-          currentStruct .= Just (dtType, abstFields, Map.empty)
+          currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
           decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
-          allFields <- (\cs -> cs ^. _Just . _2) <$> use currentStruct
+          cs <- use currentStruct
+          let
+            dFields   =  cs ^. _Just . _4 
+            allFields = (cs ^. _Just . _2) `Map.difference` abstFields
+            
 
           repinv'  <- repInv
           coupling .= True
@@ -204,8 +210,8 @@ dataType = do
               let
                 struct = Struct
                   { structBaseName = name
-                  , structFields   = allFields
-                  , structAFields  = Map.empty
+                  , structFields   = allFields  `Map.union` dFields
+                  , structAFields  = abstFields `Map.difference` dFields
                   , structSt       = st
                   , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
                   , structLoc      = Location(from,to)
@@ -262,7 +268,7 @@ dataType = do
               pure True
 
         (=-=) abstDef@Definition{def' = AbstractFunctionDef{}}
-              def@Definition{def' = ProcedureDef{}}
+              def@Definition{def' = FunctionDef{}}
           | defName def /= defName abstDef = pure False
           | otherwise = do
               let
@@ -324,7 +330,7 @@ coupleRel = do
       insts' <- sequence <$> assign `sepBy` match TokSemicolon
       case insts' of
         Just insts | not (null insts) -> do
-          Just (GDataType{abstName = Just abstName}, _, _) <- use currentStruct
+          Just (GDataType{abstName = Just abstName}, _, _, _) <- use currentStruct
           Just (Struct{structFields})  <- getStruct abstName
           let
             auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
