@@ -5,7 +5,6 @@
 module Parser.Operator
   ( Un (..)
   , Bin (..)
-  , Bin' (..)
   -- * unary operators
   , uMinus, not
   -- * arithmetic operators
@@ -33,6 +32,8 @@ import           AST.Expression (BinaryOperator (..), Expression (..),
                                  UnaryOperator (..), Value (..))
 import           AST.Type       (Type (..), basic, (=:=))
 import           Common
+import           Error          (Error (UnknownError))
+import           Parser.Monad   (Parser, putError)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
@@ -57,15 +58,19 @@ data Un = Un
 
 type BinaryOpType = Type -> Type -> Either String Type
 
-data Bin = Bin
-  { binSymbol :: BinaryOperator
-  , binType   :: BinaryOpType
-  , binFunc   :: Value -> Value -> Value }
-
-data Bin' = Bin'
-  { binSymbol' :: BinaryOperator
-  , binType'   :: BinaryOpType
-  , binFunc'   :: Expression -> Expression -> Expression }
+data Bin
+  = Bin
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc   :: Value -> Value -> Value }
+  | Bin'
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc'  :: Expression -> Expression -> Expression }
+  | Bin''
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc'' :: Expression -> Expression -> Parser (Maybe Expression) }
 
 --------------------------------------------------------------------------------
 arithU :: Integral a
@@ -132,26 +137,42 @@ bMinus = Bin BMinus arithOpType $ arith (-) (-)
 max    = Bin Max    arithOpType $ arith P.max P.max
 min    = Bin Min    arithOpType $ arith P.min P.min
 
-div, mod :: Bin'
-div = Bin' Div arithOpType $ fraction Div P.div (/)
-mod = Bin' Mod arithOpType $ fraction Mod P.mod F.mod'
+div, mod :: Bin
+div = Bin'' Div arithOpType $ fraction Div P.div (/)
+mod = Bin'' Mod arithOpType $ fraction Mod P.mod F.mod'
 
 fraction :: BinaryOperator
          -> (Int32 -> Int32 -> Int32)
          -> (Double -> Double -> Double)
-         -> Expression -> Expression -> Expression
+         -> Expression -> Expression -> Parser (Maybe Expression)
 fraction op f g
   l@Expression { exp' = lexp, expConst = lc, expType }
-  r@Expression { exp' = rexp, expConst = rc } =
-  let
-    exp' = case (lexp, rexp) of
+  r@Expression { loc = Location (pos,_), exp' = rexp, expConst = rc } = do
+    mexp' <- case (lexp, rexp) of
       (Value (IntV m), Value (IntV n))
-        | n /= 0 -> Value (IntV $ m `f` n)
+        | n == 0 -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . IntV $ m `f` n
       (Value (CharV m), Value (CharV n))
-        | n /= '\0' -> Value . CharV . chr' $ ord' m `f` ord' n
-      (Value (FloatV m), Value (FloatV n)) -> Value (FloatV $ m `g` n)
-      _ -> Binary op l r
-  in Expression { loc = loc l <> loc r, expConst = lc && rc, expType, exp'}
+        | n == '\0' -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . CharV . chr' $ ord' m `f` ord' n
+      (Value (FloatV m), Value (FloatV n))
+        | n == 0 -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . FloatV $ m `g` n
+    case mexp' of
+      Just exp' -> pure . Just $ Expression
+        { loc = loc l <> loc r
+        , expConst = lc && rc
+        , expType, exp' }
+      Nothing -> pure Nothing
 
 --------------------------------------------------------------------------------
 boolOpType :: BinaryOpType
@@ -159,7 +180,11 @@ boolOpType GBool GBool = Right GBool
 boolOpType _     _     = Left $
   show (GBool, GBool)
 
-or, and, implies, consequent, beq, bne :: Bin'
+infixr 8 .:
+(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(.:) = (.) . (.)
+
+or, and, implies, consequent, beq, bne :: Bin
 or         = Bin' Or         boolOpType or'
 and        = Bin' And        boolOpType and'
 implies    = Bin' Implies    boolOpType implies'

@@ -191,7 +191,7 @@ infixl 3 <!!>
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: SourcePos -> Error -> p ()
   getType :: Text -> p (Maybe Type)
-  getStruct :: Text -> p(Maybe Struct)
+  getStruct :: Text -> p (Maybe Struct)
   satisfy :: (Token -> Bool) -> p Token
   match' :: Token -> p Location
   (<!>) :: p (Maybe a) ->  (SourcePos, Error) -> p (Maybe a)

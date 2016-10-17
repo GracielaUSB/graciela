@@ -882,8 +882,8 @@ operator =
     [ InfixR (TokPower        ==> binary Op.power) ]
   , {-Level 6-}
     [ InfixL (TokTimes        ==> binary Op.times)
-    , InfixL (TokDiv          ==> binary' Op.div )
-    , InfixL (TokMod          ==> binary' Op.mod ) ]
+    , InfixL (TokDiv          ==> binary Op.div )
+    , InfixL (TokMod          ==> binary Op.mod ) ]
   , {-Level 7-}
     [ InfixL (TokPlus         ==> binary Op.plus      )
     , InfixL (TokMinus        ==> binary Op.bMinus    )
@@ -913,13 +913,13 @@ operator =
   , {-Level 11-}
     [ InfixR (TokAnd          ==> conjunction) ]
   , {-Level 12-}
-    [ InfixR (TokOr           ==> binary' Op.or) ]
+    [ InfixR (TokOr           ==> binary Op.or) ]
   , {-Level 13-}
-    [ InfixR (TokImplies      ==> binary' Op.implies   )
-    , InfixL (TokConsequent   ==> binary' Op.consequent) ]
+    [ InfixR (TokImplies      ==> binary Op.implies   )
+    , InfixL (TokConsequent   ==> binary Op.consequent) ]
   , {-Level 14-}
-    [ InfixN (TokBEQ          ==> binary' Op.beq)
-    , InfixN (TokBNE          ==> binary' Op.bne) ]
+    [ InfixN (TokBEQ          ==> binary Op.beq)
+    , InfixN (TokBNE          ==> binary Op.bne) ]
   ]
 
 token --> unaryOp = do
@@ -1456,7 +1456,7 @@ dotField = do
                     , field = i
                     , fieldName }}}}
           in pure $ Just (expr, ProtoNothing, taint)
-        Nothing -> case fieldName `Map.lookup` structAFields of 
+        Nothing -> case fieldName `Map.lookup` structAFields of
           Just _ -> do
             let Location (pos, _) = loc
             putError pos . UnknownError $
@@ -1546,61 +1546,40 @@ binary binOp opLoc
   = case Op.binType binOp ltype rtype of
 
     Left expected -> do
-      let loc = Location (from l, to r)
       putError (from l) . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           "\n\texpected two expressions of types " <> expected <>
           ",\n\tbut received " <> show (ltype, rtype) <> ".")
       pure Nothing
 
-    Right ret ->
-      let
-        taint = ltaint <> rtaint
+    Right ret -> do
+      mexpr <- case binOp of
+        Op.Bin   { binFunc   } ->
+          let
+            exp' = case (lexp, rexp) of
+              (Value v, Value w) -> Value $ binFunc v w
+              _ -> Binary
+                { binOp = Op.binSymbol binOp
+                , lexpr = l
+                , rexpr = r }
+            expr = Expression
+              { E.loc = Location (from l, to r)
+              , expType = ret
+              , expConst = lc && rc
+              , exp' }
+          in pure . Just $ expr
 
-        exp' = case (lexp, rexp) of
-          -- (Value v, Value w) ->
-          --   Value $ Op.binFunc binOp v w
-          _ -> Binary
-            { binOp = Op.binSymbol binOp
-            , lexpr = l
-            , rexpr = r }
+        Op.Bin'  { binFunc'  } -> pure . Just $ binFunc' l r
 
-        expr = Expression
-          { E.loc = Location (from l, to r)
-          , expType = ret
-          , expConst = lc && rc
-          , exp' }
+        Op.Bin'' { binFunc'' } -> lift $ binFunc'' l r
 
-      in pure $ Just (expr, ProtoNothing, taint)
+      case mexpr of
+        Nothing -> pure Nothing
+        Just expr ->
+          let
+            taint = ltaint <> rtaint
 
-
-binary' :: Op.Bin' -> Location
-        -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
-binary' _ _ Nothing _ = pure Nothing
-binary' _ _ _ Nothing = pure Nothing
-binary' binOp opLoc
-  (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp }, _, ltaint))
-  (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp }, _, rtaint))
-  = case Op.binType' binOp ltype rtype of
-
-    Left expected -> do
-      putError (from l) . UnknownError $
-        ("Operator `" <> show (Op.binSymbol' binOp) <> "` at " <> show opLoc <>
-          "\n\texpected two expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".")
-      pure Nothing
-
-    Right ret ->
-      let
-        taint = ltaint <> rtaint
-
-        expr = Op.binFunc' binOp l r
-
-        range = if exp' expr == Value (BoolV False)
-          then ProtoQRange EmptyRange
-          else ProtoNothing
-
-      in pure $ Just (expr, range, taint)
+          in pure $ Just (expr, ProtoNothing, taint)
 
 
 membership :: Location
@@ -1778,11 +1757,11 @@ conjunction _ _ Nothing = pure Nothing
 conjunction opLoc
   l@(Just (Expression { }, ProtoNothing, ltaint))
   r@(Just (Expression { }, ProtoNothing, rtaint))
-  = binary' Op.and opLoc l r
+  = binary Op.and opLoc l r
 conjunction opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp' }, lproto, ltaint))
   (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp' }, rproto, rtaint))
-  = case Op.binType' Op.and ltype rtype of
+  = case Op.binType Op.and ltype rtype of
     Right GBool -> do
       varname <- gets head
       let
