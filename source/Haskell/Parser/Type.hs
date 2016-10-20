@@ -103,7 +103,7 @@ type' =  parenType
           GInt | expConst -> case exp' of
             Value (IntV i) | i <= 0 -> do
               putError pos . UnknownError $
-                "A negative dimension was given in the array declaration."
+                "A non-positive dimension was given in the array declaration."
               pure Nothing
             _ -> pure . Just $ e
           _ -> do
