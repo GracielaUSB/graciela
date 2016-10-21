@@ -89,7 +89,16 @@ type MetaExpr = (Expression, ProtoRange, Taint)
 type ParserExp = StateT [ Text ] Parser
 
 expr :: ParserExp (Maybe Expression)
-expr = pure . (view _1 <$>) =<< filterRawName =<< metaexpr
+expr = pure . (view _1 <$>) =<< filterAny =<< filterRawName =<< metaexpr
+  where
+    filterAny :: Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
+    filterAny Nothing = pure Nothing
+    filterAny je@(Just (e, _, _)) = if expType e == GAny
+      then do
+        putError (pos . E.loc $ e) . UnknownError $
+          "Expression lacks a concrete type."
+        pure Nothing
+      else pure je
 
 
 metaexpr :: ParserExp (Maybe MetaExpr)
@@ -201,7 +210,8 @@ tuple = do
       putError from . UnknownError $
         "Expected expression."
       pure Nothing
-    Just [e]      -> pure $ Just e
+    Just [(e0, r0, t0)] -> pure $
+      Just (e0 { E.loc = Location (from, to)}, r0, t0)
     Just [(e0, _, t0), (e1, _, t1)]
       | allowed e0 && allowed e1 ->
         let expr = Expression

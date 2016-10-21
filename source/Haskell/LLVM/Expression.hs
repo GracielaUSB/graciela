@@ -248,7 +248,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
       -- GSet _      -> opSet unOp innerOperand
       -- GMultiset _ -> opMultiset unOp innerOperand
       -- GSeq _      -> opSeq unOp innerOperand
-      t      -> error $ "tipo " <> show t <> " no soportado"
+      t      -> internal $ "type " <> show t <> " not supported (unary expression)"
 
     pure operand
 
@@ -362,27 +362,30 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
     lOperand <- expression lexpr
     rOperand <- expression rexpr
 
-    -- Get the type of the left expr. Used at bool operator to know the type when comparing.
-    substs <- use substitutionTable
-    let
-      expType' = case substs of
-        []        -> expType
-        (subst:_) -> fillType subst expType
-      op = case expType' of
-        GInt        -> opInt 32
-        GChar       -> opInt 8
-        -- GBool  -> opBool
-        GFloat      -> opFloat
-        GSet _      -> opSet
-        GMultiset _ -> opMultiset
-        GSeq _      -> opSeq
-        GFunc _ _   -> opFunc
-        GRel _ _    -> opRel
-        GTuple _ _  -> opTuple
-        t      -> error $
-          "internal error: type " <> show t <> " not supported"
+    case binOp of
+      Op.SeqAt    -> seqAt lOperand rOperand
+      Op.BifuncAt -> bifuncAt lOperand rOperand
+      _ -> do
+        -- Get the type of the left expr. Used at bool operator to know the type when comparing.
+        substs <- use substitutionTable
+        let
+          expType' = case substs of
+            []        -> lType
+            (subst:_) -> fillType subst expType
+          op = case expType' of
+            GInt        -> opInt 32
+            GChar       -> opInt 8
+            GFloat      -> opFloat
+            GSet _      -> opSet
+            GMultiset _ -> opMultiset
+            GSeq _      -> opSeq
+            GFunc _ _   -> opFunc
+            GRel _ _    -> opRel
+            t      -> internal $ "type " <> show t <> " not supported\n" <>
+              show binOp <> "\n" <>
+              drawTree (toTree e)
 
-    op binOp lOperand rOperand
+        op binOp lOperand rOperand
 
     where
       opInt n op lOperand rOperand = do
@@ -487,59 +490,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
               , functionAttributes = []
               , metadata           = [] }
 
-          Op.SeqAt -> do
-            let
-              SourcePos _ x y = pos
-              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
-
-            seqAt <- newLabel "seqAt"
-            addInstruction $ seqAt := Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable (ptr i8) atSequenceString
-              , arguments          = (,[]) <$> [lOperand, rOperand, line, col]
-              , functionAttributes = []
-              , metadata           = [] }
-
-            addInstruction $ label := Trunc
-              { operand0 = LocalReference i64 seqAt
-              , type'    = IntegerType n
-              , metadata = [] }
-
-          Op.BifuncAt -> do
-            let
-              SourcePos _ x y = pos
-              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
-
-            rCast <- newLabel "rightCast"
-            addInstruction $ rCast := case rType of
-              GFloat -> BitCast
-                { operand0 = rOperand
-                , type' = i64
-                , metadata = [] }
-              _ -> ZExt
-                { operand0 = rOperand
-                , type' = i64
-                , metadata = [] }
-
-            bifuncAt <- newLabel "bifuncAt"
-            addInstruction $ bifuncAt := Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable i64 evalFuncString
-              , arguments          = (,[]) <$> [lOperand, LocalReference i64 rCast, line, col]
-              , functionAttributes = []
-              , metadata           = [] }
-
-            addInstruction $ label := Trunc
-              { operand0 = LocalReference i64 bifuncAt
-              , type'    = IntegerType n
-              , metadata = [] }
-
         pure $ LocalReference (IntegerType n) label
 
       opFloat op lOperand rOperand = do
@@ -596,7 +546,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , functionAttributes = []
             , metadata           = [] }
 
-          _ -> error "opFloat"
+          _ -> internal $ "opFloat unsupported op " <> show op
         pure $ LocalReference floatType label
 
       opSet op lOperand rOperand = do
@@ -632,27 +582,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , arguments          = [(lOperand,[]), (rOperand,[])]
             , functionAttributes = []
             , metadata           = [] }
-          Op.BifuncAt -> do
-            rCast <- newLabel "rightCast"
-            addInstruction $ rCast := case rType of
-              GFloat -> BitCast
-                { operand0 = rOperand
-                , type' = i64
-                , metadata = [] }
-              _ -> ZExt
-                { operand0 = rOperand
-                , type' = i64
-                , metadata = [] }
-
-            addInstruction $ label := Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable (ptr i8) evalRelString
-              , arguments          = [(lOperand,[]), (LocalReference i64 rCast,[])]
-              , functionAttributes = []
-              , metadata           = [] }
-          _ -> error $ show op
+          _ -> internal $ "unsupported set op " <> show op
         pure $ LocalReference pointerType label
 
       opMultiset op lOperand rOperand = do
@@ -781,25 +711,33 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
             , metadata           = [] }
         pure $ LocalReference pointerType label
 
-      opTuple op lOperand rOperand = do
-        label <- newLabel "tupleBinaryResult"
-        case op of
-          Op.SeqAt -> do
-            let
-              SourcePos _ x y = pos
-              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
-            seqAt <- newLabel "seqAt"
-            addInstruction $ seqAt := Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable (ptr i8) atSequencePairString
-              , arguments          = [(lOperand,[]), (rOperand,[]), (line,[]), (col,[])]
-              , functionAttributes = []
-              , metadata           = [] }
 
-            addInstruction $ label := Alloca
+
+      seqAt lOp rOp = do
+        let
+          SourcePos _ x y = pos
+          line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+          col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+
+        let atString = case expType of
+              GTuple {} -> atSequencePairString
+              _         -> atSequenceString
+
+        call <- newLabel "seqAt"
+        addInstruction $ call := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable (ptr i8) atString
+          , arguments          = (,[]) <$> [lOp, rOp, line, col]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        seqAtResult <- newLabel "seqAtResult"
+
+        case expType of
+          GTuple {} -> do
+            addInstruction $ seqAtResult := Alloca
               { allocatedType = tupleType
               , numElements   = Nothing
               , alignment     = 4
@@ -807,13 +745,88 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
 
             addInstruction $ Do Store
               { volatile = False
-              , address  = LocalReference tupleType label
-              , value    = LocalReference tupleType seqAt
+              , address  = LocalReference tupleType seqAtResult
+              , value    = LocalReference tupleType call
               , maybeAtomicity = Nothing
               , alignment = 4
               , metadata  = [] }
 
-            pure $ LocalReference tupleType label
+          GFloat -> addInstruction $ seqAtResult := BitCast
+            { operand0 = LocalReference i64 call
+            , type' = floatType
+            , metadata = [] }
+
+          _ -> addInstruction $ seqAtResult := Trunc
+            { operand0 = LocalReference i64 call
+            , type'    = IntegerType $ case expType of
+              GInt  -> 32
+              GChar -> 8
+              GAny  -> 32
+              _     -> internal $ "seqAtCast " <> show expType
+            , metadata = [] }
+
+        t <- toLLVMType expType
+        pure $ LocalReference t seqAtResult
+
+
+      bifuncAt lOp rOp = do
+        rCast <- newLabel "rightCast"
+        addInstruction $ rCast := case rType of
+          GFloat -> BitCast
+            { operand0 = rOp
+            , type' = i64
+            , metadata = [] }
+          _ -> ZExt
+            { operand0 = rOp
+            , type' = i64
+            , metadata = [] }
+
+        bifuncAtResult <- newLabel "bifuncAt"
+        case lType of
+          GFunc {} -> do
+            let
+              SourcePos _ x y = pos
+              line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+              col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+
+            call <- newUnLabel
+            addInstruction $ call := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable i64 evalFuncString
+              , arguments          = (,[]) <$> [lOp, LocalReference i64 rCast, line, col]
+              , functionAttributes = []
+              , metadata           = [] }
+
+            addInstruction $ bifuncAtResult := case expType of
+              GFloat -> BitCast
+                { operand0 = LocalReference i64 call
+                , type' = floatType
+                , metadata = [] }
+
+              _ -> Trunc
+                { operand0 = LocalReference i64 call
+                , type'    = IntegerType $ case expType of
+                  GInt  -> 32
+                  GChar -> 8
+                  GAny  -> 32
+                  _     -> internal $ "bifuncAtCast " <> show expType
+                , metadata = [] }
+
+          GRel {} -> addInstruction $ bifuncAtResult := Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable (ptr i8) evalRelString
+              , arguments          = (,[]) <$> [lOp, LocalReference i64 rCast]
+              , functionAttributes = []
+              , metadata           = [] }
+          _ -> internal $ "impossible bifuncAt " <> show lType
+
+        t <- toLLVMType expType
+        pure $ LocalReference t bifuncAtResult
+
 
   EConditional { eguards, trueBranch } -> do
     entry  <- newLabel "ifExpEntry"

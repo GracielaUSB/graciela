@@ -138,7 +138,7 @@ toLLVMType (GTypeVar i _) = do
     (subst:_) -> toLLVMType $ subst ! i
 
 
-toLLVMType GAny            = internal "GAny is not a valid type"
+toLLVMType GAny            = pure i32 -- internal "GAny is not a valid type"
 
 toLLVMType (GSet      _) = pure . ptr $ i8
 toLLVMType (GMultiset _) = pure . ptr $ i8
