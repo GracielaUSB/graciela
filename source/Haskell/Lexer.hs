@@ -11,7 +11,9 @@ defines all possible Graciela tokens and transforms a text into a
 list of tokens.
 -}
 
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK show-extensions #-}
 
 module Lexer
@@ -19,40 +21,78 @@ module Lexer
   ) where
 --------------------------------------------------------------------------------
 import           Common
+import           Pragma
 import           Token
 --------------------------------------------------------------------------------
+import           Control.Lens          (makeLenses, use, (%~))
+import           Control.Monad.State   (State, evalState, modify)
+import           Data.Set              (Set, union, (\\))
+import qualified Data.Set              as Set (empty)
 import           Data.Text             (Text, pack)
 import           Prelude               hiding (lex)
-import           Text.Megaparsec       (Dec, Parsec, alphaNumChar, anyChar,
+import           Text.Megaparsec       (Dec, ParsecT, alphaNumChar, anyChar,
                                         between, char, eof, getPosition,
                                         letterChar, many, manyTill,
-                                        notFollowedBy, oneOf, runParser,
+                                        notFollowedBy, oneOf, runParserT,
                                         spaceChar, string, try, (<|>))
 import qualified Text.Megaparsec.Lexer as L
+--------------------------------------------------------------------------------
+
+-- | Giving the Lexer a state allows recognition of Pragmas.
+
+data LexerState = LexerState
+  { _programSeen :: Bool
+  , _pragmas     :: Set Pragma }
+
+makeLenses ''LexerState
+
+-- | Initially, no pragmas are activated, and the Program token hasn't been
+-- recognized.
+
+initialLexerState :: LexerState
+initialLexerState = LexerState
+  { _programSeen = False
+  , _pragmas     = Set.empty }
 --------------------------------------------------------------------------------
 
 -- | @lex filename input@ turns a 'Text' into a list of 'TokenPos'.
 
 lex :: FilePath -- ^ Name of source file
     -> Text     -- ^ Input for parser
-    -> [TokenPos]
-lex fn input = case runParser lexer fn input of
+    -> ([TokenPos], Set Pragma)
+lex fn input = case evalState (runParserT lexer fn input) initialLexerState of
   Right ts -> ts
   Left  _  -> internal "uncaught unexpected token"
 --------------------------------------------------------------------------------
 
-type Lexer = Parsec Dec Text
+type Lexer = ParsecT Dec Text (State LexerState)
 
 
-lexer :: Lexer [TokenPos]
-lexer = between sc eof (many token)
+lexer :: Lexer ([TokenPos], Set Pragma)
+lexer = (,) <$> between sc eof (many token) <*> use pragmas
 
 
 sc :: Lexer ()
 sc = L.space (void spaceChar) lineComment blockComment
   where
-    lineComment  = L.skipLineComment  "//"
-    blockComment = L.skipBlockCommentNested "/*" "*/"
+    lineComment  = L.skipLineComment "//"
+    blockComment =  try (string "/*%" >> pragma)
+                <|> L.skipBlockCommentNested "/*" "*/"
+    pragma = do
+      seen <- use programSeen
+      unless seen $ do
+        many (void spaceChar)
+        string "LANGUAGE"
+        many (void spaceChar)
+        p <- pragma'
+        many (void spaceChar)
+        void $ string "%*/"
+        modify p
+    pragma' = (pragmas %~) <$> pragma''
+    pragma'' =  (string "LogicAnywhere"   $> union [LogicAnywhere])
+            <|> (string "NoLogicAnywhere" $> (\\)  [LogicAnywhere])
+            <|> (string "EnableTrace"     $> union [EnableTrace])
+            <|> (string "NoEnableTrace"   $> (\\)  [EnableTrace])
 
 
 lexeme :: Lexer Token -> Lexer TokenPos

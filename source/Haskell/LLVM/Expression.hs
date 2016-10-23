@@ -25,17 +25,16 @@ import           LLVM.Abort                              (abort)
 import qualified LLVM.Abort                              as Abort (Abort (..))
 import           LLVM.Boolean                            (boolean, wrapBoolean)
 import           LLVM.Monad
+import           LLVM.Object                             (object, objectRef)
 import           LLVM.Quantification                     (collection,
                                                           quantification)
 import           LLVM.State
-import           LLVM.Object                             (object, objectRef)
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
                                                           pointerType,
                                                           toLLVMType, tupleType)
 import           Location
-import           Parser.Config                           (codomainFuncString,
-                                                          codomainRelString)
+import           Parser.Config
 import           SymbolTable
 import           Treelike                                (drawTree, toTree)
 --------------------------------------------------------------------------------
@@ -43,8 +42,8 @@ import           Control.Lens                            (use, (%=), (.=))
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
 import           Data.Maybe                              (fromMaybe, isJust)
-import           Data.Sequence                           ((|>))
-import qualified Data.Sequence                           as Seq (ViewR ((:>)),
+import           Data.Sequence                           (ViewR ((:>)), (|>))
+import qualified Data.Sequence                           as Seq (ViewR (EmptyR),
                                                                  empty,
                                                                  fromList,
                                                                  singleton,
@@ -888,6 +887,37 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
           , metadata' = [] }
 
         pure (no, (val, yes') : pairs)
+
+  FunctionCall { fName, fArgs }
+    | fName `elem` fmap pack [traceTypeVarString, traceStringTypeVarString] -> do
+      let strx = fName == pack traceStringTypeVarString
+      case Seq.viewr fArgs of
+        Seq.EmptyR -> internal "impossible trace"
+        _ :> e -> do
+          subst <- use substitutionTable
+          let
+            type' = case subst of
+              t:_ -> fillType t expType
+              []  -> expType
+          expression' $ case type' of
+            GBool  -> e { exp' = exp'
+              { fName = pack $ if strx
+                then traceStringBoolString
+                else traceBoolString }}
+            GChar  -> e { exp' = exp'
+              { fName = pack $ if strx
+                then traceStringCharString
+                else traceCharString }}
+            GInt   -> e { exp' = exp'
+              { fName = pack $ if strx
+                then traceStringIntString
+                else traceIntString }}
+            GFloat -> e { exp' = exp'
+              { fName = pack $ if strx
+                then traceStringFloatString
+                else traceFloatString }}
+            _ -> internal "impossible trace 2"
+
 
   FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc, fStructArgs } -> do
     arguments <- toList <$> mapM createArg fArgs

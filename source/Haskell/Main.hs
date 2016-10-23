@@ -171,8 +171,8 @@ main = do
   source <- readFile fileName
 
   let
-    tokens = lex fileName source
-    (r, state) = runParser program fileName (initialState fileName) tokens
+    (tokens, pragmas) = lex fileName source
+    (r, state) = runParser program fileName (initialState pragmas) tokens
 
   if null (state ^. errors)
     then case r of

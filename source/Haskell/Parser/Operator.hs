@@ -27,8 +27,7 @@ module Parser.Operator
   , card
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression (BinaryOperator (..), Expression (..),
-                                 Expression' (Binary, Unary, Value),
+import           AST.Expression (BinaryOperator (..), Expression (..), Expression' (Binary, Unary, Value, binOp, inner, lexpr, rexpr, unOp),
                                  UnaryOperator (..), Value (..))
 import           AST.Type       (Type (..), basic, (=:=))
 import           Common
@@ -48,13 +47,17 @@ ord' :: Char -> Int32
 ord' = fromIntegral . ord
 
 --------------------------------------------------------------------------------
-
 type UnaryOpType = Type -> Either String Type
 
-data Un = Un
-  { unSymbol :: UnaryOperator
-  , unType   :: UnaryOpType
-  , unFunc   :: Value -> Value }
+data Un
+  = Un
+    { unSymbol :: UnaryOperator
+    , unType   :: UnaryOpType
+    , unFunc   :: Value -> Value }
+  | Un''
+    { unSymbol :: UnaryOperator
+    , unType   :: UnaryOpType
+    , unFunc'' :: SourcePos -> Expression -> Parser (Maybe Expression) }
 
 type BinaryOpType = Type -> Type -> Either String Type
 
@@ -73,16 +76,37 @@ data Bin
     , binFunc'' :: Expression -> Expression -> Parser (Maybe Expression) }
 
 --------------------------------------------------------------------------------
+minInt32, maxInt32 :: Integer
+minInt32 = fromIntegral (minBound :: Int32)
+maxInt32 = fromIntegral (maxBound :: Int32)
+
+minChar, maxChar :: Integer
+minChar = 0
+maxChar = 255
+
+--------------------------------------------------------------------------------
 arithU :: Integral a
-       => (Int32 -> Int32)
+       => (Integer -> Integer)
        -> (Double -> Double)
-       -> (Value -> Value)
+       -> (SourcePos -> Expression -> Parser (Maybe Expression))
 arithU fi ff = f
   where
-    f (IntV   v) = IntV   .                        fi        $ v
-    f (FloatV v) = FloatV .                        ff        $ v
-    f _          = internal "bad arithUn precalc"
-
+    f p e@Expression { loc, exp' = Value v } = case v of
+      IntV v ->
+        let
+          r = fi (fromIntegral v)
+        in if minInt32 <= r && r <= maxInt32
+          then pure . Just $ e { exp' = Value . IntV . fromInteger $ r }
+          else do
+            putError p . UnknownError $ "A calculation overflowed."
+            pure Nothing
+      FloatV v ->
+        pure . Just $ e { exp' = Value . FloatV $ ff v }
+    f p e = pure . Just $ e
+      { loc  = let Location (_, to) = loc e in Location (p, to)
+      , exp' = Unary
+        { unOp  = UMinus
+        , inner = e }}
 
 arithUnType :: UnaryOpType
 arithUnType GInt   = Right GInt
@@ -92,7 +116,7 @@ arithUnType _      = Left $
   show GFloat
 
 uMinus :: Un
-uMinus = Un UMinus arithUnType $ arithU negate negate
+uMinus = Un'' UMinus arithUnType $ arithU negate negate
 
 --------------------------------------------------------------------------------
 boolU :: (Bool -> Bool)
@@ -120,6 +144,52 @@ arith fi ff = f
     f (FloatV v) (FloatV w) = FloatV (v `ff` w)
     f _          _          = internal "bad arithOp precalc"
 
+
+arith'' :: BinaryOperator
+        -> (Integer -> Integer -> Integer)
+        -> (Double -> Double -> Double)
+        -> (Expression -> Expression -> Parser (Maybe Expression))
+arith'' op fi ff = f
+  where
+    f e1@Expression {exp' = Value v} e2@Expression {exp' = Value w} =
+      case (v, w) of
+        (IntV   x, IntV   y) ->
+          let
+            r = fromIntegral x `fi` fromIntegral y
+            Location (pos, _) = loc e1
+          in if minInt32 <= r && r <= maxInt32
+            then pure . Just $ e1
+              { loc = loc e1 <> loc e2
+              , exp' = Value . IntV . fromInteger $ r }
+            else do
+              putError pos . UnknownError $ "A calculation overflowed."
+              pure Nothing
+        (CharV  x, CharV  y) ->
+          let
+            r = (fromIntegral . ord) x `fi` (fromIntegral . ord) y
+            Location (pos, _) = loc e1
+          in if minChar <= r && r <= maxChar
+            then pure . Just $ e1
+              { loc = loc e1 <> loc e2
+              , exp' = Value . CharV . chr . fromInteger $ r }
+            else do
+              putError pos . UnknownError $ "A calculation overflowed."
+              pure Nothing
+        (FloatV x, FloatV y) -> pure . Just $ e1
+          { loc  = loc e1 <> loc e2
+          , expConst = expConst e1 && expConst e2
+          , exp' = Value . FloatV $ x `ff` y }
+        _ -> internal "bad arithOp precalc"
+
+    f e1 e2 = pure . Just $ e1
+      { loc  = loc e1 <> loc e2
+      , expConst = expConst e1 && expConst e2
+      , exp' = Binary
+        { binOp = op
+        , lexpr = e1
+        , rexpr = e2 }}
+
+
 arithOpType :: BinaryOpType
 arithOpType GInt   GInt   = Right GInt
 arithOpType GChar  GChar  = Right GChar
@@ -130,12 +200,12 @@ arithOpType _      _      = Left $
   show (GFloat, GFloat)
 
 power, times, plus, bMinus, max, min :: Bin
-power  = Bin Power  arithOpType $ arith (^) (**)
-times  = Bin Times  arithOpType $ arith (*) (*)
-plus   = Bin Plus   arithOpType $ arith (+) (+)
-bMinus = Bin BMinus arithOpType $ arith (-) (-)
-max    = Bin Max    arithOpType $ arith P.max P.max
-min    = Bin Min    arithOpType $ arith P.min P.min
+power  = Bin'' Power  arithOpType $ arith'' Power  (^) (**)
+times  = Bin'' Times  arithOpType $ arith'' Times  (*) (*)
+plus   = Bin'' Plus   arithOpType $ arith'' Plus   (+) (+)
+bMinus = Bin'' BMinus arithOpType $ arith'' BMinus (-) (-)
+max    = Bin Max      arithOpType $ arith P.max P.max
+min    = Bin Min      arithOpType $ arith P.min P.min
 
 div, mod :: Bin
 div = Bin'' Div arithOpType $ fraction Div P.div (/)

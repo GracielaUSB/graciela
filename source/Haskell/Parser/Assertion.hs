@@ -28,7 +28,7 @@ import           Text.Megaparsec    (ParseError, between, lookAhead, manyTill,
 --------------------------------------------------------------------------------
 
 bound :: Parser (Maybe Expression)
-bound = between (match TokLeftBound) (match TokRightBound) bound'
+bound = between (match TokLeftBound) (match TokRightBound) (declarative bound')
   where
     bound' = do
       expr <- withRecovery recover expression
@@ -48,7 +48,7 @@ bound = between (match TokLeftBound) (match TokRightBound) bound'
 
 
 assert :: Token -> Token -> Parser (Maybe Expression)
-assert open close = between (match open) (match' close) assert'
+assert open close = between (match open) (match' close) (declarative assert')
   where
     assert' = do
       expr <- withRecovery recover expression

@@ -29,7 +29,6 @@ import           LLVM.State                 (currentStruct, fullDataTypes,
 import           Control.Lens               (use, (%=))
 import           Data.Array                 ((!))
 import           Data.Foldable              (toList)
-import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)

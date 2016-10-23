@@ -36,7 +36,6 @@ import           Control.Lens              (over, use, (%=), (.~), _2, _Just, _4
 import           Control.Monad             (foldM, forM_, unless, void, when,
                                             zipWithM_)
 import           Control.Monad.Trans.Class (lift)
-import           Data.Functor              (($>))
 import           Data.Map                  as Map (insert, lookup)
 import           Data.Sequence             (Seq, (|>))
 import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
@@ -238,7 +237,7 @@ info' isStruct pos name t expr constness = if isStruct
     Just (_ , fields, _, dFields) <- use currentStruct
     let
       f l = (fromIntegral l, t, constness, expr)
-      fields'    = Map.insert name (f $ length fields) fields 
+      fields'    = Map.insert name (f $ length fields) fields
       dFields' l = Map.insert name (f l) dFields
     case name `Map.lookup` fields of
       Just (p, t', c, _)

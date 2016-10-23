@@ -22,6 +22,9 @@ module Parser.State
   , fullDataTypes
   , initialState
   , stringIds
+  , pragmas
+  , isDeclarative
+
   , crName
   , crPos
   , crParams
@@ -34,9 +37,9 @@ import           AST.Definition
 import           AST.Struct
 import           AST.Type
 import           Error
-import           Location
 import           SymbolTable
 import           Token
+import           Common
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses)
 import           Data.Map.Strict       (Map)
@@ -78,13 +81,14 @@ data State = State
   , _existsDT      :: Bool
   , _dataTypes     :: Map Text Struct
   , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
-  , _stringIds     :: Map Text Int }
+  , _stringIds     :: Map Text Int
+  , _pragmas       :: Set Pragma
+  , _isDeclarative :: Bool }
 
 makeLenses ''State
 
-
-initialState :: FilePath -> State
-initialState path  = State
+initialState :: Set Pragma -> State
+initialState pragmas = State
   { _errors        = Seq.empty
   , _symbolTable   = emptyGlobal
   , _definitions   = Map.empty
@@ -98,4 +102,5 @@ initialState path  = State
   , _dataTypes     = Map.empty
   , _fullDataTypes = Map.empty
   , _stringIds     = Map.empty
-  }
+  , _pragmas       = pragmas
+  , _isDeclarative = LogicAnywhere `elem` pragmas }

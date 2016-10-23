@@ -51,7 +51,6 @@ import           Control.Monad          (foldM, unless, void, when, zipWithM)
 import           Control.Monad.Identity (Identity)
 import qualified Data.Array             as Array (listArray)
 import           Data.Foldable          (asum, foldMap)
-import           Data.Functor           (($>))
 import qualified Data.List              as L (find)
 import qualified Data.Map.Strict        as Map (lookup)
 import           Data.Monoid            (First (..))
@@ -329,7 +328,7 @@ reading = do
     fileFrom = do
       loc <- match TokFrom
       str <- lookAhead stringLit <|>
-             (putError (pos loc) (UnknownError  "The name of a file must be a string") >> lookAhead stringLit)
+             (putError (pos loc) (UnknownError "The name of a file must be a string") >> lookAhead stringLit)
       expression
       pure str
 
@@ -695,7 +694,7 @@ procedureCall = do
     checkType' _ _ _ _ (Nothing, _) = pure Nothing
     checkType' typeArgs pName pPos acc
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
-        let 
+        let
           fType = fillType typeArgs pType
         in if expType =:= fType
           then case exp' of

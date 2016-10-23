@@ -166,7 +166,7 @@ hasTypeVar _                          = False
 
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
-highLevel = GOneOf [GSet GAny, GMultiset GAny, GSeq GAny, GFunc GAny GAny, GRel GAny GAny]
+highLevel = GOneOf [GSet GAny, GMultiset GAny, GSeq GAny, GFunc GAny GAny, GRel GAny GAny, GATuple]
 
 -- | Operator for checking whether two types match.
 (=:=) :: Type -> Type -> Bool
