@@ -38,12 +38,11 @@ end
 
 
 type Dicc(T0, T1) implements Diccionario(T0, T1) begin
-  const MAX := 100 : int;
   var   clave      : array [MAX] of T0;
   var   valor      : array [MAX] of T1;
   var   tam        : int;
 
-  {repinv MAX > 0 ∧ 0 ≤ tam ∧ tam ≤ MAX  ∧
+  {repinv MAX > 0 ∧ 0 ≤ tam ∧ tam ≤ MAX ∧
     (% ∀ i : int | 0 ≤ i ∧ i < tam
       | (% ∀ j : int | 0 ≤ j ∧ j < tam ∧ i != j | clave[i] != clave[j] %)
     %)
@@ -56,8 +55,8 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     tabla := func({i : int | 0 ≤ i ∧ i < tam | (clave[i], valor[i])})
   }
   
-  proc copiarClaveValor ( in d : Dicc(T0,T1)
-                        , in m : int
+  proc copiarClaveValor ( in d       : Dicc(T0,T1)
+                        , const m    : int
                         , out clave' : array[m] of T0
                         , out valor' : array[m] of T1)
     {pre true pre}
@@ -70,6 +69,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
       do i < d.tam -> clave'[i] := d.clave[i]
                     ; valor'[i] := d.valor[i]
                     ; i := i + 1
+
       od 
     ⟧
 
@@ -171,28 +171,32 @@ func rec ( i : int) -> int
   {pre  true   pre}
   {post true post}
   {bound i bound}
-  |[ if i > 0     -> rec(i-1)
+  |[ if i > 0     -> rec(i-1)*2
      [] otherwise -> 1
      fi
   ]|
 
 main
-  |[ var d : Dicc(char, char)
+  |[ var d : Dicc(int, int)
    ; var b : boolean
    ; var r : char
+   ; var a : int*
+   ; skip
    ; write(d.MAX)
    ; crear(100,d)
-   ; agregar(d, 'c', '$')
-   ; agregar(d, 'a', '%')
-   ; agregar(d, 'b', '&')
-   ; existe(d,'c',b)
-   ; buscar(d,'c',r) 
-   ; writeln(b, " -> ", r)
-   ; eliminar(d,'a')
-   ; writeln("Jamon = ",rec(1))
-   // ; existe(d,1,b)
-   ; if     b     -> buscar(d,'c',r) 
-                   ; writeln(b, " ->", r)
+   ; agregar(d, 1, 2)
+   ; agregar(d, 2, 1)
+   ; agregar(d, 3, 4)
+   ; existe(d,1,b)
+   ; new(a)
+   ; buscar(d,1,*a) 
+   ; writeln(b, " -> ", *a)
+   ; eliminar(d,3)
+   ; writeln("Jamon = ",rec(2))
+   
+   ; existe(d,1,b)
+   ; if     b     -> buscar(d,2,*a) 
+                   ; writeln(b, " ->", *a)
      [] otherwise -> writeln("Soy estupido, no hay 1") 
      fi
   ]|

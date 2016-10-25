@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PostfixOperators  #-}
+{-# LANGUAGE TupleSections     #-}
 
 module LLVM.Struct
   ( defineStruct
@@ -16,7 +17,7 @@ import           LLVM.Abort                         (abort, abortString)
 import qualified LLVM.Abort                         as Abort (Abort (..))
 import           LLVM.Definition
 import           LLVM.Expression
-import           LLVM.Instruction                   (instruction)
+import           LLVM.Instruction                   (instruction, copyArray)
 import           LLVM.Monad
 import           LLVM.State
 import           LLVM.Type
@@ -26,7 +27,7 @@ import           Location
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                       (makeLenses, use, (%=),
-                                                     (+=), (.=))
+                                                     (+=), (.=), _head)
 import           Data.List                          (sortOn)
 import           Data.Map.Strict                    (Map)
 import qualified Data.Map.Strict                    as Map
@@ -34,7 +35,7 @@ import qualified Data.Map.Strict                    as Map
 import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
                                                      (|>))
 import qualified Data.Sequence                      as Seq
-import           Data.Text                          (Text, unpack)
+import           Data.Text                          (Text, unpack, pack)
 import           LLVM.General.AST                   (BasicBlock (..),
                                                      Definition (..),
                                                      Parameter (..),
@@ -80,6 +81,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
+        defaultCopy name structType typeMap
         defineStructInv CoupInvariant name structType coupinv
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
@@ -101,11 +103,12 @@ defaultConstructor name structType typeMap = do
 
   openScope
   selfName <- insertVar "_self"
+  dAllocName <- insertVar "dinamicAlloc"
 
   let
-    self = LocalReference structType selfName
+    self   = LocalReference structType selfName
+    dAlloc = LocalReference boolType dAllocName
     fields = toList structFields <> toList structAFields
-
   forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
@@ -119,10 +122,11 @@ defaultConstructor name structType typeMap = do
             , address  = self
             , indices  = ConstantOperand . C.Int 32 <$> [0, field]
             , metadata = []}
-
+        
         defaultValue <- case expr of
           Nothing -> value filledT
           Just e  -> expression' e
+
 
         t' <- toLLVMType filledT
         addInstruction $ Do Store
@@ -133,15 +137,14 @@ defaultConstructor name structType typeMap = do
             , alignment = 4
             , metadata  = []
             }
-
-    -----------------------------------------------------------------------------
       t@GArray { dimensions, innerType } -> do
         name <- newUnLabel
-
+        
         dims <- mapM expression dimensions
-
+        
         innerSize <- sizeOf innerType
-        num <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
+        numD <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
+        numS <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
 
         inner <- toLLVMType innerType
         garrT <- toLLVMType t
@@ -153,17 +156,30 @@ defaultConstructor name structType typeMap = do
             , metadata = []}
 
         iarr <- newUnLabel
+    
+        dAllocTrue  <- newLabel "useMalloc"
+        dAllocFalse <- newLabel "allocOnStack"
+        endLabel    <- newLabel "endArrayAlloc"
+        -- Create the conditional branch
+        terminate CondBr
+          { condition = dAlloc
+          , trueDest  = dAllocTrue
+          , falseDest = dAllocFalse
+          , metadata' = [] }
+
+
+        let arrT = iterate (ArrayType 1) inner !! length dimensions
+
+        (dAllocTrue #)
 
         addInstruction $ iarr := Call
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable pointerType mallocString
-          , arguments          = [(num, [])]
+          , arguments          = [(numD, [])]
           , functionAttributes = []
           , metadata           = [] }
-
-        let arrT = iterate (ArrayType 1) inner !! length dimensions
 
         iarrCast <- newUnLabel
         addInstruction $ iarrCast := BitCast
@@ -189,6 +205,52 @@ defaultConstructor name structType typeMap = do
 
         void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
 
+        terminate Br
+          { dest      = endLabel
+          , metadata' = [] }
+
+
+        (dAllocFalse #)
+
+        iarr <- newUnLabel
+        addInstruction $ iarr := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType mallocTCString
+          , arguments          = [(numD, [])]
+          , functionAttributes = []
+          , metadata           = [] }
+
+        iarrCast <- newUnLabel
+        addInstruction $ iarrCast := BitCast
+          { operand0 = LocalReference (ptr inner) iarr
+          , type'    = ptr arrT
+          , metadata = [] }
+
+        arrPtr <- newUnLabel
+
+        addInstruction $ arrPtr := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference garrT name
+          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , metadata = [] }
+
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = LocalReference (ptr arrT) arrPtr
+          , value          = LocalReference (ptr arrT) iarrCast
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+        void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
+
+        terminate Br
+          { dest      = endLabel
+          , metadata' = [] }
+
+        (endLabel #)
       _ -> pure ()
     pure ()
 
@@ -198,11 +260,13 @@ defaultConstructor name structType typeMap = do
   blocks' <- use blocks
   blocks .= Seq.empty
 
-  let selfParam = Parameter (ptr structType) selfName []
+  let 
+    selfParam   = Parameter (ptr structType) selfName []
+    dAllocParam = Parameter boolType dAllocName []
 
   addDefinition $ GlobalDefinition functionDefaults
         { name        = Name procName
-        , parameters  = ([selfParam],False)
+        , parameters  = ([selfParam, dAllocParam],False)
         , returnType  = voidType
         , basicBlocks = toList blocks' }
 
@@ -321,6 +385,104 @@ defaultDestructor name structType typeMap = do
   addDefinition $ GlobalDefinition functionDefaults
         { name        = Name procName
         , parameters  = ([selfParam],False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks' }
+
+defaultCopy :: String -> LLVM.Type -> TypeArgs -> LLVM ()
+defaultCopy name structType typeMap = do
+  let
+    procName = "copy" <> name
+  proc <- newLabel procName
+
+  (proc #)
+  Just Struct { structFields, structAFields } <- use currentStruct
+
+  openScope
+  sourceStructName <- insertVar "sourceStruct"
+  destStructName   <- insertVar "destStruct"
+
+  symTable . _head %= Map.insert (pack "_self") sourceStructName
+
+  let
+    sourceStruct = LocalReference structType sourceStructName
+    destStruct   = LocalReference structType destStructName
+    fields = toList structFields <> toList structAFields
+
+  forM_ fields $ \(field, t, _, expr) -> do
+    let
+      filledT = fillType typeMap t
+    type' <- toLLVMType filledT
+    sourcePtr   <- newLabel "sourcePtr"
+    destPtr     <- newLabel "destPtr"
+
+    addInstruction $ sourcePtr := GetElementPtr
+        { inBounds = False
+        , address  = sourceStruct
+        , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+        , metadata = []}
+
+    addInstruction $ destPtr := GetElementPtr
+        { inBounds = False
+        , address  = destStruct
+        , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+        , metadata = []}
+
+    case filledT of
+      t@GArray { dimensions, innerType } -> do
+        
+        destArr      <- newLabel "destArr"
+
+        copyArray t 
+          (LocalReference (ptr type') sourcePtr)  
+          (LocalReference (ptr type') destPtr)
+
+      t | t =:= GADataType -> do
+
+        types <- mapM toLLVMType (toList . typeArgs $ t)
+        let 
+          postfix = llvmName (typeName t) types  
+
+        addInstruction $ Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType $ "copy" <> postfix
+          , arguments          = (,[]) <$> [ LocalReference (ptr type') sourcePtr
+                                           , LocalReference (ptr type') destPtr ]
+          , functionAttributes = []
+          , metadata           = [] }
+
+      _ -> do   
+        sourceValue <- newLabel "sourceArr"
+        addInstruction $ sourceValue := Load
+          { volatile  = False
+          , address   = LocalReference (ptr type') sourcePtr
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference (ptr type') destPtr
+          , value    = LocalReference type' sourceValue
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = []
+          }  
+        pure ()
+
+  terminate $ Ret Nothing []
+  closeScope
+
+  blocks' <- use blocks
+  blocks .= Seq.empty
+
+  let sourceParam = Parameter (ptr structType) sourceStructName []
+  let destParam   = Parameter (ptr structType) destStructName   []
+
+  addDefinition $ GlobalDefinition functionDefaults
+        { name        = Name procName
+        , parameters  = ([sourceParam, destParam],False)
         , returnType  = voidType
         , basicBlocks = toList blocks' }
 

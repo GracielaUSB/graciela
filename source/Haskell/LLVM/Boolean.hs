@@ -335,7 +335,7 @@ boolean true false e@Expression { loc, exp' } = do
             | type' =:= basicT -> expression x
             | otherwise -> do
               label <- newLabel "argCast"
-              ref   <- objectRef (theObj exp') False
+              ref   <- objectRef (theObj exp')
 
               type' <- ptr <$> toLLVMType type'
               addInstruction $ label := BitCast

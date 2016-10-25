@@ -10,7 +10,6 @@ Lexical analysis module for Graciela,
 defines all possible Graciela tokens and transforms a text into a
 list of tokens.
 -}
-
 {-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_HADDOCK show-extensions #-}
 
@@ -64,7 +63,6 @@ symbol w tok = try . lexeme $
   string w *>
   pure tok
 
-
 reserved :: String -> Token -> Lexer TokenPos
 reserved w tok = try . lexeme $
   string w *>
@@ -114,7 +112,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "in"         TokIn
       <|> reserved "out"        TokOut
       <|> reserved "inout"      TokInOut
-      -- <|> reserved "ref"        TokRef
+      <|> reserved "ref"        TokRef
       <|> symbol   ":="         TokAssign
       <|> symbol   "\8788"      TokAssign -- ≔
 

@@ -104,13 +104,11 @@ mainDefinition block files = do
     , metadata           = [] }
 
   mapM_ closeFile files
-  pending <- use pendingInsts
-  addInstructions pending
+
   terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
 
   blocks' <- use blocks
   blocks .= Seq.empty
-  pendingInsts .= Seq.empty
   addDefinition $ LLVM.GlobalDefinition functionDefaults
     { name        = Name "main"
     , parameters  = ([], False)
@@ -174,6 +172,7 @@ definition
   Definition { defName, def', pre, post, bound, defLoc = Location (pos, _to) }
   = case def' of
     FunctionDef { funcBody, funcRetType, funcParams, funcRecursive } -> do
+      doingFunction .= True
       func <- newLabel $ "func" <> unpack defName
       (func #)
 
@@ -213,9 +212,8 @@ definition
 
           case maybeProc of
             Just Definition{ pre = pre'} ->
-              traceM "siii" >>
               preconditionAbstract preOperand pre' pos
-            _ -> traceM "Nooo" >> pure ()
+            _ -> pure ()
           
           returnOp <- body
 
@@ -244,8 +242,6 @@ definition
 
       postcondition preOperand post
 
-      pending <- use pendingInsts
-      addInstructions pending
 
       terminate Ret
         { returnOperand = Just returnOperand
@@ -254,7 +250,6 @@ definition
       let name = Name $ unpack defName <> postFix
       blocks' <- use blocks
       blocks .= Seq.empty
-      pendingInsts .= Seq.empty
 
       addDefinition $ LLVM.GlobalDefinition functionDefaults
         { name        = name
@@ -263,6 +258,7 @@ definition
         , basicBlocks = toList blocks'
         }
       closeScope
+      doingFunction .= False
 
 
     ProcedureDef { procDecl, procParams, procBody, procRecursive } -> do
@@ -270,8 +266,8 @@ definition
       (proc #)
 
       openScope
-
-      params <- mapM makeParam . toList $ procParams
+      
+      params <- mapM (makeParam False) . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
       mapM_ arrAux procParams
@@ -283,8 +279,8 @@ definition
       let 
         dts  = filter (\(_, t, _) -> t =:= T.GADataType) . toList $ procParams
         body = do 
-          mapM_ (callInvariant "inv"     cond) dts
           mapM_ (callInvariant "coupInv" cond) dts
+          mapM_ (callInvariant "inv"     cond) dts
           mapM_ (callInvariant "repInv"  cond) dts
 
           instruction procBody
@@ -324,8 +320,6 @@ definition
           pure $ unpack defName <> postFix
       
       postcondition cond post
-      pending <- use pendingInsts
-      addInstructions pending
       
       terminate $ Ret Nothing []
 
@@ -339,30 +333,27 @@ definition
         }
 
       blocks .= Seq.empty
-      pendingInsts .= Seq.empty
       closeScope
 
     GracielaFunc {} -> pure ()
 
   where
-    makeParam' (name, t) = makeParam (name, t, T.In)
+    makeParam' (name, t) = makeParam True (name, t, T.In)
 
-    makeParam (name, t, mode) = do
+    makeParam isFunc (name, t, mode)  = do
       substTable <- use substitutionTable
       let
         t' = if null substTable
               then t
               else T.fillType (head substTable) t
 
-      if t' =:= T.GOneOf [T.GBool, T.GChar, T.GInt, T.GFloat] && mode == T.In
-        then do
-          name' <- insertVar name
-          t'    <- toLLVMType t
+      name' <- insertVar name
+      t'    <- toLLVMType t
+      if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
+        then do 
+          traceM $ show t 
           pure $ Parameter t' name' []
-        else do
-          name' <- insertVar name
-          t'    <- toLLVMType t
-          pure $ Parameter (ptr t') name' []
+        else pure $ Parameter (ptr t') name' []
 
     arrAux' (arr, t) = arrAux (arr, t, T.In)
 
@@ -407,6 +398,33 @@ definition
             , metadata' = [] }
 
           (arrNotOk #)
+          addInstruction $ Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType writeIString
+            , arguments          = [(paramDim,[])]
+            , functionAttributes = []
+            , metadata           = [] } 
+
+          addInstruction $ Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType lnString 
+            , arguments          = []
+            , functionAttributes = []
+            , metadata           = [] } 
+
+          addInstruction $ Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType writeIString
+            , arguments          = [(LocalReference i32 argDim,[])]
+            , functionAttributes = []
+            , metadata           = [] } 
+
           abort Abort.BadArrayArg (L.pos . loc $ dim)
 
           (arrOk #)
@@ -652,7 +670,11 @@ preDefinitions files = do
       defineFunction randomInt [] intType
 
 
-
+    , defineFunction copyArrayString [ parameter ("size"     , intType)
+                                     , parameter ("arrSource", pointerType)
+                                     , parameter ("arrDest"  , pointerType)
+                                     , parameter ("sizeT"    , intType) ]
+                                     voidType
     -- Trace pseudo Functions
     , defineFunction traceIntString         intParam intType
     , defineFunction traceFloatString       floatParam floatType
@@ -929,7 +951,8 @@ preDefinitions files = do
     , defineFunction readFloatStd  [] floatType
 
     -- Malloc
-    , defineFunction mallocString intParam pointerType
+    , defineFunction mallocString   intParam pointerType
+    , defineFunction mallocTCString intParam pointerType
     , defineFunction freeString [parameter ("x", pointerType)] voidType
 
 

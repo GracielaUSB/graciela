@@ -30,7 +30,7 @@ import           Token
 import           Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens        (over, use, (%=), (.=), (.~), (^.), _2,
-                                      _Just, _4)
+                                      _Just, _4, _3)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       as F (concat)
@@ -77,6 +77,7 @@ abstractDataType = do
     currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
+    coupling .= True
     decls' <- sequence <$> (abstractDeclaration True `endBy` match' TokSemicolon)
 
     cs <- use currentStruct
@@ -112,6 +113,7 @@ abstractDataType = do
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
     typeVars .= []
+    coupling .= False
     currentStruct .= Nothing
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
@@ -169,8 +171,9 @@ dataType = do
           decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
           cs <- use currentStruct
           let
+            hlField (_,ft,_,_) = not (ft =:= highLevel)
             dFields   =  cs ^. _Just . _4 
-            allFields = (cs ^. _Just . _2) `Map.difference` abstFields
+            allFields = Map.filter hlField (cs ^. _Just . _2) 
             
 
           repinv'  <- repInv
@@ -183,6 +186,7 @@ dataType = do
           getPosition >>= \pos -> symbolTable %= openScope pos
 
           procs <- catMaybes . toList <$> many (procedure <|> function)
+          -- let procs = toList $ cs ^. _Just . _3
           match' TokEnd
 
           to <- getPosition
@@ -210,8 +214,8 @@ dataType = do
               let
                 struct = Struct
                   { structBaseName = name
-                  , structFields   = allFields  `Map.union` dFields
-                  , structAFields  = abstFields `Map.difference` dFields
+                  , structFields   = allFields
+                  , structAFields  = abstFields `Map.difference` allFields
                   , structSt       = st
                   , structProcs    = Map.fromList $ (\d -> (defName d, d)) <$> procs
                   , structLoc      = Location(from,to)

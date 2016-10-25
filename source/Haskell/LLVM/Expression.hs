@@ -918,15 +918,15 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = case exp' 
           then
             expression' expr
           else do
-            label <- newLabel "argCast"
-            ref   <- objectRef (theObj exp') False
+            arg <- newLabel "argCast"
+            ref   <- objectRef (theObj exp')
 
-            type' <- ptr <$> toLLVMType type'
-            addInstruction $ label := BitCast
+            t <- ptr <$> toLLVMType type'
+            addInstruction $ arg := BitCast
               { operand0 = ref
-              , type'    = type'
+              , type'    = t
               , metadata = [] }
-            pure $ LocalReference type' label
+            pure $ LocalReference t arg
       basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
 
   Quantification { } ->

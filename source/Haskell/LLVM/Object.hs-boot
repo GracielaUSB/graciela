@@ -5,4 +5,4 @@ import LLVM.Monad (LLVM)
 import LLVM.General.AST.Operand (Operand)
 
 object :: Object -> LLVM Operand
-objectRef :: Object -> Bool -> LLVM Operand
+objectRef :: Object -> LLVM Operand

@@ -20,7 +20,7 @@ import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
 import           AST.Struct                (Struct (..), fillTypes)
 import           AST.Type                  (ArgMode (..), Type (..),
-                                            fillType, hasDT, (=:=))
+                                            fillType, hasDT, (=:=), highLevel)
 import           Common
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
@@ -438,7 +438,7 @@ variable = do
   coup <- lift $ use coupling
 
   abstractSt <- case maybeStruct of
-    Just (GDataType _ (Just abstName) _, _, _, _) | coup -> do
+    Just (GDataType _ (Just abstName) _, _, _, _) -> do
       adt <- getStruct abstName
       case adt of
         Just abst -> pure $ structSt abst
@@ -502,11 +502,15 @@ variable = do
 
       SelfVar { _selfType, _selfConst } -> do
         struct <- lift $ use currentStruct
-        let
-          expr = case struct of
-            Just (GDataType structName' abstract t, mapTypes, _, _) ->
-              case name `Map.lookup` mapTypes of
-                Just (i, _, _, _) -> Expression
+        expr <- case struct of
+          Just (GDataType structName' abstract t, mapTypes, _, _) ->
+            case name `Map.lookup` mapTypes of
+              Just (i, _, _, _) -> do
+                when (_selfType =:= highLevel && not coup) . putError (pos loc) .
+                  UnknownError $ "Abstract field `" <> unpack name <> 
+                  "` can only be used\n\tinside the abstract type or the coupling relation"
+
+                pure Expression
                   { loc
                   , expType  = _selfType
                   , expConst = _selfConst
@@ -524,9 +528,9 @@ variable = do
                             { O.name = pack "_self"
                             , mode = Nothing }}}}}}
 
-                Nothing -> error $ "Internal error: Data Type variable `" <>
-                            unpack name <>"` not found"
-            Nothing -> error "Internal error: Data Type not found"
+              Nothing -> error $ "Internal error: Data Type variable `" <>
+                          unpack name <>"` not found"
+          Nothing -> error "Internal error: Data Type not found"
 
         rangevars <- get
 
@@ -550,9 +554,7 @@ variable = do
           expr = Expression
             { E.loc
             , expType  = _argType
-            , expConst = case _argMode of
-              In -> True
-              _  -> False
+            , expConst = _argMode == Const 
             , exp'     = Obj
               { theObj = Object
                 { O.loc
@@ -1187,7 +1189,7 @@ call = do
                       Nothing -> do
                         putError from . UnknownError $
                           "Data Type `" <> unpack name <>
-                          "` does not have a procedure called `" <>
+                          "` does not have a function called `" <>
                           unpack fName <> "`"
                         return Nothing
 
@@ -1197,7 +1199,7 @@ call = do
               -- Parser.State `currentFunc`.
               currentFunction <- lift (use currentFunc)
               case currentFunction of
-                Just cr@CurrentRoutine {}
+                Just cr@CurrentRoutine { _crTypeArgs }
                   | cr^.crName == fName && cr^.crRecAllowed -> do
                     let
                       nArgs = length args
@@ -1211,15 +1213,15 @@ call = do
 
                         lift $ (currentFunc . _Just . crRecursive) .= True
 
-                        fStructArgs <- do
-                          cs'      <- lift $ use currentStruct
-                          typeArgs <- lift $ use typeVars
-                          case cs' of
-                            Nothing -> pure Nothing
-                            Just (GDataType name _ _, _, _, _) -> pure $ Just
-                              ( name
-                              , Array.listArray (0, length typeArgs - 1) $
-                                zipWith GTypeVar [0..] typeArgs)
+                        -- fStructArgs <- do
+                        --   cs'      <- lift $ use currentStruct
+                        --   typeArgs <- lift $ use typeVars
+                        --   case cs' of
+                        --     Nothing -> pure Nothing
+                        --     Just (GDataType name _ _, _, _, _) -> pure $ Just
+                        --       ( name
+                        --       , Array.listArray (0, length typeArgs - 1) $
+                        --         zipWith GTypeVar [0..] typeArgs)
 
                         pure $ case args' of
                           Nothing -> Nothing
@@ -1234,7 +1236,7 @@ call = do
                                   , fArgs
                                   , fRecursiveCall = True
                                   , fRecursiveFunc = True
-                                  , fStructArgs }}
+                                  , fStructArgs    = _crTypeArgs}}
                             in Just (expr, ProtoNothing, taint)
                       else do
                         putError from BadFuncNumberOfArgs

@@ -119,7 +119,8 @@ instance Treelike Instruction where
               (toList $ (\(x, m) -> Node (show m) [toTree x] ) <$> pArgs) ]
 
       | otherwise ->
-        let rec = if pRecursiveProc then "Recursive " else ""
+        let 
+          rec = if pRecursiveProc then "Recursive " else ""
         in Node ("Call " <> rec <> " Procedure `" <> unpack pName <> "` " <> show instLoc)
           [ if null pArgs
             then leaf "No arguments"

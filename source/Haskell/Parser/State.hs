@@ -57,6 +57,7 @@ data CurrentRoutine ps t = CurrentRoutine
   , _crPos        :: SourcePos
   , _crParams     :: ps
   , _crType       :: t
+  , _crTypeArgs   :: Maybe (Text,TypeArgs)
   , _crRecAllowed :: RecursionAllowed
   , _crRecursive  :: Bool }
 
@@ -77,7 +78,7 @@ data State = State
   , _typeVars      :: [Text]
   , _existsDT      :: Bool
   , _dataTypes     :: Map Text Struct
-  , _fullDataTypes :: Map Text (Struct, [TypeArgs]) {-Struct)-}
+  , _fullDataTypes :: Map Text [TypeArgs] {-Struct)-}
   , _stringIds     :: Map Text Int }
 
 makeLenses ''State

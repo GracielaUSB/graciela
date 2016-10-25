@@ -27,10 +27,10 @@ import qualified AST.Expression         as E (loc)
 import           AST.Instruction        (Guard, Instruction (..),
                                          Instruction' (..))
 import           AST.Object
-import qualified AST.Object             as O (loc)
+import qualified AST.Object             as O (loc, inner)
 import           AST.Struct             (Struct (..))
 import           AST.Type               (ArgMode (..), Type (..), fillType,
-                                         hasDT, notIn, (=:=))
+                                         hasDT, notIn, (=:=), hasTypeVar)
 import           Common
 import           Entry
 import           Error
@@ -53,7 +53,7 @@ import qualified Data.Array             as Array (listArray)
 import           Data.Foldable          (asum, foldMap)
 import           Data.Functor           (($>))
 import qualified Data.List              as L (find)
-import qualified Data.Map.Strict        as Map (lookup)
+import qualified Data.Map.Strict        as Map (lookup, toList)
 import           Data.Monoid            (First (..))
 import           Data.Sequence          (Seq, (<|), (|>))
 import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
@@ -183,7 +183,7 @@ assign = do
     checkType acc (Just lval, Just rval) = case (lval,rval) of
       ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
-        | notIn o && not expConst ->
+        | not expConst || (isIn o)->
           if t1 =:= t2 && assignable t1
             then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
@@ -194,20 +194,20 @@ assign = do
                 show t2 <> " to a variable of type " <>
                 show t1 <> "."
               pure Nothing
-        | expConst -> do
+        | otherwise -> do
           putError from1 . UnknownError $
             "The constant `" <> show o <> "` cannot be the target of an \
             \assignment."
-          pure Nothing
-        | otherwise -> do
-          putError from1 . UnknownError $
-            "The variable `" <> show o <> "` cannot be the target of an \
-            \assignment because it has mode `In`."
           pure Nothing
       (Expression { loc = Location (from,_) }, Expression {}) -> do
         putError from $ UnknownError
           "An expression cannot be the target of an assignment."
         pure Nothing
+
+    isIn :: Object -> Bool
+    isIn Object{ obj' } = case obj' of
+      Variable {mode} -> mode == Just In
+      _ -> isIn (O.inner obj')
 
     assignable a = case a of
       (GTuple _ _) -> False
@@ -561,11 +561,10 @@ procedureCall = do
                 pure Nothing
           Just (GFullDataType name typeArgs') -> do
             use dataTypes >>= \fdts -> case name `Map.lookup` fdts of
-              Nothing -> error
-                "internal error: impossible call to struct procedure"
+              Nothing -> internal $ "impossible call to struct procedure " <> (show $ fst <$> Map.toList fdts)
               Just Struct { structProcs } -> do
                 case procName `Map.lookup` structProcs of
-                  Just Definition { def' = ProcedureDef { procParams }} -> do
+                  Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                     cs <- use currentStruct
                     let
                       nParams = length procParams
@@ -587,10 +586,11 @@ procedureCall = do
                           { pName = procName
                           , pArgs = args''
                           , pRecursiveCall = False
-                          , pRecursiveProc = False
+                          , pRecursiveProc = procRecursive
                           , pStructArgs    = Just (name, typeArgs) } }
 
                   _ -> do
+                    procs <- use definitions
                     putError from . UnknownError $
                       "Data Type `" <> unpack name <>
                       "` does not have a procedure called `" <>
@@ -600,7 +600,7 @@ procedureCall = do
           Just t@(GDataType name _ _) -> do
             Just (GDataType {typeArgs}, _, structProcs, _) <- use currentStruct
             case procName `Map.lookup` structProcs of
-              Just Definition { def' = ProcedureDef { procParams }} -> do
+              Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                 let
                   nParams = length procParams
 
@@ -621,6 +621,7 @@ procedureCall = do
                       , pStructArgs    = Just (name, typeArgs) } }
 
               Nothing -> do
+                procs <- use definitions
                 putError from . UnknownError $
                   "Data Type `" <> unpack name <>
                   "` does not have a procedure called `" <>
@@ -634,7 +635,7 @@ procedureCall = do
       -- Parser.State `currentProc`.
       currentProcedure <- use currentProc
       case currentProcedure of
-        Just cr@CurrentRoutine {}
+        Just cr@CurrentRoutine { _crTypeArgs}
           | cr^.crName == procName && cr^.crRecAllowed -> do
             let
               nParams = length (cr^.crParams)
@@ -644,15 +645,15 @@ procedureCall = do
 
                 currentProc . _Just . crRecursive .= True
 
-                pStructArgs <- do
-                  cs' <- use currentStruct
-                  typeArgs <- use typeVars
-                  case cs' of
-                    Nothing -> pure Nothing
-                    Just (GDataType name _ _, _, _, _) -> pure . Just $
-                      ( name
-                      , Array.listArray (0, length typeArgs - 1) $
-                        zipWith GTypeVar [0..] typeArgs)
+                -- pStructArgs <- do
+                --   cs' <- use currentStruct
+                --   typeArgs <- use typeVars
+                --   case cs' of
+                --     Nothing -> pure Nothing
+                --     Just (GDataType name _ _, _, _, _) -> pure . Just $
+                --       ( name
+                --       , Array.listArray (0, length typeArgs - 1) $
+                --         zipWith GTypeVar [0..] typeArgs)
 
 
                 pure $ case args' of
@@ -664,7 +665,7 @@ procedureCall = do
                       , pArgs
                       , pRecursiveCall = True
                       , pRecursiveProc = True
-                      , pStructArgs }}
+                      , pStructArgs    = _crTypeArgs }}
               else do
                 putError from BadProcNumberOfArgs
                   { pName = procName
@@ -697,14 +698,14 @@ procedureCall = do
       (Just e@Expression { E.loc = Location (from, _), expType, exp'}, (name, pType, mode)) =
         let 
           fType = fillType typeArgs pType
-        in if expType =:= fType
+        in if expType =:= fType && (hasTypeVar fType || not (hasTypeVar expType))
           then case exp' of
-            Obj {}
-              | mode `elem` [Out, InOut] ->
-                pure $ (|> (e, mode)) <$> acc
-            _
-              | mode == In ->
-                pure $ (|> (e, mode)) <$> acc
+            Obj {} | mode `elem` [Out, InOut, Ref] -> do
+              pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
+            
+            _ | mode `elem` [In, Const] -> do
+              pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
+            
             _ -> do
               putError from . UnknownError $
                 "The parameter `" <> unpack name <> "` has mode " <>

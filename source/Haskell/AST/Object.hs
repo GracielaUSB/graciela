@@ -36,6 +36,7 @@ data Object
     , obj'    :: Object' }
   deriving (Eq)
 
+
 instance Show Object where
   show Object { obj' } = case obj' of
     Variable {name}           -> unpack name
@@ -44,10 +45,10 @@ instance Show Object where
     Deref {inner}             -> "*" <> show inner
 
 instance Treelike Object where
-  toTree Object { loc, obj' } = case obj' of
+  toTree Object { loc, obj', objType } = case obj' of
 
     Variable { name, mode } ->
-      leaf $ "Variable "<> argmode <> " `" <> unpack name <> "` " <> show loc
+      leaf $ "Variable "<> argmode <> " ("<> show objType<>") `" <> unpack name <> "` " <> show loc
       where argmode = case mode of; Just x -> show x; _ -> ""
 
     Member { inner, fieldName } ->

@@ -44,8 +44,9 @@ getVariableName :: Text -> LLVM Name
 getVariableName name =
   getVariableName' <$> use symTable
   where
-    getVariableName' [] = error $
-      "internal error: undefined variable `" <> unpack name <> "`."
+    getVariableName' [] = Name "Error"--error $
+      -- "internal error: undefined variable `" <> unpack name <> "`."
+
     getVariableName' (vars:xs) =
       fromMaybe (getVariableName' xs) (name `Map.lookup` vars)
 
@@ -81,9 +82,9 @@ addInstruction :: Inst -> LLVM ()
 addInstruction inst =
   currentBlock %= (|> inst)
 
-pushbackInstruction :: Inst -> LLVM ()
-pushbackInstruction inst =
-  pendingInsts %= (|> inst)
+addArgInsts :: Inst -> LLVM ()
+addArgInsts inst = 
+  freeArgInsts %= (|> inst)
 --------------------------------------------------------------------------------
 
 terminate :: Terminator -> LLVM ()
@@ -131,6 +132,9 @@ callable t = Right . ConstantOperand . GlobalReference t . Name
 firstSetString, nextSetString :: String
 firstSetString = "_firstSet"
 nextSetString = "_nextSet"
+
+copyArrayString :: String
+copyArrayString = "_copyArray"
 
 firstMultisetString, nextMultisetString :: String
 firstMultisetString = "_firstMultiset"
@@ -239,10 +243,12 @@ atSequenceString         = "_atSequence"
 atSequencePairString     = "_atSequencePair"
 
 
-freeString    :: String
-freeString    = "_free"
-mallocString  :: String
-mallocString  = "_malloc"
+freeString :: String
+freeString = "_free"
+
+mallocString :: String
+mallocString   = "_malloc"
+mallocTCString = "_mallocTC"
 
 lnString      :: String
 lnString      = "_ln"

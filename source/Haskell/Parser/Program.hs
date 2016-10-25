@@ -63,8 +63,14 @@ program = do
   case (name', main') of
     (Just name, Just main) -> do
       dts     <- use dataTypes
-      fdts    <- use fullDataTypes
+      fdts'   <- use fullDataTypes
       strings <- use stringIds
+
+      let 
+        aux (name, typeArgs) = case name `Map.lookup` dts of
+          Just struct -> (name, (struct, typeArgs))
+          Nothing -> internal $ "Couldn't find struct " <> show name
+        fdts = Map.fromList $ aux <$> (Map.toList fdts')
 
       pure $ Just Program
         { name        = name <> fromMaybe "" ext

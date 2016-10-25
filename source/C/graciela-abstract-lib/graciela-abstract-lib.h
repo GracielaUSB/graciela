@@ -15,7 +15,6 @@
 #include <iostream>
 #include <set>
 #include <map>
-#include <stack>
 #include <vector>
 #include <algorithm>
 #else
@@ -29,15 +28,16 @@ using namespace std;
 namespace glib {
 
     typedef enum{
-      SET           = 0,
-      MULTISET      = 1,
-      FUNCTION      = 2,
-      RELATION      = 3,
-      SEQUENCE      = 4,
-      SETPAIR       = 5,
-      MULTISETPAIR  = 6,
-      SEQUENCEPAIR  = 7,
-      ITERATOR      = 8
+      MEM           = 0,
+      SET           = 1,
+      MULTISET      = 2,
+      FUNCTION      = 3,
+      RELATION      = 4,
+      SEQUENCE      = 5,
+      SETPAIR       = 6,
+      MULTISETPAIR  = 7,
+      SEQUENCEPAIR  = 8,
+      ITERATOR      = 9
     } type;
 
     typedef map<t,t>           Function;
@@ -198,6 +198,7 @@ extern "C" {
      *  stored inside a vector of pointers, to be freed when freeTrashCollector()
      *  is called.
      */
+    void _mark(int8_t* ptr);
     void _initTrashCollector();
     void _openScope();
     void _closeScope();

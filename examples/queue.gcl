@@ -3,16 +3,16 @@ program queue.bin begin
 abstract AQueue(T)
 begin
   const MAX := 100 : int;
-  var contents : seq of T;
+  var contents : sequence of T;
   
   {inv MAX > 0 /\ #contents < MAX inv}
 
-  proc create (in m : int, out c : AQueue(T))
-    {pre m > 0 pre}
-    {post c.MAX == m /\ c.contents == <<>> post}
+  // proc create (in m : int, out c : AQueue(T))
+  //   {pre m > 0 pre}
+  //   {post c.MAX == m /\ c.contents == <<>> post}
 
   proc enqueue (inout c : AQueue(T), in x : T )
-    var contents_0 := c.contents : seq of T;
+    var contents_0 := c.contents : sequence of T;
     {pre #c.contents < c.MAX pre}
     {post c.contents == contents_0 ++ <<x>> post}
 
@@ -39,7 +39,7 @@ begin
 
   {repinv 
     MAX > 0 /\ 0 <= (first min last) /\ (first max last) < MAX /\ 
-    empty ==> first == last 
+    empty ==> first == last
   repinv}
 
   {coupinv true coupinv}
@@ -50,7 +50,7 @@ begin
 
   func numElems (c : Queue(T)) -> int
     {pre true pre}
-    {post numElems > 0 /\ numElems <= c.MAX post}
+    {post numElems >= 0 /\ numElems <= c.MAX post}
     |[ if c.empty -> 0
        [] c.first == c.last /\ !c.empty -> c.MAX
        [] c.first <  c.last -> c.last - c.first
@@ -80,21 +80,23 @@ begin
     var first_0, last_0 := c.first, c.last : int;
     var n_0 := numElems(c) : int;
     var elems_0 : array[3] of T;
+    
     {pre c.first != c.last \/ c.empty pre}
     {post 
       c.first == first_0 /\ c.last == (last_0 + 1) mod c.MAX /\ !c.empty /\ 
       c.elems[last_0] == x /\
       (% forall i : int | 0 <= i /\ i < n_0 | c.elems[(i + first_0) mod c.MAX] == elems_0[i] %)
     post}
+    
     |[ c.elems[c.last] := x
-    ;  c.last := (c.last + 1) mod c.MAX
+    ;  c.last, c.empty := (c.last + 1) mod c.MAX, false
     ]|
    
 end
 
 main
   |[ var q : Queue (int)
-  ;  create (100, q)
+  ;  enqueue (q, 2)
   ;  writeln ("created!")
   ]|
 end

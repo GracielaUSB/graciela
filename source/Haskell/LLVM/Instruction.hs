@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
 {-# LANGUAGE TupleSections    #-}
-
+{-# LANGUAGE OverloadedStrings #-}
 module LLVM.Instruction where
 --------------------------------------------------------------------------------
 import           AST.Expression                     (Expression (..),
@@ -10,6 +10,7 @@ import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         hiding (indices)
+import           AST.Object                         as O (inner, loc)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           Common
@@ -31,7 +32,7 @@ import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
                                                             zip, (|>))
-import           Data.Text                          (pack, unpack)
+import           Data.Text                          (pack, unpack, Text)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
 import           LLVM.General.AST.AddrSpace
@@ -70,8 +71,88 @@ guard finish checkLabel (expr, decls, insts) = do
   pure no
 
 
+copyArray :: T.Type -> Operand -> Operand -> LLVM ()
+copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
+  innerSize <- sizeOf innerType
+  inner <- toLLVMType innerType
+  type' <- toLLVMType t
+  let 
+    f op1 op2 = do 
+      label <- newUnLabel 
+      addInstruction $ label := Add 
+        { nsw = False
+        , nuw = False
+        , operand0 = op1
+        , operand1 = op2
+        , metadata = [] }
+      pure $ LocalReference intType label
+
+
+  exprs <- mapM expression dimensions
+  sizeOp <- foldM f (ConstantOperand $ C.Int 32 0) exprs
+  let sizeT = ConstantOperand $ C.Int 32 innerSize
+
+
+  sourceArrPtr <- newLabel "sourceArrPtr"
+  destArrPtr   <- newLabel "destArrPtr"
+  addInstruction $ sourceArrPtr := GetElementPtr
+    { inBounds = False
+    , address  = sourceHeader
+    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+    , metadata = [] }
+  
+
+  addInstruction $ destArrPtr := GetElementPtr
+    { inBounds = False
+    , address  = destHeader
+    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+    , metadata = [] }
+
+  loadSourceArray <- newLabel "loadSourceArray"
+  loadDestArray   <- newLabel "loadDestArray"
+  sourceArray <- newLabel "sourceArray"
+  destArray   <- newLabel "destArray"
+
+
+  addInstruction $ loadSourceArray := Load
+    { volatile  = False
+    , address   = LocalReference (ptr type') sourceArrPtr
+    , maybeAtomicity = Nothing
+    , alignment = 4
+    , metadata  = [] }
+
+  addInstruction $ loadDestArray :=  Load
+    { volatile  = False
+    , address   = LocalReference (ptr type') destArrPtr
+    , maybeAtomicity = Nothing
+    , alignment = 4
+    , metadata  = [] }
+
+  addInstruction $ sourceArray := BitCast
+    { operand0 = LocalReference (ptr type') loadSourceArray
+    , type'    = pointerType
+    , metadata = [] }
+
+  addInstruction $ destArray :=  BitCast
+    { operand0 = LocalReference (ptr type') loadDestArray
+    , type'    = pointerType
+    , metadata = [] }
+
+  addInstruction $ Do Call
+    { tailCallKind       = Nothing
+    , callingConvention  = CC.C
+    , returnAttributes   = []
+    , function           = callable voidType copyArrayString
+    , arguments          = (,[]) <$> [ sizeOp
+                                     , LocalReference (ptr inner) sourceArray
+                                     , LocalReference (ptr inner) destArray
+                                     , sizeT ]
+    , functionAttributes = []
+    , metadata           = [] }
+
+
 instruction :: G.Instruction -> LLVM ()
-instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
+instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
   Abort -> do
     abort Abort.Manual pos
     newLabel "unreachable" >>= (#)
@@ -104,7 +185,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       (lvals, exprs) = unzip . toList $ assignPairs
 
       assign' lval value = do
-        ref <- objectRef lval False
+        ref <- objectRef lval
         type' <- toLLVMType . objType $ lval
         addInstruction $ Do Store
           { volatile       = False
@@ -149,7 +230,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
 
     (exit #)
 
-  ProcedureCall { pName, pArgs, pStructArgs, pRecursiveCall, pRecursiveProc } -> do
+  ProcedureCall { pName, pArgs, pStructArgs, pRecursiveCall, pRecursiveProc = prp } -> do
     args <- toList <$> mapM createArg pArgs
 
     pName' <- case pStructArgs of
@@ -162,7 +243,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       then do
         boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
-      else if pRecursiveProc
+      else if prp
         then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
         else pure []
 
@@ -174,35 +255,291 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
       , arguments          = recArgs <> args
       , functionAttributes = []
       , metadata           = [] }
+
+    zipWithM_ copyOutArgs (toList pArgs) args
+
+    argInsts <- use freeArgInsts
+    addInstructions argInsts
+    freeArgInsts .= Seq.empty
+
     where
-      -- Out and InOut arguments need to be passed as pointers to, so the address has to be casted
-      -- If it is not an Out or InOut argument, then just pass a constant value.
-      -- only basic types or pointers (because a pointer is just an integer) can be passed as a constant value.
-      createArg (e, mode) = do
-        subst <- use substitutionTable
-        let type' = case subst of
-              t:_ -> fillType t (expType e)
-              []  -> expType e
+      primaObject :: Object -> Object
+      primaObject obj@Object{ obj' } = case obj' of
+         v@Variable{ name } -> obj{ obj' = v { name = name <> "_"}}
+         o                  -> primaObject (O.inner o)
 
-        (, []) <$> if mode == In && (type' =:= basicT)
-          then expression' e
-          else do
+      objectName :: Object -> Text
+      objectName v@Object{ obj' } = case obj' of
+         Variable{ name } -> name <> "_"
+         o                -> objectName (O.inner o)
+      
+      copyOutArgs :: (Expression, ArgMode) -> (Operand,[t]) -> LLVM ()
+      copyOutArgs (e@Expression{expType, exp'}, mode) (operand, _) = do
+        if mode `elem` [InOut, Out]
+          then do
+            let 
+              Obj o = exp'
+            destPtr <- objectRef o
+            type'   <- toLLVMType expType
+            case expType of 
+              t@GArray{} -> do    
+                copyArray t operand destPtr
+
+              t | t =:= GADataType -> do
+                types <- mapM toLLVMType (toList . typeArgs $ expType)
+
+                let 
+                  copyFunc = "copy" <>llvmName (typeName expType) types
+
+                addInstruction $ Do Call
+                  { tailCallKind       = Nothing
+                  , callingConvention  = CC.C
+                  , returnAttributes   = []
+                  , function           = callable voidType copyFunc
+                  , arguments          = (,[]) <$> [ operand
+                                                   , destPtr ]
+                  , functionAttributes = []
+                  , metadata           = [] }
+
+              _ -> do 
+                value <- newLabel "value"
+                addInstruction $value := Load
+                  { volatile  = False
+                  , address   = operand
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = [] }
+
+                addInstruction $ Do Store
+                  { volatile = False
+                  , address  = destPtr
+                  , value    = LocalReference type' value
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = [] }
+          else pure ()
+
+
+
+      createArg :: (Expression, ArgMode) -> LLVM (Operand,[t])
+      createArg (e@Expression{expType, exp'}, mode) = do
+        type' <- toLLVMType expType
+        let isIn = mode `elem` [In, InOut, Const]
+        case mode of 
+          Ref -> do
             label <- newLabel "argCast"
-            ref   <- objectRef (theObj . exp' $ e) False
+            ref   <- objectRef (theObj exp')
 
-            type' <- ptr <$> (toLLVMType . expType $ e)
             addInstruction $ label := BitCast
               { operand0 = ref
-              , type'    = type'
+              , type'    = ptr type'
               , metadata = [] }
-            pure $ LocalReference type' label
-      basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
+            pure $ (LocalReference (ptr type') label, [])
+
+          _ -> case exp' of 
+            Obj o -> do 
+              prima <- insertVar (objectName o)
+              addInstruction $ prima := Alloca
+                { allocatedType = ptr type'
+                , numElements   = Nothing
+                , alignment     = 4
+                , metadata      = [] }
+
+              instruction $ Instruction
+                { instLoc = gracielaDef
+                , inst'   = New
+                  { idName = primaObject o 
+                  , nType  = expType } }
+
+              primaPtr <- newLabel "primaPtr"
+              addInstruction $ primaPtr := Load
+                { volatile  = False
+                , address   = LocalReference (ptr type') prima
+                , maybeAtomicity = Nothing
+                , alignment = 4
+                , metadata  = [] }
+
+              primaRef <- case expType of
+                t@GArray{dimensions} -> do
+                
+                  when isIn $ do
+                    sourceHeader <- objectRef o
+                    copyArray t sourceHeader (LocalReference type' primaPtr)
+
+                  internalArrPtr <- newLabel "internalArrayPtr"
+                  
+                  addArgInsts $ internalArrPtr := GetElementPtr
+                    { inBounds = False
+                    , address  = (LocalReference type' primaPtr)
+                    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+                    , metadata = [] }
+
+                  internalArr <- newLabel "internalArray"
+                  addArgInsts $ internalArr := Load
+                    { volatile  = False
+                    , address   = LocalReference (ptr type') internalArrPtr
+                    , maybeAtomicity = Nothing
+                    , alignment = 4
+                    , metadata  = [] }
+
+                  castToFree <- newLabel "castToFree" 
+                  addArgInsts $ castToFree := BitCast
+                    { operand0 = LocalReference type' internalArr
+                    , type'    = pointerType
+                    , metadata = [] }
+                  
+                  addArgInsts $ Do Call
+                    { tailCallKind       = Nothing
+                    , callingConvention  = CC.C
+                    , returnAttributes   = []
+                    , function           = callable voidType freeString
+                    , arguments          = [(LocalReference pointerType castToFree,[])]
+                    , functionAttributes = []
+                    , metadata           = [] }
+
+                  if isIn 
+                    then pure (LocalReference type' primaPtr,[]) 
+                    else pure $ (LocalReference (ptr type') primaPtr,[])
+
+                t | t =:= GADataType -> do
+
+                  types <- mapM toLLVMType (toList . typeArgs $ expType)
+                  let 
+                    postfix = llvmName (typeName expType) types               
+
+                  destStructPtr <- newLabel "destStructPtr"
+                  addInstruction $ destStructPtr := Load
+                    { volatile  = False
+                    , address   = LocalReference (ptr type') prima
+                    , maybeAtomicity = Nothing
+                    , alignment = 4
+                    , metadata  = [] }
+                
+                  when (isIn) $ do
+                    sourceStructPtr  <- objectRef o
+                    
+
+                    addInstruction $ Do Call
+                      { tailCallKind       = Nothing
+                      , callingConvention  = CC.C
+                      , returnAttributes   = []
+                      , function           = callable voidType $ "copy" <> postfix
+                      , arguments          = (,[]) <$> [ sourceStructPtr
+                                                       , LocalReference (ptr type') destStructPtr ]
+                      , functionAttributes = []
+                      , metadata           = [] }
+
+                  -- addArgInsts $ Do Call
+                  --   { tailCallKind       = Nothing
+                  --   , callingConvention  = CC.C
+                  --   , returnAttributes   = []
+                  --   , function           = callable voidType $ "destroy" <> postfix
+                  --   , arguments          = (,[]) <$> [ LocalReference (ptr type') destStructPtr ]
+                  --   , functionAttributes = []
+                  --   , metadata           = [] }
+
+                  if isIn 
+                    then pure (LocalReference type' destStructPtr,[]) 
+                    else pure $ (LocalReference (ptr type') primaPtr,[])
+
+
+                t | t =:= basic || t =:= GPointer GAny -> do
+                  if isIn
+                    then do 
+                      expr <- expression e
+                      
+                      label <- newLabel "argCast"
+                      addInstruction $ label := BitCast
+                        { operand0 = LocalReference type' prima
+                        , type'    = ptr type'
+                        , metadata = [] }
+
+                      addInstruction $ Do Store
+                        { volatile = False
+                        , address  = LocalReference (ptr type') label
+                        , value    = expr
+                        , maybeAtomicity = Nothing
+                        , alignment = 4
+                        , metadata  = [] }
+
+                      pure $ (LocalReference (ptr type') label,[])
+                    else pure $ (LocalReference (ptr type') primaPtr,[])
+
+
+                t -> internal $ "Cannot pass arguments of type " <> show t
+
+              
+
+              castToFree <- newLabel "castToFree"
+
+              addArgInsts $ castToFree := BitCast
+                { operand0 = LocalReference type' primaPtr
+                , type'    = pointerType
+                , metadata = [] }
+
+              addArgInsts $ Do Call
+                { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = callable voidType freeString
+                , arguments          = [(LocalReference pointerType castToFree,[])]
+                , functionAttributes = []
+                , metadata           = [] }
+
+              pure primaRef
+              
+            _ -> do 
+
+              aux@(Name name) <- insertVar "temp_"
+
+              addInstruction $ aux := Alloca
+                { allocatedType = type'
+                , numElements   = Nothing
+                , alignment     = 4
+                , metadata      = [] }
+
+              expr <- expression e
+
+              addInstruction $ Do Store
+                { volatile = False
+                , address  = LocalReference type' aux
+                , value    = expr
+                , maybeAtomicity = Nothing
+                , alignment = 4
+                , metadata  = [] }
+              label <- newLabel "cast"
+
+              pure $ (LocalReference type' aux,[])
+
+
+
+
+          
+      --   subst <- use substitutionTable
+      --   let type' = case subst of
+      --         t:_ -> fillType t (expType e)
+      --         []  -> expType e
+
+      --   (, []) <$> if mode == In && (type' =:= basicT)
+      --     then expression' e
+      --     else do
+      --       label <- newLabel "argCast"
+      --       ref   <- objectRef (theObj . exp' $ e) False
+
+      --       type' <- ptr <$> (toLLVMType . expType $ e)
+      --       addInstruction $ label := BitCast
+      --         { operand0 = ref
+      --         , type'    = type'
+      --         , metadata = [] }
+      --       pure $ LocalReference type' label
+      -- basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
 
   Free { idName, freeType } -> do
     labelLoad  <- newLabel "freeLoad"
     labelCast  <- newLabel "freeCast"
     labelNull  <- newLabel "freeNull"
-    ref        <- objectRef idName False
+    ref        <- objectRef idName
+
     type'      <- toLLVMType (T.GPointer freeType)
 
     case freeType of
@@ -323,7 +660,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata  = [] }
 
   New { idName, nType } -> do
-    ref   <- objectRef idName False-- The variable that is being mallocated
+    ref   <- objectRef idName -- The variable that is being mallocated
     type' <- ptr <$> toLLVMType nType
 
     case nType of
@@ -455,14 +792,18 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , alignment = 4
           , metadata  = [] }
 
-        let call name = Do Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable voidType $ "init" <> name
-              , arguments          = [(LocalReference type' labelCast, [])]
-              , functionAttributes = []
-              , metadata           = [] }
+
+        let 
+          structArg = LocalReference type' labelCast   
+          dinamicAllocFlag = ConstantOperand $ C.Int 1 0
+          call name =  Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType $ "init" <> name
+            , arguments          = (,[]) <$> [structArg, dinamicAllocFlag]
+            , functionAttributes = []
+            , metadata           = [] }
 
         case nType of
           GFullDataType n t -> do
@@ -574,7 +915,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst'} = case inst' of
           , metadata           = [] }
 
         -- Get the reference of the variable's memory
-        objRef <- objectRef var False
+        objRef <- objectRef var
         -- Store the value saved at `readResult` in the variable memory
         addInstruction $ Do Store
           { volatile = False

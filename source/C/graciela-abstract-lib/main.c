@@ -56,8 +56,20 @@ int main() {
 //    _insertMultiset(mul, 4);
 //    _insertMultiset(mul, 5);
 //    printf("%d <- \n",_isElemMultiset(mul, 1));
-
-    
+  int8_t c[5] = {'a','b','c','d','e'};
+  int8_t b[5];
+  int8_t* c_ = (int8_t*)c, *b_ = (int8_t*)b;
+  int j = 0;
+  for (int i = 0;  i < 5*4 ; ++i) {
+    printf(".. %p == %p  --> %d \n",&c[i], (c_+j), c[i]);
+    *(b_+j) = *(c_+j);
+    printf("++ %p == %p  --> %d =? %d \n\n",&b[i], (b_+j), *(b_+j),b[i]);
+    ++j;
+  }
+  for (int i = 0;  i < 5 ; ++i) {
+    printf(">> %d\n",b[i]);
+  }
+  
     _freeTrashCollector();
     return 0;
 }

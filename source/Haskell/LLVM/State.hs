@@ -8,13 +8,14 @@ module LLVM.State
   , unnameSupply
   , blockName
   , currentBlock
-  , pendingInsts
   , blocks
   , moduleDefs
   , symTable
   , structs
   , fullDataTypes
   , pendingDataTypes
+  , freeArgInsts
+  , doingFunction
   , currentStruct
   , stringIds
   , stringOps
@@ -45,7 +46,8 @@ data State = State
   , _unnameSupply      :: Word
   , _blockName         :: Maybe Name              -- Cantidad de bloques básicos en el programa
   , _currentBlock      :: Seq (Named Instruction) -- Lista de instrucciones en el bloque básico actual
-  , _pendingInsts      :: Seq (Named Instruction) -- Lista de instrucciones que deben ser agregadas al final de la definicion actual
+  , _freeArgInsts      :: Seq (Named Instruction)
+  , _doingFunction     :: Bool
   , _blocks            :: Seq BasicBlock          -- Lista de bloques básicos en la definición actual
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
@@ -66,7 +68,8 @@ initialState = State
   , _unnameSupply      = 1
   , _blockName         = Nothing
   , _currentBlock      = Seq.empty
-  , _pendingInsts      = Seq.empty
+  , _freeArgInsts      = Seq.empty
+  , _doingFunction     = False
   , _blocks            = Seq.empty
   , _moduleDefs        = Seq.empty
   , _symTable          = []

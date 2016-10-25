@@ -1,15 +1,14 @@
-program main |[
+program prueba.bin begin
 
-  proc sumar : (inout m : int, in n : int) 
-  [
+  proc sumar (inout m : int, in n : int) 
       {pre m >= 0 /\ n >= 0 pre}  
+      {post m <= m + n post}
       |[
           m := m + n
       ]|  
-      {post m <= m + n post}
-  ]
 
 
+main
   |[
       var foo, bar := 42, 8 : int;
       var qux : boolean;
@@ -17,4 +16,5 @@ program main |[
       sumar(foo, bar, qux)
 
   ]|
-]|
+
+end

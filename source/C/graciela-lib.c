@@ -29,8 +29,14 @@ void _closeFile(int8_t* file) {
   fclose(f);
 }
 
-int8_t* _malloc(int size){
+int8_t* _malloc(int size){  
   return calloc(1,size);
+}
+
+int8_t* _mallocTC(int size){
+  int8_t* p = calloc(1,size);
+  _mark(p);
+  return p;
 }
 
 void _free(int8_t *mem){
@@ -228,6 +234,10 @@ double _minF(double x, double y) {
   return x < y ? x : y;
 }
 
+void _copyArray(int size, int8_t* source, int8_t* dest, int sizeT){
+  for (int i = 0; i < size*sizeT; ++i)
+    *(dest + i) = *(source + i);
+}
 
 typedef enum
   { A_IF

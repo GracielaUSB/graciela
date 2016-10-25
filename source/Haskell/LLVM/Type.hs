@@ -63,14 +63,21 @@ iterator    = LLVM.StructureType
 
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
-toLLVMType  T.GInt         = pure intType
-toLLVMType  T.GFloat       = pure floatType
-toLLVMType  T.GBool        = pure boolType
-toLLVMType  T.GChar        = pure charType
-toLLVMType  GString        = pure stringType
-toLLVMType (T.GPointer  t) = do
+toLLVMType  T.GInt           = pure intType
+toLLVMType  T.GFloat         = pure floatType
+toLLVMType  T.GBool          = pure boolType
+toLLVMType  T.GChar          = pure charType
+toLLVMType  GString          = pure stringType
+toLLVMType (T.GPointer GAny) = pure . ptr $ i8
+toLLVMType (T.GPointer  t)   = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
+toLLVMType (GSet      _) = pure . ptr $ i8
+toLLVMType (GMultiset _) = pure . ptr $ i8
+toLLVMType (GFunc   _ _) = pure . ptr $ i8
+toLLVMType (GRel    _ _) = pure . ptr $ i8
+toLLVMType (GSeq      _) = pure . ptr $ i8
+toLLVMType GAny          = internal "GAny is not a valid type"
 
 toLLVMType (T.GArray dims t) = do
   inner <- toLLVMType t
@@ -79,6 +86,17 @@ toLLVMType (T.GArray dims t) = do
     { LLVM.isPacked     = True
     , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
 
+
+toLLVMType (GTypeVar i _) = do
+  substs <- use substitutionTable
+  case substs of
+    []        -> internal "subsitituting without substitution table."
+    (subst:_) -> toLLVMType $ subst ! i
+
+toLLVMType (GTuple  a b) = do
+  a' <- toLLVMType a
+  b' <- toLLVMType b
+  pure tupleType
 toLLVMType (GFullDataType n t) = do
   fdts <- use fullDataTypes
   pdt  <- use pendingDataTypes
@@ -131,24 +149,6 @@ toLLVMType t@(GDataType name _ typeArgs) = do
       types <- mapM toLLVMType typeArgs
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
-toLLVMType (GTypeVar i _) = do
-  substs <- use substitutionTable
-  case substs of
-    []        -> internal "subsitituting without substitution table."
-    (subst:_) -> toLLVMType $ subst ! i
-
-
-toLLVMType GAny            = internal "GAny is not a valid type"
-
-toLLVMType (GSet      _) = pure . ptr $ i8
-toLLVMType (GMultiset _) = pure . ptr $ i8
-toLLVMType (GFunc   _ _) = pure . ptr $ i8
-toLLVMType (GRel    _ _) = pure . ptr $ i8
-toLLVMType (GSeq      _) = pure . ptr $ i8
-toLLVMType (GTuple  a b) = do
-  a' <- toLLVMType a
-  b' <- toLLVMType b
-  pure tupleType
 toLLVMType t = error $ show t
 
 

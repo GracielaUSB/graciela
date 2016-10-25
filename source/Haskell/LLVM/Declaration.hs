@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections #-}
 
 module LLVM.Declaration
   ( declaration
@@ -53,7 +54,7 @@ alloc t@GArray { dimensions, innerType } lval = do
 
   dims <- mapM expression dimensions
   innerSize <- sizeOf innerType
-  num <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
+  num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
 
   inner <- toLLVMType innerType
   garrT <- toLLVMType t
@@ -151,22 +152,16 @@ alloc gtype lval = do
               { operand0 = LocalReference t name
               , type'    = ptr t
               , metadata = [] }
-
+      
+      let 
+        structArg = LocalReference (ptr t) cast   
+        dinamicAllocFlag = ConstantOperand $ C.Int 1 0
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType $ "init" <> name'
-        , arguments          = [(LocalReference (ptr t) cast,[])]
-        , functionAttributes = []
-        , metadata           = [] }
-
-      pushbackInstruction $ Do Call
-        { tailCallKind       = Nothing
-        , callingConvention  = CC.C
-        , returnAttributes   = []
-        , function           = callable voidType $ "destroy" <> name'
-        , arguments          = [(LocalReference (ptr t) cast,[])]
+        , arguments          = (,[]) <$> [structArg, dinamicAllocFlag]
         , functionAttributes = []
         , metadata           = [] }
 

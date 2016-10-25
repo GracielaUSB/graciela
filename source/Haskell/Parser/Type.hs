@@ -83,7 +83,8 @@ type' =  parenType
             "Cannot build an array of arrays. \
             \Try instead a multidimensional array."
           pure GUndef
-        t -> case mdims of
+
+        t | t =:= basic || t =:= GPointer GAny || t =:= GATypeVar -> case mdims of
           Nothing -> pure GUndef
           Just dims -> if null dims
             then do
@@ -91,6 +92,11 @@ type' =  parenType
                 "Missing dimensions in array declaration."
               pure GUndef
             else pure $ GArray dims t
+
+        t -> do
+          putError pos . UnknownError $
+            "Arrays of " <> show t <> " are not supported"
+          pure GUndef
 
     arraySize :: Parser (Maybe Expression)
     arraySize = do
@@ -106,7 +112,7 @@ type' =  parenType
                 "A negative dimension was given in the array declaration."
               pure Nothing
             _ -> pure . Just $ e
-          _ -> do
+          t -> do
             putError pos . UnknownError $
               "Array dimension must be an integer constant expression."
             pure Nothing
@@ -140,8 +146,22 @@ type' =  parenType
                         >>= \case
                           Just s -> pure $ toList s
                           _      -> pure []
-                  let typeargs = Array.listArray (0, length t - 1) t
-                  isPointer $ GDataType name abstract typeargs
+
+                  let 
+                    typeargs = Array.listArray (0, length t - 1) t
+
+                  if (any (=:= GATypeVar) t) 
+                    then 
+                      isPointer $ GDataType name abstract typeargs
+                    else do 
+                      let
+                        fAlter = \case
+                          Nothing     -> Just [typeargs]
+                          Just types0 -> Just (typeargs : types0)
+
+                      fullDataTypes %= Map.alter fAlter dtName
+                      isPointer $ GFullDataType name typeargs
+                      
                 else do
                   notFollowedBy identifier
                   return GUndef
@@ -189,8 +209,8 @@ type' =  parenType
               unless (any (=:= GATypeVar) fullTypes) $ do
                 let
                   fAlter = \case
-                    Nothing               -> Just (ast, [types])
-                    Just (struct, types0) -> Just (struct, types : types0 )
+                    Nothing     -> Just [types]
+                    Just types0 -> Just (types : types0)
 
                 fullDataTypes %= Map.alter fAlter structBaseName
 

@@ -242,13 +242,19 @@ info' isStruct pos name t expr constness = if isStruct
       dFields' l = Map.insert name (f l) dFields
     case name `Map.lookup` fields of
       Just (p, t', c, _)
-        | c /= constness ->
+        | c /= constness -> 
           let
             aux a = if a then "constant" else "variable"
           in
             putError pos . UnknownError $
             "Redefinition of member `" <> unpack name <> "` as " <> aux constness <>
             ",\n\tbut defined in abstract type as " <> aux c <> "."
+        
+        | not $ t =:= highLevel -> do 
+          putError pos . UnknownError $
+            "Redefinition of member `" <> unpack name <> "` already defined in abstract type."
+            
+
         | t' =:= t -> currentStruct %= over _Just (_4 .~ dFields' p)
 
       Just _ -> putError pos . UnknownError $

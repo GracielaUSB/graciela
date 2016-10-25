@@ -15,7 +15,7 @@ extern "C" {
 
   using namespace glib;
 
-  stack<TrashCollector>* _stack;
+  vector<TrashCollector>* _stack;
 //  int precondition = 0;
   
   void abortAbstract(abortEnum reason, int line, int col, int pos = 0, int size = 0){
@@ -44,8 +44,11 @@ extern "C" {
 
   }
 
+  void _mark(int8_t* ptr){
+    (*_stack)[0].push_back(TCTuple(ptr,MEM));
+  }
   void mark(TCTuple t){
-      _stack->top().push_back(t);
+    (*_stack)[_stack->size()-1].push_back(t);
   }
 
   /* Set */
@@ -905,18 +908,18 @@ extern "C" {
   /* Trash Collector */
 
   void _initTrashCollector(){
-      _stack = new stack<TrashCollector>;
+      _stack = new vector<TrashCollector>;
   }
 
   void _openScope(){
       TrashCollector tc = TrashCollector();
       tc.reserve(64);
-      ((stack<TrashCollector>*)_stack)->push(tc);
+      _stack->push_back(tc);
   }
 
   void _closeScope(){
-      TrashCollector tc = _stack->top();
-      _stack->pop();
+      TrashCollector tc = (*_stack)[_stack->size()-1];
+      _stack->pop_back();
       for (TrashCollector::iterator it = tc.begin(); it != tc.end(); ++it){
           switch (it->second) {
               case SET: {
@@ -954,6 +957,10 @@ extern "C" {
               case ITERATOR: {
                 free((Iterator*)it->first);
                 break;
+              }
+              case MEM: {
+                free(it->first);
+                break;
             }
           }
       }
@@ -961,7 +968,7 @@ extern "C" {
   }
 
   void _freeTrashCollector(){
-      for (int i = 0 ; i < (_stack)->size(); i++)
+      for (int i = 0 ; i < _stack->size(); i++)
       {
           _closeScope();
       }

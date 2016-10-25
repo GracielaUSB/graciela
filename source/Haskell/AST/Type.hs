@@ -54,6 +54,7 @@ data ArgMode
   | Out   -- ^ Output argument.
   | InOut -- ^ Input/Output argument.
   | Ref   -- ^ Pass-by-reference argument.
+  | Const
   deriving (Eq)
 
 -- | 'Show' instance for Argument modes.
@@ -62,6 +63,7 @@ instance Show ArgMode where
     In    -> "In"
     Out   -> "Out"
     InOut -> "In/Out"
+    Const -> "Const"
     Ref   -> "Ref"
 
 type TypeArgs = Array Int Type

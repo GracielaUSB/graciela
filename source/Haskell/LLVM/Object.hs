@@ -13,14 +13,17 @@ import {-# SOURCE #-} LLVM.Expression (expression)
 import qualified AST.Expression                    as E (loc)
 import           AST.Object                        (Object (..), Object' (..))
 import           AST.Type                          (ArgMode (..), Type (..),
-                                                    basic, (=:=))
+                                                    basic, (=:=), highLevel)
 import           Common
 import           LLVM.Abort                        (abort)
 import qualified LLVM.Abort                        as Abort (Abort (..))
 import           LLVM.Monad
+import           LLVM.State
 import           LLVM.Type                         (toLLVMType)
 --------------------------------------------------------------------------------
+import           Control.Lens                      (use)
 import           Data.Maybe                        (isJust)
+import Data.Text (unpack)
 import qualified LLVM.General.AST.Constant         as C
 import           LLVM.General.AST.Instruction      (Instruction (..),
                                                     Named (..), Terminator (..))
@@ -28,60 +31,55 @@ import           LLVM.General.AST.IntegerPredicate (IntegerPredicate (..))
 import           LLVM.General.AST.Operand          (Operand (..))
 import           LLVM.General.AST.Type             (Type (ArrayType), i1, i32,
                                                     i64, ptr)
+import           LLVM.General.AST.Name (Name(..))
 import           Prelude                           hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
-object obj@Object { objType, obj' } = case obj' of
-  -- If the variable is marked as In, mean it was passed to the
-  -- procedure as a constant so doesn't need to be loaded
-  Variable { mode } | mode == Just In
-    || (isJust mode && not (objType =:= GOneOf [basic, GATypeVar])) -> objectRef obj False
-    -- && objType =:= GOneOf [GBool,GChar,GInt,GFloat] -> objectRef obj
-
-  -- If not marked as In, just load the content of the variable
-  _ -> do
+object obj@Object { objType } = do
+  dfunc <- use doingFunction
+  
+  -- Make a reference to the variable that will be loaded (e.g. %a)
+  (objRef, flag) <- objectRef' obj False
+  if dfunc && not flag && t'
+    then pure objRef
+    else do
       label <- newLabel "varObj"
-      -- Make a reference to the variable that will be loaded (e.g. %a)
-      addrToLoad <- objectRef obj False
       t <- toLLVMType objType
 
       -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
-      addInstruction $ label := Load { volatile  = False
-                  , address   = addrToLoad
-                  , maybeAtomicity = Nothing
-                  , alignment = 4
-                  , metadata  = [] }
+      addInstruction $ label := Load 
+        { volatile       = False
+        , address        = objRef
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
 
       -- The reference to where the variable value was loaded (e.g. %12)
       pure $ LocalReference t label
+  where 
+    t' = objType =:= basic     || objType == I64 
+      || objType =:= highLevel || objType =:= GATypeVar
+
+
+objectRef :: Object -> LLVM Operand
+objectRef o = fst <$> objectRef' o False
 
 
 -- Get the reference to the object.
 -- indicate that the object is not a deref, array access or field access inside a procedure
-objectRef :: Object -> Bool -> LLVM Operand
-objectRef (Object loc objType obj') flag = do
+objectRef' :: Object -> Bool -> LLVM (Operand, Bool)
+objectRef' (Object loc objType obj') flag = do
   objType' <- toLLVMType objType
   case obj' of
 
     Variable { name , mode } -> do
       name' <- getVariableName name
-      if isJust mode && not flag
-        then case objType of
-          GPointer _ -> do
-            label <- newLabel "loadRef"
-            addInstruction $ label := Load
-              { volatile  = False
-              , address   = LocalReference objType' name'
-              , maybeAtomicity = Nothing
-              , alignment = 4
-              , metadata  = [] }
-            pure $ LocalReference objType' label
-          _ -> pure $ LocalReference objType' name'
-        else pure $ LocalReference objType' name'
+      pure $ (LocalReference objType' name', flag)
+      
 
     Index inner indices -> do
-      ref   <- objectRef inner True
+      (ref,_) <- objectRef' inner True
 
       iarrPtrPtr <- newLabel "idxStruct"
       addInstruction $ iarrPtrPtr := GetElementPtr
@@ -108,7 +106,7 @@ objectRef (Object loc objType obj') flag = do
         , indices  = ConstantOperand (C.Int 32 0) : inds
         , metadata = [] }
 
-      pure . LocalReference objType' $ result
+      pure (LocalReference objType' $ result, True)
 
       where
         idx ref index n = do
@@ -173,7 +171,7 @@ objectRef (Object loc objType obj') flag = do
 
 
     Deref inner -> do
-      ref        <- objectRef inner True
+      (ref,_)    <- objectRef' inner True
       labelLoad  <- newLabel "derefLoad"
       labelCast  <- newLabel "derefCast"
       labelNull  <- newLabel "derefNull"
@@ -221,15 +219,15 @@ objectRef (Object loc objType obj') flag = do
 
       (falseLabel #)
 
-      pure . LocalReference objType' $ labelLoad
+      pure (LocalReference objType' $ labelLoad, True)
 
 
     Member { inner, field } -> do
-      ref <- objectRef inner True
+      (ref,_) <- objectRef' inner True
       label <- newLabel $ "member" <> show field
       addInstruction $ label := GetElementPtr
           { inBounds = False
           , address  = ref
           , indices  = ConstantOperand . C.Int 32 <$> [0, field]
           , metadata = []}
-      pure . LocalReference objType' $ label
+      pure (LocalReference objType' $ label, True)

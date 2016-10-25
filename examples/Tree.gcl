@@ -2,7 +2,7 @@ program Tree.bin begin
 
 abstract ANode(T)
 begin
-  var s : seq of int;
+  var s : sequence of int;
   var b : set of int;
   {inv true inv}   
 end
@@ -15,7 +15,7 @@ begin
   var left, right : Node(T)*;
 
   {repinv true repinv}
-
+  {coupinv true coupinv}
   where { s := << 1,2,3,4 >>; b := {1,2,3} }
 
 
@@ -51,7 +51,7 @@ abstract ATree(T)
 begin
   /* ATree variables */
   const MAX := 100 : int;
-  var s1,s2,s3     : seq of int;
+  var s1,s2,s3     : sequence of int;
   {inv true inv}
   /* ATree procedures */
 end
@@ -63,8 +63,8 @@ begin
   var root     : Node(T)*;
   var a, b : array[3] of int;
   
-  {repinv s1 ++ s2 == s3 repinv}
-
+  {repinv true repinv}
+  {coupinv s1 ++ s2 == s3 coupinv}
   where { 
     s1 := << 1,2,3 >>;
     s2 := << 4,5,6 >>;

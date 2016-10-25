@@ -105,13 +105,20 @@ function = do
   symbolTable %= closeScope postTo
 
   bnd     <- join <$> optional A.bound
-
+ 
+  let 
+    callTypeArgs = if goToDT 
+      then
+        let Just (dtType,_,_,_) = dt
+        in Just (typeName dtType, typeArgs dtType) 
+      else Nothing
   currentFunc .= case (funcName', funcParams') of
     (Just funcName, Just params) -> Just CurrentRoutine
       { _crName       = funcName
       , _crPos        = from
       , _crParams     = params
       , _crType       = funcRetType
+      , _crTypeArgs   = callTypeArgs
       , _crRecAllowed = isJust bnd
       , _crRecursive  = False  }
     _ -> Nothing
@@ -228,7 +235,7 @@ procedure = do
   goToDT <- case (dt, params', procName') of
     (Just (dtType, _, procs, _), Just params, Just procName) -> do
       let
-        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        aux = (\case; Just t@GDataType{} -> t =:= dtType; _ -> False)
         hasTV  = any (\(_,pType,_) -> hasTypeVar  pType) params
         hasDT' = any (\(_,pType,_) -> aux $ hasDT pType) params
       if hasTV || hasDT'
@@ -252,12 +259,19 @@ procedure = do
   post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
   bnd     <- join <$> optional A.bound
 
+  let 
+    callTypeArgs = if goToDT 
+      then
+        let Just (dtType,_,_,_) = dt
+        in Just (typeName dtType, typeArgs dtType) 
+      else Nothing
   currentProc .= case (procName', params') of
     (Just procName, Just params) -> Just CurrentRoutine
       { _crName       = procName
       , _crPos        = from
       , _crParams     = params
       , _crType       = ()
+      , _crTypeArgs   = callTypeArgs
       , _crRecAllowed = isJust bnd
       , _crRecursive  = False  }
     _ -> Nothing
@@ -294,6 +308,7 @@ procedure = do
             , procBody = body
             , procParams = params
             , procRecursive }}
+
       if goToDT
         then do
           let Just (_,_, procs,_) = dt
@@ -367,6 +382,7 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
              <|> match TokInOut $> InOut
              <|> match TokOut   $> Out
              <|> match TokRef   $> Ref
+             <|> match TokConst $> Const
 
 
 functionDeclaration :: Parser (Maybe Definition)
@@ -385,7 +401,7 @@ functionDeclaration = do
   case (dt, params', funcName') of
     (Just (dtType, _, procs, _), Just params, Just funcName) -> do
       let
-        aux = (\case; Just t -> t =:= dtType; _ -> False)
+        aux = (\case; Just t@GDataType{} -> t =:= dtType; _ -> False)
         hasTV  = any (\(_,pType) -> hasTypeVar  pType) params
         hasDT' = any (\(_,pType) -> aux $ hasDT pType) params
       when ((hasTV || hasTypeVar retType) && not hasDT') .
