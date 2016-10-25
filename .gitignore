@@ -25,3 +25,5 @@ cabal.config
 *.dSYM
 
 *.txt
+
+source/Haskell/rungraciela

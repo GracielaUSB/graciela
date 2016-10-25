@@ -705,7 +705,14 @@ procedureCall = do
             Obj {} | mode `elem` [Out, InOut, Ref] -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
             
-            _ | mode `elem` [In, Const] -> do
+            _ | mode == Const -> if expConst e
+              then pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
+              else do 
+                putError from . UnknownError $
+                  "The parameter `" <> unpack name <> "` has mode " <>
+                  show mode <> "\n\tbut the given expression is not constant \n"
+                pure Nothing  
+            _ | mode == In -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
             
             _ -> do

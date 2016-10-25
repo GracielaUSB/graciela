@@ -73,7 +73,7 @@ program nuevo.bin begin
      ; writeln("d = ", d)
     ]|
 
-  proc arr (const m : int, const a : array[m] of float)
+  proc arr (const m : int, in a : array[m] of float)
     {pre true pre}
     {post true post}
     |[ writeln(" > ", a[0])
@@ -82,12 +82,14 @@ program nuevo.bin begin
      ; writeln(" > ", a[3])
      ; writeln(" > ", a[4])
      ; writeln(" > ", a[5])
+
     ]|
 
 main
   |[ var t : b(char)*
    ; var a : array[6] of float
    ; var i := 101 : int
+   ; test(i,i,i,i)
    ; new(t)
    ; a[0] := 1.1
    ; a[1] := 2.2
@@ -104,7 +106,7 @@ main
    ; writeln(" .. ", a[5])
    ; jamon(t,'l')
    // ; t.i[0] := true
-   // ; test(i,i,i,i)
+   ; test(i,i,i,i)
    // ; s(t,t.i)
    // ; writeln(t.i[0])
   ]|
