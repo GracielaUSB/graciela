@@ -43,7 +43,7 @@ import           System.Console.GetOpt      (ArgDescr (..), ArgOrder (..),
                                              OptDescr (..), getOpt, usageInfo)
 import           System.Directory           (doesFileExist)
 import           System.Environment         (getArgs)
-import           System.Exit                (ExitCode (..), die, exitSuccess)
+import           System.Exit                (ExitCode (..), die, exitSuccess, exitFailure)
 import           System.FilePath.Posix      (replaceExtension, takeExtension)
 import           System.Info                (os)
 import           System.IO                  (hPutStr, stderr)
@@ -171,8 +171,8 @@ main = do
   source <- readFile fileName
 
   let
-    tokens = lex fileName source
-    (r, state) = runParser program fileName (initialState fileName) tokens
+    (tokens, pragmas) = lex fileName source
+    (r, state) = runParser program fileName (initialState pragmas) tokens
 
   if null (state ^. errors)
     then case r of
@@ -228,7 +228,7 @@ main = do
         putStr out
         hPutStr stderr errs
 
-        -- void $ readProcess "rm" [lltName] ""
+        void $ readProcess "rm" [lltName] ""
 
         case exitCode of
           ExitSuccess ->
@@ -236,13 +236,15 @@ main = do
           ExitFailure _ ->
             die "clang error"
 
-      Left message -> putStrLn $ prettyError message
+      Left message -> do
+        die $ prettyError message
 
-    else
+    else do
       {- If any errors occurred during Parsing, they will be printed here-}
       -- mapM_ print (state ^. errors)
       hPutStr stderr . unlines . mTake (optErrors options) . toList $
         prettyError <$> state ^. errors
+      exitFailure
 
   where
     mTake Nothing  xs = xs

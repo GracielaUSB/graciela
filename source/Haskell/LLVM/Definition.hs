@@ -351,7 +351,6 @@ definition
       t'    <- toLLVMType t
       if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
         then do 
-          traceM $ show t 
           pure $ Parameter t' name' []
         else pure $ Parameter (ptr t') name' []
 

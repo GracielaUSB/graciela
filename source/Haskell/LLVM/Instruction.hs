@@ -848,6 +848,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             GFloat  -> writeFString
             GInt    -> writeIString
             GString -> writeSString
+            GAny    -> writeIString
             _         -> error
               "internal error: attempted to write non-basic type."
         addInstruction $ Do Call

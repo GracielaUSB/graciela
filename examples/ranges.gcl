@@ -67,7 +67,8 @@ main
   |[ var w  : b (boolean)
   ;  var bo : boolean
   ;  var z  : c(boolean)
-  ;  write(# w.kkk)
+  // ;  write(# w.kkk)
+  ; writeln(10 / 0)
   ;  w.things[0] := 199
   ;  w.things[1] := 212
   // ;  prueba(w)

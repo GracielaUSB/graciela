@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedLists          #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE ScopedTypeVariables      #-}
+{-# LANGUAGE TemplateHaskell          #-}
 {-# LANGUAGE TupleSections            #-}
 {-# LANGUAGE TypeFamilies             #-}
 
@@ -34,9 +35,9 @@ import           SymbolTable               (closeScope, defocus, emptyGlobal,
                                             insertSymbol, lookup, openScope)
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (elements, use, view, (%%=), (%=),
-                                            (%~), (&), (&~), (.=), (<&>), (^.),
-                                            _1, _3, _Just)
+import           Control.Lens              (elements, makeLenses, use, view,
+                                            (%%=), (%=), (%~), (&), (&~), (.=),
+                                            (<&>), (^.), _1, _3, _Just)
 import           Control.Monad             (foldM, unless, void, when, (>=>))
 import           Control.Monad.Reader      (asks)
 import           Control.Monad.Trans.Class (lift)
@@ -44,8 +45,8 @@ import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
                                             gets, modify, put)
 import qualified Data.Array                as Array (listArray)
 import           Data.Foldable             (foldl')
-import           Data.Functor              (($>))
-import qualified Data.Map.Strict           as Map (insert, lookup, size, empty)
+import           Data.Map.Strict           (Map)
+import qualified Data.Map.Strict           as Map (empty, insert, lookup, size)
 import           Data.Maybe                (catMaybes, fromJust)
 import           Data.Monoid               (First (..))
 import           Data.Semigroup            (Semigroup (..))
@@ -58,9 +59,6 @@ import           Text.Megaparsec           (between, getPosition, lookAhead,
                                             manyTill, optional,
                                             parseErrorPretty, try, (<|>))
 --------------------------------------------------------------------------------
-
-expression :: Parser (Maybe Expression)
-expression = evalStateT expr []
 
 data ProtoRange
   = ProtoVar                  -- ^ The associated expression is the
@@ -86,15 +84,25 @@ instance Monoid Taint where
 
 type MetaExpr = (Expression, ProtoRange, Taint)
 
-type ParserExp = StateT [ Text ] Parser
+type ParserExp = StateT [Text] Parser
 
 expr :: ParserExp (Maybe Expression)
-expr = pure . (view _1 <$>) =<< filterRawName =<< metaexpr
-
+expr = pure . (view _1 <$>) =<< filterAny =<< filterRawName =<< metaexpr
+  where
+    filterAny :: Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
+    filterAny Nothing = pure Nothing
+    filterAny je@(Just (e, _, _)) = if expType e == GAny
+      then do
+        putError (pos . E.loc $ e) . UnknownError $
+          "Expression lacks a concrete type."
+        pure Nothing
+      else pure je
 
 metaexpr :: ParserExp (Maybe MetaExpr)
 metaexpr = makeExprParser term operator
 
+expression :: Parser (Maybe Expression)
+expression = evalStateT expr []
 
 term :: ParserExp (Maybe MetaExpr)
 term =  tuple
@@ -201,7 +209,8 @@ tuple = do
       putError from . UnknownError $
         "Expected expression."
       pure Nothing
-    Just [e]      -> pure $ Just e
+    Just [(e0, r0, t0)] -> pure $
+      Just (e0 { E.loc = Location (from, to)}, r0, t0)
     Just [(e0, _, t0), (e1, _, t1)]
       | allowed e0 && allowed e1 ->
         let expr = Expression
@@ -263,21 +272,26 @@ collection = do
       -- There were errors in the elems
       Nothing -> pure Nothing
       -- All elems are ok
-      Just (els, t) ->
-        let
-          e = Expression
-            { E.loc   = Location (from, to)
-            , expType = (case colKind of
-              Set      -> GSet
-              Multiset -> GMultiset
-              Sequence -> GSeq
-              ) t
-            , expConst = False -- FIXME
-            , exp' = Collection
-              { colKind
-              , colVar   = Nothing
-              , colElems = els }}
-        in pure $ Just (e, ProtoNothing, Taint False)
+      Just (els, t) -> lift (use isDeclarative) >>= \case
+        True ->
+          let
+            e = Expression
+              { E.loc   = Location (from, to)
+              , expType = (case colKind of
+                Set      -> GSet
+                Multiset -> GMultiset
+                Sequence -> GSeq
+                ) t
+              , expConst = False -- FIXME
+              , exp' = Collection
+                { colKind
+                , colVar   = Nothing
+                , colElems = els }}
+          in pure $ Just (e, ProtoNothing, Taint False)
+        False -> do
+          putError from . UnknownError $
+            "Set comprehension not allowed in imperative code."
+          pure Nothing
 
     -- A variable was given without errors
     Just (Just (var, varTy, range, cond)) -> case melems of
@@ -292,21 +306,26 @@ collection = do
           pure Nothing
 
         -- The element list is not empty
-        else
-          let
-            e = Expression
-              { E.loc   = Location (from, to)
-              , expType = (case colKind of
-                Set      -> GSet
-                Multiset -> GMultiset
-                Sequence -> GSeq
-                ) t
-              , expConst = False -- FIXME
-              , exp' = Collection
-                { colKind
-                , colVar   = Just (var, varTy, range, cond)
-                , colElems = els }}
-          in pure $ Just (e, ProtoNothing, Taint False)
+        else lift (use isDeclarative) >>= \case
+          True ->
+            let
+              e = Expression
+                { E.loc   = Location (from, to)
+                , expType = (case colKind of
+                  Set      -> GSet
+                  Multiset -> GMultiset
+                  Sequence -> GSeq
+                  ) t
+                , expConst = False -- FIXME
+                , exp' = Collection
+                  { colKind
+                  , colVar   = Just (var, varTy, range, cond)
+                  , colElems = els }}
+            in pure $ Just (e, ProtoNothing, Taint False)
+          False -> do
+            putError from . UnknownError $
+              "Set comprehension not allowed in imperative code."
+            pure Nothing
 
   where
     varAndRange :: SourcePos -> ParserExp (Maybe (Text, Type, QRange, Expression))
@@ -471,99 +490,119 @@ variable = do
 
         in pure $ Just (expr, ProtoNothing, Taint False)
 
-      Var { _varType, _varConst } -> do
-        rangevars <- get
+      Var { _varType, _varConst } -> lift (use isDeclarative) >>= \x -> if _varType =:= highLevel && not x
+        then do
+          let Location (pos, _) = loc
+          putError pos . UnknownError $
+            "Variable `" <> unpack name <> "` of type " <> show _varType <>
+            " not allowed in imperative code."
+          pure Nothing
 
-        let expr = Expression
-              { E.loc
-              , expType = _varType
-              , expConst = _varConst || name `elem` rangevars
-              , exp' = Obj
-                { theObj = Object
-                  { O.loc
-                  , objType = _varType
-                  , obj' = Variable
-                    { O.name = name
-                    , mode = Nothing }}}}
+        else do
+          rangevars <- get
 
-        let protorange = case rangevars of
-              [] -> ProtoNothing
-              _  -> if name == head rangevars
-                then ProtoVar
-                else ProtoNothing
+          let expr = Expression
+                { E.loc
+                , expType = _varType
+                , expConst = _varConst || name `elem` rangevars
+                , exp' = Obj
+                  { theObj = Object
+                    { O.loc
+                    , objType = _varType
+                    , obj' = Variable
+                      { O.name = name
+                      , mode = Nothing }}}}
 
-        let taint = case rangevars of
-              [] -> Taint False
-              _  -> if name == head rangevars
-                then Taint True
-                else Taint False
+          let protorange = case rangevars of
+                [] -> ProtoNothing
+                _  -> if name == head rangevars
+                  then ProtoVar
+                  else ProtoNothing
 
-        pure $ Just (expr, protorange, taint)
+          let taint = case rangevars of
+                [] -> Taint False
+                _  -> if name == head rangevars
+                  then Taint True
+                  else Taint False
+
+          pure $ Just (expr, protorange, taint)
 
       SelfVar { _selfType, _selfConst } -> do
         struct <- lift $ use currentStruct
-        expr <- case struct of
-          Just (GDataType structName' abstract t, mapTypes, _, _) ->
-            case name `Map.lookup` mapTypes of
-              Just (i, _, _, _) -> do
-                when (_selfType =:= highLevel && not coup) . putError (pos loc) .
-                  UnknownError $ "Abstract field `" <> unpack name <> 
-                  "` can only be used\n\tinside the abstract type or the coupling relation"
-
-                pure Expression
-                  { loc
-                  , expType  = _selfType
-                  , expConst = _selfConst
-                  , exp'     = Obj
-                    { theObj = Object
-                      { loc
-                      , objType = _selfType
-                      , obj' = Member
-                        { field = i
-                        , fieldName = name
-                        , inner = Object
-                          { loc
-                          , objType = GDataType structName' abstract t
-                          , obj' = Variable
-                            { O.name = pack "_self"
-                            , mode = Nothing }}}}}}
-
-              Nothing -> error $ "Internal error: Data Type variable `" <>
-                          unpack name <>"` not found"
-          Nothing -> error "Internal error: Data Type not found"
-
         rangevars <- get
 
-        let protorange = case rangevars of
-              [] -> ProtoNothing
-              _  -> if name == head rangevars
-                then ProtoVar
-                else ProtoNothing
+        lift (use isDeclarative) >>= \x -> if _selfType =:= highLevel && not x
+          then do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Variable `" <> unpack name <> "` of type " <> show _selfType <>
+              " not allowed in imperative code."
+            pure Nothing
+          else
+            let
+              expr = case struct of
+                Just (GDataType structName' abstract t, mapTypes, _, _) ->
+                  case name `Map.lookup` mapTypes of
+                    Just (i, _, _, _) -> Expression
+                      { loc
+                      , expType  = _selfType
+                      , expConst = _selfConst
+                      , exp'     = Obj
+                        { theObj = Object
+                          { loc
+                          , objType = _selfType
+                          , obj' = Member
+                            { field = i
+                            , fieldName = name
+                            , inner = Object
+                              { loc
+                              , objType = GDataType structName' abstract t
+                              , obj' = Variable
+                                { O.name = pack "_self"
+                                , mode = Nothing }}}}}}
 
-        let taint = case rangevars of
-              [] -> Taint False
-              -- _  -> if name `elem` rangevars
-              _  -> if name == head rangevars
-                then Taint True
-                else Taint False
+                    Nothing -> internal $ "Data Type variable `" <>
+                                unpack name <>"` not found"
 
-        pure $ Just (expr, protorange, taint)
+                Nothing -> internal "Data Type not found"
 
-      Argument { _argMode, _argType } ->
-        let
-          expr = Expression
-            { E.loc
-            , expType  = _argType
-            , expConst = _argMode == Const 
-            , exp'     = Obj
-              { theObj = Object
-                { O.loc
-                , objType = _argType
-                , obj'    = Variable
-                  { O.name = name
-                  , mode   = Just _argMode }}}}
 
-        in pure $ Just (expr, ProtoNothing, Taint False)
+              protorange = case rangevars of
+                  [] -> ProtoNothing
+                  _  -> if name == head rangevars
+                    then ProtoVar
+                    else ProtoNothing
+
+              taint = case rangevars of
+                  [] -> Taint False
+                  -- _  -> if name `elem` rangevars
+                  _  -> if name == head rangevars
+                    then Taint True
+                    else Taint False
+
+            in pure $ Just (expr, protorange, taint)
+
+      Argument { _argMode, _argType } -> lift (use isDeclarative) >>= \x -> if _argType =:= highLevel && not x
+        then do
+          let Location (pos, _) = loc
+          putError pos . UnknownError $
+            "Variable `" <> unpack name <> "` of type " <> show _argType <>
+            " not allowed in imperative code."
+          pure Nothing
+        else
+          let
+            expr = Expression
+              { E.loc
+              , expType  = _argType
+              , expConst = _argMode == Const
+              , exp'     = Obj
+                { theObj = Object
+                  { O.loc
+                  , objType = _argType
+                  , obj'    = Variable
+                    { O.name = name
+                    , mode   = Just _argMode }}}}
+          in pure $ Just (expr, ProtoNothing, Taint False)
 
 
 filterRawName :: Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
@@ -642,24 +681,29 @@ quantification = do
             case protorange of
               ProtoQRange qRange -> case bodyType <> allowedBType of
                 GUndef  -> pure Nothing
-                newType ->
-                  let
-                    loc = Location (from, to)
-                    taint = taint0 <> taint1
-                    expr = Expression
-                      { E.loc
-                      , expType = case q of
-                        Count -> GInt
-                        _     -> newType
-                      , expConst = condConst && bodyConst
-                      , exp' = Quantification
-                        { qOp      = q
-                        , qVar     = var
-                        , qVarType = t
-                        , qRange
-                        , qCond    = cond
-                        , qBody    = theBody }}
-                  in pure $ Just (expr, ProtoNothing, taint)
+                newType -> lift (use isDeclarative) >>= \case
+                  True ->
+                    let
+                      loc = Location (from, to)
+                      taint = taint0 <> taint1
+                      expr = Expression
+                        { E.loc
+                        , expType = case q of
+                          Count -> GInt
+                          _     -> newType
+                        , expConst = condConst && bodyConst
+                        , exp' = Quantification
+                          { qOp      = q
+                          , qVar     = var
+                          , qVarType = t
+                          , qRange
+                          , qCond    = cond
+                          , qBody    = theBody }}
+                    in pure $ Just (expr, ProtoNothing, taint)
+                  False -> do
+                    putError from . UnknownError $
+                      "Quantification not allowed in imperative code."
+                    pure Nothing
               _ -> pure Nothing
 
   where
@@ -884,8 +928,8 @@ operator =
     [ InfixR (TokPower        ==> binary Op.power) ]
   , {-Level 6-}
     [ InfixL (TokTimes        ==> binary Op.times)
-    , InfixL (TokDiv          ==> binary' Op.div )
-    , InfixL (TokMod          ==> binary' Op.mod ) ]
+    , InfixL (TokDiv          ==> binary Op.div )
+    , InfixL (TokMod          ==> binary Op.mod ) ]
   , {-Level 7-}
     [ InfixL (TokPlus         ==> binary Op.plus      )
     , InfixL (TokMinus        ==> binary Op.bMinus    )
@@ -915,13 +959,13 @@ operator =
   , {-Level 11-}
     [ InfixR (TokAnd          ==> conjunction) ]
   , {-Level 12-}
-    [ InfixR (TokOr           ==> binary' Op.or) ]
+    [ InfixR (TokOr           ==> binary Op.or) ]
   , {-Level 13-}
-    [ InfixR (TokImplies      ==> binary' Op.implies   )
-    , InfixL (TokConsequent   ==> binary' Op.consequent) ]
+    [ InfixR (TokImplies      ==> binary Op.implies   )
+    , InfixL (TokConsequent   ==> binary Op.consequent) ]
   , {-Level 14-}
-    [ InfixN (TokBEQ          ==> binary' Op.beq)
-    , InfixN (TokBNE          ==> binary' Op.bne) ]
+    [ InfixN (TokBEQ          ==> binary Op.beq)
+    , InfixN (TokBNE          ==> binary Op.bne) ]
   ]
 
 token --> unaryOp = do
@@ -1410,57 +1454,71 @@ dotField = do
       Just (e@Expression { exp', loc }, _, taint) -> do
         let Location (from,_) = loc
         case exp' of
-          (Obj obj) ->
-            case objType obj of
-              GDataType n _ typeArgs-> do
-                cstruct <- lift $ use currentStruct
-                case cstruct of
-                  Just (GDataType name _ _, structFields, _, _)
-                    | name == n ->
-                      aux obj (objType obj) loc fieldName structFields Map.empty taint
-                  _ -> do
-                    structs <- lift $ use dataTypes
-                    case n `Map.lookup` structs of
-                      Just Struct { structFields, structAFields } ->
-                        let structFields' = fillTypes typeArgs structFields
-                        in aux obj (objType obj) loc fieldName structFields' Map.empty  taint
-                      _ -> internal "GDataType without struct."
+          Obj obj -> case objType obj of
+            GDataType n _ typeArgs-> do
+              cstruct <- lift $ use currentStruct
+              case cstruct of
+                Just (GDataType name _ _, structFields, _, _)
+                  | name == n ->
+                    aux obj (objType obj) loc fieldName structFields Map.empty taint
+                _ -> do
+                  structs <- lift $ use dataTypes
+                  case n `Map.lookup` structs of
+                    Just Struct { structFields, structAFields } ->
+                      let structFields' = fillTypes typeArgs structFields
+                      in aux obj (objType obj) loc fieldName structFields' Map.empty  taint
+                    _ -> internal "GDataType without struct."
 
-              GFullDataType n typeArgs -> do
-                dts <- lift $ use dataTypes
-                case n `Map.lookup` dts of
-                  Nothing -> pure Nothing
-                  Just Struct { structFields, structAFields } ->
-                    let structFields' = fillTypes typeArgs structFields
-                    in aux obj (objType obj) loc fieldName structFields' structAFields taint
-              t -> do
-                putError from' . UnknownError $
-                  "Bad field access. Cannot access an expression \
-                  \of type " <> show t <> "."
-                pure Nothing
+            GFullDataType n typeArgs -> do
+              dts <- lift $ use dataTypes
+              case n `Map.lookup` dts of
+                Nothing -> pure Nothing
+                Just Struct { structFields, structAFields } ->
+                  let structFields' = fillTypes typeArgs structFields
+                  in aux obj (objType obj) loc fieldName structFields' structAFields taint
+            t -> do
+              putError from' . UnknownError $
+                "Bad field access. Cannot access an expression \
+                \of type " <> show t <> "."
+              pure Nothing
           _ -> do
             putError from' . UnknownError $
               "Bad field access. Cannot access an expression."
             pure Nothing
   where
-    aux o oType loc fieldName structFields structAFields taint = do
+    aux :: Object
+        -> Type
+        -> Location
+        -> Text
+        -> Map Text (Integer, Type, Bool, a)
+        -> Map Text b
+        -> Taint
+        -> ParserExp (Maybe MetaExpr)
+    aux o oType loc fieldName structFields structAFields taint =
       case fieldName `Map.lookup` structFields of
-        Just (i, t, c, _) ->
-          let
-            expr = Expression
-              { loc
-              , expType  = t
-              , expConst = c
-              , exp'     = Obj
-                { theObj = Object
-                  { loc
-                  , objType = t
-                  , obj' = Member
-                    { inner = o
-                    , field = i
-                    , fieldName }}}}
-          in pure $ Just (expr, ProtoNothing, taint)
-        Nothing -> case fieldName `Map.lookup` structAFields of 
+        Just (i, t, c, _) -> lift (use isDeclarative) >>= \x -> if t =:= highLevel && not x
+          then do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Bad field access. Use of field `" <> unpack fieldName <>
+              "` of type " <> show t <> " not allowed in imperative code."
+            pure Nothing
+          else
+            let
+              expr = Expression
+                { loc
+                , expType  = t
+                , expConst = c
+                , exp'     = Obj
+                  { theObj = Object
+                    { loc
+                    , objType = t
+                    , obj' = Member
+                      { inner = o
+                      , field = i
+                      , fieldName }}}}
+            in pure $ Just (expr, ProtoNothing, taint)
+        Nothing -> case fieldName `Map.lookup` structAFields of
           Just _ -> do
             let Location (pos, _) = loc
             putError pos . UnknownError $
@@ -1522,20 +1580,28 @@ unary unOp
         " expected an expression of type " <> expected <>
         ",\n\tbut received " <> show itype <> "."
       pure Nothing
-    Right ret -> do
-      let
-        exp'' = case exp' of
-          Value v -> Value . Op.unFunc unOp $ v
-          _ -> Unary
-            { unOp = Op.unSymbol unOp
-            , E.inner = i }
 
-        expr = Expression
-          { E.loc = Location (from, to i)
-          , expType = ret
-          , expConst
-          , exp' = exp'' }
-      pure $ Just (expr, ProtoNothing, taint)
+    Right ret -> do
+      mexpr <- case unOp of
+        Op.Un { unFunc } ->
+          let
+            exp'' = case exp' of
+              Value v -> Value . unFunc $ v
+              _ -> Unary
+                { unOp = Op.unSymbol unOp
+                , E.inner = i }
+            expr = Expression
+              { E.loc = Location (from, to i)
+              , expType = ret
+              , expConst
+              , exp' = exp'' }
+          in pure $ Just expr
+        Op.Un'' { unFunc'' } -> lift $ unFunc'' from i
+
+      case mexpr of
+        Nothing -> pure Nothing
+        Just expr ->
+          pure $ Just (expr, ProtoNothing, taint)
 
 unary _ _ _ = pure Nothing
 
@@ -1550,61 +1616,40 @@ binary binOp opLoc
   = case Op.binType binOp ltype rtype of
 
     Left expected -> do
-      let loc = Location (from l, to r)
       putError (from l) . UnknownError $
         ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           "\n\texpected two expressions of types " <> expected <>
           ",\n\tbut received " <> show (ltype, rtype) <> ".")
       pure Nothing
 
-    Right ret ->
-      let
-        taint = ltaint <> rtaint
+    Right ret -> do
+      mexpr <- case binOp of
+        Op.Bin   { binFunc   } ->
+          let
+            exp' = case (lexp, rexp) of
+              (Value v, Value w) -> Value $ binFunc v w
+              _ -> Binary
+                { binOp = Op.binSymbol binOp
+                , lexpr = l
+                , rexpr = r }
+            expr = Expression
+              { E.loc = Location (from l, to r)
+              , expType = ret
+              , expConst = lc && rc
+              , exp' }
+          in pure . Just $ expr
 
-        exp' = case (lexp, rexp) of
-          -- (Value v, Value w) ->
-          --   Value $ Op.binFunc binOp v w
-          _ -> Binary
-            { binOp = Op.binSymbol binOp
-            , lexpr = l
-            , rexpr = r }
+        Op.Bin'  { binFunc'  } -> pure . Just $ binFunc' l r
 
-        expr = Expression
-          { E.loc = Location (from l, to r)
-          , expType = ret
-          , expConst = lc && rc
-          , exp' }
+        Op.Bin'' { binFunc'' } -> lift $ binFunc'' l r
 
-      in pure $ Just (expr, ProtoNothing, taint)
+      case mexpr of
+        Nothing -> pure Nothing
+        Just expr ->
+          let
+            taint = ltaint <> rtaint
 
-
-binary' :: Op.Bin' -> Location
-        -> Maybe MetaExpr -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
-binary' _ _ Nothing _ = pure Nothing
-binary' _ _ _ Nothing = pure Nothing
-binary' binOp opLoc
-  (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp }, _, ltaint))
-  (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp }, _, rtaint))
-  = case Op.binType' binOp ltype rtype of
-
-    Left expected -> do
-      putError (from l) . UnknownError $
-        ("Operator `" <> show (Op.binSymbol' binOp) <> "` at " <> show opLoc <>
-          "\n\texpected two expressions of types " <> expected <>
-          ", but received " <> show (ltype, rtype) <> ".")
-      pure Nothing
-
-    Right ret ->
-      let
-        taint = ltaint <> rtaint
-
-        expr = Op.binFunc' binOp l r
-
-        range = if exp' expr == Value (BoolV False)
-          then ProtoQRange EmptyRange
-          else ProtoNothing
-
-      in pure $ Just (expr, range, taint)
+          in pure $ Just (expr, ProtoNothing, taint)
 
 
 membership :: Location
@@ -1782,11 +1827,11 @@ conjunction _ _ Nothing = pure Nothing
 conjunction opLoc
   l@(Just (Expression { }, ProtoNothing, ltaint))
   r@(Just (Expression { }, ProtoNothing, rtaint))
-  = binary' Op.and opLoc l r
+  = binary Op.and opLoc l r
 conjunction opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp' }, lproto, ltaint))
   (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp' }, rproto, rtaint))
-  = case Op.binType' Op.and ltype rtype of
+  = case Op.binType Op.and ltype rtype of
     Right GBool -> do
       varname <- gets head
       let

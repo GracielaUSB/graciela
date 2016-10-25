@@ -82,7 +82,7 @@ abstractDataType = do
 
     cs <- use currentStruct
 
-    let 
+    let
       fields  = cs ^. _Just . _2
 
     inv'   <- invariant
@@ -202,7 +202,7 @@ dataType = do
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
 
-              couple <- case couple' of 
+              couple <- case couple' of
                 Just c -> pure c
                 Nothing -> do
                   let Just Struct{ structLoc, structFields } = abstractAST
@@ -230,7 +230,7 @@ dataType = do
               dataTypes %= Map.insert name struct
               typeVars .= []
               currentStruct .= Nothing
-            
+
             _ -> pure ()
 
   where
@@ -328,7 +328,7 @@ dataType = do
 coupleRel :: Parser (Seq Instruction)
 coupleRel = do
   loc <- match TokWhere
-  between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
+  declarative $ between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
   where
     aux pos = do
       insts' <- sequence <$> assign `sepBy` match TokSemicolon

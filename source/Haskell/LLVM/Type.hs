@@ -12,6 +12,7 @@ module LLVM.Type
   , stringType
   , tupleType
   , iterator
+  , fill
   , toLLVMType
   , sizeOf
   , llvmName
@@ -29,7 +30,6 @@ import           LLVM.State                 (currentStruct, fullDataTypes,
 import           Control.Lens               (use, (%=))
 import           Data.Array                 ((!))
 import           Data.Foldable              (toList)
-import           Data.Functor               (($>))
 import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
@@ -61,6 +61,12 @@ iterator    = LLVM.StructureType
                 , LLVM.elementTypes = [i64, ptr i8, ptr i8]
                 }
 
+fill :: T.Type -> LLVM T.Type
+fill t = do 
+  subst <- use substitutionTable
+  pure $ case subst of
+    ta:_ -> fillType ta t
+    []  -> t
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
 toLLVMType  T.GInt           = pure intType
@@ -150,6 +156,7 @@ toLLVMType t@(GDataType name _ typeArgs) = do
       pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
 toLLVMType t = error $ show t
+
 
 
 sizeOf :: T.Type -> LLVM Integer

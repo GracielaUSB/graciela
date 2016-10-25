@@ -43,12 +43,14 @@ program = do
   match' TokBegin
 
   symbolTable %= openScope from -- Open the program scope
-  many (abstractDataType <|> dataType)
+  many (declarative abstractDataType <|> dataType)
 
-  defs' <- sequence <$> many (function <|> procedure)
+  -- defs' <- sequence <$> many (function <|> procedure)
+  many (function <|> procedure)
     -- (1) listDefProc should also include type definitions
 
   main' <- mainRoutine
+
   defs  <- Seq.fromList . toList <$> use definitions
   _moreDecls <- many (function <|> procedure)
     -- These aren't compiled since they can't be reached, but they're

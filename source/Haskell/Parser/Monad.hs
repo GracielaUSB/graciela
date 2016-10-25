@@ -33,6 +33,7 @@ module Parser.Monad
   , execParser
   , runParser
 
+  , satisfy
   , match
   , anyToken
   , oneOf
@@ -67,6 +68,8 @@ module Parser.Monad
   , some'
   , many'
   , sepBy1'
+
+  , declarative
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct
@@ -80,7 +83,8 @@ import qualified Parser.State               as Parser (State)
 import           Token                      (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
 import           Control.Applicative        (Alternative)
-import           Control.Lens               (use, view, (%=), (<~), _1, _2)
+import           Control.Lens               (use, view, (%=), (.=), (<<.=),
+                                             (<~), (^.), _1, _2)
 import           Control.Monad              (MonadPlus)
 import           Control.Monad.Identity     (Identity (..))
 import           Control.Monad.Reader       (MonadReader (..), asks)
@@ -126,16 +130,18 @@ runParserT  :: Monad m
             -> Parser.State
             -> [TokenPos]
             -> m (Either (ParseError TokenPos Error) a, Parser.State)
-runParserT p fp s input = runStateT (runReaderT flatten defaultConfig) s
-  where
-    flatten = do
-      definitions <~ asks nativeFunctions
-      symbolTable <~ asks nativeSymbols
+runParserT p fp s input = runStateT (runReaderT flatten cfg) s
+    where
+      cfg = defaultConfig (EnableTrace `elem` s^.pragmas)
 
-      x <- Mega.runParserT (unParserT p) fp input
-      pure $ case x of
-        Right (Just v) -> Right v
-        Left e         -> Left  e
+      flatten = do
+        definitions <~ asks nativeFunctions
+        symbolTable <~ asks nativeSymbols
+
+        x <- Mega.runParserT (unParserT p) fp input
+        pure $ case x of
+          Right (Just v) -> Right v
+          Left e         -> Left  e
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final state.
@@ -191,8 +197,8 @@ infixl 3 <!!>
 class MonadParsec Error [TokenPos] p => MonadParser p where
   putError :: SourcePos -> Error -> p ()
   getType :: Text -> p (Maybe Type)
-  getStruct :: Text -> p(Maybe Struct)
-  satisfy :: (Token -> Bool) -> p Token
+  getStruct :: Text -> p (Maybe Struct)
+  satisfy' :: (Token -> Bool) -> p TokenPos
   match' :: Token -> p Location
   (<!>) :: p (Maybe a) ->  (SourcePos, Error) -> p (Maybe a)
   a <!> (p, e) = a <|> (putError p e *> pure Nothing)
@@ -203,14 +209,14 @@ instance Monad m => MonadParser (ParserT m) where
   putError     = pPutError
   getType      = pGetType
   getStruct    = pGetStruct
-  satisfy      = pSatisfy
+  satisfy'     = pSatisfy'
   match'       = pMatch'
 
 instance MonadParser g => MonadParser (StateT s g) where
   putError l e        = lift $ putError l e
   getType             = lift . getType
   getStruct           = lift . getStruct
-  satisfy             = lift . satisfy
+  satisfy'            = lift . satisfy'
   match'              = lift . match'
 
 pPutError :: Monad m => SourcePos -> Error -> ParserT m ()
@@ -244,13 +250,13 @@ pRecover follow e = do
 
   pure Nothing
 
-pSatisfy :: Monad m
-         => (Token -> Bool) -> ParserT m Token
-pSatisfy f = token test Nothing
+pSatisfy' :: Monad m
+         => (Token -> Bool) -> ParserT m TokenPos
+pSatisfy' f = token test Nothing
   where
     test tp @ TokenPos { tok } =
       if f tok
-        then Right tok
+        then Right tp
         else Left . unex $ tp
     unex = (, Set.empty, Set.empty) . Set.singleton . Tokens . (:|[])
 
@@ -271,13 +277,15 @@ pMatch' t = withRecovery recover (match t)
       pure loc
 --------------------------------------------------------------------------------
 
+satisfy :: MonadParser m
+         => (Token -> Bool) -> m Token
+satisfy f = tok <$> satisfy' f
+
 match :: MonadParser m
       => Token -> m Location
 match t = do
-  from <- getPosition
-  void $ satisfy (== t)
-  to <- getPosition
-  pure $ Location (from, to)
+  TokenPos { start, end } <- satisfy' (== t)
+  pure $ Location (start, end)
 
 anyToken :: MonadParser m => m Token
 anyToken = satisfy (const True)
@@ -354,10 +362,11 @@ safeIdentifier = withRecovery recover (Just <$> identifier)
 identifierAndLoc :: MonadParser m
                  => m (Text, Location)
 identifierAndLoc = do
-  from <- getPosition
-  name <- identifier
-  to <- getPosition
-  pure (name, Location(from,to))
+  TokenPos { tok = TokId name, start, end } <- satisfy' ident
+  pure (name, Location (start, end))
+  where
+    ident TokId {} = True
+    ident _        = False
 --------------------------------------------------------------------------------
 
 parens :: MonadParser m
@@ -460,4 +469,9 @@ sepEndBy p sep = sepEndBy1 p sep <|> pure Seq.empty
 -- returned by @p@.
 sepEndBy1 :: Alternative m => m a -> m sep -> m (Seq a)
 sepEndBy1 p sep = (<|) <$> p <*> ((sep *> sepEndBy p sep) <|> pure Seq.empty)
+--------------------------------------------------------------------------------
+
+declarative :: (MonadParser m, MonadState Parser.State m)
+          => m a -> m a
+declarative p = (isDeclarative <<.= True) >>= \x -> (p <* (isDeclarative .= x))
 --------------------------------------------------------------------------------

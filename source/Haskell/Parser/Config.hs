@@ -40,10 +40,12 @@ module Parser.Config
   , traceFloatString
   , traceCharString
   , traceBoolString
+  , traceTypeVarString
   , traceStringIntString
   , traceStringFloatString
   , traceStringCharString
   , traceStringBoolString
+  , traceStringTypeVarString
   ) where
 --------------------------------------------------------------------------------
 import           AST.Definition
@@ -56,7 +58,7 @@ import           Location
 import           SymbolTable
 import           Token
 --------------------------------------------------------------------------------
-import           Control.Lens          (at, (&~), (?=))
+import           Control.Lens          (at, (&~), (.=), (?=))
 import           Data.Foldable         (foldl')
 import           Data.Map.Strict       (Map)
 import qualified Data.Map.Strict       as Map (empty, fromList, mapWithKey)
@@ -75,8 +77,8 @@ data Config = Config
   , nativeFunctions :: Map Text Definition
   , nativeSymbols   :: SymbolTable }
 
-defaultConfig :: Config
-defaultConfig = Config
+defaultConfig :: Bool -> Config
+defaultConfig enableTrace = Config
   { nativeTypes
   , nativeFunctions
   , nativeSymbols = foldl' auxInsert emptyGlobal symbols }
@@ -113,7 +115,9 @@ defaultConfig = Config
       at "toInt"        ?= (toIntG       , [])
       at "toChar"       ?= (toCharG      , [])
       at "toFloat"      ?= (toFloatG     , [])
-      at "trace"        ?= (traceG       , [])
+      at "trace"        .= if enableTrace
+        then Just (traceG, [])
+        else Nothing
 
     traceG, toIntG, toCharG, toFloatG :: Seq Type -> Either Error (Type, Text, Bool)
     absG, codomainG, domainG          :: Seq Type -> Either Error (Type, Text, Bool)
@@ -140,14 +144,18 @@ defaultConfig = Config
       , nParams = undefined
       , nArgs   = undefined }
 
-    traceG [ GInt   ] = Right (GInt,   pack  traceIntString, False)
-    traceG [ GFloat ] = Right (GFloat, pack traceFloatString, False)
-    traceG [ GChar  ] = Right (GChar,  pack  traceCharString, False)
-    traceG [ GBool  ] = Right (GBool,  pack  traceBoolString, False)
-    traceG [ GString, GInt   ] = Right (GInt,   pack  traceStringIntString, False)
-    traceG [ GString, GFloat ] = Right (GFloat, pack traceStringFloatString, False)
-    traceG [ GString, GChar  ] = Right (GChar,  pack  traceStringCharString, False)
-    traceG [ GString, GBool  ] = Right (GBool,  pack  traceStringBoolString, False)
+    traceG [ GInt   ] = Right (GInt,   pack  traceIntString,  False)
+    traceG [ GFloat ] = Right (GFloat, pack  traceFloatString, False)
+    traceG [ GChar  ] = Right (GChar,  pack  traceCharString,  False)
+    traceG [ GBool  ] = Right (GBool,  pack  traceBoolString,  False)
+    traceG [ t ]
+      | t =:= GATypeVar = Right (t, pack traceTypeVarString, False)
+    traceG [ GString, GInt   ] = Right (GInt,   pack  traceStringIntString,  False)
+    traceG [ GString, GFloat ] = Right (GFloat, pack  traceStringFloatString, False)
+    traceG [ GString, GChar  ] = Right (GChar,  pack  traceStringCharString,  False)
+    traceG [ GString, GBool  ] = Right (GBool,  pack  traceStringBoolString,  False)
+    traceG [ GString, t ]
+      | t =:= GATypeVar = Right (t, pack traceStringTypeVarString, False)
     traceG [ a ] = Left badArg
       { paramNum = 1
       , fName  = "toInt"
@@ -418,12 +426,14 @@ char2floatString, int2floatString :: String
 char2floatString = "_char2float"
 int2floatString  = "_int2float"
 
-traceIntString, traceFloatString, traceCharString, traceBoolString, traceStringIntString, traceStringFloatString, traceStringCharString, traceStringBoolString :: String
-traceIntString = "_traceIntString"
-traceFloatString = "_traceFloatString"
-traceCharString = "_traceCharString"
-traceBoolString = "_traceBoolString"
-traceStringIntString = "_traceStringIntString"
-traceStringFloatString = "_traceStringFloatString"
-traceStringCharString = "_traceStringCharString"
-traceStringBoolString = "_traceStringBoolString"
+traceIntString, traceFloatString, traceCharString, traceBoolString, traceTypeVarString, traceStringIntString, traceStringFloatString, traceStringCharString, traceStringBoolString, traceStringTypeVarString :: String
+traceIntString = "_traceInt"
+traceFloatString = "_traceFloat"
+traceCharString = "_traceChar"
+traceBoolString = "_traceBool"
+traceTypeVarString = "_traceTypeVar"
+traceStringIntString = "_traceStringInt"
+traceStringFloatString = "_traceStringFloat"
+traceStringCharString = "_traceStringChar"
+traceStringBoolString = "_traceStringBool"
+traceStringTypeVarString = "_traceStringTypeVar"

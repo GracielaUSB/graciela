@@ -34,7 +34,6 @@ import           Control.Applicative (empty)
 import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _3,
                                       _Just)
 import           Control.Monad       (join, liftM5, when)
-import           Data.Functor        (void, ($>))
 import qualified Data.Map.Strict     as Map (insert, lookup)
 import           Data.Maybe          (isJust, isNothing)
 
@@ -458,7 +457,7 @@ procedureDeclaration = do
         existsDT .= False
     _ -> pure ()
 
-   
+
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
   post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 

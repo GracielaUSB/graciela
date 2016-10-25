@@ -5,7 +5,6 @@
 module Parser.Operator
   ( Un (..)
   , Bin (..)
-  , Bin' (..)
   -- * unary operators
   , uMinus, not
   -- * arithmetic operators
@@ -28,11 +27,12 @@ module Parser.Operator
   , card
   ) where
 --------------------------------------------------------------------------------
-import           AST.Expression (BinaryOperator (..), Expression (..),
-                                 Expression' (Binary, Unary, Value),
+import           AST.Expression (BinaryOperator (..), Expression (..), Expression' (Binary, Unary, Value, binOp, inner, lexpr, rexpr, unOp),
                                  UnaryOperator (..), Value (..))
 import           AST.Type       (Type (..), basic, (=:=))
 import           Common
+import           Error          (Error (UnknownError))
+import           Parser.Monad   (Parser, putError)
 --------------------------------------------------------------------------------
 import           Data.Char      (chr, ord)
 import qualified Data.Fixed     as F (mod')
@@ -47,37 +47,66 @@ ord' :: Char -> Int32
 ord' = fromIntegral . ord
 
 --------------------------------------------------------------------------------
-
 type UnaryOpType = Type -> Either String Type
 
-data Un = Un
-  { unSymbol :: UnaryOperator
-  , unType   :: UnaryOpType
-  , unFunc   :: Value -> Value }
+data Un
+  = Un
+    { unSymbol :: UnaryOperator
+    , unType   :: UnaryOpType
+    , unFunc   :: Value -> Value }
+  | Un''
+    { unSymbol :: UnaryOperator
+    , unType   :: UnaryOpType
+    , unFunc'' :: SourcePos -> Expression -> Parser (Maybe Expression) }
 
 type BinaryOpType = Type -> Type -> Either String Type
 
-data Bin = Bin
-  { binSymbol :: BinaryOperator
-  , binType   :: BinaryOpType
-  , binFunc   :: Value -> Value -> Value }
+data Bin
+  = Bin
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc   :: Value -> Value -> Value }
+  | Bin'
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc'  :: Expression -> Expression -> Expression }
+  | Bin''
+    { binSymbol :: BinaryOperator
+    , binType   :: BinaryOpType
+    , binFunc'' :: Expression -> Expression -> Parser (Maybe Expression) }
 
-data Bin' = Bin'
-  { binSymbol' :: BinaryOperator
-  , binType'   :: BinaryOpType
-  , binFunc'   :: Expression -> Expression -> Expression }
+--------------------------------------------------------------------------------
+minInt32, maxInt32 :: Integer
+minInt32 = fromIntegral (minBound :: Int32)
+maxInt32 = fromIntegral (maxBound :: Int32)
+
+minChar, maxChar :: Integer
+minChar = 0
+maxChar = 255
 
 --------------------------------------------------------------------------------
 arithU :: Integral a
-       => (Int32 -> Int32)
+       => (Integer -> Integer)
        -> (Double -> Double)
-       -> (Value -> Value)
+       -> (SourcePos -> Expression -> Parser (Maybe Expression))
 arithU fi ff = f
   where
-    f (IntV   v) = IntV   .                        fi        $ v
-    f (FloatV v) = FloatV .                        ff        $ v
-    f _          = internal "bad arithUn precalc"
-
+    f p e@Expression { loc, exp' = Value v } = case v of
+      IntV v ->
+        let
+          r = fi (fromIntegral v)
+        in if minInt32 <= r && r <= maxInt32
+          then pure . Just $ e { exp' = Value . IntV . fromInteger $ r }
+          else do
+            putError p . UnknownError $ "A calculation overflowed."
+            pure Nothing
+      FloatV v ->
+        pure . Just $ e { exp' = Value . FloatV $ ff v }
+    f p e = pure . Just $ e
+      { loc  = let Location (_, to) = loc e in Location (p, to)
+      , exp' = Unary
+        { unOp  = UMinus
+        , inner = e }}
 
 arithUnType :: UnaryOpType
 arithUnType GInt   = Right GInt
@@ -87,7 +116,7 @@ arithUnType _      = Left $
   show GFloat
 
 uMinus :: Un
-uMinus = Un UMinus arithUnType $ arithU negate negate
+uMinus = Un'' UMinus arithUnType $ arithU negate negate
 
 --------------------------------------------------------------------------------
 boolU :: (Bool -> Bool)
@@ -115,6 +144,52 @@ arith fi ff = f
     f (FloatV v) (FloatV w) = FloatV (v `ff` w)
     f _          _          = internal "bad arithOp precalc"
 
+
+arith'' :: BinaryOperator
+        -> (Integer -> Integer -> Integer)
+        -> (Double -> Double -> Double)
+        -> (Expression -> Expression -> Parser (Maybe Expression))
+arith'' op fi ff = f
+  where
+    f e1@Expression {exp' = Value v} e2@Expression {exp' = Value w} =
+      case (v, w) of
+        (IntV   x, IntV   y) ->
+          let
+            r = fromIntegral x `fi` fromIntegral y
+            Location (pos, _) = loc e1
+          in if minInt32 <= r && r <= maxInt32
+            then pure . Just $ e1
+              { loc = loc e1 <> loc e2
+              , exp' = Value . IntV . fromInteger $ r }
+            else do
+              putError pos . UnknownError $ "A calculation overflowed."
+              pure Nothing
+        (CharV  x, CharV  y) ->
+          let
+            r = (fromIntegral . ord) x `fi` (fromIntegral . ord) y
+            Location (pos, _) = loc e1
+          in if minChar <= r && r <= maxChar
+            then pure . Just $ e1
+              { loc = loc e1 <> loc e2
+              , exp' = Value . CharV . chr . fromInteger $ r }
+            else do
+              putError pos . UnknownError $ "A calculation overflowed."
+              pure Nothing
+        (FloatV x, FloatV y) -> pure . Just $ e1
+          { loc  = loc e1 <> loc e2
+          , expConst = expConst e1 && expConst e2
+          , exp' = Value . FloatV $ x `ff` y }
+        _ -> internal "bad arithOp precalc"
+
+    f e1 e2 = pure . Just $ e1
+      { loc  = loc e1 <> loc e2
+      , expConst = expConst e1 && expConst e2
+      , exp' = Binary
+        { binOp = op
+        , lexpr = e1
+        , rexpr = e2 }}
+
+
 arithOpType :: BinaryOpType
 arithOpType GInt   GInt   = Right GInt
 arithOpType GChar  GChar  = Right GChar
@@ -125,33 +200,49 @@ arithOpType _      _      = Left $
   show (GFloat, GFloat)
 
 power, times, plus, bMinus, max, min :: Bin
-power  = Bin Power  arithOpType $ arith (^) (**)
-times  = Bin Times  arithOpType $ arith (*) (*)
-plus   = Bin Plus   arithOpType $ arith (+) (+)
-bMinus = Bin BMinus arithOpType $ arith (-) (-)
-max    = Bin Max    arithOpType $ arith P.max P.max
-min    = Bin Min    arithOpType $ arith P.min P.min
+power  = Bin'' Power  arithOpType $ arith'' Power  (^) (**)
+times  = Bin'' Times  arithOpType $ arith'' Times  (*) (*)
+plus   = Bin'' Plus   arithOpType $ arith'' Plus   (+) (+)
+bMinus = Bin'' BMinus arithOpType $ arith'' BMinus (-) (-)
+max    = Bin Max      arithOpType $ arith P.max P.max
+min    = Bin Min      arithOpType $ arith P.min P.min
 
-div, mod :: Bin'
-div = Bin' Div arithOpType $ fraction Div P.div (/)
-mod = Bin' Mod arithOpType $ fraction Mod P.mod F.mod'
+div, mod :: Bin
+div = Bin'' Div arithOpType $ fraction Div P.div (/)
+mod = Bin'' Mod arithOpType $ fraction Mod P.mod F.mod'
 
 fraction :: BinaryOperator
          -> (Int32 -> Int32 -> Int32)
          -> (Double -> Double -> Double)
-         -> Expression -> Expression -> Expression
+         -> Expression -> Expression -> Parser (Maybe Expression)
 fraction op f g
   l@Expression { exp' = lexp, expConst = lc, expType }
-  r@Expression { exp' = rexp, expConst = rc } =
-  let
-    exp' = case (lexp, rexp) of
+  r@Expression { loc = Location (pos,_), exp' = rexp, expConst = rc } = do
+    mexp' <- case (lexp, rexp) of
       (Value (IntV m), Value (IntV n))
-        | n /= 0 -> Value (IntV $ m `f` n)
+        | n == 0 -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . IntV $ m `f` n
       (Value (CharV m), Value (CharV n))
-        | n /= '\0' -> Value . CharV . chr' $ ord' m `f` ord' n
-      (Value (FloatV m), Value (FloatV n)) -> Value (FloatV $ m `g` n)
-      _ -> Binary op l r
-  in Expression { loc = loc l <> loc r, expConst = lc && rc, expType, exp'}
+        | n == '\0' -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . CharV . chr' $ ord' m `f` ord' n
+      (Value (FloatV m), Value (FloatV n))
+        | n == 0 -> do
+          putError pos . UnknownError $
+            "Division by zero."
+          pure Nothing
+        | otherwise -> pure . Just . Value . FloatV $ m `g` n
+    case mexp' of
+      Just exp' -> pure . Just $ Expression
+        { loc = loc l <> loc r
+        , expConst = lc && rc
+        , expType, exp' }
+      Nothing -> pure Nothing
 
 --------------------------------------------------------------------------------
 boolOpType :: BinaryOpType
@@ -159,7 +250,11 @@ boolOpType GBool GBool = Right GBool
 boolOpType _     _     = Left $
   show (GBool, GBool)
 
-or, and, implies, consequent, beq, bne :: Bin'
+infixr 8 .:
+(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(.:) = (.) . (.)
+
+or, and, implies, consequent, beq, bne :: Bin
 or         = Bin' Or         boolOpType or'
 and        = Bin' And        boolOpType and'
 implies    = Bin' Implies    boolOpType implies'
