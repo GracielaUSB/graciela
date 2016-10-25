@@ -82,7 +82,6 @@ program nuevo.bin begin
      ; writeln(" > ", a[3])
      ; writeln(" > ", a[4])
      ; writeln(" > ", a[5])
-     ; a[1] := 1.0
     ]|
 
 main

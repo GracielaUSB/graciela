@@ -1109,9 +1109,11 @@ call = do
                         putError from . UndefinedFunction fName $ (\(e,_,_) -> e) <$> args''
                         pure Nothing
 
-                  Just (GFullDataType name typeArgs') -> do
+                  Just dt@(GFullDataType name typeArgs') -> do
                     lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
-                      Nothing -> internal "impossible call to struct function"
+                      Nothing -> do 
+                        putError from . UnknownError $ "Couldn't find data type " <> show dt
+                        pure Nothing
                       Just Struct { structProcs } -> do
                         case fName `Map.lookup` structProcs of
                           Just Definition{ def'=FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do

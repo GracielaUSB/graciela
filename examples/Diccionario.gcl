@@ -167,11 +167,18 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
     ⟧
 end
 
+func constante (i : int) ->  int
+  {pre  true pre}
+  {post  true post}
+  |[
+    1
+  ]|
+
 func rec ( i : int) -> int
   {pre  true   pre}
   {post true post}
   {bound i bound}
-  |[ if i > 0     -> rec(i-1)*2
+  |[ if i >= constante(i) -> rec(i-1)*2
      [] otherwise -> 1
      fi
   ]|

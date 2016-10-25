@@ -56,7 +56,6 @@ program Conjunto.bin begin
   end
 
   type Conjunto(T) implements ConjuntoA(T) begin
-    const MAX := 100 : int;
     var   elems      : array[MAX] of T;
     var   tam        : int;
     
@@ -69,7 +68,7 @@ program Conjunto.bin begin
 
     where { contenido := {i : int | 0 <= i ∧ i < tam | elems[i]} }
 
-    proc copiarElems(in c : Conjunto(T), in m : int, out elems' : array[m] of T)
+    proc copiarElems(in c : Conjunto(T), const m : int, out elems' : array[m] of T)
       {pre m > 0 pre}
       {post (% forall i : int | 0 <= i /\ i < c.tam | c.elems[i] == elems'[i] %) post}
       |[ var i := 0 : int

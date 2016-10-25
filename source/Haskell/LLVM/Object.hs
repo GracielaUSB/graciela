@@ -36,18 +36,17 @@ import           Prelude                           hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
-object obj@Object { objType } = do
+object obj@Object { objType, obj' } = do 
   dfunc <- use doingFunction
-  
-  -- Make a reference to the variable that will be loaded (e.g. %a)
-  (objRef, flag) <- objectRef' obj False
-  if dfunc && not flag && t'
-    then pure objRef
-    else do
+  objRef <- objectRef obj
+  case obj' of
+    Variable {name, mode} | dfunc && t' && mode /= Nothing -> 
+       pure objRef
+    
+    _ -> do
       label <- newLabel "varObj"
       t <- toLLVMType objType
 
-      -- Load the value of the variable address on a label (e.g. %12 = load i32* %a, align 4)
       addInstruction $ label := Load 
         { volatile       = False
         , address        = objRef
@@ -55,31 +54,31 @@ object obj@Object { objType } = do
         , alignment      = 4
         , metadata       = [] }
 
-      -- The reference to where the variable value was loaded (e.g. %12)
       pure $ LocalReference t label
+
   where 
     t' = objType =:= basic     || objType == I64 
       || objType =:= highLevel || objType =:= GATypeVar
 
 
-objectRef :: Object -> LLVM Operand
-objectRef o = fst <$> objectRef' o False
+-- objectRef :: Object -> LLVM Operand
+-- objectRef o = fst <$> objectRef' o False
 
 
 -- Get the reference to the object.
 -- indicate that the object is not a deref, array access or field access inside a procedure
-objectRef' :: Object -> Bool -> LLVM (Operand, Bool)
-objectRef' (Object loc objType obj') flag = do
+objectRef :: Object -> LLVM Operand
+objectRef (Object loc objType obj') = do
   objType' <- toLLVMType objType
   case obj' of
 
     Variable { name , mode } -> do
       name' <- getVariableName name
-      pure $ (LocalReference objType' name', flag)
+      pure $ LocalReference objType' name'
       
 
     Index inner indices -> do
-      (ref,_) <- objectRef' inner True
+      ref <- objectRef inner
 
       iarrPtrPtr <- newLabel "idxStruct"
       addInstruction $ iarrPtrPtr := GetElementPtr
@@ -106,7 +105,7 @@ objectRef' (Object loc objType obj') flag = do
         , indices  = ConstantOperand (C.Int 32 0) : inds
         , metadata = [] }
 
-      pure (LocalReference objType' $ result, True)
+      pure . LocalReference objType' $ result
 
       where
         idx ref index n = do
@@ -171,7 +170,7 @@ objectRef' (Object loc objType obj') flag = do
 
 
     Deref inner -> do
-      (ref,_)    <- objectRef' inner True
+      ref        <- objectRef inner
       labelLoad  <- newLabel "derefLoad"
       labelCast  <- newLabel "derefCast"
       labelNull  <- newLabel "derefNull"
@@ -219,15 +218,15 @@ objectRef' (Object loc objType obj') flag = do
 
       (falseLabel #)
 
-      pure (LocalReference objType' $ labelLoad, True)
+      pure . LocalReference objType' $ labelLoad
 
 
     Member { inner, field } -> do
-      (ref,_) <- objectRef' inner True
+      ref <- objectRef inner
       label <- newLabel $ "member" <> show field
       addInstruction $ label := GetElementPtr
           { inBounds = False
           , address  = ref
           , indices  = ConstantOperand . C.Int 32 <$> [0, field]
           , metadata = []}
-      pure (LocalReference objType' $ label, True)
+      pure . LocalReference objType' $ label

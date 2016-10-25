@@ -183,7 +183,7 @@ assign = do
     checkType acc (Just lval, Just rval) = case (lval,rval) of
       ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
-        | not expConst || (isIn o)->
+        | not expConst && notConstMode o->
           if t1 =:= t2 && assignable t1
             then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
@@ -204,14 +204,15 @@ assign = do
           "An expression cannot be the target of an assignment."
         pure Nothing
 
-    isIn :: Object -> Bool
-    isIn Object{ obj' } = case obj' of
-      Variable {mode} -> mode == Just In
-      _ -> isIn (O.inner obj')
+    notConstMode :: Object -> Bool
+    notConstMode Object{ obj' } = case obj' of
+      Variable {mode} -> mode /= Just Const
+      _ -> notConstMode (O.inner obj')
 
     assignable a = case a of
       (GTuple _ _) -> False
       (GArray _ _) -> False
+      t | t =:= GADataType -> False
       _            -> True
 
 random :: Parser (Maybe Instruction)
@@ -559,9 +560,11 @@ procedureCall = do
               Just args'' -> do
                 putError from $ UndefinedProcedure procName args''
                 pure Nothing
-          Just (GFullDataType name typeArgs') -> do
+          Just dt@(GFullDataType name typeArgs') -> do
             use dataTypes >>= \fdts -> case name `Map.lookup` fdts of
-              Nothing -> internal $ "impossible call to struct procedure " <> (show $ fst <$> Map.toList fdts)
+              Nothing -> do
+                putError from $ UnknownError $ "Couldn't find data type " <> show dt
+                pure Nothing
               Just Struct { structProcs } -> do
                 case procName `Map.lookup` structProcs of
                   Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do

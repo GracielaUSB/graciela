@@ -32,7 +32,6 @@ end
 
 type Queue(T) implements AQueue(T)
 begin
-  const MAX       := 100  : int;
   var first, last := 0, 0 : int;
   var empty       := true : boolean;
   var elems               : array [MAX] of T;
@@ -57,9 +56,7 @@ begin
        [] c.first >  c.last -> c.last + c.MAX - c.first
        fi ]|
 
-  proc aux_copy 
-    ( in c : Queue(T)
-    , out elems_0 : array[numElems(c)] of T )
+  proc aux_copy (const c : Queue(T), out elems_0 : array[numElems(c)] of T )
     {pre true pre}
     {post 
       (% forall i : int 
