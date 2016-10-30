@@ -186,7 +186,7 @@ definition
       params' <- recursiveParams funcRecursive
 
       cs <- use currentStruct
-      let 
+      let
         dts  = filter (\(_, t) -> t =:= T.GADataType) . toList $ funcParams
         body = do
           mapM_ (callInvariant' "inv"     preOperand) dts
@@ -202,8 +202,8 @@ definition
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
-          
-          let 
+
+          let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
@@ -214,15 +214,15 @@ definition
             Just Definition{ pre = pre'} ->
               preconditionAbstract preOperand pre' pos
             _ -> pure ()
-          
+
           returnOp <- body
 
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
             _                             -> pure ()
-          
+
           pure (postFix, returnOp)
-      
+
       returnVar     <- insertVar defName
       returnType    <- toLLVMType funcRetType
 
@@ -266,7 +266,7 @@ definition
       (proc #)
 
       openScope
-      
+
       params <- mapM (makeParam False) . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
@@ -276,9 +276,9 @@ definition
       params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
-      let 
+      let
         dts  = filter (\(_, t, _) -> t =:= T.GADataType) . toList $ procParams
-        body = do 
+        body = do
           mapM_ (callInvariant "coupInv" cond) dts
           mapM_ (callInvariant "inv"     cond) dts
           mapM_ (callInvariant "repInv"  cond) dts
@@ -293,10 +293,10 @@ definition
       pName <- case cs of
         Nothing -> do
           mapM_ (callCouple "couple") dts
-          body 
+          body
           pure $ unpack defName
 
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do           
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
           let
@@ -310,17 +310,17 @@ definition
               mapM_ declaration abstPDecl
               preconditionAbstract cond pre' pos
             _ -> pure ()
-          
+
           body
 
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract cond post' pos
             _                             -> pure ()
-          
+
           pure $ unpack defName <> postFix
-      
+
       postcondition cond post
-      
+
       terminate $ Ret Nothing []
 
       blocks' <- use blocks
@@ -350,7 +350,7 @@ definition
       name' <- insertVar name
       t'    <- toLLVMType t
       if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
-        then do 
+        then do
           pure $ Parameter t' name' []
         else pure $ Parameter (ptr t') name' []
 
@@ -404,16 +404,16 @@ definition
             , function           = callable voidType writeIString
             , arguments          = [(paramDim,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           addInstruction $ Do Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable voidType lnString 
+            , function           = callable voidType lnString
             , arguments          = []
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           addInstruction $ Do Call
             { tailCallKind       = Nothing
@@ -422,7 +422,7 @@ definition
             , function           = callable voidType writeIString
             , arguments          = [(LocalReference i32 argDim,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           abort Abort.BadArrayArg (L.pos . loc $ dim)
 
@@ -431,11 +431,11 @@ definition
 
     arrAux _ = pure ()
 
-    callCouple' funcName (name, t) = callCouple funcName (name, t, T.In)  
+    callCouple' funcName (name, t) = callCouple funcName (name, t, T.In)
 
     callCouple funName (name, t, _) = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$> 
+      postFix <- llvmName ("-" <> T.typeName t) <$>
                     (mapM toLLVMType . toList $ T.typeArgs t)
       name' <- getVariableName name
 
@@ -447,13 +447,13 @@ definition
         , arguments          = [(LocalReference type' name',[])]
         , functionAttributes = []
         , metadata           = [] }
-    
+
     callInvariant' fn c (n, t) = callInvariant fn c (n, t, T.In)
 
     callInvariant funName cond (name, t, _) = do
 
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$> 
+      postFix <- llvmName ("-" <> T.typeName t) <$>
                     (mapM toLLVMType . toList $ T.typeArgs t)
       name' <- getVariableName name
 
@@ -464,7 +464,7 @@ definition
         , function           = callable voidType (funName <> postFix)
         , arguments          = [(LocalReference type' name',[]), (cond,[])]
         , functionAttributes = []
-        , metadata           = [] }    
+        , metadata           = [] }
 
     recursiveParams isRecursive = if isRecursive
       then do
@@ -730,21 +730,23 @@ preDefinitions files = do
     , defineFunction toSetRelString           ptrParam   pointerType
     , defineFunction toMultiSetString         ptrParam   pointerType
     , defineFunction toMultiSeqString         ptrParam   pointerType
+    , defineFunction toSeqSetString           ptrParam   pointerType
+    , defineFunction toSeqMultiString         ptrParam   pointerType
 
 --------------------------------------------------------------------------------
 
 
     , defineFunction firstSetString           ptrParam (ptr iterator)
-    , defineFunction nextSetString            [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
-    
+    , defineFunction nextSetString            [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
+
     , defineFunction firstMultisetString      ptrParam (ptr iterator)
-    , defineFunction nextMultisetString       [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
-    
+    , defineFunction nextMultisetString       [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
+
     , defineFunction firstSequenceString      ptrParam (ptr iterator)
-    , defineFunction nextSequenceString       [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
+    , defineFunction nextSequenceString       [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
 
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
