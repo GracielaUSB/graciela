@@ -1155,7 +1155,7 @@ call = do
 
                   Just dt@(GFullDataType name typeArgs') -> do
                     lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
-                      Nothing -> do 
+                      Nothing -> do
                         putError from . UnknownError $ "Couldn't find data type " <> show dt
                         pure Nothing
                       Just Struct { structProcs } -> do
@@ -1523,7 +1523,7 @@ dotField = do
             let Location (pos, _) = loc
             putError pos . UnknownError $
               "Bad field access. Cannot access the abstract field `" <>
-              unpack fieldName <> "`\n\toutside the abstract defnition or couple relation"
+              unpack fieldName <> "`\n\toutside the abstract definition or couple relation"
             pure Nothing
           Nothing -> do
             let Location (pos, _) = loc
