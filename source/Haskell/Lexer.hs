@@ -303,9 +303,9 @@ token  =  reserved "program"    TokProgram
 
 
       -- V2.0
-      <|> symbol   "{{"         TokLeftBag
+      <|> symbol   "{:"         TokLeftBag
       <|> symbol   "\10181"     TokLeftBag  -- ⟅
-      <|> symbol   "}}"         TokRightBag
+      <|> symbol   ":}"         TokRightBag
       <|> symbol   "\10182"     TokRightBag -- ⟆
 
       <|> symbol   "\8709"      TokEmptySet -- ∅
