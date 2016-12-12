@@ -1200,44 +1200,48 @@ call = do
                             return Nothing
 
                   Just t@(GDataType name _ _) -> do
-                    Just (GDataType {typeArgs}, _, structProcs, _) <- lift $ use currentStruct
-                    case fName `Map.lookup` structProcs of
-                      Just Definition {def' =
-                        FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
-                        let
-                          nParams = length funcParams
-
-                        when (nParams /= nArgs) . putError from . UnknownError $
-                            "Calling procedure `" <> unpack fName <>
-                            "` with a bad number of arguments."
-
-                        args' <- foldM (checkType' typeArgs fName from)
-                          (Just (Seq.empty, Taint False, True))
-                          (Seq.zip args funcParams )
-
-                        pure $ case args' of
-                          Nothing -> Nothing
-                          Just (fArgs, taint, const') -> do
-                            let
-                              expr = Expression
-                                { E.loc
-                                , expType = funcRetType
-                                , expConst = const'
-                                , exp' = FunctionCall
-                                  { fName
-                                  , fArgs
-                                  , fRecursiveCall = False
-                                  , fRecursiveFunc = funcRecursive
-                                  , fStructArgs    = Just (name, typeArgs)}}
-
-                            Just (expr, ProtoNothing, taint)
-
+                    lift (use currentStruct) >>= \case
                       Nothing -> do
-                        putError from . UnknownError $
-                          "Data Type `" <> unpack name <>
-                          "` does not have a function called `" <>
-                          unpack fName <> "`"
-                        return Nothing
+                        traceShowM t
+                        pure Nothing
+                      Just (GDataType {typeArgs}, _, structProcs, _) ->
+                        case fName `Map.lookup` structProcs of
+                          Just Definition {def' =
+                            FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
+                            let
+                              nParams = length funcParams
+
+                            when (nParams /= nArgs) . putError from . UnknownError $
+                                "Calling procedure `" <> unpack fName <>
+                                "` with a bad number of arguments."
+
+                            args' <- foldM (checkType' typeArgs fName from)
+                              (Just (Seq.empty, Taint False, True))
+                              (Seq.zip args funcParams )
+
+                            pure $ case args' of
+                              Nothing -> Nothing
+                              Just (fArgs, taint, const') -> do
+                                let
+                                  expr = Expression
+                                    { E.loc
+                                    , expType = funcRetType
+                                    , expConst = const'
+                                    , exp' = FunctionCall
+                                      { fName
+                                      , fArgs
+                                      , fRecursiveCall = False
+                                      , fRecursiveFunc = funcRecursive
+                                      , fStructArgs    = Just (name, typeArgs)}}
+
+                                Just (expr, ProtoNothing, taint)
+
+                          Nothing -> do
+                            putError from . UnknownError $
+                              "Data Type `" <> unpack name <>
+                              "` does not have a function called `" <>
+                              unpack fName <> "`"
+                            return Nothing
 
               -- If the function is not defined, it's possible that we're
               -- dealing with a recursive call. The information of a function

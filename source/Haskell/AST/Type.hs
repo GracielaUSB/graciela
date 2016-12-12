@@ -130,7 +130,11 @@ fillType typeArgs (GFullDataType n as) =
   GFullDataType n (fillType typeArgs <$> as)
 
 fillType typeArgs (GDataType n an as) =
-  GDataType n an (fillType typeArgs <$> as)
+  let 
+    mk = if any (=:= GATypeVar) typeArgs
+      then GDataType n an
+      else GFullDataType n
+  in mk (fillType typeArgs <$> as)
 
 fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
 fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
