@@ -10,7 +10,7 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "wchar.h"
 #include "locale.h"
 #include "string.h"
-#include "graciela-abstract-lib/graciela-abstract-lib.h"
+#include "libgraciela-abstract/libgraciela-abstract.h"
 
 int8_t* _openFile(char* name) {
   FILE* file;
@@ -29,7 +29,7 @@ void _closeFile(int8_t* file) {
   fclose(f);
 }
 
-int8_t* _malloc(int size){  
+int8_t* _malloc(int size){
   return calloc(1,size);
 }
 

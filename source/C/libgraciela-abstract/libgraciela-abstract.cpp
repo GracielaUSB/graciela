@@ -1,12 +1,12 @@
 //
-//  graciela-abstract-lib.cpp
-//  graciela-abstract-lib
+//  libgraciela-abstract.cpp
+//  libgraciela-abstract
 //
 //  Created by Carlos Spaggiari Roa on 8/24/16.
 //  Copyright © 2016 ARSC. All rights reserved.
 //
 
-#include "graciela-abstract-lib.h"
+#include "libgraciela-abstract.h"
 
 #ifdef __cplusplus
 
@@ -17,9 +17,9 @@ extern "C" {
 
   vector<TrashCollector>* _stack;
 //  int precondition = 0;
-  
+
   void abortAbstract(abortEnum reason, int line, int col, int pos = 0, int size = 0){
-  
+
     printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
 
     switch (reason) {
@@ -38,7 +38,7 @@ extern "C" {
       default:
         break;
     }
-  
+
     _freeTrashCollector();
     exit(EXIT_FAILURE);
 
@@ -97,7 +97,7 @@ extern "C" {
 
   Iterator * _firstMultiset(int8_t *ptr){
     Multiset* set = (Multiset*)ptr;
-    
+
     Multiset::iterator *it =(Multiset::iterator*)malloc (sizeof(Multiset::iterator));
     *it = set->begin();
     t data = **it;
@@ -117,7 +117,7 @@ extern "C" {
   Iterator *_nextMultiset(Iterator* i){
     Multiset::iterator *next = (Multiset::iterator*)i->it;
     Multiset* type = (Multiset*)i->type;
-    
+
     *next = ++(*next);
     if (*next != type->end()) {
       Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
@@ -131,10 +131,10 @@ extern "C" {
       return NULL;
     }
   }
-  
+
   Iterator * _firstSequence(int8_t *ptr){
     Sequence* set = (Sequence*)ptr;
-    
+
     Sequence::iterator *it =(Sequence::iterator*)malloc (sizeof(Sequence::iterator));
     *it = set->begin();
     t data = **it;
@@ -151,11 +151,11 @@ extern "C" {
       return i;
     }
   }
-  
+
   Iterator *_nextSequence(Iterator* i){
     Sequence::iterator *next = (Sequence::iterator*)i->it;
     Sequence* type = (Sequence*)i->type;
-    
+
     *next = ++(*next);
     if (*next != type->end()) {
       Iterator *_i = (Iterator*)malloc(sizeof(Iterator));
@@ -732,7 +732,7 @@ extern "C" {
       }
       return (int8_t*) set;
   }
-  
+
   int8_t* _codomainRelation(int8_t *ptr){
     Relation *rel = (Relation*)ptr;
     Set      *set = (Set*)_newSet();

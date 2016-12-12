@@ -1,6 +1,6 @@
 //
-//  graciela-abstract-lib.h
-//  graciela-abstract-lib
+//  libgraciela-abstract.h
+//  libgraciela-abstract
 //
 //  Created by Carlos Spaggiari Roa on 8/20/16.
 //  Copyright © 2016 ARSC. All rights reserved.
@@ -51,7 +51,7 @@ namespace glib {
     typedef vector<Tuple>      SequencePair;
     typedef pair<int8_t*,type> TCTuple;
     typedef vector<TCTuple>    TrashCollector;
-  
+
   typedef enum{
     A_DUPLICATE_DOMAIN = 0,
     A_NOT_IN_DOMAIN    = 1,
@@ -76,13 +76,13 @@ extern "C" {
 
     Iterator *_firstSet(int8_t *ptr);
     Iterator *_nextSet(Iterator* i);
-  
+
     Iterator *_firstMuliset(int8_t *ptr);
     Iterator *_nextMultiset(Iterator* i);
-  
+
     Iterator *_firstSequence(int8_t *ptr);
     Iterator *_nextSequence(Iterator* i);
-  
+
 
 
     /* Set */

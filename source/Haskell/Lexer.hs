@@ -156,6 +156,11 @@ token  =  reserved "program"    TokProgram
       <|> symbol   ":="         TokAssign
       <|> symbol   "\8788"      TokAssign -- ≔
 
+      -- 2.0
+      <|> symbol   "{:"         TokLeftBag
+      <|> symbol   ":}"         TokRightBag
+      -- 2.0
+
       <|> symbol   "."          TokDot
       <|> symbol   ","          TokComma
       <|> symbol   ":"          TokColon
@@ -303,9 +308,7 @@ token  =  reserved "program"    TokProgram
 
 
       -- V2.0
-      <|> symbol   "{:"         TokLeftBag
       <|> symbol   "\10181"     TokLeftBag  -- ⟅
-      <|> symbol   ":}"         TokRightBag
       <|> symbol   "\10182"     TokRightBag -- ⟆
 
       <|> symbol   "\8709"      TokEmptySet -- ∅

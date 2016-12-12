@@ -1,6 +1,6 @@
 //
 //  main.c
-//  graciela-abstract-lib
+//  libgraciela-abstract
 //
 //  Created by Carlos Spaggiari Roa on 8/20/16.
 //  Copyright © 2016 ARSC. All rights reserved.
@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "graciela-abstract-lib.h"
+#include "libgraciela-abstract.h"
 
 
 
@@ -24,17 +24,17 @@ int main() {
 //    _insertFunction(func, 1, 12);
 //    printf("(1,2)@func  == %s\n",_isElemFunction(func, 1,2)?"True":"False");
 //    printf("(1,12)@func == %s\n",_isElemFunction(func, 1,12)?"True":"False");
-//    
+//
 //    _openScope();
 //    int8_t *rel = _newRelation();
 //    _insertRelation(rel, 1, 2);
 //    _insertRelation(rel, 10, 12);
 //    printf("(1,2)@rel  == %s\n",_isElemRelation(rel, 1,2)?"True":"False");
 //    printf("(1,12)@rel == %s\n",_isElemRelation(rel, 1,12)?"True":"False");
-//    
+//
 //
 //    _closeScope();
-//    
+//
     _insertSet(a,1);
     _insertSet(a,2);
     _insertSet(a,3);
@@ -46,9 +46,9 @@ int main() {
       printf("%lli\n",it->data);
       it = _nextSet(it);
     }
-//    
+//
 //    printf("%s\n",_isElemSet(a, 1)?"True":"False");
-//    
+//
 //    int8_t *mul = _newMultiset();
 //    _insertMultiset(mul, 1);
 //    _insertMultiset(mul, 2);
@@ -69,7 +69,7 @@ int main() {
   for (int i = 0;  i < 5 ; ++i) {
     printf(">> %d\n",b[i]);
   }
-  
+
     _freeTrashCollector();
     return 0;
 }

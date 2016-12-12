@@ -251,12 +251,12 @@ main = do
     mTake (Just n) xs = take n xs
     math = "-lm"
     lib  = case os of
-      "darwin"  -> "/usr/local/lib/graciela-lib.so"
-      "linux"   -> "/usr/local/lib/graciela-lib.so"
+      "darwin"  -> "/usr/local/lib/libgraciela.so"
+      "linux"   -> "/opt/graciela/lib/libgraciela.so"
       "windows" -> undefined
     abstractLib  = case os of
-      "darwin"  -> "/usr/local/lib/graciela-abstract-lib.so"
-      "linux"   -> "/usr/local/lib/graciela-abstract-lib.so"
+      "darwin"  -> "/usr/local/lib/libgraciela-abstract.so"
+      "linux"   -> "/opt/graciela/lib/libgraciela-abstract.so"
       "windows" -> undefined
     clang = case os of
       "darwin"  -> "/usr/local/bin/clang-3.5"
