@@ -88,43 +88,43 @@ defaultOptions      = Options
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['?', 'h'] ["ayuda"]
+  [ Option ['?', 'h'] ["help"]
     (NoArg (\opts -> opts { optHelp = True }))
-    "Muestra este mensaje de ayuda"
+    "Display this help message"
   , Option ['v'] ["version"]
     (NoArg (\opts -> opts { optVersion = True }))
-    "Muestra la versión del compilador"
-  , Option ['e'] ["errores"]
+    "Displays the version of the compiler"
+  , Option ['e'] ["errors"]
     (ReqArg (\ns opts -> case reads ns of
       [(n,"")] -> opts { optErrors = Just n }
-      _        -> error "Valor inválido en el argumento de `errores`"
-    ) "ENTERO")
-    "Limita el número de errores mostrados"
-  , Option ['o'] ["nombre"]
+      _        -> error "Invalid argument for flag `errors`"
+    ) "INTEGER")
+    "Limit the number of displayed errors"
+  , Option ['o'] ["out"]
     (ReqArg (\fileName opts -> case fileName of
-      "" -> error "Valor inválido en el argumento de `-o`"
+      "" -> error "Invalid argument for flag `out`"
       _  -> opts { optOutName = Just fileName }
-    ) "NOMBRE")
-    "Nombre del ejecutable"
-  , Option ['s'] ["symtable"]
-    (NoArg (\opts -> opts { optSTable = True }))
-    "Imprime la tabla de simbolos por stdin"
-  , Option ['a'] ["ast"]
-    (NoArg (\opts -> opts { optAST = True }))
-    "Imprime el AST por stdin"
-  , Option ['S'] ["assembly"]
-    (NoArg (\opts -> opts { optAssembly = True }))
-    "Generar codigo ensamblador"
-  , Option ['L'] ["llvm"]
-    (NoArg (\opts -> opts { optLLVM = True }))
-    "Generar codigo intermedio LLVM"
+    ) "FILE NAME")
+    "Set executable name"
+  -- , Option ['s'] ["symtable"]
+  --   (NoArg (\opts -> opts { optSTable = True }))
+  --   "Imprime la tabla de simbolos por stdin"
+  -- , Option ['a'] ["ast"]
+  --   (NoArg (\opts -> opts { optAST = True }))
+  --   "Imprime el AST por stdin"
+  -- , Option ['S'] ["assembly"]
+  --   (NoArg (\opts -> opts { optAssembly = True }))
+  --   "Generar codigo ensamblador"
+  -- , Option ['L'] ["llvm"]
+  --   (NoArg (\opts -> opts { optLLVM = True }))
+  --   "Generar codigo intermedio LLVM"
   , Option ['O'] ["optimization"]
-    (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "NIVEL")
-      "Niveles de optimizacion\n\
-      \-O0 Sin optimizacion\n\
-      \-O1 poca optimizacion\n\
-      \-O2 optimizacion por defecto\n\
-      \-O3 optimizacion agresiva"
+    (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "LEVEL")
+      "Optimization levels\n\
+      \-O0 No optimization\n\
+      \-O1 Somewhere between -O0 and -O2\n\
+      \-O2 Moderate level of optimization which enables most optimizations\n\
+      \-O3 Like -O2, except that it enables optimizations that take longer to perform or that may generate larger code (in an attempt to make the program run faster)."
   ]
 
 opts :: IO (Options, [String])
@@ -156,16 +156,16 @@ main = do
 
   -- Print "No file" Error
   when (null args) $
-    die "ERROR: No se indicó un archivo."
+    die "ERROR: No file was given."
 
   -- Get the name of source file
   let fileName = head args
 
   doesFileExist fileName >>= \x -> unless x
-    (die $ "ERROR: El archivo `" <> fileName <> "` no existe.")
+    (die $ "ERROR: The file `" <> fileName <> "` does not exist.")
 
   unless (takeExtension fileName == ".gcl")
-    (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
+    (die "ERROR: The file does not have the right extension, `.gcl`.")
 
   -- Read the source file
   source <- readFile fileName
@@ -252,13 +252,16 @@ main = do
     math = "-lm"
     lib  = case os of
       "darwin"  -> "/usr/local/lib/libgraciela.so"
-      "linux"   -> "/opt/graciela/lib/libgraciela.so"
+      "linux"   -> "/usr/lib/libgraciela.so"
       "windows" -> undefined
+      _ -> internal $ os <> " not supported :("
     abstractLib  = case os of
       "darwin"  -> "/usr/local/lib/libgraciela-abstract.so"
-      "linux"   -> "/opt/graciela/lib/libgraciela-abstract.so"
+      "linux"   -> "/usr/lib/libgraciela-abstract.so"
       "windows" -> undefined
+      _ -> internal $ os <> " not supported :("
     clang = case os of
       "darwin"  -> "/usr/local/bin/clang-3.5"
       "linux"   -> "clang-3.5"
       "windows" -> undefined
+      _ -> internal $ os <> " not supported :("

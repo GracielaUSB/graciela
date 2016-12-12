@@ -20,14 +20,13 @@ module Lexer
   ) where
 --------------------------------------------------------------------------------
 import           Common
-import           Pragma
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses, use, (%~))
 import           Control.Monad.State   (State, evalState, modify)
 import           Data.Set              (Set, union, (\\))
 import qualified Data.Set              as Set (empty)
-import           Data.Text             (Text, pack)
+import           Data.Text             (Text)
 import           Prelude               hiding (lex)
 import           Text.Megaparsec       (Dec, ParsecT, alphaNumChar, anyChar,
                                         between, char, eof, getPosition,
@@ -80,11 +79,11 @@ sc = L.space (void spaceChar) lineComment blockComment
     pragma = do
       seen <- use programSeen
       unless seen $ do
-        many (void spaceChar)
-        string "LANGUAGE"
-        many (void spaceChar)
+        void (many spaceChar)
+        void $ string "LANGUAGE"
+        void (many spaceChar)
         p <- pragma'
-        many (void spaceChar)
+        void (many spaceChar)
         void $ string "%*/"
         modify p
     pragma' = (pragmas %~) <$> pragma''

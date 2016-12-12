@@ -18,8 +18,7 @@ module Token
 import           Common
 --------------------------------------------------------------------------------
 import           Data.Function   (on)
-import           Data.Int        (Int32)
-import           Data.Text       (Text, unpack)
+import           Data.Text       (Text)
 import           Text.Megaparsec (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------

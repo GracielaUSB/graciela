@@ -28,4 +28,8 @@ import           Pragma
 import           Treelike
 
 internal :: String -> a
-internal = error . ("internal error: " <>)
+internal = error 
+         . ("internal error: " <>) 
+         . (<> "\n\tPlease open a [New issue] at \
+               \https://github.com/GracielaUSB/graciela/issues \
+               \with the message above and your .gcl file(s)")

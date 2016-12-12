@@ -11,7 +11,7 @@ import {-# SOURCE #-} AST.Expression (Expression)
 import           Common
 --------------------------------------------------------------------------------
 import           Data.Sequence (Seq)
-import           Data.Text     (Text, unpack)
+import           Data.Text     (Text)
 --------------------------------------------------------------------------------
 
 data Object'

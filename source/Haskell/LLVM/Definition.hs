@@ -665,11 +665,7 @@ preDefinitions files = do
   mapM_ addFile files
   addDefinitions $ fromList
 
-    [ -- Random
-      defineFunction randomInt [] intType
-
-
-    , defineFunction copyArrayString [ parameter ("size"     , intType)
+    [ defineFunction copyArrayString [ parameter ("size"     , intType)
                                      , parameter ("arrSource", pointerType)
                                      , parameter ("arrDest"  , pointerType)
                                      , parameter ("sizeT"    , intType) ]
@@ -950,6 +946,14 @@ preDefinitions files = do
     , defineFunction readBoolStd   [] boolType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
+
+    -- Rand
+    , defineFunction randInt    [] intType
+    , defineFunction randBool   [] boolType
+    , defineFunction randChar   [] charType
+    , defineFunction randFloat  [] floatType
+    , defineFunction randomize  [] voidType
+    , defineFunction seedRandom [intParam] voidType
 
     -- Malloc
     , defineFunction mallocString   intParam pointerType
