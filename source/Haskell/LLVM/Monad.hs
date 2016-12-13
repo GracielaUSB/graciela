@@ -38,13 +38,13 @@ newtype LLVM a = LLVM { unLLVM :: State LLVM.State a }
 -- When opening a new scope, llvm wont know which variable is being called
 -- if more than 1 variable have the same name. To prevent this confusion,
 -- lets call every declared variable with an unique name + identifier
--- (e.g. a -> %a1 and %a2)
+-- (e.g. a -> %var.a1 and %var.a2)
 
 getVariableName :: Text -> LLVM Name
 getVariableName name =
   getVariableName' <$> use symTable
   where
-    getVariableName' [] = Name "Error"--error $
+    getVariableName' [] =  Name "Error" --error 
       -- "internal error: undefined variable `" <> unpack name <> "`."
 
     getVariableName' (vars:xs) =
@@ -262,6 +262,8 @@ writeFString  :: String
 writeFString  = "_writeDouble"
 writeSString  :: String
 writeSString  = "_writeString"
+writePString  :: String
+writePString  = "_writePointer"
 
 randomInt     :: String
 randomInt     = "_random"

@@ -36,8 +36,8 @@ data Location = Location (SourcePos, SourcePos) -- ^ A location within a file.
 instance Show Location where
   show (Location (p0@(SourcePos fn l0 c0), p1@(SourcePos _ l1 c1)))
     | fn == "/GRACIELA/" = "(in the Graciela Definition)"
-    | otherwise = fn <> if l0 == l1
-      then "(line " <> show (unPos l0) <> ", (col " <> show (unPos c0) <>
+    | otherwise = if l0 == l1
+      then " (line " <> show (unPos l0) <> ", (col " <> show (unPos c0) <>
         " -> col " <> show (unPos c1) <> "))"
       else "(" <> showPos p0 <> " -> " <> showPos p1 <> ")"
 

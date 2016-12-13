@@ -327,7 +327,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         let isIn = mode `elem` [In, InOut, Const]
         case mode of 
           Ref -> do
-            label <- newLabel "argCast"
+            label <- newLabel "argCastRef"
             ref   <- objectRef (theObj exp')
 
             addInstruction $ label := BitCast
@@ -429,26 +429,17 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                       , functionAttributes = []
                       , metadata           = [] }
 
-                  -- addArgInsts $ Do Call
-                  --   { tailCallKind       = Nothing
-                  --   , callingConvention  = CC.C
-                  --   , returnAttributes   = []
-                  --   , function           = callable voidType $ "destroy" <> postfix
-                  --   , arguments          = (,[]) <$> [ LocalReference (ptr type') destStructPtr ]
-                  --   , functionAttributes = []
-                  --   , metadata           = [] }
-
                   if isIn 
                     then pure (LocalReference type' destStructPtr,[]) 
                     else pure $ (LocalReference (ptr type') primaPtr,[])
 
 
-                t | t =:= basic || t =:= GPointer GAny -> do
+                t | t =:= basic || t =:= GPointer GAny || t =:= highLevel -> do
                   if isIn
                     then do 
                       expr <- expression e
                       
-                      label <- newLabel "argCast"
+                      label <- newLabel "argCastPointer"
                       addInstruction $ label := BitCast
                         { operand0 = LocalReference type' prima
                         , type'    = ptr type'
@@ -599,13 +590,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , functionAttributes = []
           , metadata           = [] }
 
-        addInstruction $ Do Store
-          { volatile = False
-          , address  = ref
-          , value    = ConstantOperand $ C.Null type'
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
+
 
       _ -> do
 
@@ -651,13 +636,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , functionAttributes = []
           , metadata           = [] }
 
-        addInstruction $ Do Store
-          { volatile = False
-          , address  = ref
-          , value    = ConstantOperand $ C.Null type'
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
+
 
   New { idName, nType } -> do
     ref   <- objectRef idName -- The variable that is being mallocated
@@ -843,20 +822,31 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         let
         -- Call the correct C write function
           fun = callable voidType $ case t of
-            GBool   -> writeBString
-            GChar   -> writeCString
-            GFloat  -> writeFString
-            GInt    -> writeIString
-            GString -> writeSString
-            GAny    -> writeIString
-            _         -> error
+            GBool      -> writeBString
+            GChar      -> writeCString
+            GFloat     -> writeFString
+            GInt       -> writeIString
+            GString    -> writeSString
+            GPointer _ -> writePString
+            GAny       -> writeIString
+            _          -> error
               "internal error: attempted to write non-basic type."
+        operand' <- if  (t =:= GPointer GAny) 
+          then do
+            pointer <- newLabel "pointerToWrite"
+            addInstruction $ pointer := BitCast
+              { operand0 = operand
+              , type'    = pointerType
+              , metadata = [] }
+            pure $ LocalReference pointerType pointer
+          else pure operand
+
         addInstruction $ Do Call
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = fun
-          , arguments          = [(operand, [])]
+          , arguments          = [(operand', [])]
           , functionAttributes = []
           , metadata           = []}
 

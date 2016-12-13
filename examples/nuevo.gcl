@@ -85,6 +85,13 @@ program nuevo.bin begin
 
     ]|
 
+  proc g (in x : int, in a : array[x] of int)
+    {pre true pre}
+    {post true post}
+    |[ var l : array[x] of int
+     ; x := 100
+     ; if true -> var l : array[x] of char fi
+    ]|
 main
   |[ var t : b(char)*
    ; var a : array[6] of float

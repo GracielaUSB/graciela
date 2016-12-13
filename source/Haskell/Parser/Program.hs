@@ -43,7 +43,7 @@ program = do
   match' TokBegin
 
   symbolTable %= openScope from -- Open the program scope
-  many (declarative abstractDataType <|> dataType)
+  many (abstractDataType <|> dataType)
 
   -- defs' <- sequence <$> many (function <|> procedure)
   many (function <|> procedure)

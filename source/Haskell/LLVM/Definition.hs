@@ -171,7 +171,7 @@ definition :: Definition -> LLVM ()
 definition
   Definition { defName, def', pre, post, bound, defLoc = Location (pos, _to) }
   = case def' of
-    FunctionDef { funcBody, funcRetType, funcParams, funcRecursive } -> do
+    FunctionDef { funcBody, funcRetType, funcParams, funcRecursive, funcDecls } -> do
       doingFunction .= True
       func <- newLabel $ "func" <> unpack defName
       (func #)
@@ -180,6 +180,8 @@ definition
 
       params <- mapM makeParam' . toList $ funcParams
       mapM_ arrAux' funcParams
+
+      mapM_ declaration funcDecls
 
       preOperand <- precondition pre
 
@@ -210,8 +212,10 @@ definition
 
           mapM_ (callCouple' "couple") dts
 
+
           case maybeProc of
-            Just Definition{ pre = pre'} ->
+            Just Definition{ pre = pre', def' = AbstractFunctionDef {abstFDecl}} -> do
+              mapM_ declaration abstFDecl
               preconditionAbstract preOperand pre' pos
             _ -> pure ()
           
@@ -278,44 +282,48 @@ definition
       cs <- use currentStruct
       let 
         dts  = filter (\(_, t, _) -> t =:= T.GADataType) . toList $ procParams
-        body = do 
-          mapM_ (callInvariant "coupInv" cond) dts
-          mapM_ (callInvariant "inv"     cond) dts
-          mapM_ (callInvariant "repInv"  cond) dts
-
-          instruction procBody
-
-          mapM_ (callCouple    "couple"      ) dts
-          mapM_ (callInvariant "inv"     cond) dts
-          mapM_ (callInvariant "coupInv" cond) dts
-          mapM_ (callInvariant "repInv"  cond) dts
-
-      pName <- case cs of
-        Nothing -> do
-          mapM_ (callCouple "couple") dts
-          body 
-          pure $ unpack defName
-
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do           
-          abstractStruct <- (Map.lookup abstract) <$> use structs
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+        body abstractStruct = do 
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
-              Nothing -> error "Internal error: Missing Abstract Data Type."
+              Nothing -> Nothing
 
-          mapM_ (callCouple "couple") dts
+          mapM_ (callCouple    "couple"      ) dts
+          mapM_ (callInvariant "coupInv" cond) dts
+          mapM_ (callInvariant "repInv"  cond) dts
+          
+          
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
               mapM_ declaration abstPDecl
               preconditionAbstract cond pre' pos
             _ -> pure ()
           
-          body
+          mapM_ (callInvariant "inv"     cond) dts
 
-          case maybeProc of
-            Just Definition{post = post'} -> postconditionAbstract cond post' pos
-            _                             -> pure ()
+          instruction procBody
+
+          
+
+          mapM_ (callCouple    "couple"      ) dts
+          mapM_ (callInvariant "coupInv" cond) dts
+          
+          mapM_ (callInvariant "inv"     cond) dts
+          mapM_ (callInvariant "repInv"  cond) dts
+          
+          
+
+      pName <- case cs of
+        Nothing -> do
+          mapM_ (callCouple "couple") dts
+          body Nothing
+          pure $ unpack defName
+
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do           
+          abstractStruct <- (Map.lookup abstract) <$> use structs
+          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          
+          body abstractStruct
           
           pure $ unpack defName <> postFix
       
@@ -697,6 +705,10 @@ preDefinitions files = do
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]
                                       intType
+    , defineFunction pointer2intString [parameter ("x", floatType)
+                                      , parameter ("line", intType)
+                                      , parameter ("column", intType) ]
+                                      intType
     , defineFunction char2intString   charParam intType
     , defineFunction float2charString [ parameter ("x", floatType)
                                       , parameter ("line", intType)
@@ -917,6 +929,9 @@ preDefinitions files = do
 
     -- Int Write
     , defineFunction writeIString intParam voidType
+
+    -- Pointer Write
+    , defineFunction writePString ptrParam voidType
 
     -- String Write
     , defineFunction writeSString stringParam voidType

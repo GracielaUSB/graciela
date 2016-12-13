@@ -78,15 +78,15 @@ abstractDataType = do
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
     coupling .= True
-    decls' <- sequence <$> (abstractDeclaration True `endBy` match' TokSemicolon)
+    decls' <- sequence <$> declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
 
     cs <- use currentStruct
 
     let
       fields  = cs ^. _Just . _2
 
-    inv'   <- invariant
-    procs' <- sequence <$> many (procedureDeclaration <|> functionDeclaration)
+    inv'   <- declarative invariant
+    procs' <- sequence <$> (declarative . many $ (procedureDeclaration <|> functionDeclaration))
 
     match' TokEnd
     to    <- getPosition
@@ -310,7 +310,7 @@ dataType = do
         checkParams pos1 pos2 (name1, t1', mode1) (name2, t2, mode2) = do
           when (name1 /= name2) . putError pos2 . UnknownError $
             "Parameter named `" <> unpack name2 <>
-            "` was declared as `" <> unpack name1 <> "`."
+            "` was declared with the name `" <> unpack name1 <> "` at " <> showPos pos1
 
           when (mode1 /= mode2) . putError pos2 . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has mode " <>
@@ -323,7 +323,7 @@ dataType = do
 
           unless (t1 =:= t2) . putError pos2 . UnknownError $
             "Parameter named `" <> unpack name2 <> "` has type " <>
-            show t2 <>" but expected type " <> show t1 <> "."
+            show t2 <>" but expected type " <> show t1 <> ". \n" <> show (t1,t2)
 
 coupleRel :: Parser (Seq Instruction)
 coupleRel = do

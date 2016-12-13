@@ -82,7 +82,7 @@ data Type
   | GATypeVar                     -- ^ Used to match with type variables.
 
   | GAny                          -- ^ Any type, for full polymorphism.
-  | GOneOf    [Type]           -- ^ Any type within a collection, for
+  | GOneOf    [Type]              -- ^ Any type within a collection, for
                                   -- restricted polymorphism
   | GUnsafeName Text              -- ^ A named type, only used for error messages.
 
@@ -276,11 +276,13 @@ instance Semigroup Type where
       then t
       else GUndef
 
-  GDataType a _ _<> GFullDataType b fs =
-    if a == b then GFullDataType b fs else GUndef
+  t@(GDataType a n _) <> GFullDataType b fs = case n of
+    Just name | name == b -> t
+    _ -> if a == b then GFullDataType b fs else GUndef
 
-  GFullDataType a fs <> GDataType b _ _=
-    if a == b then GFullDataType a fs else GUndef
+  GFullDataType a fs <> t@(GDataType b n _) = case n of
+    Just name | name == a -> t
+    _ -> if a == b then GFullDataType a fs else GUndef
 
   a@(GFullDataType _ _) <> GADataType = a
   GADataType <> a@(GFullDataType _ _) = a

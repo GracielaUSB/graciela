@@ -6,4 +6,5 @@ module Pragma
 data Pragma
   = LogicAnywhere
   | EnableTrace
+  | GetAddressOf
   deriving (Eq, Ord, Show)

@@ -53,7 +53,7 @@ basicType = do
 
 
 type' :: Parser Type
-type' =  parenType
+type' =  try parenType
      <|> try typeVar
      <|> try userDefined
      <|> try arrayOf
@@ -62,7 +62,7 @@ type' =  parenType
     parenType = do
       t <- parens type'
       isPointer t
-
+    
     -- Try to parse an array type
     arrayOf :: Parser Type
     arrayOf = do
@@ -236,7 +236,17 @@ abstractType
   <|> do {match TokRelation; ba <- typeVar<|>type'; match TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
 
   <|> do {match TokLeftPar; a <- typeVar; match TokComma; b <- typeVar; match TokRightPar; pure $ GTuple a b}
-
+  <|> do
+    pos <- getPosition
+    match TokLeftPar
+    t1 <- type'
+    lookAhead $ match TokComma
+    match TokComma 
+    t2 <- type'
+    match TokRightPar
+    when (not (t1 =:= basic && t1 =:= basic)) . putError pos . UnknownError $
+              "Only tuples of basic types are allowed.\n" <> show (t1,t2) <> "was given"
+    pure $ GTuple t1 t2 
   <|> type'
 
 typeVarDeclaration  :: Parser Type

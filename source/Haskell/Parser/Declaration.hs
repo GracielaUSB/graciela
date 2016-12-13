@@ -12,7 +12,6 @@ en la tabla de simbolos, mientras se esta realizando el parser.
 module Parser.Declaration
     ( declaration
     , dataTypeDeclaration
-    , abstractDeclaration
     )
     where
 -------------------------------------------------------------------------------
@@ -51,19 +50,14 @@ type Constness = Bool
 
 -- Only regular types
 declaration :: Parser (Maybe Declaration)
-declaration = declaration' type' False
+declaration = declaration' False
 
 -- Accept polymorphic types
 dataTypeDeclaration :: Parser (Maybe Declaration)
-dataTypeDeclaration = declaration' type' True
+dataTypeDeclaration = declaration' True
 
-
--- Accept both, polymorphic and abstract types (set, function, ...)
-abstractDeclaration :: Bool -> Parser (Maybe Declaration)
-abstractDeclaration = declaration' abstractType
-
-declaration' :: Parser Type -> Bool -> Parser (Maybe Declaration)
-declaration' allowedTypes isStruct = do
+declaration' :: Bool -> Parser (Maybe Declaration)
+declaration' isStruct = do
   from <- getPosition
 
   isConst <- match TokConst $> True <|> match TokVar $> False
@@ -71,17 +65,25 @@ declaration' allowedTypes isStruct = do
   mvals <- if isConst then assignment' else assignment
 
   match TokColon
-  t <- if isConst then type' else allowedTypes
+  t <- abstractType
 
   to <- getPosition
+  isDeclarative' <- use isDeclarative
+  
   let
     location = Location (from, to)
 
   if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
     then do
       putError from . UnknownError $
-        "Se intentó declarar constante de tipo " <> show t <>
-        ", pero sólo se permiten constantes de tipos basicos."
+        "Trying to declare a constant of type " <> show t <>
+        ", but only basic types are allowed."
+      pure Nothing
+  else if not isDeclarative' && t =:= highLevel
+    then do
+      putError from . UnknownError $
+        "Trying to declare a variable of type " <> show t <>
+        " in imperative code"
       pure Nothing
     else case mvals of
       Nothing -> do

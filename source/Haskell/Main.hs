@@ -56,13 +56,13 @@ import           Text.Megaparsec.Error      (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
-version = "graciela 0.1.0.0"
+version = "graciela 1.0.0.0"
 
 help :: String
 help = usageInfo message options
 
 message :: String
-message = "uso: graciela [OPCIÓN]... [ARCHIVO]"
+message = "use: graciela [OPTIONS]... [FILE]"
 
 data Options = Options
   { optHelp         :: Bool
@@ -155,17 +155,19 @@ main = do
     exitSuccess
 
   -- Print "No file" Error
-  when (null args) $
-    die "ERROR: No se indicó un archivo."
+  when (null args) . die $
+    "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <> " Missing input file"
 
   -- Get the name of source file
   let fileName = head args
 
   doesFileExist fileName >>= \x -> unless x
-    (die $ "ERROR: El archivo `" <> fileName <> "` no existe.")
+    (die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
+           " The file `" <> fileName <> "` does not exists.")
 
   unless (takeExtension fileName == ".gcl")
-    (die "ERROR: El archivo no tiene la extensión apropiada, `.gcl`.")
+    (die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
+           " The file does not have the proper extension (.gcl).")
 
   -- Read the source file
   source <- readFile fileName

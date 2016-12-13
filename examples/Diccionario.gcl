@@ -51,8 +51,8 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
   {coupinv true coupinv}
 
   where { 
-    conoc := {i : int | 0 ≤ i ∧ i < tam | clave[i]};
-    tabla := func({i : int | 0 ≤ i ∧ i < tam | (clave[i], valor[i])})
+    tabla := func({i : int | 0 ≤ i ∧ i < tam | (clave[i], valor[i])});
+    conoc := domain(tabla)
   }
   
   proc copiarClaveValor ( in d       : Dicc(T0,T1)
@@ -168,14 +168,14 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
 end
 
 func constante (i : int) ->  int
-  {pre  true pre}
-  {post  true post}
+  {pre  true  pre}
+  {post true post}
   |[
     1
   ]|
 
 func rec ( i : int) -> int
-  {pre  true   pre}
+  {pre  true  pre}
   {post true post}
   {bound i bound}
   |[ if i >= constante(i) -> rec(i-1)*2
@@ -200,8 +200,8 @@ main
    ; writeln(b, " -> ", *a)
    ; eliminar(d,3)
    ; writeln("Jamon = ",rec(2))
-   
    ; existe(d,1,b)
+   ; read(r) from "hola.txt"
    ; if     b     -> buscar(d,2,*a) 
                    ; writeln(b, " ->", *a)
      [] otherwise -> writeln("Soy estupido, no hay 1") 

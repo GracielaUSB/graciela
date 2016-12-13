@@ -59,6 +59,8 @@ int main() {
   int8_t c[5] = {'a','b','c','d','e'};
   int8_t b[5];
   int8_t* c_ = (int8_t*)c, *b_ = (int8_t*)b;
+  int *lo = NULL;
+
   int j = 0;
   for (int i = 0;  i < 5*4 ; ++i) {
     printf(".. %p == %p  --> %d \n",&c[i], (c_+j), c[i]);
@@ -66,9 +68,12 @@ int main() {
     printf("++ %p == %p  --> %d =? %d \n\n",&b[i], (b_+j), *(b_+j),b[i]);
     ++j;
   }
+//  lo = (int*)malloc(4);
   for (int i = 0;  i < 5 ; ++i) {
-    printf(">> %d\n",b[i]);
+    printf(">> %d\n",10);
   }
+  printf("%d\n", *lo);
+
   
     _freeTrashCollector();
     return 0;

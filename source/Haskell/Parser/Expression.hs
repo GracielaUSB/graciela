@@ -51,6 +51,7 @@ import           Data.Maybe                (catMaybes, fromJust)
 import           Data.Monoid               (First (..))
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Sequence             (Seq, (|>))
+import           Data.Set                  as Set (member)
 import qualified Data.Sequence             as Seq (empty, fromList, singleton,
                                                    zip)
 import           Data.Text                 (Text, pack, unpack)
@@ -106,6 +107,7 @@ expression = evalStateT expr []
 
 term :: ParserExp (Maybe MetaExpr)
 term =  tuple
+    <|> sizeof
     <|> variable
     <|> bool
     <|> nullptr
@@ -117,6 +119,7 @@ term =  tuple
     <|> string
     <|> quantification
     <|> ifExp
+    
   where
     bool :: ParserExp (Maybe MetaExpr)
     bool = do
@@ -147,6 +150,29 @@ term =  tuple
           , expType  = GPointer GAny
           , expConst = False
           , exp'     = NullPtr }
+
+      pure $ Just (expr, ProtoNothing, Taint False)
+
+    sizeof :: ParserExp (Maybe MetaExpr)
+    sizeof = do
+      from <- getPosition
+      fun <- lookAhead identifier
+
+      pragmas' <- lift $ use pragmas
+      let 
+        pragOk = fun == "sizeof" && Set.member GetAddressOf pragmas'
+      unless pragOk $ do 
+        void . lookAhead . match $ TokLeftPar
+      identifier
+      t  <- parens $ lift type'
+      to <- getPosition
+      
+      let
+        expr = Expression
+          { E.loc    = Location (from, to)
+          , expType  = GInt
+          , expConst = False
+          , exp'     = SizeOf { sType = t } }
 
       pure $ Just (expr, ProtoNothing, Taint False)
 
@@ -468,7 +494,7 @@ variable = do
     entry = case name `lookup` st of
       Left _ -> name `lookup` abstractSt
       x      -> x
-
+  
   case entry of
     Left _ ->
       let
@@ -582,27 +608,28 @@ variable = do
 
             in pure $ Just (expr, protorange, taint)
 
-      Argument { _argMode, _argType } -> lift (use isDeclarative) >>= \x -> if _argType =:= highLevel && not x
-        then do
-          let Location (pos, _) = loc
-          putError pos . UnknownError $
-            "Variable `" <> unpack name <> "` of type " <> show _argType <>
-            " not allowed in imperative code."
-          pure Nothing
-        else
-          let
-            expr = Expression
-              { E.loc
-              , expType  = _argType
-              , expConst = _argMode == Const
-              , exp'     = Obj
-                { theObj = Object
-                  { O.loc
-                  , objType = _argType
-                  , obj'    = Variable
-                    { O.name = name
-                    , mode   = Just _argMode }}}}
-          in pure $ Just (expr, ProtoNothing, Taint False)
+      Argument { _argMode, _argType } -> lift (use isDeclarative) >>= 
+        \x -> if _argType =:= highLevel && not x
+          then do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Variable `" <> unpack name <> "` of type " <> show _argType <>
+              " not allowed in imperative code."
+            pure Nothing
+          else
+            let
+              expr = Expression
+                { E.loc
+                , expType  = _argType
+                , expConst = _argMode == Const
+                , exp'     = Obj
+                  { theObj = Object
+                    { O.loc
+                    , objType = _argType
+                    , obj'    = Variable
+                      { O.name = name
+                      , mode   = Just _argMode }}}}
+            in pure $ Just (expr, ProtoNothing, Taint False)
 
 
 filterRawName :: Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
@@ -865,12 +892,12 @@ ifExp = do
                 --   -- an error deep in it which we can only propagate
                 --   put st { ifType = GUndef, ifBuilder = IfNothing }
 
-                Expression { E.loc = Location (rfrom,_), expType } ->
+                e@Expression { E.loc = Location (rfrom,_), expType } ->
                   case expType <> ifType of
                     GUndef -> do
                       -- 2. The rhs type doesn't match previous lines
                       lift . putError rfrom . UnknownError $
-                        "bad right side in conditional expression"
+                        "bad right side in conditional expression \n" <> (drawTree . toTree $ e)
                       put st { ifType = GUndef, ifBuilder = IfNothing }
 
                     newType ->
@@ -918,7 +945,8 @@ operator =
     [ Postfix (foldr1 (>=>) <$> some call)
     , Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
-    [ Prefix  (foldr1 (>=>) <$> some deref) ]
+    [ Prefix  (foldr1 (>=>) <$> some deref)
+    , Prefix  (foldr1 (>=>) <$> some refof) ]
   , {-Level 3-}
     [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
   , {-Level 4-}
@@ -1110,7 +1138,7 @@ call = do
                       [ line, col ]
 
                   case signatures types of
-                    Right (funcRetType, fName, canAbort) ->
+                    Right (funcRetType, fName, canAbort) -> do 
                       let
                         expr = Expression
                           { E.loc
@@ -1124,7 +1152,7 @@ call = do
                             , fRecursiveCall = False
                             , fRecursiveFunc = False
                             , fStructArgs = Nothing }}
-                      in pure $ Just (expr, ProtoNothing, taint)
+                      pure $ Just (expr, ProtoNothing, taint)
 
                     Left message -> do
                       putError from message
@@ -1558,12 +1586,41 @@ deref = do
                       { O.inner = o }}}}
           in pure $ Just (expr, ProtoNothing, taint)
 
+
       e -> do
-        let
-          Location (_, to) = E.loc e
-          loc = Location (from, to)
 
         putError from . UnknownError $ "Cannot deref non-pointer."
+
+        pure Nothing
+
+refof :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
+refof = do
+  from <- getPosition
+  void $ match TokAmpersand
+  pragmas' <- lift $ use pragmas
+  let pragOk = Set.member GetAddressOf pragmas'
+  unless pragOk . putError from . UnknownError $ 
+    "Unknown token: \ESC[0;33;1m&\ESC[m"
+  pure $ filterRawName >=> \case
+    Nothing -> pure Nothing
+
+    Just (expr, _, taint) -> case expr of
+      Expression
+        { E.loc = Location (_, to)
+        , expType
+        , exp' = Obj o } ->
+
+        let expr' = Expression
+              { E.loc = Location (from, to)
+              , expType = GPointer expType
+              , expConst = False
+              , exp' = AddressOf { inner = expr }}
+        in pure $ Just (expr', ProtoNothing, taint)
+
+      e -> do
+
+        when pragOk . putError from . UnknownError $ 
+          "Cannot get the address of non-object expression."
 
         pure Nothing
 

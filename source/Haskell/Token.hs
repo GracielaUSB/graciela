@@ -196,6 +196,8 @@ data Token
   | TokSetUnion
   | TokSetIntersect
 
+  | TokAmpersand
+  
   | TokMultisetSum
   | TokConcat
   | TokSubset
@@ -380,6 +382,8 @@ instance Show Token where
     TokNew            -> "new"
     TokFree           -> "free"
     TokNull           -> "null"
+    
+    TokAmpersand      -> "&"
 
     TokWhere          -> "where"
     TokUnexpected t   -> show t

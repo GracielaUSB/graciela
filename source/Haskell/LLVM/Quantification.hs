@@ -336,12 +336,127 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         ConstantOperand . C.Undef  <$> toLLVMType expType
       | otherwise -> pure . ConstantOperand $ v0 qOp expType
 
-    PointRange { thePoint } ->
-      quantification e
-        { exp' = exp'
-          { qRange = ExpRange
-            { low = thePoint
-            , high = thePoint }}}
+    PointRange { thePoint } -> case qVarType of
+      GFloat -> do
+
+        p <- expression thePoint
+
+        openScope
+        iterator <- insertVar qVar
+        t        <- toLLVMType qVarType
+        eType    <- toLLVMType expType
+        addInstruction $ iterator := Alloca
+          { allocatedType = t
+          , numElements   = Nothing
+          , alignment     = 4
+          , metadata      = [] }
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = LocalReference t iterator
+          , value    = p
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        result  <- newLabel "Result"
+        yesCond <- newUnLabel
+        noCond  <- newUnLabel
+        exit    <- newUnLabel
+
+
+        boolean yesCond noCond qCond
+        (yesCond #)
+        
+        op <- if qOp == Count
+          then do 
+            let 
+              intSize = case expType of 
+                GInt  -> 32
+                GChar -> 8
+                GBool -> 1
+
+            countTrue  <- newLabel "countTrue"
+            countFalse <- newLabel "countFalse"
+            boolean countTrue countFalse qBody
+            
+            (countTrue #)
+            terminate Br
+              { dest      = exit
+              , metadata' = [] }
+            
+            (countFalse #)
+            terminate Br
+              { dest      = exit
+              , metadata' = [] }
+
+            (noCond #)
+            terminate Br
+              { dest      = exit
+              , metadata' = [] }
+
+            (exit #)
+            addInstruction $ result := Phi
+              { type'          = eType
+              , incomingValues =
+                [ (ConstantOperand $ C.Int intSize 0, noCond)
+                , (ConstantOperand $ C.Int intSize 1, countTrue)
+                , (ConstantOperand $ C.Int intSize 0, countFalse) ]
+              , metadata       = [] }
+
+            pure $ LocalReference eType result
+          else if qOp `elem` [Maximum, Minimum]
+            then do
+              e <- expression qBody
+              terminate Br
+                { dest      = exit
+                , metadata' = [] }
+
+              (noCond #)
+              terminate Br
+                { dest      = exit
+                , metadata' = [] }
+
+              (exit #)
+              addInstruction $ result := Phi
+                { type'          = eType
+                , incomingValues =
+                  [ (e, yesCond)
+                  , (ConstantOperand . C.Float $ F.Double 0.0, noCond ) ]
+                , metadata       = [] }
+
+              pure $ LocalReference eType result
+          else do
+              e <- expression qBody
+              terminate Br
+                { dest      = exit
+                , metadata' = [] }
+
+              (noCond #)
+              terminate Br
+                { dest      = exit
+                , metadata' = [] }
+
+              (exit #)
+              let dv = if qOp == Summation then 0.0 else 1.0
+              addInstruction $ result := Phi
+                { type'          = eType
+                , incomingValues =
+                  [ (e, yesCond)
+                  , (ConstantOperand . C.Float $ F.Double dv, noCond ) ]
+                , metadata       = [] }
+
+              pure $ LocalReference eType result
+
+        closeScope
+
+        pure op
+
+      _ | qVarType `elem` [GInt, GChar, GBool] ->
+        quantification e
+          { exp' = exp'
+            { qRange = ExpRange
+              { low = thePoint
+              , high = thePoint }}}
 
     ExpRange { low, high }
       | qOp `elem` [Maximum, Minimum]   -> do
@@ -651,48 +766,50 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         boolean accum getNext qCond
 
         (accum #)
-        e <- expression qBody
-        oldPartial <- newLabel "qOldPartial"
-        addInstruction $ oldPartial := Load
-          { volatile       = False
-          , address        = LocalReference qType partial
-          , maybeAtomicity = Nothing
-          , alignment      = 4
-          , metadata       = [] }
         newPartial <- newLabel "qNewPartial"
+        oldPartial <- newLabel "qOldPartial"
+        if qOp == Count
+          then do
+            plusOne <- newLabel "qPlusOne"
+            e <- boolean plusOne getNext qBody
 
-        case expType of
-          GFloat ->
-            addInstruction . (newPartial :=) $
-              (case qOp of Summation -> FAdd; Product -> FMul)
-                NoFastMathFlags
-                e
-                (LocalReference qType oldPartial)
-                []
-          _ -> case qOp of
-            Count -> do
-              plusOne <- newLabel "qPlusOne"
-              terminate CondBr
-                { condition = e
-                , trueDest  = plusOne
-                , falseDest = getNext
-                , metadata' = [] }
+            (plusOne #)
+            addInstruction $ oldPartial := Load
+              { volatile       = False
+              , address        = LocalReference qType partial
+              , maybeAtomicity = Nothing
+              , alignment      = 4
+              , metadata       = [] }
 
-              (plusOne #)
-              addInstruction $ newPartial := Add
-                { nsw = False
-                , nuw = False
-                , operand0 = LocalReference qType oldPartial
-                , operand1 = ConstantOperand $ C.Int 32 1
-                , metadata = [] }
+            addInstruction $ newPartial := Add
+              { nsw = False
+              , nuw = False
+              , operand0 = LocalReference qType oldPartial
+              , operand1 = ConstantOperand $ C.Int 32 1
+              , metadata = [] }
 
-            _ -> safeOperation
-              (case expType of GInt -> 32; GChar -> 8)
-              newPartial
-              (case qOp of Summation -> safeAdd; Product -> safeMul)
-              e
-              (LocalReference qType oldPartial)
-              pos
+
+          else do
+            e <- expression qBody
+            addInstruction $ oldPartial := Load
+              { volatile       = False
+              , address        = LocalReference qType partial
+              , maybeAtomicity = Nothing
+              , alignment      = 4
+              , metadata       = [] }
+            
+
+            case expType of
+              GFloat ->
+                addInstruction . (newPartial :=) $
+                  (case qOp of Summation -> FAdd; Product -> FMul)
+                    NoFastMathFlags
+                    e (LocalReference qType oldPartial) []
+              _ -> safeOperation
+                  (case expType of GInt -> 32; GChar -> 8)
+                  newPartial
+                  (case qOp of Summation -> safeAdd; Product -> safeMul)
+                  e (LocalReference qType oldPartial) pos
 
         addInstruction $ Do Store
           { volatile = False
@@ -780,8 +897,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           { type'          = qType
           , incomingValues =
             [ (ConstantOperand $ v0 qOp expType, rangeEmpty)
-            , (LocalReference qType finalVal,    endLoad)
-            , (LocalReference qType finalVal,    getNext) ]
+            , (LocalReference qType finalVal,    endLoad) ]
           , metadata       = [] }
 
         pure $ LocalReference qType result
@@ -1133,43 +1249,49 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           _     -> boolean accum getNext qCond
 
         (accum #)
-        e <- case qOp of
-          Count -> pure . ConstantOperand $ C.Int 32 1
-          _     -> expression qBody
-
-        oldPartial <- newLabel "qOldPartial"
-        addInstruction $ oldPartial := Load
-          { volatile       = False
-          , address        = LocalReference qType partial
-          , maybeAtomicity = Nothing
-          , alignment      = 4
-          , metadata       = [] }
         newPartial <- newLabel "qNewPartial"
+        oldPartial <- newLabel "qOldPartial"
+        if qOp == Count
+          then do
+            plusOne <- newLabel "qPlusOne"
+            e <- boolean plusOne getNext qBody
 
-        case expType of
-          GFloat ->
-            addInstruction . (newPartial :=) $
-              (case qOp of Summation -> FAdd; Product -> FMul)
-                NoFastMathFlags
-                e
-                (LocalReference qType oldPartial)
-                []
-          _ -> case qOp of
-            Count -> do
-              addInstruction $ newPartial := Add
-                { nsw = False
-                , nuw = False
-                , operand0 = LocalReference qType oldPartial
-                , operand1 = e
-                , metadata = [] }
+            (plusOne #)
+            addInstruction $ oldPartial := Load
+              { volatile       = False
+              , address        = LocalReference qType partial
+              , maybeAtomicity = Nothing
+              , alignment      = 4
+              , metadata       = [] }
 
-            _ -> safeOperation
-              (case expType of GInt -> 32; GChar -> 8)
-              newPartial
-              (case qOp of Summation -> safeAdd; Product -> safeMul)
-              e
-              (LocalReference qType oldPartial)
-              pos
+            addInstruction $ newPartial := Add
+              { nsw = False
+              , nuw = False
+              , operand0 = LocalReference qType oldPartial
+              , operand1 = ConstantOperand $ C.Int 32 1
+              , metadata = [] }
+
+
+          else do
+            e <- expression qBody
+            addInstruction $ oldPartial := Load
+              { volatile       = False
+              , address        = LocalReference qType partial
+              , maybeAtomicity = Nothing
+              , alignment      = 4
+              , metadata       = [] }
+            
+            case expType of
+              GFloat ->
+                addInstruction . (newPartial :=) $
+                  (case qOp of Summation -> FAdd; Product -> FMul)
+                    NoFastMathFlags
+                    e (LocalReference qType oldPartial) []
+              _ -> safeOperation
+                  (case expType of GInt -> 32; GChar -> 8)
+                  newPartial
+                  (case qOp of Summation -> safeAdd; Product -> safeMul)
+                  e (LocalReference qType oldPartial) pos
 
         addInstruction $ Do Store
           { volatile = False
@@ -1241,16 +1363,18 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           , metadata' = [] }
 
         (qEnd #)
-        closeScope
-
         result <- newLabel "qResult"
         addInstruction $ result := Phi
           { type'          = qType
           , incomingValues =
             [ (ConstantOperand $ v0 qOp expType, rangeEmpty)
-            , (LocalReference qType finalVal,    endLoad)
-            , (LocalReference qType finalVal,    getNext) ]
+            , (LocalReference qType finalVal,    endLoad)]
           , metadata       = [] }
+
+        closeScope
+
+        
+        
 
         pure $ LocalReference qType result
       

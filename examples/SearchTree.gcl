@@ -1,0 +1,166 @@
+program SearchTree.bin begin
+	
+	abstract ASearchTree(T)
+	begin
+		/* ASearchTree variables */
+		var father : function T -> T;
+		var card   : multiset of T;
+		
+		{inv (% forall i : T
+			        | i elem domain(father) 
+			        | i != father(i) %) inv}
+		/* ASearchTree procedures and functions */	 
+		proc insert ( inout t : ASearchTree(T)*, in e : T )
+			{pre  true  pre}
+			{post true post}
+		
+		proc delete ( inout t : ASearchTree(T)*, in e : T )
+			{pre true pre}
+			{post true post}
+		
+		proc search ( inout t : ASearchTree(T)*, in e : T )
+			{pre true pre}
+			{post true post}
+
+		proc show ( inout t : ASearchTree(T)* )
+			{pre true pre}
+			{post true post}
+			
+	end
+
+	type SearchTree(T) implements ASearchTree(T)
+	begin
+		/* SearchTree variables */
+		var l, r := null, null : SearchTree(T)*;
+		var info : T;
+		var n    : int;
+		
+		{repinv true repinv}
+	
+		{coupinv true coupinv}
+		
+		where {
+			father, card := func({}), {: :}
+		}
+		/* SearchTree procedures and functions */
+		proc insert ( inout t : SearchTree(T)*, in e : T )
+			{pre  true  pre}
+			{post true post}
+			⟦ var P,Q  := null, t : SearchTree(T)*;
+			; var i    := 0       : int
+			; var done := false   : boolean
+			; var d               : char;
+
+			; {inv true inv}
+				{bound 30 - i bound}
+				do i < 30 /\ !done
+					-> if t == null -> done := true
+					   [] otherwise 
+					   	-> d := (*t).info
+					     ; if e == d -> done := true
+					       [] e  < d -> Q,P := P, (*P).l
+					       [] e  > d -> Q,P := P, (*P).r
+					       fi
+					   fi
+					 ; i := i+1
+				od
+
+			; if P == null 
+					-> var node : SearchTree(T)*
+					 ; new(node)
+					 ; (*node).info, (*node).n :=, e 1
+					 ; (*node).l   , (*node).r := null, null
+
+					 ; if Q == null -> t := node
+					   [] e < (*Q).info -> (*Q).l := node
+					   [] e > (*Q).info -> (*Q).r := node
+					   fi
+				[] otherwise -> (*P).n := (*P).n + 1
+				fi 
+			⟧
+		
+		
+		proc delete ( inout t : SearchTree(T)*, in e : T )
+			{pre true pre}
+			{post true post}
+			⟦
+			⟧
+		
+
+		proc search ( inout t : SearchTree(T)*, in e : T )
+			{pre true pre}
+			{post true post}
+			⟦
+			⟧
+		
+		
+		proc show ( inout t : SearchTree(T)* )
+			{pre true pre}
+			{post true post}
+			⟦
+			⟧
+
+
+		proc pad (in p : int)
+			{pre  true  pre}
+			{post true post}
+			|[ var i := 0 : int
+			 ; {inv true inv}
+				 {bound p - i bound}
+				 do i < p -> write(" "); i := i+1 od
+			]|
+
+		proc mostrar ( in t : SearchTree(T), in p : int)
+			{pre  true  pre}
+			{post true post}
+			{bound 30 - p bound}
+			|[ pad(p)
+		   ; if t == null -> writeln("-")
+		     [] otherwise -> writeln("(", (*t).info, ",", (*t).n)
+		                   ; mostrar((*t).l, p + 1)
+		                   ; mostrar((*t).r, p + 1)
+		     fi
+			]|
+
+	end
+
+	
+
+main
+	⟦ var n := 0 : int
+	; var c : char
+	; var t : SearchTree(char)
+	; writeln("Debido a que el programa debe tenerminar,"
+	; writeln("etse pront se emitira solo un maximo de 100 veces")
+	; {inv true inv}
+	  {bound 100-n bound}
+	  do n < 100 
+	  	-> writeln("(Intento: ", n+1, " de 100)")
+			 ; writeln( "Introduzca una letra:")
+	     ; writeln("\t(T) para Terminar,")
+	     ; writeln("\t(I) para Insertar un valor en el arbol,")
+	     ; writeln("\t(E) para Eliminar un valor del arbol,")
+	     ; writeln("\t(B) para Buscar un valor en el arbol, o")
+	     ; writeln("\t(M) para Mostrar el arbol en preorden.")
+	     ; write("> ")
+	     ; read(c)
+	     ; if c == 'T' -> writeln("Adios :)"); n := 100
+	       [] c == 'I' 
+	       	-> write("Escriba el caracter a insertar: ")
+	       	 ; read(c)
+	       	 ; insert(t, c)
+	       [] c == 'E' 
+	       	-> write("Escriba el caracter a eliminar: ")
+	       	 ; read(c)
+	       	 ; delete(t, c)
+	       [] c == 'B' 
+	        -> write("Escriba el caracter a buscar: ")
+	       	 ; read(c)
+	       	 ; search(t, c)
+	       [] c == 'M' -> show(t)
+	       fi
+		 	 
+		od
+
+	⟧
+end

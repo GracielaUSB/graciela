@@ -32,7 +32,8 @@ import           LLVM.State
 import           LLVM.Type                               (boolType, floatType,
                                                           intType, llvmName,
                                                           pointerType, fill,
-                                                          toLLVMType, tupleType)
+                                                          toLLVMType, tupleType,
+                                                          sizeOf)
 import           Location
 import           Parser.Config
 import           SymbolTable
@@ -166,6 +167,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       case expType of
         GPointer GAny -> pure . ConstantOperand . C.Null $ ptr i8
         _             -> ConstantOperand . C.Null  <$> toLLVMType expType
+
+    SizeOf { sType } -> ConstantOperand . C.Int 32 <$> sizeOf sType
 
     t@Tuple { left, right } -> do
       l <- expression left
@@ -916,6 +919,18 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                   else traceFloatString }}
               _ -> internal "impossible trace 2"
 
+      
+
+    FunctionCall { fName = "_pointer2int", fArgs } -> do
+      argument  <- expression . head . toList $ fArgs
+      labelCast <- newLabel "ptr2int"
+      
+      addInstruction $ labelCast := PtrToInt
+        { operand0 = argument
+        , type'    = intType
+        , metadata = [] }
+
+      pure $ LocalReference intType labelCast
 
     FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc, fStructArgs } -> do
       arguments <- toList <$> mapM createArg fArgs
@@ -934,7 +949,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         else if fRecursiveFunc
           then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
           else pure []
-
       label <- newLabel "funcResult"
       addInstruction $ label := Call
         { tailCallKind       = Nothing
@@ -958,16 +972,39 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
             then
               expression' expr
-            else do
-              arg <- newLabel "argCast"
-              ref   <- objectRef (theObj exp')
+            else if type' =:= GPointer GAny 
+              then do 
+                expr <- expression expr
+                let GPointer t = type'
+                type' <- ptr <$> toLLVMType t
 
-              t <- ptr <$> toLLVMType type'
-              addInstruction $ arg := BitCast
-                { operand0 = ref
-                , type'    = t
-                , metadata = [] }
-              pure $ LocalReference t arg
+                label <- newLabel "argAlloc"
+                addInstruction $ label := Alloca
+                  { allocatedType = type'
+                  , numElements   = Nothing
+                  , alignment     = 4
+                  , metadata      = [] }
+
+                addInstruction $ Do Store
+                  { volatile = False
+                  , address  = LocalReference type' label
+                  , value    = expr
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = [] }
+
+                pure $ LocalReference type' label
+            else case exp' of 
+              Obj o         -> do 
+                label <- newLabel "argCastOb"
+                ref <- objectRef o
+                type' <- ptr <$> toLLVMType type'
+                addInstruction $ label := BitCast
+                  { operand0 = ref
+                  , type'    = type'
+                  , metadata = [] }
+                pure $ LocalReference type' label
+
         basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
 
     Quantification { } ->
@@ -975,6 +1012,11 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
     Collection { } ->
       collection e
+
+    AddressOf (inner@Expression{ expType = iType, exp'}) -> case exp' of 
+      Obj{ theObj } -> objectRef theObj
+      _ -> internal $ "Cannot get the address of a non object expression\n" <> (drawTree . toTree $ e) 
+
 
     I64Cast { inner = inner @ Expression {expType = iType} } -> do
       i <- expression' inner

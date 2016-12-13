@@ -132,7 +132,7 @@ runParserT  :: Monad m
             -> m (Either (ParseError TokenPos Error) a, Parser.State)
 runParserT p fp s input = runStateT (runReaderT flatten cfg) s
     where
-      cfg = defaultConfig (EnableTrace `elem` s^.pragmas)
+      cfg = defaultConfig (EnableTrace `elem` s^.pragmas) (GetAddressOf `elem` s^.pragmas)
 
       flatten = do
         definitions <~ asks nativeFunctions

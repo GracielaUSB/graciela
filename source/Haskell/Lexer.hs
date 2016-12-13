@@ -92,6 +92,8 @@ sc = L.space (void spaceChar) lineComment blockComment
             <|> (string "NoLogicAnywhere" $> (\\)  [LogicAnywhere])
             <|> (string "EnableTrace"     $> union [EnableTrace])
             <|> (string "NoEnableTrace"   $> (\\)  [EnableTrace])
+            <|> (string "GetAddressOf"    $> union [GetAddressOf])
+            <|> (string "NoGetAddressOf"  $> (\\)  [GetAddressOf])
 
 
 lexeme :: Lexer Token -> Lexer TokenPos
@@ -206,6 +208,8 @@ token  =  reserved "program"    TokProgram
       <|> reserved "intersect"  TokSetIntersect
       <|> symbol   "\8745"      TokSetUnion -- ∩
 
+      <|> symbol   "&"          TokAmpersand -- Only Pragma 
+
       <|> reserved "msum"       TokMultisetSum
       <|> symbol   "\8846"      TokMultisetSum -- ⊎
       <|> symbol   "++"         TokConcat
@@ -223,6 +227,7 @@ token  =  reserved "program"    TokProgram
 
       <|> reserved "new"        TokNew
       <|> reserved "free"       TokFree
+
       -- V2.0
 
       <|> symbol   "+"          TokPlus

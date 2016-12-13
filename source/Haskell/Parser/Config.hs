@@ -31,6 +31,7 @@ module Parser.Config
   -- * LLVM Conversion function strings
   , float2intString
   , char2intString
+  , pointer2intString
   , float2charString
   , int2charString
   , char2floatString
@@ -77,8 +78,8 @@ data Config = Config
   , nativeFunctions :: Map Text Definition
   , nativeSymbols   :: SymbolTable }
 
-defaultConfig :: Bool -> Config
-defaultConfig enableTrace = Config
+defaultConfig :: Bool -> Bool -> Config
+defaultConfig enableTrace enableAmpersand = Config
   { nativeTypes
   , nativeFunctions
   , nativeSymbols = foldl' auxInsert emptyGlobal symbols }
@@ -168,11 +169,15 @@ defaultConfig enableTrace = Config
 
     toIntG [ GFloat ] = Right (GInt, pack float2intString, True)
     toIntG [ GChar  ] = Right (GInt, pack  char2intString, False)
-    toIntG [ a ] = Left badArg
-      { paramNum = 1
-      , fName  = "toInt"
-      , pTypes = [GFloat, GChar]
-      , aType  = a }
+    toIntG [ a ] 
+      | a =:= GPointer GAny && enableAmpersand = 
+        Right (GInt, pack pointer2intString, False)
+      
+      | otherwise = Left badArg
+        { paramNum = 1
+        , fName  = "toInt"
+        , pTypes = [GFloat, GChar]
+        , aType  = a }
     toIntG args = Left badNumArgs
       { fName = "toInt"
       , nParams = 1
@@ -417,23 +422,24 @@ multiplicitySeqPairString   = "_countSequencePair"
 multiplicityMultiPairString = "_countMultisetPair"
 
 float2intString, char2intString   :: String
-float2intString  = "_float2int"
-char2intString   = "_char2int"
+float2intString   = "_float2int"
+char2intString    = "_char2int"
+pointer2intString = "_pointer2int"
 float2charString, int2charString  :: String
-float2charString = "_float2char"
-int2charString   = "_int2char"
+float2charString  = "_float2char"
+int2charString    = "_int2char"
 char2floatString, int2floatString :: String
-char2floatString = "_char2float"
-int2floatString  = "_int2float"
+char2floatString  = "_char2float"
+int2floatString   = "_int2float"
 
 traceIntString, traceFloatString, traceCharString, traceBoolString, traceTypeVarString, traceStringIntString, traceStringFloatString, traceStringCharString, traceStringBoolString, traceStringTypeVarString :: String
-traceIntString = "_traceInt"
-traceFloatString = "_traceFloat"
-traceCharString = "_traceChar"
-traceBoolString = "_traceBool"
-traceTypeVarString = "_traceTypeVar"
-traceStringIntString = "_traceStringInt"
-traceStringFloatString = "_traceStringFloat"
-traceStringCharString = "_traceStringChar"
-traceStringBoolString = "_traceStringBool"
+traceIntString           = "_traceInt"
+traceFloatString         = "_traceFloat"
+traceCharString          = "_traceChar"
+traceBoolString          = "_traceBool"
+traceTypeVarString       = "_traceTypeVar"
+traceStringIntString     = "_traceStringInt"
+traceStringFloatString   = "_traceStringFloat"
+traceStringCharString    = "_traceStringChar"
+traceStringBoolString    = "_traceStringBool"
 traceStringTypeVarString = "_traceStringTypeVar"
