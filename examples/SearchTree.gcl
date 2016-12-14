@@ -179,7 +179,6 @@ program SearchTree.bin begin
       ; var P,Q := t, null : SearchTree(T)*
       ; var n,i := 0,0 : int
       ; var done := false : boolean
-      ; var jamon : n
 
       ; {inv true inv}
         {bound 255 - i bound}
@@ -298,7 +297,6 @@ main
          [] c == 'M' \/ c == 'm' -> show(t)
          [] otherwise -> writeln("Has perdido un intento :(")
          fi
-       
     od
   ; free(t)
   ⟧

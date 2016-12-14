@@ -72,7 +72,11 @@ int main() {
   for (int i = 0;  i < 5 ; ++i) {
     printf(">> %d\n",10);
   }
+<<<<<<< HEAD:source/C/libgraciela-abstract/main.c
   printf("%d\n", *lo);
+=======
+
+>>>>>>> post:source/C/libgraciela-abstract/main.c
     _freeTrashCollector();
     return 0;
 }

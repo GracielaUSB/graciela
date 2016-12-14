@@ -334,15 +334,17 @@ definition
         Nothing -> do
           forM_ dts (couple' "couple")
           body Nothing
+
           pure $ unpack defName
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+
           
           body abstractStruct
           
--- =======
+
 --           let
 --             maybeProc = case abstractStruct of
 --               Just Struct {structProcs} -> defName `Map.lookup` structProcs
@@ -361,7 +363,8 @@ definition
 --             Just Definition{post = post'} -> postconditionAbstract cond post' pos
 --             _                             -> pure ()
 
--- >>>>>>> post
+
+
           pure $ unpack defName <> postFix
 
       postcondition cond post
@@ -1065,6 +1068,7 @@ preDefinitions files = do
     , defineFunction randBool   [] boolType
     , defineFunction randChar   [] charType
     , defineFunction randFloat  [] floatType
+
     -- , defineFunction randomize  [] voidType
     -- , defineFunction seedRandom [intParam] voidType
 
