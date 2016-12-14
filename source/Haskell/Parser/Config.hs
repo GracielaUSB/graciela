@@ -16,6 +16,8 @@ module Parser.Config
   , toSetRelString
   , toMultiSetString
   , toMultiSeqString
+  , toSeqSetString
+  , toSeqMultiString
   , funcString
   , relString
   , domainFuncString
@@ -113,6 +115,7 @@ defaultConfig enableTrace enableAmpersand = Config
       at "sqrt"         ?= (sqrtG        , [])
       at "toMultiset"   ?= (toMultisetG  , [])
       at "toSet"        ?= (toSetG       , [])
+      at "toSequence"   ?= (toSequenceG  , [])
       at "toInt"        ?= (toIntG       , [])
       at "toChar"       ?= (toCharG      , [])
       at "toFloat"      ?= (toFloatG     , [])
@@ -124,6 +127,7 @@ defaultConfig enableTrace enableAmpersand = Config
     absG, codomainG, domainG          :: Seq Type -> Either Error (Type, Text, Bool)
     funcG, inverseG, multiplicityG    :: Seq Type -> Either Error (Type, Text, Bool)
     relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
+    toSequenceG                       :: Seq Type -> Either Error (Type, Text, Bool)
 
     wrap defName (signatures, casts) = Definition
       { defLoc  = gracielaDef
@@ -263,6 +267,20 @@ defaultConfig enableTrace enableAmpersand = Config
       , nParams = 1
       , nArgs = length args}
 
+    toSequenceG [ GSet      a ] = Right (GSeq a, pack toSeqSetString,   False)
+    toSequenceG [ GMultiset a ] = Right (GSeq a, pack toSeqMultiString, False)
+    toSequenceG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "toSequence"
+      , pTypes =
+        [ GSet      (GUnsafeName "a")
+        , GMultiset (GUnsafeName "a") ]
+      , aType = a }
+    toSequenceG args = Left badNumArgs
+      { fName = "toSequence"
+      , nParams = 1
+      , nArgs = length args}
+
     funcG [ GSet (GTuple a b) ] = Right (GFunc    a    b, pack funcString, True)
     funcG [ GSet GAny         ] = Right (GFunc GAny GAny, pack funcString, True)
     funcG [ a ] = Left badArg
@@ -398,6 +416,10 @@ toSetRelString = "_rel_to_set"
 toMultiSetString, toMultiSeqString :: String
 toMultiSetString = "_set_to_multiset"
 toMultiSeqString = "_seq_to_multiset"
+
+toSeqSetString, toSeqMultiString :: String
+toSeqSetString = "_set_to_seq"
+toSeqMultiString = "_multiset_to_seq"
 
 funcString, relString :: String
 funcString = "_funcFromSet"

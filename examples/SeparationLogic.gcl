@@ -40,20 +40,20 @@ begin
   {repinv true repinv}
   {coupinv true coupinv}
 
-  // func buildHeap( tree : Tree(T)*
-  //               , b : int  
-  //               ) -> function int -> int
-  //   var heap := func({(toInt(tree), toInt(tree) + sizeof(Tree(T)))}) : function int -> int;
-  //   var left, right := (*tree).l, (*tree).r : Tree(T)*;
-  //   {pre  true  pre}
-  //   {post true post}
-  //   {bound b bound} 
-  //   |[ if left  == null /\ right == null -> heap
-  //      [] left  == null -> buildHeap(right, b-1) union heap
-  //      [] right == null -> buildHeap( left, b-1) union heap
-  //      [] otherwise -> buildHeap(left, b-1) union buildHeap(right, b-1) union heap
-  //      fi
-  //   ]|
+  func buildHeap( tree : Tree(T)*
+                , b : int  
+                ) -> function int -> int
+    let heap := func({(toInt(tree), toInt(tree) + sizeof(Tree(T)))}) : function int -> int;
+    let left, right := (*tree).l, (*tree).r : Tree(T)*;
+    {pre  true  pre}
+    {post true post}
+    {bound b bound} 
+    |[ if left  == null /\ right == null -> heap
+       [] left  == null -> buildHeap(right, b-1) union heap
+       [] right == null -> buildHeap( left, b-1) union heap
+       [] otherwise -> buildHeap(left, b-1) union buildHeap(right, b-1) union heap
+       fi
+    ]|
 
 
   // // func duplicateInHeap ( tree  : Tree(T)*

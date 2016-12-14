@@ -18,7 +18,7 @@ module Parser.Declaration
 import           AST.Declaration           (Declaration (..))
 import           AST.Expression            (Expression (..),
                                             Expression' (NullPtr, Value))
-import           AST.Struct                (Struct (..))
+import           AST.Struct                (Struct (..), Struct'(..))
 import           AST.Type
 import           Common
 import           Entry
@@ -60,7 +60,11 @@ declaration' :: Bool -> Parser (Maybe Declaration)
 declaration' isStruct = do
   from <- getPosition
 
-  isConst <- match TokConst $> True <|> match TokVar $> False
+  isConst <- do 
+    f <- use useLet
+    if f 
+      then match TokLet $> False
+      else match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
 
@@ -70,9 +74,10 @@ declaration' isStruct = do
   to <- getPosition
   isDeclarative' <- use isDeclarative
   
+  isOkAbstract from t
+  
   let
     location = Location (from, to)
-
   if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
     then do
       putError from . UnknownError $
@@ -127,6 +132,32 @@ declaration' isStruct = do
               (if isConst then "constants" else "variables") <>
               " do not match with the\n\tnumber of expressions to be assigned"
             pure Nothing
+
+isOkAbstract :: SourcePos -> Type -> Parser ()
+isOkAbstract from t = case t of
+  GDataType name _ _   -> isOkAbstract' name
+  GFullDataType name _ -> isOkAbstract' name
+  _                    -> pure () 
+  where
+    isOkAbstract' :: Text -> Parser ()
+    isOkAbstract' name = do
+      s <- getStruct name
+      case s of
+        Just s' -> case struct' s' of
+          DataType{} -> pure () 
+          AbstractDataType{} -> do
+            putError from . UnknownError $ "Can not declare variables of abstract type " 
+              <> show t <> "."
+            pure ()
+        Nothing -> do
+          maybeStruct <- use currentStruct
+          case maybeStruct of
+            Just (GDataType name' _ _, _, _, _) | name == name' -> pure ()
+            _ -> do
+              putError from . UnknownError $ "Can not declare variables of abstract type " 
+                <> show t <> "."
+              pure ()
+        
 
 
 assignment :: Parser (Maybe (Maybe (Seq Expression)))

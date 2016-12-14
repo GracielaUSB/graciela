@@ -23,13 +23,13 @@ union, ∪                   :: Multiset a -> Multiset a -> Multiset a
 msum, ⊎                    :: Multiset a -> Multiset a -> Multiset a  
 intersect, intersection, ∩ :: Multiset a -> Multiset a -> Multiset a
 difference, \\             :: Multiset a -> Multiset a -> Multiset a
-elem, ∈                   :: a     -> Multiset a -> Bool
-notelem, ∉                :: a     -> Multiset a -> Bool
+elem, ∈                    :: a     -> Multiset a -> Bool
+notelem, ∉                 :: a     -> Multiset a -> Bool
 cardinality, card          :: Multiset a -> Int
-ssubset, ⊂, ⊊             :: Multiset a -> Multiset a -> Bool
-subset, ⊆                 :: Multiset a -> Multiset a -> Bool
-ssuperset, ⊃, ⊋           :: Multiset a -> Multiset a -> Bool
-superset, ⊇               :: Multiset a -> Multiset a -> Bool
+ssubset, ⊂, ⊊              :: Multiset a -> Multiset a -> Bool
+subset, ⊆                  :: Multiset a -> Multiset a -> Bool
+ssuperset, ⊃, ⊋            :: Multiset a -> Multiset a -> Bool
+superset, ⊇                :: Multiset a -> Multiset a -> Bool
 ==                         :: Multiset a -> Multiset a -> Bool
 !=                         :: Multiset a -> Multiset a -> Bool
 cross                      :: Multiset a -> Multiset b -> Multiset (a, b)

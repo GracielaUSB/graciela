@@ -1,0 +1,7 @@
+/*% LANGUAGE LogicAnywhere %*/
+/*% LANGUAGE Trace %*/
+program baggy.bin begin
+main
+  |[ writeln( {:1, 2, 2:} msum {:1, 1, 2:} == {:1, 1, 2, 2:} )
+  ]|
+end

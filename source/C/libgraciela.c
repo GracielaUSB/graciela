@@ -131,7 +131,7 @@ int _readIntStd () {
   int  n;
   char c;
 
-  scanf("%d%c", &n, &c);
+  scanf("%d", &n, &c);
   return n;
 }
 
@@ -139,7 +139,7 @@ int _readBoolStd () {
   int  n;
   char c;
 
-  scanf("%d%c", &n, &c);
+  scanf("%d", &n, &c);
   if (n != 0 && n != 1)
   {
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
@@ -152,7 +152,7 @@ char _readCharStd () {
   char n;
   char c;
 
-  scanf("%c%c", &n, &c);
+  scanf("%c", &n, &c);
   return n;
 }
 
@@ -161,7 +161,7 @@ double _readDoubleStd () {
   double n;
   char   c;
 
-  scanf("%lf%c", &n, &c);
+  scanf("%lf", &n, &c);
   return n;
 }
 

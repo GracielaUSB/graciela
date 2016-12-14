@@ -8,7 +8,7 @@
 
 #define CATCH_CONFIG_MAIN
 
-#include "graciela-abstract-lib.h"
+#include "libgraciela-abstract.h"
 #include "catch.hpp"
 
 typedef int8_t* Set;
@@ -23,7 +23,7 @@ TEST_CASE("Graciela Relation"){
     _initTrashCollector();
     _openScope();
     Relation r = _newRelation();
-    
+
     _insertRelation(r, 1, 2);
     _insertRelation(r, 1, 2); //duplicate
     _insertRelation(r, 2, 1);
@@ -31,14 +31,14 @@ TEST_CASE("Graciela Relation"){
     _insertRelation(r, 3, 3);
     _insertRelation(r, 3, 2);
     _insertRelation(r, 3, 1);
-    
+
     REQUIRE(_sizeRelation(r) == 5);
     REQUIRE(_isElemRelation(r, 1, 2));
     REQUIRE(_isElemRelation(r, 2, 1));
     REQUIRE(_isElemRelation(r, 3, 3));
     REQUIRE(_isElemRelation(r, 3, 2));
     REQUIRE(_isElemRelation(r, 3, 1));
-    
+
     Set dom = _domRelation(r);
     REQUIRE(_sizeSet(dom) == 3);
     REQUIRE(_isElemSet(dom, 1));
@@ -55,14 +55,14 @@ TEST_CASE("Graciela Relation"){
     REQUIRE(_isElemSet(rango,1));
     REQUIRE(_isElemSet(rango,2));
     REQUIRE(_isElemSet(rango,3));
-    
-    
+
+
     Relation r2 = _newRelation();
     _insertRelation(r2, 2, 10);
     _insertRelation(r2, 1, 20);
     _insertRelation(r2, 3, 30);
-    
-    
+
+
     /* Composition
      *  1,2           1,10
      *  2,1   1,20    2,20
@@ -77,10 +77,10 @@ TEST_CASE("Graciela Relation"){
     REQUIRE(_isElemRelation(s, 3, 10));
     REQUIRE(_isElemRelation(s, 3, 20));
     REQUIRE(_isElemRelation(s, 3, 30));
-    
+
     s = _compositionRelation(r2, r);
     REQUIRE(_sizeRelation(s) == 0);
-    
+
     _freeTrashCollector();
 }
 
@@ -95,7 +95,7 @@ TEST_CASE("Graciela Function"){
     _insertFunction(f, 3, 3);
     _insertFunction(f, 3, 2);
     _insertFunction(f, 3, 1);
-  
+
     REQUIRE(_sizeFunction(f) == 3);
     REQUIRE(_isElemFunction(f, 1, 2));
     REQUIRE(_isElemFunction(f, 2, 1));
@@ -107,17 +107,17 @@ TEST_CASE("Graciela Function"){
     REQUIRE(_isElemSet(s, 1));
     REQUIRE(_isElemSet(s, 2));
     REQUIRE(_isElemSet(s, 3));
-    
+
     REQUIRE(_pairFunction(f, 1, 1, 1) == 2);
     REQUIRE(_pairFunction(f, 2, 1, 1) == 1);
     REQUIRE(_pairFunction(f, 3, 1, 1) == 3);
-    
+
     Function f2 = _newFunction();
     _insertFunction(f2, 2, 10);
     _insertFunction(f2, 1, 20);
     _insertFunction(f2, 3, 30);
-    
-    
+
+
     /* Composition
      *  1,2   1,20    1,10
      *  2,1 o 2,10 -> 2,20
@@ -128,7 +128,7 @@ TEST_CASE("Graciela Function"){
     REQUIRE(_isElemFunction(s, 1, 10));
     REQUIRE(_isElemFunction(s, 2, 20));
     REQUIRE(_isElemFunction(s, 3, 30));
-    
+
     s = _compositionRelation(f2, f);
     REQUIRE(_sizeFunction(s) == 0);
   Set set = _newSetPair();
@@ -140,14 +140,14 @@ TEST_CASE("Graciela Function"){
   _insertSetPair(set, &t2);
   _insertSetPair(set, &t3);
   _insertSetPair(set, &t4);
-  
+
   Function fun = _funcFromSet(set, 1, 1);
-  
+
     _freeTrashCollector();
 }
 
 TEST_CASE("Graciela Multiset"){
-    
+
     _initTrashCollector();
     _openScope();
     Multiset empty = _newMultiset();
@@ -163,7 +163,7 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_isElemMultiset(s, 2));
     REQUIRE(_countMultiset(1,s) == 2);
     REQUIRE(_countMultiset(2,s) == 3);
-    
+
     Multiset s2 = _newMultiset();
     _insertMultiset(s2, 2);
     _insertMultiset(s2, 2);
@@ -173,7 +173,7 @@ TEST_CASE("Graciela Multiset"){
     _insertMultiset(s2, 3);
     REQUIRE_FALSE(_includesMultiset(s, s2));
     REQUIRE(_sizeMultiset(s2) == 5);
-    
+
     /* Union                                       */
     /* {1,1,2,2,2} u {2,2,2,3,3} = {1,1,2,2,2,3,3} */
     Multiset unionS = _unionMultiset(s, s2);
@@ -194,8 +194,8 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_countMultiset(2,unionS) == 3);
     REQUIRE(_countMultiset(3,unionS) == 2);
 
-    
-    
+
+
     /* Intersection                            */
     /* {1,1,2,2,2} ∩ {2,2,2,2,2,3,3} = {2,2,2} */
     _insertMultiset(s2, 2);
@@ -209,13 +209,13 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_sizeMultiset(intersectS) == 3);
     REQUIRE(_isElemMultiset(intersectS, 2));
     REQUIRE(_countMultiset(2,intersectS) == 3);
-    
+
     /* {1,1,2,2,2} ∩ {} */
     intersectS = _intersectMultiset(s, empty);
     REQUIRE(_sizeMultiset(intersectS) == 0);
     intersectS = _intersectMultiset(empty, s);
     REQUIRE(_sizeMultiset(intersectS) == 0);
-    
+
     /* Difference */
     /* {1,1,2,2,2} \ {}  */
     Multiset differenceS = _differenceMultiset(s, empty);
@@ -224,25 +224,25 @@ TEST_CASE("Graciela Multiset"){
     REQUIRE(_countMultiset(2,differenceS) == 3);
     differenceS = _differenceMultiset(empty, s);
     REQUIRE(_sizeMultiset(differenceS) == 0);
-    
+
     /* {1,1,2,2,2} \ {2,2,2,2,2,3,3} = {1,1} */
     differenceS = _differenceMultiset(s, s2);
     REQUIRE(_sizeMultiset(differenceS) == 2);
     REQUIRE(_countMultiset(1,differenceS) == 2);
-    
+
     /* {2,2,2,2,2,3,3} \ {1,1,2,2,2} = {2,2,3,3} */
     differenceS = _differenceMultiset(s2, s);
     REQUIRE(_sizeMultiset(differenceS) == 4);
     REQUIRE(_countMultiset(2,differenceS) == 2);
     REQUIRE(_countMultiset(3,differenceS) == 2);
-    
+
     _freeTrashCollector();
 }
 
 TEST_CASE("Graciela Set"){
     /* Create set, insert element and is element */
     _initTrashCollector();
-  
+
     _openScope();
     Set s = _newSet();
     REQUIRE(_equalSet(_unionSet(s,s), s));
@@ -271,7 +271,7 @@ TEST_CASE("Graciela Set"){
     REQUIRE(_isElemSet(s, 3));
     REQUIRE(_isElemSet(s, 4));
     REQUIRE(_isElemSet(s, 5));
-    
+
     /* Union */
     Set s2 = _newSet();
     _insertSet(s2, 1);
@@ -287,11 +287,11 @@ TEST_CASE("Graciela Set"){
     Set unionS = _unionSet(s, s2);
     REQUIRE(_sizeSet(unionS) == 5);
     _insertSet(s2, 6);
-    
+
     unionS = _unionSet(s, s2);
     REQUIRE(_sizeSet(unionS) == 6);
 
-    
+
     /* Intersect */
     Set intersectS = _intersectSet(s, s2);
     REQUIRE(_sizeSet(intersectS) == 5);
@@ -301,7 +301,7 @@ TEST_CASE("Graciela Set"){
     REQUIRE(_sizeSet(intersectS) == 5);
     REQUIRE_FALSE(_isElemSet(intersectS, 6));
 
-    
+
     /* Difference */
     Set differenceS = _differenceSet(s, s2);
     REQUIRE(_sizeSet(differenceS) == 0);
@@ -312,11 +312,11 @@ TEST_CASE("Graciela Set"){
     _insertSet(s2, 6);
     REQUIRE_FALSE(_includesSet(s, s2));
     REQUIRE(_includesSet(s2, s));
-  
+
   Set a = _newSet(), b = _newSet();
   _insertSet(a, 4);
   _insertSet(b, 4);
   REQUIRE(_equalSet(_differenceSet(a, b), _newSet()));
-  
+
     _freeTrashCollector();
 }

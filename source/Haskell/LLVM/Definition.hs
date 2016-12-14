@@ -36,7 +36,7 @@ import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
 import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
-import           Data.Maybe                          (fromMaybe)
+import           Data.Maybe                          (fromMaybe, isJust, fromJust)
 import           Data.Sequence                       as Seq (empty, fromList)
 import qualified Data.Sequence                       as Seq (empty)
 import           Data.Text                           (Text, pack, unpack)
@@ -188,29 +188,39 @@ definition
       params' <- recursiveParams funcRecursive
 
       cs <- use currentStruct
-      let 
-        dts  = filter (\(_, t) -> t =:= T.GADataType) . toList $ funcParams
+      let
+        couple' fn (name, t) = do
+          name' <- getVariableName name
+          exit  <- callCouple fn name' t Nothing
+          when (isJust exit) $ (fromJust exit #)
+        invariant' fn (name, t) = do
+          name' <- getVariableName name
+          exit  <- callInvariant fn preOperand name' t Nothing
+          when (isJust exit) $ (fromJust exit #)
+        dts  = filter (\(_, t) -> isJust (T.hasDT t) ) . toList $ funcParams
         body = do
-          mapM_ (callInvariant' "inv"     preOperand) dts
-          mapM_ (callInvariant' "coupInv" preOperand) dts
-          mapM_ (callInvariant' "repInv"  preOperand) dts
+          forM_ dts (invariant' "inv"    )
+          forM_ dts (invariant' "coupInv")
+          forM_ dts (invariant' "repInv" )
           expression' funcBody
 
       (postFix, returnOperand) <- case cs of
         Nothing -> do
-          mapM_ (callCouple' "couple") dts
+
+          forM_ dts (couple' "couple")
+
           ("",) <$> body
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
-          
-          let 
+
+          let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
 
-          mapM_ (callCouple' "couple") dts
+          forM_ dts (couple' "couple")
 
 
           case maybeProc of
@@ -218,15 +228,15 @@ definition
               mapM_ declaration abstFDecl
               preconditionAbstract preOperand pre' pos
             _ -> pure ()
-          
+
           returnOp <- body
 
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
             _                             -> pure ()
-          
+
           pure (postFix, returnOp)
-      
+
       returnVar     <- insertVar defName
       returnType    <- toLLVMType funcRetType
 
@@ -270,7 +280,7 @@ definition
       (proc #)
 
       openScope
-      
+
       params <- mapM (makeParam False) . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
@@ -280,17 +290,24 @@ definition
       params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
-      let 
-        dts  = filter (\(_, t, _) -> t =:= T.GADataType) . toList $ procParams
+      let
+        couple' fn (name, t, _) = do
+          name' <- getVariableName name
+          exit  <- callCouple fn name' t Nothing
+          when (isJust exit) $ (fromJust exit #)
+        invariant' fn (name, t, _) = do
+          name' <- getVariableName name
+          exit  <- callInvariant fn cond name' t Nothing
+          when (isJust exit) $ (fromJust exit #)
+        dts  = filter (\(_, t, _) -> isJust (T.hasDT t) ) . toList $ procParams
         body abstractStruct = do 
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> Nothing
-
-          mapM_ (callCouple    "couple"      ) dts
-          mapM_ (callInvariant "coupInv" cond) dts
-          mapM_ (callInvariant "repInv"  cond) dts
+          forM_ dts (couple' "couple")
+          forM_ dts (invariant' "coupInv")
+          forM_ dts (invariant' "repInv" )
           
           
           case maybeProc of
@@ -299,36 +316,56 @@ definition
               preconditionAbstract cond pre' pos
             _ -> pure ()
           
-          mapM_ (callInvariant "inv"     cond) dts
+          forM_ dts (invariant' "inv")
 
           instruction procBody
 
           
 
-          mapM_ (callCouple    "couple"      ) dts
-          mapM_ (callInvariant "coupInv" cond) dts
+          forM_ dts (couple' "couple")
+          forM_ dts (invariant' "coupInv")
           
-          mapM_ (callInvariant "inv"     cond) dts
-          mapM_ (callInvariant "repInv"  cond) dts
+          forM_ dts (invariant' "inv"    )
+          forM_ dts (invariant' "repInv" )
           
           
 
       pName <- case cs of
         Nothing -> do
-          mapM_ (callCouple "couple") dts
+          forM_ dts (couple' "couple")
           body Nothing
           pure $ unpack defName
 
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do           
+        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
           postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
           
           body abstractStruct
           
+-- =======
+--           let
+--             maybeProc = case abstractStruct of
+--               Just Struct {structProcs} -> defName `Map.lookup` structProcs
+--               Nothing -> error "Internal error: Missing Abstract Data Type."
+
+          -- mapM_ (callCouple "couple") dts
+--           case maybeProc of
+--             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
+--               mapM_ declaration abstPDecl
+--               preconditionAbstract cond pre' pos
+--             _ -> pure ()
+
+--           body
+
+--           case maybeProc of
+--             Just Definition{post = post'} -> postconditionAbstract cond post' pos
+--             _                             -> pure ()
+
+-- >>>>>>> post
           pure $ unpack defName <> postFix
-      
+
       postcondition cond post
-      
+
       terminate $ Ret Nothing []
 
       blocks' <- use blocks
@@ -358,7 +395,7 @@ definition
       name' <- insertVar name
       t'    <- toLLVMType t
       if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
-        then do 
+        then do
           pure $ Parameter t' name' []
         else pure $ Parameter (ptr t') name' []
 
@@ -412,16 +449,16 @@ definition
             , function           = callable voidType writeIString
             , arguments          = [(paramDim,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           addInstruction $ Do Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable voidType lnString 
+            , function           = callable voidType lnString
             , arguments          = []
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           addInstruction $ Do Call
             { tailCallKind       = Nothing
@@ -430,7 +467,7 @@ definition
             , function           = callable voidType writeIString
             , arguments          = [(LocalReference i32 argDim,[])]
             , functionAttributes = []
-            , metadata           = [] } 
+            , metadata           = [] }
 
           abort Abort.BadArrayArg (L.pos . loc $ dim)
 
@@ -439,40 +476,98 @@ definition
 
     arrAux _ = pure ()
 
-    callCouple' funcName (name, t) = callCouple funcName (name, t, T.In)  
+    loadDtPtr name (T.GPointer t) exit callFunc = do
+      yes  <- newLabel "yesNull"
+      no   <- newLabel "noNull"
+      cast <- newLabel "cast"
+      comp <- newLabel "comp"
+      argLoad <- newLabel "argLoad"
+      type' <- toLLVMType (T.GPointer t)
+      exit' <- case exit of 
+        Nothing -> newLabel "exit"
+        Just e  -> pure e
 
-    callCouple funName (name, t, _) = do
+      addInstruction $ argLoad := Load
+            { volatile       = False
+            , address        = LocalReference type' name
+            , maybeAtomicity = Nothing
+            , alignment      = 4
+            , metadata       = [] }
+      
+      addInstruction $ cast := PtrToInt
+            { operand0 = LocalReference type' argLoad
+            , type'    = i64
+            , metadata = [] }
+
+      addInstruction $ comp := ICmp
+              { iPredicate = EQ
+              , operand0 = LocalReference intType cast
+              , operand1 = ConstantOperand $ C.Int 64 0
+              , metadata = [] }
+
+      terminate CondBr
+          { condition = LocalReference boolType comp
+          , trueDest  = yes
+          , falseDest = no
+          , metadata' = [] }
+
+      (no #)
+
+      e <- callFunc argLoad t (Just exit')
+
+      terminate Br
+          { dest = exit'
+          , metadata' = [] }
+
+      (yes #)     
+
+      terminate Br
+          { dest = exit'
+          , metadata' = [] }
+
+      pure e
+
+    callCouple funName name t@(T.GPointer _) exit = do
+      loadDtPtr name t exit (callCouple funName)
+
+    
+    callCouple funName name t exit | t =:= T.GADataType = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$> 
+      postFix <- llvmName ("-" <> T.typeName t) <$>
                     (mapM toLLVMType . toList $ T.typeArgs t)
-      name' <- getVariableName name
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType (funName <> postFix)
-        , arguments          = [(LocalReference type' name',[])]
+        , arguments          = [(LocalReference type' name,[])]
         , functionAttributes = []
         , metadata           = [] }
-    
-    callInvariant' fn c (n, t) = callInvariant fn c (n, t, T.In)
 
-    callInvariant funName cond (name, t, _) = do
+      pure exit
 
+
+
+    callInvariant funName c name t@(T.GPointer _) exit = do
+      loadDtPtr name t exit (callInvariant funName c)
+
+
+    callInvariant funName cond name t exit = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$> 
+      postFix <- llvmName ("-" <> T.typeName t) <$>
                     (mapM toLLVMType . toList $ T.typeArgs t)
-      name' <- getVariableName name
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
         , function           = callable voidType (funName <> postFix)
-        , arguments          = [(LocalReference type' name',[]), (cond,[])]
+        , arguments          = [(LocalReference type' name,[]), (cond,[])]
         , functionAttributes = []
-        , metadata           = [] }    
+        , metadata           = [] }
+
+      pure exit
 
     recursiveParams isRecursive = if isRecursive
       then do
@@ -673,11 +768,7 @@ preDefinitions files = do
   mapM_ addFile files
   addDefinitions $ fromList
 
-    [ -- Random
-      defineFunction randomInt [] intType
-
-
-    , defineFunction copyArrayString [ parameter ("size"     , intType)
+    [ defineFunction copyArrayString [ parameter ("size"     , intType)
                                      , parameter ("arrSource", pointerType)
                                      , parameter ("arrDest"  , pointerType)
                                      , parameter ("sizeT"    , intType) ]
@@ -742,21 +833,23 @@ preDefinitions files = do
     , defineFunction toSetRelString           ptrParam   pointerType
     , defineFunction toMultiSetString         ptrParam   pointerType
     , defineFunction toMultiSeqString         ptrParam   pointerType
+    , defineFunction toSeqSetString           ptrParam   pointerType
+    , defineFunction toSeqMultiString         ptrParam   pointerType
 
 --------------------------------------------------------------------------------
 
 
     , defineFunction firstSetString           ptrParam (ptr iterator)
-    , defineFunction nextSetString            [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
-    
+    , defineFunction nextSetString            [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
+
     , defineFunction firstMultisetString      ptrParam (ptr iterator)
-    , defineFunction nextMultisetString       [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
-    
+    , defineFunction nextMultisetString       [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
+
     , defineFunction firstSequenceString      ptrParam (ptr iterator)
-    , defineFunction nextSequenceString       [parameter ("x", (ptr iterator))] 
-                                              (ptr iterator) 
+    , defineFunction nextSequenceString       [parameter ("x", ptr iterator)]
+                                              (ptr iterator)
 
     , defineFunction initTrashCollectorString [] voidType
     , defineFunction freeTrashCollectorString [] voidType
@@ -770,6 +863,9 @@ preDefinitions files = do
     , defineFunction newSetPairString         [] pointerType
     , defineFunction newMultisetPairString    [] pointerType
     , defineFunction newSeqPairString         [] pointerType
+
+    , defineFunction newFunction              [] pointerType
+    , defineFunction newRelation              [] pointerType
 
 --------------------------------------------------------------------------------
 
@@ -963,6 +1059,14 @@ preDefinitions files = do
     , defineFunction readBoolStd   [] boolType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
+
+    -- Rand
+    , defineFunction randInt    [] intType
+    , defineFunction randBool   [] boolType
+    , defineFunction randChar   [] charType
+    , defineFunction randFloat  [] floatType
+    -- , defineFunction randomize  [] voidType
+    -- , defineFunction seedRandom [intParam] voidType
 
     -- Malloc
     , defineFunction mallocString   intParam pointerType

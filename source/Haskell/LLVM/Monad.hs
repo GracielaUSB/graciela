@@ -154,10 +154,12 @@ newSetString = "_newSet"
 newSeqString = "_newSequence"
 newMultisetString = "_newMultiset"
 
-newSetPairString,newMultisetPairString, newSeqPairString :: String
+newSetPairString,newMultisetPairString, newSeqPairString, newFunction, newRelation :: String
 newSetPairString      = "_newSetPair"
 newMultisetPairString = "_newMultisetPair"
 newSeqPairString      = "_newSequencePair"
+newFunction           = "_newFunction"
+newRelation           = "_newRelation"
 
 equalSetString, equalSeqString, equalMultisetString :: String
 equalSetString      = "_equalSet"
@@ -294,6 +296,12 @@ readCharStd   :: String
 readCharStd   = "_readCharStd"
 readFloatStd  :: String
 readFloatStd  = "_readDoubleStd"
+
+randChar, randFloat, randInt, randBool :: String
+randChar      = "_randChar"
+randFloat     = "_randFloat"
+randInt       = "_randInt"
+randBool      = "_randBool"
 
 openFileStr   :: String
 openFileStr   = "_openFile"

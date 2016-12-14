@@ -132,13 +132,13 @@ type' =  try parenType
     userDefined = do
       from <- getPosition
       name <- lookAhead identifier
-      t  <- getStruct name
+      t    <- getStruct name
 
       case t of
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (GDataType dtName abstract _, _, _, _) -> do
+            Just (dt@(GDataType dtName abstract _), _, _, _) -> do
               if dtName == name
                 then do
                   identifier
@@ -150,7 +150,7 @@ type' =  try parenType
                   let 
                     typeargs = Array.listArray (0, length t - 1) t
 
-                  if (any (=:= GATypeVar) t) 
+                  if null t || (any (=:= GATypeVar) t) 
                     then 
                       isPointer $ GDataType name abstract typeargs
                     else do 

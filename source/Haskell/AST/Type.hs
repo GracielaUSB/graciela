@@ -36,7 +36,7 @@ import           Data.Ix        (inRange)
 import           Data.List      (intercalate, nub)
 import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
-import           Data.Text      (Text, unpack)
+import           Data.Text      (Text)
 import           Prelude        hiding (takeWhile)
 --------------------------------------------------------------------------------
 
@@ -130,7 +130,11 @@ fillType typeArgs (GFullDataType n as) =
   GFullDataType n (fillType typeArgs <$> as)
 
 fillType typeArgs (GDataType n an as) =
-  GDataType n an (fillType typeArgs <$> as)
+  let 
+    mk = if any (=:= GATypeVar) typeArgs
+      then GDataType n an
+      else GFullDataType n
+  in mk (fillType typeArgs <$> as)
 
 fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
 fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
@@ -153,21 +157,25 @@ fillType _ t = t
 --   GDataType {}     -> True
 --   _                -> False
 
+hasDT :: Type -> Maybe Type
 hasDT t@GDataType {}     = Just t
 hasDT t@GFullDataType {} = Just t
 hasDT (GArray _ t)       = hasDT t
 hasDT (GPointer t)       = hasDT t
 hasDT _                  = Nothing
 
-hasTypeVar GTypeVar{}                 = True
-hasTypeVar t@GDataType {typeArgs}     = any hasTypeVar typeArgs
-hasTypeVar t@GFullDataType {typeArgs} = any hasTypeVar typeArgs
-hasTypeVar (GArray _ t)               = hasTypeVar t
-hasTypeVar (GPointer t)               = hasTypeVar t
-hasTypeVar _                          = False
+hasTypeVar :: Type -> Bool
+hasTypeVar GTypeVar{}               = True
+hasTypeVar GDataType {typeArgs}     = any hasTypeVar typeArgs
+hasTypeVar GFullDataType {typeArgs} = any hasTypeVar typeArgs
+hasTypeVar (GArray _ t)             = hasTypeVar t
+hasTypeVar (GPointer t)             = hasTypeVar t
+hasTypeVar _                        = False
 
+basic :: Type
 basic = GOneOf [GBool, GChar, GInt, GFloat]
 
+highLevel :: Type
 highLevel = GOneOf [GSet GAny, GMultiset GAny, GSeq GAny, GFunc GAny GAny, GRel GAny GAny, GATuple]
 
 -- | Operator for checking whether two types match.
@@ -321,7 +329,7 @@ instance Show Type where
         GFullDataType n targs   ->
           unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
 
-        GDataType n na targs -> unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
+        GDataType n na targs -> unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ") " -- <> show na
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

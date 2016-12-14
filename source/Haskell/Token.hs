@@ -18,8 +18,7 @@ module Token
 import           Common
 --------------------------------------------------------------------------------
 import           Data.Function   (on)
-import           Data.Int        (Int32)
-import           Data.Text       (Text, unpack)
+import           Data.Text       (Text)
 import           Text.Megaparsec (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
@@ -58,6 +57,7 @@ data Token
 
   | TokFrom
 
+  | TokLet
   | TokVar
   | TokConst
   | TokOf
@@ -237,6 +237,7 @@ instance Show Token where
 
     TokFrom           -> "with"
 
+    TokLet            -> "let"
     TokVar            -> "var"
     TokConst          -> "const"
     TokOf             -> "of"

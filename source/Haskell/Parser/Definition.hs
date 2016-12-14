@@ -84,7 +84,9 @@ function = do
         pure False
 
     _ -> pure False 
+  useLet .= True
   decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
+  useLet .= False
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Precondition was expected")
   postFrom <- getPosition
@@ -376,10 +378,15 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
                 "Redefinition of parameter `" <> unpack parName <>
                 "`, original definition was at " <> show _loc <> "."
               pure Nothing
-            Left _ -> do
-              symbolTable %= insertSymbol parName
-                (Entry parName loc (Argument mode t))
-              pure . Just $ (parName, t, mode)
+            Left _ 
+              |  not (t =:= basic) && mode == Const -> do
+                putError from . UnknownError $
+                  "Can not declare a parameter of type " <> show t <> "with mode Const"
+                pure Nothing
+              | otherwise -> do 
+                symbolTable %= insertSymbol parName
+                  (Entry parName loc (Argument mode t))
+                pure . Just $ (parName, t, mode)
         _ -> pure Nothing
 
 
@@ -416,9 +423,9 @@ functionDeclaration = do
           "`\n\tmust have type " <> show dtType <> " when using Variable Types."
 
     _ -> pure ()
-
+  useLet .= True
   decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
-
+  useLet .= False
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
   post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 

@@ -7,10 +7,6 @@ abstract Diccionario (T0, T1) begin
 
   {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}  
   
-  proc crear (in m : int, out d : Diccionario(T0,T1))
-    {pre m > 0 pre}
-    {post d.MAX == m ∧ d.conoc == ∅ ∧ d.tabla == func(∅) post}
-
   proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
     var tabla' := d.tabla : function T0 -> T1;
     var conoc' := d.conoc : set of T0;
@@ -73,10 +69,6 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
       od 
     ⟧
 
-  proc crear (in m : int, out d : Dicc(T0,T1))
-    {pre    true     pre}
-    {post d.tam == 0 post}
-    ⟦ d.tam := 0 ⟧
 
   proc agregar (inout d : Dicc(T0,T1), in c : T0, in v : T1)
     var tam' := d.tam : int;  
@@ -184,27 +176,46 @@ func rec ( i : int) -> int
   ]|
 
 main
-  |[ var d : Dicc(int, int)
-   ; var b : boolean
-   ; var r : char
-   ; var a : int*
-   ; skip
-   ; write(d.MAX)
-   ; crear(100,d)
-   ; agregar(d, 1, 2)
-   ; agregar(d, 2, 1)
-   ; agregar(d, 3, 4)
-   ; existe(d,1,b)
-   ; new(a)
-   ; buscar(d,1,*a) 
-   ; writeln(b, " -> ", *a)
-   ; eliminar(d,3)
-   ; writeln("Jamon = ",rec(2))
-   ; existe(d,1,b)
-   ; read(r) from "hola.txt"
-   ; if     b     -> buscar(d,2,*a) 
-                   ; writeln(b, " ->", *a)
-     [] otherwise -> writeln("Soy estupido, no hay 1") 
-     fi
+  |[ var n, k := 0,0 : int
+  ; var v, c : char
+  ; var arr : array[10] of (int*)
+  ; var d : Dicc(int, char)
+
+  ; writeln("Debido a que el programa debe tenerminar,")
+  ; writeln("este prompt se emitira solo un maximo de 100 veces")
+  ; {inv   true    inv}
+    {bound 100-n bound}
+    do n < 100 
+      -> n := n + 1
+       ; writeln("(Intento: ", n, " de 100)")
+       ; writeln( "Introduzca una letra:")
+       ; writeln("\t(T) para Terminar,")
+       ; writeln("\t(I) para Insertar una clave y un valor al Diccionario,")
+       ; writeln("\t(E) para Eliminar un elmento del Diccionario")
+       ; writeln("\t(B) para Buscar un el valor de un clave, o")
+       ; writeln("\t(M) para Mostrar el Diccionario.")
+       ; write("> ")
+       ; read(c)
+       ; if c == 'T' \/ c == 't' -> writeln("Adios :)"); n := 100
+         [] c == 'I' \/ c == 'i'
+          -> write("Escriba la clave (entero): ")
+           ; read(k)
+           ; write("Escriba el valor (caracter): ")
+           ; read(v)
+           ; agregar ( d, k, v )
+         [] c == 'E' \/ c == 'e'
+          -> write("Escriba la clave (entero): ")
+           ; read(k)
+           ; eliminar (d, k)
+         [] c == 'B' \/ c == 'b'
+          -> write("Escriba la clave a buscar: ")
+           ; read(k)
+           ; buscar (d,k,v)
+           ; writeln("\nEl valor de la clave ", k, " es: ", v, "\n")
+         [] c == 'M' \/ c == 'm' -> skip//show(t)
+         [] otherwise -> writeln("Has perdido un intento :(")
+         fi
+       
+    od
   ]|
 end

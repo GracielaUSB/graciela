@@ -51,7 +51,9 @@ executable graciela
 
     -- Modules included in this executable, other than Main.
     -- other-modules:
-    ghc-options: -Wall
+    
+    ghc-options:
+      -Wall
       -- -fprof-auto
       -- "-with-rtsopts=-p -s -h -i0.1"
     -- -O3 -fllvm

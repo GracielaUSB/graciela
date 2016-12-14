@@ -245,7 +245,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
       else if prp
         then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
-        else pure []
+      else pure []
 
     addInstruction $ Do Call
       { tailCallKind       = Nothing
@@ -322,7 +322,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
 
       createArg :: (Expression, ArgMode) -> LLVM (Operand,[t])
-      createArg (e@Expression{expType, exp'}, mode) = do
+      createArg (e@Expression{expType = expt, exp'}, mode) = do
+        expType <- fill expt
         type' <- toLLVMType expType
         let isIn = mode `elem` [In, InOut, Const]
         case mode of 
@@ -890,7 +891,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 T.GFloat -> readFileFloat
                 T.GInt   -> readFileInt
                 T.GBool  -> readFileBool
-                _        -> error ":D no se soporta este tipo: " <> show t
+                _        -> internal "Unsupported type in read: " <> show t
 
         type' <- toLLVMType t
 
@@ -902,6 +903,47 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , returnAttributes   = []
           , function           = callable type' fread
           , arguments          = args
+          , functionAttributes = []
+          , metadata           = [] }
+
+        -- Get the reference of the variable's memory
+        objRef <- objectRef var
+        -- Store the value saved at `readResult` in the variable memory
+        addInstruction $ Do Store
+          { volatile = False
+          , address  = objRef
+          , value    = LocalReference type' readResult
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+
+  Random { var } -> do
+        st <- use substitutionTable
+
+        let
+          t' = objType var
+          t = case st of
+            (ta:_) -> fillType ta t'
+            _      -> t'
+
+        let frand = case t of
+              T.GChar  -> randChar
+              T.GFloat -> randFloat
+              T.GInt   -> randInt
+              T.GBool  -> randBool
+              _        -> internal "Unsupported random " <> show t
+
+        type' <- toLLVMType t
+
+        readResult <- newLabel "randCall"
+        -- Call the C read function
+        addInstruction $ readResult := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable type' frand
+          , arguments          = []
           , functionAttributes = []
           , metadata           = [] }
 
@@ -1022,5 +1064,5 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
   Skip -> pure ()
 
-  _ -> internal $
-    "I don't know how to generate code for:" <> (drawTree . toTree $ i)
+  -- _ -> internal $
+  --   "I don't know how to generate code for:" <> (drawTree . toTree $ i)

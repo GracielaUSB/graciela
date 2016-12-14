@@ -24,7 +24,8 @@ module Parser.State
   , stringIds
   , pragmas
   , isDeclarative
-
+  , useLet
+  
   , crName
   , crPos
   , crParams
@@ -84,7 +85,8 @@ data State = State
   , _fullDataTypes :: Map Text [TypeArgs]
   , _stringIds     :: Map Text Int
   , _pragmas       :: Set Pragma
-  , _isDeclarative :: Bool }
+  , _isDeclarative :: Bool
+  , _useLet        :: Bool }
 
 makeLenses ''State
 
@@ -104,4 +106,5 @@ initialState pragmas = State
   , _fullDataTypes = Map.empty
   , _stringIds     = Map.empty
   , _pragmas       = pragmas
-  , _isDeclarative = LogicAnywhere `elem` pragmas }
+  , _isDeclarative = LogicAnywhere `elem` pragmas
+  , _useLet        = False }

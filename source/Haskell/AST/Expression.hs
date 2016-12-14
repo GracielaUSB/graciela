@@ -21,10 +21,9 @@ import           AST.Object    (Object)
 import           Common
 --------------------------------------------------------------------------------
 import           Data.Array    (Array)
-import           Data.Int      (Int32)
 import           Data.List     (intercalate)
 import           Data.Sequence (Seq)
-import           Data.Text     (Text, unpack)
+import           Data.Text     (Text)
 import           Prelude       hiding (Ordering (..))
 --------------------------------------------------------------------------------
 

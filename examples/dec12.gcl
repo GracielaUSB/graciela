@@ -1,0 +1,44 @@
+program dec12.bin begin
+
+abstract AArbol(T)
+begin
+  /* Arbol variables */
+  {inv true inv}
+  /* Arbol procedures */
+end
+
+type Arbol(T) implements AArbol(T)
+begin
+  /* Arbol variables */
+  var info : T;
+  var izq : Arbol(T)*;
+  var der : Arbol(T)*;
+  var n : int;
+  
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  /* Arbol procedures */
+  func verdadero (a : Arbol(T)*) ->  boolean
+  {pre true pre}
+  {post true post}
+  |[ true
+  ]|
+
+  proc skippy (in a : Arbol(T)*)
+    {pre true pre}
+    {post true post}
+    |[ skip 
+    ]|
+   
+end
+
+main
+  |[ var a : Arbol(int)*
+  ;  var b : boolean
+  ;  var c : int
+  ; new (a)
+
+  ; b := verdadero ((*a).izq)
+  ]|
+end

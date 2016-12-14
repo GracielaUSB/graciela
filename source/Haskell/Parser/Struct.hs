@@ -122,6 +122,7 @@ dataType = do
   from <- getPosition
 
   match TokType
+  namePos <- getPosition
   name' <- safeIdentifier
   types <- do
       t <- optional . parens $ typeVarDeclaration `sepBy` match TokComma
@@ -193,7 +194,7 @@ dataType = do
           st <- use symbolTable
           symbolTable %= closeScope to
           abstractAST <- getStruct abstractName
-          mapM_ (checkProc from abstractTypes procs name abstractName) structProcs
+          mapM_ (checkProc namePos abstractTypes procs name abstractName) structProcs
 
           case (decls', repinv', coupinv') of
 
@@ -244,7 +245,7 @@ dataType = do
 
       unless ok . putError dtPos . UnknownError $
         "The procedure named `" <> unpack name <> "` " <>
-        showPos dtPos <> "` in the Abstract Type `" <> unpack abstractName <>
+        showPos aPos <> "` in the Abstract Type `" <> unpack abstractName <>
         "`\n\tneeds to be implemented inside the Type `" <>
         unpack dtName <> "`."
       where

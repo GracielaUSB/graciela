@@ -20,14 +20,13 @@ module Lexer
   ) where
 --------------------------------------------------------------------------------
 import           Common
-import           Pragma
 import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses, use, (%~))
 import           Control.Monad.State   (State, evalState, modify)
 import           Data.Set              (Set, union, (\\))
 import qualified Data.Set              as Set (empty)
-import           Data.Text             (Text, pack)
+import           Data.Text             (Text)
 import           Prelude               hiding (lex)
 import           Text.Megaparsec       (Dec, ParsecT, alphaNumChar, anyChar,
                                         between, char, eof, getPosition,
@@ -80,11 +79,11 @@ sc = L.space (void spaceChar) lineComment blockComment
     pragma = do
       seen <- use programSeen
       unless seen $ do
-        many (void spaceChar)
-        string "LANGUAGE"
-        many (void spaceChar)
+        void (many spaceChar)
+        void $ string "LANGUAGE"
+        void (many spaceChar)
         p <- pragma'
-        many (void spaceChar)
+        void (many spaceChar)
         void $ string "%*/"
         modify p
     pragma' = (pragmas %~) <$> pragma''
@@ -158,6 +157,11 @@ token  =  reserved "program"    TokProgram
       <|> symbol   ":="         TokAssign
       <|> symbol   "\8788"      TokAssign -- ≔
 
+      -- 2.0
+      <|> symbol   "{:"         TokLeftBag
+      <|> symbol   ":}"         TokRightBag
+      -- 2.0
+
       <|> symbol   "."          TokDot
       <|> symbol   ","          TokComma
       <|> symbol   ":"          TokColon
@@ -182,6 +186,8 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\8712"      TokElem    -- ∈
       <|> reserved "notelem"    TokNotElem
       <|> symbol   "\8713"      TokNotElem -- ∉
+
+      <|> reserved "let"        TokLet
       -- V2.0
 
       <|> reserved "var"        TokVar
@@ -206,7 +212,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "union"      TokSetUnion
       <|> symbol   "\8746"      TokSetUnion -- ∪
       <|> reserved "intersect"  TokSetIntersect
-      <|> symbol   "\8745"      TokSetUnion -- ∩
+      <|> symbol   "\8745"      TokSetIntersect -- ∩
 
       <|> symbol   "&"          TokAmpersand -- Only Pragma 
 
@@ -308,9 +314,7 @@ token  =  reserved "program"    TokProgram
 
 
       -- V2.0
-      <|> symbol   "{{"         TokLeftBag
       <|> symbol   "\10181"     TokLeftBag  -- ⟅
-      <|> symbol   "}}"         TokRightBag
       <|> symbol   "\10182"     TokRightBag -- ⟆
 
       <|> symbol   "\8709"      TokEmptySet -- ∅

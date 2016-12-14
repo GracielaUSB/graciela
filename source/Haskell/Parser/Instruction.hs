@@ -624,7 +624,7 @@ procedureCall = do
                       { pName = procName
                       , pArgs = args''
                       , pRecursiveCall = False
-                      , pRecursiveProc = False
+                      , pRecursiveProc = procRecursive
                       , pStructArgs    = Just (name, typeArgs) } }
 
               Nothing -> do
