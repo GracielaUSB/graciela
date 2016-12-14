@@ -30,6 +30,6 @@ import           Treelike
 internal :: String -> a
 internal = error 
          . ("internal error: " <>) 
-         . (<> "\n\tPlease open a [New issue] at \
-               \https://github.com/GracielaUSB/graciela/issues \
+         . (<> "\n\tPlease open a [New issue] at\n\t\
+               \https://github.com/GracielaUSB/graciela/issues\n\t\
                \with the message above and your .gcl file(s)")

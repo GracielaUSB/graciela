@@ -184,6 +184,8 @@ data CollectionKind
 
 data Expression'
   = NullPtr
+  | SizeOf { sType :: Type }
+  
   | Value { theValue :: Value }
 
   | StringLit { theStringId :: Int }
@@ -209,6 +211,8 @@ data Expression'
     { unOp  :: UnaryOperator
     , inner :: Expression }
 
+  | AddressOf
+    { inner :: Expression }
   -- | Cast to an i64 (used for polymorphic functions)
   | I64Cast
     { inner :: Expression }
@@ -261,6 +265,7 @@ instance Treelike Expression where
     let c = if expConst then "[const] " else "[var] "
     in case exp' of
       NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
+      SizeOf t -> leaf $ "Size Of(" <> show t <> ")"
       Value { theValue } -> leaf $
         case theValue of
           BoolV  v -> "Bool Value `"  <> show v <> "` " <> show loc
@@ -306,6 +311,9 @@ instance Treelike Expression where
       Unary { unOp, inner } ->
         Node (show unOp <> " " <> c <> show loc)
           [ toTree inner ]
+
+      AddressOf { inner } ->
+        Node ("& -- address of " ) [ toTree inner ]
 
       I64Cast { inner } ->
         Node ("I64Cast " <> show loc) [ toTree inner ]

@@ -70,7 +70,8 @@ object obj@Object { objType, obj' } = do
 objectRef :: Object -> LLVM Operand
 objectRef (Object loc objType obj') = do
   objType' <- toLLVMType objType
-  case obj' of
+  
+  ref <- case obj' of
 
     Variable { name , mode } -> do
       name' <- getVariableName name
@@ -230,3 +231,6 @@ objectRef (Object loc objType obj') = do
           , indices  = ConstantOperand . C.Int 32 <$> [0, field]
           , metadata = []}
       pure . LocalReference objType' $ label
+
+  pure $ ref
+    

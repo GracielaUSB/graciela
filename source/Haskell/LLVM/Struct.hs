@@ -251,6 +251,44 @@ defaultConstructor name structType typeMap = do
           , metadata' = [] }
 
         (endLabel #)
+      t | t =:= highLevel -> do 
+        member <- newLabel $ "member" <> show field
+        newCollection <- newLabel $ "newCollection"
+
+        let 
+          funStr = case t of 
+            GSet GTuple{}  -> "_newSetPair"
+            GSet _         -> "_newSet"
+            GMultiset GTuple{} -> "_newMultisetPair"
+            GMultiset _        -> "_newMultiset"
+            GSeq GTuple{}  -> "_newSequencePair"
+            GSeq _         -> "_newSequence"
+            GFunc _ _      -> "_newFunction"
+            GRel _ _       -> "_newRelation"
+
+        addInstruction $ newCollection := Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable pointerType funStr
+          , arguments          = []
+          , functionAttributes = []
+          , metadata           = [] }
+
+        addInstruction $ member := GetElementPtr
+            { inBounds = False
+            , address  = self
+            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , metadata = []}
+
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = LocalReference (ptr i8) member
+          , value          = LocalReference (ptr i8) newCollection
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
       _ -> pure ()
     pure ()
 

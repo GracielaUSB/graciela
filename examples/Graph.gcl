@@ -98,7 +98,7 @@ proc test2 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
   ]|
 
 proc test3 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
-  {pre true pre}
+  {pre  true  pre}
   {post true post}
   |[ if x != null -> writeln("correcto") [] x == null -> writeln("MAL") fi
    ; if y != null -> writeln("correcto") [] y == null -> writeln("MAL") fi
@@ -106,7 +106,7 @@ proc test3 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
   ]|
 
 proc test4 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
-  {pre true pre}
+  {pre  true  pre}
   {post true post}
   |[ if (*x).next != null -> writeln("correcto") [] x != null -> writeln("MAL") fi
    ; if (*y).next != null -> writeln("correcto") [] y != null -> writeln("MAL") fi

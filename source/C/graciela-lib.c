@@ -10,7 +10,7 @@ $ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
 #include "wchar.h"
 #include "locale.h"
 #include "string.h"
-#include "graciela-abstract-lib/graciela-abstract-lib.h"
+#include "libgraciela-abstract/libgraciela-abstract.h"
 
 int8_t* _openFile(char* name) {
   FILE* file;

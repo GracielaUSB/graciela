@@ -57,6 +57,7 @@ data Token
 
   | TokFrom
 
+  | TokLet
   | TokVar
   | TokConst
   | TokOf
@@ -195,6 +196,8 @@ data Token
   | TokSetUnion
   | TokSetIntersect
 
+  | TokAmpersand
+  
   | TokMultisetSum
   | TokConcat
   | TokSubset
@@ -234,6 +237,7 @@ instance Show Token where
 
     TokFrom           -> "with"
 
+    TokLet            -> "let"
     TokVar            -> "var"
     TokConst          -> "const"
     TokOf             -> "of"
@@ -379,6 +383,8 @@ instance Show Token where
     TokNew            -> "new"
     TokFree           -> "free"
     TokNull           -> "null"
+    
+    TokAmpersand      -> "&"
 
     TokWhere          -> "where"
     TokUnexpected t   -> show t

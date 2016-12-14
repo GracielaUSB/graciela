@@ -12,14 +12,13 @@ en la tabla de simbolos, mientras se esta realizando el parser.
 module Parser.Declaration
     ( declaration
     , dataTypeDeclaration
-    , abstractDeclaration
     )
     where
 -------------------------------------------------------------------------------
 import           AST.Declaration           (Declaration (..))
 import           AST.Expression            (Expression (..),
                                             Expression' (NullPtr, Value))
-import           AST.Struct                (Struct (..))
+import           AST.Struct                (Struct (..), Struct'(..))
 import           AST.Type
 import           Common
 import           Entry
@@ -51,37 +50,45 @@ type Constness = Bool
 
 -- Only regular types
 declaration :: Parser (Maybe Declaration)
-declaration = declaration' type' False
+declaration = declaration' False
 
 -- Accept polymorphic types
 dataTypeDeclaration :: Parser (Maybe Declaration)
-dataTypeDeclaration = declaration' type' True
+dataTypeDeclaration = declaration' True
 
-
--- Accept both, polymorphic and abstract types (set, function, ...)
-abstractDeclaration :: Bool -> Parser (Maybe Declaration)
-abstractDeclaration = declaration' abstractType
-
-declaration' :: Parser Type -> Bool -> Parser (Maybe Declaration)
-declaration' allowedTypes isStruct = do
+declaration' :: Bool -> Parser (Maybe Declaration)
+declaration' isStruct = do
   from <- getPosition
 
-  isConst <- match TokConst $> True <|> match TokVar $> False
+  isConst <- do 
+    f <- use useLet
+    if f 
+      then match TokLet $> False
+      else match TokConst $> True <|> match TokVar $> False
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
 
   match TokColon
-  t <- if isConst then type' else allowedTypes
+  t <- abstractType
 
   to <- getPosition
+  isDeclarative' <- use isDeclarative
+  
+  isOkAbstract from t
+  
   let
     location = Location (from, to)
-
   if isConst && not (t =:= GOneOf [GBool, GChar, GInt, GFloat] )
     then do
       putError from . UnknownError $
-        "Se intentó declarar constante de tipo " <> show t <>
-        ", pero sólo se permiten constantes de tipos basicos."
+        "Trying to declare a constant of type " <> show t <>
+        ", but only basic types are allowed."
+      pure Nothing
+  else if not isDeclarative' && t =:= highLevel
+    then do
+      putError from . UnknownError $
+        "Trying to declare a variable of type " <> show t <>
+        " in imperative code"
       pure Nothing
     else case mvals of
       Nothing -> do
@@ -125,6 +132,32 @@ declaration' allowedTypes isStruct = do
               (if isConst then "constants" else "variables") <>
               " do not match with the\n\tnumber of expressions to be assigned"
             pure Nothing
+
+isOkAbstract :: SourcePos -> Type -> Parser ()
+isOkAbstract from t = case t of
+  GDataType name _ _   -> isOkAbstract' name
+  GFullDataType name _ -> isOkAbstract' name
+  _                    -> pure () 
+  where
+    isOkAbstract' :: Text -> Parser ()
+    isOkAbstract' name = do
+      s <- getStruct name
+      case s of
+        Just s' -> case struct' s' of
+          DataType{} -> pure () 
+          AbstractDataType{} -> do
+            putError from . UnknownError $ "Can not declare variables of abstract type " 
+              <> show t <> "."
+            pure ()
+        Nothing -> do
+          maybeStruct <- use currentStruct
+          case maybeStruct of
+            Just (GDataType name' _ _, _, _, _) | name == name' -> pure ()
+            _ -> do
+              putError from . UnknownError $ "Can not declare variables of abstract type " 
+                <> show t <> "."
+              pure ()
+        
 
 
 assignment :: Parser (Maybe (Maybe (Seq Expression)))

@@ -39,6 +39,7 @@ import           Data.Maybe          (isJust, isNothing)
 
 import           Data.Sequence       (Seq, ViewL (..), (|>))
 import qualified Data.Sequence       as Seq (empty, viewl)
+import qualified Data.Set            as Set (member)
 import           Data.Text           (Text, unpack)
 import           Text.Megaparsec     (between, eof, errorUnexpected,
                                       getPosition, lookAhead, manyTill,
@@ -61,7 +62,8 @@ function = do
   funcParams' <- parens doFuncParams
 
   match' TokArrow
-  funcRetType <- type'
+  logicAW <- Set.member LogicAnywhere <$> use pragmas
+  funcRetType <- if logicAW then abstractType else type'
 
   dt <- use currentStruct
   goToDT <- case (dt, funcParams', funcName') of
@@ -81,8 +83,10 @@ function = do
       else do
         pure False
 
-    _ -> pure False
-
+    _ -> pure False 
+  useLet .= True
+  decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
+  useLet .= False
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Precondition was expected")
   postFrom <- getPosition
@@ -101,6 +105,7 @@ function = do
 
   post'   <- postcond <!> (postFrom, UnknownError "Postcondition was expected")
   postTo <- getPosition
+
   symbolTable %= closeScope postTo
 
   bnd     <- join <$> optional A.bound
@@ -135,8 +140,8 @@ function = do
   symbolTable %= closeScope postTo
   let loc = Location (from, to)
 
-  case (funcName', funcParams', pre', post', funcBody') of
-    (Just funcName, Just funcParams, Just pre, Just post, Just funcBody) ->
+  case (funcName', funcParams', pre', post', funcBody', decls') of
+    (Just funcName, Just funcParams, Just pre, Just post, Just funcBody, Just funcDecls) ->
       if funcRetType == expType funcBody
         then do
           let
@@ -149,6 +154,7 @@ function = do
               , def' = FunctionDef
                 { funcBody
                 , funcParams
+                , funcDecls
                 , funcRetType
                 , funcRecursive } }
 
@@ -200,7 +206,8 @@ doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
     yesParam from = do
       parName <- identifier
       match' TokColon
-      t <- type'
+      logicAW <- Set.member LogicAnywhere <$> use pragmas
+      t <- if logicAW then abstractType else type'
 
       to <- getPosition
       let loc = Location (from, to)
@@ -355,7 +362,8 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
 
       parName' <- safeIdentifier
       match' TokColon
-      t <- type'
+      logicAW <- Set.member LogicAnywhere <$> use pragmas
+      t <- if logicAW then abstractType else type'
 
       to <- getPosition
       let loc = Location (from, to)
@@ -370,10 +378,15 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
                 "Redefinition of parameter `" <> unpack parName <>
                 "`, original definition was at " <> show _loc <> "."
               pure Nothing
-            Left _ -> do
-              symbolTable %= insertSymbol parName
-                (Entry parName loc (Argument mode t))
-              pure . Just $ (parName, t, mode)
+            Left _ 
+              |  not (t =:= basic) && mode == Const -> do
+                putError from . UnknownError $
+                  "Can not declare a parameter of type " <> show t <> "with mode Const"
+                pure Nothing
+              | otherwise -> do 
+                symbolTable %= insertSymbol parName
+                  (Entry parName loc (Argument mode t))
+                pure . Just $ (parName, t, mode)
         _ -> pure Nothing
 
 
@@ -394,7 +407,8 @@ functionDeclaration = do
   params' <- parens $ doFuncParams
 
   match' TokArrow
-  retType <- type'
+  logicAW <- Set.member LogicAnywhere <$> use pragmas
+  retType <- if logicAW then abstractType else type'
 
   dt <- use currentStruct
   case (dt, params', funcName') of
@@ -409,7 +423,9 @@ functionDeclaration = do
           "`\n\tmust have type " <> show dtType <> " when using Variable Types."
 
     _ -> pure ()
-
+  useLet .= True
+  decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
+  useLet .= False
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
   post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 
@@ -417,8 +433,8 @@ functionDeclaration = do
   let loc = Location (from,to)
 
   symbolTable %= closeScope to
-  case (funcName', params', pre', post') of
-    (Just funcName, Just params, Just pre, Just post) -> do
+  case (funcName', params', pre', post', decls') of
+    (Just funcName, Just params, Just pre, Just post, Just decls) -> do
       pure . Just $ Definition
           { defLoc   = loc
           , defName  = funcName
@@ -427,7 +443,9 @@ functionDeclaration = do
           , bound = Nothing
           , def' = AbstractFunctionDef
             { abstFParams = params
-            , funcRetType = retType }}
+            , funcRetType = retType
+            , abstFDecl   = decls
+            }}
 
     _ -> pure Nothing
 
@@ -440,7 +458,7 @@ procedureDeclaration = do
   symbolTable %= openScope from
   params' <- parens $ doProcParams
 
-  decls'  <- sequence <$> abstractDeclaration False `endBy` match' TokSemicolon
+  decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
 
   dt <- use currentStruct
   case (dt, params', procName') of

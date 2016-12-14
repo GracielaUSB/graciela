@@ -18,6 +18,7 @@ data Definition'
     { funcBody      :: Expression
     , funcParams    :: Seq (Text, Type)
     , funcRetType   :: Type
+    , funcDecls     :: Seq Declaration
     , funcRecursive :: Bool }
   | GracielaFunc
     { signatures :: Seq Type -> Either Error (Type, Text, Bool)
@@ -32,6 +33,7 @@ data Definition'
     , abstPDecl  :: Seq Declaration }
   | AbstractFunctionDef
     { abstFParams :: Seq (Text, Type)
+    , abstFDecl   :: Seq Declaration
     , funcRetType :: Type }
 
 data Definition
@@ -47,14 +49,15 @@ data Definition
 instance Treelike Definition where
   toTree Definition { defLoc, defName, pre, post, bound, def' }
     = case def' of
-      FunctionDef { funcBody, funcRetType, funcParams, funcRecursive } ->
+      FunctionDef { funcBody, funcRetType, funcParams, funcRecursive, funcDecls } ->
         let rec = if funcRecursive then "Recursive " else ""
         in Node (rec <> "Function " <> unpack defName <> " -> " <> show funcRetType <> " " <> show defLoc)
           [ Node "Parameters" (showFPs funcParams)
           , boundNode
-          , Node "Body" [toTree funcBody] 
+          , Node "Declarations" $ toForest funcDecls
           , Node "Precondition" [toTree pre]
-          , Node "Postcondition" [toTree post] ]
+          , Node "Postcondition" [toTree post]
+          , Node "Body" [toTree funcBody]  ]
 
       GracielaFunc { } ->
         leaf $ "Graciela native function `" <> unpack defName <> "`"

@@ -1,6 +1,7 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE FlexibleContexts         #-}
 
 module Parser.Instruction
   ( instruction
@@ -150,13 +151,11 @@ assertedInst follow = do
 assign :: Parser (Maybe Instruction)
 assign = do
   from <- getPosition
-
   lvals <- expression `sepBy1` match TokComma
   match' TokAssign
   exprs <- expression `sepBy` match TokComma
 
   to <- getPosition
-
   if length lvals == length exprs
     then do
       assignPairs' <- foldM checkType (Just Seq.empty) (Seq.zip lvals exprs)
@@ -281,10 +280,15 @@ write = do
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
       | expType =:= writable = do
           pure $ (|> e) <$> acc
-      | otherwise = do
-        putError from . UnknownError $
-          "Cannot write expression of type " <> show expType <> "."
-        pure Nothing
+      | otherwise = do 
+        p <- use pragmas
+        let ok = Set.member GetAddressOf p
+        if ok && expType =:= GPointer GAny
+          then pure $ (|> e) <$> acc
+        else do
+          putError from . UnknownError $
+            "Cannot write expression of type " <> show expType <> "."
+          pure Nothing
 
     writable = GOneOf [GBool, GChar, GInt, GFloat, GString, GATypeVar ]
 
@@ -355,6 +359,7 @@ reading = do
       pure Nothing
 
     readable = GOneOf [GInt, GFloat, GChar, GBool, GATypeVar]
+
 
 
 newOrFree :: Token
@@ -619,7 +624,7 @@ procedureCall = do
                       { pName = procName
                       , pArgs = args''
                       , pRecursiveCall = False
-                      , pRecursiveProc = False
+                      , pRecursiveProc = procRecursive
                       , pStructArgs    = Just (name, typeArgs) } }
 
               Nothing -> do

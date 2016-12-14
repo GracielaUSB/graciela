@@ -237,6 +237,10 @@ fraction op f g
             "Division by zero."
           pure Nothing
         | otherwise -> pure . Just . Value . FloatV $ m `g` n
+      _ -> pure . Just $ Binary
+            { binOp = op
+            , lexpr = l
+            , rexpr = r }
     case mexp' of
       Just exp' -> pure . Just $ Expression
         { loc = loc l <> loc r

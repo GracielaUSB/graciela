@@ -332,17 +332,45 @@ boolean true false e@Expression { loc, exp' } = do
 
           (,[]) <$> if
             | type' == GBool -> wrapBoolean x
-            | type' =:= basicT -> expression x
-            | otherwise -> do
-              label <- newLabel "argCast"
-              ref   <- objectRef (theObj exp')
+            | type' =:= basicT || type' == I64 || type' =:= highLevel -> 
+                expression x
+            | type' =:= GPointer GAny -> do 
+                expr <- expression x
+                let GPointer t = type'
+                type' <- ptr <$> toLLVMType t
 
-              type' <- ptr <$> toLLVMType type'
-              addInstruction $ label := BitCast
-                { operand0 = ref
-                , type'    = type'
-                , metadata = [] }
-              pure $ LocalReference type' label
+                label <- newLabel "argCastBAO"
+                addInstruction $ label := Alloca
+                  { allocatedType = type'
+                  , numElements   = Nothing
+                  , alignment     = 4
+                  , metadata      = [] }
+
+                addInstruction $ Do Store
+                  { volatile = False
+                  , address  = LocalReference type' label
+                  , value    = expr
+                  , maybeAtomicity = Nothing
+                  , alignment = 4
+                  , metadata  = [] }
+
+                pure $ LocalReference type' label
+
+            | otherwise -> case exp' of 
+                Obj o         -> do 
+                  label <- newLabel "argCastBOb"
+                  ref <- objectRef o
+                  type' <- ptr <$> toLLVMType type'
+
+                  addInstruction $ label := BitCast
+                    { operand0 = ref
+                    , type'    = type'
+                    , metadata = [] }
+
+                  pure $ LocalReference type' label
+                
+                _ -> internal "bad argument"
+
 
         basicT = GOneOf [ GChar, GInt, GFloat, GString ]
 
