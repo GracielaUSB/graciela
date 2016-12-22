@@ -28,9 +28,9 @@ $ xcode-select --install
 ```
 
 * **Homebrew**. En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
-
-    $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    
+```
+$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```    
 Una vez cumplido los requisitos, se puede instalar graciela con los siguientes comandos:
 
     $ brew tap GracielaUSB/graciela
