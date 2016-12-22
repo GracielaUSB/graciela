@@ -2,40 +2,6 @@
 
 program SearchTree.bin begin
   
-
-  abstract n
-  begin
-    /* n variables */
-     
-     var i : n;
-    
-    {inv true inv}
-  
-    /* n procedures and functions */
-    proc f ( in x : n )
-      {pre  true pre}
-      {post true post}
-    
-      
-  end
-
-  type m implements n
-  begin
-    /* mariables */
-     
-    
-    {repinv true repinv}
-  
-    {coupinv true coupinv}
-  
-    /* mrocedures and functions */
-    proc f ( in x : m )
-      {pre  true pre}
-      {post true post}
-      |[ skip ]| 
-  end
-
-
   abstract ASearchTree(T)
   begin
     /* ASearchTree variables */
@@ -70,7 +36,7 @@ program SearchTree.bin begin
     var info : T;
     var n    : int;
     
-    {repinv    trace(false) repinv}
+    {repinv  trace(false) repinv}
   
     {coupinv trace(false) coupinv}
     
@@ -83,8 +49,6 @@ program SearchTree.bin begin
                         , ((*r).info, info)} )  
                 fi;
                 
-
-
       card := {: i : int | 0 <= i /\ i < n | info :} union 
               if l == null /\ r == null -> {::}
               [] l == null -> (*r).card 
@@ -162,8 +126,8 @@ program SearchTree.bin begin
            ; {inv S != null inv}
              {bound 255-i  bound}
              do i < 255 -> if (*S).l != null -> R,S := S, (*S).l
-                          [] otherwise      -> skip
-                          fi
+                           [] otherwise      -> skip
+                           fi
                         ; i := i + 1
              od
            ; (*P).info, (*P).n := (*S).info, (*S).n

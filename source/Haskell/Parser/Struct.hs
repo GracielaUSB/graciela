@@ -44,11 +44,13 @@ import           Data.Maybe          (catMaybes, isJust, isNothing)
 import           Data.Sequence       (Seq, ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
-import qualified Data.Set            as Set (difference, fromList)
+import           Data.Set            (Set)
+import qualified Data.Set            as Set (fromList, member, insert, 
+                                             difference, empty)
 import           Data.Text           (Text, pack, unpack)
 import           Prelude             hiding (lookup)
 import           Text.Megaparsec     (between, eof, getPosition, manyTill,
-                                      optional, (<|>))
+                                      optional, (<|>), lookAhead, try)
 import           Text.Megaparsec.Pos (SourcePos)
 -------------------------------------------------------------------------------
 
@@ -78,14 +80,14 @@ abstractDataType = do
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
     coupling .= True
-    decls' <- sequence <$> declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
-
+    
+    declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
     cs <- use currentStruct
 
     let
       fields  = cs ^. _Just . _2
 
-    inv'   <- declarative invariant
+    inv'   <- declarative repInv
     procs' <- sequence <$> (declarative . many $ (procedureDeclaration <|> functionDeclaration))
 
     match' TokEnd
@@ -169,7 +171,7 @@ dataType = do
 
           currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
-          decls' <- sequence <$> (dataTypeDeclaration `endBy` match' TokSemicolon)
+          dataTypeDeclaration `endBy` match' TokSemicolon
           cs <- use currentStruct
           let
             hlField (_,ft,_,_) = not (ft =:= highLevel)
@@ -196,9 +198,9 @@ dataType = do
           abstractAST <- getStruct abstractName
           mapM_ (checkProc namePos abstractTypes procs name abstractName) structProcs
 
-          case (decls', repinv', coupinv') of
+          case (repinv', coupinv') of
 
-            (Just decls, Just repinv, Just coupinv) -> do
+            (Just repinv, Just coupinv) -> do
               {- Different number of type arguments -}
               when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
                 name structTypes abstractName absTypes lenActual lenNeeded
@@ -340,27 +342,58 @@ coupleRel = do
           let
             auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
 
-          assigned <- Set.fromList <$> mapM (check structFields) auxInsts
-
+          assigned <- checkField structFields (map fst auxInsts) Set.empty
+            
           let
-            needed = Map.keysSet . Map.filter (\(_,t,_,_) -> t =:= highLevel) $ structFields
-            left   = needed `Set.difference` assigned
+            filter' = (\(_,t,_,_) -> t =:= highLevel)
+            needed  = Map.keysSet . Map.filter filter' $ structFields
+            left    = needed `Set.difference` assigned
 
-          unless (null left) . forM_ left $ \name -> putError pos . UnknownError $
-              "The variable `" <> unpack name <> "` has to be coupled."
-
+          unless (null left) . forM_ left $ 
+            \name -> putError pos . UnknownError $
+                    "The abstract variable `" <> unpack name <> 
+                    "` has to be coupled."
           pure insts
-        Just _ -> putError pos (UnknownError "Empty coupling relation.") >> pure Seq.empty
+
+        Just _ -> do 
+          putError pos $ UnknownError "Empty coupling relation."
+          pure Seq.empty
         _ -> pure Seq.empty
 
-    check fields (obj@Object{ O.loc = Location(a,b) }, expr) = case obj of
-        Object{ objType, obj' = Member{ fieldName }} -> do
-          unless (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) .
-            putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack fieldName <> "`."
-          pure fieldName
-        Object{ objType, obj' = Variable{ name }} -> do
-          putError a . UnknownError $ "Unexpected coupling for variable `" <> unpack name <> "`."
-          pure name
+    checkField :: Fields -> [Object] -> Set Text -> Parser (Set Text)
+    checkField _ [] set = pure set
+    checkField fields (obj@Object{O.loc}:insts) set = do
+      i <- check fields obj
+      set' <- case i of 
+        Just name -> do 
+          if name `Set.member` set
+            then do 
+              putError (pos loc) . UnknownError $ 
+                "Duplicate definition of the variable `" <> 
+                unpack name <> "` inside the coupling relation."      
+              pure set
+
+            else pure $ name `Set.insert` set
+        
+        Nothing -> pure set
+      checkField fields insts set'
+
+    check :: Fields -> Object -> Parser (Maybe Text)
+    check fields obj@Object{ O.loc } = case obj of
+      Object{ objType, obj' = Member{ fieldName }} -> do
+        if (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) 
+          then pure (Just fieldName)
+          else do
+            putError (pos loc) . UnknownError $ 
+              "Unexpected coupling for variable `" <> unpack fieldName <> "`."
+            pure Nothing
+      
+      Object{ objType, obj' = Variable{ name }} -> do
+        putError (pos loc) . UnknownError $ 
+          "Unexpected coupling for variable `" <> unpack name <> "`."
+        pure Nothing
+
+
 
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt

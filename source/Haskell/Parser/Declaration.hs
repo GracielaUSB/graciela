@@ -60,11 +60,14 @@ declaration' :: Bool -> Parser (Maybe Declaration)
 declaration' isStruct = do
   from <- getPosition
 
-  isConst <- do 
+  lookAhead $ oneOf [TokConst, TokLet, TokVar]
+  isConst <- do
     f <- use useLet
     if f 
-      then match TokLet $> False
+      then match' TokLet $> False
       else match TokConst $> True <|> match TokVar $> False
+
+
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
 
