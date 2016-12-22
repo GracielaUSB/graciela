@@ -74,7 +74,6 @@ programToLLVM
   -- Eval the program with the LLVMRWS
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
-
   return defaultModule
     { moduleName         = unpack name
     , moduleDefinitions  = toList definitions
@@ -92,16 +91,13 @@ programToLLVM
       addStrings
 
       preDefinitions files
-
       mapM_ (uncurry defineStruct) . Map.toList $ fullStructs
       p <- use pendingDataTypes
-
       mapM_ (uncurry defineStruct) . Map.toList $ p
       mapM_ definition defs
-
       mainDefinition insts files
-
       use moduleDefs
+
       -- return $ definitions
 
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version

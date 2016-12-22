@@ -225,6 +225,11 @@ data Expression'
     , fRecursiveFunc :: Bool
     , fStructArgs    :: Maybe (Text, Array Int Type) }
 
+  | AbstFunctionCall
+    { fName          :: Text
+    , fArgs          :: Seq Expression
+    , fStructArgs    :: Maybe (Text, Array Int Type) }
+
   | Quantification
     { qOp      :: QuantOperator
     , qVar     :: Text

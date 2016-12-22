@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE FlexibleContexts         #-}
+{-# LANGUAGE LambdaCase               #-}
 
 module Parser.Instruction
   ( instruction
@@ -117,13 +118,14 @@ block = do
 
   decls       <- declarationBlock
   actions     <- many (assertedInst $ match TokCloseBlock)
-
+  
   match' TokCloseBlock
   to <- getPosition
 
   symbolTable %= closeScope to
 
   let loc = Location (from, to)
+
   if null actions
     then do
       putError from EmptyBlock
@@ -181,7 +183,7 @@ assign = do
     checkType acc (Just lval, Just rval) = case (lval,rval) of
       ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
-        | not expConst && notConstMode o->
+        | not expConst && notConstMode o ->
           if t1 =:= t2 && assignable t1
             then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
@@ -545,8 +547,8 @@ procedureCall = do
       pure Nothing
 
     Nothing -> do
-      -- This function will be used later, only if the procedure we are loking is not the current procedure.
-      -- In that case, maybe its a Data Type procedure.
+      -- This function will be used later, only if the procedure we are loking is not 
+      -- the current procedure. In that case, maybe it's a Data Type procedure.
       -- There are two cases: 1) It's being called outside a Data Type.
       --                         Just look the first arguments that is a `GFullDataType`
       --                      2) It's being called in another procedure inside the same Data Type
@@ -604,9 +606,44 @@ procedureCall = do
                       unpack procName <> "`"
                     return Nothing
 
-          Just t@(GDataType name _ _) -> do
-            Just (GDataType {typeArgs}, _, structProcs, _) <- use currentStruct
-            case procName `Map.lookup` structProcs of
+          Just t@(GDataType name _ t') -> do
+            Just (dt@GDataType {typeArgs}, _, sp, _) <- use currentStruct
+            if not (t =:= dt)
+              then getStruct name >>= \case 
+                Nothing -> internal $ "Could not find DT " <> show name
+                Just Struct{structProcs} -> 
+                  case procName `Map.lookup` structProcs of
+                    Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
+                      let 
+                        nParams = length procParams
+                        ta' = fmap (fillType typeArgs) t'
+
+                      when (nArgs /= nParams) . putError from . UnknownError $
+                        "Calling procedure `" <> unpack procName <> 
+                        "` with a bad number of arguments."
+
+                      args' <- foldM (checkType' ta' procName from)
+                        (Just Seq.empty) (Seq.zip args procParams)
+                      pure $ case args' of
+                        Nothing -> Nothing
+                        Just args'' -> Just Instruction
+                          { instLoc = loc
+                          , inst' = ProcedureCall
+                            { pName = procName
+                            , pArgs = args''
+                            , pRecursiveCall = False
+                            , pRecursiveProc = procRecursive
+                            , pStructArgs    = Just (name, ta') } }
+
+                    Nothing -> do
+                      procs <- use definitions
+                      putError from . UnknownError $
+                        "Data Type `" <> unpack name <>
+                        "` does not have a procedure called `" <>
+                        unpack procName <> "`"
+                      return Nothing
+
+            else case procName `Map.lookup` sp of
               Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                 let
                   nParams = length procParams
@@ -651,17 +688,6 @@ procedureCall = do
                 args' <- foldM (checkType procName (cr^.crPos)) (Just Seq.empty) (Seq.zip args (cr^.crParams))
 
                 currentProc . _Just . crRecursive .= True
-
-                -- pStructArgs <- do
-                --   cs' <- use currentStruct
-                --   typeArgs <- use typeVars
-                --   case cs' of
-                --     Nothing -> pure Nothing
-                --     Just (GDataType name _ _, _, _, _) -> pure . Just $
-                --       ( name
-                --       , Array.listArray (0, length typeArgs - 1) $
-                --         zipWith GTypeVar [0..] typeArgs)
-
 
                 pure $ case args' of
                   Nothing -> Nothing

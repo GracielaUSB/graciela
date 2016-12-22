@@ -19,9 +19,9 @@ import           AST.Expression            hiding (inner, loc)
 import qualified AST.Expression            as E (inner, loc)
 import           AST.Object                hiding (inner, loc, name)
 import qualified AST.Object                as O (inner, loc, name)
-import           AST.Struct                (Struct (..), fillTypes)
+import           AST.Struct                (Struct (..), fillTypes, Struct'(..))
 import           AST.Type                  (ArgMode (..), Type (..),
-                                            fillType, hasDT, (=:=), highLevel)
+                                            fillType, hasDT, (=:=), highLevel, removeAbst)
 import           Common
 import           Entry                     (Entry (..), Entry' (..), info)
 import           Error                     (Error (..))
@@ -46,8 +46,8 @@ import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
 import qualified Data.Array                as Array (listArray)
 import           Data.Foldable             (foldl')
 import           Data.Map.Strict           (Map)
-import qualified Data.Map.Strict           as Map (empty, insert, lookup, size)
-import           Data.Maybe                (catMaybes, fromJust)
+import qualified Data.Map.Strict           as Map (empty, insert, lookup, size, keys)
+import           Data.Maybe                (catMaybes, fromJust, isJust)
 import           Data.Monoid               (First (..))
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Sequence             (Seq, (|>))
@@ -482,13 +482,13 @@ variable = do
   maybeStruct <- lift $ use currentStruct
   coup <- lift $ use coupling
 
-  abstractSt <- case maybeStruct of
-    Just (GDataType _ (Just abstName) _, _, _, _) -> do
+  (dt,abstractSt) <- case maybeStruct of
+    Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
       adt <- getStruct abstName
-      case adt of
-        Just abst -> pure $ structSt abst
-        _         -> pure emptyGlobal
-    _ -> pure emptyGlobal
+      pure $ (dt,) $ case adt of
+        Just abst -> structSt abst
+        _         -> emptyGlobal
+    _ -> pure (GUndef, emptyGlobal)
 
   let
     entry = case name `lookup` st of
@@ -510,26 +510,27 @@ variable = do
         let
           expr = Expression
             { E.loc
-            , expType  = _aliasType
+            , expType  = removeAbst dt _aliasType
             , expConst = True
             , exp' = Value _aliasValue }
 
         in pure $ Just (expr, ProtoNothing, Taint False)
 
-      Var { _varType, _varConst } -> lift (use isDeclarative) >>= \x -> if _varType =:= highLevel && not x
-        then do
-          let Location (pos, _) = loc
-          putError pos . UnknownError $
-            "Variable `" <> unpack name <> "` of type " <> show _varType <>
-            " not allowed in imperative code."
-          pure Nothing
+      Var { _varType, _varConst } -> lift (use isDeclarative) >>= \declarative -> 
+        if _varType =:= highLevel && not declarative
+          then do
+            let Location (pos, _) = loc
+            putError pos . UnknownError $
+              "Variable `" <> unpack name <> "` of type " <> show _varType <>
+              " not allowed in imperative code."
+            pure Nothing
 
         else do
           rangevars <- get
 
           let expr = Expression
                 { E.loc
-                , expType = _varType
+                , expType = removeAbst dt _varType
                 , expConst = _varConst || name `elem` rangevars
                 , exp' = Obj
                   { theObj = Object
@@ -571,12 +572,12 @@ variable = do
                   case name `Map.lookup` mapTypes of
                     Just (i, _, _, _) -> Expression
                       { loc
-                      , expType  = _selfType
+                      , expType  = removeAbst dt _selfType
                       , expConst = _selfConst
                       , exp'     = Obj
                         { theObj = Object
                           { loc
-                          , objType = _selfType
+                          , objType = removeAbst dt _selfType
                           , obj' = Member
                             { field = i
                             , fieldName = name
@@ -620,7 +621,7 @@ variable = do
             let
               expr = Expression
                 { E.loc
-                , expType  = _argType
+                , expType  = removeAbst dt _argType
                 , expConst = _argMode == Const
                 , exp'     = Obj
                   { theObj = Object
@@ -1186,12 +1187,14 @@ call = do
                       Nothing -> do
                         putError from . UnknownError $ "Couldn't find data type " <> show dt
                         pure Nothing
-                      Just Struct { structProcs } -> do
-                        case fName `Map.lookup` structProcs of
-                          Just Definition{ def'=FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
+                      Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
+                        f <- getFunc fName structProcs (Just abstract)
+                        case f of
+                          Just (funcParams, retType', fRec) -> do
                             cs <- lift $ use currentStruct
                             let
                               nParams = length funcParams
+                              retType = fillType typeArgs' retType'
                               typeArgs = case cs of
                                   Nothing -> typeArgs'
                                   Just (GDataType _ _ dtArgs, _, _, _) ->
@@ -1205,37 +1208,99 @@ call = do
                                 (Seq.zip args funcParams )
                             pure $ case args' of
                               Nothing -> Nothing
-                              Just (fArgs, taint, const') -> do
+                              Just (fArgs, taint, const') ->
                                 let
-                                  expr = Expression
-                                    { E.loc
-                                    , expType = fillType typeArgs' funcRetType
-                                    , expConst = True
-                                    , exp' = FunctionCall
-                                      { fName
-                                      , fArgs
-                                      , fRecursiveCall = False
-                                      , fRecursiveFunc = funcRecursive
-                                      , fStructArgs    = Just (name, typeArgs) }}
+                                  expr = case fRec of 
+                                    Just funcRec -> Expression
+                                      { E.loc
+                                      , expType = retType
+                                      , expConst = True
+                                      , exp' = FunctionCall
+                                        { fName
+                                        , fArgs
+                                        , fRecursiveCall = False
+                                        , fRecursiveFunc = funcRec
+                                        , fStructArgs    = Just (name, typeArgs)}}
 
-                                Just (expr, ProtoNothing, taint)
+                                    Nothing -> Expression
+                                      { E.loc
+                                      , expType = retType
+                                      , expConst = True
+                                      , exp' = AbstFunctionCall
+                                        { fName
+                                        , fArgs
+                                        , fStructArgs = Just (name, typeArgs)}}
+
+                                in Just (expr, ProtoNothing, taint)
 
                           _ -> do
                             putError from . UnknownError $
                               "Data Type `" <> unpack name <>
                               "` does not have a function called `" <>
-                              unpack fName <> "`"
+                              unpack fName <> "`1"
                             return Nothing
 
-                  Just t@(GDataType name _ _) -> do
+                  Just t@(GDataType name abstName typeArgs') -> do
                     lift (use currentStruct) >>= \case
                       Nothing -> do
-                        traceShowM t
                         pure Nothing
-                      Just (GDataType {typeArgs}, _, structProcs, _) ->
-                        case fName `Map.lookup` structProcs of
-                          Just Definition {def' =
-                            FunctionDef{ funcParams, funcRetType, funcRecursive }} -> do
+                      Just (dt@GDataType{typeArgs = t'}, _, _, _) | not (t =:= dt) -> do
+                        getStruct name >>= \case
+                          Nothing -> do
+                            putError from . UnknownError $ "Couldn't find data type " <> show dt
+                            pure Nothing
+                          Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
+                            f <- getFunc fName structProcs (Just abstract)
+                            case f of
+                              Just (funcParams, retType', fRec) -> do
+                                let
+                                  nParams = length funcParams
+                                  retType = fillType t' retType'
+                                  typeArgs = fmap (fillType t') typeArgs'
+
+                                when (nArgs /= nParams) . putError from . UnknownError $
+                                  "Calling function `" <> unpack fName <> "` with a bad number of arguments."
+
+                                args' <- foldM (checkType' typeArgs fName from)
+                                    (Just (Seq.empty, Taint False, True))
+                                    (Seq.zip args funcParams )
+                                pure $ case args' of
+                                  Nothing -> Nothing
+                                  Just (fArgs, taint, const') ->
+                                    let
+                                      expr = case fRec of 
+                                        Just funcRec -> Expression
+                                          { E.loc
+                                          , expType = retType
+                                          , expConst = True
+                                          , exp' = FunctionCall
+                                            { fName
+                                            , fArgs
+                                            , fRecursiveCall = False
+                                            , fRecursiveFunc = funcRec
+                                            , fStructArgs    = Just (name, typeArgs)}}
+
+                                        Nothing -> Expression
+                                          { E.loc
+                                          , expType = retType
+                                          , expConst = True
+                                          , exp' = AbstFunctionCall
+                                            { fName
+                                            , fArgs
+                                            , fStructArgs = Just (name, typeArgs)}}
+
+                                    in Just (expr, ProtoNothing, taint)
+
+                              _ -> do
+                                putError from . UnknownError $
+                                  "Data Type `" <> unpack name <>
+                                  "` does not have a function called `" <>
+                                  unpack fName <> "`5"
+                                return Nothing
+                      Just (GDataType {typeArgs, abstName = a}, _, structProcs, _) -> do
+                        f <- getFunc fName structProcs a
+                        case f of
+                          Just (funcParams, retType, fRec ) -> do
                             let
                               nParams = length funcParams
 
@@ -1247,28 +1312,39 @@ call = do
                               (Just (Seq.empty, Taint False, True))
                               (Seq.zip args funcParams )
 
+
                             pure $ case args' of
                               Nothing -> Nothing
-                              Just (fArgs, taint, const') -> do
-                                let
-                                  expr = Expression
-                                    { E.loc
-                                    , expType = funcRetType
-                                    , expConst = True
-                                    , exp' = FunctionCall
-                                      { fName
-                                      , fArgs
-                                      , fRecursiveCall = False
-                                      , fRecursiveFunc = funcRecursive
-                                      , fStructArgs    = Just (name, typeArgs)}}
+                              Just (fArgs, taint, const') ->
+                                let 
+                                  expr = case fRec of 
+                                    Just funcRec -> Expression
+                                      { E.loc
+                                      , expType = retType
+                                      , expConst = True
+                                      , exp' = FunctionCall
+                                        { fName
+                                        , fArgs
+                                        , fRecursiveCall = False
+                                        , fRecursiveFunc = funcRec
+                                        , fStructArgs    = Just (name, typeArgs)}}
 
-                                Just (expr, ProtoNothing, taint)
+                                    Nothing -> Expression
+                                      { E.loc
+                                      , expType = retType
+                                      , expConst = True
+                                      , exp' = AbstFunctionCall
+                                        { fName
+                                        , fArgs
+                                        , fStructArgs = Just (name, typeArgs)}}
+
+                                in Just (expr, ProtoNothing, taint)
 
                           Nothing -> do
                             putError from . UnknownError $
                               "Data Type `" <> unpack name <>
                               "` does not have a function called `" <>
-                              unpack fName <> "`"
+                              unpack fName <> "`2"
                             return Nothing
 
               -- If the function is not defined, it's possible that we're
@@ -1290,16 +1366,6 @@ call = do
                           (Seq.zip args (cr^.crParams))
 
                         lift $ (currentFunc . _Just . crRecursive) .= True
-
-                        -- fStructArgs <- do
-                        --   cs'      <- lift $ use currentStruct
-                        --   typeArgs <- lift $ use typeVars
-                        --   case cs' of
-                        --     Nothing -> pure Nothing
-                        --     Just (GDataType name _ _, _, _, _) -> pure $ Just
-                        --       ( name
-                        --       , Array.listArray (0, length typeArgs - 1) $
-                        --         zipWith GTypeVar [0..] typeArgs)
 
                         pure $ case args' of
                           Nothing -> Nothing
@@ -1338,6 +1404,38 @@ call = do
           pure Nothing
 
   where
+    getFunc :: Text -> Map Text Definition -> Maybe Text 
+            -> ParserExp (Maybe (Seq (Text, Type), Type, Maybe Bool))
+    getFunc name funcs abstName = do
+      afOk <- lift $ use absFuncAllowed
+      case name `Map.lookup` funcs of
+        Just Definition{ def' = FunctionDef{ funcParams, funcRetType, funcRecursive }} ->
+          pure $ Just (funcParams, funcRetType, Just funcRecursive)
+        _ -> if afOk && isJust abstName
+          then do 
+            getStruct (fromJust abstName) >>= \case
+              Nothing -> internal $ "Could not find abstract type " <> 
+                                     show (fromJust abstName)
+              
+              Just Struct{structProcs} -> 
+                case name `Map.lookup` structProcs of
+                  Just Definition
+                    { def'= AbstractFunctionDef
+                      { abstFParams
+                      , funcRetType }} -> do
+                    cs <- lift $ use currentStruct     
+                    case cs of 
+                      Nothing -> internal $ "Could not find current DT "
+                      Just (t, _, _, _) -> 
+                        pure $ Just (removeAbst' t <$> abstFParams, funcRetType, Nothing)
+                  
+                  _ -> pure Nothing
+
+          else pure Nothing
+      where 
+          removeAbst' dt (c,t) = (c,removeAbst dt t)
+
+
     hasDTType = getFirst . foldMap aux
     aux (Just (Expression { expType },_,_)) = First $ hasDT expType
     aux Nothing                             = First Nothing
@@ -1359,7 +1457,7 @@ call = do
             pure $ add e{expType = type'} taint expConst <$> acc
           else do
             putError from $
-              BadFunctionArgumentType name fName fPos pType expType
+              BadFunctionArgumentType name fName fPos pType' expType
             pure Nothing
     add e taint1 const1 (es, taint0, const0) =
       (es |> e, taint0 <> taint1, const0 && const1)

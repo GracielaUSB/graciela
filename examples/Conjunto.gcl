@@ -7,15 +7,15 @@ program Conjunto.bin begin
     const MAX := 100 : int;
     var   contenido  : set of T;
     
-    {inv MAX > 0 ∧ #contenido <= MAX inv}
+    {repinv MAX > 0 ∧ #contenido <= MAX repinv}
 
     proc agregar (inout c : ConjuntoA(T), in x : T )
-      var contenido' := c.contenido : set of T;
+      let contenido' := c.contenido : set of T;
       {pre  x ∈ c.contenido ==> #c.contenido < c.MAX pre} 
       {post c.contenido == contenido' ∪ {x} post}
     
     proc eliminar ( inout c : ConjuntoA(T), in x : T ) 
-      var contenido' := c.contenido : set of T;
+      let contenido' := c.contenido : set of T;
       {pre true pre}
       {post c.contenido == contenido' \ {x} post}
     

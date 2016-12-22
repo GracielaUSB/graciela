@@ -64,9 +64,9 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
   Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
     DataType {abstract, abstractTypes, inv, repinv, coupinv, couple} ->
       forM_ typeMaps $ \typeMap -> do
+        
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
-
         let
           fields = toList structFields <> toList structAFields
         type' <- Just . StructureType True <$>
@@ -76,20 +76,22 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         let
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
-
+        
         moduleDefs %= (|> TypeDefinition (Name name) type')
-
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
         defaultCopy name structType typeMap
         defineStructInv CoupInvariant name structType coupinv
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
+        
         defineCouple couple name structType
-
+        
         mapM_ definition structProcs
 
         currentStruct .= Nothing
+    s -> pure ()
+          
 
 defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
 defaultConstructor name structType typeMap = do
@@ -104,7 +106,6 @@ defaultConstructor name structType typeMap = do
   openScope
   selfName <- insertVar "_self"
   dAllocName <- insertVar "dinamicAlloc"
-
   let
     self   = LocalReference structType selfName
     dAlloc = LocalReference boolType dAllocName
@@ -114,19 +115,15 @@ defaultConstructor name structType typeMap = do
       filledT = fillType typeMap t
     case filledT of
       t | t =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
-
         member <- newLabel $ "member" <> show field
-
         addInstruction $ member := GetElementPtr
             { inBounds = False
             , address  = self
             , indices  = ConstantOperand . C.Int 32 <$> [0, field]
             , metadata = []}
-        
         defaultValue <- case expr of
           Nothing -> value filledT
           Just e  -> expression' e
-
 
         t' <- toLLVMType filledT
         addInstruction $ Do Store
@@ -291,17 +288,13 @@ defaultConstructor name structType typeMap = do
 
       _ -> pure ()
     pure ()
-
   terminate $ Ret Nothing []
   closeScope
-
   blocks' <- use blocks
   blocks .= Seq.empty
-
   let 
     selfParam   = Parameter (ptr structType) selfName []
     dAllocParam = Parameter boolType dAllocName []
-
   addDefinition $ GlobalDefinition functionDefaults
         { name        = Name procName
         , parameters  = ([selfParam, dAllocParam],False)
@@ -431,7 +424,6 @@ defaultCopy name structType typeMap = do
   let
     procName = "copy" <> name
   proc <- newLabel procName
-
   (proc #)
   Just Struct { structFields, structAFields } <- use currentStruct
 
@@ -440,19 +432,21 @@ defaultCopy name structType typeMap = do
   destStructName   <- insertVar "destStruct"
 
   symTable . _head %= Map.insert (pack "_self") sourceStructName
-
   let
     sourceStruct = LocalReference structType sourceStructName
     destStruct   = LocalReference structType destStructName
     fields = toList structFields <> toList structAFields
 
   forM_ fields $ \(field, t, _, expr) -> do
+
     let
       filledT = fillType typeMap t
+
     type' <- toLLVMType filledT
+    
     sourcePtr   <- newLabel "sourcePtr"
     destPtr     <- newLabel "destPtr"
-
+    
     addInstruction $ sourcePtr := GetElementPtr
         { inBounds = False
         , address  = sourceStruct
@@ -467,7 +461,7 @@ defaultCopy name structType typeMap = do
 
     case filledT of
       t@GArray { dimensions, innerType } -> do
-        
+
         destArr      <- newLabel "destArr"
 
         copyArray t 
@@ -475,7 +469,6 @@ defaultCopy name structType typeMap = do
           (LocalReference (ptr type') destPtr)
 
       t | t =:= GADataType -> do
-
         types <- mapM toLLVMType (toList . typeArgs $ t)
         let 
           postfix = llvmName (typeName t) types  
@@ -490,7 +483,7 @@ defaultCopy name structType typeMap = do
           , functionAttributes = []
           , metadata           = [] }
 
-      _ -> do   
+      _ -> do 
         sourceValue <- newLabel "sourceArr"
         addInstruction $ sourceValue := Load
           { volatile  = False

@@ -7,7 +7,8 @@ program List.bin begin
      var element : T;
      var next    : ANode(T)*;
 
-    {inv true inv}
+    {repinv true repinv}
+
 
     
     /* Node procedures */
@@ -15,7 +16,9 @@ program List.bin begin
   end
 
   type Node(T) implements ANode(T) begin
+
     {repinv true repinv}
+    {coupinv true coupinv}
     
     func hola (i : int) -> int
       {pre  true pre}
@@ -23,6 +26,7 @@ program List.bin begin
       |[
         2
       ]|
+
 
     func elemNode (n : Node(T)*, x : T, b : int) -> boolean
       {pre  true  pre}
@@ -55,9 +59,9 @@ program List.bin begin
   begin
     /* AList variables */
     const MAX := 100 : int;
-    var   items      : seq of T;
+    var   items      : sequence of T;
 
-    {inv true inv}
+    {repinv true repinv}
 
     /* AList procedures */
     proc insert (inout l : AList(T), in x : T)
@@ -72,6 +76,10 @@ program List.bin begin
       {pre  true  pre} 
       {post true post}
 
+    func b (i : AList(T)*) -> boolean
+      {pre  true  pre} 
+      {post true post}
+
   end
 
   type ListO(T) implements AList(T)
@@ -79,20 +87,28 @@ program List.bin begin
     /* ListO variables */
      var tam := 0 : int;
      var first    : Node(T)*;
+     var h        : ListO(T)*;
     
-    {repinv first != null 
+    {repinv b(h) repinv}
+
+    {coupinv first != null 
         ==> (% forall i : int 
                | 0 <= i /\ i < tam-1 
-               | items!i <= items!i+1 
-            %) repinv}
+               | items[i] <= items[i+1] 
+            %) coupinv}
   
     where { items := << x : int | 0 <= x /\ x < tam /\ first != null | atNode(first,x) >> }
   
     /* ListO procedures */
+    func b (i : ListO(T)*) -> boolean
+      {pre  true  pre} 
+      {post true post}
+      |[ true ]|
+
 
     proc insert (inout l : ListO(T), in x : T)
       {pre true pre}
-      {post elemNode(l.first, x, l.tam) post}
+      {post true/*elemNode(l.first, x, l.tam)*/ post}
       |[ if l.tam == 0 
             -> new(l.first)
              ; (*l.first).element := x
@@ -166,11 +182,18 @@ program List.bin begin
     /* List variables */
     var tam := 0 : int;
     var first    : Node(T)*;
+    var h : List(T)*;
     
 
     {repinv 0 <= tam /\ tam <= MAX repinv}
+    {coupinv ! b(h) coupinv}
 
     where { items := <<x : int | 0 <= x /\ x < tam /\ first != null | atNode(first,x)>> }
+
+    func b (i : List(T)*) -> boolean
+      {pre  true  pre} 
+      {post true post}
+      |[ false ]|
 
     proc insert (inout l : List(T), in x : T)
       {pre true pre}
@@ -256,7 +279,7 @@ main
    // ; writeln("Tamaño: ",(*l).tam)
 
    ; writeln(elemNode(l.first, 1, l.tam))
-   ; 
+
    ; writeln("Lista Normal")
    ; print(l)
    ; writeln("Lista Normal -> Elemento 0 y 2: ", at(l,0), ", ", at(l,2))
@@ -266,6 +289,6 @@ main
 
    ; freeList(l)
    ; freeList(lo)
-   ; write(toChar(toFloat(toChar(toInt(false)))))
+   ; write(toChar(toFloat(toChar(toInt('c')))))
   ]|
 end

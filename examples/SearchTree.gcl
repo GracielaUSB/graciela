@@ -5,9 +5,9 @@ program SearchTree.bin begin
   begin
     /* n variables */
      
-     var i : n;
+     var i : n*;
     
-    {inv true inv}
+    {repinv true repinv}
   
     /* n procedures and functions */
     proc f ( in x : n )

@@ -103,6 +103,7 @@ toLLVMType (GTuple  a b) = do
   a' <- toLLVMType a
   b' <- toLLVMType b
   pure tupleType
+
 toLLVMType (GFullDataType n t) = do
   fdts <- use fullDataTypes
   pdt  <- use pendingDataTypes
@@ -143,17 +144,17 @@ toLLVMType (GFullDataType n t) = do
       ltypes <- mapM toLLVMType t'
       moduleDefs %= (|> TypeDefinition (Name . llvmName n . toList $ ltypes) type')
 
-toLLVMType t@(GDataType name _ typeArgs) = do
-  maybeStruct <- use currentStruct
-  case maybeStruct of
-    Nothing | t =:= GATypeVar -> internal $ show t <> "   Esto no deberia ocurrir :D"
-    Just struct -> do
-      types <- mapM toLLVMType (structTypes struct)
-      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
+toLLVMType t@(GDataType{}) = fill t >>= toLLVMType 
+  -- maybeStruct <- use currentStruct
+  -- case maybeStruct of
+  --   Nothing | t =:= GATypeVar -> internal $ show t <> "   Esto no deberia ocurrir :D"
+  --   Just struct -> do
+  --     types <- mapM toLLVMType (structTypes struct)
+  --     pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
-    _ -> do
-      types <- mapM toLLVMType typeArgs
-      pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
+  --   _ -> do
+  --     types <- mapM toLLVMType typeArgs
+  --     pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
 
 toLLVMType t = error $ show t
 

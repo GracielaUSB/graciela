@@ -184,7 +184,7 @@ alloc gtype lval = do
       GChar          -> pure . ConstantOperand $ C.Int 8 0
       GInt           -> pure . ConstantOperand $ C.Int 32 0
       GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
-      t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
+      t@(GPointer _) -> ConstantOperand . C.Null <$> toLLVMType t
 
 
 {- Store an expression in a variable memory -}

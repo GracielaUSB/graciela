@@ -12,6 +12,8 @@ import           AST.Expression                          (CollectionKind (..),
                                                           Expression (..),
                                                           Expression' (..),
                                                           Value (..))
+import           AST.Definition
+import           AST.Struct
 import qualified AST.Expression                          as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
 import qualified AST.Expression                          as E (Expression (expType),
@@ -42,6 +44,7 @@ import           Treelike                                (drawTree, toTree)
 import           Control.Lens                            (use, (%=), (.=))
 import           Data.Array                              ((!))
 import           Data.Char                               (ord)
+import           Data.Map                                as Map (lookup)
 import           Data.Maybe                              (fromMaybe, isJust)
 import           Data.Sequence                           (ViewR ((:>)), (|>))
 import qualified Data.Sequence                           as Seq (ViewR (EmptyR),
@@ -888,6 +891,22 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             , metadata' = [] }
 
           pure (no, (val, yes') : pairs)
+
+    AbstFunctionCall {fName, fArgs, fStructArgs} -> do
+      fdt <- use fullDataTypes
+      let 
+        (dtName, typeArgs) = case fStructArgs of 
+          Nothing -> internal $ "Calling an abstract function of unknown Abstract Data Type"
+          Just x -> x
+      case dtName `Map.lookup` fdt of
+        Nothing -> internal $ "Could not find Data Type " <> show dtName
+        Just (Struct{structProcs},_) -> case fName `Map.lookup` structProcs of
+          Nothing -> internal $ "Could not find function " <> 
+                                show fName <> " in Data Type " <> 
+                                show dtName
+
+          Just Definition{ def' = FunctionDef{ funcRecursive }} -> 
+            expression e{exp'=FunctionCall fName fArgs False funcRecursive fStructArgs}
 
     FunctionCall { fName, fArgs }
       | fName `elem` fmap pack [traceTypeVarString, traceStringTypeVarString] -> do

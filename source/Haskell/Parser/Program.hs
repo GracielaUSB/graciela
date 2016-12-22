@@ -73,7 +73,6 @@ program = do
           Just struct -> (name, (struct, typeArgs))
           Nothing -> internal $ "Couldn't find struct " <> show name
         fdts = Map.fromList $ aux <$> (Map.toList fdts')
-
       pure $ Just Program
         { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)

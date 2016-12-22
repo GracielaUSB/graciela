@@ -4,13 +4,13 @@ abstract ANode(T)
 begin
   /* ANode variables */
 
-  {inv true inv}
+  {repinv true repinv}
   /* ANode procedures */
 end
 abstract AGraph(T)
 begin
   /* AList variables */ 
-  {inv true inv}
+  {repinv true repinv}
   /* AList procedures */
 end
 
