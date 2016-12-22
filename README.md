@@ -43,7 +43,6 @@ pasos:
   estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
 
-<<<<<<< HEAD
 ## Instalación con Homebrew (OS X )
 
 ### Requisitos
@@ -61,9 +60,8 @@ Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
     brew install graciela
 
 ## Uso del compilador
-=======
+
 ## Cómo compilar un archivo 
->>>>>>> fields
 
 Basta con ejecutar el comando `graciela` de la siguiente forma:
 

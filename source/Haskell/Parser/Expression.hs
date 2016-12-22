@@ -692,7 +692,7 @@ quantification = do
         putError bfrom . UnknownError $
           "Bad quantification body. Body must be " <> show allowedBType <> "."
 
-  void $ match TokRightPercent
+  void $ match' TokRightPercent
 
   to <- getPosition
   lift $ symbolTable %= closeScope to

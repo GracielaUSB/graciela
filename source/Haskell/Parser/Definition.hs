@@ -458,7 +458,9 @@ procedureDeclaration = do
   symbolTable %= openScope from
   params' <- parens $ doProcParams
 
-  decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
+  useLet .= True
+  decls' <- sequence <$> declaration `endBy` match' TokSemicolon
+  useLet .= False
 
   dt <- use currentStruct
   case (dt, params', procName') of

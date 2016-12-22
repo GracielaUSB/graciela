@@ -2,22 +2,24 @@ program Dicc.bin begin
 
 abstract Diccionario (T0, T1) begin
   const MAX := 100 : int;
-  var conoc : set of T0;
-  var tabla : function T0 -> T1;
+  var   conoc      : set of T0;
+  var   tabla      : function T0 -> T1;
 
-  {inv MAX > 0 ∧ #conoc ≤ MAX ∧ conoc == domain(tabla) inv}  
+  {repinv  MAX   > 0 
+        ∧ #conoc ≤  MAX 
+        ∧  conoc == domain(tabla) repinv}  
   
   proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
-    var tabla' := d.tabla : function T0 -> T1;
-    var conoc' := d.conoc : set of T0;
+    let tabla' := d.tabla : function T0 -> T1;
+    let conoc' := d.conoc : set of T0;
 
     {pre c ∉ d.conoc ∧ #d.conoc < d.MAX pre}
     {post d.conoc == conoc' ∪ {c}
         ∧ d.tabla == tabla' ∪ func({(c, v)}) post}
 
   proc eliminar (inout d : Diccionario(T0,T1), in c : T0)
-    var tabla' := d.tabla : function T0 -> T1;
-    var conoc' := d.conoc : set of T0;
+    let tabla' := d.tabla : function T0 -> T1;
+    let conoc' := d.conoc : set of T0;
    
     {pre c ∈ d.conoc pre}
     {post d.conoc == conoc' \ {c} 
@@ -162,21 +164,21 @@ end
 func constante (i : int) ->  int
   {pre  true  pre}
   {post true post}
-  |[
+  ⟦
     1
-  ]|
+  ⟧
 
 func rec ( i : int) -> int
   {pre  true  pre}
   {post true post}
   {bound i bound}
-  |[ if i >= constante(i) -> rec(i-1)*2
+  ⟦ if i >= constante(i) -> rec(i-1)*2
      [] otherwise -> 1
      fi
-  ]|
+  ⟧
 
 main
-  |[ var n, k := 0,0 : int
+  ⟦ var n, k := 0,0 : int
   ; var v, c : char
   ; var arr : array[10] of (int*)
   ; var d : Dicc(int, char)
@@ -212,10 +214,10 @@ main
            ; read(k)
            ; buscar (d,k,v)
            ; writeln("\nEl valor de la clave ", k, " es: ", v, "\n")
-         [] c == 'M' \/ c == 'm' -> skip//show(t)
+         [] c == 'M' \/ c == 'm' -> writeln("No se puede mostrar el diccionario :( Porfavor implemente el procedimiento para mostrarlo")
          [] otherwise -> writeln("Has perdido un intento :(")
          fi
        
     od
-  ]|
+  ⟧
 end
