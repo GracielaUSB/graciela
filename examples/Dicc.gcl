@@ -1,0 +1,109 @@
+
+
+type Dicc(T0, T1) implements Diccionario (T0, T1) begin
+
+  var clave : array [MAX] of T0;
+  var valor : array [MAX] of T1;
+  var tam   : int;
+
+  {repinv MAX > 0 /\ 0 ≤ tam /\ tam ≤ MAX  /\
+    (%forall i : int | 0 ≤ i ≤ tam
+      | (%forall j : int | 0 ≤ j ≤ tam /\ i != j
+      | clave[i] != clave[j] %)
+    %)
+  repinv}
+
+  where { 
+    conoc := {i : int | 0 ≤ i /\ i ≤ tam | clave[i]};
+    table := {i : int | 0 ≤ i /\ i ≤ tam | (clave[i], valor[i]) }
+  }
+  
+  proc copiarClaveValor ( in d : Dic
+                        , in m : int
+                        , out clave' : array[m] of T0
+                        , out valor' : array[m] of T1)
+    {pre true pre}
+    {post (% forall i : int | 0 <= i /\ i < d.tam | d.clave[i] == clave'[i] 
+                                                 /\ d.valor[i] == valor'[i]  %) post}
+    ⟦ var i : int
+    ; i := 0
+    ; {inv 0 ≤ i /\ i ≤ d.tam inv}
+      {bound d.tam - i bound} 
+      do i < d.tam -> clave'[i] := d.clave[i]
+                    ; valor'[i] := d.valor[i]
+      od 
+    ⟧
+
+  proc crear (in m : int, out d : Dicc(T0,T1))
+    {pre    true     pre}
+    {post d.tam == 0 post}
+
+  proc agregar (inout d : Dicc(T0,T1), in c : T0, in v : T1)
+    var tam' := d.tam;  
+    var clave' : array[d.MAX] of T0
+    var valor' : array[d.MAX] of T1
+
+    {pre ¬(% exist i : int | 0 <= i /\ i < d.tam | d.claves[i] == c %) /\ d.tam < d.MAX pre}
+    {post d.atm == tam' + 1 /\ d.claves[d.tam] == c /\  d.valor[d.tam] == v 
+              /\ (% forall i : int | 0 <= i /\ i < tam' | d.clave[i] == clave'[i] %)
+                                                      /\  d.valor[i] == valor'[i] %) post}
+    ⟦ var i : int
+    ; copiarClaveValor(d, d.MAX, clave', valor')
+    ; i := 0
+      
+    ; {inv 0 ≤ i /\ i ≤ d.tam inv}
+      {bound tam - i bound} 
+      do clave[i] != c -> i := i+1 od
+
+    ; clave[d.tam], valor[d.tam] := c, v;
+    ⟧
+
+  proc eliminar (inout d : Dicc(T0,T1), in c : T0)
+    var tam' := d.tam : int;
+    var k : int 
+    var clave' : array[d.MAX] of T0
+    var valor' : array[d.MAX] of T1
+
+    {pre (% exist i : int | 0 <= i /\ i < d.tam | d.claves[i] == c %) pre}
+    {post d.tam == tam' - 1
+         /\ ¬(% exist i  : int | 0 <= i /\ i < d.tam | d.clave[i] == c %)
+         /\  (% forall j : int | k <= j /\ j < d.tam | d.clave[j] == clave'[j+1] 
+                                                    /\ d.valor[j] == valor'[j+1] %) post}
+    ⟦ var i : int
+    ; var encontrado : boolean
+    ; copiarClaveValor(d, d.MAX, clave', valor')
+    ; i := 0
+
+    ; {inv 0 ≤ i /\ i < d.tam - 1 inv}
+      {bound d.tam - i - 1 
+              /\ (% exist i : int | 0 <= i /\ i < n |   %) bound} 
+      do d.clave[i] != c /\ ¬encontrado -> i := i+1 
+      [] encontrado      -> clave[i]   := clave[i+1] 
+      [] d.clave[i] == c -> d.clave[i] := d.clave[i+1]
+                          ; d.valor[i] := d.valor[i+1]
+                          ; encontrado, k := true, i
+      od
+
+    ; d.tam := d.tam - 1
+    ⟧
+  proc buscar: ( in d : Dicc(T0,T1) , in c : T0 , out v : T1 )
+    {pre  (%exist i | 0 ≤ i ≤ d.tam | d.clave[i] == c %) pre}
+    {post (%exist i | 0 ≤ i ≤ d.tam | d.clave[i] == c /\ d.valor[i] == v %) post}
+    ⟦ var i : int
+    ; i := 0
+      
+    ; {inv 0 ≤ i /\ i ≤ d.tam inv}
+      {bound tam - i bound} 
+      do clave[i] != c -> i := i+1 od
+
+    ; v := valor[i] 
+    ⟧
+
+  proc existe (in d : Dicc(T0,T1), in c : T0, out e : boolean)
+  {pre true pre}
+  {post e === (% exist i : int | 0 <= i /\ i < d.tam | d.claves[i] == c %) post}
+
+end
+
+
+proc hola (Dicc d )

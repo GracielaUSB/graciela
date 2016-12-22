@@ -1,0 +1,29 @@
+program mmm.bin begin
+
+main
+  |[ var v  := 6666666 : int
+  ;  var w  := 7777777 : int
+  ;  var z  := 8888888 : int
+  ;  var aa := 4444444 : int
+  ;  const M, N, Ñ := 6, 8, 6 : int
+  ;  var i, j, k := 0, 0, 0 : int
+  ; var a : (array[100,100,100] of int)*
+  ; new (a)
+  ; skip
+  ; free(a)
+  ]|
+
+end
+
+/*
+0                   1                   2                   3                   4
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0
+s v v v v v v v v v v                   n
+s v s v s v s v s v s v s v s v s v s v n
+
+s := size
+v := value
+n := next variable
+
+
+*/

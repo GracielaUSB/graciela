@@ -1,0 +1,72 @@
+program ack.bin begin
+
+abstract abstractName()
+begin
+  {inv true inv}
+
+  proc test (in i : abstractName())
+    var p := {:1,1,1:} : multiset of int;
+
+    {pre multiplicity((1,3), {:(1,3), (1,3):}) == 2 pre}
+    {post true post}
+end
+
+type typeName() implements abstractName( )
+begin
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  proc test (in i : typeName())
+    {pre true pre}
+    {post true post}
+    |[ skip
+    ]|
+  
+end
+
+proc show (in k : int,  in m : int, in n : int, in x : array [m, n] of int)
+  {pre true pre}
+  {post true post}
+  ⟦ writeln (k, m, n) ⟧
+
+main
+  ⟦ var i, j := 0, 0 : int
+  ; var x : array [6, 8] of int
+  ; var y : int
+
+  ; var k : typeName
+
+  ; test(k)
+
+  ; y := wwwwwww
+
+  ; writeln(true elem {true, false})
+
+  ; y := 5
+  ; writeln ("y: ", y)
+  ; {inv   true    inv}
+    {bound 6 - i bound}
+    do i < 6 -> {inv   true    inv}
+                {bound 8 - j bound}
+                do j < 8 -> x [i, j] := 999
+                          ; j := j + 1
+                od
+              ; j := 0
+              ; i := i + 1
+    od
+  ; writeln ("y: ", y)
+  ; show (3, 6, 8, x)
+  // ; i, j := 0, 0
+  // ; {inv   true    inv}
+  //   {bound 6 - i bound}
+  //   do i < 6 -> {inv   true    inv}
+  //               {bound 8 - j bound}
+  //               do j < 8 -> writeln ("x[", i, ", ", j, "] = ", x[i, j])
+  //                         ; j := j + 1
+  //               od
+  //             ; j := 0
+  //             ; i := i + 1
+  //   od
+  ⟧
+
+end

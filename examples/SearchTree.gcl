@@ -1,0 +1,303 @@
+/*% LANGUAGE EnableTrace   %*/
+
+program SearchTree.bin begin
+  
+
+  abstract n
+  begin
+    /* n variables */
+     
+     var i : n;
+    
+    {inv true inv}
+  
+    /* n procedures and functions */
+    proc f ( in x : n )
+      {pre  true pre}
+      {post true post}
+    
+      
+  end
+
+  type m implements n
+  begin
+    /* mariables */
+     
+    
+    {repinv true repinv}
+  
+    {coupinv true coupinv}
+  
+    /* mrocedures and functions */
+    proc f ( in x : m )
+      {pre  true pre}
+      {post true post}
+      |[ skip ]| 
+  end
+
+
+  abstract ASearchTree(T)
+  begin
+    /* ASearchTree variables */
+    var father : function T -> T;
+    var card   : multiset of T;
+    
+    {inv true inv}
+
+    /* ASearchTree procedures and functions */   
+    proc insert ( inout t : ASearchTree(T)*, in e : T )
+      {pre  true  pre}
+      {post true post}
+    
+    proc delete ( inout t : ASearchTree(T)*, in e : T )
+      {pre true pre}
+      {post true post}
+    
+    proc search ( in t : ASearchTree(T)*, in e : T )
+      {pre true pre}
+      {post true post}
+
+    proc show ( in t : ASearchTree(T)* )
+      {pre true pre}
+      {post true post}
+      
+  end
+
+  type SearchTree(T) implements ASearchTree(T)
+  begin
+    /* SearchTree variables */
+    var l, r := null, null : SearchTree(T)*;
+    var info : T;
+    var n    : int;
+    
+    {repinv    trace(false) repinv}
+  
+    {coupinv trace(false) coupinv}
+    
+    where {
+      father := if l == null /\ r == null -> func({})
+                [] l == null -> func({((*r).info, info)}) union (*r).father
+                [] r == null -> func({((*l).info, info)}) union (*l).father  
+                [] otherwise-> (*l).father union (*r).father union 
+                  func( { ((*l).info, info)
+                        , ((*r).info, info)} )  
+                fi;
+                
+
+
+      card := {: i : int | 0 <= i /\ i < n | info :} union 
+              if l == null /\ r == null -> {::}
+              [] l == null -> (*r).card 
+              [] r == null -> (*l).card 
+              [] otherwise -> (*l).card  union (*r).card 
+              fi
+    }
+//     /* SearchTree procedures and functions */
+    proc insert ( inout t : SearchTree(T)*, in e : T )
+      {pre  true  pre}
+      {post true post}
+      ⟦ var P,Q  := t, null : SearchTree(T)*
+      ; var i    := 0       : int
+      ; var done := false   : boolean
+      ; var d               : T
+      ; writeln("Hola")
+      ; {inv true inv}
+        {bound 255 - i bound}
+        do i < 255 /\ !done
+          -> if P == null -> done := true
+             [] otherwise 
+              -> d := (*t).info
+               ; if e == d -> done := true
+                 [] e  < d -> Q,P := P, (*P).l
+                 [] e  > d -> Q,P := P, (*P).r
+                 [] otherwise -> skip
+                 fi
+             fi
+           ; i := i+1
+        od
+
+      ; if P == null 
+          -> var node : SearchTree(T)*
+           ; new(node)
+           ; (*node).info, (*node).n := e, 1
+           ; (*node).l   , (*node).r := null, null
+
+           ; if Q == null -> t := node
+             [] e < (*Q).info -> (*Q).l := node
+             [] e > (*Q).info -> (*Q).r := node
+             fi
+        [] otherwise -> (*P).n := (*P).n + 1
+        fi 
+      ⟧
+    
+
+    proc auxDelete ( inout t : SearchTree(T)*
+                   , in    P : SearchTree(T)*
+                   , in    Q : SearchTree(T)*
+                   , in    n : int )
+      {pre  P != null  pre}
+      {post true post}
+      {bound 255-n bound}
+      |[ if (*P).l == null /\ (*P).r == null
+          -> if   Q == null -> t      := null
+             [] (*Q).l == P -> (*Q).l := null
+             [] (*Q).r == P -> (*Q).r := null
+             fi
+           ; free(P)
+         [] (*P).l == null 
+          -> if   Q == null -> t      := (*P).r
+             [] (*Q).l == P -> (*Q).l := (*P).r
+             [] (*Q).r == P -> (*Q).r := (*P).r
+             fi
+           ; free(P)
+         [] (*P).r == null
+          -> if   Q == null -> t      := (*P).l
+             [] (*Q).l == P -> (*Q).l := (*P).l
+             [] (*Q).r == P -> (*Q).r := (*P).l
+             fi
+           ; free(P)
+         [] otherwise 
+          -> var S, R := (*P).r, P : SearchTree(T)*
+           ; var i := 0 : int
+           ; {inv S != null inv}
+             {bound 255-i  bound}
+             do i < 255 -> if (*S).l != null -> R,S := S, (*S).l
+                          [] otherwise      -> skip
+                          fi
+                        ; i := i + 1
+             od
+           ; (*P).info, (*P).n := (*S).info, (*S).n
+           ; auxDelete(t,S,R,n+1)
+         fi
+    
+      ]|
+    
+    proc delete ( inout t : SearchTree(T)*, in e : T )
+      {pre true pre}
+      {post true post}
+      ⟦ var d : T
+      ; var P,Q := t, null : SearchTree(T)*
+      ; var n,i := 0,0 : int
+      ; var done := false : boolean
+
+      ; {inv true inv}
+        {bound 255 - i bound}
+        do i < 255 /\ !done 
+          -> if P == null -> done := true
+             [] otherwise 
+              -> d := (*t).info
+               ; if e == d -> done := true
+                 [] e  < d -> Q,P := P, (*P).l
+                 [] e  > d -> Q,P := P, (*P).r
+                 fi
+             fi
+            ; i := i+1
+        od
+      ; if P == null 
+         -> write("No quedan ocurrencias por eliminar de ", e)
+          ; n := 0
+        [] (*P).n  > 1 -> (*P).n, n := (*P).n - 1, (*P).n
+        [] (*P).n == 1 -> auxDelete(t,P,Q,0); n := 0 
+        [] otherwise   -> skip
+        fi
+      ⟧
+
+
+    proc pad (in p : int)
+      {pre  true  pre}
+      {post true post}
+      |[ var i := 0 : int
+       ; {inv true inv}
+         {bound p - i bound}
+         do i < p -> write(" "); i := i+1 od
+      ]|
+
+    proc search ( in t : SearchTree(T)*, in e : T )
+      {pre true pre}
+      {post true post}
+      ⟦ var d : T
+      ; var i    := 0     : int
+      ; var done := false : boolean
+      ; var P    := t     : SearchTree(T)*
+
+      ; {inv true inv}
+        {bound 255 - i bound}
+        do i < 255  
+          -> if P == null -> done := true
+             [] otherwise
+              -> d := (*P).info
+               ; if e == d -> done := true
+                 [] e < d  -> P := (*P).l 
+                 [] e > d  -> P := (*P).r
+                 fi
+             fi
+           ; i := i + 1
+        od
+
+      ; if P == null -> writeln("\n(", e, ",",      0, ")\n")
+        [] otherwise -> writeln("\n(", e, ",", (*P).n, ")\n")
+        fi
+      ⟧
+
+    proc mostrar ( in t : SearchTree(T)*, in p : int)
+      {pre  true   pre}
+      {post true post}
+      {bound 255 - p bound}
+      |[ pad(p)
+       ; if t == null -> writeln("-")
+         [] otherwise -> writeln("(", (*t).info, ",", (*t).n, ")")
+                       ; mostrar((*t).l, p + 1)
+                       ; mostrar((*t).r, p + 1)
+         fi
+      ]|
+
+    proc show ( in t : SearchTree(T)* )
+      {pre  true pre}
+      {post true post}
+      ⟦ mostrar(t, 0) ⟧
+  end
+
+  
+
+main
+  ⟦ var n := 0 : int
+  ; var c : char
+  
+  ; var arr : array[10] of (int*)
+  ; var t : SearchTree(char)*
+
+  ; writeln("Debido a que el programa debe tenerminar,")
+  ; writeln("este prompt se emitira solo un maximo de 100 veces")
+  ; {inv   true    inv}
+    {bound 100-n bound}
+    do n < 100 
+      -> n := n + 1
+       ; writeln("(Intento: ", n, " de 100)")
+       ; writeln( "Introduzca una letra:")
+       ; writeln("\t(T) para Terminar,")
+       ; writeln("\t(I) para Insertar un valor en el arbol,")
+       ; writeln("\t(E) para Eliminar un valor del arbol,")
+       ; writeln("\t(B) para Buscar un valor en el arbol, o")
+       ; writeln("\t(M) para Mostrar el arbol en preorden.")
+       ; write("> ")
+       ; read(c)
+       ; if c == 'T' \/ c == 't' -> writeln("Adios :)"); n := 100
+         [] c == 'I' \/ c == 'i'
+          -> write("Escriba el caracter a insertar: ")
+           ; read(c)
+           ; insert(t, c)
+         [] c == 'E' \/ c == 'e'
+          -> write("Escriba el caracter a eliminar: ")
+           ; read(c)
+           ; delete(t, c)
+         [] c == 'B' \/ c == 'b'
+          -> write("Escriba el caracter a buscar: ")
+           ; read(c)
+           ; search(t, c)
+         [] c == 'M' \/ c == 'm' -> show(t)
+         [] otherwise -> writeln("Has perdido un intento :(")
+         fi
+    od
+  ; free(t)
+  ⟧
+end

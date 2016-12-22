@@ -1,0 +1,94 @@
+program main begin
+
+    proc swap (ref h1: array [10] of int, in x: int, in y: int) 
+    begin
+        var aux : int;
+
+        {pre x >= 0 /\ y >= 0 pre}  
+        |[
+            aux   := h1[x];
+            h1[x] := h1[y];
+            h1[y] := aux
+        ]|
+        {post true post}
+        end
+
+    
+    proc ord (in N: int, ref h: array [10] of int) 
+    begin 
+        var b: boolean;
+        var n, cota: int;
+    
+        {pre N > 0 pre}  
+        |[  
+            n, cota := 0, 5000;
+            b := false;
+
+            {inv true inv} 
+            {bound cota-1 bound}
+
+            do ((n != N) /\ !b) ->
+            |[
+                var k, cota2: int;
+
+                k, cota2 := N-1, 5000;
+                b := true;
+
+                {inv true inv} 
+                {bound cota2-1 bound}
+
+                do (k != n) ->
+                |[
+
+                    if (h[k-1] <= h[k]) -> skip
+                    [] (h[k-1] >  h[k]) ->
+                    |[
+                        b := false; 
+                        swap(h, k-1, k)
+                    ]|
+                    fi;
+
+                    k, cota2 := k-1, cota2-1
+                ]|
+                od;
+
+                n, cota := n+1, cota-1
+            ]|
+            od
+
+        ]|
+        {post true post}
+    end
+
+    |[
+        var arr : array [10] of int;
+        var d := 1111 : int;
+        var i : int;
+
+        arr[0]:= 3;
+        arr[1]:= 7;
+        arr[2]:= 2;
+        arr[3]:= 5;
+        arr[4]:= -8;
+        arr[5]:= 11;
+        arr[6]:= 2;
+        arr[7]:= 1;
+        arr[8]:= 8;
+        arr[9]:= -2;
+
+        ord(10, arr);
+    
+        {inv true inv}
+        {bound d-1 bound}
+
+        do (i < 10) ->
+        |[
+            write(arr[i]);
+            write(", ");
+            i,d := i+1, d-1
+        ]|
+        od
+    
+    ]|
+
+end

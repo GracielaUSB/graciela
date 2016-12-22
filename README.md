@@ -7,7 +7,7 @@ Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 * ***TO DO*** Hablar filosoficamente del lenguaje
 
-El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
+El diseño del lenguaje está disponible [aquí](doc/graciela/diseno.md).
 
 ## Instalación Manual
 
@@ -23,15 +23,15 @@ pasos:
   paquetes relevante.
 
 * Clonar este repositorio con
-  `$ git clone git@github.com:GracielaUSB/gacela.git`.
+  `$ git clone git@github.com:GracielaUSB/graciela.git`.
 
 * Para correr los ejecutables generados por el compilador es necesario compilar
-  el archivo `source/auxiliarFunctions.c` y luego moverlo a
+  el archivo `source/graciela-lib.c` y luego moverlo a
   `/lib/x86_64-linux-gnu`. Esto puede hacerse de la siguiente manera:
 
 ```
-    # gcc -fPIC -shared source/auxiliarFunctions.c -o auxiliarFunctions.so
-    # mv auxiliarFunctions.so /lib/x86_64-linux-gnu/
+    # gcc -fPIC -shared source/graciela-lib.c -o graciela-lib.so
+    # mv graciela-lib.so /lib/x86_64-linux-gnu/
 ```
 
 * Para evitar romper las bibliotecas de Cabal, es buena idea crear una
@@ -40,9 +40,10 @@ pasos:
 
 * Finalmente, se ejecuta `cabal install`. Una vez finalizado este paso (puede
   tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
-  estará en `<repositorio gacela>/cabal-sandbox/bin/gacela`.
+  estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
 
+<<<<<<< HEAD
 ## Instalación con Homebrew (OS X )
 
 ### Requisitos
@@ -60,19 +61,10 @@ Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
     brew install graciela
 
 ## Uso del compilador
+=======
+## Cómo compilar un archivo 
+>>>>>>> fields
 
-Para compilar un archivo `.gcl`, se deben seguir estos pasos:
+Basta con ejecutar el comando `graciela` de la siguiente forma:
 
-* Se usa el ejecutable generado en la sección anterior, seguido del nombre del
-  archivo a compilar, y el número `0`, así:
-  `# ./<directorios...>/gacela "<mi_programa>.gcl" 0`
-
-* Luego, se compila el código LLVM generado en el paso anterior a código objeto,
-  con el comando `$ llc-3.5 -filetype=obj "<mi_programa>.bc"`
-
-* Ahora se debe enlazar el archivo objeto con la bibloteca en C incluida en este
-  repositorio, con el comando
-  `$ gcc "<mi_programa>.o" /lib/x86_64-linux-gnu/auxiliarFunctions.so -o <ejecutable_deseado>`
-
-* Finalmente, se corre el ejecutable de la manera convencional, a saber,
-  `$ ./<ejecutable>`.
+    graciela <mi_programa>.gcl 

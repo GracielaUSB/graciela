@@ -1,0 +1,9 @@
+/*% LANGUAGE EnableTrace   %*/
+/*% LANGUAGE LogicAnywhere %*/
+
+program Pragmatic.bin begin
+main
+  |[ writeln ( MIN_INT * 3 )
+  ;  writeln ( MIN_INT * 3 )
+  ]|
+end

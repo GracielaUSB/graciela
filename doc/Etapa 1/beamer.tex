@@ -1,0 +1,290 @@
+\documentclass{beamer}
+
+\mode<presentation>
+{
+  \usetheme{Warsaw}
+  \usecolortheme{default}
+  \usefonttheme{default}
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{caption}[numbered]
+}
+
+\usepackage[spanish]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{syntax}
+
+\setlength{\grammarparsep}{5pt plus 1pt minus 1pt}
+\setlength{\grammarindent}{7em}
+
+\title[Graciela]{[Gg]raciela - Primera entrega}
+\author[Ackerman - Spaggiari]{Moisés Ackerman \and Carlos Spaggiari}
+\institute[USB]{Universidad Simón Bolívar}
+\date{\today{}}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+
+\section{Lo superficial}
+
+\subsection{Nombres}
+\begin{frame}{Nombres}
+\begin{itemize}
+  \item This is not \textit{gacela}.
+  \item El lenguaje es Graciela.
+  \item El compilador es \texttt{graciela}.
+\end{itemize}
+\end{frame}
+
+
+\subsection{El comando}
+\begin{frame}{El comando}
+\framesubtitle{UX stands for stUdent eXperience}
+\begin{itemize}
+  \item Compilar antes: \begin{itemize}
+    \item\texttt{gacela tarea.gcl 0}
+    \item\texttt{llc-3.5 -filetype=obj tarea.bc}
+    \item\texttt{gcc tarea.o /lib/x86\_64-linux-gnu/auxiliarFunctions.so -o tarea}
+  \end{itemize}
+   \item Compilar ahora: \begin{itemize}
+    \item\texttt{graciela tarea.gcl -o tarea}
+    \item That's it.
+    \item Si el estudiante quiere ver más o menos errores, flag \texttt{-e=n}.
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\subsection{Instalación}
+\begin{frame}{Instalación}
+\framesubtitle{UX stands for stUdent eXperience}
+\begin{itemize}
+  \item apt-get (Ubuntu): \begin{itemize}
+    \item\texttt{\# add-apt-repository ppa:graciela-usb/ppa}
+    \item\texttt{\# apt-get install graciela}
+  \end{itemize}
+  \item Homebrew (OS X) : \begin{itemize}
+    \item\texttt{\$ brew tap GracielaUSB/graciela}
+    \item\texttt{\$ brew install graciela}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\subsection{Add-ons}
+\begin{frame}{Colores!}
+\framesubtitle{UX stands for stUdent eXperience}
+\begin{itemize}
+  \item\visible<1->{Resaltador de sintaxis para Sublime Text},
+  \item\visible<2->{próximamente para otros editores}.
+
+  \vskip 1cm
+
+  \item\visible<3->{*breve demostración*}
+\end{itemize}
+\end{frame}
+
+
+\subsection{Fixes}
+\begin{frame}{Fixes}
+\framesubtitle{Look ma, no floats!}
+\begin{itemize}
+  \item\visible<1->{El compilador no muestra (tantos) errores de Haskell}
+  \item\visible<2->{Se mejoró la implementación de la recuperación de errores en el analizador sintáctico}
+  \item\visible<3->{Los flotantes no dan error de compilación}
+\end{itemize}
+\end{frame}
+
+
+\subsection{Pendientes}
+\begin{frame}{Pendientes}
+\framesubtitle{\texttt{Non-exhaustive patterns in function <insert function here>}}
+\begin{itemize}
+  \item Sigue habiendo errores en la generación de código para cuantificadores (rangos),
+\end{itemize}
+\end{frame}
+
+
+\section{Lo profundo}
+\subsection{Objetivos}
+\begin{frame}{Objetivos}
+\begin{itemize}
+  \item Tipos de datos estructurados abstractos
+  \item Tipos de datos estructurados
+  \item Apuntadores
+\end{itemize}
+\end{frame}
+
+
+\subsection{Tipos de datos estructurados abstractos}
+\begin{frame}[fragile]{La gramática}
+\scriptsize
+\begin{grammar}
+
+<ADT> ::= `abstract' <Id> <TypeVars> `begin' <AbstBody> `end'
+
+<TypeVars> ::= `(' <Id> <MoreIds> `)' | $\lambda$
+
+<MoreIds> ::= `,' <Id> <MoreIds> | $\lambda$
+
+<AbstBody> ::= <AbstVarDecs> <Invariant> <ProcDecs>
+
+<AbstVarDecs> ::= <AbstVarDec> `;' <AbstVarDecs> | $\lambda$
+
+<AbstVarDec> ::= (`var'|`const') <Id> <MoreIds> `:' <AbstType>
+
+<AbstType> ::= `set' `of' <Basic'>
+\alt `multiset' `of' <Basic'>
+\alt `seq' `of' <Basic'>
+\alt `func' <Basic'> `->' <Basic'>
+\alt `rel' <Basic'> `->' <Basic'>
+\alt `(' <Basic'> `,' <Basic'> <MoreBasics'> `)'
+\alt <Basic'>
+
+<Basic'> ::= <Id> | <Basic>
+
+<Basic> ::= `int' | `char' | `double' | `bool'
+
+\end{grammar}
+\end{frame}
+
+\begin{frame}[fragile]{La gramática, cont.}
+\scriptsize
+\begin{grammar}
+
+<Invariant> ::= `\{inv' <BoolExp> `inv\}'
+
+<ProcDecs> ::= <ProcDec> <ProcDecs>
+
+<ProcDec> ::= `proc' <Id> `(' <ProcArgs> `)' <Precond> <Postcond>
+
+<ProcArgs> ::= <ProcArg> `,' <ProcArgs> | $\lambda$
+
+<ProcArg> ::= (`in'|`out'|`inout'|`ref') <Id> `:' <AbstType'>
+
+<AbstType'> ::= <AbstType>
+\alt <Id> <TypeVars>
+
+<Precond> ::= `\{pre' <BoolExp> `pre\}'
+
+<Postcond> ::= `\{post' <BoolExp> `post\}'
+
+\end{grammar}
+\end{frame}
+
+
+\subsection{Tipos de datos estructurados}
+\begin{frame}[fragile]{La gramática}
+\scriptsize
+\begin{grammar}
+
+<DT> ::= `type' <Id> <Types> `begin' <DTBody> `end'
+
+
+<Types> ::= `(' <Type> <MoreTypes> `)' | $\lambda$
+
+<Type> ::= array of <Type>
+\alt `*' <Type>
+\alt <Basic>
+
+<MoreTypes> ::= `,' <Type> <MoreTypes> | $\lambda$
+
+<Body> ::= <VarDecs> <Repinv> <Coupinv> <ProcDefs>
+
+<Repinv> ::= `\{repinv' <BoolExp> `repinv\}'
+
+<Coupinv> ::= `\{coupinv' <BoolExp> `coupinv\}'
+
+<ProcDefs> ::= <ProcDef> <ProcDefs>
+
+<ProcDef> ::= \textit{(Definido por Araujo y Jiménez)}
+
+\end{grammar}
+\end{frame}
+
+
+\subsection{Acoplamiento}
+\begin{frame}{Verificación de precondiciones}
+\begin{enumerate}
+\item Se verifica la precondición del TD (concreto). Si falla, se da una
+      \textbf{\textit{advertencia}} a tiempo de ejecución, ``No se cumplió la precondición'',
+      y no se hacen más verificaciones dentro de esta llamada. Si se cumple,
+      la verificación sigue.
+
+\item Se utiliza el invariante de acoplamiento para generar las estructuras
+      del TDA a partir de las del TD (concreto).
+
+\item Se verifica la precondición del TDA con las estructuras generadas
+      en el paso anterior. Si falla, se da un \textbf{\textit{error}} a tiempo de
+      ejecución, ``Este procedimiento no implementa el abstracto''. Si se cumple,
+      se ejecuta el cuerpo del método.
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}{Verificación de poscondiciones}
+\begin{enumerate}
+\item Se utiliza el invariante de acoplamiento para generar las estructuras
+      del TDA a partir de las del TD (concreto).
+
+\item Se verifican tanto la poscondición del TD (concreto) como la del TDA,
+      existiendo las siguientes posibilidades:
+
+\vskip 0.5cm
+
+\tiny\centering
+\begin{tabular}{| l || c | c |}
+  \hline
+  Poscondición \ldots & abstracta se cumple & abstracta falla \\
+  \hline \hline
+  concreta se cumple & \parbox[t]{2cm}{Éxito} & \parbox[t]{3cm}{``Este procedimiento no implementa el abstracto, revisar acoplamiento''} \\
+  \hline
+  concreta falla & ``No cumple poscondición'' & ← y ↑ \\
+  \hline
+\end{tabular}
+
+\end{enumerate}
+\end{frame}
+
+
+\subsection{Apuntadores}
+\begin{frame}{Apuntadores}
+\begin{itemize}
+  \item Se desea un uso sencillo pero sin límites excesivos para los apuntadores
+  \item Se considera apropiado manejar apuntadores exclusivamente a estructuras en el \textit{heap},
+    manejados con palabras clave \texttt{new} y \texttt{free}.
+  \item Interacción delicada con tipos de datos estructurados al momento de verificar aserciones.
+\end{itemize}
+\end{frame}
+
+
+\section{Resultados}
+
+\subsection{Resultados esperados}
+\begin{frame}{Resultados esperados}
+\begin{itemize}
+  \item Especificación formal de la extensión de Graciela a implantar.
+  \item Extensión del front-end del compilador.
+\end{itemize}
+
+\end{frame}
+
+\subsection{Actividades propuestas}
+\begin{frame}{Actividades propuestas}
+\begin{itemize}
+  \item Evaluar las recomendaciones del jurado del proyecto de grado de Araujo y
+Jiménez sobre la semántica del lenguaje propuesta por ellos.
+  \item Revisión de la bibliografía existente para el manejo de tipos definidos
+por el usuario en el contexto de programación formal.
+  \item Implantación de un Lexer y un Parser extendidos que soporten las nuevas
+funcionalidades propuestas.
+\end{itemize}
+
+\end{frame}
+
+\end{document}

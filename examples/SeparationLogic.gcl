@@ -1,0 +1,157 @@
+/*% LANGUAGE LogicAnywhere %*/
+/*% LANGUAGE GetAddressOf  %*/
+/*% LANGUAGE EnableTrace   %*/
+
+program SepLogic.bin begin
+
+
+
+abstract TreeA
+begin
+  
+  {inv true inv}
+
+  // func buildHeap( tree : TreeA(T)*
+  //               , b : int  
+  //               ) -> function int -> int
+  //   {pre  true  pre}
+  //   {post true post}
+
+  // func duplicateInHeap ( tree  : TreeA(T)*
+  //                      , heap  : function int -> int 
+  //                      ) -> boolean
+  //   {pre  true  pre}
+  //   {post true post}
+  
+  // func isBinaryTree ( tree  : TreeA(T)*
+  //                   , heap  : function int -> int
+  //                   , b : int
+  //                   ) -> boolean
+  //   {pre  true  pre}
+  //   {post true post}
+
+
+end
+
+type Tree(T) implements TreeA
+begin
+  var l, r : Tree(T)*;
+  var info : T;
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  func buildHeap( tree : Tree(T)*
+                , b : int  
+                ) -> function int -> int
+    let heap := func({(toInt(tree), toInt(tree) + sizeof(Tree(T)))}) : function int -> int;
+    let left, right := (*tree).l, (*tree).r : Tree(T)*;
+    {pre  true  pre}
+    {post true post}
+    {bound b bound} 
+    |[ if left  == null /\ right == null -> heap
+       [] left  == null -> buildHeap(right, b-1) union heap
+       [] right == null -> buildHeap( left, b-1) union heap
+       [] otherwise -> buildHeap(left, b-1) union buildHeap(right, b-1) union heap
+       fi
+    ]|
+
+
+  // // func duplicateInHeap ( tree  : Tree(T)*
+  // //                      , heap  : function int -> int 
+  // //                      ) -> boolean
+
+  //   {pre  true  pre}
+  //   {post true post}
+  //   |[ 1 < (% count i : int 
+  //              | i elem domain(heap) 
+  //              | toInt(tree) >= i /\ toInt(tree) + sizeof(Tree(T)) <= heap(i) %)
+  //   ]|
+
+  // // func isBinaryTree ( tree  : Tree(T)*
+  // //                   , heap  : function int -> int
+  // //                   , b : int
+  // //                   ) -> boolean
+  // //   {pre  true  pre}
+  // //   {post true post}
+  // //   {bound b bound}
+  // //   |[ if tree == null -> true
+  // //      [] !duplicateInHeap(tree,heap)
+  // //           -> isBinaryTree((*tree).l, heap, b-1) /\ 
+  // //              isBinaryTree((*tree).r, heap, b-1)
+  // //      [] otherwise -> false
+  // //      fi
+
+  // //   ]|
+
+  // // func f (tree : Tree(T)*,  b : int) -> boolean
+  // //   {pre   true  pre}
+  // //   {post  true post}
+  // //   {bound b bound}
+  // //   |[ if tree == null -> true
+  // //      [] otherwise -> f((*tree).l, b-1) /\ f((*tree).r, b-1)
+  // //      fi
+  // //   ]|
+
+  // // proc g (in tree : Tree(T)*, in b : int)
+  // //   {pre   true  pre}
+  // //   {post  true post}
+  // //   {bound b bound}
+  // //   |[ if tree == null  -> writeln(true)
+  // //      [] otherwise -> g((*tree).l, b-1); g((*tree).r, b-1)
+  // //      fi
+  // //   ]|
+  // func duplicateInHeap ( tree  : Tree(T)*
+  //                      ) -> int
+  //   {pre   true  pre}
+  //   {post  true post}
+  //   |[
+  //     1
+  //   ]|
+
+end
+
+
+
+
+proc f (out tree : Tree(int))
+  {pre  true  pre}
+  {post true post}
+  |[ write(tree.info, "  ", tree.l, "  ", tree.r)
+   ; tree.info := 1
+
+  ]|
+
+
+main
+  |[ var tb : Tree(int)*
+   ; var i,j  : int
+   ; var c    : boolean
+   ; var heap  := func({}) : function int -> int
+   ; var px : int *
+   
+   ; new (tb)
+   ; f(*tb)
+   ; write( "  ", (*tb).info)
+
+   // ; new(tb.r)
+   // ; new(tb.l)
+   // ; writeln(toInt(&tb))
+   // ; writeln(toInt(tb.r))
+   // ; heap := buildHeap(&tb,100)
+   // ; c := isBinaryTree(&tb, heap, 100)
+   // ; writeln("Is binary Tree? ",c )
+   
+   
+   // ; free(tb.r)
+   
+   // ; tb.r := tb.l
+   // ; heap := buildHeap(&tb,100)
+   // ; c := isBinaryTree(&tb, heap, 100)
+   // ; writeln("Is binary Tree? ", c)
+   // ; heap := buildHeap(&tb,100)
+   // ; i := duplicateInHeap((*tb).r)
+   // ; writeln(c)
+   // ; free(tb.l)
+
+  ]|
+end

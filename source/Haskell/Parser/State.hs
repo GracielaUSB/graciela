@@ -1,0 +1,110 @@
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedLists   #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
+
+module Parser.State
+  ( State (..)
+  , CurrentRoutine (..)
+  , CurrentFunc
+  , CurrentProc
+  , errors
+  , symbolTable
+  , filesToRead
+  , definitions
+  , currentProc
+  , currentFunc
+  , currentStruct
+  , coupling
+  , typeVars
+  , existsDT
+  , dataTypes
+  , fullDataTypes
+  , initialState
+  , stringIds
+  , pragmas
+  , isDeclarative
+  , useLet
+  
+  , crName
+  , crPos
+  , crParams
+  , crType
+  , crRecAllowed
+  , crRecursive
+  ) where
+--------------------------------------------------------------------------------
+import           AST.Definition
+import           AST.Struct
+import           AST.Type
+import           Error
+import           SymbolTable
+import           Token
+import           Common
+--------------------------------------------------------------------------------
+import           Control.Lens          (makeLenses)
+import           Data.Map.Strict       (Map)
+import qualified Data.Map.Strict       as Map (empty, fromList)
+import           Data.Sequence         (Seq)
+import qualified Data.Sequence         as Seq (empty)
+import           Data.Set              (Set)
+import qualified Data.Set              as Set (empty)
+import           Data.Text             (Text, pack)
+import           Text.Megaparsec.Error (ParseError (..))
+import           Text.Megaparsec.Pos   (unsafePos)
+--------------------------------------------------------------------------------
+
+type RecursionAllowed = Bool
+
+data CurrentRoutine ps t = CurrentRoutine
+  { _crName       :: Text
+  , _crPos        :: SourcePos
+  , _crParams     :: ps
+  , _crType       :: t
+  , _crTypeArgs   :: Maybe (Text,TypeArgs)
+  , _crRecAllowed :: RecursionAllowed
+  , _crRecursive  :: Bool }
+
+makeLenses ''CurrentRoutine
+
+type CurrentProc = CurrentRoutine (Seq (Text, Type, ArgMode)) ()
+type CurrentFunc = CurrentRoutine (Seq (Text, Type)) Type
+
+data State = State
+  { _errors        :: Seq (ParseError TokenPos Error)
+  , _symbolTable   :: SymbolTable
+  , _definitions   :: Map Text Definition
+  , _filesToRead   :: Set String
+  , _currentProc   :: Maybe CurrentProc
+  , _currentFunc   :: Maybe CurrentFunc
+  , _currentStruct :: Maybe (Type, Fields, Map Text Definition, Fields)
+  , _coupling      :: Bool
+  , _typeVars      :: [Text]
+  , _existsDT      :: Bool
+  , _dataTypes     :: Map Text Struct
+  , _fullDataTypes :: Map Text [TypeArgs]
+  , _stringIds     :: Map Text Int
+  , _pragmas       :: Set Pragma
+  , _isDeclarative :: Bool
+  , _useLet        :: Bool }
+
+makeLenses ''State
+
+initialState :: Set Pragma -> State
+initialState pragmas = State
+  { _errors        = Seq.empty
+  , _symbolTable   = emptyGlobal
+  , _definitions   = Map.empty
+  , _filesToRead   = Set.empty
+  , _currentProc   = Nothing
+  , _currentFunc   = Nothing
+  , _currentStruct = Nothing
+  , _coupling      = False
+  , _typeVars      = []
+  , _existsDT      = True
+  , _dataTypes     = Map.empty
+  , _fullDataTypes = Map.empty
+  , _stringIds     = Map.empty
+  , _pragmas       = pragmas
+  , _isDeclarative = LogicAnywhere `elem` pragmas
+  , _useLet        = False }

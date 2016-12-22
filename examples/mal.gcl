@@ -1,0 +1,87 @@
+/*% LANGUAGE LogicAnywhere %*/
+/*% LANGUAGE GetAddressOf %*/
+
+program mal.bin begin
+
+
+
+proc insertHeap( inout r : function int -> int, in loc : int, in size : int )
+  {pre  true  pre}
+  {post true post}
+  |[ r := r union func({(loc, loc + size)}) ]|
+
+main
+  ⟦ const M, N, Ñ := 6, 8, 6 : int
+  ; var i, j, k := 0, 0, 0 : int
+  ; var x : array [M, N, Ñ] of int
+  ; var y : int
+  ; var c : char
+  ; var px := &i : int*
+
+  ; y := 5
+  
+
+  { px == &(i) }
+
+  ; {inv   true    inv}
+    {bound M - i bound}
+    do i < M -> {inv   true    inv}
+                {bound N - j bound}
+                do j < N -> {inv true inv}
+                            {bound Ñ - k bound}
+                            do k < Ñ -> x [i, j, k] := i + j + k
+                                      ; write (i+j+k, " ")
+                                      ; k := k + 1
+                            od
+                          ; k, j := 0, j + 1
+                          ; writeln()
+                od
+              ; writeln()
+              ; writeln()
+              ; j, i := 0, i + 1
+    od
+
+  ; { {4} \ {4} == {} }
+  ; { ⟨1,2,3⟩ ++ ⟨x : int | 0 < x /\ x < 4 | x⟩ == ⟨1,2,3,1,2,3⟩}
+  ; { ⟅1, 2, 3, 3⟆ union ⟅1, 1, 2, 3⟆ == ⟅1, 1, 2, 3, 3⟆ }
+  ; { rel({x : int | 0 < x /\ x < 10 | (x,x)}) == rel({x : int | 0 < x /\ x < 10 | (x,x)})}
+
+  ; { (% product i : float | i == 3.14 /\ false | i      %) == 1.0 }
+  ; { (% sum     i : float | i == 3.14 /\ false | i      %) == 0.0 }
+  ; { (% count   i : float | i == 3.14 /\ false | i == i %) == 0 }
+
+  ; { (% max     i : float | i == 3.14 |    i   %) == 3.14 }
+  ; { (% min     i : float | i == 3.14 |    i   %) == 3.14 }
+  ; { (% product i : float | i == 3.14 |    i   %) == 3.14 }
+  ; { (% sum     i : float | i == 3.14 |    i   %) == 3.14 }
+  ; { (% count   i : float | i == 3.14 | i == i %) ==    1 }
+
+  ; { (% product i : int | i == 3 /\ false |    i   %) == 1 }
+  ; { (% sum     i : int | i == 3 /\ false |    i   %) == 0 }
+  ; { (% count   i : int | i == 3 /\ false | i == i %) == 0 }
+
+  ; { (% max     i : int | i == 3 |    i   %) == 3 }
+  ; { (% min     i : int | i == 3 |    i   %) == 3 }
+  ; { (% product i : int | i == 3 |    i   %) == 3 }
+  ; { (% sum     i : int | i == 3 |    i   %) == 3 }
+  ; { (% count   i : float | i elem {1.0,1.2,0.1} | i >= 0.0 %) == 3 }
+
+
+
+  ; { 0 elem {x : int | 0 <= x /\ x < 5 | x, x+10} } 
+  ; { 0 elem {x : int | x < 5 /\ 0 <= x | x, x+10} }
+
+  ; { 0 elem {x : int | 0 <= x /\ x < 5 | x, x+10} }
+  ; { ⟨x : int  |  0  < x /\ x <  5  | x⟩ == ⟨1,2,3,4⟩ }
+  ; { ⟨x : int  |  0  < x /\ x <  5  | x⟩ != ⟨1,2,3,4,5⟩ }
+  ; { i mod 2 == 1 ==> x[100,100,100] > 0 }         // Test for jumping code
+  ; { (% forall i : int | i elem << >> | i > 0 %) } // Quant over set not implemented yet
+  ; { ⟨x : char | 'a' < x /\ x < 'd' | x⟩ != ⟨'c','b'⟩ }
+  ; { ⟨x : char | 'a' < x /\ x < 'd' | x⟩ == ⟨'b','c'⟩ }
+
+
+  ; writeln (&i)
+  ; writeln (toInt(&i), "\n", toInt(&i) + sizeof(float))
+  ⟧
+
+end

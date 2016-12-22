@@ -1,0 +1,120 @@
+program nuevo.bin begin
+
+  abstract a(T)
+  begin
+  	/* a variables */
+  	{inv true inv}
+  	/* a procedures and functions */
+  end
+  type c(T) implements a(T)
+  begin
+    /* c variables */    
+    var kito : int;
+    {repinv true repinv}
+  
+    {coupinv true coupinv}
+    /* c procedures and functions */
+  end
+
+  type b(T) implements a(T)
+  begin
+    /* b variables */
+    var i : array[2] of int;
+    var c : c(T);
+    var ent : T;
+    {repinv true repinv}
+    {coupinv true coupinv}
+    /* b procedures and functions */
+    proc s (in t : b(T), in bo : array[2] of int)
+      {pre true pre}
+      {post true post}
+      |[ writeln(t.i[0]) ; write(bo[0])
+      ]|
+    proc jamon (in t : b(T)*, in x : T)
+      {pre true pre}
+      {post true post}
+      |[ write((*t).ent == x)
+    
+      ]|
+
+    func fn (x : b(int)) -> int
+      {pre  true pre}
+      {post  true post}
+      |[
+        1
+      ]|
+  end
+
+  proc hola (out a : array[2,2] of int, in b : array [2,2] of int)
+    {pre true pre}
+    {post true post}
+    |[ writeln("< ",a[1,1])
+     ; writeln("< ",b[1,1])
+     ; a[1,1] := 999
+     ; b[1,1] := 189
+     ; writeln("> ",a[1,1])
+     ; writeln("> ",b[1,1])
+    ]|
+
+  proc test(out a : int, inout b : int, in c : int, ref d : int )
+    {pre true pre}
+    {post true post}
+    |[ writeln("a = ", a)
+     ; writeln("b = ", b)
+     ; writeln("c = ", c)
+     ; writeln("d = ", d)
+     ; a := 1
+     ; b := 2
+     ; c := 3
+     ; d := 4
+     ; writeln("a = ", a)
+     ; writeln("b = ", b)
+     ; writeln("c = ", c)
+     ; writeln("d = ", d)
+    ]|
+
+  proc arr (const m : int, in a : array[m] of float)
+    {pre true pre}
+    {post true post}
+    |[ writeln(" > ", a[0])
+     ; writeln(" > ", a[1])
+     ; writeln(" > ", a[2])
+     ; writeln(" > ", a[3])
+     ; writeln(" > ", a[4])
+     ; writeln(" > ", a[5])
+
+    ]|
+
+  proc g (in x : int, in a : array[x] of int)
+    {pre true pre}
+    {post true post}
+    |[ var l : array[x] of int
+     ; x := 100
+     ; if true -> var l : array[x] of char fi
+    ]|
+main
+  |[ var t : b(char)*
+   ; var a : array[6] of float
+   ; var i := 101 : int
+   ; test(i,i,i,i)
+   ; new(t)
+   ; a[0] := 1.1
+   ; a[1] := 2.2
+   ; a[2] := 3.3
+   ; a[3] := 4.4
+   ; a[4] := 5.5
+   ; a[5] := 6.6
+   ; arr(6,a)
+   ; writeln(" .. ", a[0])
+   ; writeln(" .. ", a[1])
+   ; writeln(" .. ", a[2])
+   ; writeln(" .. ", a[3])
+   ; writeln(" .. ", a[4])
+   ; writeln(" .. ", a[5])
+   ; jamon(t,'l')
+   // ; t.i[0] := true
+   ; test(i,i,i,i)
+   // ; s(t,t.i)
+   // ; writeln(t.i[0])
+  ]|
+end

@@ -1,0 +1,9 @@
+program k begin
+
+/*% LANGUAGE Trace %*/
+
+main
+  |[writeln (
+    (% forall i : float | i elem {:j:float| j elem {:1.0,2.0,3.0, 1.0:} /\ j < 2.2 | j:} | trace(i) == i %)
+  )]|
+end

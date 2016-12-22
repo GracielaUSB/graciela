@@ -1,0 +1,27 @@
+program refref.bin begin
+
+proc monascal_ref (ref x : int, ref y : int)
+  {pre true pre}
+  {post true post}
+  |[ x := x * 3
+  ;  y := x + y
+  ]|
+
+proc monscal_inout (inout x : int, inout y : int)
+  {pre true pre}
+  {post true post}
+  |[ x := x * 3
+  ;  y := x + y
+  ]|
+
+main
+  |[ var a : int
+  ;  a := 1
+  ;  monascal_ref (a, a)
+  ;  writeln(a) // should print 6
+
+  ;  a := 1
+  ;  monscal_inout (a, a)
+  ;  writeln(a) // should print 4
+  ]|
+end
