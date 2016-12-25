@@ -37,7 +37,6 @@ import           Common
 import           Data.Array     (Array, bounds, (!))
 import           Data.Ix        (inRange)
 import           Data.List      (intercalate, nub)
-import           Data.Sequence  (Seq)
 import qualified Data.Sequence  as Seq (zipWith)
 import           Data.Text      (Text)
 import           Prelude        hiding (takeWhile)

@@ -11,10 +11,8 @@ import           SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Lens    ((%~), _2)
 import           Data.List       (intercalate)
-import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map (toList)
-import           Data.Sequence   (Seq)
-import           Data.Text       (Text, unpack)
+import           Data.Text       (Text)
 --------------------------------------------------------------------------------
 
 type Fields = Map Text (Integer, Type, Bool, Maybe Expression)

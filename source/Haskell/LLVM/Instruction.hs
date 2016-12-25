@@ -32,7 +32,7 @@ import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
                                                             zip, (|>))
-import           Data.Text                          (pack, unpack, Text)
+import           Data.Text                          (Text)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
 import           LLVM.General.AST.AddrSpace

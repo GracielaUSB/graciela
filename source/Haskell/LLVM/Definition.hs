@@ -34,12 +34,10 @@ import           Treelike
 import           Control.Lens                        (use, (%=), (&), (.=))
 import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
-import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
 import           Data.Maybe                          (fromMaybe, isJust, fromJust)
-import           Data.Sequence                       as Seq (empty, fromList)
-import qualified Data.Sequence                       as Seq (empty)
-import           Data.Text                           (Text, pack, unpack)
+import qualified Data.Sequence                       as Seq (empty,fromList)
+import           Data.Text                           (Text)
 import           Data.Word                           (Word32)
 import           LLVM.General.AST                    (BasicBlock (..),
                                                       Named (..),
@@ -742,7 +740,7 @@ definition
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
   mapM_ addFile files
-  addDefinitions $ fromList
+  addDefinitions $ Seq.fromList
 
     [ defineFunction copyArrayString [ parameter ("size"     , intType)
                                      , parameter ("arrSource", pointerType)

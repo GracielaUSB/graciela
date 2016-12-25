@@ -27,7 +27,6 @@ import           LLVM.Type                         (toLLVMType, llvmName, fill)
 import           Control.Lens                      (use)
 import           Data.Maybe                        (isJust)
 import           Data.Map                          as Map (lookup)
-import Data.Text (unpack)
 import qualified LLVM.General.AST.Constant         as C
 import qualified LLVM.General.AST.CallingConvention  as CC (CallingConvention (C))
 import           LLVM.General.AST.Instruction      (Instruction (..),

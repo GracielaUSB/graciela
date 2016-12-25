@@ -53,7 +53,6 @@ import qualified Data.Sequence                           as Seq (ViewR (EmptyR),
                                                                  fromList,
                                                                  singleton,
                                                                  viewr)
-import           Data.Text                               (unpack)
 import           Data.Word                               (Word32)
 import           LLVM.General.AST                        (Definition (..))
 import           LLVM.General.AST.Attribute
