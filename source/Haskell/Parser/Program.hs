@@ -68,6 +68,7 @@ program = do
       fdts'   <- use fullDataTypes
       strings <- use stringIds
       
+
       -- Put pending data types as full data types
       forM_ (Map.toList fdts') $ \(name, typeargs) -> do
         case name `Map.lookup` pend of 
@@ -83,6 +84,7 @@ program = do
 
       -- Take the new full data types
       fdts' <- use fullDataTypes   
+      -- internal $ show fdts'
 
       let 
         aux (name, typeArgs) = case name `Map.lookup` dts of

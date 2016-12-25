@@ -24,7 +24,7 @@ import           Token
 --------------------------------------------------------------------------------
 import           Control.Lens          (makeLenses, use, (%~))
 import           Control.Monad.State   (State, evalState, modify)
-import           Data.Set              (Set, union, (\\))
+import           Data.Set              (union, (\\))
 import qualified Data.Set              as Set (empty)
 import           Data.Text             (Text)
 import           Prelude               hiding (lex)

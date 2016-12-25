@@ -76,11 +76,7 @@ import           Prelude                                 hiding (Ordering (..))
 
 expression' :: Expression -> LLVM Operand
 expression' e@Expression { expType } = do
-  st <- use substitutionTable
-  let
-    t = case st of
-      ta:_ -> fillType ta expType
-      _    -> expType
+  t <- fill expType
 
   if t == GBool
     then wrapBoolean e { expType = t }
@@ -935,11 +931,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         case Seq.viewr fArgs of
           Seq.EmptyR -> internal "impossible trace"
           _ :> e -> do
-            subst <- use substitutionTable
-            let
-              type' = case subst of
-                t:_ -> fillType t expType
-                []  -> expType
+            type' <- fill expType
             expression' $ case type' of
               GBool  -> e { exp' = exp'
                 { fName = pack $ if strx
@@ -978,8 +970,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
       fName' <- case fStructArgs of
         Just (structBaseName, typeArgs) -> do
-          llvmName (fName <> "-" <> structBaseName) <$>
-            mapM toLLVMType (toList typeArgs)
+          t' <- mapM fill (toList typeArgs)
+          pure $ llvmName (fName <> "-" <> structBaseName) t'
         _ -> pure . unpack $ fName
 
       recArgs <- fmap (,[]) <$> if fRecursiveCall
@@ -1003,11 +995,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
       where
         createArg expr@Expression { expType, exp' } = do
-          subst <- use substitutionTable
-          let
-            type' = case subst of
-              t:_ -> fillType t expType
-              []  -> expType
+          type' <- fill expType
 
           (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
             then
@@ -1061,11 +1049,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
     I64Cast { inner = inner @ Expression {expType = iType} } -> do
       i <- expression' inner
 
-      subst <- use substitutionTable
-      let
-        type' = case subst of
-          targs:_ -> fillType targs iType
-          []      -> iType
+      type' <- fill iType
 
       t <- newUnLabel
 

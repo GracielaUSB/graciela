@@ -50,12 +50,7 @@ boolean :: --(Expression -> LLVM Operand) -- ^ non-boolean expression code gener
          -> Expression -- ^ boolean expression
          -> LLVM ()
 boolean true false e@Expression { loc, exp' } = do
-  st <- use substitutionTable
-  let
-    t' = expType e
-    t  = case st of
-      ta:_ -> fillType ta t'
-      _    -> t'
+  t  <- fill $ expType e
   if t /= GBool
     then internal
       "attempted to generate non-boolean expression with `boolean` \
@@ -111,10 +106,7 @@ boolean true false e@Expression { loc, exp' } = do
           rOperand <- expression rexpr
 
           item <- newLabel "item"
-          substs <- use substitutionTable
-          lType' <- case substs of
-            subst : _ -> pure $ fillType subst (expType lexpr)
-            _         -> pure $ expType lexpr
+          lType' <- fill $ expType lexpr
           addInstruction $ item := case lType' of
             GFloat -> BitCast
               { operand0 = lOperand
@@ -157,11 +149,7 @@ boolean true false e@Expression { loc, exp' } = do
         lOperand <- expression lexpr -- The operands can only be chars, ints
         rOperand <- expression rexpr -- or floats, nothing else
 
-        subst <- use substitutionTable
-        let
-          type' = case subst of
-            targs:_ -> fillType targs (expType lexpr <> expType rexpr)
-            []      -> expType lexpr <> expType rexpr
+        type' <- fill $ expType lexpr <> expType rexpr
 
         comp <- newLabel "comp"
 
@@ -188,11 +176,7 @@ boolean true false e@Expression { loc, exp' } = do
           , metadata' = [] }
 
       _ | binOp `elem` [AEQ, ANE, BEQ, BNE] -> do
-        subst <- use substitutionTable
-        let
-          type' = case subst of
-            targs:_ -> fillType targs (expType lexpr <> expType rexpr)
-            []      -> expType lexpr <> expType rexpr
+        type' <- fill $ expType lexpr <> expType rexpr
 
         [lOperand, rOperand] <- [lexpr, rexpr] `forM` \x ->
           case type' of
@@ -317,8 +301,8 @@ boolean true false e@Expression { loc, exp' } = do
 
       fName' <- case fStructArgs of
         Just (structBaseName, typeArgs) -> do
-          llvmName (fName <> "-" <> structBaseName) <$>
-            mapM toLLVMType (toList typeArgs)
+          t' <- mapM fill (toList typeArgs)
+          pure $ llvmName (fName <> "-" <> structBaseName) t'
         _ -> pure . unpack $ fName
 
       recArgs <- fmap (,[]) <$> if fRecursiveCall
@@ -347,11 +331,7 @@ boolean true false e@Expression { loc, exp' } = do
 
       where
         createArg x@Expression { expType, exp' } = do
-          subst <- use substitutionTable
-          let
-            type' = case subst of
-              targs:_ -> fillType targs expType
-              []      -> expType
+          type' <- fill expType
 
           (,[]) <$> if
             | type' == GBool -> wrapBoolean x
@@ -424,11 +404,7 @@ wrapBoolean :: --(Expression -> LLVM Operand)
              Expression
             -> LLVM Operand
 wrapBoolean e@Expression { expType } = do
-  st <- use substitutionTable
-  let
-    t = case st of
-      (ta:_) -> fillType ta expType
-      _      -> expType
+  t <- fill expType
   if t /= GBool
     then internal $
       "attempted to generate non-boolean expression with `wrapBoolean` \

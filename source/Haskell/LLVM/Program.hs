@@ -51,13 +51,10 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Named (..),
                                                           Terminator (..))
 import qualified LLVM.General.AST.IntegerPredicate       as IL
-import           LLVM.General.AST.Name                   (Name (..))
-import           LLVM.General.AST.Operand                (CallableOperand,
-                                                          Operand (..))
+import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type
 import           System.Info                             (arch, os)
-import           System.Process                          (callCommand,
-                                                          readProcess)
+import           System.Process                          (readProcess)
 --------------------------------------------------------------------------------
 
 -- addFile :: String -> LLVM ()

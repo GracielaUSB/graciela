@@ -189,10 +189,10 @@ definition
 
       cs <- use currentStruct
       let
-        couple' fn (name, t) = do
-          name' <- getVariableName name
-          exit  <- callCouple fn name' t Nothing
-          when (isJust exit) $ (fromJust exit #)
+        -- couple' fn (name, t) = do
+        --   name' <- getVariableName name
+        --   exit  <- callCouple fn name' t Nothing
+        --   when (isJust exit) $ (fromJust exit #)
         invariant' fn (name, t) = do
           name' <- getVariableName name
           exit  <- callInvariant fn preOperand name' t Nothing
@@ -207,20 +207,21 @@ definition
       (postFix, returnOperand) <- case cs of
         Nothing -> do
 
-          forM_ dts (couple' "couple")
+          -- forM_ dts (couple' "couple")
 
           ("",) <$> body
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          t' <- mapM fill structTypes
+          let postFix = llvmName ("-" <> structBaseName) t'
 
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
 
-          forM_ dts (couple' "couple")
+          -- forM_ dts (couple' "couple")
 
 
           case maybeProc of
@@ -290,10 +291,10 @@ definition
       
       cs <- use currentStruct
       let
-        couple' fn (name, t, _) = do
-          name' <- getVariableName name
-          exit  <- callCouple fn name' t Nothing
-          when (isJust exit) $ (fromJust exit #)
+        -- couple' fn (name, t, _) = do
+        --   name' <- getVariableName name
+        --   exit  <- callCouple fn name' t Nothing
+        --   when (isJust exit) $ (fromJust exit #)
         invariant' fn (name, t, _) = do
           name' <- getVariableName name
           exit  <- callInvariant fn cond name' t Nothing
@@ -304,7 +305,7 @@ definition
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> Nothing
-          forM_ dts (couple' "couple")
+          -- forM_ dts (couple' "couple")
           forM_ dts (invariant' "coupInv")
           forM_ dts (invariant' "repInv" )
           
@@ -321,7 +322,7 @@ definition
 
           
 
-          forM_ dts (couple' "couple")
+          -- forM_ dts (couple' "couple")
           forM_ dts (invariant' "coupInv")
           
           forM_ dts (invariant' "inv"    )
@@ -330,39 +331,17 @@ definition
           
       pName <- case cs of
         Nothing -> do
-          forM_ dts (couple' "couple")
+          -- forM_ dts (couple' "couple")
           body Nothing
 
           pure $ unpack defName
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          t' <- mapM fill structTypes
+          let postFix = llvmName ("-" <> structBaseName) t'
 
-          
           body abstractStruct
-          
-
---           let
---             maybeProc = case abstractStruct of
---               Just Struct {structProcs} -> defName `Map.lookup` structProcs
---               Nothing -> error "Internal error: Missing Abstract Data Type."
-
-          -- mapM_ (callCouple "couple") dts
---           case maybeProc of
---             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
---               mapM_ declaration abstPDecl
---               preconditionAbstract cond pre' pos
---             _ -> pure ()
-
---           body
-
---           case maybeProc of
---             Just Definition{post = post'} -> postconditionAbstract cond post' pos
---             _                             -> pure ()
-
-
-
           pure $ unpack defName <> postFix
 
       postcondition cond post
@@ -387,11 +366,7 @@ definition
     makeParam' (name, t) = makeParam True (name, t, T.In)
 
     makeParam isFunc (name, t, mode)  = do
-      substTable <- use substitutionTable
-      let
-        t' = if null substTable
-              then t
-              else T.fillType (head substTable) t
+      t' <- fill t
 
       name' <- insertVar name
       t'    <- toLLVMType t
@@ -534,8 +509,8 @@ definition
     
     callCouple funName name t exit | t =:= T.GADataType = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$>
-                    (mapM toLLVMType . toList $ T.typeArgs t)
+      t' <- mapM fill (toList $ T.typeArgs t)
+      let postFix = llvmName ("-" <> T.typeName t) t'
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
@@ -556,8 +531,8 @@ definition
 
     callInvariant funName cond name t exit = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$>
-                    (mapM toLLVMType . toList $ T.typeArgs t)
+      t' <- mapM fill (toList $ T.typeArgs t)
+      let postFix = llvmName ("-" <> T.typeName t) t'
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing

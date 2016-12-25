@@ -185,7 +185,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       (lvals, exprs) = unzip . toList $ assignPairs
 
       assign' lval value = do
+        doGet .= False
         ref <- objectRef lval
+        doGet .= True
         type' <- toLLVMType . objType $ lval
         addInstruction $ Do Store
           { volatile       = False
@@ -235,8 +237,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
     pName' <- case pStructArgs of
       Just (structBaseName, typeArgs) -> do
-        llvmName (pName <> pack "-" <> structBaseName) <$>
-          mapM toLLVMType (toList typeArgs)
+        t' <- mapM fill (toList typeArgs)
+        pure $ llvmName (pName <> pack "-" <> structBaseName) t'
       _ -> pure . unpack $ pName
 
     recArgs <- fmap (,[]) <$> if pRecursiveCall
@@ -286,10 +288,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 copyArray t operand destPtr
 
               t | t =:= GADataType -> do
-                types <- mapM toLLVMType (toList . typeArgs $ expType)
+                types <- mapM fill (toList . typeArgs $ expType)
 
                 let 
-                  copyFunc = "copy" <>llvmName (typeName expType) types
+                  copyFunc = "copy" <> llvmName (typeName expType) types
 
                 addInstruction $ Do Call
                   { tailCallKind       = Nothing
@@ -404,7 +406,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
                 t | t =:= GADataType -> do
 
-                  types <- mapM toLLVMType (toList . typeArgs $ expType)
+                  types <- mapM fill (toList . typeArgs $ expType)
+
                   let 
                     postfix = llvmName (typeName expType) types               
 
@@ -503,29 +506,6 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
               pure $ (LocalReference type' aux,[])
 
-
-
-
-          
-      --   subst <- use substitutionTable
-      --   let type' = case subst of
-      --         t:_ -> fillType t (expType e)
-      --         []  -> expType e
-
-      --   (, []) <$> if mode == In && (type' =:= basicT)
-      --     then expression' e
-      --     else do
-      --       label <- newLabel "argCast"
-      --       ref   <- objectRef (theObj . exp' $ e) False
-
-      --       type' <- ptr <$> (toLLVMType . expType $ e)
-      --       addInstruction $ label := BitCast
-      --         { operand0 = ref
-      --         , type'    = type'
-      --         , metadata = [] }
-      --       pure $ LocalReference type' label
-      -- basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
-
   Free { idName, freeType } -> do
     labelLoad  <- newLabel "freeLoad"
     labelCast  <- newLabel "freeCast"
@@ -612,13 +592,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               , metadata           = [] }
 
         case freeType of
-          GFullDataType n t -> do
-            types <- mapM toLLVMType (toList t)
-            addInstruction $ call (llvmName n types)
+          -- GBFullDataType n t -> do
+          --   types <- mapM toLLVMType (toList t)
+          --   addInstruction $ call (llvmName n types)
 
           GDataType n t _ -> do
             subst:_ <- use substitutionTable
-            types <- mapM toLLVMType $ toList subst
+            types <- mapM fill $ toList subst
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -786,13 +766,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             , metadata           = [] }
 
         case nType of
-          GFullDataType n t -> do
-            types <- mapM toLLVMType (toList t)
-            addInstruction $ call (llvmName n types)
+          -- GBFullDataType n t -> do
+          --   types <- mapM toLLVMType (toList t)
+          --   addInstruction $ call (llvmName n types)
 
           GDataType n t _ -> do
             subst:_ <- use substitutionTable
-            types <- mapM toLLVMType $ toList subst
+            types <- mapM fill $ toList subst
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -814,11 +794,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       write (operand, t') = do
         -- Build the operand of the expression
 
-        st <- use substitutionTable
-        let
-          t = case st of
-            ta:_ -> fillType ta t'
-            _    -> t'
+        t <- fill t'
 
         let
         -- Call the correct C write function
@@ -854,13 +830,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
   Read { file, vars } -> mapM_ readVar vars
     where
       readVar var = do
-        st <- use substitutionTable
-
-        let
-          t' = objType var
-          t = case st of
-            (ta:_) -> fillType ta t'
-            _      -> t'
+        t <- fill $ objType var
 
         (args, fread) <- case file of
           Nothing -> pure . ([],) $ case t of
@@ -918,13 +888,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
 
   Random { var } -> do
-        st <- use substitutionTable
-
-        let
-          t' = objType var
-          t = case st of
-            (ta:_) -> fillType ta t'
-            _      -> t'
+        t <- fill $ objType var
 
         let frand = case t of
               T.GChar  -> randChar

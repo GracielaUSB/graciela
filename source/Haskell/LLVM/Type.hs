@@ -92,34 +92,38 @@ toLLVMType (T.GArray dims t) = do
     , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
 
 
-toLLVMType (GTypeVar i _) = do
-  substs <- use substitutionTable
-  case substs of
-    []        -> internal "subsitituting without substitution table."
-    (subst:_) -> toLLVMType $ subst ! i
+toLLVMType t@(GTypeVar i _) = do
+  subst <- use substitutionTable
+  let 
+    t' = case subst of
+      ta:_ -> fillType ta t
+      []   -> internal $ "No substitution table" <> show subst
+  toLLVMType t'
 
 toLLVMType (GTuple  a b) = do
   a' <- toLLVMType a
   b' <- toLLVMType b
   pure tupleType
 
-toLLVMType (GFullDataType n t) = do
-  fdts <- use fullDataTypes
-  substs <- use substitutionTable
+-- Abstract Data Type
+toLLVMType (GDataType _ Nothing t) = do
+  use currentStruct >>= \case 
+    Just Struct {structBaseName = n, structTypes} -> do
+      t' <- mapM fill structTypes
+      pure . LLVM.NamedTypeReference . Name . llvmName n $ t'
+    Nothing -> internal $ "Trying to get llvm type of abstract data type"
 
-  let
-    t' = case substs of
-      []        -> t
-      (subst:_) -> fmap (fillType subst) t
 
-  types <- mapM toLLVMType t'
-  pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ types
+-- Data Type
+toLLVMType (GDataType n _ t) = do
+  t' <- mapM fill t
+  pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ t'
 
-toLLVMType t@(GDataType{}) = do 
-  t' <- fill t 
-  case t' of 
-    GFullDataType{} -> toLLVMType t'
-    GDataType n _ targs -> toLLVMType (GFullDataType n targs)
+-- toLLVMType t@(GDataType{}) = do 
+--   t' <- fill t 
+--   case t' of 
+--     GBFullDataType{} -> toLLVMType t'
+--     GDataType n _ targs -> toLLVMType (GBFullDataType n targs)
 
 toLLVMType t = internal $ "Could not translate type " <> show t <> " to a llvm type"
 
@@ -142,7 +146,7 @@ sizeOf (GSeq      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _ _) = pure 16
-sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
+-- sizeOf (T.GBFullDataType name typeArgs) = getStructSize name typeArgs
 sizeOf (T.GDataType name _ _) = do
   typeargs <- head <$> use substitutionTable
   getStructSize name  typeargs
@@ -169,14 +173,13 @@ getStructSize name typeArgs = do
       \ unknow data type `" <> unpack name <> "`"
 
 
-llvmName :: Text -> [LLVM.Type] -> String
+llvmName :: Text -> [Type] -> String
 llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') types
   where
-    show' t
-      | t == i1     = "b"
-      | t == i8     = "c"
-      | t == i32    = "i"
-      | t == double = "f"
-      | otherwise   = case t of
-        LLVM.PointerType t' _ -> "p_" <> show' t'
-        t'     -> internal $ "Can not create a llvm name with type " <> show t'
+    show' t = case t of
+      GBool  -> "b"
+      GChar  -> "c"
+      GInt   -> "i"
+      GFloat -> "f"
+      GPointer t' -> "p_" <> show' t' 
+      t' -> internal $ "Can not create a llvm name with type " <> show t'

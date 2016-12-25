@@ -158,7 +158,7 @@ recursiveDecl t dt                = t =:= dt
 isOkAbstract :: SourcePos -> Type -> Parser Type
 isOkAbstract from t = case t of
   GDataType name _ _   -> isOkAbstract' t name
-  -- GFullDataType name _ -> isOkAbstract' t name
+  -- GBFullDataType name _ -> isOkAbstract' t name
   _                    -> pure t 
   where
     isOkAbstract' :: Type -> Text -> Parser Type

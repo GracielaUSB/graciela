@@ -9,7 +9,8 @@ module LLVM.Struct
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
 import           AST.Expression                     (Expression (..))
-import qualified AST.Instruction                    as G (Instruction)
+import qualified AST.Instruction                    as G (Instruction(..), Instruction'(..))
+import qualified AST.Object                         as O
 import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type
 import           Common
@@ -19,6 +20,7 @@ import           LLVM.Definition
 import           LLVM.Expression
 import           LLVM.Instruction                   (instruction, copyArray)
 import           LLVM.Monad
+import           LLVM.Object
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                       (warn)
@@ -72,20 +74,25 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         type' <- Just . StructureType True <$>
           mapM (toLLVMType . (\(_,x,_,_) -> x)) (sortOn (\(i,_,_,_) -> i) fields)
 
-        types <- mapM toLLVMType structTypes
+        types <- mapM fill structTypes
 
         let
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
 
         moduleDefs %= (|> TypeDefinition (Name name) type')
+        currentStruct .= Nothing
+        defineGetters couple name structType -- While building getters, currentStruct must be Nothing
+        currentStruct .= Just ast
+        
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
         defaultCopy name structType typeMap
         defineStructInv CoupInvariant name structType coupinv
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
-        defineCouple couple name structType
+        -- defineCouple couple name structType
+
         mapM_ definition structProcs
         currentStruct .= Nothing
 
@@ -476,7 +483,7 @@ defaultCopy name structType typeMap = do
 
       t | t =:= GADataType -> do
 
-        types <- mapM toLLVMType (toList . typeArgs $ t)
+        types <- mapM fill (toList . typeArgs $ t)
         let 
           postfix = llvmName (typeName t) types  
 
@@ -527,37 +534,94 @@ defaultCopy name structType typeMap = do
 
 
 
-defineCouple :: Seq G.Instruction
-             -> String
-             -> LLVM.Type
-             -> LLVM ()
-defineCouple insts name t = do
-  let
-    procName = "couple-" <> name
+-- defineCouple :: Seq G.Instruction
+--              -> String
+--              -> LLVM.Type
+--              -> LLVM ()
+-- defineCouple insts name t = do
+--   let
+--     procName = "couple-" <> name
 
-  proc <- newLabel $ "proc" <> procName
-  (proc #)
+--   proc <- newLabel $ "proc" <> procName
+--   (proc #)
 
-  openScope
-  name' <- insertVar "_self"
-  mapM_ instruction insts
+--   openScope
+--   name' <- insertVar "_self"
+--   mapM_ instruction insts
 
-  terminate $ Ret Nothing []
-  closeScope
+--   terminate $ Ret Nothing []
+--   closeScope
 
-  blocks' <- use blocks
-  blocks .= Seq.empty
+--   blocks' <- use blocks
+--   blocks .= Seq.empty
 
-  let
-    selfParam    = Parameter (ptr t) name' []
+--   let
+--     selfParam    = Parameter (ptr t) name' []
 
-  addDefinition $ GlobalDefinition functionDefaults
-        { name        = Name procName
-        , parameters  = ([selfParam],False)
-        , returnType  = voidType
-        , basicBlocks = toList blocks' }
+--   addDefinition $ GlobalDefinition functionDefaults
+--         { name        = Name procName
+--         , parameters  = ([selfParam],False)
+--         , returnType  = voidType
+--         , basicBlocks = toList blocks' }
 
 
+
+defineGetters :: Seq G.Instruction
+              -> String
+              -> LLVM.Type
+              -> LLVM ()
+defineGetters insts name t = do
+
+  forM_ insts $ \x -> case G.inst' x of
+    G.Assign {G.assignPairs} -> forM_ assignPairs $ \(lval,expr) -> do
+        let
+          varName = case O.obj' lval of 
+            O.Member{O.fieldName} -> fieldName
+            _              -> internal $ "Could not build the getter of a non member lval"
+
+          procName = "get_" <> unpack varName <> "-" <> name
+
+        proc <- newLabel $ "proc" <> procName
+        (proc #)
+
+        openScope
+        name' <- insertVar "_self"
+
+        value <- expression' expr
+        doGet .= False
+        ref <- objectRef lval
+        doGet .= True
+        type' <- toLLVMType . O.objType $ lval
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = ref
+          , value
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+        loadResult <- newLabel "loadGetter"
+        addInstruction $ loadResult := Load
+          { volatile  = False
+          , address   = ref
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
+
+        terminate $ Ret (Just $ LocalReference (ptr i8) loadResult) []
+        closeScope
+
+        blocks' <- use blocks
+        blocks .= Seq.empty
+
+        let
+          selfParam    = Parameter (ptr t) name' []
+
+        addDefinition $ GlobalDefinition functionDefaults
+              { name        = Name procName
+              , parameters  = ([selfParam],False)
+              , returnType  = ptr i8
+              , basicBlocks = toList blocks' }
 
 
 defineStructInv :: Invariant
@@ -604,14 +668,14 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)} = do
     (precondTrue #)
     case inv of
       CoupInvariant -> abort Abort.CoupInvariant pos
-      Invariant     -> abort Abort.Invariant pos
+      Invariant     -> abort Abort.RepInvariant pos
       RepInvariant  -> abort Abort.RepInvariant pos
 
     (precondFalse #)
 
     case inv of
       CoupInvariant -> warn Warning.CoupInvariant pos
-      Invariant     -> warn Warning.Invariant pos
+      Invariant     -> warn Warning.RepInvariant pos
       RepInvariant  -> warn Warning.RepInvariant pos
 
     terminate Br

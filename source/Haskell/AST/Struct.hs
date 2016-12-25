@@ -34,8 +34,8 @@ data Struct
   = Struct
     { structBaseName :: Text
     , structTypes    :: [Type]
-    , structFields   :: Fields
-    , structAFields  :: Fields
+    , structFields   :: Fields -- All struct field
+    , structAFields  :: Fields -- structFields - abstract fields
     , structProcs    :: Map Text Definition
     , structLoc      :: Location
     , structSt       :: SymbolTable

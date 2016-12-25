@@ -96,9 +96,9 @@ data Type
 
   | GString -- ^ Basic string type.
 
-  | GFullDataType
-    { typeName :: Text
-    , typeArgs :: TypeArgs }
+  -- | GBFullDataType
+  --   { typeName :: Text
+  --   , typeArgs :: TypeArgs }
   | GDataType
     { typeName :: Text
     , abstName :: Maybe Text
@@ -129,15 +129,15 @@ fillType typeArgs (GArray s t) =
 fillType typeArgs (GPointer t) =
   GPointer (fillType typeArgs t)
 
-fillType typeArgs (GFullDataType n as) =
-  GFullDataType n (fillType typeArgs <$> as)
+-- fillType typeArgs (GBFullDataType n as) =
+--   GBFullDataType n (fillType typeArgs <$> as)
 
 fillType typeArgs (GDataType n an as) =
-  let 
-    mk = if null typeArgs || any (=:= GATypeVar) typeArgs
-      then GDataType n an
-      else GFullDataType n
-  in mk (fillType typeArgs <$> as)
+  -- let 
+  --   mk = if null typeArgs || any (=:= GATypeVar) typeArgs
+  --     then GDataType n an
+      -- else GBFullDataType n
+  GDataType n an (fillType typeArgs <$> as)
 
 fillType typeArgs (GSet t) = GSet (fillType typeArgs t)
 fillType typeArgs (GMultiset t) = GMultiset (fillType typeArgs t)
@@ -160,7 +160,7 @@ removeAbst dt t = if dt =:= t
 
 hasDT :: Type -> Maybe Type
 hasDT t@GDataType {}     = Just t
-hasDT t@GFullDataType {} = Just t
+-- hasDT t@GBFullDataType {} = Just t
 hasDT (GArray _ t)       = hasDT t
 hasDT (GPointer t)       = hasDT t
 hasDT _                  = Nothing
@@ -168,7 +168,7 @@ hasDT _                  = Nothing
 hasTypeVar :: Type -> Bool
 hasTypeVar GTypeVar{}               = True
 hasTypeVar GDataType {typeArgs}     = any hasTypeVar typeArgs
-hasTypeVar GFullDataType {typeArgs} = any hasTypeVar typeArgs
+-- hasTypeVar GBFullDataType {typeArgs} = any hasTypeVar typeArgs
 hasTypeVar (GArray _ t)             = hasTypeVar t
 hasTypeVar (GPointer t)             = hasTypeVar t
 hasTypeVar _                        = False
@@ -265,10 +265,10 @@ instance Semigroup Type where
   GATypeVar <> a@(GTypeVar _ _) = a
   GATypeVar <> GATypeVar = GATypeVar
 
-  GFullDataType a fs <> GFullDataType b fs' =
-    if a == b  && fs == fs'
-      then GFullDataType a fs
-      else GUndef
+  -- GBFullDataType a fs <> GBFullDataType b fs' =
+  --   if a == b  && fs == fs'
+  --     then GBFullDataType a fs
+  --     else GUndef
 
   t@(GDataType a (Just a') _) <> GDataType b Nothing _ =
     if a' == b
@@ -285,16 +285,16 @@ instance Semigroup Type where
       then t
       else GUndef
 
-  t@(GDataType a n _) <> GFullDataType b fs = case n of
-    Just name | name == b -> t
-    _ -> if a == b then GFullDataType b fs else GUndef
+  -- t@(GDataType a n _) <> GBFullDataType b fs = case n of
+  --   Just name | name == b -> t
+  --   _ -> if a == b then GBFullDataType b fs else GUndef
 
-  GFullDataType a fs <> t@(GDataType b n _) = case n of
-    Just name | name == a -> t
-    _ -> if a == b then GFullDataType a fs else GUndef
+  -- GBFullDataType a fs <> t@(GDataType b n _) = case n of
+  --   Just name | name == a -> t
+  --   _ -> if a == b then GBFullDataType a fs else GUndef
 
-  a@(GFullDataType _ _) <> GADataType = a
-  GADataType <> a@(GFullDataType _ _) = a
+  -- a@(GBFullDataType _ _) <> GADataType = a
+  -- GADataType <> a@(GBFullDataType _ _) = a
   a@(GDataType _ _ _) <> GADataType = a
   GADataType <> a@(GDataType _ _ _) = a
   GADataType <> GADataType = GADataType
@@ -327,8 +327,8 @@ instance Show Type where
           "tuple (" <> show' a <> ", " <> show' b <> ")"
         GTypeVar  i n   -> unpack n
 
-        GFullDataType n targs   ->
-          unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
+        -- GBFullDataType n targs   ->
+        --   unpack n <> "(" <> intercalate "," (fmap show' (toList targs)) <> ")"
 
         GDataType n na targs -> unpack n <> "(" <> 
           intercalate "," (fmap show' (toList targs)) <> ")" -- <> show na

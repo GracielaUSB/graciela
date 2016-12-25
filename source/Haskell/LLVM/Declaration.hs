@@ -140,10 +140,12 @@ alloc gtype lval = do
     , metadata      = [] }
 
   case gtype of
-    GFullDataType { typeName, typeArgs } -> do
-      types' <- mapM toLLVMType $ toList typeArgs
+    -- GBFullDataType
+    GDataType { typeName, typeArgs } -> do
+      t' <- mapM fill (toList typeArgs)
+      types' <- mapM toLLVMType t'
       let
-        name'  = llvmName typeName types'
+        name'  = llvmName typeName t'
       cast <- newLabel "cast"
 
       addInstruction $ cast := BitCast

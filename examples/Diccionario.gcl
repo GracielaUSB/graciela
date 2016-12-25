@@ -190,7 +190,6 @@ main
   ; var v, c : char
   ; var arr : array[10] of (int*)
   ; var d : Dicc(int, char)
-
   ; writeln("Debido a que el programa debe tenerminar,")
   ; writeln("este prompt se emitira solo un maximo de 100 veces")
   ; {inv   true    inv}

@@ -20,6 +20,7 @@ module LLVM.State
   , stringOps
   , boundOp
   , substitutionTable
+  , doGet
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
@@ -50,12 +51,14 @@ data State = State
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
   , _structs           :: Map Text Struct
+
   , _fullDataTypes     :: Map Text (Struct, Set TypeArgs)
   , _currentStruct     :: Maybe Struct
   , _stringIds         :: Map Text Int
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [TypeArgs] }
+  , _substitutionTable :: [TypeArgs] 
+  , _doGet             :: Bool}
 
 makeLenses ''State
 
@@ -76,4 +79,5 @@ initialState = State
   , _stringIds         = Map.empty
   , _stringOps         = undefined
   , _boundOp           = Nothing
-  , _substitutionTable = [] }
+  , _substitutionTable = []
+  , _doGet             = False }

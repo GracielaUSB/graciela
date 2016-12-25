@@ -155,17 +155,15 @@ type' =  try parenType
                   let 
                     typeargs = Array.listArray (0, length t - 1) t
 
-                  if null t || any (=:= GATypeVar) t
-                    then 
-                      isPointer $ GDataType name abstract typeargs
-                    else do
-                      let
-                        fAlter = Just . \case
-                          Nothing     -> Set.fromList [typeargs]
-                          Just types0 -> Set.insert typeargs types0
+                  unless (null t || any (=:= GATypeVar) t) $ do
+                    let
+                      fAlter = Just . \case
+                        Nothing     -> Set.fromList [typeargs]
+                        Just types0 -> Set.insert typeargs types0
 
-                      fullDataTypes %= Map.alter fAlter dtName
-                      isPointer $ GFullDataType name typeargs
+                    fullDataTypes %= Map.alter fAlter dtName
+                 
+                  isPointer $ GDataType name abstract typeargs
                       
                 else do
                   notFollowedBy identifier
@@ -206,6 +204,11 @@ type' =  try parenType
 
               pure False
 
+          let 
+            abstName = case struct' of 
+              AbstractDataType{} -> Nothing
+              _                  -> Just $ abstract struct'
+
           if ok
             then do
               let
@@ -213,11 +216,6 @@ type' =  try parenType
 
               isPointer =<< if (any (=:= GATypeVar) fullTypes)
                 then do 
-                  let 
-                    abstName = case struct' of 
-                      AbstractDataType{} -> Nothing
-                      _                  -> Just $ abstract struct'
-
                   current <- use currentStruct
                   case current of
                     Just ((GDataType dtName _ _), _, _, _) -> do
@@ -238,7 +236,7 @@ type' =  try parenType
 
                   fullDataTypes %= Map.alter fAlter structBaseName
 
-                  pure $ GFullDataType structBaseName types
+                  pure $ GDataType structBaseName abstName types
                   
 
             else pure GUndef

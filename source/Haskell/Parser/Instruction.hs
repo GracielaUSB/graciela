@@ -566,63 +566,29 @@ procedureCall = do
               Just args'' -> do
                 putError from $ UndefinedProcedure procName args''
                 pure Nothing
-          Just dt@(GFullDataType name typeArgs') -> do
-            use dataTypes >>= \fdts -> case name `Map.lookup` fdts of
-              Nothing -> do
-                putError from $ UnknownError $ "Couldn't find data type " <> show dt
-                pure Nothing
-              Just Struct { structProcs } -> do
-                case procName `Map.lookup` structProcs of
-                  Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
-                    cs <- use currentStruct
-                    let
-                      nParams = length procParams
-                      typeArgs = case cs of
-                          Nothing -> typeArgs'
-                          Just (GDataType _ _ dtArgs, _, _, _) ->
-                            fmap (fillType dtArgs) typeArgs'
+          -- Just dt@(GFullDataType name typeArgs') -> 
 
-                    when (nArgs /= nParams) . putError from . UnknownError $
-                      "Calling procedure `" <> unpack procName <> "` with a bad number of arguments."
-
-                    args' <- foldM (checkType' typeArgs procName from)
-                      (Just Seq.empty) (Seq.zip args procParams)
-                    pure $ case args' of
-                      Nothing -> Nothing
-                      Just args'' -> Just Instruction
-                        { instLoc = loc
-                        , inst' = ProcedureCall
-                          { pName = procName
-                          , pArgs = args''
-                          , pRecursiveCall = False
-                          , pRecursiveProc = procRecursive
-                          , pStructArgs    = Just (name, typeArgs) } }
-
-                  _ -> do
-                    procs <- use definitions
-                    putError from . UnknownError $
-                      "Data Type `" <> unpack name <>
-                      "` does not have a procedure called `" <>
-                      unpack procName <> "`"
-                    return Nothing
-
-          Just t@(GDataType name _ t') -> do
-            Just (dt@GDataType {typeArgs}, _, sp, _) <- use currentStruct
-            if not (t =:= dt)
-              then getStruct name >>= \case 
-                Nothing -> internal $ "Could not find DT " <> show name
-                Just Struct{structProcs} -> 
+          Just t@(GDataType name _ t') -> use currentStruct >>= \case 
+            Nothing -> do
+              getStruct name >>= \case
+                Nothing -> do
+                  putError from $ UnknownError $ "Couldn't find data type " <> show t
+                  pure Nothing
+                Just Struct { structProcs } -> do
                   case procName `Map.lookup` structProcs of
                     Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
-                      let 
+                      cs <- use currentStruct
+                      let
                         nParams = length procParams
-                        ta' = fmap (fillType typeArgs) t'
+                        typeArgs = case cs of
+                            Nothing -> t'
+                            Just (GDataType _ _ dtArgs, _, _, _) ->
+                              fmap (fillType dtArgs) t'
 
                       when (nArgs /= nParams) . putError from . UnknownError $
-                        "Calling procedure `" <> unpack procName <> 
-                        "` with a bad number of arguments."
+                        "Calling procedure `" <> unpack procName <> "` with a bad number of arguments."
 
-                      args' <- foldM (checkType' ta' procName from)
+                      args' <- foldM (checkType' typeArgs procName from)
                         (Just Seq.empty) (Seq.zip args procParams)
                       pure $ case args' of
                         Nothing -> Nothing
@@ -633,9 +599,9 @@ procedureCall = do
                             , pArgs = args''
                             , pRecursiveCall = False
                             , pRecursiveProc = procRecursive
-                            , pStructArgs    = Just (name, ta') } }
+                            , pStructArgs    = Just (name, typeArgs) } }
 
-                    Nothing -> do
+                    _ -> do
                       procs <- use definitions
                       putError from . UnknownError $
                         "Data Type `" <> unpack name <>
@@ -643,7 +609,42 @@ procedureCall = do
                         unpack procName <> "`"
                       return Nothing
 
-            else case procName `Map.lookup` sp of
+            Just (dt@GDataType {typeArgs}, _, _, _) | not (t =:= dt) ->
+              getStruct name >>= \case 
+              Nothing -> internal $ "Could not find DT " <> show name
+              Just Struct{structProcs} -> 
+                case procName `Map.lookup` structProcs of
+                  Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
+                    let 
+                      nParams = length procParams
+                      ta' = fmap (fillType typeArgs) t'
+
+                    when (nArgs /= nParams) . putError from . UnknownError $
+                      "Calling procedure `" <> unpack procName <> 
+                      "` with a bad number of arguments."
+
+                    args' <- foldM (checkType' ta' procName from)
+                      (Just Seq.empty) (Seq.zip args procParams)
+                    pure $ case args' of
+                      Nothing -> Nothing
+                      Just args'' -> Just Instruction
+                        { instLoc = loc
+                        , inst' = ProcedureCall
+                          { pName = procName
+                          , pArgs = args''
+                          , pRecursiveCall = False
+                          , pRecursiveProc = procRecursive
+                          , pStructArgs    = Just (name, ta') } }
+
+                  Nothing -> do
+                    procs <- use definitions
+                    putError from . UnknownError $
+                      "Data Type `" <> unpack name <>
+                      "` does not have a procedure called `" <>
+                      unpack procName <> "`"
+                    return Nothing
+
+            Just (dt@GDataType {typeArgs}, _, sp, _) -> case procName `Map.lookup` sp of
               Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                 let
                   nParams = length procParams
