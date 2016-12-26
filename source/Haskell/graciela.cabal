@@ -53,7 +53,7 @@ executable graciela
     -- other-modules:
     
     ghc-options:
-      -- -Wall
+      -Wall
       -- -fprof-auto
       -- "-with-rtsopts=-p -s -h -i0.1"
     -- -O3 -fllvm

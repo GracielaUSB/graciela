@@ -488,7 +488,6 @@ variable = do
   st <- lift (use symbolTable)
 
   maybeStruct <- lift $ use currentStruct
-  coup <- lift $ use coupling
 
   (dt,abstractSt) <- case maybeStruct of
     Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
@@ -1643,7 +1642,7 @@ dotField = do
               "Bad field access. Use of field `" <> unpack fieldName <>
               "` of type " <> show t <> " not allowed in imperative code."
             pure Nothing
-          else
+          else do
             let
               expr = Expression
                 { loc
@@ -1657,13 +1656,14 @@ dotField = do
                       { inner = o
                       , field = i
                       , fieldName }}}}
-            in pure $ Just (expr, ProtoNothing, taint)
+            pure $ Just (expr, ProtoNothing, taint)
         Nothing -> case fieldName `Map.lookup` structAFields of
           Just _ -> do
             let Location (pos, _) = loc
             putError pos . UnknownError $
               "Bad field access. Cannot access the abstract field `" <>
-              unpack fieldName <> "`\n\toutside the abstract definition or couple relation"
+              unpack fieldName <> 
+              "`\n\toutside the abstract definition or couple relation"
             pure Nothing
           Nothing -> do
             let Location (pos, _) = loc

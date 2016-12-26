@@ -5,6 +5,7 @@ module Common
   , module Pragma
   , internal
   , toList
+  , isNothing, isJust
   , pack, unpack
   , foldM, forM, forM_, unless, void, when, zipWithM, zipWithM_, (>=>)
   , lift
@@ -20,6 +21,7 @@ import           Control.Monad.Trans.Class (lift)
 import           Data.Foldable             (toList)
 import           Data.Functor              (($>))
 import           Data.Int                  (Int32)
+import           Data.Maybe                (isNothing, isJust)
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Text                 (pack, unpack)
 import           Debug.Trace               (trace, traceM, traceShow,

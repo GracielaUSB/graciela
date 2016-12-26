@@ -78,7 +78,6 @@ abstractDataType = do
     currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
 
     match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
-    coupling .= True
     declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
     cs <- use currentStruct
 
@@ -113,7 +112,6 @@ abstractDataType = do
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
     typeVars .= []
-    coupling .= False
     currentStruct .= Nothing
 
 -- dataType -> 'type' Id 'implements' Id Types 'begin' TypeBody 'end'
@@ -176,16 +174,15 @@ dataType = do
 
           cs <- use currentStruct
           let
-            hlField (_,ft,_,_) = not (ft =:= highLevel)
+            hlField (_,ft,_,_) = ft =:= highLevel      -- filter highlevel fields
+            ahlonly   = Map.filter hlField abstFields  -- Get only highlevel fields from abstract fields
             dFields   =  cs ^. _Just . _4 
-            allFields = Map.filter hlField (cs ^. _Just . _2) 
-          
+            allFields = (cs ^. _Just . _2) `Map.difference` ahlonly
+
           absFuncAllowed .= True
           repinv'  <- repInv
-          coupling .= True
           coupinv' <- coupInv
           couple'  <- optional coupleRel
-          coupling .= False
           absFuncAllowed .= False
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
@@ -301,7 +298,7 @@ dataType = do
                     "The prodecure `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>
                     showPos pos1 <> "."
-              else if retT /= abstractRetT
+              else if not (retT =:= abstractRetT)
                 then putError pos2 . UnknownError $
                     "The return type of function `" <> unpack (defName def) <>
                     "` does not match with the one defined at " <>

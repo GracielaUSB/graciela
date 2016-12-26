@@ -334,7 +334,7 @@ boolean true false e@Expression { loc, exp' } = do
           type' <- fill expType
 
           (,[]) <$> if
-            | type' == GBool -> wrapBoolean x
+            | type' =:= GBool -> wrapBoolean x
             | type' =:= basicT || type' == I64 || type' =:= highLevel -> 
                 expression x
             | type' =:= GPointer GAny -> do 

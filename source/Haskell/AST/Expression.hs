@@ -272,7 +272,7 @@ eSkip = Value . BoolV  $ True
 
 
 instance Treelike Expression where
-  toTree Expression { loc, expType, expConst, exp' } =
+  toTree e@Expression { loc, expType, expConst, exp' } =
     let c = if expConst then "[const] " else "[var] "
     in case exp' of
       NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
@@ -329,6 +329,11 @@ instance Treelike Expression where
       I64Cast { inner } ->
         Node ("I64Cast " <> show loc) [ toTree inner ]
 
+
+      AbstFunctionCall{ fName, fArgs } -> 
+        Node ("Call Abstract Func " <> unpack fName <> " " <> c <> show loc)
+            [ Node "Arguments" (toForest fArgs) ]
+
       FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
         | fRecursiveCall && fRecursiveFunc ->
           Node ("Recurse " <> c <> show loc)
@@ -363,6 +368,7 @@ instance Treelike Expression where
               , Node "Then" [toTree rhs] ]
 
       RawName { theName } -> internal $ "A fugitive Raw Name, `" <> unpack theName <> "`"
+
 
 
 from :: Expression -> SourcePos

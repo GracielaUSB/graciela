@@ -77,7 +77,7 @@ expression' :: Expression -> LLVM Operand
 expression' e@Expression { expType } = do
   t <- fill expType
 
-  if t == GBool
+  if t =:= GBool
     then wrapBoolean e { expType = t }
     else expression e { expType = t }
 --------------------------------------------------------------------------------

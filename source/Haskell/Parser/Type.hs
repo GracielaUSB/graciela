@@ -213,20 +213,24 @@ type' =  try parenType
             then do
               let
                 types = Array.listArray (0, plen - 1) . toList $ fullTypes
+                dataType = GDataType structBaseName abstName types
 
-              isPointer =<< if (any (=:= GATypeVar) fullTypes)
+              when (isNothing abstName) . putError from . UnknownError $
+                "Trying to define a variable of abstract type " <>
+                show dataType <>
+                ".\n\tAbstract data types can only be used inside its own definition."
+
+              if (any (=:= GATypeVar) fullTypes)
                 then do 
                   current <- use currentStruct
                   case current of
                     Just ((GDataType dtName _ _), _, _, _) -> do
                       let 
                         fAlter = Just . \case
-                          Nothing     -> Set.fromList [structBaseName]
+                          Nothing    -> Set.fromList [structBaseName]
                           Just names -> Set.insert structBaseName names
                       pendingDataType %= Map.alter fAlter dtName
                     Nothing -> pure ()
-
-                  pure $ GDataType structBaseName abstName types
                         
                 else do 
                   let
@@ -235,9 +239,8 @@ type' =  try parenType
                       Just types0 -> Set.insert types types0
 
                   fullDataTypes %= Map.alter fAlter structBaseName
-
-                  pure $ GDataType structBaseName abstName types
-                  
+              
+              isPointer dataType    
 
             else pure GUndef
 

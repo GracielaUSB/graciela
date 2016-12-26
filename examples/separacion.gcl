@@ -1,48 +1,67 @@
+/*% LANGUAGE LogicAnywhere %*/
+/*% LANGUAGE EnableTrace   %*/
+
 program Separacion.bin begin
 
 abstract ATree (T)
 begin
-  var left    : *ATree(T); 
-  var right   : *ATree(T); 
+  var left    : ATree(T)*; 
+  var right   : ATree(T)*; 
+  var s : set of int;
   var element : T;
   
-  {inv left != null ==> left != right inv}
+  {repinv left != null ==> left != right repinv}
 
-  func pointers (a : Tree(T)*) -> Set of (Tree(T)*)
+  func pointers (a : ATree(T)*) -> set of (ATree(T)*)
+    {pre  true  pre}
+    {post true post}
 end
 
 
 type Tree(T) implements ATree(T)
 begin
+  var a : set of int;
   /* Tree variables */
   {repinv pointers(right) intersect pointers(left) == {} repinv}
   {coupinv true coupinv}
+  where {
+    s := {}
+  }
   /* Tree procedures */
-  
-  func pointers (a : Tree(T)*) -> Set of (Tree(T)*)
+  func pointers' (a : Tree(T)*, b : int) -> set of (Tree(T)*)
     {pre true pre}
     {post true post}
+    {bound b - 1 bound}
     |[ if a == null -> {}
-       [] pointers((*a).right) intersect pointers((*a).left) != {} -> abort
-       [] otherwise -> pointers((*a).right) union pointers((*a).left) union { a }
+       [] pointers'((*a).right,b-1) intersect pointers'((*a).left,b-1) != {} -> {}
+       [] otherwise -> pointers'((*a).right,b-1) union pointers'((*a).left,b-1) union { a }
        fi ]|
+
+  func pointers (a : Tree(T)*) -> set of (Tree(T)*)
+    {pre true pre}
+    {post true post}
+    |[ pointers'(a, 100) ]|
+
 
   proc addRight (inout a : Tree(T)*, in b : Tree(T)*)
     {pre true pre}
     {post (*a).right == b post}
     |[ free ((*a).right)
+    ;  (*a).s := {1,2,3}
     ;  (*a).right := b ]|
 end
 
 
 main
-  |[ a, b, c : Árbol(int)*
+  |[ var a, b, c : Tree(int)*
   ;  new (a); new (b); new (c)
   ;  (*a).right := b
   ;  (*a).left  := c
   ;  (*a).element := 5
+  
+
+  ; write((% forall i : int | i elem (*a).a | trace(i) == i %))
   // Todo va bien hasta ahora.
   ;  addRight(a, c)
-  // Aquí falla el invariante; Abort.
   ]|
 end

@@ -238,7 +238,9 @@ objectRef (Object loc t obj') = do
       
 
       st <- use structs
-      doget <- use doGet
+      doget <- use doGet >>= pure . ((&&) (case inner of 
+        Object{ obj' = Variable {name } } -> name /= "_self" -- If its self, then its doing the
+        _ -> True))                                            -- couple relation and must no use getter
 
       -- When its a highlevel field and its inner object is a data Type the 
       -- field must be initialize with its getter (unless the LogicAnywhere pragma is active)

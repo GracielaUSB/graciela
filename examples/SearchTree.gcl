@@ -41,14 +41,12 @@ program SearchTree.bin begin
     var card   : multiset of T;
     
     {repinv 
-      (% forall i : T | i elem domain(father) | trace(multiplicity(trace(i),card)) > 0 %) 
+      (% forall i : T | i elem domain(father) | multiplicity(i,card)) > 0 %) 
     repinv}
 
 
     /* ASearchTree procedures and functions */   
     proc insert ( inout t : ASearchTree(T)*, in e : T )
-      let father' := if t != null -> (*t).father [] otherwise -> func({}) fi : function T -> T;
-      let card'   := if t != null -> (*t).card   [] otherwise -> {::}     fi : multiset of T;
       {pre  true  pre}
       {post true post}
     
@@ -87,11 +85,12 @@ program SearchTree.bin begin
                 fi;
                 
       card := {: i : int | 0 <= i /\ i < n | info :} union 
-              if trace(l == null /\ r == null) -> {::}
+              if l == null /\ r == null -> {::}
               [] l == null -> (*r).card 
               [] r == null -> (*l).card 
               [] otherwise -> (*l).card  union (*r).card 
               fi
+
     }
 //     /* SearchTree procedures and functions */
     proc insert ( inout t : SearchTree(T)*, in e : T )
@@ -101,7 +100,6 @@ program SearchTree.bin begin
       ; var i    := 0       : int
       ; var done := false   : boolean
       ; var d               : T
-      ; writeln("Hola")
       ; {inv true inv}
         {bound 255 - i bound}
         do i < 255 /\ !done

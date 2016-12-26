@@ -142,7 +142,7 @@ function = do
 
   case (funcName', funcParams', pre', post', funcBody', decls') of
     (Just funcName, Just funcParams, Just pre, Just post, Just funcBody, Just funcDecls) ->
-      if funcRetType == expType funcBody
+      if funcRetType =:= expType funcBody
         then do
           let
             def = Definition
