@@ -35,18 +35,17 @@ import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       as F (concat)
 import           Data.List           (intercalate)
-import           Data.Map.Strict     (Map)
 import qualified Data.Map.Strict     as Map (empty, filter, fromList, insert,
                                              keysSet, lookup, size, toList,
                                              difference, union)
-import           Data.Maybe          (catMaybes, isJust, isNothing)
+import           Data.Maybe          (catMaybes)
 
 import           Data.Sequence       (ViewL (..))
 import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
                                              zipWith)
 import qualified Data.Set            as Set (fromList, member, insert, 
                                              difference, empty)
-import           Data.Text           (Text, pack, unpack)
+import           Data.Text           (Text)
 import           Prelude             hiding (lookup)
 import           Text.Megaparsec     (between, eof, getPosition, manyTill,
                                       optional, (<|>), lookAhead, try)
@@ -76,8 +75,11 @@ abstractDataType = do
       Just abstractName = abstractName'
 
     currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
+    Location(p,_) <- match' TokBegin
+    
+    symbolTable %= openScope p
 
-    match' TokBegin >>= \(Location(p,_)) -> symbolTable %= openScope p
+
     declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
     cs <- use currentStruct
 
@@ -85,12 +87,19 @@ abstractDataType = do
       fields  = cs ^. _Just . _2
 
     inv'   <- declarative repInv
+    
+    st <- use symbolTable
+    
+    getPosition >>= \pos -> symbolTable %= closeScope pos
+    getPosition >>= \pos -> symbolTable %= openScope pos
+
     procs' <- sequence <$> (declarative . many $ (procedureDeclaration <|> functionDeclaration))
 
     match' TokEnd
     to    <- getPosition
-    st <- use symbolTable
+
     symbolTable %= closeScope to
+
 
     let
       loc = Location (from,to)
@@ -189,7 +198,7 @@ dataType = do
           getPosition >>= \pos -> symbolTable %= openScope pos
 
           procs <- catMaybes . toList <$> many (procedure <|> function)
-          -- let procs = toList $ cs ^. _Just . _3
+
           match' TokEnd
 
           to <- getPosition
@@ -258,8 +267,8 @@ dataType = do
         "`\n\tneeds to be implemented inside the Type `" <>
         unpack dtName <> "`."
       where
-        -- Check if the both procedures, the abstract and the one implementing the abstract procedure,
-        -- have the same header
+        -- Check if the both procedures, the abstract and the one implementing 
+        -- have exactly the same header
         (=-=) :: Definition
               -> Definition
               -> Parser Bool

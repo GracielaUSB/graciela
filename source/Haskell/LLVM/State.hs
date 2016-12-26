@@ -21,6 +21,7 @@ module LLVM.State
   , boundOp
   , substitutionTable
   , doGet
+  , coupling
   ) where
 --------------------------------------------------------------------------------
 import           AST.Struct                   (Struct (..))
@@ -58,7 +59,8 @@ data State = State
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
   , _substitutionTable :: [TypeArgs] 
-  , _doGet             :: Bool}
+  , _doGet             :: Bool
+  , _coupling          :: Bool }
 
 makeLenses ''State
 
@@ -80,4 +82,5 @@ initialState = State
   , _stringOps         = undefined
   , _boundOp           = Nothing
   , _substitutionTable = []
-  , _doGet             = False }
+  , _doGet             = True 
+  , _coupling          = False }

@@ -18,7 +18,6 @@ int8_t* _openFile(char* name) {
   file = fopen(name, "r");
   if(file == NULL)
   {
-    printf ("%s %s", "Error abriendo el archivo: ", name);
     printf ("\x1B[0;31mError:\x1B[m Could not open file `%s`\n", name);
     exit(EXIT_FAILURE);
   }
@@ -30,13 +29,21 @@ void _closeFile(int8_t* file) {
   fclose(f);
 }
 
-int8_t* _malloc(int size){
 int8_t* _malloc(int size){  
-  return calloc(1,size);
+  int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Out of memory.");
+    exit(EXIT_FAILURE);
+  }
+  return p;
 }
 
 int8_t* _mallocTC(int size){
   int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Could not initialize the TC module. Out of memory.");
+    exit(EXIT_FAILURE);
+  }
   _mark(p);
   return p;
 }
@@ -53,13 +60,11 @@ int _readFileInt(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo int");
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mint\x1B[m\n");
     exit(EXIT_FAILURE);
   }
@@ -75,20 +80,17 @@ int _readFileBool(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
   if (n != 0 && n != 1)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
     exit(EXIT_FAILURE);
   }
@@ -103,13 +105,11 @@ char _readFileChar(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo char");
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mchar\x1B[m\n");
     exit(EXIT_FAILURE);
   }
@@ -124,13 +124,11 @@ double _readFileDouble(int8_t* file) {
 
   if (r == EOF)
   {
-    printf("%s\n", "Error: Fue alcanzado el final del archivo al intentar efectuar una lectura");
     printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
     exit(EXIT_FAILURE);
   }
   if (r == 0)
   {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo double");
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mfloat\x1B[m\n");
     exit(EXIT_FAILURE);
   }
@@ -143,7 +141,6 @@ int _readIntStd () {
   char c;
 
   scanf("%d%c", &n, &c);
-  scanf("%d%c", &n, &c);
   return n;
 }
 
@@ -151,15 +148,7 @@ int _readBoolStd () {
   int  n;
   char c;
 
-  scanf("%d", &n, &c);
-  if (n != 0 && n != 1)
-  {
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
   scanf("%d%c", &n, &c);
-  if (n != 0 && n != 1)
-  {
-    printf("%s\n", "Error: El valor obtenido después de la lectura no es del tipo boolean");
-  scanf("%c%d", &n, &c);
   if (n != 0 && n != 1)
   {
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
@@ -173,8 +162,6 @@ char _readCharStd () {
   char c;
 
   scanf("%c%c", &n, &c);
-  scanf("%c%c", &n, &c);
-
   return n;
 }
 
@@ -184,20 +171,17 @@ double _readDoubleStd () {
   char   c;
 
   scanf("%lf%c", &n, &c);
-  scanf("%lf%c", &n, &c);
   return n;
 }
 
 
 void _writeInt(int x) {
   printf("%d", x);
-  return;
 }
 
 
 void _writeDouble(double x) {
   printf("%f", x);
-  return;
 }
 
 
@@ -206,7 +190,6 @@ void _writeBool(int x) {
     printf("false");
   else
     printf("true");
-  return;
 }
 
 
@@ -214,13 +197,11 @@ void _writeChar(int x) {
   setlocale(LC_CTYPE, "");
 
   printf("%lc", x);
-  return;
 }
 
 void _writePointer(int8_t* x) {
 
   printf("%p", x);
-  return;
 }
 
 void _writeString(char *x) {
@@ -228,13 +209,11 @@ void _writeString(char *x) {
   setlocale(LC_CTYPE, "");
 
   printf ("%s", x);
-  return;
 }
 
 
 void _ln() {
   printf("\n");
-  return;
 }
 
 
@@ -252,10 +231,6 @@ char _randChar(){
 
 int _randBool(){
   return rand()%2;
-}
-
-int _random() {
-  return rand();
 }
 
 

@@ -238,10 +238,17 @@ objectRef (Object loc t obj') = do
       
 
       st <- use structs
-      doget <- use doGet >>= pure . ((&&) (case inner of 
-        Object{ obj' = Variable {name } } -> name /= "_self" -- If its self, then its doing the
-        _ -> True))                                            -- couple relation and must no use getter
+      isCoupling <- use coupling
+      doget <- use doGet >>= \canDoGet -> do
+        -- If its self and its doing the
+        -- couple relation and must no use getter
+        let 
+          isSelf = case inner of 
+            Object{ obj' = Variable { name } } -> name == "_self"
+            _ -> False
 
+        pure $ canDoGet && not (isCoupling && isSelf)
+      
       -- When its a highlevel field and its inner object is a data Type the 
       -- field must be initialize with its getter (unless the LogicAnywhere pragma is active)
       when (t =:= highLevel && objType inner =:= GADataType && doget) $ do

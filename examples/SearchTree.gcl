@@ -41,18 +41,23 @@ program SearchTree.bin begin
     var card   : multiset of T;
     
     {repinv 
-      (% forall i : T | i elem domain(father) | multiplicity(i,card)) > 0 %) 
+        (% forall i : T | i elem card | i == i %) 
     repinv}
 
 
     /* ASearchTree procedures and functions */   
     proc insert ( inout t : ASearchTree(T)*, in e : T )
+      let father' := if t != null -> (*t).father [] otherwise -> func({}) fi : function T -> T;
+      let card'   := if t != null -> (*t).card   [] otherwise -> {::}     fi : multiset of T;
       {pre  true  pre}
-      {post true post}
+      {post e elem card' ==> 
+              multiplicity(e,card') == multiplicity(e,(*t).card) + 1
+      post}
     
     proc delete ( inout t : ASearchTree(T)*, in e : T )
-      {pre true pre}
-      {post true post}
+      let card' := if t != null -> (*t).card   [] otherwise -> {::}     fi : multiset of T;
+      {pre multiplicity(e,(*t).card) > 0 pre}
+      {post multiplicity(e,card') == multiplicity(e,(*t).card) - 1 post}
     
     proc search ( in t : ASearchTree(T)*, in e : T )
       {pre true pre}
@@ -79,12 +84,12 @@ program SearchTree.bin begin
       father := if l == null /\ r == null -> func({})
                 [] l == null -> func({((*r).info, info)}) union (*r).father
                 [] r == null -> func({((*l).info, info)}) union (*l).father  
-                [] otherwise-> (*l).father union (*r).father union 
+                [] otherwise -> (*l).father union (*r).father union 
                   func( { ((*l).info, info)
                         , ((*r).info, info)} )  
                 fi;
                 
-      card := {: i : int | 0 <= i /\ i < n | info :} union 
+      card := {: i : int | 0 <= i /\ i < trace(n) | info :} union 
               if l == null /\ r == null -> {::}
               [] l == null -> (*r).card 
               [] r == null -> (*l).card 
@@ -100,12 +105,13 @@ program SearchTree.bin begin
       ; var i    := 0       : int
       ; var done := false   : boolean
       ; var d               : T
+      ; writeln("Hola")
       ; {inv true inv}
         {bound 255 - i bound}
         do i < 255 /\ !done
           -> if P == null -> done := true
              [] otherwise 
-              -> d := (*t).info
+              -> d := (*P).info
                ; if e == d -> done := true
                  [] e  < d -> Q,P := P, (*P).l
                  [] e  > d -> Q,P := P, (*P).r
@@ -131,7 +137,7 @@ program SearchTree.bin begin
     
 
     proc auxDelete ( inout t : SearchTree(T)*
-                   , in    P : SearchTree(T)*
+                   , inout P : SearchTree(T)*
                    , in    Q : SearchTree(T)*
                    , in    n : int )
       {pre  P != null  pre}
@@ -143,18 +149,21 @@ program SearchTree.bin begin
              [] (*Q).r == P -> (*Q).r := null
              fi
            ; free(P)
+           ; P := null
          [] (*P).l == null 
           -> if   Q == null -> t      := (*P).r
              [] (*Q).l == P -> (*Q).l := (*P).r
              [] (*Q).r == P -> (*Q).r := (*P).r
              fi
            ; free(P)
+           ; P := null
          [] (*P).r == null
           -> if   Q == null -> t      := (*P).l
              [] (*Q).l == P -> (*Q).l := (*P).l
              [] (*Q).r == P -> (*Q).r := (*P).l
              fi
            ; free(P)
+           ; P := null
          [] otherwise 
           -> var S, R := (*P).r, P : SearchTree(T)*
            ; var i := 0 : int
@@ -184,7 +193,7 @@ program SearchTree.bin begin
         do i < 255 /\ !done 
           -> if P == null -> done := true
              [] otherwise 
-              -> d := (*t).info
+              -> d := (*P).info
                ; if e == d -> done := true
                  [] e  < d -> Q,P := P, (*P).l
                  [] e  > d -> Q,P := P, (*P).r
@@ -196,7 +205,7 @@ program SearchTree.bin begin
          -> write("No quedan ocurrencias por eliminar de ", e)
           ; n := 0
         [] (*P).n  > 1 -> (*P).n, n := (*P).n - 1, (*P).n
-        [] (*P).n == 1 -> auxDelete(t,P,Q,0); n := 0 
+        [] (*P).n == 1 -> auxDelete(t,P,Q,0);
         [] otherwise   -> skip
         fi
       ⟧

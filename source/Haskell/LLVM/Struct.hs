@@ -82,7 +82,9 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
         moduleDefs %= (|> TypeDefinition (Name name) type')
         currentStruct .= Nothing
+        coupling .= True
         defineGetters couple name structType -- While building getters, currentStruct must be Nothing
+        coupling .= False
         currentStruct .= Just ast
         
         defaultConstructor name structType typeMap

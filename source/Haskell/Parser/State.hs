@@ -15,7 +15,6 @@ module Parser.State
   , currentProc
   , currentFunc
   , currentStruct
-  , coupling
   , typeVars
   , existsDT
   , dataTypes
@@ -80,7 +79,6 @@ data State = State
   , _currentProc     :: Maybe CurrentProc
   , _currentFunc     :: Maybe CurrentFunc
   , _currentStruct   :: Maybe (Type, Fields, Map Text Definition, Fields)
-  , _coupling        :: Bool
   , _typeVars        :: [Text]
   , _existsDT        :: Bool
   , _dataTypes       :: Map Text Struct
@@ -103,7 +101,6 @@ initialState pragmas = State
   , _currentProc     = Nothing
   , _currentFunc     = Nothing
   , _currentStruct   = Nothing
-  , _coupling        = False
   , _typeVars        = []
   , _existsDT        = True
   , _dataTypes       = Map.empty
