@@ -2,6 +2,9 @@ dist
 cabal-dev
 *.o
 *.hi
+*.dyn_hi-boot
+*.hi-boot
+*.o-boot
 *.chi
 *.chs.h
 .virtualenv

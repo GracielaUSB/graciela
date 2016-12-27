@@ -73,7 +73,8 @@ lexer = (,) <$> between sc eof (many token) <*> use pragmas
 sc :: Lexer ()
 sc = L.space (void spaceChar) lineComment blockComment
   where
-    lineComment  = L.skipLineComment "//"
+    lineComment  =  L.skipLineComment "//"
+                <|> L.skipLineComment "#!"
     blockComment =  try (string "/*%" >> pragma)
                 <|> L.skipBlockCommentNested "/*" "*/"
     pragma = do

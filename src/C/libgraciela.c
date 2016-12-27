@@ -139,7 +139,7 @@ int _readBoolStd () {
   int  n;
   char c;
 
-  scanf("%c%d", &n, &c);
+  scanf("%d%c", &n, &c);
   if (n != 0 && n != 1)
   {
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");

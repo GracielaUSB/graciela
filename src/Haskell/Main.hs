@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -15,6 +16,7 @@ import           Parser.State
 import           SymbolTable
 import           Token
 import           Treelike
+import           OS
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
 import           Control.Monad.Identity     (Identity, runIdentity)
@@ -45,7 +47,6 @@ import           System.Directory           (doesFileExist)
 import           System.Environment         (getArgs)
 import           System.Exit                (ExitCode (..), die, exitSuccess, exitFailure)
 import           System.FilePath.Posix      (replaceExtension, takeExtension)
-import           System.Info                (os)
 import           System.IO                  (hPutStr, stderr)
 import           System.Process             (readProcess,
                                              readProcessWithExitCode)
@@ -252,18 +253,14 @@ main = do
     mTake Nothing  xs = take 3 xs
     mTake (Just n) xs = take n xs
     math = "-lm"
-    lib  = case os of
-      "darwin"  -> "/usr/local/lib/libgraciela.so"
-      "linux"   -> "/usr/lib/libgraciela.so"
-      "windows" -> undefined
-      _ -> internal $ os <> " not supported :("
-    abstractLib  = case os of
-      "darwin"  -> "/usr/local/lib/libgraciela-abstract.so"
-      "linux"   -> "/usr/lib/libgraciela-abstract.so"
-      "windows" -> undefined
-      _ -> internal $ os <> " not supported :("
-    clang = case os of
-      "darwin"  -> "/usr/local/bin/clang-3.5"
-      "linux"   -> "clang-3.5"
-      "windows" -> undefined
-      _ -> internal $ os <> " not supported :("
+    (clang, lib, abstractLib)
+      | isLinux = 
+        ( "clang-3.5"
+        , "/usr/lib/libgraciela.so"
+        , "/usr/lib/libgraciela-abstract.so")
+      | isMac = 
+        ( "/usr/local/bin/clang-3.5"
+        , "/usr/local/lib/libgraciela.so"
+        , "/usr/local/lib/libgraciela-abstract.so")
+      | isWindows = internal $ "Windows not supported :("
+      | otherwise = internal $ "Unknown OS, not supported :("
