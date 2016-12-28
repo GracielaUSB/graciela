@@ -30,16 +30,29 @@ void _closeFile(int8_t* file) {
 }
 
 int8_t* _malloc(int size){  
-  return calloc(1,size);
+  int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Out of memory.");
+    exit(EXIT_FAILURE);
+  }
+  _addPointer(p);
+  return p;
+
 }
 
 int8_t* _mallocTC(int size){
   int8_t* p = calloc(1,size);
+  if (!p) {
+    printf("\x1B[0;31mError:\x1B[m Could not initialize the TC module. Out of memory.");
+    exit(EXIT_FAILURE);
+  }
   _mark(p);
   return p;
 }
 
-void _free(int8_t *mem){
+
+void _free(int8_t *mem, int l, int c){
+  _removePointer(mem, l ,c);
   free(mem);
 }
 
@@ -139,7 +152,7 @@ int _readBoolStd () {
   int  n;
   char c;
 
-  scanf("%c%d", &n, &c);
+  scanf("%d%c", &n, &c);
   if (n != 0 && n != 1)
   {
     printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
@@ -169,13 +182,11 @@ double _readDoubleStd () {
 
 void _writeInt(int x) {
   printf("%d", x);
-  return;
 }
 
 
 void _writeDouble(double x) {
   printf("%f", x);
-  return;
 }
 
 
@@ -184,7 +195,6 @@ void _writeBool(int x) {
     printf("false");
   else
     printf("true");
-  return;
 }
 
 
@@ -192,13 +202,11 @@ void _writeChar(int x) {
   setlocale(LC_CTYPE, "");
 
   printf("%lc", x);
-  return;
 }
 
 void _writePointer(int8_t* x) {
 
   printf("%p", x);
-  return;
 }
 
 void _writeString(char *x) {
@@ -206,13 +214,11 @@ void _writeString(char *x) {
   setlocale(LC_CTYPE, "");
 
   printf ("%s", x);
-  return;
 }
 
 
 void _ln() {
   printf("\n");
-  return;
 }
 
 

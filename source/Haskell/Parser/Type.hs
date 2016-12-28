@@ -30,6 +30,7 @@ import           Token
 import           Control.Lens      (use, (%=), (<>=))
 import qualified Data.Array        as Array (listArray)
 import           Data.Foldable     (asum, toList)
+import           Data.Set          as Set (fromList, insert)
 import           Data.Int          (Int32)
 import           Data.List         (elemIndex, intercalate)
 import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
@@ -54,21 +55,24 @@ basicType = do
 
 type' :: Parser Type
 type' =  try parenType
-     <|> try typeVar
-     <|> try userDefined
      <|> try arrayOf
+     <|> try userDefined
+     <|> try typeVar
      <|> try basicOrPointer
   where
     parenType = do
+      lookAhead $ match TokLeftPar
       t <- parens type'
       isPointer t
     
     -- Try to parse an array type
     arrayOf :: Parser Type
     arrayOf = do
+      lookAhead $ match TokArray
       pos <- getPosition
       match TokArray
-      mdims' <- between (match TokLeftBracket) (match' TokRightBracket) $
+      
+      mdims' <- between (match' TokLeftBracket) (match' TokRightBracket) $
         arraySize `sepBy` match TokComma
       match TokOf
       t <- type'
@@ -142,24 +146,24 @@ type' =  try parenType
               if dtName == name
                 then do
                   identifier
-                  t <- (optional . parens $ type' `sepBy` match TokComma)
+                  t <- (optional . parens $ 
+                    (try typeVar <|> ({-isPointer =<<-} basicType)) `sepBy` match TokComma)
                         >>= \case
                           Just s -> pure $ toList s
                           _      -> pure []
 
                   let 
                     typeargs = Array.listArray (0, length t - 1) t
-                  if null t || any (=:= GATypeVar) t
-                    then 
-                      isPointer $ GDataType name abstract typeargs
-                    else do
-                      let
-                        fAlter = \case
-                          Nothing     -> Just [typeargs]
-                          Just types0 -> Just (typeargs : types0)
 
-                      fullDataTypes %= Map.alter fAlter dtName
-                      isPointer $ GFullDataType name typeargs
+                  unless (null t || any (=:= GATypeVar) t) $ do
+                    let
+                      fAlter = Just . \case
+                        Nothing     -> Set.fromList [typeargs]
+                        Just types0 -> Set.insert typeargs types0
+
+                    fullDataTypes %= Map.alter fAlter dtName
+                 
+                  isPointer $ GDataType name abstract typeargs
                       
                 else do
                   notFollowedBy identifier
@@ -200,30 +204,43 @@ type' =  try parenType
 
               pure False
 
+          let 
+            abstName = case struct' of 
+              AbstractDataType{} -> Nothing
+              _                  -> Just $ abstract struct'
+
           if ok
             then do
               let
                 types = Array.listArray (0, plen - 1) . toList $ fullTypes
+                dataType = GDataType structBaseName abstName types
 
-              isPointer =<< if (any (=:= GATypeVar) fullTypes)
+              when (isNothing abstName) . putError from . UnknownError $
+                "Trying to define a variable of abstract type " <>
+                show dataType <>
+                ".\n\tAbstract data types can only be used inside its own definition."
+
+              if (any (=:= GATypeVar) fullTypes)
                 then do 
-                  let 
-                    abstName = case struct' of 
-                      AbstractDataType{} -> Nothing
-                      _                  -> Just $ abstract struct'
-
-                  pure $ GDataType structBaseName abstName types
+                  current <- use currentStruct
+                  case current of
+                    Just ((GDataType dtName _ _), _, _, _) -> do
+                      let 
+                        fAlter = Just . \case
+                          Nothing    -> Set.fromList [structBaseName]
+                          Just names -> Set.insert structBaseName names
+                      pendingDataType %= Map.alter fAlter dtName
+                    Nothing -> pure ()
                         
                 else do 
                   let
-                    fAlter = \case
-                      Nothing     -> Just [types]
-                      Just types0 -> Just (types : types0)
+                    fAlter = Just . \case
+                      Nothing     -> Set.fromList [types]
+                      Just types0 -> Set.insert types types0
 
                   fullDataTypes %= Map.alter fAlter structBaseName
-
-                  pure $ GFullDataType structBaseName types
-                  
+              
+              isPointer dataType    
 
             else pure GUndef
 
@@ -236,27 +253,39 @@ isPointer t = do
 
 
 abstractType :: Parser Type
-abstractType
-   =  do {match TokSet;      match' TokOf; GSet      <$> (typeVar<|>type') }
-  <|> do {match TokMultiset; match' TokOf; GMultiset <$> (typeVar<|>type') }
-  <|> do {match TokSequence; match' TokOf; GSeq      <$> (typeVar<|>type') }
+abstractType = do
+  t <- try (parens abstractType) <|> abstractType'
+  isPointer t
+  where
+    abstractType'
+       =  do {match TokSet;      match' TokOf; GSet      <$> allowedType }
+      <|> do {match TokMultiset; match' TokOf; GMultiset <$> allowedType }
+      <|> do {match TokSequence; match' TokOf; GSeq      <$> allowedType }
 
-  <|> do {match TokFunction; ba <- typeVar<|>type'; match' TokArrow;   bb <- typeVar<|>type'; pure $ GFunc ba bb }
-  <|> do {match TokRelation; ba <- typeVar<|>type'; match' TokBiArrow; bb <- typeVar<|>type'; pure $ GRel  ba bb }
+      <|> do {match TokFunction; ba <- allowedType; match' TokArrow;   bb <- allowedType; pure $ GFunc ba bb }
+      <|> do {match TokRelation; ba <- allowedType; match' TokBiArrow; bb <- allowedType; pure $ GRel  ba bb }
 
-  <|> do {match TokLeftPar; a <- typeVar; match TokComma; b <- typeVar; match TokRightPar; pure $ GTuple a b}
-  <|> do
-    pos <- getPosition
-    match TokLeftPar
-    t1 <- type'
-    lookAhead $ match TokComma
-    match TokComma 
-    t2 <- type'
-    match TokRightPar
-    when (not (t1 =:= basic && t1 =:= basic)) . putError pos . UnknownError $
-              "Only tuples of basic types are allowed.\n" <> show (t1,t2) <> "was given"
-    pure $ GTuple t1 t2 
-  <|> type'
+      <|> do {match TokLeftPar; a <- allowedType; match TokComma; b <- allowedType; match TokRightPar; pure $ GTuple a b}
+      <|> do
+        pos <- getPosition
+        match TokLeftPar
+        t1 <- type'
+        lookAhead $ match TokComma
+        match TokComma 
+        t2 <- type'
+        match TokRightPar
+        when (not (t1 =:= basic && t1 =:= basic)) . putError pos . UnknownError $
+                  "Only tuples of basic types are allowed.\n" <> show (t1,t2) <> "was given"
+        pure $ GTuple t1 t2 
+      <|> type'
+
+    allowedType = do 
+      from <- getPosition
+      t <- type'
+      unless (t =:= GOneOf [GATypeVar, GBool, GChar, GInt, GFloat, GPointer GAny]) .
+        putError from . UnknownError $ "Unexpected type " <> show t <> 
+        ".\n\tCollections can contain elements of basic type or pointers"
+      pure t
 
 typeVarDeclaration  :: Parser Type
 typeVarDeclaration = do
@@ -302,5 +331,5 @@ typeVar = do
         identifier
         putError pos . UnknownError $
           "To use a variable of type " <> show (GTypeVar i tname) <>
-          "\n\tone of the method parameter must be of type " <> show dt
+          "\n\tone of the method's parameter must be of type " <> show dt
         pure $ GTypeVar i tname

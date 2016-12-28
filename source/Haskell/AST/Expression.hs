@@ -39,7 +39,7 @@ data BinaryOperator
   | SeqAt
   | BifuncAt
   | Concat
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show BinaryOperator where
   show Plus         = "(+)"
@@ -88,7 +88,7 @@ instance Show BinaryOperator where
 
 
 data UnaryOperator = UMinus | Not | Card | Pred | Succ
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show UnaryOperator where
   show UMinus = "(-)"
@@ -103,7 +103,7 @@ data QuantOperator
   | Summation | Product
   | Minimum   | Maximum
   | Count
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show QuantOperator where   -- mempty
   show ForAll    = "Forall (∀)"     -- True
@@ -125,7 +125,7 @@ data QRange
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show QRange where
   show = \case
@@ -162,7 +162,7 @@ data Value
   | CharV Char
   | IntV Int32
   | FloatV Double
-  deriving (Eq, Ord)
+  deriving (Eq)
 
 instance Show Value where
   show = \case
@@ -254,6 +254,12 @@ data Expression
     , expConst :: Bool
     , exp'     :: Expression' }
 
+instance Ord Expression where
+  (<=) 
+    (Expression loc0 _ _ _) 
+    (Expression loc1 _ _ _) 
+    = loc1 <= loc0
+
 instance Eq Expression where
   (==)
     (Expression _loc0 expType0 expConst0 exp'0)
@@ -266,7 +272,7 @@ eSkip = Value . BoolV  $ True
 
 
 instance Treelike Expression where
-  toTree Expression { loc, expType, expConst, exp' } =
+  toTree e@Expression { loc, expType, expConst, exp' } =
     let c = if expConst then "[const] " else "[var] "
     in case exp' of
       NullPtr -> leaf $ "Null Pointer (" <> show expType <> ")"
@@ -323,6 +329,10 @@ instance Treelike Expression where
       I64Cast { inner } ->
         Node ("I64Cast " <> show loc) [ toTree inner ]
 
+      AbstFunctionCall{ fName, fArgs } -> 
+        Node ("Call Abstract Func " <> unpack fName <> " " <> c <> show loc)
+            [ Node "Arguments" (toForest fArgs) ]
+
       FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc }
         | fRecursiveCall && fRecursiveFunc ->
           Node ("Recurse " <> c <> show loc)
@@ -357,7 +367,6 @@ instance Treelike Expression where
               , Node "Then" [toTree rhs] ]
 
       RawName { theName } -> internal $ "A fugitive Raw Name, `" <> unpack theName <> "`"
-
 
 from :: Expression -> SourcePos
 from e = let Location (f,_) = loc e in f

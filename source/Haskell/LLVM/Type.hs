@@ -24,8 +24,7 @@ import           AST.Type                   as T (Type (..), fillType, (=:=))
 import           Common
 import           LLVM.Monad
 import           LLVM.State                 (currentStruct, fullDataTypes,
-                                             moduleDefs, pendingDataTypes,
-                                             structs, substitutionTable)
+                                             moduleDefs, structs, substitutionTable)
 --------------------------------------------------------------------------------
 import           Control.Lens               (use, (%=))
 import           Data.Array                 ((!))
@@ -34,7 +33,7 @@ import           Data.List                  (intercalate, sortOn)
 import qualified Data.Map                   as Map (alter, lookup)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Sequence              ((|>))
-import           Data.Text                  (Text, pack, unpack)
+import           Data.Text                  (Text)
 import           Data.Word                  (Word32, Word64)
 import           LLVM.General.AST           (Definition (..))
 import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
@@ -93,70 +92,35 @@ toLLVMType (T.GArray dims t) = do
     , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
 
 
-toLLVMType (GTypeVar i _) = do
-  substs <- use substitutionTable
-  case substs of
-    []        -> internal "subsitituting without substitution table."
-    (subst:_) -> toLLVMType $ subst ! i
+toLLVMType t@(GTypeVar i _) = do
+  subst <- use substitutionTable
+  let 
+    t' = case subst of
+      ta:_ -> fillType ta t
+      []   -> internal $ "No substitution table" <> show subst
+  toLLVMType t'
 
 toLLVMType (GTuple  a b) = do
   a' <- toLLVMType a
   b' <- toLLVMType b
   pure tupleType
 
-toLLVMType (GFullDataType n t) = do
-  fdts <- use fullDataTypes
-  pdt  <- use pendingDataTypes
-  substs <- use substitutionTable
-  let
-    t' = case substs of
-      []        -> t
-      (subst:_) -> fmap (fillType subst) t
-  case n `Map.lookup` fdts of
-    Nothing -> do
-      Just ast@Struct{} <- (n `Map.lookup`) <$> use structs
-      case n `Map.lookup` pdt of
-        Just (_, typeArgs) | t' `elem` typeArgs -> pure ()
-        _                  -> pendingDT t' ast
-
-    Just (s, typeArgs) | t' `elem` typeArgs -> pure ()
-    Just (s, typeArgs) -> pendingDT t' s
+-- Abstract Data Type
+toLLVMType (GDataType _ Nothing t) = do
+  use currentStruct >>= \case 
+    Just Struct {structBaseName = n, structTypes} -> do
+      t' <- mapM fill structTypes
+      pure . LLVM.NamedTypeReference . Name . llvmName n $ t'
+    Nothing -> internal $ "Trying to get llvm type of abstract data type"
 
 
+-- Data Type
+toLLVMType (GDataType n _ t) = do
+  t' <- mapM fill t
+  pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ t'
 
-  types <- mapM toLLVMType t'
-  pure . LLVM.NamedTypeReference . Name . llvmName n . toList $ types
+toLLVMType t = internal $ "Could not translate type " <> show t <> " to a llvm type"
 
-
-  where
-    pendingDT t' s@Struct{ structFields, structAFields } = do
-      let
-        fields = toList structFields <> toList structAFields
-      type' <- Just . LLVM.StructureType True <$>
-                mapM  (toLLVMType . fillType t' . fillType t .(\(_,x,_,_) -> x))
-                  (sortOn (\(i,_,_,_) -> i) $ fields)
-      let
-        fAlter = \case
-          Nothing               -> Just (s, [t'])
-          Just (struct, types0) -> Just (struct, t' : types0 )
-
-      pendingDataTypes %= Map.alter fAlter n
-      ltypes <- mapM toLLVMType t'
-      moduleDefs %= (|> TypeDefinition (Name . llvmName n . toList $ ltypes) type')
-
-toLLVMType t@(GDataType{}) = fill t >>= toLLVMType 
-  -- maybeStruct <- use currentStruct
-  -- case maybeStruct of
-  --   Nothing | t =:= GATypeVar -> internal $ show t <> "   Esto no deberia ocurrir :D"
-  --   Just struct -> do
-  --     types <- mapM toLLVMType (structTypes struct)
-  --     pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
-
-  --   _ -> do
-  --     types <- mapM toLLVMType typeArgs
-  --     pure . LLVM.NamedTypeReference . Name . llvmName name . toList $ types
-
-toLLVMType t = error $ show t
 
 
 
@@ -165,7 +129,6 @@ sizeOf T.GBool         = pure 1
 sizeOf T.GChar         = pure 1
 sizeOf T.GInt          = pure 4
 sizeOf T.GFloat        = pure 8
--- sizeOf (T.GArray sz t) = (fromIntegral sz *) <$> sizeOf t
 sizeOf (T.GArray sz t) = do
   dimSize <- sizeOf T.GInt
   ptrSize <- sizeOf $ T.GPointer GAny
@@ -177,7 +140,6 @@ sizeOf (GSeq      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _ _) = pure 16
-sizeOf (T.GFullDataType name typeArgs) = getStructSize name typeArgs
 sizeOf (T.GDataType name _ _) = do
   typeargs <- head <$> use substitutionTable
   getStructSize name  typeargs
@@ -204,12 +166,13 @@ getStructSize name typeArgs = do
       \ unknow data type `" <> unpack name <> "`"
 
 
-llvmName :: Text -> [LLVM.Type] -> String
+llvmName :: Text -> [Type] -> String
 llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') types
   where
-    show' t
-      | t == i1     = "b"
-      | t == i8     = "c"
-      | t == i32    = "i"
-      | t == double = "f"
-      | otherwise   = error $ show t
+    show' t = case t of
+      GBool  -> "b"
+      GChar  -> "c"
+      GInt   -> "i"
+      GFloat -> "f"
+      GPointer t' -> "p_" <> show' t' 
+      t' -> internal $ "Can not create a llvm name with type " <> show t'

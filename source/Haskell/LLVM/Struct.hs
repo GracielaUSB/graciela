@@ -9,7 +9,8 @@ module LLVM.Struct
 --------------------------------------------------------------------------------
 import           AST.Declaration                    (Declaration (..))
 import           AST.Expression                     (Expression (..))
-import qualified AST.Instruction                    as G (Instruction)
+import qualified AST.Instruction                    as G (Instruction(..), Instruction'(..))
+import qualified AST.Object                         as O
 import           AST.Struct                         (Struct (..), Struct' (..))
 import           AST.Type
 import           Common
@@ -19,6 +20,7 @@ import           LLVM.Definition
 import           LLVM.Expression
 import           LLVM.Instruction                   (instruction, copyArray)
 import           LLVM.Monad
+import           LLVM.Object
 import           LLVM.State
 import           LLVM.Type
 import           LLVM.Warning                       (warn)
@@ -29,11 +31,9 @@ import           Treelike
 import           Control.Lens                       (makeLenses, use, (%=),
                                                      (+=), (.=), _head)
 import           Data.List                          (sortOn)
-import           Data.Map.Strict                    (Map)
 import qualified Data.Map.Strict                    as Map
 
-import           Data.Sequence                      (Seq, ViewR ((:>)), viewr,
-                                                     (|>))
+import           Data.Sequence                      ((|>))
 import qualified Data.Sequence                      as Seq
 import           Data.Text                          (Text, unpack, pack)
 import           LLVM.General.AST                   (BasicBlock (..),
@@ -58,7 +58,8 @@ import qualified LLVM.General.AST.Type              as LLVM
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (Struct, [TypeArgs]) -> LLVM ()
+defineStruct :: Text -> (Struct, Set TypeArgs) -> LLVM ()
+
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
   Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
@@ -72,26 +73,32 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         type' <- Just . StructureType True <$>
           mapM (toLLVMType . (\(_,x,_,_) -> x)) (sortOn (\(i,_,_,_) -> i) fields)
 
-        types <- mapM toLLVMType structTypes
+        types <- mapM fill structTypes
+
         let
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
-        
+
         moduleDefs %= (|> TypeDefinition (Name name) type')
+        currentStruct .= Nothing
+        coupling .= True
+        defineGetters couple name structType -- While building getters, currentStruct must be Nothing
+        coupling .= False
+        currentStruct .= Just ast
+        
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
         defaultCopy name structType typeMap
         defineStructInv CoupInvariant name structType coupinv
         defineStructInv Invariant name structType inv
         defineStructInv RepInvariant name structType repinv
-        
-        defineCouple couple name structType
-        
-        mapM_ definition structProcs
 
+        -- defineCouple couple name structType
+
+        mapM_ definition structProcs
         currentStruct .= Nothing
+
     s -> pure ()
-          
 
 defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
 defaultConstructor name structType typeMap = do
@@ -106,6 +113,7 @@ defaultConstructor name structType typeMap = do
   openScope
   selfName <- insertVar "_self"
   dAllocName <- insertVar "dinamicAlloc"
+
   let
     self   = LocalReference structType selfName
     dAlloc = LocalReference boolType dAllocName
@@ -121,6 +129,7 @@ defaultConstructor name structType typeMap = do
             , address  = self
             , indices  = ConstantOperand . C.Int 32 <$> [0, field]
             , metadata = []}
+
         defaultValue <- case expr of
           Nothing -> value filledT
           Just e  -> expression' e
@@ -214,7 +223,7 @@ defaultConstructor name structType typeMap = do
           { tailCallKind       = Nothing
           , callingConvention  = CC.C
           , returnAttributes   = []
-          , function           = callable pointerType mallocTCString
+          , function           = callable pointerType mallocString
           , arguments          = [(numD, [])]
           , functionAttributes = []
           , metadata           = [] }
@@ -295,6 +304,7 @@ defaultConstructor name structType typeMap = do
   let 
     selfParam   = Parameter (ptr structType) selfName []
     dAllocParam = Parameter boolType dAllocName []
+
   addDefinition $ GlobalDefinition functionDefaults
         { name        = Name procName
         , parameters  = ([selfParam, dAllocParam],False)
@@ -355,6 +365,8 @@ defaultDestructor name structType typeMap = do
   let
     self = LocalReference structType selfName
     fields = toList structFields <> toList structAFields
+    line = ConstantOperand . C.Int 32 $ 0
+    col  = ConstantOperand . C.Int 32 $ 0
 
   forM_ fields $ \(field, t, _, expr) -> do
     let
@@ -399,7 +411,8 @@ defaultDestructor name structType typeMap = do
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType iarrCast, [])]
+          , arguments          = [ (LocalReference pointerType iarrCast, [])
+                                 , (line,[]),(col,[]) ]
           , functionAttributes = []
           , metadata = [] }
 
@@ -469,7 +482,9 @@ defaultCopy name structType typeMap = do
           (LocalReference (ptr type') destPtr)
 
       t | t =:= GADataType -> do
-        types <- mapM toLLVMType (toList . typeArgs $ t)
+
+        types <- mapM fill (toList . typeArgs $ t)
+
         let 
           postfix = llvmName (typeName t) types  
 
@@ -518,39 +533,62 @@ defaultCopy name structType typeMap = do
         , basicBlocks = toList blocks' }
 
 
+defineGetters :: Seq G.Instruction
+              -> String
+              -> LLVM.Type
+              -> LLVM ()
+defineGetters insts name t = do
 
+  forM_ insts $ \x -> case G.inst' x of
+    G.Assign {G.assignPairs} -> forM_ assignPairs $ \(lval,expr) -> do
+        let
+          varName = case O.obj' lval of 
+            O.Member{O.fieldName} -> fieldName
+            _              -> internal $ "Could not build the getter of a non member lval"
 
-defineCouple :: Seq G.Instruction
-             -> String
-             -> LLVM.Type
-             -> LLVM ()
-defineCouple insts name t = do
-  let
-    procName = "couple-" <> name
+          procName = "get_" <> unpack varName <> "-" <> name
 
-  proc <- newLabel $ "proc" <> procName
-  (proc #)
+        proc <- newLabel $ "proc" <> procName
+        (proc #)
 
-  openScope
-  name' <- insertVar "_self"
-  mapM_ instruction insts
+        openScope
+        name' <- insertVar "_self"
 
-  terminate $ Ret Nothing []
-  closeScope
+        value <- expression' expr
+        doGet .= False
+        ref <- objectRef lval
+        doGet .= True
+        type' <- toLLVMType . O.objType $ lval
+        addInstruction $ Do Store
+          { volatile       = False
+          , address        = ref
+          , value
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
 
-  blocks' <- use blocks
-  blocks .= Seq.empty
+        loadResult <- newLabel "loadGetter"
+        addInstruction $ loadResult := Load
+          { volatile  = False
+          , address   = ref
+          , maybeAtomicity = Nothing
+          , alignment = 4
+          , metadata  = [] }
 
-  let
-    selfParam    = Parameter (ptr t) name' []
+        terminate $ Ret (Just $ LocalReference (ptr i8) loadResult) []
+        closeScope
 
-  addDefinition $ GlobalDefinition functionDefaults
-        { name        = Name procName
-        , parameters  = ([selfParam],False)
-        , returnType  = voidType
-        , basicBlocks = toList blocks' }
+        blocks' <- use blocks
+        blocks .= Seq.empty
 
+        let
+          selfParam    = Parameter (ptr t) name' []
 
+        addDefinition $ GlobalDefinition functionDefaults
+              { name        = Name procName
+              , parameters  = ([selfParam],False)
+              , returnType  = ptr i8
+              , basicBlocks = toList blocks' }
 
 
 defineStructInv :: Invariant
@@ -597,14 +635,14 @@ defineStructInv inv name t expr@ Expression {loc = Location(pos,_)} = do
     (precondTrue #)
     case inv of
       CoupInvariant -> abort Abort.CoupInvariant pos
-      Invariant     -> abort Abort.Invariant pos
+      Invariant     -> abort Abort.RepInvariant pos
       RepInvariant  -> abort Abort.RepInvariant pos
 
     (precondFalse #)
 
     case inv of
       CoupInvariant -> warn Warning.CoupInvariant pos
-      Invariant     -> warn Warning.Invariant pos
+      Invariant     -> warn Warning.RepInvariant pos
       RepInvariant  -> warn Warning.RepInvariant pos
 
     terminate Br

@@ -51,13 +51,10 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
                                                           Named (..),
                                                           Terminator (..))
 import qualified LLVM.General.AST.IntegerPredicate       as IL
-import           LLVM.General.AST.Name                   (Name (..))
-import           LLVM.General.AST.Operand                (CallableOperand,
-                                                          Operand (..))
+import           LLVM.General.AST.Operand                (Operand (..))
 import           LLVM.General.AST.Type
 import           System.Info                             (arch, os)
-import           System.Process                          (callCommand,
-                                                          readProcess)
+import           System.Process                          (readProcess)
 --------------------------------------------------------------------------------
 
 -- addFile :: String -> LLVM ()
@@ -74,6 +71,7 @@ programToLLVM
   -- Eval the program with the LLVMRWS
   let definitions = evalState (unLLVM program) initialState
   version <- getOSXVersion -- Mac OS only
+
   return defaultModule
     { moduleName         = unpack name
     , moduleDefinitions  = toList definitions
@@ -92,13 +90,11 @@ programToLLVM
 
       preDefinitions files
       mapM_ (uncurry defineStruct) . Map.toList $ fullStructs
-      p <- use pendingDataTypes
-      mapM_ (uncurry defineStruct) . Map.toList $ p
+
       mapM_ definition defs
       mainDefinition insts files
       use moduleDefs
 
-      -- return $ definitions
 
     -- the Triple Target is a string that allow LLVM know the OS, fabricant and OS version
     whichTarget version = case os of
@@ -145,108 +141,3 @@ programToLLVM
         { C.inBounds = True
         , C.address = C.GlobalReference i8 name
         , C.indices = [C.Int 64 0, C.Int 64 0] }
-
--- openFile :: String -> LLVM Operand
--- openFile file = do
---   let file' = convertFile file
---   ops <- addFileNameOpe file
---   op  <- caller (ptr charType) (Right $ definedFunction (ptr charType) (Name openFileStr)) [(ops, [])]
---   store (ptr charType) (ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) op
-
-
--- closeFile :: String -> LLVM Operand
--- closeFile file = do
---   let file' = convertFile file
---   -- Cargamos la variable gobal perteneciente al archivo.
---   let load' = Load False (ConstantOperand $ C.GlobalReference (ptr charType) (Name file')) Nothing 0 []
---   op <- addUnNamedInstruction voidType load'
---   caller voidType (Right $ definedFunction voidType (Name closeFileStr)) [(op, [])]
-
-
--- createLLVM :: [String] -> [Definition] -> Instruction -> LLVM Module
--- createLLVM files defs accs = do
---   createPreDef files
---   mapM createDef defs
---   m800 <- retVoid
---   mapM_ openFile files
---   createInstruction accs
---   mapM_ closeFile files
---   addBasicBlock m800
---   addDefinition "main" ([],False) voidType
---   return ()
-
-
--- addArgOperand :: [(String, Contents SymbolTable)] -> LLVM ()
--- addArgOperand [] = return ()
-
--- addArgOperand ((id',c):xs) = do
---   let t    = toType $ argType c
---   let tp   = argTypeArg c
---   let id   = convertId id'
---   let e'   = local t (Name id')
-
---   case tp of
---     T.InOut -> do exp <- addUnNamedInstruction t $ Load False e' Nothing 0 []
---                   op  <- alloca Nothing t id
---                   store t op exp
---                   addVarOperand id' op
-
---     T.In    -> do op <- alloca Nothing t id
---                   store t op e'
---                   addVarOperand id' op
-
---     T.Out   -> do op <- alloca Nothing t id
---                   addVarOperand id' op
---                   initialize id $ argType c
---                   return ()
-
---     T.Ref   -> addVarOperand id' e'
-
---   addArgOperand xs
-
-
--- retVarOperand :: [(String, Contents SymbolTable)] -> LLVM ()
--- retVarOperand [] = pure ()
-
--- retVarOperand ((id', c):xs) = do
-
---   let t   = toType $ getContentType c
---   let exp = local t (Name id')
---   let tp  = argTypeArg c
-
---   case tp of
---     T.InOut -> do add <- load id' t
---                   store t exp add
---                   return ()
-
---     T.Out   -> do add <- load id' t
---                   store t exp add
---                   return ()
-
---     T.In     -> return ()
---     T.Ref    -> return ()
-
---   retVarOperand xs
-
-
--- addFuncParam :: (TE.Text, T.Type) -> LLVM ()
--- addFuncParam (id'', t@(T.GArray _ _)) = do
---   let id = TE.unpack id''
---   let e'   = local (toType t) (Name id)
---   addVarOperand id e'
---   return ()
--- addFuncParam _ = return ()
-
-
-
-
-
-
--- createBasicBlocks :: [AST] -> Named Terminator -> LLVM ()
--- createBasicBlocks accs m800 = genIntructions accs
---   where
---     genIntructions (acc:xs) = do
---       createInstruction acc
---       genIntructions xs
---     genIntructions [] =
---       addBasicBlock m800

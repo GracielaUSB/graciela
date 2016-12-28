@@ -1,6 +1,8 @@
 program k begin
 
-/*% LANGUAGE Trace %*/
+/*% LANGUAGE EnableTrace %*/
+/*% LANGUAGE LogicAnywhere %*/
+
 
 main
   |[writeln (

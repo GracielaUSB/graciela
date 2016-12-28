@@ -1,46 +1,3 @@
-// //Linear Search
-// abstract jamonAbstracto (a)
-// begin
-// 	// jamonAbstracto variables
-// 	var a : int;
-	
-// 	{inv true inv}
-
-// 	// func hola ( ) -> int
-// 	// begin
-// 	// 	if true -> 1
-// 	// 	[] false -> 2
-// 	// 	fi
-// 	// end
-
-// 	// jamonAbstracto procedures
-// 	proc name ( ) 	
-// 		{pre true pre}
-// 		{post true post}
-	
-
-// end
-
-// type jamon implements jamonAbstracto (int)
-// begin
-// 	/* jamon variables */
-// 	var i,j,k : int;
-// 	const a := 1 : int;
-	
-// 	{repinv true repinv}
-
-// 	{coupinv true coupinv}
-
-// 	/* jamon procedures */
-// 	proc name () begin
-	
-// 		{pre true pre}
-// 		|[
-//         	read(i,j,k)
-// 		]|
-// 		{post true post}
-// 	end
-// end
 
 program hola begin
 	proc chao (in k : int, out j : int)
@@ -68,7 +25,8 @@ program hola begin
         ]|
         
 
-    
+
+main
 |[
 	var a  : int;
 	read(a);
@@ -86,29 +44,3 @@ program hola begin
 ]|
 
 end
-
-
-
-/*
-        	{inv true inv}
-		    {bound i bound}
-		    do true ->
-		    	if true  -> 
-		    		{inv true inv}
-		    		{bound i bound}
-		    		do i ->
-		    			if true -> 
-				    		if true -> writeln(1) 
-				    		[] false -> read(i)
-				    		fi
-				    	[] false -> 
-				    		|[
-				    			var i,j,k := 'c', 'b', 'h': char;
-				    			write(i)
-				    		]|
-				    	fi
-		    		od
-		    	[] false -> write(2)
-		    	fi
-		    od;*/
-		    // hola();

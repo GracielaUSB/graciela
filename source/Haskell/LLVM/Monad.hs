@@ -91,8 +91,8 @@ terminate :: Terminator -> LLVM ()
 terminate terminator = do
   name' <- use blockName
   case name' of
-    Nothing -> error $
-      "internal error: attempted to terminate an unnamed block with\n" <>
+    Nothing -> internal $
+      "attempted to terminate an unnamed block with\n" <>
       show (Do terminator) <> "\n"
     Just name -> do
       insts <- use currentBlock
@@ -105,8 +105,9 @@ terminate terminator = do
   old <- use blockName
   case old of
     Nothing -> blockName .= Just name
-    Just oldName  -> error $
-      "internal error: attempted to rename current bloc, " <> show oldName <>
+    Just oldName  -> internal $
+      "attempted to rename current bloc, " <> show oldName <>
+
       " as " <> show name <> "."
 --------------------------------------------------------------------------------
 
@@ -251,6 +252,11 @@ freeString = "_free"
 mallocString :: String
 mallocString   = "_malloc"
 mallocTCString = "_mallocTC"
+
+addPointerString, removePointerString, derefPointerString :: String
+addPointerString    = "_addPointer" 
+removePointerString = "_removePointer"
+derefPointerString  = "_derefPointer"
 
 lnString      :: String
 lnString      = "_ln"

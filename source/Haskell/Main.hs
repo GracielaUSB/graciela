@@ -106,18 +106,20 @@ options =
       _  -> opts { optOutName = Just fileName }
     ) "FILE NAME")
     "Set executable name"
-  , Option ['s'] ["symtable"]
-    (NoArg (\opts -> opts { optSTable = True }))
-    "Imprime la tabla de simbolos por stdin"
-  , Option ['a'] ["ast"]
-    (NoArg (\opts -> opts { optAST = True }))
-    "Imprime el AST por stdin"
-  , Option ['S'] ["assembly"]
-    (NoArg (\opts -> opts { optAssembly = True }))
-    "Generar codigo ensamblador"
-  , Option ['L'] ["llvm"]
-    (NoArg (\opts -> opts { optLLVM = True }))
-    "Generar codigo intermedio LLVM"
+
+  -- , Option ['s'] ["symtable"]
+  --   (NoArg (\opts -> opts { optSTable = True }))
+  --   "Imprime la tabla de simbolos por stdin"
+  -- , Option ['a'] ["ast"]
+  --   (NoArg (\opts -> opts { optAST = True }))
+  --   "Imprime el AST por stdin"
+  -- , Option ['S'] ["assembly"]
+  --   (NoArg (\opts -> opts { optAssembly = True }))
+  --   "Generar codigo ensamblador"
+  -- , Option ['L'] ["llvm"]
+  --   (NoArg (\opts -> opts { optLLVM = True }))
+  --   "Generar codigo intermedio LLVM"
+
   , Option ['O'] ["optimization"]
     (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "LEVEL")
       "Optimization levels\n\

@@ -58,21 +58,21 @@ dataTypeDeclaration = declaration' True
 
 declaration' :: Bool -> Parser (Maybe Declaration)
 declaration' isStruct = do
-
   lookAhead $ oneOf [TokConst, TokLet, TokVar]
-  from <- getPosition
+  
   isConst <- do
     f <- use useLet
     if f 
       then match' TokLet $> False
       else match TokConst $> True <|> match TokVar $> False
 
+  from <- getPosition
+
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
 
   match TokColon
-  t <- abstractType >>= isOkAbstract from
-
+  t <- abstractType
   to <- getPosition
   isDeclarative' <- use isDeclarative
 
@@ -150,41 +150,10 @@ declaration' isStruct = do
               " do not match with the\n\tnumber of expressions to be assigned"
             pure Nothing
 
-
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
 recursiveDecl t dt                = t =:= dt
-
-isOkAbstract :: SourcePos -> Type -> Parser Type
-isOkAbstract from t = case t of
-  GDataType name _ _   -> isOkAbstract' t name
-  -- GFullDataType name _ -> isOkAbstract' t name
-  _                    -> pure t 
-  where
-    isOkAbstract' :: Type -> Text -> Parser Type
-    isOkAbstract' t name = do
-      s <- getStruct name
-      case s of
-        Just s' -> case struct' s' of
-          DataType{} -> pure t 
-          AbstractDataType{} -> do
-            putError from . UnknownError $ "Can not declare variables of abstract type " 
-              <> show t <> "."
-            pure t
-        Nothing -> do
-          maybeStruct <- use currentStruct
-          case maybeStruct of
-            Just (GDataType {typeName}, _, _, _) 
-              | name == typeName -> pure t
-            Just (nt@GDataType {abstName = Just name'}, _, _, _) 
-              | name == name' -> pure nt
-            _ -> do
-              putError from . UnknownError $ "Can not declare variables of abstract type " 
-                <> show t <> "."
-              pure t
-        
-
-
+      
 assignment :: Parser (Maybe (Maybe (Seq Expression)))
 assignment = optional $ sequence <$>
   (match TokAssign *> (expression `sepBy` match TokComma))

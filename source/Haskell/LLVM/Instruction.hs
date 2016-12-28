@@ -6,11 +6,12 @@ module LLVM.Instruction where
 --------------------------------------------------------------------------------
 import           AST.Expression                     (Expression (..),
                                                      Expression' (..))
+import qualified AST.Expression                     as E (loc)
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         hiding (indices)
-import           AST.Object                         as O (inner, loc)
+import qualified AST.Object                         as O (inner, loc)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           Common
@@ -32,7 +33,7 @@ import           Data.Sequence                      (ViewR ((:>)))
 import qualified Data.Sequence                      as Seq (empty, fromList,
                                                             singleton, viewr,
                                                             zip, (|>))
-import           Data.Text                          (pack, unpack, Text)
+import           Data.Text                          (Text)
 import           Data.Word
 import           LLVM.General.AST                   (BasicBlock (..))
 import           LLVM.General.AST.AddrSpace
@@ -185,7 +186,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       (lvals, exprs) = unzip . toList $ assignPairs
 
       assign' lval value = do
+        doGet .= False
         ref <- objectRef lval
+        doGet .= True
         type' <- toLLVMType . objType $ lval
         addInstruction $ Do Store
           { volatile       = False
@@ -235,8 +238,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
     pName' <- case pStructArgs of
       Just (structBaseName, typeArgs) -> do
-        llvmName (pName <> pack "-" <> structBaseName) <$>
-          mapM toLLVMType (toList typeArgs)
+        t' <- mapM fill (toList typeArgs)
+        pure $ llvmName (pName <> pack "-" <> structBaseName) t'
+
       _ -> pure . unpack $ pName
 
     recArgs <- fmap (,[]) <$> if pRecursiveCall
@@ -286,11 +290,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 copyArray t operand destPtr
 
               t | t =:= GADataType -> do
-                types <- mapM toLLVMType (toList . typeArgs $ expType)
+                types <- mapM fill (toList . typeArgs $ expType)
 
                 let 
-                  copyFunc = "copy" <>llvmName (typeName expType) types
-
+                  copyFunc = "copy" <> llvmName (typeName expType) types
                 addInstruction $ Do Call
                   { tailCallKind       = Nothing
                   , callingConvention  = CC.C
@@ -322,10 +325,15 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
 
       createArg :: (Expression, ArgMode) -> LLVM (Operand,[t])
-      createArg (e@Expression{expType = expt, exp'}, mode) = do
+      createArg (e@Expression{expType = expt, exp', E.loc}, mode) = do
+
         expType <- fill expt
         type' <- toLLVMType expType
-        let isIn = mode `elem` [In, InOut, Const]
+        let 
+          isIn = mode `elem` [In, InOut, Const]
+          Location(SourcePos _ l c, _) = loc
+          line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
+          col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
         case mode of 
           Ref -> do
             label <- newLabel "argCastRef"
@@ -394,7 +402,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     , callingConvention  = CC.C
                     , returnAttributes   = []
                     , function           = callable voidType freeString
-                    , arguments          = [(LocalReference pointerType castToFree,[])]
+                    , arguments          = [ (LocalReference pointerType castToFree,[])
+                                           , (line,[]),(col,[])]
                     , functionAttributes = []
                     , metadata           = [] }
 
@@ -404,7 +413,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
                 t | t =:= GADataType -> do
 
-                  types <- mapM toLLVMType (toList . typeArgs $ expType)
+                  types <- mapM fill (toList . typeArgs $ expType)
+
                   let 
                     postfix = llvmName (typeName expType) types               
 
@@ -474,7 +484,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , callingConvention  = CC.C
                 , returnAttributes   = []
                 , function           = callable voidType freeString
-                , arguments          = [(LocalReference pointerType castToFree,[])]
+                , arguments          = [ (LocalReference pointerType castToFree,[])
+                                       , (line,[]),(col,[])]
                 , functionAttributes = []
                 , metadata           = [] }
 
@@ -503,29 +514,6 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
               pure $ (LocalReference type' aux,[])
 
-
-
-
-          
-      --   subst <- use substitutionTable
-      --   let type' = case subst of
-      --         t:_ -> fillType t (expType e)
-      --         []  -> expType e
-
-      --   (, []) <$> if mode == In && (type' =:= basicT)
-      --     then expression' e
-      --     else do
-      --       label <- newLabel "argCast"
-      --       ref   <- objectRef (theObj . exp' $ e) False
-
-      --       type' <- ptr <$> (toLLVMType . expType $ e)
-      --       addInstruction $ label := BitCast
-      --         { operand0 = ref
-      --         , type'    = type'
-      --         , metadata = [] }
-      --       pure $ LocalReference type' label
-      -- basicT = T.GOneOf [T.GBool,T.GChar,T.GInt,T.GFloat]
-
   Free { idName, freeType } -> do
     labelLoad  <- newLabel "freeLoad"
     labelCast  <- newLabel "freeCast"
@@ -534,6 +522,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
     type'      <- toLLVMType (T.GPointer freeType)
 
+    let 
+      SourcePos _ l c = pos
+      line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
+      col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
     case freeType of
       GArray { dimensions, innerType } -> do
         addInstruction $ labelLoad := Load
@@ -573,7 +565,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType iarrCast, [])]
+          , arguments          = [(LocalReference pointerType iarrCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -587,7 +580,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , arguments          = [(LocalReference pointerType labelCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -612,13 +606,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               , metadata           = [] }
 
         case freeType of
-          GFullDataType n t -> do
-            types <- mapM toLLVMType (toList t)
-            addInstruction $ call (llvmName n types)
-
           GDataType n t _ -> do
             subst:_ <- use substitutionTable
-            types <- mapM toLLVMType $ toList subst
+            types <- mapM fill $ toList subst
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -633,7 +623,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , arguments          = [(LocalReference pointerType labelCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -786,13 +777,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             , metadata           = [] }
 
         case nType of
-          GFullDataType n t -> do
-            types <- mapM toLLVMType (toList t)
-            addInstruction $ call (llvmName n types)
-
           GDataType n t _ -> do
             subst:_ <- use substitutionTable
-            types <- mapM toLLVMType $ toList subst
+            types <- mapM fill $ toList subst
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -814,11 +801,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       write (operand, t') = do
         -- Build the operand of the expression
 
-        st <- use substitutionTable
-        let
-          t = case st of
-            ta:_ -> fillType ta t'
-            _    -> t'
+        t <- fill t'
 
         let
         -- Call the correct C write function
@@ -830,8 +813,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             GString    -> writeSString
             GPointer _ -> writePString
             GAny       -> writeIString
-            _          -> error
-              "internal error: attempted to write non-basic type."
+            _          -> internal "attempted to write non-basic type."
         operand' <- if  (t =:= GPointer GAny) 
           then do
             pointer <- newLabel "pointerToWrite"
@@ -855,13 +837,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
   Read { file, vars } -> mapM_ readVar vars
     where
       readVar var = do
-        st <- use substitutionTable
-
-        let
-          t' = objType var
-          t = case st of
-            (ta:_) -> fillType ta t'
-            _      -> t'
+        t <- fill $ objType var
 
         (args, fread) <- case file of
           Nothing -> pure . ([],) $ case t of
@@ -926,6 +902,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           t = case st of
             (ta:_) -> fillType ta t'
             _      -> t'
+        t <- fill $ objType var
 
         let frand = case t of
               T.GChar  -> randChar

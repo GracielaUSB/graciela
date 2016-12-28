@@ -7,7 +7,7 @@ main
   ;  var aa := 4444444 : int
   ;  const M, N, Ñ := 6, 8, 6 : int
   ;  var i, j, k := 0, 0, 0 : int
-  ; var a : (array[100,100,100] of int)*
+  ;  var a : (array[100,100,100] of int)*
   ; new (a)
   ; skip
   ; free(a)

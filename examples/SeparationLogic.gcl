@@ -5,35 +5,33 @@
 program SepLogic.bin begin
 
 
-
-abstract TreeA
+abstract TreeA(T)
 begin
   
-  {inv true inv}
+  {repinv true repinv}
 
-  // func buildHeap( tree : TreeA(T)*
-  //               , b : int  
-  //               ) -> function int -> int
-  //   {pre  true  pre}
-  //   {post true post}
+  func buildHeap( tree : TreeA(T)*
+                , b : int  
+                ) -> function int -> int
+    {pre  true  pre}
+    {post true post}
 
-  // func duplicateInHeap ( tree  : TreeA(T)*
-  //                      , heap  : function int -> int 
-  //                      ) -> boolean
-  //   {pre  true  pre}
-  //   {post true post}
+  func duplicateInHeap ( tree  : TreeA(T)*
+                       , heap  : function int -> int 
+                       ) -> boolean
+    {pre  true  pre}
+    {post true post}
   
-  // func isBinaryTree ( tree  : TreeA(T)*
-  //                   , heap  : function int -> int
-  //                   , b : int
-  //                   ) -> boolean
-  //   {pre  true  pre}
-  //   {post true post}
-
+  func isBinaryTree ( tree  : TreeA(T)*
+                    , heap  : function int -> int
+                    , b : int
+                    ) -> boolean
+    {pre  true  pre}
+    {post true post}
 
 end
 
-type Tree(T) implements TreeA
+type Tree(T) implements TreeA(T)
 begin
   var l, r : Tree(T)*;
   var info : T;
@@ -55,58 +53,50 @@ begin
        fi
     ]|
 
+  func duplicateInHeap ( tree  : Tree(T)*
+                       , heap  : function int -> int 
+                       ) -> boolean
 
-  // // func duplicateInHeap ( tree  : Tree(T)*
-  // //                      , heap  : function int -> int 
-  // //                      ) -> boolean
+    {pre  true  pre}
+    {post true post}
+    |[ 1 < (% count i : int 
+               | i elem domain(heap) 
+               | toInt(tree) >= i /\ toInt(tree) + sizeof(Tree(T)) <= heap(i) %)
+    ]|
 
-  //   {pre  true  pre}
-  //   {post true post}
-  //   |[ 1 < (% count i : int 
-  //              | i elem domain(heap) 
-  //              | toInt(tree) >= i /\ toInt(tree) + sizeof(Tree(T)) <= heap(i) %)
-  //   ]|
+  func isBinaryTree ( tree  : Tree(T)*
+                    , heap  : function int -> int
+                    , b : int
+                    ) -> boolean
+    {pre  true  pre}
+    {post true post}
+    {bound b bound}
+    |[ if tree == null -> true
+       [] !duplicateInHeap(tree,heap)
+            -> isBinaryTree((*tree).l, heap, b-1) /\ 
+               isBinaryTree((*tree).r, heap, b-1)
+       [] otherwise -> false
+       fi
 
-  // // func isBinaryTree ( tree  : Tree(T)*
-  // //                   , heap  : function int -> int
-  // //                   , b : int
-  // //                   ) -> boolean
-  // //   {pre  true  pre}
-  // //   {post true post}
-  // //   {bound b bound}
-  // //   |[ if tree == null -> true
-  // //      [] !duplicateInHeap(tree,heap)
-  // //           -> isBinaryTree((*tree).l, heap, b-1) /\ 
-  // //              isBinaryTree((*tree).r, heap, b-1)
-  // //      [] otherwise -> false
-  // //      fi
+    ]|
 
-  // //   ]|
+  func f (tree : Tree(T)*,  b : int) -> boolean
+    {pre   true  pre}
+    {post  true post}
+    {bound b bound}
+    |[ if tree == null -> true
+       [] otherwise -> f((*tree).l, b-1) /\ f((*tree).r, b-1)
+       fi
+    ]|
 
-  // // func f (tree : Tree(T)*,  b : int) -> boolean
-  // //   {pre   true  pre}
-  // //   {post  true post}
-  // //   {bound b bound}
-  // //   |[ if tree == null -> true
-  // //      [] otherwise -> f((*tree).l, b-1) /\ f((*tree).r, b-1)
-  // //      fi
-  // //   ]|
-
-  // // proc g (in tree : Tree(T)*, in b : int)
-  // //   {pre   true  pre}
-  // //   {post  true post}
-  // //   {bound b bound}
-  // //   |[ if tree == null  -> writeln(true)
-  // //      [] otherwise -> g((*tree).l, b-1); g((*tree).r, b-1)
-  // //      fi
-  // //   ]|
-  // func duplicateInHeap ( tree  : Tree(T)*
-  //                      ) -> int
-  //   {pre   true  pre}
-  //   {post  true post}
-  //   |[
-  //     1
-  //   ]|
+  proc g (in tree : Tree(T)*, in b : int)
+    {pre   true  pre}
+    {post  true post}
+    {bound b bound}
+    |[ if tree == null  -> writeln(true)
+       [] otherwise -> g((*tree).l, b-1); g((*tree).r, b-1)
+       fi
+    ]|
 
 end
 

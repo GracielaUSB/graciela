@@ -42,7 +42,6 @@ pasos:
   tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
   estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
 
-
 ## Instalación con Homebrew (OS X )
 
 ### Requisitos

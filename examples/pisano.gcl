@@ -4,9 +4,10 @@ program Hola.bin begin
   abstract Diccionario (t0,t1) begin
     const MAX := 100 : int;
     var conoc        : set of t0;
-    var tabla        : func t0 -> t1;
+    var tabla        : function t0 -> t1;
 
-    {inv 1 > 0 inv}
+    {repinv 1 > 0 repinv}
+
 
     proc crear (out d : Diccionario(t0,t1))
       {pre  true  pre}
@@ -26,7 +27,11 @@ program Hola.bin begin
     {repinv 0 <= tam /\ tam <= MAX repinv}
 
     {coupinv false coupinv}
-    
+
+    where {
+      conoc,tabla := {}, func({})
+    }
+   
     proc crear (out d : Dicc(Clave,Valor))
       {pre true pre}
       {post d.tam == 0 post}

@@ -415,9 +415,10 @@ collection = do
       , GBool
       , GFloat
       , GATypeVar
+      , GPointer GAny
       , GTuple
-        (GOneOf [GInt, GChar, GBool, GFloat, GATypeVar])
-        (GOneOf [GInt, GChar, GBool, GFloat, GATypeVar]) ]
+        (GOneOf [GInt, GChar, GBool, GFloat,GPointer GAny, GATypeVar])
+        (GOneOf [GInt, GChar, GBool, GFloat,GPointer GAny, GATypeVar]) ]
 
     declaration = do
       from <- getPosition
@@ -462,8 +463,15 @@ collection = do
           Just (els, t) -> case t <> expType e of
             GUndef -> do
                 putError pos . UnknownError $
-                  "Unexpected expression of type " <> show (expType e) <> ", \
-                  \expected instead an expression of type " <> show t <> "."
+                  "Unexpected expression of type " <> show (expType e) <> ",\n\t\
+                  \expected instead an expression with one of following type:" <> 
+                  "\n\t\t * " <> show  GInt   <>
+                  "\n\t\t * " <> show  GBool  <>
+                  "\n\t\t * " <> show  GChar  <>
+                  "\n\t\t * " <> show  GFloat <>
+                  "\n\t\t * " <> show (GPointer GAny) <>
+                  "\n\t\t * " <> show  GATypeVar <>
+                  "\n\t\t * " <> show (GTuple GAny GAny)
                 pure Nothing
             newType -> pure $ Just (els |> e, newType)
       where
@@ -480,7 +488,6 @@ variable = do
   st <- lift (use symbolTable)
 
   maybeStruct <- lift $ use currentStruct
-  coup <- lift $ use coupling
 
   (dt,abstractSt) <- case maybeStruct of
     Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
@@ -1166,187 +1173,6 @@ call = do
               pure Nothing
 
             Nothing -> do
-              let
-                nArgs = length args
-                f = case hasDTType args of
-
-                  Nothing -> do
-                    let
-                      args' = sequence args
-                    case args' of
-                      Nothing -> do
-                        putError from . UnknownError $ "Calling function `" <>
-                          unpack fName <>"` with bad arguments"
-                        pure Nothing
-                      Just args'' -> do
-                        putError from . UndefinedFunction fName $ (\(e,_,_) -> e) <$> args''
-                        pure Nothing
-
-                  Just dt@(GFullDataType name typeArgs') -> do
-                    lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
-                      Nothing -> do
-                        putError from . UnknownError $ "Couldn't find data type " <> show dt
-                        pure Nothing
-                      Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
-                        f <- getFunc fName structProcs (Just abstract)
-                        case f of
-                          Just (funcParams, retType', fRec) -> do
-                            cs <- lift $ use currentStruct
-                            let
-                              nParams = length funcParams
-                              retType = fillType typeArgs' retType'
-                              typeArgs = case cs of
-                                  Nothing -> typeArgs'
-                                  Just (GDataType _ _ dtArgs, _, _, _) ->
-                                    fmap (fillType dtArgs) typeArgs'
-
-                            when (nArgs /= nParams) . putError from . UnknownError $
-                              "Calling function `" <> unpack fName <> "` with a bad number of arguments."
-
-                            args' <- foldM (checkType' typeArgs fName from)
-                                (Just (Seq.empty, Taint False, True))
-                                (Seq.zip args funcParams )
-                            pure $ case args' of
-                              Nothing -> Nothing
-                              Just (fArgs, taint, const') ->
-                                let
-                                  expr = case fRec of 
-                                    Just funcRec -> Expression
-                                      { E.loc
-                                      , expType = retType
-                                      , expConst = True
-                                      , exp' = FunctionCall
-                                        { fName
-                                        , fArgs
-                                        , fRecursiveCall = False
-                                        , fRecursiveFunc = funcRec
-                                        , fStructArgs    = Just (name, typeArgs)}}
-
-                                    Nothing -> Expression
-                                      { E.loc
-                                      , expType = retType
-                                      , expConst = True
-                                      , exp' = AbstFunctionCall
-                                        { fName
-                                        , fArgs
-                                        , fStructArgs = Just (name, typeArgs)}}
-
-                                in Just (expr, ProtoNothing, taint)
-
-                          _ -> do
-                            putError from . UnknownError $
-                              "Data Type `" <> unpack name <>
-                              "` does not have a function called `" <>
-                              unpack fName <> "`"
-                            return Nothing
-
-                  Just t@(GDataType name abstName typeArgs') -> do
-                    lift (use currentStruct) >>= \case
-                      Nothing -> do
-                        pure Nothing
-                      Just (dt@GDataType{typeArgs = t'}, _, _, _) | not (t =:= dt) -> do
-                        getStruct name >>= \case
-                          Nothing -> do
-                            putError from . UnknownError $ "Couldn't find data type " <> show dt
-                            pure Nothing
-                          Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
-                            f <- getFunc fName structProcs (Just abstract)
-                            case f of
-                              Just (funcParams, retType', fRec) -> do
-                                let
-                                  nParams = length funcParams
-                                  retType = fillType t' retType'
-                                  typeArgs = fmap (fillType t') typeArgs'
-
-                                when (nArgs /= nParams) . putError from . UnknownError $
-                                  "Calling function `" <> unpack fName <> "` with a bad number of arguments."
-
-                                args' <- foldM (checkType' typeArgs fName from)
-                                    (Just (Seq.empty, Taint False, True))
-                                    (Seq.zip args funcParams )
-                                pure $ case args' of
-                                  Nothing -> Nothing
-                                  Just (fArgs, taint, const') ->
-                                    let
-                                      expr = case fRec of 
-                                        Just funcRec -> Expression
-                                          { E.loc
-                                          , expType = retType
-                                          , expConst = True
-                                          , exp' = FunctionCall
-                                            { fName
-                                            , fArgs
-                                            , fRecursiveCall = False
-                                            , fRecursiveFunc = funcRec
-                                            , fStructArgs    = Just (name, typeArgs)}}
-
-                                        Nothing -> Expression
-                                          { E.loc
-                                          , expType = retType
-                                          , expConst = True
-                                          , exp' = AbstFunctionCall
-                                            { fName
-                                            , fArgs
-                                            , fStructArgs = Just (name, typeArgs)}}
-
-                                    in Just (expr, ProtoNothing, taint)
-
-                              _ -> do
-                                putError from . UnknownError $
-                                  "Data Type `" <> unpack name <>
-                                  "` does not have a function called `" <>
-                                  unpack fName <> "`"
-                                return Nothing
-                      Just (GDataType {typeArgs, abstName = a}, _, structProcs, _) -> do
-                        f <- getFunc fName structProcs a
-                        case f of
-                          Just (funcParams, retType, fRec ) -> do
-                            let
-                              nParams = length funcParams
-
-                            when (nParams /= nArgs) . putError from . UnknownError $
-                                "Calling procedure `" <> unpack fName <>
-                                "` with a bad number of arguments."
-
-                            args' <- foldM (checkType' typeArgs fName from)
-                              (Just (Seq.empty, Taint False, True))
-                              (Seq.zip args funcParams )
-
-
-                            pure $ case args' of
-                              Nothing -> Nothing
-                              Just (fArgs, taint, const') ->
-                                let 
-                                  expr = case fRec of 
-                                    Just funcRec -> Expression
-                                      { E.loc
-                                      , expType = retType
-                                      , expConst = True
-                                      , exp' = FunctionCall
-                                        { fName
-                                        , fArgs
-                                        , fRecursiveCall = False
-                                        , fRecursiveFunc = funcRec
-                                        , fStructArgs    = Just (name, typeArgs)}}
-
-                                    Nothing -> Expression
-                                      { E.loc
-                                      , expType = retType
-                                      , expConst = True
-                                      , exp' = AbstFunctionCall
-                                        { fName
-                                        , fArgs
-                                        , fStructArgs = Just (name, typeArgs)}}
-
-                                in Just (expr, ProtoNothing, taint)
-
-                          Nothing -> do
-                            putError from . UnknownError $
-                              "Data Type `" <> unpack name <>
-                              "` does not have a function called `" <>
-                              unpack fName <> "`"
-                            return Nothing
-
               -- If the function is not defined, it's possible that we're
               -- dealing with a recursive call. The information of a function
               -- that is being defined is stored temporarily at the
@@ -1394,9 +1220,9 @@ call = do
                       "Function `" <> unpack fName <> "` cannot call itself \
                       \recursively because no bound was given for it."
                     pure Nothing
-                  | otherwise -> f
+                  | otherwise -> dataTypeFunction args fName loc from
 
-                Nothing -> f
+                Nothing -> dataTypeFunction args fName loc from
 
         _ -> do
           putError from . UnknownError $
@@ -1404,6 +1230,187 @@ call = do
           pure Nothing
 
   where
+    dataTypeFunction args fName loc from = do
+      let nArgs = length args
+      case hasDTType args of
+        Nothing -> do
+          let args' = sequence args
+            
+          case args' of
+            Nothing -> do
+              putError from . UnknownError $ "Calling function `" <>
+                unpack fName <>"` with bad arguments"
+              pure Nothing
+            Just args'' -> do
+              putError from . UndefinedFunction fName $ (\(e,_,_) -> e) <$> args''
+              pure Nothing
+
+        Just t@(GDataType name abstName typeArgs') -> do
+          lift (use currentStruct) >>= \case
+            Nothing -> lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
+              Nothing -> do
+                putError from . UnknownError $ 
+                  "Couldn't find data type " <> show t
+                pure Nothing
+
+              Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
+                f <- getFunc fName structProcs (Just abstract)
+                case f of
+                  Just (funcParams, retType', fRec) -> do
+                    cs <- lift $ use currentStruct
+                    let
+                      nParams = length funcParams
+                      retType = fillType typeArgs' retType'
+                      typeArgs = case cs of
+                          Nothing -> typeArgs'
+                          Just (GDataType _ _ dtArgs, _, _, _) ->
+                            fmap (fillType dtArgs) typeArgs'
+
+                    when (nArgs /= nParams) . putError from . UnknownError $
+                      "Calling function `" <> unpack fName <> 
+                      "` with a bad number of arguments."
+
+                    args' <- foldM (checkType' typeArgs fName from)
+                        (Just (Seq.empty, Taint False, True))
+                        (Seq.zip args funcParams )
+                    pure $ case args' of
+                      Nothing -> Nothing
+
+                      Just (fArgs, taint, const') ->
+                        let
+                          expr = case fRec of 
+                            Just funcRec -> Expression
+                              { E.loc
+                              , expType = retType
+                              , expConst = True
+                              , exp' = FunctionCall
+                                { fName
+                                , fArgs
+                                , fRecursiveCall = False
+                                , fRecursiveFunc = funcRec
+                                , fStructArgs    = Just (name, typeArgs)}}
+
+                            Nothing -> Expression
+                              { E.loc
+                              , expType = retType
+                              , expConst = True
+                              , exp' = AbstFunctionCall
+                                { fName
+                                , fArgs
+                                , fStructArgs = Just (name, typeArgs)}}
+
+                        in Just (expr, ProtoNothing, taint)
+
+                  _ -> do
+                    putError from . UnknownError $
+                      "Data Type `" <> unpack name <>
+                      "` does not have a function called `" <>
+                      unpack fName <> "`1"
+                    return Nothing
+
+            Just (dt@GDataType{typeArgs = t'}, _, _, _) | not (t =:= dt) -> do
+              getStruct name >>= \case
+                Nothing -> do
+                  putError from . UnknownError $ "Couldn't find data type " <> show dt
+                  pure Nothing
+                Just s@Struct{structProcs, struct' = DataType{abstract}} -> do
+                  f <- getFunc fName structProcs (Just abstract)
+                  case f of
+                    Just (funcParams, retType', fRec) -> do
+                      let
+                        nParams = length funcParams
+                        retType = fillType t' retType'
+                        typeArgs = fmap (fillType t') typeArgs'
+
+                      when (nArgs /= nParams) . putError from . UnknownError $
+                        "Calling function `" <> unpack fName <> 
+                        "` with a bad number of arguments."
+
+                      args' <- foldM (checkType' typeArgs fName from)
+                          (Just (Seq.empty, Taint False, True))
+                          (Seq.zip args funcParams )
+                      pure $ case args' of
+                        Nothing -> Nothing
+                        Just (fArgs, taint, const') ->
+                          let
+                            expr = case fRec of 
+                              Just funcRec -> Expression
+                                { E.loc
+                                , expType = retType
+                                , expConst = True
+                                , exp' = FunctionCall
+                                  { fName
+                                  , fArgs
+                                  , fRecursiveCall = False
+                                  , fRecursiveFunc = funcRec
+                                  , fStructArgs    = Just (name, typeArgs)}}
+
+                              Nothing -> Expression
+                                { E.loc
+                                , expType = retType
+                                , expConst = True
+                                , exp' = AbstFunctionCall
+                                  { fName
+                                  , fArgs
+                                  , fStructArgs = Just (name, typeArgs)}}
+
+                          in Just (expr, ProtoNothing, taint)
+
+                    _ -> do
+                      putError from . UnknownError $
+                        "Data Type `" <> unpack name <>
+                        "` does not have a function called `" <>
+                        unpack fName <> "`5"
+                      return Nothing
+            Just (GDataType {typeArgs, abstName = a}, _, structProcs, _) -> do
+              f <- getFunc fName structProcs a
+              case f of
+                Just (funcParams, retType, fRec ) -> do
+                  let
+                    nParams = length funcParams
+
+                  when (nParams /= nArgs) . putError from . UnknownError $
+                      "Calling procedure `" <> unpack fName <>
+                      "` with a bad number of arguments."
+
+                  args' <- foldM (checkType' typeArgs fName from)
+                    (Just (Seq.empty, Taint False, True))
+                    (Seq.zip args funcParams )
+
+                  pure $ case args' of
+                    Nothing -> Nothing
+                    Just (fArgs, taint, const') ->
+                      let 
+                        expr = case fRec of 
+                          Just funcRec -> Expression
+                            { E.loc
+                            , expType = retType
+                            , expConst = True
+                            , exp' = FunctionCall
+                              { fName
+                              , fArgs
+                              , fRecursiveCall = False
+                              , fRecursiveFunc = funcRec
+                              , fStructArgs    = Just (name, typeArgs)}}
+
+                          Nothing -> Expression
+                            { E.loc
+                            , expType = retType
+                            , expConst = True
+                            , exp' = AbstFunctionCall
+                              { fName
+                              , fArgs
+                              , fStructArgs = Just (name, typeArgs)}}
+
+                      in Just (expr, ProtoNothing, taint)
+
+                Nothing -> do
+                  putError from . UnknownError $
+                    "Data Type `" <> unpack name <>
+                    "` does not have a function called `" <>
+                    unpack fName <> "`"
+                  pure Nothing
+
     getFunc :: Text -> Map Text Definition -> Maybe Text 
             -> ParserExp (Maybe (Seq (Text, Type), Type, Maybe Bool))
     getFunc name funcs abstName = do
@@ -1434,7 +1441,6 @@ call = do
           else pure Nothing
       where 
           removeAbst' dt (c,t) = (c,removeAbst dt t)
-
 
     hasDTType = getFirst . foldMap aux
     aux (Just (Expression { expType },_,_)) = First $ hasDT expType
@@ -1599,13 +1605,6 @@ dotField = do
                       in aux obj (objType obj) loc fieldName structFields' Map.empty  taint
                     _ -> internal "GDataType without struct."
 
-            GFullDataType n typeArgs -> do
-              dts <- lift $ use dataTypes
-              case n `Map.lookup` dts of
-                Nothing -> pure Nothing
-                Just Struct { structFields, structAFields } ->
-                  let structFields' = fillTypes typeArgs structFields
-                  in aux obj (objType obj) loc fieldName structFields' structAFields taint
             t -> do
               putError from' . UnknownError $
                 "Bad field access. Cannot access an expression \
@@ -1633,6 +1632,7 @@ dotField = do
               "Bad field access. Use of field `" <> unpack fieldName <>
               "` of type " <> show t <> " not allowed in imperative code."
             pure Nothing
+
           else
             let
               expr = Expression
@@ -1648,12 +1648,14 @@ dotField = do
                       , field = i
                       , fieldName }}}}
             in pure $ Just (expr, ProtoNothing, taint)
+
         Nothing -> case fieldName `Map.lookup` structAFields of
           Just _ -> do
             let Location (pos, _) = loc
             putError pos . UnknownError $
               "Bad field access. Cannot access the abstract field `" <>
-              unpack fieldName <> "`\n\toutside the abstract definition or couple relation"
+              unpack fieldName <> 
+              "`\n\toutside the abstract definition or couple relation"
             pure Nothing
           Nothing -> do
             let Location (pos, _) = loc
@@ -1735,9 +1737,11 @@ unary unOp
     Left expected -> do
       let loc = Location (from, to i)
       putError from . UnknownError $
-        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
-        " expected an expression of type " <> expected <>
-        ",\n\tbut received " <> show itype <> "."
+        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <> 
+        " received an expression of type:" <>
+        "\n\t\t" <> show itype <> 
+        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right ret -> do
@@ -1776,9 +1780,11 @@ binary binOp opLoc
 
     Left expected -> do
       putError (from l) . UnknownError $
-        ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-          "\n\texpected two expressions of types " <> expected <>
-          ",\n\tbut received " <> show (ltype, rtype) <> ".")
+        "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+        " received two expressions of types:" <>
+        "\n\t\t" <> show (ltype, rtype) <> 
+        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right ret -> do
@@ -1821,9 +1827,11 @@ membership opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ",\n\tbut received " <>
-          show (ltype, rtype) <> ".")
+        "Operator `" <> show Elem <> "` at " <> show opLoc <> 
+        " received two expressions of types:" <>
+        "\n\t\t" <> show (ltype, rtype) <> 
+        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right GBool ->
@@ -1850,9 +1858,11 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> "\n\texpected two expressions of types " <> expected <>
-            ",\n\tbut received " <> show (ltype, rtype) <> ".")
+          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+          " received two expressions of types:" <>
+          "\n\t\t" <> show (ltype, rtype) <> 
+          "\n\tbut expected an expression of type " <> 
+          "\n\t\t" <> expected
         pure Nothing
 
       Right GBool ->
@@ -1887,9 +1897,11 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          ("Operator `" <> show (Op.binSymbol binOp) <> "` at " <>
-            show opLoc <> "\n\texpected two expressions of types " <> expected <>
-            ",\n\tbut received " <> show (ltype, rtype) <> ".")
+          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+          " received two expressions of types:" <>
+          "\n\t\t" <> show (ltype, rtype) <> 
+          "\n\tbut expected an expression of type " <> 
+          "\n\t\t" <> expected
         pure Nothing
 
       Right GBool ->
@@ -1936,9 +1948,11 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ",\n\tbut received " <>
-          show (ltype, rtype) <> ".")
+        "Operator `" <> show Elem  <> "` at " <> show opLoc <> 
+        " received two expressions of types:" <>
+        "\n\t\t" <> show (ltype, rtype) <> 
+        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right GBool ->
@@ -1959,9 +1973,11 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        ("Operator `" <> show Elem <> "` at " <> show opLoc <> " expected two\
-          \ expressions of types " <> expected <> ",\n\tbut received " <>
-          show (ltype, rtype) <> ".")
+        "Operator `" <> show Elem  <> "` at " <> show opLoc <> 
+        " received two expressions of types:" <>
+        "\n\t\t" <> show (ltype, rtype) <> 
+        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right GBool ->
@@ -2047,9 +2063,11 @@ conjunction opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show And <> "` at " <> show opLoc <> " expected two\
-        \ expressions of types " <> expected <> ",\n\tbut received " <>
-        show (ltype, rtype) <> "."
+        "Operator `" <> show And <> "` at " <> show opLoc <> 
+        " received two expression of types:" <>
+        "\n\t\t" <> show (ltype, rtype) <> 
+        "\n\t but expected expressions of types " <> 
+        "\n\t\t" <> expected
       pure Nothing
 
     Right _ -> internal "Bad andOp type"

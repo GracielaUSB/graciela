@@ -4,6 +4,7 @@ abstract ANode(T)
 begin
   var s : sequence of int;
   var b : set of int;
+
   {repinv true repinv}   
 end
 
@@ -26,24 +27,24 @@ begin
      {bound b bound}
      |[
       if current == null -> false
-      // [] (*current).element == x -> true
-      // [] otherwise -> elemNode((*current).left, x , b-1) \/ elemNode((*current).right, x , b-1)
+      [] (*current).element == x -> true
+      [] otherwise -> elemNode((*current).left, x , b-1) \/ elemNode((*current).right, x , b-1)
       fi
      ]| 
 
-  // proc print (in current : Node(T)*, in b : int)  
-  //   {pre true pre}
-  //   {post true post}
-  //   {bound b bound}
-  //   |[ if current == null -> skip
-  //      [] current != null 
-  //        -> print((*current).left, b-1)
-  //         ; writeln((*current).element)
-  //         ; print((*current).right, b-1) 
+  proc print (in current : Node(T)*, in b : int)  
+    {pre true pre}
+    {post true post}
+    {bound b bound}
+    |[ if current == null -> skip
+       [] current != null 
+         -> print((*current).left, b-1)
+          ; writeln((*current).element)
+          ; print((*current).right, b-1) 
             
-  //      fi
+       fi
       
-  //   ]|
+    ]|
 end
 
 
@@ -52,7 +53,9 @@ begin
   /* ATree variables */
   const MAX := 100 : int;
   var s1,s2,s3     : sequence of int;
+
   {repinv true repinv}
+
   /* ATree procedures */
 end
 
@@ -86,66 +89,62 @@ begin
       write("Soy un simpatico número: ", x)
     ]|
 
-  // proc insert (inout t : BinaryTreeO(T), in x : T)
+  proc insert (inout t : BinaryTreeO(T), in x : T)
   
-  //   {pre true pre}
-  //   {post true post}
-  //   |[ if t.root == null 
-  //         -> new(t.root)
-  //          ; (*t.root).element := x
-  //      [] otherwise 
-  //         -> var aux := t.root : Node(T)*
-  //          ; var i   := 0      : int
-  //          ; {inv true inv}
-  //            {bound t.tam - i bound}
-  //            do i < t.tam 
-  //             -> if x <= (*aux).element
-  //                   -> if (*aux).left == null
-  //                         -> new((*aux).left) 
-  //                          ; (*(*aux).left).element, i := x, t.tam-1
-  //                      [] otherwise -> aux := (*aux).left
-  //                      fi
-  //                [] otherwise 
-  //                   -> if (*aux).right == null 
-  //                       -> new((*aux).right)
-  //                        ; (*(*aux).right).element, i := x, t.tam-1
-  //                      [] otherwise -> aux := (*aux).right
-  //                      fi
-  //                fi
-  //               ; i := i + 1
-  //            od
-  //      fi
-  //    ; t.a[1] := 10
-  //    ; writeln(t.a[1])
-  //    ; t.tam := t.tam + 1
-  //   ]|
+    {pre true pre}
+    {post true post}
+    |[ if t.root == null 
+          -> new(t.root)
+           ; (*t.root).element := x
+       [] otherwise 
+          -> var aux := t.root : Node(T)*
+           ; var i   := 0      : int
+           ; {inv true inv}
+             {bound t.tam - i bound}
+             do i < t.tam 
+              -> if x <= (*aux).element
+                    -> if (*aux).left == null
+                          -> new((*aux).left) 
+                           ; (*(*aux).left).element, i := x, t.tam-1
+                       [] otherwise -> aux := (*aux).left
+                       fi
+                 [] otherwise 
+                    -> if (*aux).right == null 
+                        -> new((*aux).right)
+                         ; (*(*aux).right).element, i := x, t.tam-1
+                       [] otherwise -> aux := (*aux).right
+                       fi
+                 fi
+                ; i := i + 1
+             od
+       fi
+     ; t.a[1] := 10
+     ; writeln(t.a[1])
+     ; t.tam := t.tam + 1
+    ]|
     
-    // proc printf (in t : BinaryTreeO(T))
+    proc printf (in t : BinaryTreeO(T))
     
-    //   {pre true pre}
-    //   {post true post}
-    //   |[
-    //     print(t.root, t.tam)
-    //   ]|
-    
-  
+      {pre true pre}
+      {post true post}
+      |[
+        print(t.root, t.tam)
+      ]| 
 end
 
 main
-    |[ var n : Node(int)
-     ; var bt : BinaryTreeO(int)
-     ; skip
-     // ; insert(bt, -10)
-     // ; insert(bt, 10)
-     // ; insert(bt, -1210)
-     // ; insert(bt, 9)
-     // ; insert(bt, 123)
-     // // ; insert(bt, 10)
-     // // ; insert(bt, 10)
-     // ; printf(bt)
-     // ; writeln("Size: ",bt.tam)
+    |[ var bt : BinaryTreeO(int)
+     ; insert(bt, -10)
+     ; insert(bt, 10)
+     ; insert(bt, -1210)
+     ; insert(bt, 9)
+     ; insert(bt, 123)
+     ; insert(bt, 10)
+     ; insert(bt, 10)
+     ; printf(bt)
+     ; writeln("Size: ",bt.tam)
 
-     // ; write(chao(1))
+     ; write(chao(1))
     ]|
 
 end

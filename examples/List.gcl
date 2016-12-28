@@ -8,8 +8,6 @@ program List.bin begin
      var next    : ANode(T)*;
 
     {repinv true repinv}
-
-
     
     /* Node procedures */
 
@@ -108,7 +106,7 @@ program List.bin begin
 
     proc insert (inout l : ListO(T), in x : T)
       {pre true pre}
-      {post true/*elemNode(l.first, x, l.tam)*/ post}
+      {post elemNode(l.first, x, l.tam) post}
       |[ if l.tam == 0 
             -> new(l.first)
              ; (*l.first).element := x
@@ -289,6 +287,8 @@ main
 
    ; freeList(l)
    ; freeList(lo)
+
    ; write(toChar(toFloat(toChar(toInt('c')))))
+
   ]|
 end

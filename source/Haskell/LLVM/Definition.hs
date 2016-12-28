@@ -34,12 +34,10 @@ import           Treelike
 import           Control.Lens                        (use, (%=), (&), (.=))
 import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
-import           Data.Map.Strict                     (Map)
 import qualified Data.Map.Strict                     as Map
 import           Data.Maybe                          (fromMaybe, isJust, fromJust)
-import           Data.Sequence                       as Seq (empty, fromList)
-import qualified Data.Sequence                       as Seq (empty)
-import           Data.Text                           (Text, pack, unpack)
+import qualified Data.Sequence                       as Seq (empty,fromList)
+import           Data.Text                           (Text)
 import           Data.Word                           (Word32)
 import           LLVM.General.AST                    (BasicBlock (..),
                                                       Named (..),
@@ -188,11 +186,8 @@ definition
       params' <- recursiveParams funcRecursive
 
       cs <- use currentStruct
+      returnType <- toLLVMType funcRetType
       let
-        couple' fn (name, t) = do
-          name' <- getVariableName name
-          exit  <- callCouple fn name' t Nothing
-          when (isJust exit) $ (fromJust exit #)
         invariant' fn (name, t) = do
           name' <- getVariableName name
           exit  <- callInvariant fn preOperand name' t Nothing
@@ -204,24 +199,41 @@ definition
           forM_ dts (invariant' "repInv" )
           expression' funcBody
 
+        retVar returnOperand = do 
+          returnVar     <- insertVar defName
+          
+          addInstruction $ returnVar := Alloca
+            { allocatedType = returnType
+            , numElements   = Nothing
+            , alignment     = 4
+            , metadata      = [] }
+
+          addInstruction $ Do Store
+            { volatile = False
+            , address  = LocalReference returnType returnVar
+            , value    = returnOperand
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = [] }
+
+          
+
       (postFix, returnOperand) <- case cs of
         Nothing -> do
-
-          forM_ dts (couple' "couple")
-
-          ("",) <$> body
+          returnOp <- body
+          retVar returnOp
+          postcondition preOperand post
+          pure ("", returnOp)
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          t' <- mapM fill structTypes
+          let postFix = llvmName ("-" <> structBaseName) t'
 
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> error "Internal error: Missing Abstract Data Type."
-
-          forM_ dts (couple' "couple")
-
 
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractFunctionDef {abstFDecl}} -> do
@@ -230,32 +242,14 @@ definition
             _ -> pure ()
 
           returnOp <- body
+          retVar returnOp
 
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
             _                             -> pure ()
 
+          postcondition preOperand post
           pure (postFix, returnOp)
-
-      returnVar     <- insertVar defName
-      returnType    <- toLLVMType funcRetType
-
-      addInstruction $ returnVar := Alloca
-        { allocatedType = returnType
-        , numElements   = Nothing
-        , alignment     = 4
-        , metadata      = [] }
-
-      addInstruction $ Do Store
-        { volatile = False
-        , address  = LocalReference returnType returnVar
-        , value    = returnOperand
-        , maybeAtomicity = Nothing
-        , alignment = 4
-        , metadata  = [] }
-
-      postcondition preOperand post
-
 
       terminate Ret
         { returnOperand = Just returnOperand
@@ -288,13 +282,9 @@ definition
       cond <- precondition pre
 
       params' <- recursiveParams procRecursive
-
+      
       cs <- use currentStruct
       let
-        couple' fn (name, t, _) = do
-          name' <- getVariableName name
-          exit  <- callCouple fn name' t Nothing
-          when (isJust exit) $ (fromJust exit #)
         invariant' fn (name, t, _) = do
           name' <- getVariableName name
           exit  <- callInvariant fn cond name' t Nothing
@@ -305,7 +295,7 @@ definition
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
               Nothing -> Nothing
-          forM_ dts (couple' "couple")
+
           forM_ dts (invariant' "coupInv")
           forM_ dts (invariant' "repInv" )
           
@@ -320,51 +310,23 @@ definition
 
           instruction procBody
 
-          
-
-          forM_ dts (couple' "couple")
           forM_ dts (invariant' "coupInv")
           
           forM_ dts (invariant' "inv"    )
           forM_ dts (invariant' "repInv" )
           
-          
-
       pName <- case cs of
         Nothing -> do
-          forM_ dts (couple' "couple")
           body Nothing
 
           pure $ unpack defName
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
-          postFix <- llvmName ("-" <> structBaseName) <$> mapM toLLVMType structTypes
+          t' <- mapM fill structTypes
+          let postFix = llvmName ("-" <> structBaseName) t'
 
-          
           body abstractStruct
-          
-
---           let
---             maybeProc = case abstractStruct of
---               Just Struct {structProcs} -> defName `Map.lookup` structProcs
---               Nothing -> error "Internal error: Missing Abstract Data Type."
-
-          -- mapM_ (callCouple "couple") dts
---           case maybeProc of
---             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
---               mapM_ declaration abstPDecl
---               preconditionAbstract cond pre' pos
---             _ -> pure ()
-
---           body
-
---           case maybeProc of
---             Just Definition{post = post'} -> postconditionAbstract cond post' pos
---             _                             -> pure ()
-
-
-
           pure $ unpack defName <> postFix
 
       postcondition cond post
@@ -389,12 +351,6 @@ definition
     makeParam' (name, t) = makeParam True (name, t, T.In)
 
     makeParam isFunc (name, t, mode)  = do
-      substTable <- use substitutionTable
-      let
-        t' = if null substTable
-              then t
-              else T.fillType (head substTable) t
-
       name' <- insertVar name
       t'    <- toLLVMType t
       if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
@@ -536,8 +492,8 @@ definition
     
     callCouple funName name t exit | t =:= T.GADataType = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$>
-                    (mapM toLLVMType . toList $ T.typeArgs t)
+      t' <- mapM fill (toList $ T.typeArgs t)
+      let postFix = llvmName ("-" <> T.typeName t) t'
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
@@ -558,8 +514,9 @@ definition
 
     callInvariant funName cond name t exit = do
       type' <- toLLVMType t
-      postFix <- llvmName ("-" <> T.typeName t) <$>
-                    (mapM toLLVMType . toList $ T.typeArgs t)
+      t' <- mapM fill (toList $ T.typeArgs t)
+      let postFix = llvmName ("-" <> T.typeName t) t'
+
 
       addInstruction $ Do Call
         { tailCallKind       = Nothing
@@ -769,7 +726,8 @@ definition
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
   mapM_ addFile files
-  addDefinitions $ fromList
+  addDefinitions $ Seq.fromList
+
 
     [ defineFunction copyArrayString [ parameter ("size"     , intType)
                                      , parameter ("arrSource", pointerType)
@@ -1075,7 +1033,24 @@ preDefinitions files = do
     -- Malloc
     , defineFunction mallocString   intParam pointerType
     , defineFunction mallocTCString intParam pointerType
-    , defineFunction freeString [parameter ("x", pointerType)] voidType
+
+    , defineFunction freeString [ parameter ("ptr", pointerType)
+                                , parameter ("line", intType)
+                                , parameter ("column", intType)]
+                                voidType
+
+    , defineFunction addPointerString     [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
+    , defineFunction removePointerString  [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
+    , defineFunction derefPointerString   [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
 
 
     , defineFunction readFileInt   [parameter ("file", pointerType)] intType

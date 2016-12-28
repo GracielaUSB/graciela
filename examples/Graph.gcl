@@ -1,80 +1,97 @@
+/*% LANGUAGE EnableTrace %*/
+
 program Graph.bin begin
 
 abstract ANode(T)
 begin
   /* ANode variables */
+  const MAX := 11 : int;
+  var nodeSeq : set of (ANode(T)*);
 
-  {repinv true repinv}
+  {repinv #nodeSeq <= MAX repinv}
   /* ANode procedures */
 end
-abstract AGraph(T)
-begin
-  /* AList variables */ 
-  {repinv true repinv}
-  /* AList procedures */
-end
+
 
 type Node(T) implements ANode(T)
 begin
   /* Node variables */
   var tam, id := 0, 0 : int;
-  var next    : Node(T)*;
-  var value   : T;
+  var neighbor : array[MAX] of Node(T)*;
+  var value    : T;
 
   
-  {repinv true repinv}
+  {repinv 0 <= tam /\ tam <= MAX /\
+      (% ∀ i : int | 0 <= i /\ i <= tam | 
+        (% ∀ j : int | 0 <= j /\ j <= tam |
+           i != j ==> neighbor[i] != neighbor[j] %) %)
+  repinv}
 
   {coupinv true coupinv}
-  proc create (inout n : Node(T), in value : T, in id : int)
+
+  where {
+    nodeSeq := { i : int | 0 <= i /\ i < tam | neighbor[i] }
+  }
+
+  /* Node procedures */
+  proc create (ref n : Node(T), in value : T, in id : int)
+    var i := 0 : int;
     {pre true pre}
     {post true post}
     |[ n.value := value
      ; n.id    := id
-     ; n.next  := null
      ; n.tam   := 0
+     ; {inv i <= n.tam inv}
+       {bound n.tam - i  bound}
+       do i < n.tam -> n.neighbor[i] := null
+                     ; i := i + 1
+       od
     ]|
 
-  proc insert (inout  n : Node(T)*, in newNode : Node(T)*)
-    {pre true pre}
-    {post true post}
-    |[ var aux := (*n).next : Node(T)*
-     ; if aux == null -> (*n).next, (*n).tam := newNode, (*n).tam + 1
+  proc insert (ref  n : Node(T), in newNode : Node(T)*)
+    var i := 0 : int;
+    var b := true : boolean;
+    {pre n.tam < n.MAX /\  
+        !(% exist i : int | 0 <= i /\ i < n.tam 
+                     | n.neighbor[i] == newNode %)
+    pre}
+    {post newNode elem {i : int | 0 <= i /\ i <= n.tam | n.neighbor[i]} post}
+    |[ if n.tam == 0 -> n.neighbor[0] := newNode
+                      ; n.tam := 1
        [] otherwise 
-        -> var i := (*n).tam : int
-         ; {inv true inv}
-           {bound i bound}
-           do i > 0 
-            -> if (*aux).id == (*newNode).id -> write("Repeat ",(*aux).id); i := 0
-               [] (*aux).next == null -> (*aux).next, i ,(*n).tam := newNode, 0, (*n).tam+1
-               [] otherwise -> aux, i := (*aux).next, i-1
+        -> {inv true inv}
+           {bound n.tam - i bound}
+           do i < n.tam
+            -> if n.neighbor[i] == newNode -> writeln("Inserting an already existent node") 
+                                            ; b,i := false, n.tam
+               [] otherwise -> i := i + 1
                fi
            od
+         ; if b -> n.neighbor[n.tam] := newNode
+                 ; n.tam := n.tam + 1
+           fi
        fi
-      
     ]|
 
-  proc path(inout n : Node(T)*, in x : int, out b : boolean, in bo : int)
+  proc path(in n : Node(T), in x : int, out b : boolean, in bo : int)
+    var i   := 0 : int;
     {pre true pre}
     {post true post}
     {bound bo bound}
-    |[ if n == null -> skip
-       [] (*n).id == x -> b := true
-       [] otherwise ->  var i   := 0         : int
-                      ; var aux := (*n).next : Node(T)*
-                      ; {inv true inv}
-                        {bound (*n).tam - i bound}
-                        do i < (*n).tam 
-                          -> path(aux, x, b, bo - 1)
-                           ; if b === true -> i := (*n).tam;
-                             [] otherwise  -> aux, i := (*aux).next, i + 1
-                             fi
-                        od
+    |[ if n.id == x -> b := true
+       [] otherwise -> {inv true inv}
+                       {bound n.tam - i bound}
+                       do i < n.tam 
+                        -> path(*n.neighbor[i], x, b, bo - 1)
+                         ; if b === true -> i := n.tam;
+                           [] otherwise  -> i := i + 1
+                           fi
+                       od
        fi
-     ; if b -> writeln((*n).id) 
+     ; if b -> writeln(n.id) 
        [] otherwise -> skip
        fi
     ]|
-  /* Node procedures */
 end
 
 
@@ -88,57 +105,66 @@ proc test (in x : int*, inout y : int*, out z : int*)
 
   ]|
 
-proc test2 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
-  {pre true pre}
-  {post true post}
-  |[ if x == null -> writeln("correcto") [] x != null -> writeln("MAL") fi
-   ; if y == null -> writeln("correcto") [] y != null -> writeln("MAL") fi
-   ; if z == null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+// proc test2 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
+//   {pre x == null /\ y == null /\ z == null  pre}
+//   {post true post}
+//   |[ if x == null -> writeln("correcto") [] x != null -> writeln("MAL") fi
+//    ; if y == null -> writeln("correcto") [] y != null -> writeln("MAL") fi
+//    ; if z == null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+//   ]|
 
-  ]|
+// proc test3 (in x : Node(int)*, out z : Node(int)*, inout y : Node(int)*)
+//   {pre  x != null /\ y != null /\ z == null   pre}
+//   {post true post}
+//   |[ if x != null -> writeln("correcto") [] x == null -> writeln("MAL") fi
+//    ; if y != null -> writeln("correcto") [] y == null -> writeln("MAL") fi
+//    ; if z == null -> writeln("correcto") [] z != null -> writeln("MAL") fi
+//   ]|
 
-proc test3 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
-  {pre  true  pre}
-  {post true post}
-  |[ if x != null -> writeln("correcto") [] x == null -> writeln("MAL") fi
-   ; if y != null -> writeln("correcto") [] y == null -> writeln("MAL") fi
-   ; if z != null -> writeln("correcto") [] z == null -> writeln("MAL") fi
-  ]|
+// proc test4 (in x : Node(int)*, out z : Node(int)*, inout y : Node(int)*)
+//   {pre  x != null /\ y != null /\ z == null /\
+//         (*x).next == null /\ (*y).next == null   
+//   pre}
 
-proc test4 (in x : Node(int)*, inout y : Node(int)*, out z : Node(int)*)
-  {pre  true  pre}
-  {post true post}
-  |[ if (*x).next != null -> writeln("correcto") [] x != null -> writeln("MAL") fi
-   ; if (*y).next != null -> writeln("correcto") [] y != null -> writeln("MAL") fi
-   ; if (*z).next != null -> writeln("correcto") [] z != null -> writeln("MAL") fi
-   ; if (*x).id > -1 -> writeln((*x).id, "√") [] x == null -> writeln("MAL") fi
-   ; if (*y).id > -1 -> writeln((*y).id, "√") [] y == null -> writeln("MAL") fi
-   ; if (*z).id > -1 -> writeln((*z).id, "√") [] z == null -> writeln("MAL") fi
-  ]|
+//   {post true post}
+//   |[ if (*x).next == null -> writeln("correcto") [] (*x).next != null -> writeln("MAL") fi
+//    ; if (*y).next == null -> writeln("correcto") [] (*y).next != null -> writeln("MAL") fi
+//    ; if         z == null -> writeln("correcto") []         z != null -> writeln("MAL") fi
+//    ; if (*x).id > -1 -> writeln((*x).id, "√") [] x == null -> writeln("MAL") fi
+//    ; if (*y).id > -1 -> writeln((*y).id, "√") [] y == null -> writeln("MAL") fi
+//   ]|
 
 main
-  |[ var n1, n2, n3, n4, n5, n6, n7, n8, n9, n10 : Node(int)*
+  |[ var n : array[11] of Node(int)*
    ; var bool : boolean
    ; var x := 10 : int
-   ; new(n1); new(n2); new(n3); new(n4); new(n5)
-   ; new(n6); new(n7); new(n8); new(n9); new(n10)
-   ; create(*n1,1,1); create(*n2,1,2); create(*n3,1,3); create(*n4,1,4); create(*n5,1,5)
-   ; create(*n6,1,6); create(*n7,1,7); create(*n8,1,8); create(*n9,1,9); create(*n10,1,10)
-   ; insert(n1,n2)
-   ; insert(n1,n5)//            1
-   ; insert(n2,n3)//           /  \
-   ; insert(n2,n4)//          2    5
-   ; insert(n3,n7)//         / \    \
-   ; insert(n4,n8)//        3   4    6
-   ; insert(n5,n6)//       /     \  /  \
-   ; insert(n6,n8)//      7        8    9
-   ; insert(n6,n9)//                \  /
-   ; insert(n9,n10)//                10
-   ; writeln((*n1).tam); writeln((*n2).tam); writeln((*n3).tam); writeln((*n4).tam); writeln((*n5).tam)
-   ; writeln((*n6).tam); writeln((*n7).tam); writeln((*n8).tam); writeln((*n9).tam); writeln((*n10).tam)
-   ; path(n1, 10, bool, 10)
-   ; free(n1); free(n2); free(n3); free(n4); free(n5)
-   ; free(n6); free(n7); free(n8); free(n9); free(n10)
-
+   ; var i := 0 : int
+   ; {inv true inv}
+     {bound 11 - i bound}
+     do i < 11
+      -> new(n[i])
+       ; create(*n[i], 1, i) 
+       ; i := i + 1
+     od
+   ; insert(*n[1],n[7])
+   ; insert(*n[1],n[2])
+   ; insert(*n[1],n[5])//          _ 1
+   ; insert(*n[2],n[3])//         / /  \
+   ; insert(*n[2],n[4])//        / 2    5
+   ; insert(*n[3],n[7])//       / / \    \
+   ; insert(*n[4],n[8])//      | 3   4    6
+   ; insert(*n[5],n[6])//      |/     \  /  \
+   ; insert(*n[6],n[8])//      7        8    9
+   ; insert(*n[6],n[9])//                \  /
+   ; insert(*n[8],n[10])//                10
+   ; insert(*n[9],n[10])
+   ; path(*n[1],3, bool, 11)
+   ; i := 0
+   ; {inv true inv}
+     {bound 11 - i bound}
+     do i < 11
+      -> free(n[i])
+       ; i := i + 1
+     od
   ]|
 end
