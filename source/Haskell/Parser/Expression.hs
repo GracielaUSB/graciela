@@ -1237,7 +1237,7 @@ call = do
                             putError from . UnknownError $
                               "Data Type `" <> unpack name <>
                               "` does not have a function called `" <>
-                              unpack fName <> "`1"
+                              unpack fName <> "`"
                             return Nothing
 
                   Just t@(GDataType name abstName typeArgs') -> do
@@ -1295,7 +1295,7 @@ call = do
                                 putError from . UnknownError $
                                   "Data Type `" <> unpack name <>
                                   "` does not have a function called `" <>
-                                  unpack fName <> "`5"
+                                  unpack fName <> "`"
                                 return Nothing
                       Just (GDataType {typeArgs, abstName = a}, _, structProcs, _) -> do
                         f <- getFunc fName structProcs a
@@ -1344,7 +1344,7 @@ call = do
                             putError from . UnknownError $
                               "Data Type `" <> unpack name <>
                               "` does not have a function called `" <>
-                              unpack fName <> "`2"
+                              unpack fName <> "`"
                             return Nothing
 
               -- If the function is not defined, it's possible that we're
