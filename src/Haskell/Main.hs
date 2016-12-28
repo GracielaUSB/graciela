@@ -256,11 +256,11 @@ main = do
     (clang, lib, abstractLib)
       | isLinux = 
         ( "clang-3.5"
-        , "/usr/lib/libgraciela.so"
-        , "/usr/lib/libgraciela-abstract.so")
+        , "/usr/lib/graciela/libgraciela.so"
+        , "/usr/lib/graciela/libgraciela-abstract.so")
       | isMac = 
         ( "/usr/local/bin/clang-3.5"
-        , "/usr/local/lib/libgraciela.so"
-        , "/usr/local/lib/libgraciela-abstract.so")
+        , "/usr/local/lib/graciela/libgraciela.so"
+        , "/usr/local/lib/graciela/libgraciela-abstract.so")
       | isWindows = internal $ "Windows not supported :("
       | otherwise = internal $ "Unknown OS, not supported :("
