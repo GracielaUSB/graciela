@@ -6,11 +6,12 @@ module LLVM.Instruction where
 --------------------------------------------------------------------------------
 import           AST.Expression                     (Expression (..),
                                                      Expression' (..))
+import qualified AST.Expression                     as E (loc)
 import           AST.Instruction                    (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified AST.Instruction                    as G (Instruction)
 import           AST.Object                         hiding (indices)
-import           AST.Object                         as O (inner, loc)
+import qualified AST.Object                         as O (inner, loc)
 import           AST.Struct                         (Struct (..))
 import           AST.Type                           as T
 import           Common
@@ -324,10 +325,15 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
 
       createArg :: (Expression, ArgMode) -> LLVM (Operand,[t])
-      createArg (e@Expression{expType = expt, exp'}, mode) = do
+      createArg (e@Expression{expType = expt, exp', E.loc}, mode) = do
+
         expType <- fill expt
         type' <- toLLVMType expType
-        let isIn = mode `elem` [In, InOut, Const]
+        let 
+          isIn = mode `elem` [In, InOut, Const]
+          Location(SourcePos _ l c, _) = loc
+          line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
+          col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
         case mode of 
           Ref -> do
             label <- newLabel "argCastRef"
@@ -396,7 +402,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     , callingConvention  = CC.C
                     , returnAttributes   = []
                     , function           = callable voidType freeString
-                    , arguments          = [(LocalReference pointerType castToFree,[])]
+                    , arguments          = [ (LocalReference pointerType castToFree,[])
+                                           , (line,[]),(col,[])]
                     , functionAttributes = []
                     , metadata           = [] }
 
@@ -477,7 +484,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , callingConvention  = CC.C
                 , returnAttributes   = []
                 , function           = callable voidType freeString
-                , arguments          = [(LocalReference pointerType castToFree,[])]
+                , arguments          = [ (LocalReference pointerType castToFree,[])
+                                       , (line,[]),(col,[])]
                 , functionAttributes = []
                 , metadata           = [] }
 
@@ -513,7 +521,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     ref        <- objectRef idName
 
     type'      <- toLLVMType (T.GPointer freeType)
-
+    let 
+      SourcePos _ l c = pos
+      line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
+      col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
     case freeType of
       GArray { dimensions, innerType } -> do
         addInstruction $ labelLoad := Load
@@ -553,7 +564,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType iarrCast, [])]
+          , arguments          = [(LocalReference pointerType iarrCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -567,7 +579,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , arguments          = [(LocalReference pointerType labelCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -613,7 +626,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])]
+          , arguments          = [(LocalReference pointerType labelCast, [])
+                                 ,(line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 

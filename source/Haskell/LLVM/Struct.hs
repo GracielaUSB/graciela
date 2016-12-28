@@ -368,7 +368,8 @@ defaultDestructor name structType typeMap = do
   let
     self = LocalReference structType selfName
     fields = toList structFields <> toList structAFields
-
+    line = ConstantOperand . C.Int 32 $ 0
+    col  = ConstantOperand . C.Int 32 $ 0
   forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
@@ -412,7 +413,8 @@ defaultDestructor name structType typeMap = do
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType iarrCast, [])]
+          , arguments          = [ (LocalReference pointerType iarrCast, [])
+                                 , (line,[]),(col,[]) ]
           , functionAttributes = []
           , metadata = [] }
 

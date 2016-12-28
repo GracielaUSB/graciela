@@ -35,6 +35,7 @@ int8_t* _malloc(int size){
     printf("\x1B[0;31mError:\x1B[m Out of memory.");
     exit(EXIT_FAILURE);
   }
+  _addPointer(p);
   return p;
 }
 
@@ -48,7 +49,8 @@ int8_t* _mallocTC(int size){
   return p;
 }
 
-void _free(int8_t *mem){
+void _free(int8_t *mem, int l, int c){
+  _removePointer(mem, l ,c);
   free(mem);
 }
 

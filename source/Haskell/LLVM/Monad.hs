@@ -252,6 +252,12 @@ mallocString :: String
 mallocString   = "_malloc"
 mallocTCString = "_mallocTC"
 
+
+addPointerString, removePointerString, derefPointerString :: String
+addPointerString    = "_addPointer" 
+removePointerString = "_removePointer"
+derefPointerString  = "_derefPointer"
+
 lnString      :: String
 lnString      = "_ln"
 writeIString  :: String

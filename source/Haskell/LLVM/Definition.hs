@@ -186,6 +186,7 @@ definition
       params' <- recursiveParams funcRecursive
 
       cs <- use currentStruct
+      returnType <- toLLVMType funcRetType
       let
         -- couple' fn (name, t) = do
         --   name' <- getVariableName name
@@ -202,12 +203,31 @@ definition
           forM_ dts (invariant' "repInv" )
           expression' funcBody
 
+        retVar returnOperand = do 
+          returnVar     <- insertVar defName
+          
+          addInstruction $ returnVar := Alloca
+            { allocatedType = returnType
+            , numElements   = Nothing
+            , alignment     = 4
+            , metadata      = [] }
+
+          addInstruction $ Do Store
+            { volatile = False
+            , address  = LocalReference returnType returnVar
+            , value    = returnOperand
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = [] }
+
+          
+
       (postFix, returnOperand) <- case cs of
         Nothing -> do
-
-          -- forM_ dts (couple' "couple")
-
-          ("",) <$> body
+          returnOp <- body
+          retVar returnOp
+          postcondition preOperand post
+          pure ("", returnOp)
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
@@ -229,31 +249,19 @@ definition
             _ -> pure ()
 
           returnOp <- body
-
+          retVar returnOp
           case maybeProc of
             Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
             _                             -> pure ()
 
+          postcondition preOperand post
           pure (postFix, returnOp)
 
-      returnVar     <- insertVar defName
-      returnType    <- toLLVMType funcRetType
 
-      addInstruction $ returnVar := Alloca
-        { allocatedType = returnType
-        , numElements   = Nothing
-        , alignment     = 4
-        , metadata      = [] }
 
-      addInstruction $ Do Store
-        { volatile = False
-        , address  = LocalReference returnType returnVar
-        , value    = returnOperand
-        , maybeAtomicity = Nothing
-        , alignment = 4
-        , metadata  = [] }
 
-      postcondition preOperand post
+
+      
 
 
       terminate Ret
@@ -1046,7 +1054,23 @@ preDefinitions files = do
     -- Malloc
     , defineFunction mallocString   intParam pointerType
     , defineFunction mallocTCString intParam pointerType
-    , defineFunction freeString [parameter ("x", pointerType)] voidType
+    , defineFunction freeString [ parameter ("ptr", pointerType)
+                                , parameter ("line", intType)
+                                , parameter ("column", intType)]
+                                voidType
+
+    , defineFunction addPointerString     [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
+    , defineFunction removePointerString  [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
+    , defineFunction derefPointerString   [ parameter ("ptr", pointerType)
+                                          , parameter ("line", intType)
+                                          , parameter ("column", intType)]
+                                          voidType
 
 
     , defineFunction readFileInt   [parameter ("file", pointerType)] intType

@@ -22,7 +22,8 @@ import           LLVM.Abort                        (abort)
 import qualified LLVM.Abort                        as Abort (Abort (..))
 import           LLVM.Monad
 import           LLVM.State
-import           LLVM.Type                         (toLLVMType, llvmName, fill)
+import           LLVM.Type                         (toLLVMType, llvmName, fill
+                                                   ,voidType, pointerType)
 --------------------------------------------------------------------------------
 import           Control.Lens                      (use)
 import           Data.Maybe                        (isJust)
@@ -182,9 +183,9 @@ objectRef (Object loc t obj') = do
       labelCond  <- newLabel "derefCond"
       trueLabel  <- newLabel "derefNullTrue"
       falseLabel <- newLabel "derefNullFalse"
+        
       let
-        Location (p,_) = loc
-
+        Location(p,_) = loc
       addInstruction $ labelLoad := Load
         { volatile  = False
         , address   = ref
@@ -222,6 +223,26 @@ objectRef (Object loc t obj') = do
       abort Abort.NullPointerAccess p
 
       (falseLabel #)
+      castPtr <- newLabel "castPtr"
+      addInstruction $ castPtr := BitCast
+          { operand0 = LocalReference objType' labelLoad
+          , type'    = pointerType
+          , metadata = [] }
+
+      let 
+        ptr = LocalReference pointerType $ castPtr
+        Location (SourcePos _ l c, _) = loc
+        line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
+        col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c   
+
+      addInstruction $ Do Call
+          { tailCallKind       = Nothing
+          , callingConvention  = CC.C
+          , returnAttributes   = []
+          , function           = callable voidType derefPointerString
+          , arguments          = [(ptr, []), (line, []), (col,[])]
+          , functionAttributes = []
+          , metadata           = [] }
 
       pure . LocalReference objType' $ labelLoad
 

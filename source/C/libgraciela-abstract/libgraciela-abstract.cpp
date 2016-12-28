@@ -16,6 +16,7 @@ extern "C" {
   using namespace glib;
 
   vector<TrashCollector>* _stack;
+  set<int8_t*> dynMemSet;
 //  int precondition = 0;
 
   void abortAbstract(abortEnum reason, int line, int col, int pos = 0, int size = 0){
@@ -977,6 +978,34 @@ extern "C" {
   }
 }
 
+/* Dynamic Memory Verifications */
+void _addPointer(int8_t* ptr){
+  dynMemSet.insert(ptr);
+}
+
+void _removePointer(int8_t* ptr, int c, int l){
+  set<int8_t*>::iterator p = dynMemSet.find(ptr);
+  if ( p == dynMemSet.end()) {
+    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
+    printf ("Trying to free a pointer that was already freed.\n");
+    exit(EXIT_FAILURE);
+  } else {
+    dynMemSet.erase(ptr);
+  }
+}
+
+void _derefPointer(int8_t* ptr, int l, int c){
+  if (ptr == 0){
+    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
+    printf ("A null pointer was dereferenced.\n");
+    exit(EXIT_FAILURE);
+  }
+  else if (dynMemSet.find(ptr) == dynMemSet.end()) {
+    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
+    printf ("Attempted to dereference a bad pointer. Maybe it was already freed.\n");
+    exit(EXIT_FAILURE);
+  }
+}
 
 
 #endif

@@ -72,7 +72,7 @@ declaration' isStruct = do
 
   match TokColon
 
-  t <- abstractType >>= isOkAbstract from
+  t <- abstractType
 
   to <- getPosition
   isDeclarative' <- use isDeclarative
@@ -155,33 +155,33 @@ recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
 recursiveDecl t dt                = t =:= dt
 
-isOkAbstract :: SourcePos -> Type -> Parser Type
-isOkAbstract from t = case t of
-  GDataType name _ _   -> isOkAbstract' t name
+-- isOkAbstract :: SourcePos -> Type -> Parser Type
+-- isOkAbstract from t = case t of
+  -- GDataType name _ _   -> isOkAbstract' t name
   -- GBFullDataType name _ -> isOkAbstract' t name
-  _                    -> pure t 
-  where
-    isOkAbstract' :: Type -> Text -> Parser Type
-    isOkAbstract' t name = do
-      s <- getStruct name
-      case s of
-        Just s' -> case struct' s' of
-          DataType{} -> pure t 
-          AbstractDataType{} -> do
-            putError from . UnknownError $ "Can not declare variables of abstract type " 
-              <> show t <> "."
-            pure t
-        Nothing -> do
-          maybeStruct <- use currentStruct
-          case maybeStruct of
-            Just (GDataType {typeName}, _, _, _) 
-              | name == typeName -> pure t
-            Just (nt@GDataType {abstName = Just name'}, _, _, _) 
-              | name == name' -> pure nt
-            _ -> do
-              putError from . UnknownError $ "Can not declare variables of abstract type " 
-                <> show t <> "."
-              pure t
+  -- _                    -> pure t 
+  -- where
+    -- isOkAbstract' :: Type -> Text -> Parser Type
+    -- isOkAbstract' t name = do
+    --   s <- getStruct name
+    --   case s of
+    --     Just s' -> case struct' s' of
+    --       DataType{} -> pure t 
+    --       AbstractDataType{} -> do
+    --         putError from . UnknownError $ "Can not declare variables of abstract type " 
+    --           <> show t <> "."
+    --         pure t
+    --     Nothing -> do
+    --       maybeStruct <- use currentStruct
+    --       case maybeStruct of
+    --         Just (GDataType {typeName}, _, _, _) 
+    --           | name == typeName -> pure t
+    --         Just (nt@GDataType {abstName = Just name'}, _, _, _) 
+    --           | name == name' -> pure nt
+    --         _ -> do
+    --           putError from . UnknownError $ "Can not declare variables of abstract type " 
+    --             <> show t <> "."
+    --           pure t
         
 
 
