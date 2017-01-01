@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-t=$RANDOM
-if graciela $1 -o $t
-  then
-    ./$t
-    rm $t
-  else false
-fi

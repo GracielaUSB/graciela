@@ -2,6 +2,9 @@ dist
 cabal-dev
 *.o
 *.hi
+*.dyn_hi-boot
+*.hi-boot
+*.o-boot
 *.chi
 *.chs.h
 .virtualenv
@@ -27,3 +30,5 @@ cabal.config
 *.txt
 
 source/Haskell/rungraciela
+
+src/Haskell/test.sh

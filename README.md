@@ -1,67 +1,48 @@
 # Graciela
 
-Proyecto creado por Joel Araujo y José Luis Jiménez.
+Proyecto elaborado por:
+* Joel Araujo y José Luis Jiménez (Version 1.0).
+* Moises Ackerman y Carlos Spaggiari (Versión 2.0)
+
 Tutores: Ernesto Hernández-Novich y Ricardo Monascal.
 
 - - -
 
-* ***TO DO*** Hablar filosoficamente del lenguaje
+Graciela es un lenguaje de programación basado en el Guarded Command Language (GCL) de Edsger Dijkstra, 
+realizado con el fin de ofrecer una herramienta práctica que permita introducir a la programación formal a
+los alumnos de los cursos de Algoritmos y Estructuras I y II de la Universidad Simón Bolívar.
 
-El diseño del lenguaje está disponible [aquí](doc/graciela/diseno.md).
+El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
-## Instalación Manual
+## Instalación con APT (Linux 🐧)
 
-Para instalar el compilador de Graciela en Linux, es necesario seguir estos
-pasos:
-
-* Obtener la plataforma Haskell 7.10.*, disponible en
-  <https://www.haskell.org/platform/>.
-
-* Instalar LLVM 3.5. En distribuciones basadas en Debian, esto puede hacerse
-  con `# apt-get install llvm-3.5`. En otras distribuciones, la instrucción
-  probablemente será la misma, cambiando `apt-get` por el administrador de
-  paquetes relevante.
-
-* Clonar este repositorio con
-  `$ git clone git@github.com:GracielaUSB/graciela.git`.
-
-* Para correr los ejecutables generados por el compilador es necesario compilar
-  el archivo `source/graciela-lib.c` y luego moverlo a
-  `/lib/x86_64-linux-gnu`. Esto puede hacerse de la siguiente manera:
-
-```
-    # gcc -fPIC -shared source/graciela-lib.c -o graciela-lib.so
-    # mv graciela-lib.so /lib/x86_64-linux-gnu/
-```
-
-* Para evitar romper las bibliotecas de Cabal, es buena idea crear una
-  *caja de arena*. Para esto, una vez dentro del directorio clonado, se ejecuta
-  `$ cabal sandbox init`.
-
-* Finalmente, se ejecuta `cabal install`. Una vez finalizado este paso (puede
-  tomar tiempo mientras descarga las bibliotecas necesarias), el compilador
-  estará en `<repositorio graciela>/cabal-sandbox/bin/graciela`.
+***TO DO***
 
 ## Instalación con Homebrew (OS X )
 
 ### Requisitos
-* Command Line Tools o Xcode. Se puede descargar Xcode desde  <https://developer.apple.com/downloads> o solo los comandos necesarios desde la terminal usando:
+* **Command Line Tools o Xcode**. Se puede descargar Xcode (alrededor de 4 GB) desde  <https://developer.apple.com/downloads> o solo los comandos necesarios desde la terminal usando el comando:
+```
+$ xcode-select --install
+```
 
-      xcode-select --install
+* **Homebrew**. En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
+```
+$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```    
+Una vez cumplido los requisitos, se puede instalar graciela con los siguientes comandos:
 
-En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
-
-    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    
-Una vez instalado Homebrew, se instala graciela con los siguientes comandos:
-
-    brew tap GracielaUSB/graciela
-    brew install graciela
+    $ brew tap GracielaUSB/graciela
+    $ brew install graciela
 
 ## Uso del compilador
 
-## Cómo compilar un archivo 
+Para compilar un archivo `.gcl` y ejecutarlo, se utilizan los siguientes comandos:
 
-Basta con ejecutar el comando `graciela` de la siguiente forma:
+    $ graciela ./<nombre_del_programa>.gcl
+    $ ./<nombre_del_ejecutable>
 
-    graciela <mi_programa>.gcl 
+Tambien se puede correr el programa sin crear el ejecutable usando el comando:
+
+    $ rungraciela ./<nombre_del_programa>.gcl
+
