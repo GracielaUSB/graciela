@@ -97,7 +97,6 @@ begin
      ; c.fin, c.nada := (c.fin + 1) mod c.MAX, false
     ]|
 
-
   proc mostrar (in c : Cola(T))
     {pre true pre}
     {post true post}
@@ -117,21 +116,6 @@ begin
        fi
      ; write (']') 
     ]|
-
-  proc debug (in c : Cola(T))
-    {pre true pre}
-    {post true post}
-    |[ var i := 0 : int 
-     ; {inv true inv}
-       {bound c.MAX - i bound}
-       do i < c.MAX 
-         -> write(c.elems[i], ' ')
-         ;  i := i + 1
-       od
-     ; writeln()
-     ; writeln("inic: ", c.inic, "; fin: ", c.fin, "; nada: ", c.nada, "; numElems: ", numElems(c))
-     ; skip 
-    ]| 
 
   proc desencolar (inout c : Cola(T) )
     var inic_0, fin_0 := c.inic, c.fin : int;
@@ -198,8 +182,6 @@ main
                fi
           [] opcion == 'P' \/ opcion == 'p'
             -> mostrar (q); writeln ()
-          [] opcion == 'B' \/ opcion == 'b'
-            -> debug (q); writeln ()
           [] opcion == 'S' \/ opcion == 's'
             -> vez := veces
           [] otherwise 
@@ -210,7 +192,6 @@ main
              ; writeln ("\t(V)acia")
              ; writeln ("\t(C)abeza")
              ; writeln ("\tim(P)rimir")
-             ; writeln ("\tde(B)ug")
              ; writeln ("\t(S)alir")
              ; writeln ("\t(*)ayuda (este mensaje)")
           fi

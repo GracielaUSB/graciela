@@ -1,0 +1,127 @@
+#!/usr/bin/env rungraciela
+
+/*% LANGUAGE LogicAnywhere %*/
+
+program SetTheory.bin begin
+
+proc empties ( )
+  {pre true pre}
+  {post true post}
+  |[ {  {}  ==  {} }
+   ; { {::} == {::} }
+   ; { <<>> == <<>> }
+   ; { func({}) == func({}) }
+   ; { rel ({}) == rel ({}) }
+  ]|
+
+proc elems ()
+  {pre true pre}
+  {post true post}
+  |[ { 1    elem  { 1, 2, 3 }  }
+   ; { 1    elem {: 1, 2, 3 :} }
+   ; { 1    elem << 1, 2, 3 >> }
+   ; { 4 notelem  { 1, 2, 3 }  }
+   ; { 4 notelem {: 1, 2, 3 :} }
+   ; { 4 notelem << 1, 2, 3 >> }
+
+   ; { 'a'    elem  { 'a', 'b', 'c' }  }
+   ; { 'a'    elem {: 'a', 'b', 'c' :} }
+   ; { 'a'    elem << 'a', 'b', 'c' >> }
+   ; { 'd' notelem  { 'a', 'b', 'c' }  }
+   ; { 'd' notelem {: 'a', 'b', 'c' :} }
+   ; { 'd' notelem << 'a', 'b', 'c' >> }
+
+   ; { 1.0    elem  { 1.0, 2.0, 3.0 }  }
+   ; { 1.0    elem {: 1.0, 2.0, 3.0 :} }
+   ; { 1.0    elem << 1.0, 2.0, 3.0 >> }
+   ; { 4.0 notelem  { 1.0, 2.0, 3.0 }  }
+   ; { 4.0 notelem {: 1.0, 2.0, 3.0 :} }
+   ; { 4.0 notelem << 1.0, 2.0, 3.0 >> }
+  ]|
+
+proc minus ()
+  {pre true pre}
+  {post true post}
+  |[ { {1,2,3}    \ {1,2}             == {3}      }
+   ; { {}         \ {1,2,3}           == {}       }
+   ; { {1,2,3,4}  \ ({1,2,3} \ {1,2}) == {1,2,4}  }
+   ; { ({1,2,3,4} \ {4}) \ {1,2}      == {3}      }
+  ]|
+
+proc unions ( )
+  {pre true pre}
+  {post true post}
+  |[ {  {1,2,3}  union  {1,2,3}  ==  {1,2,3}  }
+   ; { {:1,2,3:} union {:1,2,3:} == {:1,2,3:} }
+   ; {  {1,2  }  union  {    3}  ==  {1,2,3}  }
+   ; { {:1,2  :} union {:    3:} == {:1,2,3:} }
+   ; { ( {1}  union  {2} ) union  {3}   ==  {1}  union ( {2}  union  {3} ) }
+   ; { ({:1:} union {:2:}) union {:3:}  == {:1:} union ({:2:} union {:3:}) }
+  ]|
+
+proc intersections ( )
+  {pre true pre}
+  {post true post}
+  |[ {  {1,2,3}  intersect  {1,2,3}  ==  {1,2,3}  }
+   ; { {:1,2,3:} intersect {:1,2,3:} == {:1,2,3:} }
+   ; {  {1,2  }  intersect  {    3}  ==  {     }  }
+   ; { {:1,2  :} intersect {:    3:} == {:     :} }
+   ; { ( {1}  intersect  {2} ) intersect  {3}   ==  {1}  intersect ( {2}  intersect  {3} ) }
+   ; { ({:1:} intersect {:2:}) intersect {:3:}  == {:1:} intersect ({:2:} intersect {:3:}) }
+  ]|
+
+proc comprehensions ( )
+  {pre true pre}
+  {post true post}
+  |[ {  {i : int | 0 < i /\ i < 4 | i}  ==  {1, 2, 3}  }
+   ; { {:i : int | 0 < i /\ i < 4 | i:} == {:1, 2, 3:} }
+   ; { <<i : int | 0 < i /\ i < 4 | i>> == <<1, 2, 3>> }
+   ; { <<i : int | 0 < i /\ i < 4 | i>> != <<3, 2, 1>> }
+
+   ; {  {i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i}  ==  {0, 2, 4, 6, 8, 10}  }
+   ; { {:i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i:} == {:0, 2, 4, 6, 8, 10:} }
+   ; { <<i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i>> == <<0, 2, 4, 6, 8, 10>> }
+   ; { <<i : int | 0 <= i /\ i <= 10 /\ i mod 2 != 0 | i>> != <<10, 8, 6, 4, 2, 0>> }
+
+   ; {  {i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i*i}  ==  {0, 4, 16, 36, 64, 100}  }
+   ; { {:i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i*i:} == {:0, 4, 16, 36, 64, 100:} }
+   ; { <<i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i*i>> == <<0, 4, 16, 36, 64, 100>> }
+   ; { <<i : int | 0 <= i /\ i <= 10 /\ i mod 2 != 0 | i*i>> != <<100, 64, 36, 16, 4, 0>> }
+
+   ; |[ var e : set of int
+   ; e := {i : int | 0 <= i /\ i <= 10 /\ i mod 2 == 0 | i*i }
+   ; { {j : int | j elem e                 | sqrt (j)} == {0, 2, 4, 6, 8, 10} }
+   ; { {j : int | j elem e /\ j mod 2 == 1 | j }       == {}                  }
+  ]|]|
+
+proc msums ( )
+  {pre true pre}
+  {post true post}
+  |[ { {:1,2,3:} msum {:1,1,2:} == {:1,1,1,2,2,3:} }
+   ; { {:1,2,3:} msum {:1,2,3:} == {:1,1,2,2,3,3:} }
+   ; { {:1,2  :} msum {:    3:} == {:1,2,3:} }
+   ; { ({:1:} msum {:2:}) msum {:3:}  == {:1:} msum ({:2:} msum {:3:}) }
+   ; { ({:1,2:} msum {:2,3:}) msum {:3,1:}  == {:1,2:} msum ({:2,3:} msum {:3,1:}) }
+  ]|
+
+proc concats ( )
+  {pre true pre}
+  {post true post}
+  |[ { <<1,2,3>> ++ <<1,1,2>> == <<1,2,3,1,1,2>> }
+   ; { <<1,2,3>> ++ <<1,2,3>> == <<1,2,3,1,2,3>> }
+   ; { <<1,2  >> ++ <<    3>> == <<1,2,3>> }
+   ; { (<<1>> ++ <<2>>) ++ <<3>>  == <<1>> ++ (<<2>> ++ <<3>>) }
+   ; { (<<1,2>> ++ <<2,3>>) ++ <<3,1>>  == <<1,2>> ++ (<<2,3>> ++ <<3,1>>) }
+  ]|
+
+main
+  |[ empties ()
+   ; elems ()
+   ; minus ()
+   ; unions ()
+   ; intersections ()
+   ; comprehensions ()
+   ; msums ()
+   ; concats ()
+  ]|
+end

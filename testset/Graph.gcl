@@ -1,3 +1,5 @@
+#!/usr/bin/env rungraciela
+
 /*% LANGUAGE EnableTrace %*/
 
 program Graph.bin begin

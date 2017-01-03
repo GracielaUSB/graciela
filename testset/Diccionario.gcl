@@ -1,3 +1,5 @@
+#!/usr/bin/env rungraciela
+
 program Dicc.bin begin
 
 abstract Diccionario (T0, T1) begin
@@ -187,7 +189,7 @@ main
   ; var v, c : char
   ; var arr : array[10] of (int*)
   ; var d : Dicc(int, char)
-  ; writeln("Debido a que el programa debe tenerminar,")
+  ; writeln("Debido a que el programa debe terminar,")
   ; writeln("este prompt se emitira solo un maximo de 100 veces")
   ; {inv   true    inv}
     {bound 100-n bound}

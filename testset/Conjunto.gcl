@@ -1,6 +1,8 @@
+#!/usr/bin/env rungraciela
 
 /*% LANGUAGE EnableTrace %*/
 /*% LANGUAGE LogicAnywhere %*/
+
 program Conjunto.bin begin
   
   abstract ConjuntoA(T) begin
@@ -274,7 +276,7 @@ main
   ; var arr : array[10] of (int*)
   ; var c1,c2 : Conjunto(int)
 
-  ; writeln("Debido a que el programa debe tenerminar,")
+  ; writeln("Debido a que el programa debe terminar,")
   ; writeln("este prompt se emitira solo un maximo de 100 veces")
   ; {inv   true    inv}
     {bound 100-n bound}

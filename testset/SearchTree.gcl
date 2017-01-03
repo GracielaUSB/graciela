@@ -1,4 +1,6 @@
-/*% LANGUAGE EnableTrace   %*/
+#!/usr/bin/env rungraciela
+
+/*% LANGUAGE EnableTrace %*/
 
 program SearchTree.bin begin
   abstract n
@@ -282,7 +284,7 @@ main
   ; var arr : array[10] of (int*)
   ; var t : SearchTree(char)*
   ; writeln((trace(t == null) \/ c > (*t).info) )
-  ; writeln("Debido a que el programa debe tenerminar,")
+  ; writeln("Debido a que el programa debe terminar,")
   ; writeln("este prompt se emitira solo un maximo de 100 veces")
   ; {inv   true    inv}
     {bound 100-n bound}

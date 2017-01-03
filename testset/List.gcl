@@ -1,3 +1,5 @@
+#!/usr/bin/env rungraciela
+
 program List.bin begin
 
 
