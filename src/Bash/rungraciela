@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 t=$RANDOM
+
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+function ctrl_c() {
+  rm $t
+  exit 130
+}
+
 if graciela $1 -o $t
   then
     ./$t

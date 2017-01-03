@@ -1,0 +1,225 @@
+#!/usr/bin/env rungraciela
+
+/*% LANGUAGE EnableTrace %*/
+
+program Cola begin
+
+abstract ColaA(T)
+begin
+  const MAX := 10 : int;
+  var contenido : sequence of T;
+  
+  {repinv MAX > 0 /\ #contenido <= MAX repinv}
+
+  proc encolar (inout c : ColaA(T), in x : T )
+    let contenido_0 := c.contenido : sequence of T;
+    {pre #c.contenido < c.MAX pre}
+    {post c.contenido == contenido_0 ++ ⟨x⟩ post}
+
+  proc desencolar (inout c : ColaA(T) )
+    let tail := ⟨i : int | 1 ≤ i /\ i < #c.contenido | c.contenido[i]⟩ : sequence of T;
+    {pre c.contenido != ⟨⟩ pre}
+    {post c.contenido == tail post}
+
+  proc primero (in c : ColaA(T), out x : T )
+    {pre c.contenido != ⟨⟩ pre}
+    {post x == c.contenido[0] post}
+
+  proc vacia (in c : ColaA(T), out v : boolean )
+    {pre true pre}
+    {post v ≡ (c.contenido == ⟨⟩) post}
+end
+
+type Cola(T) implements ColaA(T)
+begin
+  var inic, fin := 0, 0 : int;
+  var nada      := true : boolean;
+  var elems             : array [MAX] of T;
+
+  {repinv 
+    MAX > 0 /\ 0 ≤ (inic min fin) /\ (inic max fin) < MAX /\ 
+    nada ==> inic == fin
+  repinv}
+
+  {coupinv true coupinv}
+
+  where {contenido := if inic < fin \/  nada -> ⟨i : int | inic ≤ i /\ i < fin | elems[i]⟩ 
+                      [] inic ≥ fin /\ !nada -> ⟨i : int | inic ≤ i /\ i < fin + MAX | elems[i mod MAX]⟩ 
+                      fi }
+
+  proc unimplemented ()
+    {pre true pre}
+    {post true post}
+    |[ writeln ("Error: unimplemented")
+     ; abort ]|
+
+
+  func numElems (c : Cola(T)) -> int
+    {pre true pre}
+    {post numElems ≥ 0 /\ numElems ≤ c.MAX post}
+    |[ if c.nada -> 0
+       [] c.inic == c.fin /\ !c.nada -> c.MAX
+       [] c.inic <  c.fin -> c.fin - c.inic
+       [] c.inic >  c.fin -> c.fin + c.MAX - c.inic
+       fi ]|
+
+  proc aux_copy (in c : Cola(T), out elems_0 : array[c.MAX] of T)
+    {pre true pre}
+    {post 
+      (% forall i : int 
+      | 0 ≤ i /\ i < numElems(c) 
+      | elems_0[i] == c.elems[(i + c.inic) mod c.MAX]
+      %)
+    post}
+    |[ var i, n : int
+    ;  i, n := 0, numElems(c)
+    ;  {inv 0 ≤ i ∧ i ≤ n inv}
+       {bound n - i bound} 
+       do i < n -> elems_0[i] := c.elems[(i + c.inic) mod c.MAX]
+                 ; i := i + 1
+       od 
+    ]|
+
+  proc encolar (inout c : Cola(T), in x : T)
+    var inic_0, fin_0 := c.inic, c.fin : int;
+    var n_0 := numElems(c) : int;
+    var elems_0 : array[c.MAX] of T;
+    
+    {pre c.inic != c.fin \/ c.nada pre}
+    {post 
+      c.inic == inic_0 /\ c.fin == (fin_0 + 1) mod c.MAX /\ !c.nada /\ 
+      c.elems[fin_0] == x /\
+      (% forall i : int | 0 ≤ i /\ i < n_0 | c.elems[(i + inic_0) mod c.MAX] == elems_0[i] %)
+    post}
+    
+    |[ aux_copy(c, elems_0)
+     ; c.elems[c.fin] := x
+     ; c.fin, c.nada := (c.fin + 1) mod c.MAX, false
+    ]|
+
+
+  proc mostrar (in c : Cola(T))
+    {pre true pre}
+    {post true post}
+    |[ write ('[')
+     ; if c.nada
+         -> skip
+       [] otherwise
+         -> var n_0 := numElems (c) : int
+          ; var i := 0 : int
+          ; {inv true inv}
+            {bound (n_0 - 1 - i) max 0 bound}
+            do i < n_0 - 1 -> write (c.elems[(i + c.inic) mod c.MAX])
+                            ; write (", ")
+                            ; i := i + 1
+            od
+          ; write (c.elems[(c.fin - 1) mod c.MAX])
+       fi
+     ; write (']') 
+    ]|
+
+  proc debug (in c : Cola(T))
+    {pre true pre}
+    {post true post}
+    |[ var i := 0 : int 
+     ; {inv true inv}
+       {bound c.MAX - i bound}
+       do i < c.MAX 
+         -> write(c.elems[i], ' ')
+         ;  i := i + 1
+       od
+     ; writeln()
+     ; writeln("inic: ", c.inic, "; fin: ", c.fin, "; nada: ", c.nada, "; numElems: ", numElems(c))
+     ; skip 
+    ]| 
+
+  proc desencolar (inout c : Cola(T) )
+    var inic_0, fin_0 := c.inic, c.fin : int;
+    var n_0 := numElems(c) : int;
+    var elems_0 : array[c.MAX] of T;
+
+    {pre !c.nada pre}
+    {post c.inic == (inic_0 + 1) mod c.MAX 
+       /\ c.fin == fin_0 
+       /\ (% forall i : int | 0 ≤ i /\ i < n_0 | c.elems[(i + inic_0) mod c.MAX] == elems_0[i] %)
+    post}
+    |[ aux_copy(c, elems_0)
+     ; c.inic := (c.inic + 1) mod c.MAX
+     ; if c.inic == c.fin -> c.nada := true
+       [] otherwise -> skip
+       fi
+    ]|
+
+  proc primero (in c : Cola(T), out x : T )
+    {pre !c.nada pre}
+    {post x == c.elems[c.inic] post}
+    |[ x := c.elems[c.inic] ]|
+
+  proc vacia (in c : Cola(T), out v : boolean )
+    {pre true pre}
+    {post v ≡ c.nada post}
+    |[ v := c.nada ]|
+
+
+end
+
+main
+  |[ var q : Cola (int)
+
+   ; var veces : int
+   ; var vez   : int
+   ; var opcion : char
+
+   ; var aux  : int
+   ; var v : boolean
+
+   ; write ("Cuantas veces desea interactuar con el sistema? > "); read (veces)
+
+   ; vez := 1
+   ; {inv true inv}
+     {bound veces - vez + 1 bound}
+     do vez <= veces 
+       -> write (vez); write ("> "); read (opcion)
+        ; if opcion == 'E' \/ opcion == 'e'
+            -> write ("escriba el entero a encolar > "); read (aux)
+             ; encolar (q, aux)
+          [] opcion == 'D' \/ opcion == 'd'
+            -> desencolar (q)
+          [] opcion == 'V' \/ opcion == 'v'
+            -> vacia (q, v)
+             ; if v         -> writeln ("la cola esta vacia.")
+               [] otherwise -> writeln ("la cola no esta vacia.")
+               fi
+          [] opcion == 'C' \/ opcion == 'c'
+            -> vacia (q, v)
+             ; if v         -> writeln ("la cola esta vacia.")
+               [] otherwise -> primero (q, aux)
+                             ; writeln ("la cabeza de la cola es ", aux)
+               fi
+          [] opcion == 'P' \/ opcion == 'p'
+            -> mostrar (q); writeln ()
+          [] opcion == 'B' \/ opcion == 'b'
+            -> debug (q); writeln ()
+          [] opcion == 'S' \/ opcion == 's'
+            -> vez := veces
+          [] otherwise 
+            -> writeln ("**Ayuda para colas**")
+             ; writeln ("Comandos:")
+             ; writeln ("\t(E)ncolar")
+             ; writeln ("\t(D)esencolar")
+             ; writeln ("\t(V)acia")
+             ; writeln ("\t(C)abeza")
+             ; writeln ("\tim(P)rimir")
+             ; writeln ("\tde(B)ug")
+             ; writeln ("\t(S)alir")
+             ; writeln ("\t(*)ayuda (este mensaje)")
+          fi
+        // ; mostrar (q); writeln()
+        ; vez := vez + 1
+     od
+   ; writeln ("Ha llegado al final del programa.")
+   ; write ("Último valor de la cola: ")
+   ; mostrar (q)
+   ; writeln ()
+  ]|
+end

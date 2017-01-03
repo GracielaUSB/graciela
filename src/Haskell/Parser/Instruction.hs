@@ -663,6 +663,12 @@ procedureCall = do
                       , pRecursiveProc = procRecursive
                       , pStructArgs    = Just (name, typeArgs) } }
 
+              Just Definition { def' = FunctionDef {}, defLoc } -> do
+                putError from . UnknownError $
+                  "Cannot call function `" <> unpack procName <> "`, defined at " <>
+                  show defLoc <> "` as an instruction; a procedure was expected."
+                pure Nothing
+
               Nothing -> do
                 procs <- use definitions
                 putError from . UnknownError $

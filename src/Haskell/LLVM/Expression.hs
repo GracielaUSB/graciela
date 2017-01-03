@@ -459,11 +459,56 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               (isZero #)
               abort Abort.DivisionByZero pos
 
+              aux <- newLabel "modAux" 
+              aux2 <- newLabel "modAux2" 
+              auxSgn <- newLabel "modAuxSgn"
+              isNeg <- newLabel "modAuxIsPoz"
+              isntNeg <- newLabel "modAuxIsntPoz"
+              wrapIt <- newLabel "modEnd"
+
               (isntZero #)
-              addInstruction $ label := SRem
+              addInstruction $ aux := SRem
                 { operand0 = lOperand
                 , operand1 = rOperand
                 , metadata = [] }
+
+              addInstruction $ auxSgn := ICmp
+                { iPredicate = SLT
+                , operand0   = LocalReference (case n of 8 -> i8; 32 -> i32) aux
+                , operand1   = ConstantOperand $ C.Int n 0
+                , metadata   = [] }
+
+              terminate CondBr
+                { condition = LocalReference i1 auxSgn
+                , trueDest  = isNeg
+                , falseDest = isntNeg
+                , metadata' = [] }
+
+              (isntNeg #)
+              terminate Br
+                { dest      = wrapIt 
+                , metadata' = [] }
+
+              (isNeg #)
+              addInstruction $ aux2 := Add
+                { nsw = False
+                , nuw = False
+                , operand0 = LocalReference (case n of 8 -> i8; 32 -> i32) aux
+                , operand1 = rOperand
+                , metadata = [] }
+
+              terminate Br
+                { dest      = wrapIt 
+                , metadata' = [] }
+
+              (wrapIt #)
+              addInstruction $ label := Phi
+                { type'          = case n of 8 -> i8; 32 -> i32
+                , incomingValues = 
+                  [ (LocalReference (case n of 8 -> i8; 32 -> i32) aux2, isNeg)
+                  , (LocalReference (case n of 8 -> i8; 32 -> i32) aux, isntNeg)
+                  ]
+                , metadata       = [] }
 
             Op.Min    -> addInstruction $
               label := Call
