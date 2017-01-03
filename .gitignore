@@ -29,6 +29,10 @@ cabal.config
 
 *.txt
 
+.build/*
+
+graciela
+
 source/Haskell/rungraciela
 
 src/Haskell/test.sh
