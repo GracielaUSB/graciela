@@ -28,6 +28,10 @@ import           Test.QuickCheck.Arbitrary
 tam :: Int
 tam = 100
 
+nLines :: Int
+nLines = tam*5
+--------------------------------------------------------------------------------
+
 data Comando
   = Encolar Basic
   | Desencolar
@@ -51,15 +55,15 @@ data Comandos = Comandos Basic [Comando] deriving (Eq, Ord)
 instance Arbitrary Comandos where
   arbitrary = do
     w <- elements [BBool False, BChar '\0', BFloat 0, BInt 0]
-    Comandos w <$> vectorOf tam (arb' w)
+    Comandos w <$> vectorOf nLines (arb' w)
     where
       arb' w = frequency
-        [ (60, Encolar <$> arb'' w)
-        , (20, pure Desencolar)
-        , (10, pure Vacia)
-        , (15, pure Cabeza)
-        , (10, pure Imprimir)
-        , (1 , pure Salir) ]
+        [ (600, Encolar <$> arb'' w)
+        , (200, pure Desencolar)
+        , (100, pure Vacia)
+        , (150, pure Cabeza)
+        , (100, pure Imprimir)
+        , (5  , pure Salir) ]
       arb'' w = case w of
         BBool  {} -> BBool  <$> (arbitrary :: Gen Bool)
         BChar  {} -> BChar  <$> choose ('!', '~')
@@ -68,7 +72,7 @@ instance Arbitrary Comandos where
 
 instance Show Comandos where
   show (Comandos w cs) = 
-    letter <> "\n" <> show tam <> "\n" <> unlines (show <$> cs)
+    letter <> "\n" <> show nLines <> "\n" <> unlines (show <$> cs)
     where
       letter = case w of
         BBool  {} -> "b"

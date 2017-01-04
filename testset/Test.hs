@@ -54,7 +54,7 @@ compile name = do
 --------------------------------------------------------------------------------
 
 prop_colas cs = monadicIO $ do
-  (_, out, err) <- run $ do
+  (_, out, err) <- run $
     readProcessWithExitCode (bin "Cola") [] (show cs)
   Q.assert $ err == "" && out == correrSimulacion cs
 --------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ main = do
   "Compile Cola" ~::
     compile "Cola"
   "Run Cola" ~!::
-    quickCheck prop_colas
+    quickCheckWith stdArgs { maxSuccess = 1000 } prop_colas
   removeFile (bin "Cola")
 
   -- Teoría de Conjuntos --
