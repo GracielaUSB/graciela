@@ -6,7 +6,7 @@ program Cola begin
 
 abstract ColaA(T)
 begin
-  const MAX := 10 : int;
+  const MAX := 100 : int;
   var contenido : sequence of T;
   
   {repinv MAX > 0 /\ #contenido <= MAX repinv}
@@ -156,9 +156,13 @@ begin
          -> /*write (vez); write ("> ");*/ read (opcion)
           ; if opcion == 'E' \/ opcion == 'e'
               -> /*write ("escriba el entero a encolar > ");*/ read (aux)
-               ; encolar (c, aux)
+               ; if numElems (c) < c.MAX -> encolar (c, aux)
+                 [] otherwise -> writeln ("No.")
+                 fi
             [] opcion == 'D' \/ opcion == 'd'
-              -> desencolar (c)
+              -> if c.nada -> writeln ("No.")
+                 [] otherwise -> desencolar (c)
+                 fi
             [] opcion == 'V' \/ opcion == 'v'
               -> vacia (c, v)
                ; writeln (v)
@@ -167,7 +171,7 @@ begin
                //   fi
             [] opcion == 'C' \/ opcion == 'c'
               -> vacia (c, v)
-               ; if v         -> writeln ("emp")/*writeln ("la cola esta vacia.")*/
+               ; if v         -> writeln ("No.")/*writeln ("la cola esta vacia.")*/
                  [] otherwise -> primero (c, aux)
                                ; writeln (/*"la cabeza de la cola es ", */aux)
                  fi
@@ -176,15 +180,15 @@ begin
             [] opcion == 'S' \/ opcion == 's'
               -> vez := veces
             [] otherwise 
-              -> writeln ("**Ayuda para colas**")
-               ; writeln ("Comandos:")
-               ; writeln ("\t(E)ncolar")
-               ; writeln ("\t(D)esencolar")
-               ; writeln ("\t(V)acia")
-               ; writeln ("\t(C)abeza")
-               ; writeln ("\tim(P)rimir")
-               ; writeln ("\t(S)alir")
-               ; writeln ("\t(*)ayuda (este mensaje)")
+              -> skip // writeln ("**Ayuda para colas**")
+               // ; writeln ("Comandos:")
+               // ; writeln ("\t(E)ncolar")
+               // ; writeln ("\t(D)esencolar")
+               // ; writeln ("\t(V)acia")
+               // ; writeln ("\t(C)abeza")
+               // ; writeln ("\tim(P)rimir")
+               // ; writeln ("\t(S)alir")
+               // ; writeln ("\t(*)ayuda (este mensaje)")
             fi
           ; vez := vez + 1
        od

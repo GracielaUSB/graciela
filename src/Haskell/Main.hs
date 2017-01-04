@@ -44,7 +44,7 @@ import           Prelude                    hiding (lex, readFile)
 
 import           System.Console.GetOpt      (ArgDescr (..), ArgOrder (..),
                                              OptDescr (..), getOpt, usageInfo)
-import           System.Directory           (doesFileExist)
+import           System.Directory           (doesFileExist, removeFile)
 import           System.Environment         (getArgs)
 import           System.Exit                (ExitCode (..), die, exitFailure,
                                              exitSuccess)
@@ -52,7 +52,6 @@ import           System.FilePath.Posix      (replaceExtension, takeExtension)
 import           System.IO                  (stderr)
 import           System.Process             (readProcess,
                                              readProcessWithExitCode)
-
 import           Text.Megaparsec            (ParsecT, parseErrorPretty,
                                              sourceColumn, sourceLine)
 import           Text.Megaparsec.Error      (ParseError, errorPos)
@@ -278,7 +277,8 @@ compile fileName options = do
             putStr out
 
             unless (optKeepTemp options) . void $
-              readProcess "rm" [lltName] ""
+              removeFile lltName
+              -- readProcess "rm" [lltName] ""
 
             case exitCode of
               ExitSuccess ->

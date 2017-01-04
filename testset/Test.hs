@@ -1,20 +1,31 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Test (main) where
 
-import           Control.Monad    (forever, unless, void)
-import           Data.Maybe       (isNothing)
-import           Data.Semigroup   (Semigroup (..))
-import           Main             (Options (..), defaultOptions)
-import qualified Main             as M (compile)
-import           Prelude          hiding (readFile)
-import           System.Directory (getCurrentDirectory, removeFile)
-import           System.FilePath  ((-<.>), (<.>), (</>))
-import           System.IO        (IOMode (..), SeekMode (..), hClose,
-                                   hGetContents, hSeek, readFile, withFile)
-import           System.IO.Temp   (openBinaryTempFile, openTempFile,
-                                   withTempFile)
-import           System.Process   (CreateProcess (..), StdStream (..),
-                                   createProcess, proc)
+--------------------------------------------------------------------------------
+import           Cola.Cola
+import           Main                    (Options (..), defaultOptions)
+import qualified Main                    as M (compile)
+--------------------------------------------------------------------------------
+import           Control.Monad           (forever, unless, void)
+import           Data.Maybe              (isNothing)
+import           Data.Semigroup          (Semigroup (..))
+import           Prelude                 hiding (readFile)
+import           System.Directory        (getCurrentDirectory, removeFile)
+import           System.Exit             (ExitCode (..))
+import           System.FilePath         ((-<.>), (<.>), (</>))
+import           System.IO               (IOMode (..), SeekMode (..), hClose,
+                                          hGetContents, hPutStrLn, hSeek,
+                                          readFile, stderr, withFile)
+import           System.IO.Temp          (openBinaryTempFile, openTempFile,
+                                          withTempFile)
+import           System.Process          (CreateProcess (..), StdStream (..),
+                                          proc, readProcessWithExitCode)
 import           Test.HUnit
+import           Test.QuickCheck
+import           Test.QuickCheck.Monadic hiding (assert)
+import qualified Test.QuickCheck.Monadic as Q (assert)
+--------------------------------------------------------------------------------
 
 dir :: String
 dir = "testset"
@@ -25,6 +36,13 @@ input  name n = dir </> name </> "in"  <> show n
 output name n = dir </> name </> "out" <> show n
 errput name n = dir </> name </> "err" <> show n
 
+infixr 0 ~::
+a ~:: b = runTestTT (a ~: b)
+
+infixr 0 ~!::
+_ ~!:: b = b
+--------------------------------------------------------------------------------
+
 compile :: String -> Assertion
 compile name = do
   v1 <- M.compile (gcl name) defaultOptions
@@ -32,33 +50,27 @@ compile name = do
     , optLibGraciela  = "libgraciela.so"
     , optLibGracielaA = "libgraciela-abstract.so" }
 
-  unless (isNothing v1) (removeFile (bin name))
-  isNothing v1 @? "Compilation failed"
+  isNothing v1 @? ("Compilation failed:\n" <> show v1)
+--------------------------------------------------------------------------------
 
-run :: String -> Int -> Assertion
-run name n = withFile (input name n) ReadMode $ \hin -> do
-  (_, Just hout, Just herr, _) <- createProcess (proc (bin name) [])
-    { std_in  = UseHandle hin
-    , std_out = CreatePipe
-    , std_err = CreatePipe }
-
-  expectedout <- readFile (output name n)
-  actualout   <- hGetContents hout
-  expectederr <- readFile (errput name n)
-  actualerr   <- hGetContents herr
-
-  (actualout, actualerr) @?= (expectedout, expectederr)
-
-tests = TestList
-  [ "Cola" ~: TestList
-    [ "Compile" ~: compile "Cola"
-    , "Run"     ~: TestList $ TestCase . run "Cola" <$> [1..2]
-    , "Delete"  ~: removeFile (bin "Cola") ]
-  , "TeoriaConjuntos" ~: TestList
-    [ "Compile" ~: compile "TeoriaConjuntos"
-    , "Run"     ~: TestList $ TestCase . run "TeoriaConjuntos" <$> [1]
-    , "Delete"  ~: removeFile (bin "TeoriaConjuntos") ]
-  ]
+prop_colas cs = monadicIO $ do
+  (_, out, err) <- run $ do
+    readProcessWithExitCode (bin "Cola") [] (show cs)
+  Q.assert $ err == "" && out == correrSimulacion cs
+--------------------------------------------------------------------------------
 
 main = do
-  runTestTT tests
+  -- Cola --
+  "Compile Cola" ~::
+    compile "Cola"
+  "Run Cola" ~!::
+    quickCheck prop_colas
+  removeFile (bin "Cola")
+
+  -- Teoría de Conjuntos --
+  "Compile TeoriaConjuntos" ~::
+    compile "TeoriaConjuntos"
+  "Run TeoriaConjuntos" ~::
+    readProcessWithExitCode (bin "TeoriaConjuntos") [] "" >>=
+    assertEqual "" (ExitSuccess, "", "")
+  removeFile (bin "TeoriaConjuntos")

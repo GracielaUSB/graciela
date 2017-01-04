@@ -19,8 +19,8 @@ libgraciela-abstract.so: src/C/libgraciela-abstract/libgraciela-abstract.cpp src
 	src/C/libgraciela-abstract/libgraciela-abstract.cpp
 	@strip libgraciela-abstract.so
 
-test: graciela testset/Test.hs
-	@ghc -outputdir .build -isrc/Haskell testset/Test.hs -main-is Test -o gratest > /dev/null
+test: graciela libgraciela.so libgraciela-abstract.so testset/Test.hs
+	@ghc -outputdir .build -isrc/Haskell:testset testset/Test.hs -main-is Test -o gratest > /dev/null
 	./gratest
 
 clean: cleanc cleanhs cleantest

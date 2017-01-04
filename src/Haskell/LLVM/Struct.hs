@@ -97,7 +97,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
 
         mapM_ definition structProcs
         currentStruct .= Nothing
-
+        substitutionTable .= []
     s -> pure ()
 
 defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
