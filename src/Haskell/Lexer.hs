@@ -137,7 +137,7 @@ stringLit = lexeme $
 
 identifier :: Lexer TokenPos
 identifier = lexeme $
-  TokId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf "_?'"))
+  TokId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf ("_?'" :: String)))
 
 
 unexpected :: Lexer TokenPos

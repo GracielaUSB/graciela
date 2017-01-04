@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -10,13 +11,13 @@ import           Common
 import           Error
 import           Lexer
 import           LLVM.Program
+import           OS
 import           Parser.Monad
 import           Parser.Program
 import           Parser.State
 import           SymbolTable
 import           Token
 import           Treelike
-import           OS
 --------------------------------------------------------------------------------
 import           Control.Lens               ((^.))
 import           Control.Monad.Identity     (Identity, runIdentity)
@@ -45,9 +46,10 @@ import           System.Console.GetOpt      (ArgDescr (..), ArgOrder (..),
                                              OptDescr (..), getOpt, usageInfo)
 import           System.Directory           (doesFileExist)
 import           System.Environment         (getArgs)
-import           System.Exit                (ExitCode (..), die, exitSuccess, exitFailure)
+import           System.Exit                (ExitCode (..), die, exitFailure,
+                                             exitSuccess)
 import           System.FilePath.Posix      (replaceExtension, takeExtension)
-import           System.IO                  (hPutStr, stderr)
+import           System.IO                  (stderr)
 import           System.Process             (readProcess,
                                              readProcessWithExitCode)
 
@@ -60,7 +62,7 @@ version :: String
 version = "graciela 1.0.0.0"
 
 help :: String
-help = usageInfo message options
+help = usageInfo message (rights options)
 
 message :: String
 message = "use: graciela [OPTIONS]... [FILE]"
@@ -74,54 +76,85 @@ data Options = Options
   , optSTable       :: Bool
   , optOptimization :: String
   , optAssembly     :: Bool
-  , optLLVM         :: Bool }
+  , optLLVM         :: Bool
+  , optClang        :: String
+  , optLibGraciela  :: String
+  , optLibGracielaA :: String }
 
 defaultOptions      = Options
   { optHelp         = False
   , optVersion      = False
-  , optErrors       = Nothing
+  , optErrors       = Just 5
   , optOutName      = Nothing
   , optAST          = False
   , optSTable       = False
   , optOptimization = ""
   , optAssembly     = False
-  , optLLVM         = False }
+  , optLLVM         = False
+  , optClang        = clang
+  , optLibGraciela  = lib
+  , optLibGracielaA = abstractLib }
+  where
+    (clang, lib, abstractLib)
+      | isLinux =
+        ( "clang-3.5"
+        , "/usr/lib/graciela/libgraciela.so"
+        , "/usr/lib/graciela/libgraciela-abstract.so")
+      | isMac =
+        ( "/usr/local/bin/clang-3.5"
+        , "/usr/local/lib/libgraciela.so"
+        , "/usr/local/lib/libgraciela-abstract.so")
+      | isWindows = internal $ "Windows not supported :("
+      | otherwise = internal $ "Unknown OS, not supported :("
 
-options :: [OptDescr (Options -> Options)]
+options :: [Both (OptDescr (Options -> Options))]
 options =
-  [ Option ['?', 'h'] ["help"]
+  [ Right $ Option ['?', 'h'] ["help"]
     (NoArg (\opts -> opts { optHelp = True }))
     "Display this help message"
-  , Option ['v'] ["version"]
+  , Right $ Option ['v'] ["version"]
     (NoArg (\opts -> opts { optVersion = True }))
     "Displays the version of the compiler"
-  , Option ['e'] ["errors"]
+  , Right $ Option ['e'] ["errors"]
     (ReqArg (\ns opts -> case reads ns of
       [(n,"")] -> opts { optErrors = Just n }
       _        -> error "Invalid argument for flag `errors`"
     ) "INTEGER")
     "Limit the number of displayed errors"
-  , Option ['o'] ["out"]
+  , Right $ Option ['o'] ["out"]
     (ReqArg (\fileName opts -> case fileName of
       "" -> error "Invalid argument for flag `out`"
       _  -> opts { optOutName = Just fileName }
     ) "FILE NAME")
     "Set executable name"
 
-  -- , Option ['s'] ["symtable"]
-  --   (NoArg (\opts -> opts { optSTable = True }))
-  --   "Imprime la tabla de simbolos por stdin"
-  -- , Option ['a'] ["ast"]
-  --   (NoArg (\opts -> opts { optAST = True }))
-  --   "Imprime el AST por stdin"
-  -- , Option ['S'] ["assembly"]
-  --   (NoArg (\opts -> opts { optAssembly = True }))
-  --   "Generar codigo ensamblador"
-  -- , Option ['L'] ["llvm"]
-  --   (NoArg (\opts -> opts { optLLVM = True }))
-  --   "Generar codigo intermedio LLVM"
+  , Left $ Option ['s'] ["symtable"]
+    (NoArg (\opts -> opts { optSTable = True }))
+    "Print symtable on stdin"
+  , Left $ Option ['a'] ["ast"]
+    (NoArg (\opts -> opts { optAST = True }))
+    "Print AST on stdin"
+  , Left $ Option ['S'] ["assembly"]
+    (NoArg (\opts -> opts { optAssembly = True }))
+    "Generate assembler code"
+  , Left $ Option ['L'] ["llvm"]
+    (NoArg (\opts -> opts { optLLVM = True }))
+    "Generate LLVM intermediate code"
 
-  , Option ['O'] ["optimization"]
+  , Left $ Option [] ["clang"]
+    (ReqArg (\executable opts -> opts { optClang = executable }
+    ) "EXECUTABLE")
+    "Set Clang to be used"
+  , Left $ Option [] ["library"]
+    (ReqArg (\library opts -> opts { optLibGraciela = library }
+    ) "EXECUTABLE")
+    "Set Library to be linked against"
+  , Left $ Option [] ["abstract-library"]
+    (ReqArg (\library opts -> opts { optLibGracielaA = library }
+    ) "EXECUTABLE")
+    "Set Abstract Library to be linked against"
+
+  , Right $ Option ['O'] ["optimization"]
     (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "LEVEL")
       "Optimization levels\n\
       \-O0 No optimization\n\
@@ -133,7 +166,7 @@ options =
 opts :: IO (Options, [String])
 opts = do
   args <- getArgs
-  case getOpt Permute options args of
+  case getOpt Permute (eithers options) args of
     (flags, rest, []) ->
       return (foldl (flip Prelude.id) defaultOptions flags, rest)
     (_, _, errs) ->
@@ -166,11 +199,18 @@ main = do
 
   doesFileExist fileName >>= \x -> unless x
     (die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
-           " The file `" <> fileName <> "` does not exists.")
+           " The file `" <> fileName <> "` does not exist.")
 
   unless (takeExtension fileName == ".gcl")
     (die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
            " The file does not have the right extension, `.gcl`.")
+
+  compile fileName options >>= \case
+    Nothing  -> exitSuccess
+    Just msg -> die msg
+
+compile :: FilePath -> Options -> IO (Maybe String)
+compile fileName options = do
 
   -- Read the source file
   source <- readFile fileName
@@ -182,87 +222,82 @@ main = do
   if null (state ^. errors)
     then case r of
       Right program@Program { name } -> do
+        if| optAST options -> do
+            {-Print AST-}
+            putStrLn . drawTree . toTree $ program
+            pure Nothing
 
-        {-Print AST-}
-        when (optAST options) $ do
-          putStrLn . drawTree . toTree $ program
-          exitSuccess
-        {-Print Symbol Table-}
-        when (optSTable options) $ do
-          putStrLn . drawTree . toTree . defocus $ state ^. symbolTable
-          -- putStrLn . drawTree . Node "Types" . toList $
-          --   leaf . show <$> state ^. typesTable
-          exitSuccess
+          | optSTable options -> do
+            {-Print Symbol Table-}
+            putStrLn . drawTree . toTree . defocus $ state ^. symbolTable
+            pure Nothing
 
-        {- Generate LLVM AST -}
-        let
-          files = toList $ state ^. filesToRead
-          -- types = state ^. typesTable
+          | otherwise -> do
+            {- Generate LLVM AST -}
+            let
+              files = toList $ state ^. filesToRead
+              -- types = state ^. typesTable
 
-        newast <- programToLLVM files program
+            newast <- programToLLVM files program
 
-        let
-          lltName = case optOutName options of
-            Nothing -> "a.t.ll"
-            Just n  -> n <> ".t.ll"
+            let
+              lltName = case optOutName options of
+                Nothing -> "a.t.ll"
+                Just n  -> n <> ".t.ll"
 
-        {- And write it as IR on a ll file -}
-        withContext $ \context ->
-          liftError . withModuleFromAST context newast $ \m -> liftError $
-            writeLLVMAssemblyToFile (File lltName) m
+            {- And write it as IR on a ll file -}
+            withContext $ \context ->
+              liftError . withModuleFromAST context newast $ \m -> liftError $
+                writeLLVMAssemblyToFile (File lltName) m
 
-        let
-          assembly
-            | optLLVM options     = ["-S", "-emit-llvm"]
-            | optAssembly options = ["-S"]
-            | otherwise           = []
-          outName = case optOutName options of
-            Just outName' -> outName'
-            Nothing
-              | optLLVM options     -> unpack name <> ".ll"
-              | optAssembly options -> unpack name <> ".s"
-              | otherwise           -> unpack name
-          args = [optOptimization options]
-              <> assembly
-              <> [lltName]
-              <> ["-o", outName]
-              <> [l | l <- [math, lib, abstractLib]
-                    , not $ optLLVM options || optAssembly options ]
-        (exitCode, out, errs) <- readProcessWithExitCode clang args ""
+            let
+              assembly
+                | optLLVM options     = ["-S", "-emit-llvm"]
+                | optAssembly options = ["-S"]
+                | otherwise           = []
+              outName = case optOutName options of
+                Just outName' -> outName'
+                Nothing
+                  | optLLVM options     -> unpack name <> ".ll"
+                  | optAssembly options -> unpack name <> ".s"
+                  | otherwise           -> unpack name
+              args = [optOptimization options]
+                  <> assembly
+                  <> [lltName]
+                  <> ["-o", outName]
+                  <> [l | l <- [math, lib, abstractLib]
+                        , not $ optLLVM options || optAssembly options ]
+            (exitCode, out, errs) <- readProcessWithExitCode clang args ""
 
-        putStr out
-        hPutStr stderr errs
+            putStr out
 
-        void $ readProcess "rm" [lltName] ""
+            void $ readProcess "rm" [lltName] ""
 
-        case exitCode of
-          ExitSuccess ->
-            pure ()
-          ExitFailure _ ->
-            die "clang error"
+            case exitCode of
+              ExitSuccess ->
+                pure Nothing
+              ExitFailure _ ->
+                pure . Just $ "Clang error:\n" <> errs
 
       Left message -> do
-        die $ prettyError message
+        pure . Just $ prettyError message
 
     else do
       {- If any errors occurred during Parsing, they will be printed here-}
-      -- mapM_ print (state ^. errors)
-      hPutStr stderr . unlines . mTake (optErrors options) . toList $
-        prettyError <$> state ^. errors
-      exitFailure
+
+      let msg  = msg1 <> msg2
+          msg1 = case optErrors options of
+            Just n | length (state ^. errors) > n ->
+              "Showing only the first " <> show n <> " errors of " <>
+              show (length $ state ^. errors) <> " that were generated."
+            otherwise -> ""
+          msg2 = unlines . mTake (optErrors options) . toList $
+            prettyError <$> state ^. errors
+      pure . Just $ msg
 
   where
     mTake Nothing  xs = take 3 xs
     mTake (Just n) xs = take n xs
     math = "-lm"
-    (clang, lib, abstractLib)
-      | isLinux = 
-        ( "clang-3.5"
-        , "/usr/lib/graciela/libgraciela.so"
-        , "/usr/lib/graciela/libgraciela-abstract.so")
-      | isMac = 
-        ( "/usr/local/bin/clang-3.5"
-        , "/usr/local/lib/libgraciela.so"
-        , "/usr/local/lib/libgraciela-abstract.so")
-      | isWindows = internal $ "Windows not supported :("
-      | otherwise = internal $ "Unknown OS, not supported :("
+    [clang, lib, abstractLib] =
+      ($ options) <$> [optClang, optLibGraciela, optLibGracielaA]

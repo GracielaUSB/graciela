@@ -32,6 +32,7 @@ cabal.config
 .build/*
 
 graciela
+gratest
 
 source/Haskell/rungraciela
 

@@ -1,0 +1,10 @@
+Cuantas veces desea interactuar con el sistema? > 1> escriba el entero a encolar > 2> escriba el entero a encolar > 3> escriba el entero a encolar > 4> escriba el entero a encolar > 5> escriba el entero a encolar > 6> [1, 2, 3, 4, 5]
+7> escriba el entero a encolar > 8> escriba el entero a encolar > 9> escriba el entero a encolar > 10> escriba el entero a encolar > 11> escriba el entero a encolar > 12> 13> 14> [3, 4, 5, 6, 7, 8, 9, 10]
+15> escriba el entero a encolar > 16> escriba el entero a encolar > 17> [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+18> 19> 20> 21> [6, 7, 8, 9, 10, 11, 12]
+22> escriba el entero a encolar > 23> escriba el entero a encolar > 24> [6, 7, 8, 9, 10, 11, 12, 13, 14]
+25> escriba el entero a encolar > 26> 27> 28> 29> [9, 10, 11, 12, 13, 14, 15]
+30> 31> 32> 33> escriba el entero a encolar > 34> [12, 13, 14, 15, 16]
+35> escriba el entero a encolar > 36> [12, 13, 14, 15, 16, 17]
+37> Ha llegado al final del programa.
+Último valor de la cola: [12, 13, 14, 15, 16, 17]
