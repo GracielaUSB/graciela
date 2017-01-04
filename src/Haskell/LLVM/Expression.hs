@@ -173,6 +173,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       l <- expression left
       r <- expression right
 
+      lType <- fill $ E.expType left
+      rType <- fill $ E.expType right
+
       lBitcast <- newLabel "lBitcast"
       rBitcast <- newLabel "rBitcast"
       tuple    <- newLabel "tuple"
@@ -180,7 +183,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       rPtr     <- newLabel "rPtr"
       tupleT   <- toLLVMType $ expType
 
-      addInstruction . (lBitcast :=) $ case E.expType left of
+      addInstruction . (lBitcast :=) $ case lType of
         GFloat -> BitCast
           { operand0 = l
           , type' = i64
@@ -196,7 +199,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           , type' = i64
           , metadata = [] }
 
-      addInstruction . (rBitcast :=) $ case E.expType right of
+      addInstruction . (rBitcast :=) $ case rType of
         GFloat -> BitCast
           { operand0 = r
           , type' = i64
@@ -371,19 +374,21 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                   }
 
     Binary { binOp
-           , lexpr = lexpr@Expression { expType = lType }
-           , rexpr = rexpr@Expression { expType = rType } } -> do
+           , lexpr = lexpr@Expression { expType = lType' }
+           , rexpr = rexpr@Expression { expType = rType' } } -> do
       -- Evaluate both expressions
       lOperand <- expression lexpr
       rOperand <- expression rexpr
 
+      lType <- fill lType'
+      rType <- fill rType'
+
       case binOp of
-        Op.SeqAt    -> seqAt lOperand rOperand
-        Op.BifuncAt -> bifuncAt lOperand rOperand
+        Op.SeqAt    -> seqAt lOperand rOperand lType rType
+        Op.BifuncAt -> bifuncAt lOperand rOperand lType rType
         _ -> do
-          -- Get the type of the left expr. Used at bool operator to know the type when comparing.
           let
-            op = case expType of
+            op = case expType {- The type of the whole expression -} of
               GInt        -> opInt 32
               GChar       -> opInt 8
               GFloat      -> opFloat
@@ -396,10 +401,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 show binOp <> "\n" <>
                 drawTree (toTree e)
 
-          op binOp lOperand rOperand
+          op binOp lOperand rOperand lType rType
 
       where
-        opInt n op lOperand rOperand = do
+        opInt n op lOperand rOperand lType rType = do
           label <- newLabel $ case n of
             32 -> "intOp"
             8  -> "charOp"
@@ -548,7 +553,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           pure $ LocalReference (IntegerType n) label
 
-        opFloat op lOperand rOperand = do
+        opFloat op lOperand rOperand lType rType = do
           label <- newLabel "floatBinaryResult"
           case op of
             Op.Plus   -> addInstruction $ label := FAdd
@@ -605,7 +610,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             _ -> internal $ "opFloat unsupported op " <> show op
           pure $ LocalReference floatType label
 
-        opSet op lOperand rOperand = do
+        opSet op lOperand rOperand lType rType = do
           label <- newLabel "setBinaryResult"
           case op of
             Op.Union -> addInstruction $ label := Call
@@ -641,7 +646,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             _ -> internal $ "unsupported set op " <> show op
           pure $ LocalReference pointerType label
 
-        opMultiset op lOperand rOperand = do
+        opMultiset op lOperand rOperand lType rType = do
           label <- newLabel "multisetBinaryResult"
           case op of
             Op.Union -> addInstruction $ label := Call
@@ -687,7 +692,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           pure $ LocalReference pointerType label
 
-        opSeq op lOperand rOperand = do
+        opSeq op lOperand rOperand lType rType = do
           label <- newLabel "sequenceBinaryResult"
           case op of
             Op.Concat -> addInstruction $ label := Call
@@ -703,7 +708,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           pure $ LocalReference pointerType label
 
-        opFunc op lOperand rOperand = do
+        opFunc op lOperand rOperand lType rType = do
           label <- newLabel "funcBinaryResult"
           case op of
             Op.Union -> do
@@ -738,7 +743,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               , metadata           = [] }
           pure $ LocalReference pointerType label
 
-        opRel op lOperand rOperand = do
+        opRel op lOperand rOperand lType rType = do
           label <- newLabel "funcBinaryResult"
           case op of
             Op.Union -> addInstruction $ label := Call
@@ -767,9 +772,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               , metadata           = [] }
           pure $ LocalReference pointerType label
 
-
-
-        seqAt lOp rOp = do
+        seqAt lOp rOp lType rType = do
           let
             SourcePos _ x y = pos
             line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
@@ -823,6 +826,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               , type'    = IntegerType $ case expType of
                 GInt  -> 32
                 GChar -> 8
+                GBool -> 1
                 GAny  -> 32
                 _     -> internal $ "seqAtCast " <> show expType
               , metadata = [] }
@@ -831,7 +835,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           pure $ LocalReference t seqAtResult
 
 
-        bifuncAt lOp rOp = do
+        bifuncAt lOp rOp lType rType = do
           rCast <- newLabel "rightCast"
           addInstruction $ rCast := case rType of
             GFloat -> BitCast
@@ -1055,7 +1059,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           type' <- fill expType
 
-
           (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
             then
               expression' expr
@@ -1109,7 +1112,6 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       i <- expression' inner
 
       type' <- fill iType
-
 
       t <- newUnLabel
 

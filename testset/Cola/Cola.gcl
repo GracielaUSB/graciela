@@ -47,13 +47,6 @@ begin
                       [] inic ≥ fin /\ !nada -> ⟨i : int | inic ≤ i /\ i < fin + MAX | elems[i mod MAX]⟩ 
                       fi }
 
-  proc unimplemented ()
-    {pre true pre}
-    {post true post}
-    |[ writeln ("Error: unimplemented")
-     ; abort ]|
-
-
   func numElems (c : Cola(T)) -> int
     {pre true pre}
     {post numElems ≥ 0 /\ numElems ≤ c.MAX post}
@@ -100,8 +93,8 @@ begin
   proc mostrar (in c : Cola(T))
     {pre true pre}
     {post true post}
-    |[ write ('[')
-     ; if c.nada
+    |[ /*write ('[');*/
+       if c.nada
          -> skip
        [] otherwise
          -> var n_0 := numElems (c) : int
@@ -109,12 +102,12 @@ begin
           ; {inv true inv}
             {bound (n_0 - 1 - i) max 0 bound}
             do i < n_0 - 1 -> write (c.elems[(i + c.inic) mod c.MAX])
-                            ; write (", ")
+                            ; write (" ")
                             ; i := i + 1
             od
           ; write (c.elems[(c.fin - 1) mod c.MAX])
        fi
-     ; write (']') 
+     // ; write (']') 
     ]|
 
   proc desencolar (inout c : Cola(T) )
@@ -144,63 +137,81 @@ begin
     {post v ≡ c.nada post}
     |[ v := c.nada ]|
 
+  proc ejecutar (in c : Cola (T))
+    {pre true pre}
+    {post true post}
+    |[ var veces : int
+     ; var vez   : int
+     ; var opcion : char
 
+     ; var aux : T
+     ; var v : boolean
+
+     ; /*write ("Cuantas veces desea interactuar con el sistema? > "); */read (veces)
+
+     ; vez := 1
+     ; {inv true inv}
+       {bound veces - vez + 1 bound}
+       do vez <= veces 
+         -> /*write (vez); write ("> ");*/ read (opcion)
+          ; if opcion == 'E' \/ opcion == 'e'
+              -> /*write ("escriba el entero a encolar > ");*/ read (aux)
+               ; encolar (c, aux)
+            [] opcion == 'D' \/ opcion == 'd'
+              -> desencolar (c)
+            [] opcion == 'V' \/ opcion == 'v'
+              -> vacia (c, v)
+               ; writeln (v)
+               // ; if v         -> writeln ("la cola esta vacia.")
+               //   [] otherwise -> writeln ("la cola no esta vacia.")
+               //   fi
+            [] opcion == 'C' \/ opcion == 'c'
+              -> vacia (c, v)
+               ; if v         -> writeln ("emp")/*writeln ("la cola esta vacia.")*/
+                 [] otherwise -> primero (c, aux)
+                               ; writeln (/*"la cabeza de la cola es ", */aux)
+                 fi
+            [] opcion == 'P' \/ opcion == 'p'
+              -> mostrar (c); writeln ()
+            [] opcion == 'S' \/ opcion == 's'
+              -> vez := veces
+            [] otherwise 
+              -> writeln ("**Ayuda para colas**")
+               ; writeln ("Comandos:")
+               ; writeln ("\t(E)ncolar")
+               ; writeln ("\t(D)esencolar")
+               ; writeln ("\t(V)acia")
+               ; writeln ("\t(C)abeza")
+               ; writeln ("\tim(P)rimir")
+               ; writeln ("\t(S)alir")
+               ; writeln ("\t(*)ayuda (este mensaje)")
+            fi
+          ; vez := vez + 1
+       od
+     // ; writeln ("Ha llegado al final del programa.")
+     // ; write ("Último valor de la cola: ")
+     ; mostrar (c)
+     ; writeln ()
+    ]|
 end
 
 main
-  |[ var q : Cola (int)
-
-   ; var veces : int
-   ; var vez   : int
-   ; var opcion : char
-
-   ; var aux  : int
-   ; var v : boolean
-
-   ; write ("Cuantas veces desea interactuar con el sistema? > "); read (veces)
-
-   ; vez := 1
-   ; {inv true inv}
-     {bound veces - vez + 1 bound}
-     do vez <= veces 
-       -> write (vez); write ("> "); read (opcion)
-        ; if opcion == 'E' \/ opcion == 'e'
-            -> write ("escriba el entero a encolar > "); read (aux)
-             ; encolar (q, aux)
-          [] opcion == 'D' \/ opcion == 'd'
-            -> desencolar (q)
-          [] opcion == 'V' \/ opcion == 'v'
-            -> vacia (q, v)
-             ; if v         -> writeln ("la cola esta vacia.")
-               [] otherwise -> writeln ("la cola no esta vacia.")
-               fi
-          [] opcion == 'C' \/ opcion == 'c'
-            -> vacia (q, v)
-             ; if v         -> writeln ("la cola esta vacia.")
-               [] otherwise -> primero (q, aux)
-                             ; writeln ("la cabeza de la cola es ", aux)
-               fi
-          [] opcion == 'P' \/ opcion == 'p'
-            -> mostrar (q); writeln ()
-          [] opcion == 'S' \/ opcion == 's'
-            -> vez := veces
-          [] otherwise 
-            -> writeln ("**Ayuda para colas**")
-             ; writeln ("Comandos:")
-             ; writeln ("\t(E)ncolar")
-             ; writeln ("\t(D)esencolar")
-             ; writeln ("\t(V)acia")
-             ; writeln ("\t(C)abeza")
-             ; writeln ("\tim(P)rimir")
-             ; writeln ("\t(S)alir")
-             ; writeln ("\t(*)ayuda (este mensaje)")
-          fi
-        // ; mostrar (q); writeln()
-        ; vez := vez + 1
-     od
-   ; writeln ("Ha llegado al final del programa.")
-   ; write ("Último valor de la cola: ")
-   ; mostrar (q)
-   ; writeln ()
+  |[ var t : char
+   ; read (t)
+   ; if t == 'b' 
+       -> var cb : Cola (boolean)
+        ; ejecutar (cb)
+     [] t == 'c' 
+       -> var cc : Cola (char)
+        ; ejecutar (cc)
+     [] t == 'f' 
+       -> var cf : Cola (float)
+        ; ejecutar (cf)
+     [] t == 'i' 
+       -> var ci : Cola (int)
+        ; ejecutar (ci)
+     [] otherwise 
+       -> skip
+     fi
   ]|
 end

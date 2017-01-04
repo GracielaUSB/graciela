@@ -306,10 +306,10 @@ defaultConstructor name structType typeMap = do
     dAllocParam = Parameter boolType dAllocName []
 
   addDefinition $ GlobalDefinition functionDefaults
-        { name        = Name procName
-        , parameters  = ([selfParam, dAllocParam],False)
-        , returnType  = voidType
-        , basicBlocks = toList blocks' }
+    { name        = Name procName
+    , parameters  = ([selfParam, dAllocParam],False)
+    , returnType  = voidType
+    , basicBlocks = toList blocks' }
 
   where
     numAux operand0 operand1 = do

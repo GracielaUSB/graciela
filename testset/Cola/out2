@@ -1,0 +1,18 @@
+true
+emp
+a b c d e
+false
+a b c d e f g h i
+a
+c d e f g h i j
+c d e f g h i j k l
+false
+f g h i j k l
+f g h i j k l m n
+i j k l m n o
+i
+l m n o p
+l
+l m n o p q
+m
+m n o p q

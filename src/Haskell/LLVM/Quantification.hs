@@ -1747,7 +1747,8 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
         expr' <- expression expr
         t <- toLLVMType expType
         value <- newLabel "item_2"
-        addInstruction . (value :=) $ case E.expType expr of
+        exprT <- fill $ E.expType expr
+        addInstruction . (value :=) $ case exprT of
           GFloat -> BitCast
             { operand0 = expr'
             , type' = i64
@@ -1757,6 +1758,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
             { operand0 = expr'
             , type'    = i64
             , metadata = [] }
+
           _ -> ZExt
             { operand0 = expr'
             , type' = i64

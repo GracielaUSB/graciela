@@ -79,7 +79,8 @@ data Options = Options
   , optLLVM         :: Bool
   , optClang        :: String
   , optLibGraciela  :: String
-  , optLibGracielaA :: String }
+  , optLibGracielaA :: String
+  , optKeepTemp     :: Bool }
 
 defaultOptions      = Options
   { optHelp         = False
@@ -93,7 +94,8 @@ defaultOptions      = Options
   , optLLVM         = False
   , optClang        = clang
   , optLibGraciela  = lib
-  , optLibGracielaA = abstractLib }
+  , optLibGracielaA = abstractLib
+  , optKeepTemp     = False }
   where
     (clang, lib, abstractLib)
       | isLinux =
@@ -154,6 +156,10 @@ options =
     ) "EXECUTABLE")
     "Set Abstract Library to be linked against"
 
+  , Left $ Option ['K'] ["keep-temp"]
+    (NoArg (\opts -> opts { optKeepTemp = True }))
+    "Keep temporary llvm file"
+
   , Right $ Option ['O'] ["optimization"]
     (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "LEVEL")
       "Optimization levels\n\
@@ -207,7 +213,7 @@ main = do
 
   compile fileName options >>= \case
     Nothing  -> exitSuccess
-    Just msg -> die msg
+    Just msg -> die (issueMsg msg)
 
 compile :: FilePath -> Options -> IO (Maybe String)
 compile fileName options = do
@@ -271,7 +277,8 @@ compile fileName options = do
 
             putStr out
 
-            void $ readProcess "rm" [lltName] ""
+            unless (optKeepTemp options) . void $
+              readProcess "rm" [lltName] ""
 
             case exitCode of
               ExitSuccess ->

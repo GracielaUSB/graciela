@@ -606,9 +606,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               , metadata           = [] }
 
         case freeType of
-          GDataType n t _ -> do
-            subst:_ <- use substitutionTable
-            types <- mapM fill $ toList subst
+          GDataType n t ta -> do
+            types <- mapM fill $ toList ta
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -777,9 +776,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             , metadata           = [] }
 
         case nType of
-          GDataType n t _ -> do
-            subst:_ <- use substitutionTable
-            types <- mapM fill $ toList subst
+          GDataType n t ta -> do
+            types <- mapM fill $ toList ta
             addInstruction $ call (llvmName n types)
 
           _ -> pure ()
@@ -895,45 +893,38 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
 
   Random { var } -> do
-        st <- use substitutionTable
+    t <- fill $ objType var
 
-        let
-          t' = objType var
-          t = case st of
-            (ta:_) -> fillType ta t'
-            _      -> t'
-        t <- fill $ objType var
+    let frand = case t of
+          T.GChar  -> randChar
+          T.GFloat -> randFloat
+          T.GInt   -> randInt
+          T.GBool  -> randBool
+          _        -> internal "Unsupported random " <> show t
 
-        let frand = case t of
-              T.GChar  -> randChar
-              T.GFloat -> randFloat
-              T.GInt   -> randInt
-              T.GBool  -> randBool
-              _        -> internal "Unsupported random " <> show t
+    type' <- toLLVMType t
 
-        type' <- toLLVMType t
+    readResult <- newLabel "randCall"
+    -- Call the C read function
+    addInstruction $ readResult := Call
+      { tailCallKind       = Nothing
+      , callingConvention  = CC.C
+      , returnAttributes   = []
+      , function           = callable type' frand
+      , arguments          = []
+      , functionAttributes = []
+      , metadata           = [] }
 
-        readResult <- newLabel "randCall"
-        -- Call the C read function
-        addInstruction $ readResult := Call
-          { tailCallKind       = Nothing
-          , callingConvention  = CC.C
-          , returnAttributes   = []
-          , function           = callable type' frand
-          , arguments          = []
-          , functionAttributes = []
-          , metadata           = [] }
-
-        -- Get the reference of the variable's memory
-        objRef <- objectRef var
-        -- Store the value saved at `readResult` in the variable memory
-        addInstruction $ Do Store
-          { volatile = False
-          , address  = objRef
-          , value    = LocalReference type' readResult
-          , maybeAtomicity = Nothing
-          , alignment = 4
-          , metadata  = [] }
+    -- Get the reference of the variable's memory
+    objRef <- objectRef var
+    -- Store the value saved at `readResult` in the variable memory
+    addInstruction $ Do Store
+      { volatile = False
+      , address  = objRef
+      , value    = LocalReference type' readResult
+      , maybeAtomicity = Nothing
+      , alignment = 4
+      , metadata  = [] }
 
 
   Repeat { rguards, rinv, rbound } -> do
