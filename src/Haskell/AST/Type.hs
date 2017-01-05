@@ -98,7 +98,7 @@ data Type
     { typeName :: Text
     , abstName :: Maybe Text
     , typeArgs :: TypeArgs }
-  | GADataType -- ^ Used to match with both kinds of Data Types
+  | GADataType -- ^ Used to match with Data Types
 
   | GPointer Type -- ^ Pointer type.
 

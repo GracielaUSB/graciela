@@ -30,11 +30,8 @@ import qualified Test.QuickCheck.Monadic as Q (assert)
 dir :: String
 dir = "testset"
 
-bin    name   = dir </> name </> name <.> "bin"
-gcl    name   = dir </> name </> name <.> "gcl"
-input  name n = dir </> name </> "in"  <> show n
-output name n = dir </> name </> "out" <> show n
-errput name n = dir </> name </> "err" <> show n
+bin base name = dir </> base </> base <> name <.> "bin"
+gcl base name = dir </> base </> base <> name <.> "gcl"
 
 infixr 0 ~::
 a ~:: b = runTestTT (a ~: b)
@@ -43,34 +40,52 @@ infixr 0 ~!::
 _ ~!:: b = b
 --------------------------------------------------------------------------------
 
-compile :: String -> Assertion
-compile name = do
-  v1 <- M.compile (gcl name) defaultOptions
-    { optOutName      = Just (bin name)
+compile :: String -> String -> Assertion
+compile base name = do
+  v1 <- M.compile (gcl base name) defaultOptions
+    { optOutName      = Just (bin base name)
     , optLibGraciela  = "libgraciela.so"
     , optLibGracielaA = "libgraciela-abstract.so" }
 
   isNothing v1 @? ("Compilation failed:\n" <> show v1)
 --------------------------------------------------------------------------------
 
-prop_colas cs = monadicIO $ do
+prop_cola cs = monadicIO $ do
   (_, out, err) <- run $
-    readProcessWithExitCode (bin "Cola") [] (show cs)
+    readProcessWithExitCode (bin "Cola" "") [] (show cs)
+  Q.assert $ err == "" && out == correrSimulacion cs
+
+prop_cola_enlazada cs = monadicIO $ do
+  (_, out, err) <- run $
+    readProcessWithExitCode (bin "Cola" "Enlazada") [] (show cs)
+  run $ do
+    writeFile "_in"      (show cs)
+    writeFile "_outreal" out
+    writeFile "_err"     err
+    writeFile "_outexp"  (correrSimulacion cs)
+
   Q.assert $ err == "" && out == correrSimulacion cs
 --------------------------------------------------------------------------------
 
 main = do
   -- Cola --
   "Compile Cola" ~::
-    compile "Cola"
+    compile "Cola" ""
   "Run Cola" ~!::
-    quickCheckWith stdArgs { maxSuccess = 1000 } prop_colas
-  removeFile (bin "Cola")
+    quickCheckWith stdArgs { maxSuccess = 100 } prop_cola
+  removeFile (bin "Cola" "")
+
+  -- ColaEnlazada --
+  "Compile ColaEnlazada" ~::
+    compile "Cola" "Enlazada"
+  "Run ColaEnlazada" ~!::
+    quickCheckWith stdArgs { maxSuccess = 100 } prop_cola_enlazada
+  -- removeFile (bin "Cola" "Enlazada")
 
   -- Teoría de Conjuntos --
   "Compile TeoriaConjuntos" ~::
-    compile "TeoriaConjuntos"
+    compile "TeoriaConjuntos" ""
   "Run TeoriaConjuntos" ~::
-    readProcessWithExitCode (bin "TeoriaConjuntos") [] "" >>=
+    readProcessWithExitCode (bin "TeoriaConjuntos" "") [] "" >>=
     assertEqual "" (ExitSuccess, "", "")
-  removeFile (bin "TeoriaConjuntos")
+  removeFile (bin "TeoriaConjuntos" "")

@@ -212,7 +212,7 @@ main = do
 
   compile fileName options >>= \case
     Nothing  -> exitSuccess
-    Just msg -> die (issueMsg msg)
+    Just msg -> die . (if take 5 msg == "Clang" then issueMsg else id) $ msg
 
 compile :: FilePath -> Options -> IO (Maybe String)
 compile fileName options = do
@@ -296,7 +296,7 @@ compile fileName options = do
           msg1 = case optErrors options of
             Just n | length (state ^. errors) > n ->
               "Showing only the first " <> show n <> " errors of " <>
-              show (length $ state ^. errors) <> " that were generated."
+              show (length $ state ^. errors) <> " that were generated.\n\n"
             otherwise -> ""
           msg2 = unlines . mTake (optErrors options) . toList $
             prettyError <$> state ^. errors

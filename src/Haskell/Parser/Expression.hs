@@ -1594,15 +1594,15 @@ dotField = do
             GDataType n _ typeArgs-> do
               cstruct <- lift $ use currentStruct
               case cstruct of
-                Just (GDataType name _ _, structFields, _, _)
+                Just (GDataType name _ _, structFields, _, structAFields)
                   | name == n ->
-                    aux obj (objType obj) loc fieldName structFields Map.empty taint
+                    aux obj (objType obj) loc fieldName structFields structAFields taint
                 _ -> do
                   structs <- lift $ use dataTypes
                   case n `Map.lookup` structs of
                     Just Struct { structFields, structAFields } ->
                       let structFields' = fillTypes typeArgs structFields
-                      in aux obj (objType obj) loc fieldName structFields' Map.empty  taint
+                      in aux obj (objType obj) loc fieldName structFields' structAFields  taint
                     _ -> internal "GDataType without struct."
 
             t -> do
@@ -1620,7 +1620,7 @@ dotField = do
         -> Location
         -> Text
         -> Map Text (Integer, Type, Bool, a)
-        -> Map Text b
+        -> Map Text (Integer, Type, Bool, a)
         -> Taint
         -> ParserExp (Maybe MetaExpr)
     aux o oType loc fieldName structFields structAFields taint =
@@ -1650,13 +1650,32 @@ dotField = do
             in pure $ Just (expr, ProtoNothing, taint)
 
         Nothing -> case fieldName `Map.lookup` structAFields of
-          Just _ -> do
-            let Location (pos, _) = loc
-            putError pos . UnknownError $
-              "Bad field access. Cannot access the abstract field `" <>
-              unpack fieldName <> 
-              "`\n\toutside the abstract definition or couple relation"
-            pure Nothing
+          Just (i, t, c, _) -> do
+            logicAW <- Set.member LogicAnywhere <$> lift (use pragmas) 
+            if logicAW
+              then let
+                expr = Expression
+                  { loc
+                  , expType  = t
+                  , expConst = c
+                  , exp'     = Obj
+                    { theObj = Object
+                      { loc
+                      , objType = t
+                      , obj' = Member
+                        { inner = o
+                        , field = i
+                        , fieldName }}}}
+                in pure $ Just (expr, ProtoNothing, taint)
+
+            else do
+              let Location (pos, _) = loc
+              putError pos . UnknownError $
+                "Bad field access. Cannot access the abstract field `" <>
+                unpack fieldName <> 
+                "`\n\toutside the abstract definition or couple relation"
+              pure Nothing
+
           Nothing -> do
             let Location (pos, _) = loc
             putError pos . UnknownError $

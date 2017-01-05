@@ -1,0 +1,263 @@
+#!/usr/bin/env rungraciela
+/*% LANGUAGE EnableTrace %*/
+/*% LANGUAGE LogicAnywhere %*/
+
+program Cola begin
+
+abstract ColaA(T)
+begin
+  const MAX := 100 : int;
+  var contenido : sequence of T;
+
+  {repinv #contenido <= MAX repinv}
+
+  proc encolar (inout c : ColaA(T), in x : T)
+    let contenido_0 := c.contenido : sequence of T;
+    {pre #c.contenido < c.MAX pre}
+    {post c.contenido == contenido_0 ++ ⟨x⟩ post}
+
+  proc desencolar (inout c : ColaA(T) )
+    let tail := ⟨i : int | 1 ≤ i /\ i < #c.contenido | c.contenido[i]⟩ : sequence of T;
+    {pre c.contenido != ⟨⟩ pre}
+    {post c.contenido == tail post}
+
+  proc primero (in c : ColaA(T), out x : T)
+    {pre c.contenido != ⟨⟩ pre}
+    {post x == c.contenido[0] post}
+
+  proc vacia (in c : ColaA(T), out v : boolean )
+    {pre true pre}
+    {post v ≡ (c.contenido == ⟨⟩) post}
+end
+
+abstract ASubCola (T)
+begin
+  var subcont : sequence of T;
+  {repinv #subcont > 0 repinv}
+
+  proc encolar' (inout c : ASubCola (T), in x : T, const MAX : int)
+    let subconten := c.subcont : sequence of T;
+    {pre true pre}
+    {post c.subcont == subconten ++ ⟨x⟩ post}
+
+  proc desencolar' (inout c : ASubCola (T), out success : boolean, const MAX : int)
+    let fst := 1 min (#c.subcont - 1) : int;
+    let tail := ⟨i : int | fst ≤ i /\ i < #c.subcont | c.subcont[i]⟩ : sequence of T;
+    {pre true pre}
+    {post c.subcont == tail /\ success === fst == 1 post}
+
+  proc primero (in c : ASubCola (T), out x : T)
+    {pre true pre}
+    {post x == c.subcont[0] post}
+
+  proc vacia (in c : ASubCola (T), out v : boolean )
+    {pre true pre}
+    {post v ≡ false post}
+end
+
+type SubCola (T) implements ASubCola(T)
+begin
+  var item : T;
+  var indice : int;
+  var sig : SubCola (T) *;
+
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  where { subcont := ⟨item⟩ ++ if sig == null -> ⟨⟩
+                                [] sig != null -> (*sig).subcont
+                                fi }
+
+  proc encolar' (inout c : SubCola (T), in x : T, const MAX : int)
+    {pre true pre}
+    {post true post}
+    {bound MAX - c.indice bound}
+    |[ if c.sig == null
+         -> new (c.sig)
+          ; (*c.sig).item := x
+          ; (*c.sig).indice := c.indice + 1
+       [] c.sig != null
+         -> encolar' (*c.sig, x, MAX)
+       fi
+    ]|
+
+  proc desencolar' (inout c : SubCola (T), out success : boolean, const MAX : int)
+    {pre true pre}
+    {post success === c.sig != null post}
+    {bound MAX - c.indice bound}
+    |[ if c.sig == null -> success := false
+       [] c.sig != null 
+         -> var b : boolean
+          ; desencolar' (*c.sig, b, MAX)
+          ; if  b -> success := true
+            [] !b 
+              -> free (c.sig)
+               ; c.sig := null
+            fi
+       fi
+    ]|
+
+  proc primero (in c : SubCola (T), out x : T)
+    {pre true pre}
+    {post x == c.item post}
+    |[ x := c.item ]|
+
+  proc vacia (in c : SubCola (T), out v : boolean )
+    {pre true pre}
+    {post v ≡ false post}
+    |[ v := false ]|
+
+  proc mostrar' (in c : SubCola (T), const MAX : int)
+    {pre true pre}
+    {post true post}
+    {bound MAX - c.indice bound}
+    |[ write (c.item)
+     ; if c.sig == null -> skip
+       [] c.sig != null -> write (" ")
+                          ; mostrar' (*c.sig, MAX)
+       fi
+    ]|
+end
+
+type Cola (T) implements ColaA(T)
+begin
+  var sub : SubCola (T) *;
+  var elems : int;
+
+  {repinv true repinv}
+  {coupinv true coupinv}
+
+  where { contenido := if sub == null -> ⟨⟩
+                       [] sub != null -> (*sub).subcont
+                       fi }
+
+  proc encolar (inout c : Cola (T), in x : T)
+    {pre c.elems < c.MAX pre}
+    {post true post}
+    |[ if c.sub == null
+         -> new (c.sub)
+          ; (*c.sub).item := x
+          ; (*c.sub).indice := 0
+       [] c.sub != null
+         -> encolar' (*c.sub, x, c.MAX)
+       fi
+     ; c.elems := c.elems + 1
+    ]|
+
+  proc desencolar (inout c : Cola (T) )
+    {pre c.sub != null pre}
+    {post true post}
+    |[ if c.sub == null -> abort
+       [] c.sub != null 
+         -> var b : boolean
+          ; desencolar' (*c.sub, b, c.MAX)
+          ; if  b -> skip
+            [] !b 
+              -> free (c.sub)
+               ; c.sub := null
+            fi
+       fi
+     ; c.elems := c.elems - 1
+    ]|
+
+  proc primero (in c : Cola (T), out x : T)
+    {pre c.sub != null pre}
+    {post x == (*c.sub).item post}
+    |[ x := (*c.sub).item ]|
+
+  proc vacia (in c : Cola (T), out v : boolean )
+    {pre true pre}
+    {post v ≡ c.sub == null post}
+    |[ v := c.sub == null ]|
+
+  proc mostrar (in c : Cola (T))
+    {pre true pre}
+    {post true post}
+    |[ if c.sub == null
+         -> skip
+       [] otherwise
+         -> mostrar' (*c.sub, c.MAX)
+       fi
+    ]|
+
+  proc ejecutar (in c : Cola (T))
+    {pre true pre}
+    {post true post}
+    |[ var veces : int
+     ; var vez   : int
+     ; var opcion : char
+
+     ; var aux : T
+     ; var v : boolean
+
+     ; /*write ("Cuantas veces desea interactuar con el sistema? > "); */read (veces)
+
+     ; vez := 1
+     ; {inv true inv}
+       {bound veces - vez + 1 bound}
+       do vez <= veces 
+         -> /*write (vez); write ("> ");*/ read (opcion)
+          ; if opcion == 'E' \/ opcion == 'e'
+              -> /*write ("escriba el entero a encolar > ");*/ read (aux)
+               ; encolar (c, aux)
+            [] opcion == 'D' \/ opcion == 'd'
+              -> vacia (c, v)
+               ; if  v -> writeln ("No.")
+                 [] !v -> desencolar (c)
+                 fi
+            [] opcion == 'V' \/ opcion == 'v'
+              -> vacia (c, v)
+               ; writeln (v)
+               // ; if v         -> writeln ("la cola esta vacia.")
+               //   [] otherwise -> writeln ("la cola no esta vacia.")
+               //   fi
+            [] opcion == 'C' \/ opcion == 'c'
+              -> vacia (c, v)
+               ; if  v -> writeln ("No.")/*writeln ("la cola esta vacia.")*/
+                 [] !v -> primero (c, aux)
+                               ; writeln (/*"la cabeza de la cola es ", */aux)
+                 fi
+            [] opcion == 'P' \/ opcion == 'p'
+              -> mostrar (c); writeln ()
+            [] opcion == 'S' \/ opcion == 's'
+              -> vez := veces
+            [] otherwise 
+              -> skip // writeln ("**Ayuda para colas**")
+               // ; writeln ("Comandos:")
+               // ; writeln ("\t(E)ncolar")
+               // ; writeln ("\t(D)esencolar")
+               // ; writeln ("\t(V)acia")
+               // ; writeln ("\t(C)abeza")
+               // ; writeln ("\tim(P)rimir")
+               // ; writeln ("\t(S)alir")
+               // ; writeln ("\t(*)ayuda (este mensaje)")
+            fi
+          ; vez := vez + 1
+       od
+     // ; writeln ("Ha llegado al final del programa.")
+     // ; write ("Último valor de la cola: ")
+     ; mostrar (c)
+     ; writeln ()
+    ]|
+end
+
+main
+  |[ var t : char
+   ; read (t)
+   ; if t == 'b' 
+       -> var cb : Cola (boolean)
+        ; ejecutar (cb)
+     [] t == 'c' 
+       -> var cc : Cola (char)
+        ; ejecutar (cc)
+     [] t == 'f' 
+       -> var cf : Cola (float)
+        ; ejecutar (cf)
+     [] t == 'i' 
+       -> var ci : Cola (int)
+        ; ejecutar (ci)
+     [] otherwise 
+       -> skip
+     fi
+  ]|
+end
