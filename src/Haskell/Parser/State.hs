@@ -24,7 +24,7 @@ module Parser.State
   , stringIds
   , pragmas
   , isDeclarative
-  , absFuncAllowed
+  , repOrCoup
   , useLet
   
   , crName
@@ -87,7 +87,7 @@ data State = State
   , _stringIds       :: Map Text Int
   , _pragmas         :: Set Pragma
   , _isDeclarative   :: Bool
-  , _absFuncAllowed  :: Bool
+  , _repOrCoup       :: Bool
   , _useLet          :: Bool }
 
 makeLenses ''State
@@ -109,5 +109,5 @@ initialState pragmas = State
   , _stringIds       = Map.empty
   , _pragmas         = pragmas
   , _isDeclarative   = LogicAnywhere `elem` pragmas
-  , _absFuncAllowed  = False
+  , _repOrCoup       = False
   , _useLet          = False }
