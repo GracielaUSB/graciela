@@ -86,8 +86,9 @@ abstractDataType = do
 
     let
       fields  = cs ^. _Just . _2
-
+    allowAbstNames .= True
     inv'   <- declarative repInv
+    allowAbstNames .= False
 
     st <- use symbolTable
     
@@ -179,24 +180,25 @@ dataType = do
 
             structFields' = removeADT dtType <$> structFields
           
-          abstractTypes <- if lenNeeded == lenActual 
-              then pure $ Array.listArray (0, lenActual - 1) absTypes
-              else do 
-                if lenActual == 0 
-                  then putError absTypesPos . UnknownError $ 
-                    "Expected type arguments but non was given while trying to implement " <>
-                    show adtType
-                  else putError absTypesPos . UnknownError $ 
-                    "The number of type arguments: (" <> intercalate "," (show <$> absTypes) <> ")" <>
-                    "\n\tdoes not match with the abstract type " <> show adtType
-                pure $ Array.listArray (0, lenActual - 1) absTypes
+            abstractTypes = Array.listArray (0, lenActual - 1) absTypes
+
+            abstFields = fillTypes abstractTypes structFields'
+          
+          when (lenNeeded /= lenActual) $ if lenActual == 0 
+            then putError absTypesPos . UnknownError $ 
+              "Expected type arguments but non was given while trying to implement " <>
+              show adtType
+            else putError absTypesPos . UnknownError $ 
+              "The number of type arguments: (" <> intercalate "," (show <$> absTypes) <> ")" <>
+              "\n\tdoes not match with the abstract type " <> show adtType
+
 
           -- abstract Fields filled with the corresponding types
-          let 
-            abstFields = fillTypes abstractTypes structFields'
+            
 
           currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
+          allowAbstNames .= True
           dataTypeDeclaration `endBy` match' TokSemicolon
 
           cs <- use currentStruct
@@ -206,11 +208,11 @@ dataType = do
             dFields   =  cs ^. _Just . _4 
             allFields = (cs ^. _Just . _2) `Map.difference` ahlonly
 
-          repOrCoup .= True
+          
           repinv'  <- repInv
           coupinv' <- coupInv
           couple'  <- optional coupleRel
-          repOrCoup .= False
+          allowAbstNames .= False
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
@@ -228,10 +230,6 @@ dataType = do
 
           case (repinv', coupinv') of
             (Just repinv, Just coupinv) -> do
-              -- {- Different number of type arguments -}
-              -- when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
-              --   name structTypes abstractName absTypes lenActual lenNeeded
-
               couple <- case couple' of
                 Just c -> pure c
                 Nothing -> do

@@ -488,13 +488,13 @@ variable = do
   st <- lift (use symbolTable)
 
   maybeStruct  <- lift $ use currentStruct
-  repOrCoupling <- lift $ use repOrCoup
+  abstNamesOk <- lift $ use allowAbstNames
 
   (dt,abstractSt) <- case maybeStruct of
     Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
       adt <- getStruct abstName
       pure $ (dt,) $ case adt of
-        Just abst | repOrCoupling -> structSt abst
+        Just abst -> structSt abst
         _         -> emptyGlobal
     _ -> pure (GUndef, emptyGlobal)
 
@@ -562,6 +562,11 @@ variable = do
 
           pure $ Just (expr, protorange, taint)
 
+      SelfVar {} | not abstNamesOk -> do 
+        let Location (pos, _) = loc
+        putError pos . UnknownError $
+          "Variable `" <> unpack name <> "` not defined in this scope."
+        pure Nothing
       SelfVar { _selfType, _selfConst } -> do
         struct <- lift $ use currentStruct
         rangevars <- get
@@ -1415,11 +1420,11 @@ call = do
     getFunc :: Text -> Map Text Definition -> Maybe Text 
             -> ParserExp (Maybe (Seq (Text, Type), Type, Maybe Bool))
     getFunc name funcs abstName = do
-      repOrCoupling <- lift $ use repOrCoup
+      abstNamesOk <- lift $ use allowAbstNames
       case name `Map.lookup` funcs of
         Just Definition{ def' = FunctionDef{ funcParams, funcRetType, funcRecursive }} ->
           pure $ Just (funcParams, funcRetType, Just funcRecursive)
-        _ -> if repOrCoupling && isJust abstName
+        _ -> if abstNamesOk && isJust abstName
           then do 
             getStruct (fromJust abstName) >>= \case
               Nothing -> internal $ "Could not find abstract type " <> 

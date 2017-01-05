@@ -140,9 +140,8 @@ sizeOf (GSeq      _  ) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GFunc     _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GRel      _ _) = pure $ if arch == "x86_64" then 8 else 4
 sizeOf (GTuple    _ _) = pure 16
-sizeOf (T.GDataType name _ _) = do
-  typeargs <- head <$> use substitutionTable
-  getStructSize name  typeargs
+sizeOf (T.GDataType name _ typeargs) = do
+  getStructSize name typeargs
 sizeOf t@(GTypeVar _ _) = do
   substs <- use substitutionTable
   case substs of
