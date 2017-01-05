@@ -487,13 +487,14 @@ variable = do
 
   st <- lift (use symbolTable)
 
-  maybeStruct <- lift $ use currentStruct
+  maybeStruct  <- lift $ use currentStruct
+  repOrCoupling <- lift $ use repOrCoup
 
   (dt,abstractSt) <- case maybeStruct of
     Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
       adt <- getStruct abstName
       pure $ (dt,) $ case adt of
-        Just abst -> structSt abst
+        Just abst | repOrCoupling -> structSt abst
         _         -> emptyGlobal
     _ -> pure (GUndef, emptyGlobal)
 
@@ -1414,11 +1415,11 @@ call = do
     getFunc :: Text -> Map Text Definition -> Maybe Text 
             -> ParserExp (Maybe (Seq (Text, Type), Type, Maybe Bool))
     getFunc name funcs abstName = do
-      afOk <- lift $ use absFuncAllowed
+      repOrCoupling <- lift $ use repOrCoup
       case name `Map.lookup` funcs of
         Just Definition{ def' = FunctionDef{ funcParams, funcRetType, funcRecursive }} ->
           pure $ Just (funcParams, funcRetType, Just funcRecursive)
-        _ -> if afOk && isJust abstName
+        _ -> if repOrCoupling && isJust abstName
           then do 
             getStruct (fromJust abstName) >>= \case
               Nothing -> internal $ "Could not find abstract type " <> 

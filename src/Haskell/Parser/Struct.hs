@@ -29,8 +29,8 @@ import           SymbolTable
 import           Token
 import           Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens        (over, use, (%=), (.=), (.~), (^.), _2,
-                                      _Just, _4, _3)
+import           Control.Lens        (over, use, (%=), (.=), (.~), (^.),(&),
+                                      _Just, _4, _2, _3)
 import           Data.Array          ((!))
 import qualified Data.Array          as Array (listArray)
 import           Data.Foldable       as F (concat)
@@ -186,17 +186,20 @@ dataType = do
             dFields   =  cs ^. _Just . _4 
             allFields = (cs ^. _Just . _2) `Map.difference` ahlonly
 
-          absFuncAllowed .= True
+          repOrCoup .= True
           repinv'  <- repInv
           coupinv' <- coupInv
           couple'  <- optional coupleRel
-
-          absFuncAllowed .= False
+          repOrCoup .= False
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
+          case cs of 
+            Just cs' -> currentStruct .= Just (cs' & _2 .~ allFields)
+            Nothing  -> currentStruct .= Nothing
 
           procs <- catMaybes . toList <$> many (procedure <|> function)
+
 
           match' TokEnd
 

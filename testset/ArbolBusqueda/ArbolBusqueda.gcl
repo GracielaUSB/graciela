@@ -6,6 +6,7 @@ program SearchTree.bin begin
   abstract n
   begin
     var i : n*;
+    const Max := 100 : int;
     {repinv true repinv}
     proc f ( in x : n )
       {pre  true pre}
@@ -21,7 +22,6 @@ program SearchTree.bin begin
       {post true post}
       |[ skip ]| 
   end
-
 
   abstract Multiset(T)
   begin
@@ -112,7 +112,6 @@ program SearchTree.bin begin
       ; var i    := 0       : int
       ; var done := false   : boolean
       ; var d               : T
-      ; writeln("Hola")
       ; {inv true inv}
         {bound 128 - i bound}
         do i < 128 /\ !done
@@ -290,15 +289,6 @@ main
     {bound 100-n bound}
     do n < 100 
       -> n := n + 1
-       ; writeln("(Intento: ", n, " de 100)")
-       ; writeln("Introduzca una letra:")
-       ; writeln("\t(T) para Terminar,")
-       ; writeln("\t(I) para Insertar un valor en el arbol,")
-       ; writeln("\t(E) para Eliminar un valor del arbol,")
-       ; writeln("\t(B) para Buscar un valor en el arbol, o")
-       ; writeln("\t(M) para Mostrar el arbol en preorden.")
-       ; write("> ")
-       ; read(c)
        ; if c == 'T' \/ c == 't' -> writeln("Adios :)"); n := 100
          [] c == 'I' \/ c == 'i'
           -> write("Escriba el caracter a insertar: ")
@@ -313,8 +303,17 @@ main
            ; read(c)
            ; writeln(isElem(t, c))
          [] c == 'M' \/ c == 'm' -> show(t)
-         [] otherwise -> writeln("Has perdido un intento :(")
+         [] otherwise 
+          -> writeln("(Intento: ", n, " de 100)")
+           ; writeln("Introduzca una letra:")
+           ; writeln("\t(T) para Terminar,")
+           ; writeln("\t(I) para Insertar un valor en el arbol,")
+           ; writeln("\t(E) para Eliminar un valor del arbol,")
+           ; writeln("\t(B) para Buscar un valor en el arbol, o")
+           ; writeln("\t(M) para Mostrar el arbol en preorden.")
          fi
+       ; write("> ")
+       ; read(c)
     od
   ; free(t)
   ⟧
