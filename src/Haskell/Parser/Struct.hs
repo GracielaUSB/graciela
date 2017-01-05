@@ -139,6 +139,7 @@ dataType = do
 
   match' TokImplements
   abstractName' <- safeIdentifier
+  absTypesPos <- getPosition
   absTypes <- do
       t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
       case t of
@@ -168,12 +169,31 @@ dataType = do
 
           let
             dtType        = GDataType name abstractName' typeArgs
+            adtType       = GDataType abstractName Nothing (Array.listArray (0, lenNeeded - 1) structTypes) 
             typeArgs      = Array.listArray (0, length types - 1) types
+            
+            -- number of type variables in the abstract declaration
             lenNeeded     = length structTypes
-            structFields' = removeADT dtType <$> structFields
+            -- number of type variables of the abstract in the implementation
             lenActual     = length absTypes
-            abstFields    = fillTypes abstractTypes structFields'
-            abstractTypes = Array.listArray (0, lenNeeded - 1) absTypes
+
+            structFields' = removeADT dtType <$> structFields
+          
+          abstractTypes <- if lenNeeded == lenActual 
+              then pure $ Array.listArray (0, lenActual - 1) absTypes
+              else do 
+                if lenActual == 0 
+                  then putError absTypesPos . UnknownError $ 
+                    "Expected type arguments but non was given while trying to implement " <>
+                    show adtType
+                  else putError absTypesPos . UnknownError $ 
+                    "The number of type arguments: (" <> intercalate "," (show <$> absTypes) <> ")" <>
+                    "\n\tdoes not match with the abstract type " <> show adtType
+                pure $ Array.listArray (0, lenActual - 1) absTypes
+
+          -- abstract Fields filled with the corresponding types
+          let 
+            abstFields = fillTypes abstractTypes structFields'
 
           currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
@@ -194,9 +214,6 @@ dataType = do
 
           getPosition >>= \pos -> symbolTable %= closeScope pos
           getPosition >>= \pos -> symbolTable %= openScope pos
-          case cs of 
-            Just cs' -> currentStruct .= Just (cs' & _2 .~ allFields)
-            Nothing  -> currentStruct .= Nothing
 
           procs <- catMaybes . toList <$> many (procedure <|> function)
 
@@ -211,9 +228,9 @@ dataType = do
 
           case (repinv', coupinv') of
             (Just repinv, Just coupinv) -> do
-              {- Different number of type arguments -}
-              when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
-                name structTypes abstractName absTypes lenActual lenNeeded
+              -- {- Different number of type arguments -}
+              -- when (lenNeeded /= lenActual) . putError from $ BadNumberOfTypeArgs
+              --   name structTypes abstractName absTypes lenActual lenNeeded
 
               couple <- case couple' of
                 Just c -> pure c
