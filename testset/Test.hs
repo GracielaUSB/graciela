@@ -44,8 +44,7 @@ compile :: String -> String -> Assertion
 compile base name = do
   v1 <- M.compile (gcl base name) defaultOptions
     { optOutName      = Just (bin base name)
-    , optLibGraciela  = "libgraciela.so"
-    , optLibGracielaA = "libgraciela-abstract.so" }
+    , optLibGraciela  = "libgraciela.so" }
 
   isNothing v1 @? ("Compilation failed:\n" <> show v1)
 --------------------------------------------------------------------------------
@@ -58,11 +57,11 @@ prop_cola cs = monadicIO $ do
 prop_cola_enlazada cs = monadicIO $ do
   (_, out, err) <- run $
     readProcessWithExitCode (bin "Cola" "Enlazada") [] (show cs)
-  run $ do
-    writeFile "_in"      (show cs)
-    writeFile "_outreal" out
-    writeFile "_err"     err
-    writeFile "_outexp"  (correrSimulacion cs)
+  -- run $ do
+  --   writeFile "_in"      (show cs)
+  --   writeFile "_outreal" out
+  --   writeFile "_err"     err
+  --   writeFile "_outexp"  (correrSimulacion cs)
 
   Q.assert $ err == "" && out == correrSimulacion cs
 --------------------------------------------------------------------------------
