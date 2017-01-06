@@ -173,9 +173,9 @@ dataType = do
             adtType       = GDataType abstractName Nothing (Array.listArray (0, lenNeeded - 1) structTypes) 
             typeArgs      = Array.listArray (0, length types - 1) types
             
-            -- number of type variables in the abstract declaration
+            -- number of type args in the abstract type
             lenNeeded     = length structTypes
-            -- number of type variables of the abstract in the implementation
+            -- number of type args in the implementation
             lenActual     = length absTypes
 
             structFields' = removeADT dtType <$> structFields

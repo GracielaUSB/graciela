@@ -8,8 +8,10 @@ abstract ATree (T)
 begin
   var left    : ATree(T)*; 
   var right   : ATree(T)*; 
+  const MAX := 100 : int;
   var s : set of int;
   var element : T;
+  
   
   {repinv left != null ==> left != right repinv}
 
@@ -22,9 +24,10 @@ end
 type Tree(T) implements ATree(T)
 begin
   var a : set of int;
+
   /* Tree variables */
   {repinv pointers(right) intersect pointers(left) == {} repinv}
-  {coupinv true coupinv}
+  {coupinv MAX == 100 coupinv}
   where {
     s := {}
   }
@@ -57,7 +60,7 @@ main
   ;  new (a); new (b); new (c)
   ;  (*a).right := b
   ;  (*a).left  := c
-  ;  (*a).element := 5
+  // ;  (*a).element := 5
   ; write((% forall i : int | i elem (*a).a | trace(i) == i %))
   // Todo va bien hasta ahora.
   ;  addRight(a, c)
