@@ -1,14 +1,21 @@
 HS_FILES = $(shell find src/Haskell/ -type f -name '*.hs' -o -name '*.hs-boot')
 
+ifeq ($(TARGET), i386)
+ C_FLAGS=-m32
+ HS_FLAGS=-opta-m32 -optc-m32 -optl-m32
+else
+ C_FLAGS=
+ HS_FLAGS=
+endif
+
 all : graciela libgraciela.so
-.PHONY : all
 
 graciela: $(HS_FILES)
-	@ghc -outputdir .build -isrc/Haskell src/Haskell/Main.hs -o graciela > /dev/null
+	@ghc $(HS_FLAGS) -outputdir .build -isrc/Haskell src/Haskell/Main.hs -o graciela > /dev/null
 	@strip graciela
 
 libgraciela.so: src/C/libgraciela.c src/C/libgraciela-abstract/libgraciela-abstract.cpp src/C/libgraciela-abstract/libgraciela-abstract.h
-	@clang-3.5 -lm -lstdc++ -fPIC -shared \
+	@clang-3.5 $(C_FLAGS) -lm -lstdc++ -fPIC -shared \
  	src/C/libgraciela-abstract/libgraciela-abstract.cpp \
 	src/C/libgraciela.c \
 	-o libgraciela.so

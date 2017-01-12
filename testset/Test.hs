@@ -49,20 +49,16 @@ compile base name = do
   isNothing v1 @? ("Compilation failed:\n" <> show v1)
 --------------------------------------------------------------------------------
 
+prop_cola :: Comandos -> Property
 prop_cola cs = monadicIO $ do
   (_, out, err) <- run $
     readProcessWithExitCode (bin "Cola" "") [] (show cs)
   Q.assert $ err == "" && out == correrSimulacion cs
 
+prop_cola_enlazada :: Comandos -> Property
 prop_cola_enlazada cs = monadicIO $ do
   (_, out, err) <- run $
     readProcessWithExitCode (bin "Cola" "Enlazada") [] (show cs)
-  -- run $ do
-  --   writeFile "_in"      (show cs)
-  --   writeFile "_outreal" out
-  --   writeFile "_err"     err
-  --   writeFile "_outexp"  (correrSimulacion cs)
-
   Q.assert $ err == "" && out == correrSimulacion cs
 --------------------------------------------------------------------------------
 
