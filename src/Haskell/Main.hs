@@ -78,7 +78,7 @@ data Options = Options
   , optLLVM         :: Bool
   , optClang        :: String
   , optLibGraciela  :: String
-  , optLibGracielaA :: String
+  -- , optLibGracielaA :: String
   , optKeepTemp     :: Bool }
 
 defaultOptions      = Options
@@ -93,18 +93,16 @@ defaultOptions      = Options
   , optLLVM         = False
   , optClang        = clang
   , optLibGraciela  = lib
-  , optLibGracielaA = abstractLib
+  -- , optLibGracielaA = abstractLib
   , optKeepTemp     = False }
   where
-    (clang, lib, abstractLib)
+    (clang, lib) --, abstractLib)
       | isLinux =
         ( "clang-3.5"
-        , "/usr/lib/graciela/libgraciela.so"
-        , "/usr/lib/graciela/libgraciela-abstract.so")
+        , "/usr/lib/libgraciela.so")
       | isMac =
         ( "/usr/local/bin/clang-3.5"
-        , "/usr/local/lib/libgraciela.so"
-        , "/usr/local/lib/libgraciela-abstract.so")
+        , "/usr/local/lib/libgraciela.so")
       | isWindows = internal $ "Windows not supported :("
       | otherwise = internal $ "Unknown OS, not supported :("
 
@@ -150,10 +148,6 @@ options =
     (ReqArg (\library opts -> opts { optLibGraciela = library }
     ) "EXECUTABLE")
     "Set Library to be linked against"
-  , Left $ Option [] ["abstract-library"]
-    (ReqArg (\library opts -> opts { optLibGracielaA = library }
-    ) "EXECUTABLE")
-    "Set Abstract Library to be linked against"
 
   , Left $ Option ['K'] ["keep-temp"]
     (NoArg (\opts -> opts { optKeepTemp = True }))
@@ -270,7 +264,7 @@ compile fileName options = do
                   <> assembly
                   <> [lltName]
                   <> ["-o", outName]
-                  <> [l | l <- [math, lib, abstractLib]
+                  <> [l | l <- [math, lib]
                         , not $ optLLVM options || optAssembly options ]
             (exitCode, out, errs) <- readProcessWithExitCode clang args ""
 
@@ -306,5 +300,5 @@ compile fileName options = do
     mTake Nothing  xs = take 3 xs
     mTake (Just n) xs = take n xs
     math = "-lm"
-    [clang, lib, abstractLib] =
-      ($ options) <$> [optClang, optLibGraciela, optLibGracielaA]
+    [clang, lib] =
+      ($ options) <$> [optClang, optLibGraciela]

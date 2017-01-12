@@ -34,25 +34,6 @@ abstract ASubCola (T)
 begin
   var subcont : sequence of T;
   {repinv #subcont > 0 repinv}
-
-  proc encolar' (inout c : ASubCola (T), in x : T, const MAX : int)
-    let subconten := c.subcont : sequence of T;
-    {pre true pre}
-    {post c.subcont == subconten ++ ⟨x⟩ post}
-
-  proc desencolar' (inout c : ASubCola (T), out success : boolean, const MAX : int)
-    let fst := 1 min (#c.subcont - 1) : int;
-    let tail := ⟨i : int | fst ≤ i /\ i < #c.subcont | c.subcont[i]⟩ : sequence of T;
-    {pre true pre}
-    {post c.subcont == tail /\ success === fst == 1 post}
-
-  proc primero (in c : ASubCola (T), out x : T)
-    {pre true pre}
-    {post x == c.subcont[0] post}
-
-  proc vacia (in c : ASubCola (T), out v : boolean )
-    {pre true pre}
-    {post v ≡ false post}
 end
 
 type SubCola (T) implements ASubCola(T)
@@ -63,58 +44,18 @@ begin
 
   {repinv true repinv}
   {coupinv true coupinv}
-
   where { subcont := ⟨item⟩ ++ if sig == null -> ⟨⟩
-                                [] sig != null -> (*sig).subcont
-                                fi }
+                              [] sig != null -> (*sig).subcont
+                              fi }
 
-  proc encolar' (inout c : SubCola (T), in x : T, const MAX : int)
+  proc mostrar' (in c : SubCola (T), in B : int)
     {pre true pre}
     {post true post}
-    {bound MAX - c.indice bound}
-    |[ if c.sig == null
-         -> new (c.sig)
-          ; (*c.sig).item := x
-          ; (*c.sig).indice := c.indice + 1
-       [] c.sig != null
-         -> encolar' (*c.sig, x, MAX)
-       fi
-    ]|
-
-  proc desencolar' (inout c : SubCola (T), out success : boolean, const MAX : int)
-    {pre true pre}
-    {post success === c.sig != null post}
-    {bound MAX - c.indice bound}
-    |[ if c.sig == null -> success := false
-       [] c.sig != null 
-         -> var b : boolean
-          ; desencolar' (*c.sig, b, MAX)
-          ; if  b -> success := true
-            [] !b 
-              -> free (c.sig)
-               ; c.sig := null
-            fi
-       fi
-    ]|
-
-  proc primero (in c : SubCola (T), out x : T)
-    {pre true pre}
-    {post x == c.item post}
-    |[ x := c.item ]|
-
-  proc vacia (in c : SubCola (T), out v : boolean )
-    {pre true pre}
-    {post v ≡ false post}
-    |[ v := false ]|
-
-  proc mostrar' (in c : SubCola (T), const MAX : int)
-    {pre true pre}
-    {post true post}
-    {bound MAX - c.indice bound}
+    {bound B - c.indice bound}
     |[ write (c.item)
      ; if c.sig == null -> skip
        [] c.sig != null -> write (" ")
-                          ; mostrar' (*c.sig, MAX)
+                          ; mostrar' (*c.sig, B)
        fi
     ]|
 end
@@ -122,9 +63,10 @@ end
 type Cola (T) implements ColaA(T)
 begin
   var sub : SubCola (T) *;
+  var ult : SubCola (T) *;
   var elems : int;
 
-  {repinv true repinv}
+  {repinv ult == null \/ (*ult).sig == null repinv}
   {coupinv true coupinv}
 
   where { contenido := if sub == null -> ⟨⟩
@@ -138,8 +80,16 @@ begin
          -> new (c.sub)
           ; (*c.sub).item := x
           ; (*c.sub).indice := 0
+          ; (*c.sub).sig := null
+          ; c.ult := c.sub
        [] c.sub != null
-         -> encolar' (*c.sub, x, c.MAX)
+         -> var ult' : SubCola (T) *
+          ; new (ult')
+          ; (*ult').item := x
+          ; (*ult').indice := (*c.ult).indice + 1
+          ; (*ult').sig := null
+          ; (*c.ult).sig := ult'
+          ; c.ult := ult'
        fi
      ; c.elems := c.elems + 1
     ]|
@@ -149,15 +99,15 @@ begin
     {post true post}
     |[ if c.sub == null -> abort
        [] c.sub != null 
-         -> var b : boolean
-          ; desencolar' (*c.sub, b, c.MAX)
-          ; if  b -> skip
-            [] !b 
-              -> free (c.sub)
-               ; c.sub := null
+         -> var aux : SubCola(T) *
+          ; aux := (*c.sub).sig
+          ; free (c.sub)
+          ; c.sub := aux
+          ; c.elems := c.elems - 1
+          ; if c.elems == 0 -> c.ult := null
+            [] otherwise -> skip
             fi
        fi
-     ; c.elems := c.elems - 1
     ]|
 
   proc primero (in c : Cola (T), out x : T)
@@ -176,7 +126,7 @@ begin
     |[ if c.sub == null
          -> skip
        [] otherwise
-         -> mostrar' (*c.sub, c.MAX)
+         -> mostrar' (*c.sub, c.MAX + (*c.sub).indice)
        fi
     ]|
 
@@ -199,7 +149,9 @@ begin
          -> /*write (vez); write ("> ");*/ read (opcion)
           ; if opcion == 'E' \/ opcion == 'e'
               -> /*write ("escriba el entero a encolar > ");*/ read (aux)
-               ; encolar (c, aux)
+               ; if c.elems < c.MAX -> encolar (c, aux)
+                 [] otherwise       -> writeln ("No.")
+                 fi
             [] opcion == 'D' \/ opcion == 'd'
               -> vacia (c, v)
                ; if  v -> writeln ("No.")
