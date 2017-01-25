@@ -30,6 +30,7 @@ cabal.config
 *.txt
 
 .build/*
+.stack-work/*
 
 graciela
 gratest

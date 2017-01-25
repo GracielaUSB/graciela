@@ -1,0 +1,209 @@
+name:                graciela
+
+-- The package version.  See the Haskell package versioning policy (PVP)
+-- for standards guiding when and how versions should be incremented.
+-- http://www.haskell.org/haskellwiki/Package_versioning_policy
+-- PVP summary:      +-+------- breaking API changes
+--                   | | +----- non-breaking API additions
+--                   | | | +--- code changes with no API change
+version:             2.0.1.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- URL for the project homepage or repository.
+homepage:            https://github.com/GracielaUSB/graciela
+
+-- The license under which the package is released.
+-- license:
+
+-- The file containing the license text.
+-- license-file:
+
+-- The package author(s).
+author:              José Jiménez, Joel Araujo, Moisés Ackerman, Carlos Spaggiari
+
+-- An email address to which users can send suggestions, bug reports, and
+-- patches.
+maintainer:          jljb1990@gmail.com, moises+graciela@ackerman.space
+
+-- A copyright notice.
+-- copyright:
+
+category:            Language
+
+build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or a
+-- README.
+-- extra-source-files:  README.md
+
+-- Constraint on the version of Cabal needed to build this package.
+cabal-version:       >=1.10
+
+executable graciela
+    -- .hs or .lhs file containing the Main module.
+    main-is:             Main.hs
+
+    other-modules:
+        Language.Graciela
+        Language.Graciela.AST.Declaration
+        Language.Graciela.AST.Definition
+        Language.Graciela.AST.Expression
+        Language.Graciela.AST.Instruction
+        Language.Graciela.AST.Object
+        Language.Graciela.AST.Program
+        Language.Graciela.AST.Struct
+        Language.Graciela.AST.Type
+        Language.Graciela.Common
+        Language.Graciela.Entry
+        Language.Graciela.Error
+        Language.Graciela.LLVM.Abort
+        Language.Graciela.LLVM.Boolean
+        Language.Graciela.LLVM.Declaration
+        Language.Graciela.LLVM.Definition
+        Language.Graciela.LLVM.Expression
+        Language.Graciela.LLVM.Instruction
+        Language.Graciela.LLVM.Monad
+        Language.Graciela.LLVM.Object
+        Language.Graciela.LLVM.Program
+        Language.Graciela.LLVM.Quantification
+        Language.Graciela.LLVM.State
+        Language.Graciela.LLVM.Struct
+        Language.Graciela.LLVM.Type
+        Language.Graciela.LLVM.Warning
+        Language.Graciela.Lexer
+        Language.Graciela.Location
+        Language.Graciela.OS
+        Language.Graciela.Parser.Assertion
+        Language.Graciela.Parser.Config
+        Language.Graciela.Parser.Declaration
+        Language.Graciela.Parser.Definition
+        Language.Graciela.Parser.ExprM
+        Language.Graciela.Parser.Expression
+        Language.Graciela.Parser.Instruction
+        Language.Graciela.Parser.Monad
+        Language.Graciela.Parser.Operator
+        Language.Graciela.Parser.Prim
+        Language.Graciela.Parser.Program
+        Language.Graciela.Parser.State
+        Language.Graciela.Parser.Struct
+        Language.Graciela.Parser.Type
+        Language.Graciela.Pragma
+        Language.Graciela.SymbolTable
+        Language.Graciela.Token
+        Language.Graciela.Treelike
+    
+    ghc-options:
+      -O3 -fllvm
+      -- -Wall
+      -- -fprof-auto
+      -- "-with-rtsopts=-p -s -h -i0.1"
+            -- -keep-llvm-files
+    -- LANGUAGE extensions used by modules in this package.
+    other-extensions:
+        GeneralizedNewtypeDeriving
+      , PostfixOperators
+
+    -- Other library packages from which modules are imported.
+    build-depends:
+          array             >= 0.5  && < 0.6
+        , base              >= 4.8  && < 4.9
+        , bytestring        >= 0.10 && < 0.11
+        , containers        >= 0.5  && < 0.6
+        , directory         >= 1.2  && < 1.3
+        , filepath          >= 1.4  && < 1.5
+        , lens              >= 4.13 && < 4.14
+        , llvm-general      >= 3.5  && < 3.6
+        , llvm-general-pure >= 3.5  && < 3.6
+        , megaparsec        >= 5.1  && < 5.212
+        , mtl               >= 2.2  && < 2.3
+        , process           >= 1.2  && < 1.3
+        , semigroups        >= 0.18 && < 0.19
+        , text              >= 1.2  && < 1.3
+        , transformers      >= 0.4  && < 0.5
+
+    -- Directories containing source files.
+    hs-source-dirs: src/Haskell
+
+    -- Base language which the package is written in.
+    default-language:    Haskell2010
+
+Test-Suite test-graciela
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   testset, src/Haskell
+    main-is:          Test.hs
+    default-language: Haskell2010
+    build-depends: 
+          array             >= 0.5  && < 0.6
+        , base              >= 4.8  && < 4.9
+        , bytestring        >= 0.10 && < 0.11
+        , containers        >= 0.5  && < 0.6
+        , directory         >= 1.2  && < 1.3
+        , filepath          >= 1.4  && < 1.5
+        , HUnit             >= 1.3  && < 1.4
+        , lens              >= 4.13 && < 4.14
+        , llvm-general      >= 3.5  && < 3.6
+        , llvm-general-pure >= 3.5  && < 3.6
+        , megaparsec        >= 5.1  && < 5.212
+        , mtl               >= 2.2  && < 2.3
+        , process           >= 1.2  && < 1.3
+        , QuickCheck        >= 2.8  && < 2.9
+        , semigroups        >= 0.18 && < 0.19
+        , temporary         >= 1.2  && < 1.3
+        , text              >= 1.2  && < 1.3
+        , transformers      >= 0.4  && < 0.5
+
+    other-modules:
+        Cola.Cola
+        Shared
+        Language.Graciela
+        Language.Graciela.AST.Declaration
+        Language.Graciela.AST.Definition
+        Language.Graciela.AST.Expression
+        Language.Graciela.AST.Instruction
+        Language.Graciela.AST.Object
+        Language.Graciela.AST.Program
+        Language.Graciela.AST.Struct
+        Language.Graciela.AST.Type
+        Language.Graciela.Common
+        Language.Graciela.Entry
+        Language.Graciela.Error
+        Language.Graciela.LLVM.Abort
+        Language.Graciela.LLVM.Boolean
+        Language.Graciela.LLVM.Declaration
+        Language.Graciela.LLVM.Definition
+        Language.Graciela.LLVM.Expression
+        Language.Graciela.LLVM.Instruction
+        Language.Graciela.LLVM.Monad
+        Language.Graciela.LLVM.Object
+        Language.Graciela.LLVM.Program
+        Language.Graciela.LLVM.Quantification
+        Language.Graciela.LLVM.State
+        Language.Graciela.LLVM.Struct
+        Language.Graciela.LLVM.Type
+        Language.Graciela.LLVM.Warning
+        Language.Graciela.Lexer
+        Language.Graciela.Location
+        Language.Graciela.OS
+        Language.Graciela.Parser.Assertion
+        Language.Graciela.Parser.Config
+        Language.Graciela.Parser.Declaration
+        Language.Graciela.Parser.Definition
+        Language.Graciela.Parser.ExprM
+        Language.Graciela.Parser.Expression
+        Language.Graciela.Parser.Instruction
+        Language.Graciela.Parser.Monad
+        Language.Graciela.Parser.Operator
+        Language.Graciela.Parser.Prim
+        Language.Graciela.Parser.Program
+        Language.Graciela.Parser.State
+        Language.Graciela.Parser.Struct
+        Language.Graciela.Parser.Type
+        Language.Graciela.Pragma
+        Language.Graciela.SymbolTable
+        Language.Graciela.Token
+        Language.Graciela.Treelike

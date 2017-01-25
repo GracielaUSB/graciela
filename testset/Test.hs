@@ -1,11 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Test (main) where
+module Main (main) where
 
 --------------------------------------------------------------------------------
 import           Cola.Cola
-import           Main                    (Options (..), defaultOptions)
-import qualified Main                    as M (compile)
+import           Language.Graciela       (Options (..), defaultOptions)
+import qualified Language.Graciela       as M (compile)
 --------------------------------------------------------------------------------
 import           Control.Monad           (forever, unless, void)
 import           Data.Maybe              (isNothing)
@@ -16,7 +16,7 @@ import           System.Exit             (ExitCode (..))
 import           System.FilePath         ((-<.>), (<.>), (</>))
 import           System.IO               (IOMode (..), SeekMode (..), hClose,
                                           hGetContents, hPutStrLn, hSeek,
-                                          readFile, stderr, withFile)
+                                          readFile, stderr, withFile, openFile)
 import           System.IO.Temp          (openBinaryTempFile, openTempFile,
                                           withTempFile)
 import           System.Process          (CreateProcess (..), StdStream (..),
@@ -84,3 +84,5 @@ main = do
     readProcessWithExitCode (bin "TeoriaConjuntos" "") [] "" >>=
     assertEqual "" (ExitSuccess, "", "")
   removeFile (bin "TeoriaConjuntos" "")
+
+  getCurrentDirectory >>= putStrLn
