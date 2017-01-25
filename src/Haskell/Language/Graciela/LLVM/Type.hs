@@ -18,29 +18,32 @@ module Language.Graciela.LLVM.Type
   , llvmName
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression             (Expression)
-import           Language.Graciela.AST.Struct                 (Struct (..))
-import           Language.Graciela.AST.Type                   as T (Type (..), fillType, (=:=))
+import           Language.Graciela.AST.Expression (Expression)
+import           Language.Graciela.AST.Struct     (Struct (..))
+import           Language.Graciela.AST.Type       as T (Type (..), fillType,
+                                                        (=:=))
 import           Language.Graciela.Common
 import           Language.Graciela.LLVM.Monad
-import           Language.Graciela.LLVM.State                 (currentStruct, fullDataTypes,
-                                             moduleDefs, structs, substitutionTable)
+import           Language.Graciela.LLVM.State     (currentStruct, fullDataTypes,
+                                                   moduleDefs, structs,
+                                                   substitutionTable)
 --------------------------------------------------------------------------------
-import           Control.Lens               (use, (%=))
-import           Data.Array                 ((!))
-import           Data.Foldable              (toList)
-import           Data.List                  (intercalate, sortOn)
-import qualified Data.Map                   as Map (alter, lookup)
-import           Data.Maybe                 (fromMaybe)
-import           Data.Sequence              ((|>))
-import           Data.Text                  (Text)
-import           Data.Word                  (Word32, Word64)
-import           LLVM.General.AST           (Definition (..))
-import qualified LLVM.General.AST.AddrSpace as LLVM (AddrSpace (..))
-import           LLVM.General.AST.Name      (Name (..))
-import           LLVM.General.AST.Type      (double, i1, i32, i64, i8, ptr)
-import qualified LLVM.General.AST.Type      as LLVM (Type (..))
-import           System.Info                (arch)
+import           Control.Lens                     (use, (%=))
+import           Data.Array                       ((!))
+import           Data.Foldable                    (toList)
+import           Data.List                        (intercalate, sortOn)
+import qualified Data.Map                         as Map (alter, lookup)
+import           Data.Maybe                       (fromMaybe)
+import           Data.Sequence                    ((|>))
+import           Data.Text                        (Text)
+import           Data.Word                        (Word32, Word64)
+import           LLVM.General.AST                 (Definition (..))
+import qualified LLVM.General.AST.AddrSpace       as LLVM (AddrSpace (..))
+import           LLVM.General.AST.Name            (Name (..))
+import           LLVM.General.AST.Type            (double, i1, i32, i64, i8,
+                                                   ptr)
+import qualified LLVM.General.AST.Type            as LLVM (Type (..))
+import           System.Info                      (arch)
 --------------------------------------------------------------------------------
 
 floatType, intType, charType, pointerType, ptrInt, voidType, boolType :: LLVM.Type
@@ -61,11 +64,11 @@ iterator    = LLVM.StructureType
                 }
 
 fill :: T.Type -> LLVM T.Type
-fill t = do 
+fill t = do
   subst <- use substitutionTable
   pure $ case subst of
     ta:_ -> fillType ta t
-    []  -> t
+    []   -> t
 
 toLLVMType :: T.Type -> LLVM LLVM.Type
 toLLVMType  T.GInt           = pure intType
@@ -94,7 +97,7 @@ toLLVMType (T.GArray dims t) = do
 
 toLLVMType t@(GTypeVar i _) = do
   subst <- use substitutionTable
-  let 
+  let
     t' = case subst of
       ta:_ -> fillType ta t
       []   -> internal $ "No substitution table" <> show subst
@@ -107,7 +110,7 @@ toLLVMType (GTuple  a b) = do
 
 -- Abstract Data Type
 toLLVMType (GDataType _ Nothing t) = do
-  use currentStruct >>= \case 
+  use currentStruct >>= \case
     Just Struct {structBaseName = n, structTypes} -> do
       t' <- mapM fill structTypes
       pure . LLVM.NamedTypeReference . Name . llvmName n $ t'
@@ -173,5 +176,5 @@ llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') ty
       GChar  -> "c"
       GInt   -> "i"
       GFloat -> "f"
-      GPointer t' -> "p_" <> show' t' 
+      GPointer t' -> "p_" <> show' t'
       t' -> internal $ "Can not create a llvm name with type " <> show t'

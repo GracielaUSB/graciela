@@ -3,31 +3,31 @@
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
-{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TupleSections            #-}
 
 module Language.Graciela.LLVM.Definition where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration                     (Declaration)
+import           Language.Graciela.AST.Declaration   (Declaration)
 import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Expression                      (Expression (..))
-import qualified Language.Graciela.AST.Instruction                     as G (Instruction)
-import           Language.Graciela.AST.Struct                          (Struct (..), Struct' (..))
-import           Language.Graciela.AST.Type                            ((=:=))
-import qualified Language.Graciela.AST.Type                            as T
+import           Language.Graciela.AST.Expression    (Expression (..))
+import qualified Language.Graciela.AST.Instruction   as G (Instruction)
+import           Language.Graciela.AST.Struct        (Struct (..), Struct' (..))
+import           Language.Graciela.AST.Type          ((=:=))
+import qualified Language.Graciela.AST.Type          as T
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                          (abort, abortString)
-import qualified Language.Graciela.LLVM.Abort                          as Abort (Abort (..))
+import           Language.Graciela.LLVM.Abort        (abort, abortString)
+import qualified Language.Graciela.LLVM.Abort        as Abort (Abort (..))
 import           Language.Graciela.LLVM.Boolean
-import           Language.Graciela.LLVM.Declaration                    (declaration)
+import           Language.Graciela.LLVM.Declaration  (declaration)
 import           Language.Graciela.LLVM.Expression
 import           Language.Graciela.LLVM.Instruction
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
-import           Language.Graciela.LLVM.Warning                        (warn, warnString)
-import qualified Language.Graciela.LLVM.Warning                        as Warning (Warning (Post, Pre))
+import           Language.Graciela.LLVM.Warning      (warn, warnString)
+import qualified Language.Graciela.LLVM.Warning      as Warning (Warning (Post, Pre))
 import           Language.Graciela.Location
-import qualified Language.Graciela.Location                            as L (pos)
+import qualified Language.Graciela.Location          as L (pos)
 import           Language.Graciela.Parser.Config
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
@@ -35,8 +35,9 @@ import           Control.Lens                        (use, (%=), (&), (.=))
 import           Data.Array                          ((!))
 import           Data.Foldable                       (toList)
 import qualified Data.Map.Strict                     as Map
-import           Data.Maybe                          (fromMaybe, isJust, fromJust)
-import qualified Data.Sequence                       as Seq (empty,fromList)
+import           Data.Maybe                          (fromJust, fromMaybe,
+                                                      isJust)
+import qualified Data.Sequence                       as Seq (empty, fromList)
 import           Data.Text                           (Text)
 import           Data.Word                           (Word32)
 import           LLVM.General.AST                    (BasicBlock (..),
@@ -199,9 +200,9 @@ definition
           forM_ dts (invariant' "repInv" )
           expression' funcBody
 
-        retVar returnOperand = do 
+        retVar returnOperand = do
           returnVar     <- insertVar defName
-          
+
           addInstruction $ returnVar := Alloca
             { allocatedType = returnType
             , numElements   = Nothing
@@ -216,7 +217,7 @@ definition
             , alignment = 4
             , metadata  = [] }
 
-          
+
 
       (postFix, returnOperand) <- case cs of
         Nothing -> do
@@ -282,7 +283,7 @@ definition
       cond <- precondition pre
 
       params' <- recursiveParams procRecursive
-      
+
       cs <- use currentStruct
       let
         invariant' fn (name, t, _) = do
@@ -290,31 +291,31 @@ definition
           exit  <- callInvariant fn cond name' t Nothing
           when (isJust exit) $ (fromJust exit #)
         dts  = filter (\(_, t, _) -> isJust (T.hasDT t) ) . toList $ procParams
-        body abstractStruct = do 
+        body abstractStruct = do
           let
             maybeProc = case abstractStruct of
               Just Struct {structProcs} -> defName `Map.lookup` structProcs
-              Nothing -> Nothing
+              Nothing                   -> Nothing
 
           forM_ dts (invariant' "coupInv")
           forM_ dts (invariant' "repInv" )
-          
-          
+
+
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
               mapM_ declaration abstPDecl
               preconditionAbstract cond pre' pos
             _ -> pure ()
-          
+
           forM_ dts (invariant' "inv")
 
           instruction procBody
 
           forM_ dts (invariant' "coupInv")
-          
+
           forM_ dts (invariant' "inv"    )
           forM_ dts (invariant' "repInv" )
-          
+
       pName <- case cs of
         Nothing -> do
           body Nothing
@@ -442,7 +443,7 @@ definition
       comp <- newLabel "comp"
       argLoad <- newLabel "argLoad"
       type' <- toLLVMType (T.GPointer t)
-      exit' <- case exit of 
+      exit' <- case exit of
         Nothing -> newLabel "exit"
         Just e  -> pure e
 
@@ -452,7 +453,7 @@ definition
             , maybeAtomicity = Nothing
             , alignment      = 4
             , metadata       = [] }
-      
+
       addInstruction $ cast := PtrToInt
             { operand0 = LocalReference type' argLoad
             , type'    = i64
@@ -478,7 +479,7 @@ definition
           { dest = exit'
           , metadata' = [] }
 
-      (yes #)     
+      (yes #)
 
       terminate Br
           { dest = exit'
@@ -489,7 +490,7 @@ definition
     callCouple funName name t@(T.GPointer _) exit = do
       loadDtPtr name t exit (callCouple funName)
 
-    
+
     callCouple funName name t exit | t =:= T.GADataType = do
       type' <- toLLVMType t
       t' <- mapM fill (toList $ T.typeArgs t)

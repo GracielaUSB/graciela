@@ -9,8 +9,8 @@ import           Language.Graciela.AST.Type        (ArgMode (..), Type (..))
 import           Language.Graciela.Common
 import           Language.Graciela.Error           (Error)
 --------------------------------------------------------------------------------
-import           Data.Sequence   (Seq)
-import           Data.Text       (Text, unpack)
+import           Data.Sequence                     (Seq)
+import           Data.Text                         (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Definition'

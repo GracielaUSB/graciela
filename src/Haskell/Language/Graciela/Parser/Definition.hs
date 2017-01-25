@@ -18,32 +18,34 @@ import           Language.Graciela.Common
 import           Language.Graciela.Entry
 import           Language.Graciela.Error
 import           Language.Graciela.Location
-import           Language.Graciela.Parser.Assertion    hiding (bound)
-import qualified Language.Graciela.Parser.Assertion    as A (bound)
+import           Language.Graciela.Parser.Assertion   hiding (bound)
+import qualified Language.Graciela.Parser.Assertion   as A (bound)
 import           Language.Graciela.Parser.Declaration
 import           Language.Graciela.Parser.Expression
 import           Language.Graciela.Parser.Instruction
 import           Language.Graciela.Parser.Monad
 import           Language.Graciela.Parser.State
 import           Language.Graciela.Parser.Type
-import           Language.Graciela.SymbolTable         hiding (empty)
-import qualified Language.Graciela.SymbolTable         as ST (empty)
+import           Language.Graciela.SymbolTable        hiding (empty)
+import qualified Language.Graciela.SymbolTable        as ST (empty)
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Applicative (empty)
-import           Control.Lens        (over, use, (%=), (%~), (.=), (^.), _3,
-                                      _Just)
-import           Control.Monad       (join, liftM5, when)
-import qualified Data.Map.Strict     as Map (insert, lookup)
-import           Data.Maybe          (isJust, isNothing)
+import           Control.Applicative                  (empty)
+import           Control.Lens                         (over, use, (%=), (%~),
+                                                       (.=), (^.), _3, _Just)
+import           Control.Monad                        (join, liftM5, when)
+import qualified Data.Map.Strict                      as Map (insert, lookup)
+import           Data.Maybe                           (isJust, isNothing)
 
-import           Data.Sequence       (Seq, ViewL (..), (|>))
-import qualified Data.Sequence       as Seq (empty, viewl)
-import qualified Data.Set            as Set (member)
-import           Data.Text           (Text, unpack)
-import           Text.Megaparsec     (between, eof, errorUnexpected,
-                                      getPosition, lookAhead, manyTill,
-                                      optional, try, withRecovery, (<|>))
+import           Data.Sequence                        (Seq, ViewL (..), (|>))
+import qualified Data.Sequence                        as Seq (empty, viewl)
+import qualified Data.Set                             as Set (member)
+import           Data.Text                            (Text, unpack)
+import           Text.Megaparsec                      (between, eof,
+                                                       errorUnexpected,
+                                                       getPosition, lookAhead,
+                                                       manyTill, optional, try,
+                                                       withRecovery, (<|>))
 --------------------------------------------------------------------------------
 
 function :: Parser (Maybe Definition)
@@ -83,7 +85,7 @@ function = do
       else do
         pure False
 
-    _ -> pure False 
+    _ -> pure False
   useLet .= True
   decls'  <- sequence <$> declaration `endBy` match' TokSemicolon
   useLet .= False
@@ -109,12 +111,12 @@ function = do
   symbolTable %= closeScope postTo
 
   bnd     <- join <$> optional A.bound
- 
-  let 
-    callTypeArgs = if goToDT 
+
+  let
+    callTypeArgs = if goToDT
       then
         let Just (dtType,_,_,_) = dt
-        in Just (typeName dtType, typeArgs dtType) 
+        in Just (typeName dtType, typeArgs dtType)
       else Nothing
   currentFunc .= case (funcName', funcParams') of
     (Just funcName, Just params) -> Just CurrentRoutine
@@ -266,11 +268,11 @@ procedure = do
   post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
   bnd     <- join <$> optional A.bound
 
-  let 
-    callTypeArgs = if goToDT 
+  let
+    callTypeArgs = if goToDT
       then
         let Just (dtType,_,_,_) = dt
-        in Just (typeName dtType, typeArgs dtType) 
+        in Just (typeName dtType, typeArgs dtType)
       else Nothing
   currentProc .= case (procName', params') of
     (Just procName, Just params) -> Just CurrentRoutine
@@ -379,12 +381,12 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
                 "Redefinition of parameter `" <> unpack parName <>
                 "`, original definition was at " <> show _loc <> "."
               pure Nothing
-            Left _ 
+            Left _
               |  not (t =:= basic) && mode == Const -> do
                 putError from . UnknownError $
                   "Can not declare a parameter of type " <> show t <> "with mode Const"
                 pure Nothing
-              | otherwise -> do 
+              | otherwise -> do
                 symbolTable %= insertSymbol parName
                   (Entry parName loc (Argument mode t))
                 pure . Just $ (parName, t, mode)

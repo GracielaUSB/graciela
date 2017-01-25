@@ -1,58 +1,59 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
-{-# LANGUAGE LambdaCase               #-}
 
 module Language.Graciela.LLVM.Object
   ( object
   , objectRef
   ) where
-
 --------------------------------------------------------------------------------
 import {-# SOURCE #-} Language.Graciela.LLVM.Expression (expression)
 --------------------------------------------------------------------------------
-import qualified Language.Graciela.AST.Expression                    as E (loc)
-import           Language.Graciela.AST.Object                        (Object (..), Object' (..))
-import           Language.Graciela.AST.Type                          (ArgMode (..), Type (..),
-                                                    basic, (=:=), highLevel)
-import           Language.Graciela.AST.Struct                        (Struct(..))
+import qualified Language.Graciela.AST.Expression   as E (loc)
+import           Language.Graciela.AST.Object       (Object (..), Object' (..))
+import           Language.Graciela.AST.Struct       (Struct (..))
+import           Language.Graciela.AST.Type         (ArgMode (..), Type (..),
+                                                     basic, highLevel, (=:=))
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                        (abort)
-import qualified Language.Graciela.LLVM.Abort                        as Abort (Abort (..))
+import           Language.Graciela.LLVM.Abort       (abort)
+import qualified Language.Graciela.LLVM.Abort       as Abort (Abort (..))
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
-import           Language.Graciela.LLVM.Type                         (toLLVMType, llvmName, fill
-                                                   ,voidType, pointerType)
+import           Language.Graciela.LLVM.Type        (fill, llvmName,
+                                                     pointerType, toLLVMType,
+                                                     voidType)
 --------------------------------------------------------------------------------
-import           Control.Lens                      (use)
-import           Data.Maybe                        (isJust)
-import           Data.Map                          as Map (lookup)
-import qualified LLVM.General.AST.Constant         as C
-import qualified LLVM.General.AST.CallingConvention  as CC (CallingConvention (C))
-import           LLVM.General.AST.Instruction      (Instruction (..),
-                                                    Named (..), Terminator (..))
-import           LLVM.General.AST.IntegerPredicate (IntegerPredicate (..))
-import           LLVM.General.AST.Operand          (Operand (..))
-import           LLVM.General.AST.Type             (Type (ArrayType), i1, i32,
-                                                    i64, ptr, i8)
-import           LLVM.General.AST.Name (Name(..))
-import           Prelude                           hiding (Ordering (..))
+import           Control.Lens                       (use)
+import           Data.Map                           as Map (lookup)
+import           Data.Maybe                         (isJust)
+import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
+import qualified LLVM.General.AST.Constant          as C
+import           LLVM.General.AST.Instruction       (Instruction (..),
+                                                     Named (..),
+                                                     Terminator (..))
+import           LLVM.General.AST.IntegerPredicate  (IntegerPredicate (..))
+import           LLVM.General.AST.Name              (Name (..))
+import           LLVM.General.AST.Operand           (Operand (..))
+import           LLVM.General.AST.Type              (Type (ArrayType), i1, i32,
+                                                     i64, i8, ptr)
+import           Prelude                            hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 object :: Object -> LLVM Operand
-object obj@Object { objType, obj' } = do 
+object obj@Object { objType, obj' } = do
   dfunc <- use doingFunction
   objRef <- objectRef obj
   case obj' of
-    Variable {name, mode} | dfunc && t' && mode /= Nothing -> 
+    Variable {name, mode} | dfunc && t' && mode /= Nothing ->
        pure objRef
-    
+
     _ -> do
       label <- newLabel "varObj"
       t <- toLLVMType objType
 
-      addInstruction $ label := Load 
+      addInstruction $ label := Load
         { volatile       = False
         , address        = objRef
         , maybeAtomicity = Nothing
@@ -61,8 +62,8 @@ object obj@Object { objType, obj' } = do
 
       pure $ LocalReference t label
 
-  where 
-    t' = objType =:= basic     || objType == I64 
+  where
+    t' = objType =:= basic     || objType == I64
       || objType =:= highLevel || objType =:= GATypeVar
 
 
@@ -75,13 +76,13 @@ object obj@Object { objType, obj' } = do
 objectRef :: Object -> LLVM Operand
 objectRef (Object loc t obj') = do
   objType' <- toLLVMType t
-  
+
   ref <- case obj' of
 
     Variable { name , mode } -> do
       name' <- getVariableName name
       pure $ LocalReference objType' name'
-      
+
 
     Index inner indices -> do
       ref <- objectRef inner
@@ -183,7 +184,7 @@ objectRef (Object loc t obj') = do
       labelCond  <- newLabel "derefCond"
       trueLabel  <- newLabel "derefNullTrue"
       falseLabel <- newLabel "derefNullFalse"
-        
+
       let
         Location(p,_) = loc
 
@@ -230,11 +231,11 @@ objectRef (Object loc t obj') = do
           , type'    = pointerType
           , metadata = [] }
 
-      let 
+      let
         ptr = LocalReference pointerType $ castPtr
         Location (SourcePos _ l c, _) = loc
         line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
-        col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c   
+        col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
 
       addInstruction $ Do Call
           { tailCallKind       = Nothing
@@ -257,51 +258,51 @@ objectRef (Object loc t obj') = do
             , address  = ref
             , indices  = ConstantOperand . C.Int 32 <$> [0, field]
             , metadata = []}
-      
+
 
       st <- use structs
       isCoupling <- use coupling
       doget <- use doGet >>= \canDoGet -> do
         -- If its self and its doing the
         -- couple relation and must no use getter
-        let 
-          isSelf = case inner of 
+        let
+          isSelf = case inner of
             Object{ obj' = Variable { name } } -> name == "_self"
-            _ -> False
+            _                                  -> False
 
         pure $ canDoGet && not (isCoupling && isSelf)
-      
-      -- When its a highlevel field and its inner object is a data Type the 
+
+      -- When its a highlevel field and its inner object is a data Type the
       -- field must be initialize with its getter (unless the LogicAnywhere pragma is active)
       when (t =:= highLevel && objType inner =:= GADataType && doget) $ do
-        (sName, types, fields) <- use currentStruct >>= \case 
+        (sName, types, fields) <- use currentStruct >>= \case
           Just Struct{structBaseName,structTypes, structAFields} -> do
             case objType inner of
               GDataType _ Nothing _ ->
                  pure $ (structBaseName,structTypes, structAFields)
-                
-              GDataType n _ t' -> do 
-                if structBaseName == n 
+
+              GDataType n _ t' -> do
+                if structBaseName == n
                   then pure $ (n, toList t', structAFields)
                   else case n `Map.lookup` st of
                     Just Struct{structBaseName,structTypes, structAFields} ->
                       pure $ (structBaseName,structTypes, structAFields)
                     Nothing -> internal $ "Could not find the data type " <> unpack n
-          
+
           Nothing ->
             case objType inner of
               GDataType _ Nothing _ -> internal $ "Trying to use a getter of an abstract type"
-              
+
               GDataType n _ t' -> case n `Map.lookup` st of
                 Just Struct{structBaseName,structTypes, structAFields} ->
                   pure $ (structBaseName,structTypes, structAFields)
                 Nothing -> internal $ "Could not find the data type " <> unpack n
-        
-        
+
+
         case fieldName `Map.lookup` fields of
           Just _ -> do
             t <- mapM fill types
-            let 
+            let
               name = llvmName ("get_" <> fieldName <> "-" <> sName) t
             getLabel <- newLabel $ "get" <> show field
             addInstruction $ getLabel := Call
@@ -325,4 +326,4 @@ objectRef (Object loc t obj') = do
       pure $ LocalReference objType' member
 
   pure $ ref
-    
+

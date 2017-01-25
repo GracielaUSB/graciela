@@ -6,8 +6,8 @@ import           Language.Graciela.AST.Expression (Expression)
 import           Language.Graciela.AST.Type       (Type)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Sequence  (Seq)
-import           Data.Text      (Text, unpack)
+import           Data.Sequence                    (Seq)
+import           Data.Text                        (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Declaration

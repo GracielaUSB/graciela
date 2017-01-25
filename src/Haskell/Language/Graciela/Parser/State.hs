@@ -26,7 +26,7 @@ module Language.Graciela.Parser.State
   , isDeclarative
   , allowAbstNames
   , useLet
-  
+
   , crName
   , crPos
   , crParams
@@ -38,21 +38,21 @@ module Language.Graciela.Parser.State
 import           Language.Graciela.AST.Definition
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
+import           Language.Graciela.Common
 import           Language.Graciela.Error
 import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
-import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Control.Lens          (makeLenses)
-import           Data.Map.Strict       (Map)
-import qualified Data.Map.Strict       as Map (empty, fromList)
-import           Data.Sequence         (Seq)
-import qualified Data.Sequence         as Seq (empty)
-import           Data.Set              (Set)
-import qualified Data.Set              as Set (empty)
-import           Data.Text             (Text, pack)
-import           Text.Megaparsec.Error (ParseError (..))
-import           Text.Megaparsec.Pos   (unsafePos)
+import           Control.Lens                     (makeLenses)
+import           Data.Map.Strict                  (Map)
+import qualified Data.Map.Strict                  as Map (empty, fromList)
+import           Data.Sequence                    (Seq)
+import qualified Data.Sequence                    as Seq (empty)
+import           Data.Set                         (Set)
+import qualified Data.Set                         as Set (empty)
+import           Data.Text                        (Text, pack)
+import           Text.Megaparsec.Error            (ParseError (..))
+import           Text.Megaparsec.Pos              (unsafePos)
 --------------------------------------------------------------------------------
 
 type RecursionAllowed = Bool

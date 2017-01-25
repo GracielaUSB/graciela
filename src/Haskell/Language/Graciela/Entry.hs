@@ -15,9 +15,9 @@ import           Language.Graciela.Common
 import           Language.Graciela.Location
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens   (makeLenses)
-import           Data.Sequence  (Seq)
-import           Data.Text      (Text, unpack)
+import           Control.Lens                     (makeLenses)
+import           Data.Sequence                    (Seq)
+import           Data.Text                        (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Entry'

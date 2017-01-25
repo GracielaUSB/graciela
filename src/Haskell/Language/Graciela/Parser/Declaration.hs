@@ -15,10 +15,9 @@ module Language.Graciela.Parser.Declaration
     )
     where
 -------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration           (Declaration (..))
-import           Language.Graciela.AST.Expression            (Expression (..),
-                                                              Expression' (NullPtr, Value))
-import           Language.Graciela.AST.Struct                (Struct (..), Struct'(..))
+import           Language.Graciela.AST.Declaration   (Declaration (..))
+import           Language.Graciela.AST.Expression    (Expression (..), Expression' (NullPtr, Value))
+import           Language.Graciela.AST.Struct        (Struct (..), Struct' (..))
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
 import           Language.Graciela.Entry
@@ -31,17 +30,20 @@ import           Language.Graciela.Parser.Type
 import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (over, use, (%=), (.~), _2, _Just, _4)
-import           Control.Monad             (foldM, forM_, unless, void, when,
-                                            zipWithM_)
-import           Control.Monad.Trans.Class (lift)
-import           Data.Map                  as Map (insert, lookup)
-import           Data.Sequence             (Seq, (|>))
-import qualified Data.Sequence             as Seq (empty, fromList, null, zip)
-import           Data.Text                 (Text, unpack)
-import           Prelude                   hiding (lookup)
-import           Text.Megaparsec           (getPosition, lookAhead,
-                                            notFollowedBy, optional, try, (<|>))
+import           Control.Lens                        (over, use, (%=), (.~), _2,
+                                                      _4, _Just)
+import           Control.Monad                       (foldM, forM_, unless,
+                                                      void, when, zipWithM_)
+import           Control.Monad.Trans.Class           (lift)
+import           Data.Map                            as Map (insert, lookup)
+import           Data.Sequence                       (Seq, (|>))
+import qualified Data.Sequence                       as Seq (empty, fromList,
+                                                             null, zip)
+import           Data.Text                           (Text, unpack)
+import           Prelude                             hiding (lookup)
+import           Text.Megaparsec                     (getPosition, lookAhead,
+                                                      notFollowedBy, optional,
+                                                      try, (<|>))
 --------------------------------------------------------------------------------
 
 type Constness = Bool
@@ -59,10 +61,10 @@ dataTypeDeclaration = declaration' True
 declaration' :: Bool -> Parser (Maybe Declaration)
 declaration' isStruct = do
   lookAhead $ oneOf [TokConst, TokLet, TokVar]
-  
+
   isConst <- do
     f <- use useLet
-    if f 
+    if f
       then match' TokLet $> False
       else match TokConst $> True <|> match TokVar $> False
 
@@ -77,11 +79,11 @@ declaration' isStruct = do
   isDeclarative' <- use isDeclarative
 
   maybeStruct <- use currentStruct
-  let 
+  let
     f' [x] = "the variable " <> f [x]
     f' xs  = "the variables " <> f xs
-    f [] = ""
-    f [(x,_)] = "`" <> unpack x <> "`"
+    f []              = ""
+    f [(x,_)]         = "`" <> unpack x <> "`"
     f ((x,_):[(y,_)]) = "`" <> unpack x <> "` and `" <> unpack y <> "`"
     f ((x,_):xs)      = "`" <> unpack x <> "`, " <> f xs
 
@@ -89,7 +91,7 @@ declaration' isStruct = do
     Just (dt@GDataType {typeName}, _, _, _) | recursiveDecl t dt ->
       putError from . UnknownError $
         "Attempting to declare " <> f' (toList ids) <>
-        ",\n\twith a recursive type " <> show t <> 
+        ",\n\twith a recursive type " <> show t <>
         ".\n\tPerhaps you want to declare a " <> (show $ GPointer t)
     _ -> pure ()
 
@@ -153,7 +155,7 @@ declaration' isStruct = do
 recursiveDecl :: Type -> Type -> Bool
 recursiveDecl (GArray _ inner) dt = recursiveDecl inner dt
 recursiveDecl t dt                = t =:= dt
-      
+
 assignment :: Parser (Maybe (Maybe (Seq Expression)))
 assignment = optional $ sequence <$>
   (match TokAssign *> (expression `sepBy` match TokComma))
@@ -268,18 +270,18 @@ info' isStruct pos name t expr constness = if isStruct
       dFields' l = Map.insert name (f l) dFields
     case name `Map.lookup` fields of
       Just (p, t', c, _)
-        | c /= constness -> 
+        | c /= constness ->
           let
             aux a = if a then "constant" else "variable"
           in
             putError pos . UnknownError $
             "Redefinition of member `" <> unpack name <> "` as " <> aux constness <>
             ",\n\tbut defined in abstract type as " <> aux c <> "."
-        
-        | not $ t =:= highLevel -> do 
+
+        | not $ t =:= highLevel -> do
           putError pos . UnknownError $
             "Redefinition of member `" <> unpack name <> "` already defined in abstract type."
-            
+
 
         | t' =:= t -> currentStruct %= over _Just (_4 .~ dFields' p)
 

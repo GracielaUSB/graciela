@@ -8,10 +8,10 @@ module Language.Graciela.Parser.Struct
 -------------------------------------------------------------------------------
 import           Language.Graciela.AST.Declaration
 import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Expression      (Expression (..))
+import           Language.Graciela.AST.Expression     (Expression (..))
 import           Language.Graciela.AST.Instruction
 import           Language.Graciela.AST.Object
-import qualified Language.Graciela.AST.Object          as O (Object (loc))
+import qualified Language.Graciela.AST.Object         as O (Object (loc))
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
@@ -29,28 +29,35 @@ import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens        (over, use, (%=), (.=), (.~), (^.),(&),
-                                      _Just, _4, _2, _3)
-import           Data.Array          ((!))
-import qualified Data.Array          as Array (listArray)
-import           Data.Foldable       as F (concat)
-import           Data.List           (intercalate)
+import           Control.Lens                         (over, use, (%=), (&),
+                                                       (.=), (.~), (^.), _2, _3,
+                                                       _4, _Just)
+import           Data.Array                           ((!))
+import qualified Data.Array                           as Array (listArray)
+import           Data.Foldable                        as F (concat)
+import           Data.List                            (intercalate)
 
-import qualified Data.Map.Strict     as Map (empty, filter, fromList, insert,
-                                             keysSet, lookup, size, toList,
-                                             difference, union)
-import           Data.Maybe          (catMaybes)
+import qualified Data.Map.Strict                      as Map (difference, empty,
+                                                              filter, fromList,
+                                                              insert, keysSet,
+                                                              lookup, size,
+                                                              toList, union)
+import           Data.Maybe                           (catMaybes)
 
-import           Data.Sequence       (ViewL (..))
-import qualified Data.Sequence       as Seq (empty, fromList, viewl, zip,
-                                             zipWith)
-import qualified Data.Set            as Set (fromList, member, insert, 
-                                             difference, empty)
-import           Data.Text           (Text)
-import           Prelude             hiding (lookup)
-import           Text.Megaparsec     (between, eof, getPosition, manyTill,
-                                      optional, (<|>), lookAhead, try)
-import           Text.Megaparsec.Pos (SourcePos)
+import           Data.Sequence                        (ViewL (..))
+import qualified Data.Sequence                        as Seq (empty, fromList,
+                                                              viewl, zip,
+                                                              zipWith)
+import qualified Data.Set                             as Set (difference, empty,
+                                                              fromList, insert,
+                                                              member)
+import           Data.Text                            (Text)
+import           Prelude                              hiding (lookup)
+import           Text.Megaparsec                      (between, eof,
+                                                       getPosition, lookAhead,
+                                                       manyTill, optional, try,
+                                                       (<|>))
+import           Text.Megaparsec.Pos                  (SourcePos)
 -------------------------------------------------------------------------------
 
 -- AbstractDataType -> 'abstract' Id AbstractTypes 'begin' AbstractBody 'end'
@@ -78,7 +85,7 @@ abstractDataType = do
     currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
 
     Location(p,_) <- match' TokBegin
-    
+
     symbolTable %= openScope p
 
     declarative (dataTypeDeclaration `endBy` match' TokSemicolon)
@@ -91,7 +98,7 @@ abstractDataType = do
     allowAbstNames .= False
 
     st <- use symbolTable
-    
+
     getPosition >>= \pos -> symbolTable %= closeScope pos
     getPosition >>= \pos -> symbolTable %= openScope pos
 
@@ -170,31 +177,31 @@ dataType = do
 
           let
             dtType        = GDataType name abstractName' typeArgs
-            adtType       = GDataType abstractName Nothing (Array.listArray (0, lenNeeded - 1) structTypes) 
+            adtType       = GDataType abstractName Nothing (Array.listArray (0, lenNeeded - 1) structTypes)
             typeArgs      = Array.listArray (0, length types - 1) types
-            
+
             -- number of type args in the abstract type
             lenNeeded     = length structTypes
             -- number of type args in the implementation
             lenActual     = length absTypes
 
             structFields' = removeADT dtType <$> structFields
-          
+
             abstractTypes = Array.listArray (0, lenActual - 1) absTypes
 
             abstFields = fillTypes abstractTypes structFields'
-          
-          when (lenNeeded /= lenActual) $ if lenActual == 0 
-            then putError absTypesPos . UnknownError $ 
+
+          when (lenNeeded /= lenActual) $ if lenActual == 0
+            then putError absTypesPos . UnknownError $
               "Expected type arguments but non was given while trying to implement " <>
               show adtType
-            else putError absTypesPos . UnknownError $ 
+            else putError absTypesPos . UnknownError $
               "The number of type arguments: (" <> intercalate "," (show <$> absTypes) <> ")" <>
               "\n\tdoes not match with the abstract type " <> show adtType
 
 
           -- abstract Fields filled with the corresponding types
-            
+
 
           currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
 
@@ -205,10 +212,10 @@ dataType = do
           let
             hlField (_,ft,_,_) = ft =:= highLevel      -- filter highlevel fields
             ahlonly   = Map.filter hlField abstFields  -- Get only highlevel fields from abstract fields
-            dFields   =  cs ^. _Just . _4 
+            dFields   =  cs ^. _Just . _4
             allFields = (cs ^. _Just . _2) `Map.difference` ahlonly
 
-          
+
           repinv'  <- repInv
           coupinv' <- coupInv
           couple'  <- optional coupleRel
@@ -264,10 +271,10 @@ dataType = do
   where
     removeADT dt (a, t, b, c) = (a, removeADT' dt t, b, c)
       where
-        removeADT' dt (GPointer t) = GPointer (removeADT' dt t)
-        removeADT' dt (GArray n t) = GArray n (removeADT' dt t)
-        removeADT' dt (t@GDataType{}) = t <> dt   
-        removeADT' dt t = t
+        removeADT' dt (GPointer t)    = GPointer (removeADT' dt t)
+        removeADT' dt (GArray n t)    = GArray n (removeADT' dt t)
+        removeADT' dt (t@GDataType{}) = t <> dt
+        removeADT' dt t               = t
 
     -- Check if all abstract procedures are defined in the implementation
     checkProc dtPos abTypes' procs dtName abstractName abstractProc = do
@@ -283,7 +290,7 @@ dataType = do
         "`\n\tneeds to be implemented inside the Type `" <>
         unpack dtName <> "`."
       where
-        -- Check if the both procedures, the abstract and the one implementing 
+        -- Check if the both procedures, the abstract and the one implementing
         -- have exactly the same header
         (=-=) :: Definition
               -> Definition
@@ -376,19 +383,19 @@ coupleRel = do
             auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
 
           assigned <- checkField structFields (map fst auxInsts) Set.empty
-            
+
           let
             filter' = (\(_,t,_,_) -> t =:= highLevel)
             needed  = Map.keysSet . Map.filter filter' $ structFields
             left    = needed `Set.difference` assigned
 
-          unless (null left) . forM_ left $ 
+          unless (null left) . forM_ left $
             \name -> putError pos . UnknownError $
-                    "The abstract variable `" <> unpack name <> 
+                    "The abstract variable `" <> unpack name <>
                     "` has to be coupled."
           pure insts
 
-        Just _ -> do 
+        Just _ -> do
           putError pos $ UnknownError "Empty coupling relation."
           pure Seq.empty
         _ -> pure Seq.empty
@@ -397,38 +404,38 @@ coupleRel = do
     checkField _ [] set = pure set
     checkField fields (obj@Object{O.loc}:insts) set = do
       i <- check fields obj
-      set' <- case i of 
-        Just name -> do 
+      set' <- case i of
+        Just name -> do
           if name `Set.member` set
-            then do 
-              putError (pos loc) . UnknownError $ 
-                "Duplicate definition of the variable `" <> 
-                unpack name <> "` inside the coupling relation."      
+            then do
+              putError (pos loc) . UnknownError $
+                "Duplicate definition of the variable `" <>
+                unpack name <> "` inside the coupling relation."
               pure set
 
             else pure $ name `Set.insert` set
-        
+
         Nothing -> pure set
       checkField fields insts set'
 
     check :: Fields -> Object -> Parser (Maybe Text)
     check fields obj@Object{ O.loc } = case obj of
       Object{ objType, obj' = Member{ fieldName }} -> do
-        if (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel) 
+        if (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel)
           then pure (Just fieldName)
           else do
-            putError (pos loc) . UnknownError $ 
+            putError (pos loc) . UnknownError $
               "Unexpected coupling for variable `" <> unpack fieldName <> "`."
             pure Nothing
-      
+
       Object{ objType, obj' = Variable{ name }} -> do
-        putError (pos loc) . UnknownError $ 
+        putError (pos loc) . UnknownError $
           "Unexpected coupling for variable `" <> unpack name <> "`."
         pure Nothing
 
 
-      _ -> do 
-        putError (pos loc) . UnknownError $ 
+      _ -> do
+        putError (pos loc) . UnknownError $
           "Can not couple a element of an array or a dereference"
         pure Nothing
 

@@ -1,13 +1,11 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase        #-}
-
 
 module Language.Graciela.Parser.Program
   ( program
   ) where
-
 -------------------------------------------------------------------------------
 import           Language.Graciela.AST.Program
 import           Language.Graciela.AST.Type
@@ -21,16 +19,17 @@ import           Language.Graciela.Parser.Struct
 import           Language.Graciela.SymbolTable        (closeScope, openScope)
 import           Language.Graciela.Token
 -------------------------------------------------------------------------------
-import           Control.Lens       (use, (%=))
+import           Control.Lens                         (use, (%=))
 import           Data.Either
-import qualified Data.Map.Strict    as Map
-import           Data.Maybe         (fromMaybe)
+import qualified Data.Map.Strict                      as Map
+import           Data.Maybe                           (fromMaybe)
 
-import qualified Data.Sequence      as Seq (empty, fromList)
-import qualified Data.Set           as Set (fromList, insert)
-import qualified Data.Text          as T (intercalate)
-import           Text.Megaparsec    (eof, getPosition, optional, sepBy1, (<|>), eitherP)
-
+import qualified Data.Sequence                        as Seq (empty, fromList)
+import qualified Data.Set                             as Set (fromList, insert)
+import qualified Data.Text                            as T (intercalate)
+import           Text.Megaparsec                      (eitherP, eof,
+                                                       getPosition, optional,
+                                                       sepBy1, (<|>))
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
@@ -71,14 +70,14 @@ program = do
       dts     <- use dataTypes
       fdts'   <- use fullDataTypes
       strings <- use stringIds
-      
+
 
       -- Put pending data types as full data types
       forM_ (Map.toList fdts') $ \(name, typeargs) -> do
-        case name `Map.lookup` pend of 
+        case name `Map.lookup` pend of
           Just pending -> forM_ pending $ \name' -> do
-            forM_ typeargs $ \x -> 
-              let 
+            forM_ typeargs $ \x ->
+              let
                 fAlter = Just . \case
                   Nothing -> Set.fromList [x]
                   Just y  -> Set.insert x y
@@ -87,13 +86,13 @@ program = do
           Nothing -> pure ()
 
       -- Take the new full data types
-      fdts' <- use fullDataTypes   
+      fdts' <- use fullDataTypes
       -- internal $ show fdts'
 
-      let 
+      let
         aux (name, typeArgs) = case name `Map.lookup` dts of
           Just struct -> (name, (struct, typeArgs))
-          Nothing -> internal $ "Couldn't find struct " <> show name
+          Nothing     -> internal $ "Couldn't find struct " <> show name
         fdts = Map.fromList $ aux <$> (Map.toList fdts')
 
       pure $ Just Program

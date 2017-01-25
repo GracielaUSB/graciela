@@ -1,7 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Main (main) where
-
 --------------------------------------------------------------------------------
 import           Cola.Cola
 import           Language.Graciela       (Options (..), defaultOptions)
@@ -16,7 +15,7 @@ import           System.Exit             (ExitCode (..))
 import           System.FilePath         ((-<.>), (<.>), (</>))
 import           System.IO               (IOMode (..), SeekMode (..), hClose,
                                           hGetContents, hPutStrLn, hSeek,
-                                          readFile, stderr, withFile, openFile)
+                                          openFile, readFile, stderr, withFile)
 import           System.IO.Temp          (openBinaryTempFile, openTempFile,
                                           withTempFile)
 import           System.Process          (CreateProcess (..), StdStream (..),

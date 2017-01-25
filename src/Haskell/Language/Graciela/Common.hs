@@ -21,21 +21,21 @@ import           Language.Graciela.Location
 import           Language.Graciela.Pragma
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
-import           Control.Monad             (foldM, forM, forM_, unless, void,
-                                            when, zipWithM, zipWithM_, (>=>))
-import           Control.Monad.Trans.Class (lift)
-import           Data.Either               (rights)
-import           Data.Foldable             (toList)
-import           Data.Functor              (($>))
-import           Data.Int                  (Int32)
-import           Data.Map.Strict           (Map)
-import           Data.Maybe                (isJust, isNothing)
-import           Data.Semigroup            (Semigroup (..))
-import           Data.Sequence             (Seq)
-import           Data.Set                  (Set)
-import           Data.Text                 (pack, unpack)
-import           Debug.Trace               (trace, traceM, traceShow,
-                                            traceShowId, traceShowM)
+import           Control.Monad              (foldM, forM, forM_, unless, void,
+                                             when, zipWithM, zipWithM_, (>=>))
+import           Control.Monad.Trans.Class  (lift)
+import           Data.Either                (rights)
+import           Data.Foldable              (toList)
+import           Data.Functor               (($>))
+import           Data.Int                   (Int32)
+import           Data.Map.Strict            (Map)
+import           Data.Maybe                 (isJust, isNothing)
+import           Data.Semigroup             (Semigroup (..))
+import           Data.Sequence              (Seq)
+import           Data.Set                   (Set)
+import           Data.Text                  (pack, unpack)
+import           Debug.Trace                (trace, traceM, traceShow,
+                                             traceShowId, traceShowM)
 --------------------------------------------------------------------------------
 
 internal :: String -> a

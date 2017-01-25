@@ -1,13 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Shared 
+module Shared
   ( Basic (..)
   , showIn
   ) where
-
 --------------------------------------------------------------------------------
-import Data.Int (Int32)
-import           Numeric                   (showFFloat)
+import           Data.Int (Int32)
+import           Numeric  (showFFloat)
 --------------------------------------------------------------------------------
 
 data Basic

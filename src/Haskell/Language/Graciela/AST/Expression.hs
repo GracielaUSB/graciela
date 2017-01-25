@@ -17,14 +17,14 @@ module Language.Graciela.AST.Expression
 --------------------------------------------------------------------------------
 import {-# SOURCE #-} Language.Graciela.AST.Type (Type)
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Object    (Object)
+import           Language.Graciela.AST.Object (Object)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Array    (Array)
-import           Data.List     (intercalate)
-import           Data.Sequence (Seq)
-import           Data.Text     (Text)
-import           Prelude       hiding (Ordering (..))
+import           Data.Array                   (Array)
+import           Data.List                    (intercalate)
+import           Data.Sequence                (Seq)
+import           Data.Text                    (Text)
+import           Prelude                      hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
 data BinaryOperator
@@ -185,7 +185,7 @@ data CollectionKind
 data Expression'
   = NullPtr
   | SizeOf { sType :: Type }
-  
+
   | Value { theValue :: Value }
 
   | StringLit { theStringId :: Int }
@@ -226,9 +226,9 @@ data Expression'
     , fStructArgs    :: Maybe (Text, Array Int Type) }
 
   | AbstFunctionCall
-    { fName          :: Text
-    , fArgs          :: Seq Expression
-    , fStructArgs    :: Maybe (Text, Array Int Type) }
+    { fName       :: Text
+    , fArgs       :: Seq Expression
+    , fStructArgs :: Maybe (Text, Array Int Type) }
 
   | Quantification
     { qOp      :: QuantOperator
@@ -255,9 +255,9 @@ data Expression
     , exp'     :: Expression' }
 
 instance Ord Expression where
-  (<=) 
-    (Expression loc0 _ _ _) 
-    (Expression loc1 _ _ _) 
+  (<=)
+    (Expression loc0 _ _ _)
+    (Expression loc1 _ _ _)
     = loc1 <= loc0
 
 instance Eq Expression where
@@ -329,7 +329,7 @@ instance Treelike Expression where
       I64Cast { inner } ->
         Node ("I64Cast " <> show loc) [ toTree inner ]
 
-      AbstFunctionCall{ fName, fArgs } -> 
+      AbstFunctionCall{ fName, fArgs } ->
         Node ("Call Abstract Func " <> unpack fName <> " " <> c <> show loc)
             [ Node "Arguments" (toForest fArgs) ]
 

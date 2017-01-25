@@ -73,40 +73,41 @@ module Language.Graciela.Parser.Monad
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Struct
-import           Language.Graciela.AST.Type                   (Type)
+import           Language.Graciela.AST.Type      (Type)
 import           Language.Graciela.Common
 import           Language.Graciela.Error
-import           Language.Graciela.Parser.Config              (Config (..), defaultConfig)
-import           Language.Graciela.Parser.Prim                ()
-import           Language.Graciela.Parser.State               hiding (State)
-import qualified Language.Graciela.Parser.State               as Parser (State)
-import           Language.Graciela.Token                      (Token (..), TokenPos (..))
+import           Language.Graciela.Parser.Config (Config (..), defaultConfig)
+import           Language.Graciela.Parser.Prim   ()
+import           Language.Graciela.Parser.State  hiding (State)
+import qualified Language.Graciela.Parser.State  as Parser (State)
+import           Language.Graciela.Token         (Token (..), TokenPos (..))
 --------------------------------------------------------------------------------
-import           Control.Applicative        (Alternative)
-import           Control.Lens               (use, view, (%=), (.=), (<<.=),
-                                             (<~), (^.), _1, _2)
-import           Control.Monad              (MonadPlus)
-import           Control.Monad.Identity     (Identity (..))
-import           Control.Monad.Reader       (MonadReader (..), asks)
-import           Control.Monad.State        (MonadState)
-import           Control.Monad.Trans.Except (ExceptT (..), catchE, runExceptT,
-                                             throwE)
-import           Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
-import           Control.Monad.Trans.State  (StateT (..), evalStateT)
-import           Data.List.NonEmpty         (NonEmpty (..))
-import qualified Data.List.NonEmpty         as NE (fromList)
-import qualified Data.Map.Strict            as Map (empty, lookup)
-import           Data.Sequence              (Seq, (<|), (|>))
-import qualified Data.Sequence              as Seq (empty, singleton)
-import qualified Data.Set                   as Set (empty, singleton)
-import           Data.Text                  (Text)
-import           Text.Megaparsec            (ErrorItem (..), ParseError (..),
-                                             ParsecT, between, getPosition,
-                                             lookAhead, manyTill, withRecovery,
-                                             (<|>))
-import qualified Text.Megaparsec            as Mega (runParserT)
-import           Text.Megaparsec.Error      (parseErrorTextPretty)
-import           Text.Megaparsec.Prim       (MonadParsec (..))
+import           Control.Applicative             (Alternative)
+import           Control.Lens                    (use, view, (%=), (.=), (<<.=),
+                                                  (<~), (^.), _1, _2)
+import           Control.Monad                   (MonadPlus)
+import           Control.Monad.Identity          (Identity (..))
+import           Control.Monad.Reader            (MonadReader (..), asks)
+import           Control.Monad.State             (MonadState)
+import           Control.Monad.Trans.Except      (ExceptT (..), catchE,
+                                                  runExceptT, throwE)
+import           Control.Monad.Trans.Reader      (ReaderT (..), runReaderT)
+import           Control.Monad.Trans.State       (StateT (..), evalStateT)
+import           Data.List.NonEmpty              (NonEmpty (..))
+import qualified Data.List.NonEmpty              as NE (fromList)
+import qualified Data.Map.Strict                 as Map (empty, lookup)
+import           Data.Sequence                   (Seq, (<|), (|>))
+import qualified Data.Sequence                   as Seq (empty, singleton)
+import qualified Data.Set                        as Set (empty, singleton)
+import           Data.Text                       (Text)
+import           Text.Megaparsec                 (ErrorItem (..),
+                                                  ParseError (..), ParsecT,
+                                                  between, getPosition,
+                                                  lookAhead, manyTill,
+                                                  withRecovery, (<|>))
+import qualified Text.Megaparsec                 as Mega (runParserT)
+import           Text.Megaparsec.Error           (parseErrorTextPretty)
+import           Text.Megaparsec.Prim            (MonadParsec (..))
 --------------------------------------------------------------------------------
 
 -- | Graciela Parser monad transformer.

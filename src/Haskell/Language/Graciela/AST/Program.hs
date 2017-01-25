@@ -11,11 +11,11 @@ import           Language.Graciela.Common
 import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map (elems, foldrWithKey)
-import           Data.Sequence   (Seq)
-import           Data.Set        (Set)
-import           Data.Text       (Text, unpack)
+import           Data.Map.Strict                   (Map)
+import qualified Data.Map.Strict                   as Map (elems, foldrWithKey)
+import           Data.Sequence                     (Seq)
+import           Data.Set                          (Set)
+import           Data.Text                         (Text, unpack)
 --------------------------------------------------------------------------------
 
 data Program

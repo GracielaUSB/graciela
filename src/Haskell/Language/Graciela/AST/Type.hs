@@ -11,7 +11,7 @@ Implements the Graciela typesystem.
 
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections  #-}
 
 module Language.Graciela.AST.Type
   ( ArgMode (..)
@@ -28,17 +28,18 @@ module Language.Graciela.AST.Type
   , objMode
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression (Expression (..), Expression' (..), Value (..))
+import           Language.Graciela.AST.Expression (Expression (..),
+                                                   Expression' (..), Value (..))
 import           Language.Graciela.AST.Object     (Object (..), Object' (..))
 import qualified Language.Graciela.AST.Object     as O (inner)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Array     (Array, bounds, (!))
-import           Data.Ix        (inRange)
-import           Data.List      (intercalate, nub)
-import qualified Data.Sequence  as Seq (zipWith)
-import           Data.Text      (Text)
-import           Prelude        hiding (takeWhile)
+import           Data.Array                       (Array, bounds, (!))
+import           Data.Ix                          (inRange)
+import           Data.List                        (intercalate, nub)
+import qualified Data.Sequence                    as Seq (zipWith)
+import           Data.Text                        (Text)
+import           Prelude                          hiding (takeWhile)
 --------------------------------------------------------------------------------
 
 objMode :: Object -> Maybe ArgMode
@@ -141,24 +142,24 @@ fillType _ t = t
 
 
 
-removeAbst dt (GPointer t) = GPointer (removeAbst dt t) 
+removeAbst dt (GPointer t) = GPointer (removeAbst dt t)
 removeAbst dt (GArray n t) = GArray n (removeAbst dt t)
-removeAbst dt t = if dt =:= t 
+removeAbst dt t = if dt =:= t
   then t <> dt
   else t
 
 hasDT :: Type -> Maybe Type
-hasDT t@GDataType {}     = Just t
-hasDT (GArray _ t)       = hasDT t
-hasDT (GPointer t)       = hasDT t
-hasDT _                  = Nothing
+hasDT t@GDataType {} = Just t
+hasDT (GArray _ t)   = hasDT t
+hasDT (GPointer t)   = hasDT t
+hasDT _              = Nothing
 
 hasTypeVar :: Type -> Bool
-hasTypeVar GTypeVar{}               = True
-hasTypeVar GDataType {typeArgs}     = any hasTypeVar typeArgs
-hasTypeVar (GArray _ t)             = hasTypeVar t
-hasTypeVar (GPointer t)             = hasTypeVar t
-hasTypeVar _                        = False
+hasTypeVar GTypeVar{}           = True
+hasTypeVar GDataType {typeArgs} = any hasTypeVar typeArgs
+hasTypeVar (GArray _ t)         = hasTypeVar t
+hasTypeVar (GPointer t)         = hasTypeVar t
+hasTypeVar _                    = False
 
 basic :: Type
 basic = GOneOf [GBool, GChar, GInt, GFloat]
@@ -299,7 +300,7 @@ instance Show Type where
           "tuple (" <> show' a <> ", " <> show' b <> ")"
         GTypeVar  i n   -> unpack n
 
-        GDataType n na targs -> unpack n <> "(" <> 
+        GDataType n na targs -> unpack n <> "(" <>
           intercalate "," (fmap show' (toList targs)) <> ")" -- <> show na
 
         GAny            -> "any type"

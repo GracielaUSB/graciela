@@ -11,23 +11,23 @@ module Language.Graciela.LLVM.Quantification
 import {-# SOURCE #-} Language.Graciela.LLVM.Expression (expression, safeOperation)
 import {-# SOURCE #-} Language.Graciela.LLVM.Boolean    (boolean)
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression                          (CollectionKind (..),
+import           Language.Graciela.AST.Expression        (CollectionKind (..),
                                                           Expression (..),
                                                           Expression' (..),
                                                           QRange (..),
                                                           QuantOperator (..))
-import qualified Language.Graciela.AST.Expression                          as E (Expression (expType))
-import           Language.Graciela.AST.Type                                (Type (..), (=:=))
+import qualified Language.Graciela.AST.Expression        as E (Expression (expType))
+import           Language.Graciela.AST.Type              (Type (..), (=:=))
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                              (abort)
-import qualified Language.Graciela.LLVM.Abort                              as Abort (Abort (EmptyRange))
+import           Language.Graciela.LLVM.Abort            (abort)
+import qualified Language.Graciela.LLVM.Abort            as Abort (Abort (EmptyRange))
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.Type
 --------------------------------------------------------------------------------
 import           Data.Sequence                           (ViewL ((:<)), viewl)
 import           Data.Word                               (Word32)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
-import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Undef, Null))
+import qualified LLVM.General.AST.Constant               as C (Constant (Float, Int, Null, Undef))
 import qualified LLVM.General.AST.Float                  as F (SomeFloat (Double))
 import           LLVM.General.AST.FloatingPointPredicate (FloatingPointPredicate (OGT, OLT))
 import           LLVM.General.AST.Instruction            (FastMathFlags (..),
@@ -37,7 +37,7 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
 import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1, i8, i64, ptr)
+import           LLVM.General.AST.Type                   (i1, i64, i8, ptr)
 import qualified LLVM.General.AST.Type                   as LLVM
 import           Prelude                                 hiding (EQ)
 --------------------------------------------------------------------------------
@@ -304,7 +304,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
         , metadata' = [] }
 
       (l1 #)
-  
+
       nextCast <- nextIteratorValue qVarType t nextIterator iteratorStruct
 
       addInstruction $ Do Store
@@ -366,11 +366,11 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         boolean yesCond noCond qCond
         (yesCond #)
-        
+
         op <- if qOp == Count
-          then do 
-            let 
-              intSize = case expType of 
+          then do
+            let
+              intSize = case expType of
                 GInt  -> 32
                 GChar -> 8
                 GBool -> 1
@@ -378,12 +378,12 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
             countTrue  <- newLabel "countTrue"
             countFalse <- newLabel "countFalse"
             boolean countTrue countFalse qBody
-            
+
             (countTrue #)
             terminate Br
               { dest      = exit
               , metadata' = [] }
-            
+
             (countFalse #)
             terminate Br
               { dest      = exit
@@ -797,7 +797,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
               , maybeAtomicity = Nothing
               , alignment      = 4
               , metadata       = [] }
-            
+
 
             case expType of
               GFloat ->
@@ -957,7 +957,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           , numElements   = Nothing
           , alignment     = 4
           , metadata      = [] }
-       
+
         (iteratorStruct, firstElement) <- firstIterator qVarType setType t set
 
         addInstruction $ Do Store
@@ -1206,7 +1206,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           , numElements   = Nothing
           , alignment     = 4
           , metadata      = [] }
-       
+
         (iteratorStruct, firstElement) <- firstIterator qVarType setType t set
 
         addInstruction $ Do Store
@@ -1280,7 +1280,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
               , maybeAtomicity = Nothing
               , alignment      = 4
               , metadata       = [] }
-            
+
             case expType of
               GFloat ->
                 addInstruction . (newPartial :=) $
@@ -1373,13 +1373,13 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         closeScope
 
-        
-        
+
+
 
         pure $ LocalReference qType result
-      
 
-      
+
+
 
   _ -> internal "quantification only admits \
              \Quantification Expression"
@@ -1777,7 +1777,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
           , metadata = [] }
 
 firstIterator :: Type -> Type -> LLVM.Type -> Operand -> LLVM (Name, Name)
-firstIterator qVarType setType castType set = do 
+firstIterator qVarType setType castType set = do
   iteratorStruct <- newLabel "iteratorStruct"
   first          <- newLabel "firstElementPtr"
   firstValue     <- newLabel "firstElementValue"
@@ -1799,7 +1799,7 @@ firstIterator qVarType setType castType set = do
     , address  = LocalReference (ptr iterator) iteratorStruct
     , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
     , metadata = [] }
-  
+
   addInstruction $ firstValue := Load
       { volatile       = False
       , address        = LocalReference (ptr i64) first

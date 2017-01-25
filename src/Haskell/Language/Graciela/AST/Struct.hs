@@ -9,10 +9,10 @@ import           Language.Graciela.AST.Type        (Type, TypeArgs, fillType)
 import           Language.Graciela.Common
 import           Language.Graciela.SymbolTable
 --------------------------------------------------------------------------------
-import           Control.Lens    ((%~), _2)
-import           Data.List       (intercalate)
-import qualified Data.Map.Strict as Map (toList)
-import           Data.Text       (Text)
+import           Control.Lens                      ((%~), _2)
+import           Data.List                         (intercalate)
+import qualified Data.Map.Strict                   as Map (toList)
+import           Data.Text                         (Text)
 --------------------------------------------------------------------------------
 
 type Fields = Map Text (Integer, Type, Bool, Maybe Expression)

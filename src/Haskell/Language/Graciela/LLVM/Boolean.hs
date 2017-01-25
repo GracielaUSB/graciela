@@ -12,22 +12,22 @@ module Language.Graciela.LLVM.Boolean
 import {-# SOURCE #-} Language.Graciela.LLVM.Expression (expression)
 import {-# SOURCE #-} Language.Graciela.LLVM.Object     (object, objectRef)
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression                          as Op
 import           Language.Graciela.AST.Definition
+import           Language.Graciela.AST.Expression        as Op
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
-import           Language.Graciela.Error                                   hiding (fArgs, fName)
-import           Language.Graciela.LLVM.Abort                              (abort)
-import qualified Language.Graciela.LLVM.Abort                              as Abort (Abort (..))
+import           Language.Graciela.Error                 hiding (fArgs, fName)
+import           Language.Graciela.LLVM.Abort            (abort)
+import qualified Language.Graciela.LLVM.Abort            as Abort (Abort (..))
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.Quantification
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (&))
-import           Data.Maybe                              (fromMaybe)
 import           Data.Map                                as Map (lookup)
+import           Data.Maybe                              (fromMaybe)
 import           Data.Text                               (unpack)
 import qualified LLVM.General.AST.CallingConvention      as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant               as C (Constant (..))
@@ -284,21 +284,21 @@ boolean true false e@Expression { loc, exp' } = do
       _ -> internal $ "operator `" <> show unOp <> "` cannot produce a boolean"
 
     I64Cast {} -> internal "i64-cast cannot produce a boolean"
-   
+
     AbstFunctionCall {fName, fArgs, fStructArgs} -> do
       fdt <- use fullDataTypes
-      let 
-        (dtName, typeArgs) = case fStructArgs of 
+      let
+        (dtName, typeArgs) = case fStructArgs of
           Nothing -> internal $ "Calling an abstract function of unknown Abstract Data Type"
           Just x -> x
       case dtName `Map.lookup` fdt of
         Nothing -> internal $ "Could not find Data Type " <> show dtName
         Just (Struct{structProcs},_) -> case fName `Map.lookup` structProcs of
-          Nothing -> internal $ "Could not find function " <> 
-                                show fName <> " in Data Type " <> 
+          Nothing -> internal $ "Could not find function " <>
+                                show fName <> " in Data Type " <>
                                 show dtName
 
-          Just Definition{ def' = FunctionDef{ funcRecursive }} -> 
+          Just Definition{ def' = FunctionDef{ funcRecursive }} ->
             boolean true false e{exp'=FunctionCall fName fArgs False funcRecursive fStructArgs}
 
     FunctionCall { fName, fArgs, fRecursiveCall, fRecursiveFunc, fStructArgs } -> do
@@ -342,9 +342,9 @@ boolean true false e@Expression { loc, exp' } = do
           (,[]) <$> if
             | type' =:= GBool -> wrapBoolean x
 
-            | type' =:= basicT || type' == I64 || type' =:= highLevel -> 
+            | type' =:= basicT || type' == I64 || type' =:= highLevel ->
                 expression x
-            | type' =:= GPointer GAny -> do 
+            | type' =:= GPointer GAny -> do
                 expr <- expression x
                 let GPointer t = type'
                 type' <- ptr <$> toLLVMType t
@@ -366,8 +366,8 @@ boolean true false e@Expression { loc, exp' } = do
 
                 pure $ LocalReference type' label
 
-            | otherwise -> case exp' of 
-                Obj o         -> do 
+            | otherwise -> case exp' of
+                Obj o         -> do
                   label <- newLabel "argCastBOb"
                   ref <- objectRef o
                   type' <- ptr <$> toLLVMType type'
@@ -378,7 +378,7 @@ boolean true false e@Expression { loc, exp' } = do
                     , metadata = [] }
 
                   pure $ LocalReference type' label
-                
+
                 _ -> internal "bad argument"
 
 

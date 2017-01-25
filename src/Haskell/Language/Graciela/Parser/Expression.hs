@@ -12,53 +12,64 @@ module Language.Graciela.Parser.Expression
   ( expression
   ) where
 --------------------------------------------------------------------------------
-import {-# SOURCE #-} Language.Graciela.Parser.Type          (type')
+import {-# SOURCE #-} Language.Graciela.Parser.Type (type')
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Expression            hiding (inner, loc)
-import qualified Language.Graciela.AST.Expression            as E (inner, loc)
-import           Language.Graciela.AST.Object                hiding (inner, loc, name)
-import qualified Language.Graciela.AST.Object                as O (inner, loc, name)
-import           Language.Graciela.AST.Struct                (Struct (..), fillTypes, Struct'(..))
-import           Language.Graciela.AST.Type                  (ArgMode (..), Type (..),
-                                                              fillType, hasDT, (=:=), highLevel, removeAbst)
+import           Language.Graciela.AST.Expression  hiding (inner, loc)
+import qualified Language.Graciela.AST.Expression  as E (inner, loc)
+import           Language.Graciela.AST.Object      hiding (inner, loc, name)
+import qualified Language.Graciela.AST.Object      as O (inner, loc, name)
+import           Language.Graciela.AST.Struct      (Struct (..), Struct' (..),
+                                                    fillTypes)
+import           Language.Graciela.AST.Type        (ArgMode (..), Type (..),
+                                                    fillType, hasDT, highLevel,
+                                                    removeAbst, (=:=))
 import           Language.Graciela.Common
-import           Language.Graciela.Entry                     (Entry (..), Entry' (..), info)
-import           Language.Graciela.Error                     (Error (..))
+import           Language.Graciela.Entry           (Entry (..), Entry' (..),
+                                                    info)
+import           Language.Graciela.Error           (Error (..))
 import           Language.Graciela.Lexer
 import           Language.Graciela.Parser.Config
-import           Language.Graciela.Parser.ExprM              (Operator (..), makeExprParser)
+import           Language.Graciela.Parser.ExprM    (Operator (..),
+                                                    makeExprParser)
 import           Language.Graciela.Parser.Monad
-import qualified Language.Graciela.Parser.Operator           as Op
-import           Language.Graciela.Parser.State              hiding (State)
-import           Language.Graciela.SymbolTable               (closeScope, defocus, emptyGlobal,
-                                                              insertSymbol, lookup, openScope)
+import qualified Language.Graciela.Parser.Operator as Op
+import           Language.Graciela.Parser.State    hiding (State)
+import           Language.Graciela.SymbolTable     (closeScope, defocus,
+                                                    emptyGlobal, insertSymbol,
+                                                    lookup, openScope)
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens              (elements, makeLenses, use, view,
-                                            (%%=), (%=), (%~), (&), (&~), (.=),
-                                            (<&>), (^.), _1, _3, _Just)
-import           Control.Monad             (foldM, unless, void, when, (>=>))
-import           Control.Monad.Reader      (asks)
-import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.State (StateT, evalStateT, execStateT, get,
-                                            gets, modify, put)
-import qualified Data.Array                as Array (listArray)
-import           Data.Foldable             (foldl')
-import           Data.Map.Strict           (Map)
-import qualified Data.Map.Strict           as Map (empty, insert, lookup, size, keys)
-import           Data.Maybe                (catMaybes, fromJust, isJust)
-import           Data.Monoid               (First (..))
-import           Data.Semigroup            (Semigroup (..))
-import           Data.Sequence             (Seq, (|>))
-import           Data.Set                  as Set (member)
-import qualified Data.Sequence             as Seq (empty, fromList, singleton,
-                                                   zip)
-import           Data.Text                 (Text, pack, unpack)
-import           Prelude                   hiding (Ordering (..), lex, lookup)
-import           Text.Megaparsec           (between, getPosition, lookAhead,
-                                            manyTill, optional,
-                                            parseErrorPretty, try, (<|>))
+import           Control.Lens                      (elements, makeLenses, use,
+                                                    view, (%%=), (%=), (%~),
+                                                    (&), (&~), (.=), (<&>),
+                                                    (^.), _1, _3, _Just)
+import           Control.Monad                     (foldM, unless, void, when,
+                                                    (>=>))
+import           Control.Monad.Reader              (asks)
+import           Control.Monad.Trans.Class         (lift)
+import           Control.Monad.Trans.State         (StateT, evalStateT,
+                                                    execStateT, get, gets,
+                                                    modify, put)
+import qualified Data.Array                        as Array (listArray)
+import           Data.Foldable                     (foldl')
+import           Data.Map.Strict                   (Map)
+import qualified Data.Map.Strict                   as Map (empty, insert, keys,
+                                                           lookup, size)
+import           Data.Maybe                        (catMaybes, fromJust, isJust)
+import           Data.Monoid                       (First (..))
+import           Data.Semigroup                    (Semigroup (..))
+import           Data.Sequence                     (Seq, (|>))
+import qualified Data.Sequence                     as Seq (empty, fromList,
+                                                           singleton, zip)
+import           Data.Set                          as Set (member)
+import           Data.Text                         (Text, pack, unpack)
+import           Prelude                           hiding (Ordering (..), lex,
+                                                    lookup)
+import           Text.Megaparsec                   (between, getPosition,
+                                                    lookAhead, manyTill,
+                                                    optional, parseErrorPretty,
+                                                    try, (<|>))
 --------------------------------------------------------------------------------
 
 data ProtoRange
@@ -119,7 +130,7 @@ term =  tuple
     <|> string
     <|> quantification
     <|> ifExp
-    
+
   where
     bool :: ParserExp (Maybe MetaExpr)
     bool = do
@@ -159,14 +170,14 @@ term =  tuple
       fun <- lookAhead identifier
 
       pragmas' <- lift $ use pragmas
-      let 
+      let
         pragOk = fun == "sizeof" && Set.member GetAddressOf pragmas'
-      unless pragOk $ do 
+      unless pragOk $ do
         void . lookAhead . match $ TokLeftPar
       identifier
       t  <- parens $ lift type'
       to <- getPosition
-      
+
       let
         expr = Expression
           { E.loc    = Location (from, to)
@@ -464,7 +475,7 @@ collection = do
             GUndef -> do
                 putError pos . UnknownError $
                   "Unexpected expression of type " <> show (expType e) <> ",\n\t\
-                  \expected instead an expression with one of following type:" <> 
+                  \expected instead an expression with one of following type:" <>
                   "\n\t\t * " <> show  GInt   <>
                   "\n\t\t * " <> show  GBool  <>
                   "\n\t\t * " <> show  GChar  <>
@@ -502,7 +513,7 @@ variable = do
     entry = case name `lookup` st of
       Left _ -> name `lookup` abstractSt
       x      -> x
-  
+
   case entry of
     Left _ ->
       let
@@ -524,7 +535,7 @@ variable = do
 
         in pure $ Just (expr, ProtoNothing, Taint False)
 
-      Var { _varType, _varConst } -> lift (use isDeclarative) >>= \declarative -> 
+      Var { _varType, _varConst } -> lift (use isDeclarative) >>= \declarative ->
         if _varType =:= highLevel && not declarative
           then do
             let Location (pos, _) = loc
@@ -562,7 +573,7 @@ variable = do
 
           pure $ Just (expr, protorange, taint)
 
-      SelfVar {} | not abstNamesOk -> do 
+      SelfVar {} | not abstNamesOk -> do
         let Location (pos, _) = loc
         putError pos . UnknownError $
           "Variable `" <> unpack name <> "` not defined in this scope."
@@ -622,7 +633,7 @@ variable = do
 
             in pure $ Just (expr, protorange, taint)
 
-      Argument { _argMode, _argType } -> lift (use isDeclarative) >>= 
+      Argument { _argMode, _argType } -> lift (use isDeclarative) >>=
         \x -> if _argType =:= highLevel && not x
           then do
             let Location (pos, _) = loc
@@ -1152,7 +1163,7 @@ call = do
                       [ line, col ]
 
                   case signatures types of
-                    Right (funcRetType, fName, canAbort) -> do 
+                    Right (funcRetType, fName, canAbort) -> do
                       let
                         expr = Expression
                           { E.loc
@@ -1241,7 +1252,7 @@ call = do
       case hasDTType args of
         Nothing -> do
           let args' = sequence args
-            
+
           case args' of
             Nothing -> do
               putError from . UnknownError $ "Calling function `" <>
@@ -1255,7 +1266,7 @@ call = do
           lift (use currentStruct) >>= \case
             Nothing -> lift (use dataTypes) >>= \dts -> case name `Map.lookup` dts of
               Nothing -> do
-                putError from . UnknownError $ 
+                putError from . UnknownError $
                   "Couldn't find data type " <> show t
                 pure Nothing
 
@@ -1273,7 +1284,7 @@ call = do
                             fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
-                      "Calling function `" <> unpack fName <> 
+                      "Calling function `" <> unpack fName <>
                       "` with a bad number of arguments."
 
                     args' <- foldM (checkType' typeArgs fName from)
@@ -1284,7 +1295,7 @@ call = do
 
                       Just (fArgs, taint, const') ->
                         let
-                          expr = case fRec of 
+                          expr = case fRec of
                             Just funcRec -> Expression
                               { E.loc
                               , expType = retType
@@ -1329,7 +1340,7 @@ call = do
                         typeArgs = fmap (fillType t') typeArgs'
 
                       when (nArgs /= nParams) . putError from . UnknownError $
-                        "Calling function `" <> unpack fName <> 
+                        "Calling function `" <> unpack fName <>
                         "` with a bad number of arguments."
 
                       args' <- foldM (checkType' typeArgs fName from)
@@ -1339,7 +1350,7 @@ call = do
                         Nothing -> Nothing
                         Just (fArgs, taint, const') ->
                           let
-                            expr = case fRec of 
+                            expr = case fRec of
                               Just funcRec -> Expression
                                 { E.loc
                                 , expType = retType
@@ -1386,8 +1397,8 @@ call = do
                   pure $ case args' of
                     Nothing -> Nothing
                     Just (fArgs, taint, const') ->
-                      let 
-                        expr = case fRec of 
+                      let
+                        expr = case fRec of
                           Just funcRec -> Expression
                             { E.loc
                             , expType = retType
@@ -1417,7 +1428,7 @@ call = do
                     unpack fName <> "`"
                   pure Nothing
 
-    getFunc :: Text -> Map Text Definition -> Maybe Text 
+    getFunc :: Text -> Map Text Definition -> Maybe Text
             -> ParserExp (Maybe (Seq (Text, Type), Type, Maybe Bool))
     getFunc name funcs abstName = do
       abstNamesOk <- lift $ use allowAbstNames
@@ -1425,27 +1436,27 @@ call = do
         Just Definition{ def' = FunctionDef{ funcParams, funcRetType, funcRecursive }} ->
           pure $ Just (funcParams, funcRetType, Just funcRecursive)
         _ -> if abstNamesOk && isJust abstName
-          then do 
+          then do
             getStruct (fromJust abstName) >>= \case
-              Nothing -> internal $ "Could not find abstract type " <> 
+              Nothing -> internal $ "Could not find abstract type " <>
                                      show (fromJust abstName)
-              
-              Just Struct{structProcs} -> 
+
+              Just Struct{structProcs} ->
                 case name `Map.lookup` structProcs of
                   Just Definition
                     { def'= AbstractFunctionDef
                       { abstFParams
                       , funcRetType }} -> do
-                    cs <- lift $ use currentStruct     
-                    case cs of 
+                    cs <- lift $ use currentStruct
+                    case cs of
                       Nothing -> internal $ "Could not find current DT "
-                      Just (t, _, _, _) -> 
+                      Just (t, _, _, _) ->
                         pure $ Just (removeAbst' t <$> abstFParams, funcRetType, Nothing)
-                  
+
                   _ -> pure Nothing
 
           else pure Nothing
-      where 
+      where
           removeAbst' dt (c,t) = (c,removeAbst dt t)
 
     hasDTType = getFirst . foldMap aux
@@ -1657,7 +1668,7 @@ dotField = do
 
         Nothing -> case fieldName `Map.lookup` structAFields of
           Just (i, t, c, _) -> do
-            logicAW <- Set.member LogicAnywhere <$> lift (use pragmas) 
+            logicAW <- Set.member LogicAnywhere <$> lift (use pragmas)
             if logicAW
               then let
                 expr = Expression
@@ -1678,7 +1689,7 @@ dotField = do
               let Location (pos, _) = loc
               putError pos . UnknownError $
                 "Bad field access. Cannot access the abstract field `" <>
-                unpack fieldName <> 
+                unpack fieldName <>
                 "`\n\toutside the abstract definition or couple relation"
               pure Nothing
 
@@ -1728,7 +1739,7 @@ refof = do
   void $ match TokAmpersand
   pragmas' <- lift $ use pragmas
   let pragOk = Set.member GetAddressOf pragmas'
-  unless pragOk . putError from . UnknownError $ 
+  unless pragOk . putError from . UnknownError $
     "Unknown token: \ESC[0;33;1m&\ESC[m"
   pure $ filterRawName >=> \case
     Nothing -> pure Nothing
@@ -1748,7 +1759,7 @@ refof = do
 
       e -> do
 
-        when pragOk . putError from . UnknownError $ 
+        when pragOk . putError from . UnknownError $
           "Cannot get the address of non-object expression."
 
         pure Nothing
@@ -1762,10 +1773,10 @@ unary unOp
     Left expected -> do
       let loc = Location (from, to i)
       putError from . UnknownError $
-        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <> 
+        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
         " received an expression of type:" <>
-        "\n\t\t" <> show itype <> 
-        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> show itype <>
+        "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
       pure Nothing
 
@@ -1805,10 +1816,10 @@ binary binOp opLoc
 
     Left expected -> do
       putError (from l) . UnknownError $
-        "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+        "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
         " received two expressions of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <> 
-        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> show (ltype, rtype) <>
+        "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
       pure Nothing
 
@@ -1852,10 +1863,10 @@ membership opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem <> "` at " <> show opLoc <> 
+        "Operator `" <> show Elem <> "` at " <> show opLoc <>
         " received two expressions of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <> 
-        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> show (ltype, rtype) <>
+        "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
       pure Nothing
 
@@ -1883,10 +1894,10 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           " received two expressions of types:" <>
-          "\n\t\t" <> show (ltype, rtype) <> 
-          "\n\tbut expected an expression of type " <> 
+          "\n\t\t" <> show (ltype, rtype) <>
+          "\n\tbut expected an expression of type " <>
           "\n\t\t" <> expected
         pure Nothing
 
@@ -1922,10 +1933,10 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <> 
+          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
           " received two expressions of types:" <>
-          "\n\t\t" <> show (ltype, rtype) <> 
-          "\n\tbut expected an expression of type " <> 
+          "\n\t\t" <> show (ltype, rtype) <>
+          "\n\tbut expected an expression of type " <>
           "\n\t\t" <> expected
         pure Nothing
 
@@ -1973,10 +1984,10 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem  <> "` at " <> show opLoc <> 
+        "Operator `" <> show Elem  <> "` at " <> show opLoc <>
         " received two expressions of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <> 
-        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> show (ltype, rtype) <>
+        "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
       pure Nothing
 
@@ -1998,10 +2009,10 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem  <> "` at " <> show opLoc <> 
+        "Operator `" <> show Elem  <> "` at " <> show opLoc <>
         " received two expressions of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <> 
-        "\n\tbut expected an expression of type " <> 
+        "\n\t\t" <> show (ltype, rtype) <>
+        "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
       pure Nothing
 
@@ -2088,10 +2099,10 @@ conjunction opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show And <> "` at " <> show opLoc <> 
+        "Operator `" <> show And <> "` at " <> show opLoc <>
         " received two expression of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <> 
-        "\n\t but expected expressions of types " <> 
+        "\n\t\t" <> show (ltype, rtype) <>
+        "\n\t but expected expressions of types " <>
         "\n\t\t" <> expected
       pure Nothing
 

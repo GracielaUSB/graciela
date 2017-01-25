@@ -2,9 +2,9 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE PostfixOperators  #-}
 
-module Language.Graciela 
+module Language.Graciela
   ( compile
   , defaultOptions
   , main
@@ -25,42 +25,44 @@ import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens               ((^.))
-import           Control.Monad.Identity     (Identity, runIdentity)
-import           Control.Monad.Trans.Except (ExceptT, runExceptT)
-import           Control.Monad.Trans.State  (runState)
-import           Data.Foldable              (toList)
-import           Data.List                  (nub)
-import           Data.Map.Strict            (showTree)
-import           Data.Maybe                 (fromMaybe)
+import           Control.Lens                     ((^.))
+import           Control.Monad.Identity           (Identity, runIdentity)
+import           Control.Monad.Trans.Except       (ExceptT, runExceptT)
+import           Control.Monad.Trans.State        (runState)
+import           Data.Foldable                    (toList)
+import           Data.List                        (nub)
+import           Data.Map.Strict                  (showTree)
+import           Data.Maybe                       (fromMaybe)
 
-import qualified Data.Sequence              as Seq (null)
-import           Data.Set                   (empty)
-import           Data.Text                  (Text, unpack)
-import           Data.Text.IO               (readFile)
+import qualified Data.Sequence                    as Seq (null)
+import           Data.Set                         (empty)
+import           Data.Text                        (Text, unpack)
+import           Data.Text.IO                     (readFile)
 
-import           LLVM.General.Context       (withContext)
-import           LLVM.General.Module        (File (..), Module,
-                                             withModuleFromAST,
-                                             writeLLVMAssemblyToFile,
-                                             writeObjectToFile)
-import           LLVM.General.Target        (withHostTargetMachine)
+import           LLVM.General.Context             (withContext)
+import           LLVM.General.Module              (File (..), Module,
+                                                   withModuleFromAST,
+                                                   writeLLVMAssemblyToFile,
+                                                   writeObjectToFile)
+import           LLVM.General.Target              (withHostTargetMachine)
 
-import           Prelude                    hiding (lex, readFile)
+import           Prelude                          hiding (lex, readFile)
 
-import           System.Console.GetOpt      (ArgDescr (..), ArgOrder (..),
-                                             OptDescr (..), getOpt, usageInfo)
-import           System.Directory           (doesFileExist, removeFile)
-import           System.Environment         (getArgs)
-import           System.Exit                (ExitCode (..), die, exitFailure,
-                                             exitSuccess)
-import           System.FilePath.Posix      (replaceExtension, takeExtension)
-import           System.IO                  (stderr)
-import           System.Process             (readProcess,
-                                             readProcessWithExitCode)
-import           Text.Megaparsec            (ParsecT, parseErrorPretty,
-                                             sourceColumn, sourceLine)
-import           Text.Megaparsec.Error      (ParseError, errorPos)
+import           System.Console.GetOpt            (ArgDescr (..), ArgOrder (..),
+                                                   OptDescr (..), getOpt,
+                                                   usageInfo)
+import           System.Directory                 (doesFileExist, removeFile)
+import           System.Environment               (getArgs)
+import           System.Exit                      (ExitCode (..), die,
+                                                   exitFailure, exitSuccess)
+import           System.FilePath.Posix            (replaceExtension,
+                                                   takeExtension)
+import           System.IO                        (stderr)
+import           System.Process                   (readProcess,
+                                                   readProcessWithExitCode)
+import           Text.Megaparsec                  (ParsecT, parseErrorPretty,
+                                                   sourceColumn, sourceLine)
+import           Text.Megaparsec.Error            (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String

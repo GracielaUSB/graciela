@@ -3,11 +3,10 @@
 {-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 
-module Cola.Cola 
+module Cola.Cola
   ( correrSimulacion
   , Comandos (..)
   ) where
-
 --------------------------------------------------------------------------------
 import           Shared
 --------------------------------------------------------------------------------
@@ -71,7 +70,7 @@ instance Arbitrary Comandos where
         BInt   {} -> BInt   <$> (arbitrary :: Gen Int32)
 
 instance Show Comandos where
-  show (Comandos w cs) = 
+  show (Comandos w cs) =
     letter <> "\n" <> show nLines <> "\n" <> unlines (show <$> cs)
     where
       letter = case w of
@@ -85,7 +84,7 @@ correrSimulacion :: Comandos -> String
 correrSimulacion cs = unpack . snd $ evalRWS (simular cs) tam Seq.empty
   where
     simular :: Comandos -> RWS Int Text (Seq Basic) ()
-    simular (Comandos _ cs) = 
+    simular (Comandos _ cs) =
       forM_ (takeWhile (/= Salir) cs <> [Imprimir]) simularUno
 
     simularUno :: Comando -> RWS Int Text (Seq Basic) ()

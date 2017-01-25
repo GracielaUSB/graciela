@@ -1,8 +1,8 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE NamedFieldPuns           #-}
-{-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE LambdaCase               #-}
+{-# LANGUAGE NamedFieldPuns           #-}
+{-# LANGUAGE OverloadedStrings        #-}
 
 module Language.Graciela.Parser.Instruction
   ( instruction
@@ -22,23 +22,26 @@ module Language.Graciela.Parser.Instruction
   , skip
   ) where
 -------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration        (Declaration)
-import           Language.Graciela.AST.Definition         (Definition (..), Definition' (..))
-import           Language.Graciela.AST.Expression         (Expression (..), Expression' (..))
-import qualified Language.Graciela.AST.Expression         as E (loc)
-import           Language.Graciela.AST.Instruction        (Guard, Instruction (..),
-                                                           Instruction' (..))
+import           Language.Graciela.AST.Declaration    (Declaration)
+import           Language.Graciela.AST.Definition     (Definition (..),
+                                                       Definition' (..))
+import           Language.Graciela.AST.Expression     (Expression (..),
+                                                       Expression' (..))
+import qualified Language.Graciela.AST.Expression     as E (loc)
+import           Language.Graciela.AST.Instruction    (Guard, Instruction (..),
+                                                       Instruction' (..))
 import           Language.Graciela.AST.Object
-import qualified Language.Graciela.AST.Object             as O (loc, inner)
-import           Language.Graciela.AST.Struct             (Struct (..))
-import           Language.Graciela.AST.Type               (ArgMode (..), Type (..), fillType,
-                                                           hasDT, notIn, (=:=), hasTypeVar)
+import qualified Language.Graciela.AST.Object         as O (inner, loc)
+import           Language.Graciela.AST.Struct         (Struct (..))
+import           Language.Graciela.AST.Type           (ArgMode (..), Type (..),
+                                                       fillType, hasDT,
+                                                       hasTypeVar, notIn, (=:=))
 import           Language.Graciela.Common
 import           Language.Graciela.Entry
 import           Language.Graciela.Error
 import           Language.Graciela.Location
-import           Language.Graciela.Parser.Assertion       hiding (bound)
-import qualified Language.Graciela.Parser.Assertion       as A (bound)
+import           Language.Graciela.Parser.Assertion   hiding (bound)
+import qualified Language.Graciela.Parser.Assertion   as A (bound)
 import           Language.Graciela.Parser.Declaration
 import           Language.Graciela.Parser.Expression
 import           Language.Graciela.Parser.Monad
@@ -48,22 +51,27 @@ import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 import           Language.Graciela.Treelike
 -------------------------------------------------------------------------------
-import           Control.Lens           (use, (%=), (+=), (.=), (^.), _Just)
-import           Control.Monad          (foldM, unless, void, when, zipWithM)
-import           Control.Monad.Identity (Identity)
-import qualified Data.Array             as Array (listArray)
-import           Data.Foldable          (asum, foldMap)
-import qualified Data.List              as L (find)
-import qualified Data.Map.Strict        as Map (lookup, toList)
-import           Data.Monoid            (First (..))
-import           Data.Sequence          (Seq, (<|), (|>))
-import qualified Data.Sequence          as Seq (empty, fromList, singleton, zip)
-import qualified Data.Set               as Set
-import           Data.Text              (Text, pack, takeWhile, unpack)
-import           Prelude                hiding (lookup, takeWhile)
-import           Text.Megaparsec        (between, eitherP, getPosition,
-                                         lookAhead, notFollowedBy, optional,
-                                         try, (<|>))
+import           Control.Lens                         (use, (%=), (+=), (.=),
+                                                       (^.), _Just)
+import           Control.Monad                        (foldM, unless, void,
+                                                       when, zipWithM)
+import           Control.Monad.Identity               (Identity)
+import qualified Data.Array                           as Array (listArray)
+import           Data.Foldable                        (asum, foldMap)
+import qualified Data.List                            as L (find)
+import qualified Data.Map.Strict                      as Map (lookup, toList)
+import           Data.Monoid                          (First (..))
+import           Data.Sequence                        (Seq, (<|), (|>))
+import qualified Data.Sequence                        as Seq (empty, fromList,
+                                                              singleton, zip)
+import qualified Data.Set                             as Set
+import           Data.Text                            (Text, pack, takeWhile,
+                                                       unpack)
+import           Prelude                              hiding (lookup, takeWhile)
+import           Text.Megaparsec                      (between, eitherP,
+                                                       getPosition, lookAhead,
+                                                       notFollowedBy, optional,
+                                                       try, (<|>))
 -------------------------------------------------------------------------------
 
 instruction :: Parser (Maybe Instruction)
@@ -206,12 +214,12 @@ assign = do
     notConstMode :: Object -> Bool
     notConstMode Object{ obj' } = case obj' of
       Variable {mode} -> mode /= Just Const
-      _ -> notConstMode (O.inner obj')
+      _               -> notConstMode (O.inner obj')
 
     assignable a = case a of
       (GTuple _ _) -> False
       (GArray _ _) -> False
-      t | t =:= GADataType -> False
+      t            | t =:= GADataType -> False
       _            -> True
 
 random :: Parser (Maybe Instruction)
@@ -281,7 +289,7 @@ write = do
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
       | expType =:= writable = do
           pure $ (|> e) <$> acc
-      | otherwise = do 
+      | otherwise = do
         p <- use pragmas
         let ok = Set.member GetAddressOf p
         if ok && expType =:= GPointer GAny
@@ -546,7 +554,7 @@ procedureCall = do
       pure Nothing
 
     Nothing -> do
-      -- This function will be used later, only if the procedure we are loking is not 
+      -- This function will be used later, only if the procedure we are loking is not
       -- the current procedure. In that case, maybe it's a Data Type procedure.
       -- There are two cases: 1) It's being called outside a Data Type.
       --                         Just look the first arguments that is a `GFullDataType`
@@ -566,7 +574,7 @@ procedureCall = do
                 putError from $ UndefinedProcedure procName args''
                 pure Nothing
 
-          Just t@(GDataType name _ t') -> use currentStruct >>= \case 
+          Just t@(GDataType name _ t') -> use currentStruct >>= \case
             Nothing -> do
               getStruct name >>= \case
                 Nothing -> do
@@ -608,17 +616,17 @@ procedureCall = do
                       return Nothing
 
             Just (dt@GDataType {typeArgs}, _, _, _) | not (t =:= dt) ->
-              getStruct name >>= \case 
+              getStruct name >>= \case
               Nothing -> internal $ "Could not find DT " <> show name
-              Just Struct{structProcs} -> 
+              Just Struct{structProcs} ->
                 case procName `Map.lookup` structProcs of
                   Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
-                    let 
+                    let
                       nParams = length procParams
                       ta' = fmap (fillType typeArgs) t'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
-                      "Calling procedure `" <> unpack procName <> 
+                      "Calling procedure `" <> unpack procName <>
                       "` with a bad number of arguments."
 
                     args' <- foldM (checkType' ta' procName from)
@@ -740,17 +748,17 @@ procedureCall = do
           then case exp' of
             Obj {} | mode `elem` [Out, InOut, Ref] -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
-            
+
             _ | mode == Const -> if expConst e
               then pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
-              else do 
+              else do
                 putError from . UnknownError $
                   "The parameter `" <> unpack name <> "` has mode " <>
                   show mode <> "\n\tbut the given expression is not constant \n"
-                pure Nothing  
+                pure Nothing
             _ | mode == In -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
-            
+
             _ -> do
               putError from . UnknownError $
                 "The parameter `" <> unpack name <> "` has mode " <>

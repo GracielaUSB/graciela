@@ -44,14 +44,14 @@ import           Language.Graciela.Entry
 import           Language.Graciela.Location
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
-import           Data.List       (sortOn)
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import           Data.Sequence   (Seq, ViewL ((:<)), ViewR ((:>)), (<|), (><),
-                                  (|>))
-import qualified Data.Sequence   as Seq
-import           Data.Text       (Text, unpack)
-import           Prelude         hiding (lookup)
+import           Data.List                  (sortOn)
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as Map
+import           Data.Sequence              (Seq, ViewL ((:<)), ViewR ((:>)),
+                                             (<|), (><), (|>))
+import qualified Data.Sequence              as Seq
+import           Data.Text                  (Text, unpack)
+import           Prelude                    hiding (lookup)
 --------------------------------------------------------------------------------
 type Entries = Map Text Entry
 

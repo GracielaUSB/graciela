@@ -7,24 +7,25 @@ module Language.Graciela.LLVM.Struct
   ( defineStruct
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration                    (Declaration (..))
-import           Language.Graciela.AST.Expression                     (Expression (..))
-import qualified Language.Graciela.AST.Instruction                    as G (Instruction(..), Instruction'(..))
-import qualified Language.Graciela.AST.Object                         as O
-import           Language.Graciela.AST.Struct                         (Struct (..), Struct' (..))
+import           Language.Graciela.AST.Declaration  (Declaration (..))
+import           Language.Graciela.AST.Expression   (Expression (..))
+import qualified Language.Graciela.AST.Instruction  as G (Instruction (..),
+                                                          Instruction' (..))
+import qualified Language.Graciela.AST.Object       as O
+import           Language.Graciela.AST.Struct       (Struct (..), Struct' (..))
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                         (abort, abortString)
-import qualified Language.Graciela.LLVM.Abort                         as Abort (Abort (..))
+import           Language.Graciela.LLVM.Abort       (abort, abortString)
+import qualified Language.Graciela.LLVM.Abort       as Abort (Abort (..))
 import           Language.Graciela.LLVM.Definition
 import           Language.Graciela.LLVM.Expression
-import           Language.Graciela.LLVM.Instruction                   (instruction, copyArray)
+import           Language.Graciela.LLVM.Instruction (copyArray, instruction)
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.Object
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
-import           Language.Graciela.LLVM.Warning                       (warn)
-import qualified Language.Graciela.LLVM.Warning                       as Warning (Warning (..))
+import           Language.Graciela.LLVM.Warning     (warn)
+import qualified Language.Graciela.LLVM.Warning     as Warning (Warning (..))
 import           Language.Graciela.Location
 import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
@@ -35,7 +36,7 @@ import qualified Data.Map.Strict                    as Map
 
 import           Data.Sequence                      ((|>))
 import qualified Data.Sequence                      as Seq
-import           Data.Text                          (Text, unpack, pack)
+import           Data.Text                          (Text, pack, unpack)
 import           LLVM.General.AST                   (BasicBlock (..),
                                                      Definition (..),
                                                      Parameter (..),
@@ -65,7 +66,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
   Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
     DataType {abstract, abstractTypes, inv, repinv, coupinv, couple} ->
       forM_ typeMaps $ \typeMap -> do
-        
+
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
         let
@@ -85,7 +86,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         defineGetters couple name structType -- While building getters, currentStruct must be Nothing
         coupling .= False
         currentStruct .= Just ast
-        
+
         defaultConstructor name structType typeMap
         defaultDestructor name structType typeMap
         defaultCopy name structType typeMap
@@ -145,9 +146,9 @@ defaultConstructor name structType typeMap = do
             }
       t@GArray { dimensions, innerType } -> do
         name <- newUnLabel
-        
+
         dims <- mapM expression dimensions
-        
+
         innerSize <- sizeOf innerType
         numD <- foldM numAux (ConstantOperand (C.Int 32 innerSize)) dims
         numS <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
@@ -162,7 +163,7 @@ defaultConstructor name structType typeMap = do
             , metadata = []}
 
         iarr <- newUnLabel
-    
+
         dAllocTrue  <- newLabel "useMalloc"
         dAllocFalse <- newLabel "allocOnStack"
         endLabel    <- newLabel "endArrayAlloc"
@@ -257,20 +258,20 @@ defaultConstructor name structType typeMap = do
           , metadata' = [] }
 
         (endLabel #)
-      t | t =:= highLevel -> do 
+      t | t =:= highLevel -> do
         member <- newLabel $ "member" <> show field
         newCollection <- newLabel $ "newCollection"
 
-        let 
-          funStr = case t of 
-            GSet GTuple{}  -> "_newSetPair"
-            GSet _         -> "_newSet"
+        let
+          funStr = case t of
+            GSet GTuple{}      -> "_newSetPair"
+            GSet _             -> "_newSet"
             GMultiset GTuple{} -> "_newMultisetPair"
             GMultiset _        -> "_newMultiset"
-            GSeq GTuple{}  -> "_newSequencePair"
-            GSeq _         -> "_newSequence"
-            GFunc _ _      -> "_newFunction"
-            GRel _ _       -> "_newRelation"
+            GSeq GTuple{}      -> "_newSequencePair"
+            GSeq _             -> "_newSequence"
+            GFunc _ _          -> "_newFunction"
+            GRel _ _           -> "_newRelation"
 
         addInstruction $ newCollection := Call
           { tailCallKind       = Nothing
@@ -301,7 +302,7 @@ defaultConstructor name structType typeMap = do
   closeScope
   blocks' <- use blocks
   blocks .= Seq.empty
-  let 
+  let
     selfParam   = Parameter (ptr structType) selfName []
     dAllocParam = Parameter boolType dAllocName []
 
@@ -456,10 +457,10 @@ defaultCopy name structType typeMap = do
       filledT = fillType typeMap t
 
     type' <- toLLVMType filledT
-    
+
     sourcePtr   <- newLabel "sourcePtr"
     destPtr     <- newLabel "destPtr"
-    
+
     addInstruction $ sourcePtr := GetElementPtr
         { inBounds = False
         , address  = sourceStruct
@@ -477,16 +478,16 @@ defaultCopy name structType typeMap = do
 
         destArr      <- newLabel "destArr"
 
-        copyArray t 
-          (LocalReference (ptr type') sourcePtr)  
+        copyArray t
+          (LocalReference (ptr type') sourcePtr)
           (LocalReference (ptr type') destPtr)
 
       t | t =:= GADataType -> do
 
         types <- mapM fill (toList . typeArgs $ t)
 
-        let 
-          postfix = llvmName (typeName t) types  
+        let
+          postfix = llvmName (typeName t) types
 
         addInstruction $ Do Call
           { tailCallKind       = Nothing
@@ -498,7 +499,7 @@ defaultCopy name structType typeMap = do
           , functionAttributes = []
           , metadata           = [] }
 
-      _ -> do 
+      _ -> do
         sourceValue <- newLabel "sourceArr"
         addInstruction $ sourceValue := Load
           { volatile  = False
@@ -514,7 +515,7 @@ defaultCopy name structType typeMap = do
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = []
-          }  
+          }
         pure ()
 
   terminate $ Ret Nothing []
@@ -542,7 +543,7 @@ defineGetters insts name t = do
   forM_ insts $ \x -> case G.inst' x of
     G.Assign {G.assignPairs} -> forM_ assignPairs $ \(lval,expr) -> do
         let
-          varName = case O.obj' lval of 
+          varName = case O.obj' lval of
             O.Member{O.fieldName} -> fieldName
             _              -> internal $ "Could not build the getter of a non member lval"
 

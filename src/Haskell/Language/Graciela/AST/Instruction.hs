@@ -8,8 +8,8 @@ import           Language.Graciela.AST.Object      (Object)
 import           Language.Graciela.AST.Type        (ArgMode, Type, TypeArgs)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Sequence   (Seq)
-import           Data.Text       (Text, unpack)
+import           Data.Sequence                     (Seq)
+import           Data.Text                         (Text, unpack)
 --------------------------------------------------------------------------------
 
 {- |
@@ -119,7 +119,7 @@ instance Treelike Instruction where
               (toList $ (\(x, m) -> Node (show m) [toTree x] ) <$> pArgs) ]
 
       | otherwise ->
-        let 
+        let
           rec = if pRecursiveProc then "Recursive " else ""
         in Node ("Call " <> rec <> " Procedure `" <> unpack pName <> "` " <> show instLoc)
           [ if null pArgs

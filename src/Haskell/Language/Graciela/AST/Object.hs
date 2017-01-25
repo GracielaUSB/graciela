@@ -10,8 +10,8 @@ import {-# SOURCE #-} Language.Graciela.AST.Expression (Expression)
 --------------------------------------------------------------------------------
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Sequence (Seq)
-import           Data.Text     (Text)
+import           Data.Sequence            (Seq)
+import           Data.Text                (Text)
 --------------------------------------------------------------------------------
 
 data Object'

@@ -24,8 +24,8 @@ module Language.Graciela.LLVM.State
   , coupling
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Struct                   (Struct (..))
-import           Language.Graciela.AST.Type                     (TypeArgs)
+import           Language.Graciela.AST.Struct (Struct (..))
+import           Language.Graciela.AST.Type   (TypeArgs)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
@@ -57,7 +57,7 @@ data State = State
   , _stringIds         :: Map Text Int
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
-  , _substitutionTable :: [TypeArgs] 
+  , _substitutionTable :: [TypeArgs]
   , _doGet             :: Bool
   , _coupling          :: Bool }
 
@@ -82,5 +82,5 @@ initialState = State
   , _stringOps         = undefined
   , _boundOp           = Nothing
   , _substitutionTable = []
-  , _doGet             = True 
+  , _doGet             = True
   , _coupling          = False }

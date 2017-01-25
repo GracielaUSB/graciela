@@ -2,24 +2,23 @@
 {-# LANGUAGE TupleSections  #-}
 
 module Language.Graciela.LLVM.Program where
-
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Instruction                         (Instruction)
+import           Language.Graciela.AST.Instruction       (Instruction)
 import           Language.Graciela.AST.Program
-import qualified Language.Graciela.AST.Program                             as P (structs)
+import qualified Language.Graciela.AST.Program           as P (structs)
 import           Language.Graciela.AST.Type
-import qualified Language.Graciela.AST.Type                                as G (Type)
+import qualified Language.Graciela.AST.Type              as G (Type)
 import           Language.Graciela.Common
 import           Language.Graciela.LLVM.Abort
-import           Language.Graciela.LLVM.Definition                         (definition,
+import           Language.Graciela.LLVM.Definition       (definition,
                                                           mainDefinition,
                                                           preDefinitions)
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
-import qualified Language.Graciela.LLVM.State                              as S (structs)
-import           Language.Graciela.LLVM.Struct                             (defineStruct)
-import           Language.Graciela.LLVM.Type                               (intType)
+import qualified Language.Graciela.LLVM.State            as S (structs)
+import           Language.Graciela.LLVM.Struct           (defineStruct)
+import           Language.Graciela.LLVM.Type             (intType)
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.Trans.State.Strict        (evalState)

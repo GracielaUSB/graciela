@@ -14,9 +14,9 @@ Portability : POSIX
 module Language.Graciela.Parser.Prim
   where
 --------------------------------------------------------------------------------
-import           Language.Graciela.Token                (TokenPos (..))
+import           Language.Graciela.Token (TokenPos (..))
 --------------------------------------------------------------------------------
-import qualified Text.Megaparsec.Prim as Prim
+import qualified Text.Megaparsec.Prim    as Prim
 --------------------------------------------------------------------------------
 
 -- | The Graciela parser works on a list of Tokens with position information

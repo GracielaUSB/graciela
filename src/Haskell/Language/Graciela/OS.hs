@@ -1,9 +1,9 @@
 {-# LANGUAGE CPP #-}
 
-module Language.Graciela.OS 
+module Language.Graciela.OS
   ( isLinux
   , isMac
-  , isWindows 
+  , isWindows
   ) where
 
 -- OS Checking -------------------------

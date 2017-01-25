@@ -9,8 +9,10 @@ module Language.Graciela.Parser.Type
     ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Declaration
-import           Language.Graciela.AST.Definition    (Definition (..), Definition' (..))
-import           Language.Graciela.AST.Expression    (Expression (..), Expression' (Value),
+import           Language.Graciela.AST.Definition    (Definition (..),
+                                                      Definition' (..))
+import           Language.Graciela.AST.Expression    (Expression (..),
+                                                      Expression' (Value),
                                                       Value (..))
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
@@ -19,27 +21,34 @@ import           Language.Graciela.Entry
 import           Language.Graciela.Error
 import           Language.Graciela.Location
 import           Language.Graciela.Parser.Expression (expression)
-import           Language.Graciela.Parser.Monad      (Parser, followedBy, getStruct, getType,
-                                                      identifier, identifierAndLoc, integerLit,
-                                                      match, match', oneOf, parens, putError,
+import           Language.Graciela.Parser.Monad      (Parser, followedBy,
+                                                      getStruct, getType,
+                                                      identifier,
+                                                      identifierAndLoc,
+                                                      integerLit, match, match',
+                                                      oneOf, parens, putError,
                                                       sepBy)
 import           Language.Graciela.Parser.State
-import           Language.Graciela.SymbolTable       (insertSymbol, local, lookup)
+import           Language.Graciela.SymbolTable       (insertSymbol, local,
+                                                      lookup)
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens      (use, (%=), (<>=))
-import qualified Data.Array        as Array (listArray)
-import           Data.Foldable     (asum, toList)
-import           Data.Set          as Set (fromList, insert)
-import           Data.Int          (Int32)
-import           Data.List         (elemIndex, intercalate)
-import qualified Data.Map.Strict   as Map (alter, elems, fromList, insert,
-                                           lookup, null, singleton)
+import           Control.Lens                        (use, (%=), (<>=))
+import qualified Data.Array                          as Array (listArray)
+import           Data.Foldable                       (asum, toList)
+import           Data.Int                            (Int32)
+import           Data.List                           (elemIndex, intercalate)
+import qualified Data.Map.Strict                     as Map (alter, elems,
+                                                             fromList, insert,
+                                                             lookup, null,
+                                                             singleton)
+import           Data.Set                            as Set (fromList, insert)
 
-import           Data.Text         (Text, pack, unpack)
-import           Prelude           hiding (lookup)
-import           Text.Megaparsec   (between, getPosition, lookAhead,
-                                    notFollowedBy, optional, try, (<|>))
+import           Data.Text                           (Text, pack, unpack)
+import           Prelude                             hiding (lookup)
+import           Text.Megaparsec                     (between, getPosition,
+                                                      lookAhead, notFollowedBy,
+                                                      optional, try, (<|>))
 --------------------------------------------------------------------------------
 
 basicType :: Parser Type
@@ -64,14 +73,14 @@ type' =  try parenType
       lookAhead $ match TokLeftPar
       t <- parens type'
       isPointer t
-    
+
     -- Try to parse an array type
     arrayOf :: Parser Type
     arrayOf = do
       lookAhead $ match TokArray
       pos <- getPosition
       match TokArray
-      
+
       mdims' <- between (match' TokLeftBracket) (match' TokRightBracket) $
         arraySize `sepBy` match TokComma
       match TokOf
@@ -146,13 +155,13 @@ type' =  try parenType
               if dtName == name
                 then do
                   identifier
-                  t <- (optional . parens $ 
+                  t <- (optional . parens $
                     (try typeVar <|> ({-isPointer =<<-} basicType)) `sepBy` match TokComma)
                         >>= \case
                           Just s -> pure $ toList s
                           _      -> pure []
 
-                  let 
+                  let
                     typeargs = Array.listArray (0, length t - 1) t
 
                   unless (null t || any (=:= GATypeVar) t) $ do
@@ -162,9 +171,9 @@ type' =  try parenType
                         Just types0 -> Set.insert typeargs types0
 
                     fullDataTypes %= Map.alter fAlter dtName
-                 
+
                   isPointer $ GDataType name abstract typeargs
-                      
+
                 else do
                   notFollowedBy identifier
                   return GUndef
@@ -204,8 +213,8 @@ type' =  try parenType
 
               pure False
 
-          let 
-            abstName = case struct' of 
+          let
+            abstName = case struct' of
               AbstractDataType{} -> Nothing
               _                  -> Just $ abstract struct'
 
@@ -221,26 +230,26 @@ type' =  try parenType
                 ".\n\tAbstract data types can only be used inside its own definition."
 
               if (any (=:= GATypeVar) fullTypes)
-                then do 
+                then do
                   current <- use currentStruct
                   case current of
                     Just ((GDataType dtName _ _), _, _, _) -> do
-                      let 
+                      let
                         fAlter = Just . \case
                           Nothing    -> Set.fromList [structBaseName]
                           Just names -> Set.insert structBaseName names
                       pendingDataType %= Map.alter fAlter dtName
                     Nothing -> pure ()
-                        
-                else do 
+
+                else do
                   let
                     fAlter = Just . \case
                       Nothing     -> Set.fromList [types]
                       Just types0 -> Set.insert types types0
 
                   fullDataTypes %= Map.alter fAlter structBaseName
-              
-              isPointer dataType    
+
+              isPointer dataType
 
             else pure GUndef
 
@@ -271,19 +280,19 @@ abstractType = do
         match TokLeftPar
         t1 <- type'
         lookAhead $ match TokComma
-        match TokComma 
+        match TokComma
         t2 <- type'
         match TokRightPar
         when (not (t1 =:= basic && t1 =:= basic)) . putError pos . UnknownError $
                   "Only tuples of basic types are allowed.\n" <> show (t1,t2) <> "was given"
-        pure $ GTuple t1 t2 
+        pure $ GTuple t1 t2
       <|> type'
 
-    allowedType = do 
+    allowedType = do
       from <- getPosition
       t <- type'
       unless (t =:= GOneOf [GATypeVar, GBool, GChar, GInt, GFloat, GPointer GAny]) .
-        putError from . UnknownError $ "Unexpected type " <> show t <> 
+        putError from . UnknownError $ "Unexpected type " <> show t <>
         ".\n\tCollections can contain elements of basic type or pointers"
       pure t
 

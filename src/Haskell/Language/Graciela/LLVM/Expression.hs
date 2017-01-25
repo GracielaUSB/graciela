@@ -4,42 +4,40 @@
 {-# LANGUAGE PostfixOperators         #-}
 {-# LANGUAGE TupleSections            #-}
 
-module Language.Graciela.LLVM.Expression
-
-where
+module Language.Graciela.LLVM.Expression where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression                          (CollectionKind (..),
+import           Language.Graciela.AST.Definition
+import           Language.Graciela.AST.Expression        (CollectionKind (..),
                                                           Expression (..),
                                                           Expression' (..),
                                                           Value (..))
-import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Struct
-import qualified Language.Graciela.AST.Expression                          as Op (BinaryOperator (..),
+import qualified Language.Graciela.AST.Expression        as Op (BinaryOperator (..),
                                                                 UnaryOperator (..))
-import qualified Language.Graciela.AST.Expression                          as E (Expression (expType),
+import qualified Language.Graciela.AST.Expression        as E (Expression (expType),
                                                                loc)
-import           Language.Graciela.AST.Object                              (Object (..),
+import           Language.Graciela.AST.Object            (Object (..),
                                                           Object' (..))
+import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
-import qualified Language.Graciela.AST.Type                                as G (Type)
+import qualified Language.Graciela.AST.Type              as G (Type)
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                              (abort)
-import qualified Language.Graciela.LLVM.Abort                              as Abort (Abort (..))
-import           Language.Graciela.LLVM.Boolean                            (boolean, wrapBoolean)
+import           Language.Graciela.LLVM.Abort            (abort)
+import qualified Language.Graciela.LLVM.Abort            as Abort (Abort (..))
+import           Language.Graciela.LLVM.Boolean          (boolean, wrapBoolean)
 import           Language.Graciela.LLVM.Monad
-import           Language.Graciela.LLVM.Object                             (object, objectRef)
-import           Language.Graciela.LLVM.Quantification                     (collection,
+import           Language.Graciela.LLVM.Object           (object, objectRef)
+import           Language.Graciela.LLVM.Quantification   (collection,
                                                           quantification)
 import           Language.Graciela.LLVM.State
-import           Language.Graciela.LLVM.Type                               (boolType, floatType,
-                                                          intType, llvmName,
-                                                          pointerType, fill,
-                                                          toLLVMType, tupleType,
-                                                          sizeOf)
+import           Language.Graciela.LLVM.Type             (boolType, fill,
+                                                          floatType, intType,
+                                                          llvmName, pointerType,
+                                                          sizeOf, toLLVMType,
+                                                          tupleType)
 import           Language.Graciela.Location
 import           Language.Graciela.Parser.Config
 import           Language.Graciela.SymbolTable
-import           Language.Graciela.Treelike                                (drawTree, toTree)
+import           Language.Graciela.Treelike              (drawTree, toTree)
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Data.Array                              ((!))
@@ -149,7 +147,7 @@ expression e@Expression { expType = GBool} =
     "generated boolean expression with `expression` instead of `boolean`\n" <>
     drawTree (toTree e)
 
-expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do 
+expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
   expType <- fill expType
   case exp' of
     Value val -> pure $ case val of
@@ -464,8 +462,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               (isZero #)
               abort Abort.DivisionByZero pos
 
-              aux <- newLabel "modAux" 
-              aux2 <- newLabel "modAux2" 
+              aux <- newLabel "modAux"
+              aux2 <- newLabel "modAux2"
               auxSgn <- newLabel "modAuxSgn"
               isNeg <- newLabel "modAuxIsPoz"
               isntNeg <- newLabel "modAuxIsntPoz"
@@ -491,7 +489,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
               (isntNeg #)
               terminate Br
-                { dest      = wrapIt 
+                { dest      = wrapIt
                 , metadata' = [] }
 
               (isNeg #)
@@ -503,13 +501,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 , metadata = [] }
 
               terminate Br
-                { dest      = wrapIt 
+                { dest      = wrapIt
                 , metadata' = [] }
 
               (wrapIt #)
               addInstruction $ label := Phi
                 { type'          = case n of 8 -> i8; 32 -> i32
-                , incomingValues = 
+                , incomingValues =
                   [ (LocalReference (case n of 8 -> i8; 32 -> i32) aux2, isNeg)
                   , (LocalReference (case n of 8 -> i8; 32 -> i32) aux, isntNeg)
                   ]
@@ -968,18 +966,18 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
     AbstFunctionCall {fName, fArgs, fStructArgs} -> do
       fdt <- use fullDataTypes
-      let 
-        (dtName, typeArgs) = case fStructArgs of 
+      let
+        (dtName, typeArgs) = case fStructArgs of
           Nothing -> internal $ "Calling an abstract function of unknown Abstract Data Type"
           Just x -> x
       case dtName `Map.lookup` fdt of
         Nothing -> internal $ "Could not find Data Type " <> show dtName
         Just (Struct{structProcs},_) -> case fName `Map.lookup` structProcs of
-          Nothing -> internal $ "Could not find function " <> 
-                                show fName <> " in Data Type " <> 
+          Nothing -> internal $ "Could not find function " <>
+                                show fName <> " in Data Type " <>
                                 show dtName
 
-          Just Definition{ def' = FunctionDef{ funcRecursive }} -> 
+          Just Definition{ def' = FunctionDef{ funcRecursive }} ->
             expression e{exp'=FunctionCall fName fArgs False funcRecursive fStructArgs}
 
     FunctionCall { fName, fArgs }
@@ -1010,12 +1008,12 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                   else traceFloatString }}
               _ -> internal "impossible trace 2"
 
-      
+
 
     FunctionCall { fName = "_pointer2int", fArgs } -> do
       argument  <- expression . head . toList $ fArgs
       labelCast <- newLabel "ptr2int"
-      
+
       addInstruction $ labelCast := PtrToInt
         { operand0 = argument
         , type'    = intType
@@ -1062,8 +1060,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
             then
               expression' expr
-            else if type' =:= GPointer GAny 
-              then do 
+            else if type' =:= GPointer GAny
+              then do
                 expr <- expression expr
                 let GPointer t = type'
                 type' <- ptr <$> toLLVMType t
@@ -1084,8 +1082,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                   , metadata  = [] }
 
                 pure $ LocalReference type' label
-            else case exp' of 
-              Obj o         -> do 
+            else case exp' of
+              Obj o         -> do
                 label <- newLabel "argCastOb"
                 ref <- objectRef o
                 type' <- ptr <$> toLLVMType type'
@@ -1103,9 +1101,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
     Collection { } ->
       collection e
 
-    AddressOf (inner@Expression{ expType = iType, exp'}) -> case exp' of 
+    AddressOf (inner@Expression{ expType = iType, exp'}) -> case exp' of
       Obj{ theObj } -> objectRef theObj
-      _ -> internal $ "Cannot get the address of a non object expression\n" <> (drawTree . toTree $ e) 
+      _ -> internal $ "Cannot get the address of a non object expression\n" <> (drawTree . toTree $ e)
 
 
     I64Cast { inner = inner @ Expression {expType = iType} } -> do

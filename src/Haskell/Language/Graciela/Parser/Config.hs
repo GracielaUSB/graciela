@@ -52,7 +52,7 @@ module Language.Graciela.Parser.Config
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Expression        hiding (fName)
+import           Language.Graciela.AST.Expression hiding (fName)
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Entry
@@ -61,18 +61,19 @@ import           Language.Graciela.Location
 import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens          (at, (&~), (.=), (?=))
-import           Data.Foldable         (foldl')
-import           Data.Map.Strict       (Map)
-import qualified Data.Map.Strict       as Map (empty, fromList, mapWithKey)
+import           Control.Lens                     (at, (&~), (.=), (?=))
+import           Data.Foldable                    (foldl')
+import           Data.Map.Strict                  (Map)
+import qualified Data.Map.Strict                  as Map (empty, fromList,
+                                                          mapWithKey)
 
-import           Data.Sequence         (Seq)
-import qualified Data.Sequence         as Seq (empty)
-import           Data.Set              (Set)
-import qualified Data.Set              as Set (empty)
-import           Data.Text             (Text, pack)
-import           Text.Megaparsec.Error (ParseError (..))
-import           Text.Megaparsec.Pos   (unsafePos)
+import           Data.Sequence                    (Seq)
+import qualified Data.Sequence                    as Seq (empty)
+import           Data.Set                         (Set)
+import qualified Data.Set                         as Set (empty)
+import           Data.Text                        (Text, pack)
+import           Text.Megaparsec.Error            (ParseError (..))
+import           Text.Megaparsec.Pos              (unsafePos)
 --------------------------------------------------------------------------------
 
 data Config = Config
@@ -173,10 +174,10 @@ defaultConfig enableTrace enableAmpersand = Config
 
     toIntG [ GFloat ] = Right (GInt, pack float2intString, True)
     toIntG [ GChar  ] = Right (GInt, pack  char2intString, False)
-    toIntG [ a ] 
-      | a =:= GPointer GAny && enableAmpersand = 
+    toIntG [ a ]
+      | a =:= GPointer GAny && enableAmpersand =
         Right (GInt, pack pointer2intString, False)
-      
+
       | otherwise = Left badArg
         { paramNum = 1
         , fName  = "toInt"

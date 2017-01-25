@@ -4,18 +4,18 @@
 
 module Language.Graciela.Error where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression        (Expression (expType))
-import           Language.Graciela.AST.Type              (Type (..))
+import           Language.Graciela.AST.Expression (Expression (expType))
+import           Language.Graciela.AST.Type       (Type (..))
 import           Language.Graciela.Common
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Data.Text             (Text, unpack)
-import           Text.Megaparsec       hiding (Token)
+import           Data.List                        (intercalate)
+import           Data.Sequence                    (Seq)
+import           Data.Set                         (Set)
+import qualified Data.Set                         as Set
+import           Data.Text                        (Text, unpack)
+import           Text.Megaparsec                  hiding (Token)
 import           Text.Megaparsec.Error
-import           Data.List             (intercalate)
-import           Data.Sequence         (Seq)
-import           Data.Set              (Set)
-import qualified Data.Set              as Set
 --------------------------------------------------------------------------------
 
 data Error

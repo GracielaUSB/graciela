@@ -17,9 +17,9 @@ module Language.Graciela.Token
 --------------------------------------------------------------------------------
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Function   (on)
-import           Data.Text       (Text)
-import           Text.Megaparsec (ShowToken (..))
+import           Data.Function            (on)
+import           Data.Text                (Text)
+import           Text.Megaparsec          (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------
 
@@ -197,7 +197,7 @@ data Token
   | TokSetIntersect
 
   | TokAmpersand
-  
+
   | TokMultisetSum
   | TokConcat
   | TokSubset
@@ -383,7 +383,7 @@ instance Show Token where
     TokNew            -> "new"
     TokFree           -> "free"
     TokNull           -> "null"
-    
+
     TokAmpersand      -> "&"
 
     TokWhere          -> "where"

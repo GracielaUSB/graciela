@@ -1,16 +1,16 @@
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections  #-}
 
 module Language.Graciela.LLVM.Declaration
   ( declaration
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration                    (Declaration (..))
-import           Language.Graciela.AST.Expression                     (Expression,
+import           Language.Graciela.AST.Declaration  (Declaration (..))
+import           Language.Graciela.AST.Expression   (Expression,
                                                      Expression' (..))
-import           Language.Graciela.AST.Struct                         (Struct (..), Struct' (..))
-import           Language.Graciela.AST.Type                           (Type (..), (=:=))
-import qualified Language.Graciela.AST.Type                           as G (Type)
+import           Language.Graciela.AST.Struct       (Struct (..), Struct' (..))
+import           Language.Graciela.AST.Type         (Type (..), (=:=))
+import qualified Language.Graciela.AST.Type         as G (Type)
 import           Language.Graciela.Common
 import           Language.Graciela.LLVM.Abort
 import           Language.Graciela.LLVM.Expression
@@ -151,9 +151,9 @@ alloc gtype lval = do
               { operand0 = LocalReference t name
               , type'    = ptr t
               , metadata = [] }
-      
-      let 
-        structArg = LocalReference (ptr t) cast   
+
+      let
+        structArg = LocalReference (ptr t) cast
         dinamicAllocFlag = ConstantOperand $ C.Int 1 0
       addInstruction $ Do Call
         { tailCallKind       = Nothing

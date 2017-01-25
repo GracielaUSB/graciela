@@ -27,19 +27,23 @@ module Language.Graciela.Parser.Operator
   , card
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression (BinaryOperator (..), Expression (..), Expression' (Binary, Unary, Value, binOp, inner, lexpr, rexpr, unOp),
-                                 UnaryOperator (..), Value (..))
+import           Language.Graciela.AST.Expression (BinaryOperator (..),
+                                                   Expression (..),
+                                                   Expression' (Binary, Unary, Value, binOp, inner, lexpr, rexpr, unOp),
+                                                   UnaryOperator (..),
+                                                   Value (..))
 import           Language.Graciela.AST.Type       (Type (..), basic, (=:=))
 import           Language.Graciela.Common
 import           Language.Graciela.Error          (Error (UnknownError))
 import           Language.Graciela.Parser.Monad   (Parser, putError)
 --------------------------------------------------------------------------------
-import           Data.Char      (chr, ord)
-import qualified Data.Fixed     as F (mod')
-import           Data.Int       (Int32)
-import           Prelude        hiding (Ordering (..), and, concat, div, elem,
-                                 max, min, mod, not, notElem, or)
-import qualified Prelude        as P (div, max, min, mod, not)
+import           Data.Char                        (chr, ord)
+import qualified Data.Fixed                       as F (mod')
+import           Data.Int                         (Int32)
+import           Prelude                          hiding (Ordering (..), and,
+                                                   concat, div, elem, max, min,
+                                                   mod, not, notElem, or)
+import qualified Prelude                          as P (div, max, min, mod, not)
 --------------------------------------------------------------------------------
 chr' :: Int32 -> Char
 chr' = chr . fromIntegral . (`P.mod` 256)

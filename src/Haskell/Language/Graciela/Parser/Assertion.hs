@@ -20,11 +20,12 @@ import           Language.Graciela.Parser.State
 import           Language.Graciela.Parser.Type
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens       ((%=))
-import           Control.Monad      (unless, void)
-import           Data.Sequence      ((|>))
-import           Text.Megaparsec    (ParseError, between, lookAhead, manyTill,
-                                     withRecovery)
+import           Control.Lens                         ((%=))
+import           Control.Monad                        (unless, void)
+import           Data.Sequence                        ((|>))
+import           Text.Megaparsec                      (ParseError, between,
+                                                       lookAhead, manyTill,
+                                                       withRecovery)
 --------------------------------------------------------------------------------
 
 bound :: Parser (Maybe Expression)
@@ -62,7 +63,7 @@ assert'' close = do
       | otherwise -> do
         putError from $ BadAssertType expType
         pure Nothing
-  where 
+  where
     recover :: ParseError TokenPos Error -> Parser (Maybe a)
     recover err = do
       errors %= (|> err)

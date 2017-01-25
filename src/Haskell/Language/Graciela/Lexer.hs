@@ -22,18 +22,18 @@ module Language.Graciela.Lexer
 import           Language.Graciela.Common
 import           Language.Graciela.Token
 --------------------------------------------------------------------------------
-import           Control.Lens          (makeLenses, use, (%~))
-import           Control.Monad.State   (State, evalState, modify)
-import           Data.Set              (union, (\\))
-import qualified Data.Set              as Set (empty)
-import           Data.Text             (Text)
-import           Prelude               hiding (lex)
-import           Text.Megaparsec       (Dec, ParsecT, alphaNumChar, anyChar,
-                                        between, char, eof, getPosition,
-                                        letterChar, many, manyTill,
-                                        notFollowedBy, oneOf, runParserT,
-                                        spaceChar, string, try, (<|>))
-import qualified Text.Megaparsec.Lexer as L
+import           Control.Lens             (makeLenses, use, (%~))
+import           Control.Monad.State      (State, evalState, modify)
+import           Data.Set                 (union, (\\))
+import qualified Data.Set                 as Set (empty)
+import           Data.Text                (Text)
+import           Prelude                  hiding (lex)
+import           Text.Megaparsec          (Dec, ParsecT, alphaNumChar, anyChar,
+                                           between, char, eof, getPosition,
+                                           letterChar, many, manyTill,
+                                           notFollowedBy, oneOf, runParserT,
+                                           spaceChar, string, try, (<|>))
+import qualified Text.Megaparsec.Lexer    as L
 --------------------------------------------------------------------------------
 
 -- | Giving the Lexer a state allows recognition of Pragmas.
@@ -215,7 +215,7 @@ token  =  reserved "program"    TokProgram
       <|> reserved "intersect"  TokSetIntersect
       <|> symbol   "\8745"      TokSetIntersect -- ∩
 
-      <|> symbol   "&"          TokAmpersand -- Only Pragma 
+      <|> symbol   "&"          TokAmpersand -- Only Pragma
 
       <|> reserved "msum"       TokMultisetSum
       <|> symbol   "\8846"      TokMultisetSum -- ⊎

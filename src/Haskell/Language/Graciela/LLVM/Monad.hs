@@ -3,8 +3,8 @@
 module Language.Graciela.LLVM.Monad where
 --------------------------------------------------------------------------------
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.State                       hiding (State)
-import qualified Language.Graciela.LLVM.State                       as LLVM (State)
+import           Language.Graciela.LLVM.State     hiding (State)
+import qualified Language.Graciela.LLVM.State     as LLVM (State)
 --------------------------------------------------------------------------------
 
 import           Control.Lens                     (at, ix, use, (%=), (+=),
@@ -44,7 +44,7 @@ getVariableName :: Text -> LLVM Name
 getVariableName name =
   getVariableName' <$> use symTable
   where
-    getVariableName' [] =  Name "Error" --error 
+    getVariableName' [] =  Name "Error" --error
       -- "internal error: undefined variable `" <> unpack name <> "`."
 
     getVariableName' (vars:xs) =
@@ -83,7 +83,7 @@ addInstruction inst =
   currentBlock %= (|> inst)
 
 addArgInsts :: Inst -> LLVM ()
-addArgInsts inst = 
+addArgInsts inst =
   freeArgInsts %= (|> inst)
 --------------------------------------------------------------------------------
 
@@ -254,7 +254,7 @@ mallocString   = "_malloc"
 mallocTCString = "_mallocTC"
 
 addPointerString, removePointerString, derefPointerString :: String
-addPointerString    = "_addPointer" 
+addPointerString    = "_addPointer"
 removePointerString = "_removePointer"
 derefPointerString  = "_derefPointer"
 

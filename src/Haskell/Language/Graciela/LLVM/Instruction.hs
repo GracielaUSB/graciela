@@ -1,31 +1,32 @@
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE PostfixOperators #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PostfixOperators  #-}
+{-# LANGUAGE TupleSections     #-}
+
 module Language.Graciela.LLVM.Instruction where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Expression                     (Expression (..),
+import           Language.Graciela.AST.Expression   (Expression (..),
                                                      Expression' (..))
-import qualified Language.Graciela.AST.Expression                     as E (loc)
-import           Language.Graciela.AST.Instruction                    (Guard, Instruction (..),
+import qualified Language.Graciela.AST.Expression   as E (loc)
+import           Language.Graciela.AST.Instruction  (Guard, Instruction (..),
                                                      Instruction' (..))
-import qualified Language.Graciela.AST.Instruction                    as G (Instruction)
-import           Language.Graciela.AST.Object                         hiding (indices)
-import qualified Language.Graciela.AST.Object                         as O (inner, loc)
-import           Language.Graciela.AST.Struct                         (Struct (..))
-import           Language.Graciela.AST.Type                           as T
+import qualified Language.Graciela.AST.Instruction  as G (Instruction)
+import           Language.Graciela.AST.Object       hiding (indices)
+import qualified Language.Graciela.AST.Object       as O (inner, loc)
+import           Language.Graciela.AST.Struct       (Struct (..))
+import           Language.Graciela.AST.Type         as T
 import           Language.Graciela.Common
-import           Language.Graciela.LLVM.Abort                         (abort)
-import qualified Language.Graciela.LLVM.Abort                         as Abort (Abort (..))
+import           Language.Graciela.LLVM.Abort       (abort)
+import qualified Language.Graciela.LLVM.Abort       as Abort (Abort (..))
 import           Language.Graciela.LLVM.Boolean
 import           Language.Graciela.LLVM.Declaration
 import           Language.Graciela.LLVM.Expression
 import           Language.Graciela.LLVM.Monad
-import           Language.Graciela.LLVM.Object                        (objectRef)
+import           Language.Graciela.LLVM.Object      (objectRef)
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
-import           Language.Graciela.LLVM.Warning                       (warn)
-import qualified Language.Graciela.LLVM.Warning                       as Warning (Warning (Manual))
+import           Language.Graciela.LLVM.Warning     (warn)
+import qualified Language.Graciela.LLVM.Warning     as Warning (Warning (Manual))
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use, (%=), (-=), (.=))
 import           Data.Maybe                         (fromMaybe)
@@ -77,10 +78,10 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
   innerSize <- sizeOf innerType
   inner <- toLLVMType innerType
   type' <- toLLVMType t
-  let 
-    f op1 op2 = do 
-      label <- newUnLabel 
-      addInstruction $ label := Add 
+  let
+    f op1 op2 = do
+      label <- newUnLabel
+      addInstruction $ label := Add
         { nsw = False
         , nuw = False
         , operand0 = op1
@@ -101,7 +102,7 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
     , address  = sourceHeader
     , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
     , metadata = [] }
-  
+
 
   addInstruction $ destArrPtr := GetElementPtr
     { inBounds = False
@@ -276,23 +277,23 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       objectName v@Object{ obj' } = case obj' of
          Variable{ name } -> name <> "_"
          o                -> objectName (O.inner o)
-      
+
       copyOutArgs :: (Expression, ArgMode) -> (Operand,[t]) -> LLVM ()
       copyOutArgs (e@Expression{expType, exp'}, mode) (operand, _) = do
         if mode `elem` [InOut, Out]
           then do
-            let 
+            let
               Obj o = exp'
             destPtr <- objectRef o
             type'   <- toLLVMType expType
-            case expType of 
-              t@GArray{} -> do    
+            case expType of
+              t@GArray{} -> do
                 copyArray t operand destPtr
 
               t | t =:= GADataType -> do
                 types <- mapM fill (toList . typeArgs $ expType)
 
-                let 
+                let
                   copyFunc = "copy" <> llvmName (typeName expType) types
                 addInstruction $ Do Call
                   { tailCallKind       = Nothing
@@ -304,7 +305,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                   , functionAttributes = []
                   , metadata           = [] }
 
-              _ -> do 
+              _ -> do
                 value <- newLabel "value"
                 addInstruction $value := Load
                   { volatile  = False
@@ -329,12 +330,12 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
         expType <- fill expt
         type' <- toLLVMType expType
-        let 
+        let
           isIn = mode `elem` [In, InOut, Const]
           Location(SourcePos _ l c, _) = loc
           line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
           col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
-        case mode of 
+        case mode of
           Ref -> do
             label <- newLabel "argCastRef"
             ref   <- objectRef (theObj exp')
@@ -345,8 +346,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               , metadata = [] }
             pure $ (LocalReference (ptr type') label, [])
 
-          _ -> case exp' of 
-            Obj o -> do 
+          _ -> case exp' of
+            Obj o -> do
               prima <- insertVar (objectName o)
               addInstruction $ prima := Alloca
                 { allocatedType = ptr type'
@@ -357,7 +358,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               instruction $ Instruction
                 { instLoc = gracielaDef
                 , inst'   = New
-                  { idName = primaObject o 
+                  { idName = primaObject o
                   , nType  = expType } }
 
               primaPtr <- newLabel "primaPtr"
@@ -370,13 +371,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
               primaRef <- case expType of
                 t@GArray{dimensions} -> do
-                
+
                   when isIn $ do
                     sourceHeader <- objectRef o
                     copyArray t sourceHeader (LocalReference type' primaPtr)
 
                   internalArrPtr <- newLabel "internalArrayPtr"
-                  
+
                   addArgInsts $ internalArrPtr := GetElementPtr
                     { inBounds = False
                     , address  = (LocalReference type' primaPtr)
@@ -391,12 +392,12 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     , alignment = 4
                     , metadata  = [] }
 
-                  castToFree <- newLabel "castToFree" 
+                  castToFree <- newLabel "castToFree"
                   addArgInsts $ castToFree := BitCast
                     { operand0 = LocalReference type' internalArr
                     , type'    = pointerType
                     , metadata = [] }
-                  
+
                   addArgInsts $ Do Call
                     { tailCallKind       = Nothing
                     , callingConvention  = CC.C
@@ -407,16 +408,16 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     , functionAttributes = []
                     , metadata           = [] }
 
-                  if isIn 
-                    then pure (LocalReference type' primaPtr,[]) 
+                  if isIn
+                    then pure (LocalReference type' primaPtr,[])
                     else pure $ (LocalReference (ptr type') primaPtr,[])
 
                 t | t =:= GADataType -> do
 
                   types <- mapM fill (toList . typeArgs $ expType)
 
-                  let 
-                    postfix = llvmName (typeName expType) types               
+                  let
+                    postfix = llvmName (typeName expType) types
 
                   destStructPtr <- newLabel "destStructPtr"
                   addInstruction $ destStructPtr := Load
@@ -425,10 +426,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     , maybeAtomicity = Nothing
                     , alignment = 4
                     , metadata  = [] }
-                
+
                   when (isIn) $ do
                     sourceStructPtr  <- objectRef o
-                    
+
 
                     addInstruction $ Do Call
                       { tailCallKind       = Nothing
@@ -440,16 +441,16 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                       , functionAttributes = []
                       , metadata           = [] }
 
-                  if isIn 
-                    then pure (LocalReference type' destStructPtr,[]) 
+                  if isIn
+                    then pure (LocalReference type' destStructPtr,[])
                     else pure $ (LocalReference (ptr type') primaPtr,[])
 
 
                 t | t =:= basic || t =:= GPointer GAny || t =:= highLevel -> do
                   if isIn
-                    then do 
+                    then do
                       expr <- expression e
-                      
+
                       label <- newLabel "argCastPointer"
                       addInstruction $ label := BitCast
                         { operand0 = LocalReference type' prima
@@ -470,7 +471,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
                 t -> internal $ "Cannot pass arguments of type " <> show t
 
-              
+
 
               castToFree <- newLabel "castToFree"
 
@@ -490,8 +491,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , metadata           = [] }
 
               pure primaRef
-              
-            _ -> do 
+
+            _ -> do
 
               aux@(Name name) <- insertVar "temp_"
 
@@ -522,7 +523,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
     type'      <- toLLVMType (T.GPointer freeType)
 
-    let 
+    let
       SourcePos _ l c = pos
       line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
       col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
@@ -763,8 +764,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , metadata  = [] }
 
 
-        let 
-          structArg = LocalReference type' labelCast   
+        let
+          structArg = LocalReference type' labelCast
           dinamicAllocFlag = ConstantOperand $ C.Int 1 0
           call name =  Do Call
             { tailCallKind       = Nothing
@@ -812,7 +813,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             GPointer _ -> writePString
             GAny       -> writeIString
             _          -> internal "attempted to write non-basic type."
-        operand' <- if  (t =:= GPointer GAny) 
+        operand' <- if  (t =:= GPointer GAny)
           then do
             pointer <- newLabel "pointerToWrite"
             addInstruction $ pointer := BitCast
