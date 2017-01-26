@@ -18,18 +18,11 @@ El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
 ***TO DO***
 
-## Instalación con Homebrew (OS X )
+## Instalación con Homebrew (macOS )
 
 ### Requisitos
-* **Command Line Tools o Xcode**. Se puede descargar Xcode (alrededor de 4 GB) desde  <https://developer.apple.com/downloads> o solo los comandos necesarios desde la terminal usando el comando:
-```
-$ xcode-select --install
-```
+* **Homebrew**. Seguir las intrucciones en su [página web](http://brew.sh)
 
-* **Homebrew**. En caso de no tener [Homebrew](http://brew.sh), puede instalarse con el siguiente comando:
-```
-$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-```    
 Una vez cumplido los requisitos, se puede instalar graciela con los siguientes comandos:
 
     $ brew tap GracielaUSB/graciela
@@ -39,10 +32,10 @@ Una vez cumplido los requisitos, se puede instalar graciela con los siguientes c
 
 Para compilar un archivo `.gcl` y ejecutarlo, se utilizan los siguientes comandos:
 
-    $ graciela ./<nombre_del_programa>.gcl
+    $ graciela <nombre_del_programa>.gcl
     $ ./<nombre_del_ejecutable>
 
 Tambien se puede correr el programa sin crear el ejecutable usando el comando:
 
-    $ rungraciela ./<nombre_del_programa>.gcl
+    $ rungraciela <nombre_del_programa>.gcl
 
