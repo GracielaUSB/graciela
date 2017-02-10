@@ -545,7 +545,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
         inner <- toLLVMType innerType
 
-        let iarrT = iterate (ArrayType 1) inner !! length dimensions
+        let iarrT = ArrayType 1 inner
+        -- let iarrT = iterate (ArrayType 1) inner !! length dimensions
 
         iarr <- newLabel "freeArrInternal"
         addInstruction $ iarr := Load
@@ -670,7 +671,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
         inner <- toLLVMType innerType
 
-        let iarrT = iterate (ArrayType 1) inner !! length dimensions
+        let iarrT = ArrayType 1 inner
+        -- let iarrT = iterate (ArrayType 1) inner !! length dimensions
 
         iarrCast <- newLabel "newArrInternalCast"
         addInstruction $ iarrCast := BitCast

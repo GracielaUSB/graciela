@@ -174,8 +174,8 @@ defaultConstructor name structType typeMap = do
           , falseDest = dAllocFalse
           , metadata' = [] }
 
-
-        let arrT = iterate (ArrayType 1) inner !! length dimensions
+        let arrT = ArrayType 1 inner
+        -- let arrT = iterate (ArrayType 1) inner !! length dimensions
 
         (dAllocTrue #)
 
@@ -376,7 +376,8 @@ defaultDestructor name structType typeMap = do
       t@GArray { dimensions, innerType } -> do
         garrT <- toLLVMType t
         inner <- toLLVMType innerType
-        let iarrT = iterate (ArrayType 1) inner !! length dimensions
+        let iarrT = ArrayType 1 inner
+        -- let iarrT = iterate (ArrayType 1) inner !! length dimensions
 
         arrStruct <- newLabel "arrStruct"
 

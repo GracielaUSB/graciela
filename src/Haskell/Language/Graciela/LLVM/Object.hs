@@ -98,25 +98,33 @@ objectRef (Object loc t obj') = do
       iarrPtr <- newLabel "idxArrPtr"
       addInstruction $ iarrPtr := Load
         { volatile       = True
-        , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
+        , address        = LocalReference (ptr . ptr $ ArrayType 1 objType') iarrPtrPtr
+        -- , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
         , maybeAtomicity = Nothing
         , alignment      = 4
         , metadata       = [] }
 
-      inds <- zipWithM (idx ref) (toList indices) [0..]
+      -- ind <- zipWithM (idx ref) (toList indices) [0..] -- !!!!!!!!!!
+
+      ind <- snd <$> 
+        foldM (idx ref (fromIntegral $ length indices)) 
+          (ConstantOperand (C.Int 32 1), ConstantOperand (C.Int 32 0))
+          (zip (toList indices) [0..])
 
       result <- newLabel "idxArr"
       addInstruction $ result := GetElementPtr
         { inBounds = False
-        , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
-        , indices  = ConstantOperand (C.Int 32 0) : inds
+        , address  = LocalReference (ptr $ ArrayType 1 objType') iarrPtr
+        -- , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
+        , indices  = [ConstantOperand (C.Int 32 0), ind]
+        -- , indices  = ConstantOperand (C.Int 32 0) : inds
         , metadata = [] }
 
       pure . LocalReference objType' $ result
 
       where
-        idx ref index n = do
-          e <- expression index
+        idx ref ns (prod, index) (i, n) = do
+          e <- expression i
 
           chkGEZ <- newLabel "idxChkGEZ"
           addInstruction $ chkGEZ := ICmp
@@ -134,7 +142,7 @@ objectRef (Object loc t obj') = do
             , metadata' = [] }
 
           (notGez #)
-          abort Abort.NegativeIndex (pos . E.loc $ index)
+          abort Abort.NegativeIndex (pos . E.loc $ i)
 
           (gez #)
           bndPtr <- newLabel "idxBoundPtr"
@@ -170,10 +178,33 @@ objectRef (Object loc t obj') = do
             , metadata' = [] }
 
           (notInBound #)
-          abort Abort.OutOfBoundsIndex (pos . E.loc $ index)
+          abort Abort.OutOfBoundsIndex (pos . E.loc $ i)
 
           (inBound #)
-          pure e
+          index' <- newLabel "indexCalc"
+          e' <- newUnLabel
+          addInstruction $ e' := Mul
+            { nsw = False
+            , nuw = False
+            , operand0 = e
+            , operand1 = prod
+            , metadata = [] }
+          addInstruction $ index' := Add
+            { nsw = False
+            , nuw = False
+            , operand0 = index
+            , operand1 = LocalReference i32 e'
+            , metadata = [] }
+
+          prod' <- newLabel "prodCalc"
+          when (n < ns - 1) $ addInstruction $ prod' := Mul
+            { nsw = False
+            , nuw = False
+            , operand0 = prod
+            , operand1 = LocalReference i32 bnd
+            , metadata = [] }
+
+          pure (LocalReference i32 prod', LocalReference i32 index')
 
 
     Deref inner -> do

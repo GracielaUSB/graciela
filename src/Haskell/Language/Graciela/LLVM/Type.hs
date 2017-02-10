@@ -89,11 +89,11 @@ toLLVMType GAny          = internal "GAny is not a valid type"
 
 toLLVMType (T.GArray dims t) = do
   inner <- toLLVMType t
-  let arrT = iterate (LLVM.ArrayType 1) inner !! length dims
+  let arrT = LLVM.ArrayType 1 inner
+  -- let arrT = iterate (LLVM.ArrayType 1) inner !! length dims
   pure LLVM.StructureType
     { LLVM.isPacked     = True
-    , LLVM.elementTypes = (toList dims $> i32) <> [ptr arrT] }
-
+    , LLVM.elementTypes = reverse $ ptr arrT : (toList dims $> i32) }
 
 toLLVMType t@(GTypeVar i _) = do
   subst <- use substitutionTable

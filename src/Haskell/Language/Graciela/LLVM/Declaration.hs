@@ -70,8 +70,8 @@ alloc t@GArray { dimensions, innerType } lval = do
     , allocatedType = inner
     , metadata      = [] }
 
-
-  let arrT = iterate (ArrayType 1) inner !! length dimensions
+  let arrT = ArrayType 1 inner
+  -- let arrT = iterate (ArrayType 1) inner !! length dimensions
 
   iarrCast <- newUnLabel
   addInstruction $ iarrCast := BitCast
