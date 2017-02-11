@@ -66,7 +66,7 @@ import           Text.Megaparsec.Error            (ParseError, errorPos)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
-version = "graciela 2.0.1.0"
+version = "graciela 2.0.2.0"
 
 help :: String
 help = usageInfo message (rights options)
