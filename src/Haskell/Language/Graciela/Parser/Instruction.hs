@@ -35,7 +35,7 @@ import qualified Language.Graciela.AST.Object         as O (inner, loc)
 import           Language.Graciela.AST.Struct         (Struct (..))
 import           Language.Graciela.AST.Type           (ArgMode (..), Type (..),
                                                        fillType, hasDT,
-                                                       hasTypeVar, notIn, (=:=))
+                                                       hasTypeVar, notConst, (=:=))
 import           Language.Graciela.Common
 import           Language.Graciela.Entry
 import           Language.Graciela.Error
@@ -190,7 +190,7 @@ assign = do
     checkType acc (Just lval, Just rval) = case (lval,rval) of
       ( Expression { loc = Location (from1,_), expType = t1, expConst, exp' = Obj o},
         Expression { expType = t2, exp' = expr } )
-        | not expConst && notConstMode o ->
+        | not expConst && notConst o ->
           if t1 =:= t2 && assignable t1
             then case expr of
               NullPtr -> pure $ (|> (o, rval {expType = t1})) <$> acc
@@ -211,11 +211,6 @@ assign = do
           "An expression cannot be the target of an assignment."
         pure Nothing
 
-    notConstMode :: Object -> Bool
-    notConstMode Object{ obj' } = case obj' of
-      Variable {mode} -> mode /= Just Const
-      _               -> notConstMode (O.inner obj')
-
     assignable a = case a of
       (GTuple _ _) -> False
       (GArray _ _) -> False
@@ -235,11 +230,11 @@ random = do
     Nothing -> pure Nothing
     Just expr -> case expr of
       Expression { expType, exp' = Obj o }
-        | expType =:= randomizable && notIn o ->
+        | expType =:= randomizable && notConst o ->
           pure . Just $ Instruction loc (Random o)
-        | expType =:= randomizable && not (notIn o) -> do
+        | expType =:= randomizable && not (notConst o) -> do
           putError from . UnknownError $
-            "Cannot assign random value to an `In` mode variable."
+            "Cannot assign random value to a `Const` mode variable."
           pure Nothing
         | not (expType =:= randomizable) -> do
           putError from . UnknownError $
@@ -348,19 +343,19 @@ reading = do
 
     read' _   Nothing = pure Nothing
     read' acc (Just Expression { exp' = Obj o @ Object { O.loc = Location (from, _), objType } })
-      | objType =:= readable && notIn o =
+      | objType =:= readable && notConst o =
         pure $ (|> o) <$> acc
-      | notIn o = do
+      | notConst o = do
         putError from . UnknownError $
           "Cannot read object of type " <> show objType <> "."
         pure Nothing
       | objType =:= readable = do
         putError from . UnknownError $
-          "Cannot read an `In` mode object."
+          "Cannot read a `Const` mode object."
         pure Nothing
       | otherwise = do
         putError from . UnknownError $
-          "Cannot read an `In` mode object of type " <> show objType <> "."
+          "Cannot read a `Const` mode object of type " <> show objType <> "."
         pure Nothing
     read' acc (Just expr@Expression { E.loc = Location (from, _) }) = do
       putError from . UnknownError $

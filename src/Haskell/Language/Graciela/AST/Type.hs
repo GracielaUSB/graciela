@@ -24,7 +24,7 @@ module Language.Graciela.AST.Type
   , hasDT
   , hasTypeVar
   , removeAbst
-  , notIn
+  , notConst
   , objMode
   ) where
 --------------------------------------------------------------------------------
@@ -46,8 +46,12 @@ objMode :: Object -> Maybe ArgMode
 objMode (Object _ _ Variable { mode }) = mode
 objMode (Object _ _ o)                 = objMode (O.inner o)
 
-notIn :: Object -> Bool
-notIn obj = objMode obj /= Just In
+{- Deprecated -}
+-- notIn :: Object -> Bool
+-- notIn obj = objMode obj /= Just In
+
+notConst :: Object -> Bool
+notConst obj = objMode obj /= Just Const
 -------------------------------------------------------------------------------------
 
 -- | The mode in which an argument is passed to a graciela procedure.
