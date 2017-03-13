@@ -79,9 +79,9 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
   inner <- toLLVMType innerType
   type' <- toLLVMType t
   let
-    f op1 op2 = do
+    mulDims op1 op2 = do
       label <- newUnLabel
-      addInstruction $ label := Add
+      addInstruction $ label := Mul
         { nsw = False
         , nuw = False
         , operand0 = op1
@@ -91,7 +91,7 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
 
 
   exprs <- mapM expression dimensions
-  sizeOp <- foldM f (ConstantOperand $ C.Int 32 0) exprs
+  sizeOp <- foldM mulDims (ConstantOperand $ C.Int 32 1) exprs
   let sizeT = ConstantOperand $ C.Int 32 innerSize
 
 
