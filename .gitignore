@@ -40,4 +40,5 @@ source/Haskell/rungraciela
 src/Haskell/test.sh
 
 
-*graciela_2.0.2-1~debian~amd64*
+*graciela_*~debian~*
+*graciela_*~ubuntu~*
