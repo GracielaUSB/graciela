@@ -449,7 +449,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 t | t =:= basic || t =:= GPointer GAny || t =:= highLevel -> do
                   if isIn
                     then do
-                      expr <- expression e
+                      expr <- expression' e
 
                       label <- newLabel "argCastPointer"
                       addInstruction $ label := BitCast
@@ -502,7 +502,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , alignment     = 4
                 , metadata      = [] }
 
-              expr <- expression e
+              expr <- expression' e
 
               addInstruction $ Do Store
                 { volatile = False

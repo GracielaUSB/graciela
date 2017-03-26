@@ -1,0 +1,21 @@
+#!/usr/bin/env rungraciela
+
+program InBool.bin begin
+
+proc p(in b : boolean)
+{pre true pre}
+{post true post}
+|[ skip ]|
+
+proc q(inout b : boolean)
+{pre true pre}
+{post true post}
+|[ skip ]|
+
+main
+  |[ var b : boolean
+   ; b := true
+   ; p(b)
+   ; q(b)
+  ]|
+end
