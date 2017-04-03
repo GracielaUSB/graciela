@@ -38,3 +38,7 @@ gratest
 source/Haskell/rungraciela
 
 src/Haskell/test.sh
+
+
+*graciela_*~debian~*
+*graciela_*~ubuntu~*

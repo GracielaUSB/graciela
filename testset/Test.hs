@@ -66,15 +66,15 @@ main = do
   "Compile Cola" ~::
     compile "Cola" ""
   "Run Cola" ~!::
-    quickCheckWith stdArgs { maxSuccess = 100 } prop_cola
+    quickCheckWith stdArgs { maxSuccess = 20 } prop_cola
   removeFile (bin "Cola" "")
 
   -- ColaEnlazada --
   "Compile ColaEnlazada" ~::
     compile "Cola" "Enlazada"
   "Run ColaEnlazada" ~!::
-    quickCheckWith stdArgs { maxSuccess = 100 } prop_cola_enlazada
-  -- removeFile (bin "Cola" "Enlazada")
+    quickCheckWith stdArgs { maxSuccess = 20 } prop_cola_enlazada
+  removeFile (bin "Cola" "Enlazada")
 
   -- Teoría de Conjuntos --
   "Compile TeoriaConjuntos" ~::
@@ -84,4 +84,9 @@ main = do
     assertEqual "" (ExitSuccess, "", "")
   removeFile (bin "TeoriaConjuntos" "")
 
-  getCurrentDirectory >>= putStrLn
+  "Compile InBool" ~::
+    compile "InBool" ""
+  "Run InBool" ~!::
+    readProcessWithExitCode (bin "InBool" "") [] "" >>=
+      assertEqual "" (ExitSuccess, "", "")
+  removeFile (bin "InBool" "")
