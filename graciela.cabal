@@ -98,7 +98,7 @@ executable graciela
         Language.Graciela.Treelike
     
     ghc-options:
-      -O3 -fllvm
+      -- -O3 -fllvm
       -- -Wall
       -- -fprof-auto
       -- "-with-rtsopts=-p -s -h -i0.1"

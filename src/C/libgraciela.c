@@ -1,6 +1,13 @@
-/* graciela-lib
-$ gcc -fPIC -shared graciela-lib.c -o graciela-lib.so
-$ clang -fPIC -shared graciela-lib.c -o graciela-lib.so
+/* 
+  libgraciela.h
+
+  Created by Joel Araujo & José Luis Jiménez (Version Alpha 1.0)
+  Modified and maintained by Carlos Spaggiari & Moises Ackerman (Version Beta 2.0)
+
+
+  How to compile:
+  $ cd <GRACIELA_FOLDER_PATH>
+  $ clang -lm -lstdc++ -fPIC -shared src/C/libgraciela-abstract/libgraciela-abstract.cpp src/C/libgraciela.c -o libgraciela.so
 */
 
 #include "math.h"
@@ -35,23 +42,15 @@ int8_t* _malloc(int size){
     printf("\x1B[0;31mError:\x1B[m Out of memory.");
     exit(EXIT_FAILURE);
   }
+  // Mark and add p to the Dynamic Memory Verification (DMV) set
   _addPointer(p);
   return p;
 
 }
 
-int8_t* _mallocTC(int size){
-  int8_t* p = calloc(1,size);
-  if (!p) {
-    printf("\x1B[0;31mError:\x1B[m Could not initialize the TC module. Out of memory.");
-    exit(EXIT_FAILURE);
-  }
-  _mark(p);
-  return p;
-}
-
 
 void _free(int8_t *mem, int l, int c){
+  // Before a piece of memory can be freed, it has to be removed from the DMV set
   _removePointer(mem, l ,c);
   free(mem);
 }

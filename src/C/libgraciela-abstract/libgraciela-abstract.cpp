@@ -46,9 +46,6 @@ extern "C" {
 
   }
 
-  void _mark(int8_t* ptr){
-    (*_stack)[0].push_back(TCTuple(ptr,MEM));
-  }
   void mark(TCTuple t){
     (*_stack)[_stack->size()-1].push_back(t);
   }

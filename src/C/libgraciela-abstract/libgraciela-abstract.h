@@ -193,19 +193,27 @@ extern "C" {
 
     /* Tuple */
     int _equalTuple(gtuple* x, gtuple* y);
+
+
     /*  TrashCollector (Yet Another Garbage Collector)
-     *  Every pointer created (set, multiset, ...) is
-     *  stored inside a vector of pointers, to be freed when freeTrashCollector()
-     *  is called.
+        
+        Every pointer created (set, multiset, ...) is
+        stored inside a vector of pointers, to be freed 
+        when freeTrashCollector() is called.
      */
-    void _mark(int8_t* ptr);
     void _initTrashCollector();
     void _openScope();
     void _closeScope();
     void _freeTrashCollector();
 
 
-    /* Dynamic Memory Verifications */
+    /* Dynamic Memory Verifications (DMV) 
+    
+       Every pointer allocated by the programmer is store in
+       a set until it is freed. The DMV is need to check 
+       invalid memories accesses (e.g. A recent freed pointer 
+       beign accessed: free(p); write(*p) ).
+    */
     void _addPointer   (int8_t* ptr);
     void _removePointer(int8_t* ptr, int c, int l);
     void _derefPointer (int8_t* ptr, int c, int l);

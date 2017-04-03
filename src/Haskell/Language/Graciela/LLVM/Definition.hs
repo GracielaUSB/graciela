@@ -1033,7 +1033,7 @@ preDefinitions files = do
 
     -- Malloc
     , defineFunction mallocString   intParam pointerType
-    , defineFunction mallocTCString intParam pointerType
+    -- , defineFunction mallocTCString intParam pointerType
 
     , defineFunction freeString [ parameter ("ptr", pointerType)
                                 , parameter ("line", intType)

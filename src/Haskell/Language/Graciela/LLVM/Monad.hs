@@ -251,7 +251,7 @@ freeString = "_free"
 
 mallocString :: String
 mallocString   = "_malloc"
-mallocTCString = "_mallocTC"
+-- mallocTCString = "_mallocTC"
 
 addPointerString, removePointerString, derefPointerString :: String
 addPointerString    = "_addPointer"
