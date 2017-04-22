@@ -14,11 +14,20 @@ los alumnos de los cursos de Algoritmos y Estructuras I y II de la Universidad S
 
 El diseño del lenguaje está disponible [aquí](doc/gacela/diseno.md).
 
-## Instalación con APT (Linux 🐧)
+## Instalación
+-----
+Linux 🐧
+-----
 
-***TO DO***
+Para instalar Graciela en Debian o en distribuciones de Linux 
+derivadas de Debian (Ubuntu, Mint, Elementary, etc.):
+  
+- Descargar el paquete deb más reciente para la distribución (:code:`debian` o :code:`ubuntu`) y la arquitectura (:code:`i386` o :code:`amd64`) que corresponda a tu computador en https://github.com/GracielaUSB/graciela-debian/releases.
+- Ejecutar el archivo descargado.
 
-## Instalación con Homebrew (macOS )
+-----
+macOS 
+-----
 
 ### Requisitos
 * **Homebrew**. Seguir las intrucciones en su [página web](http://brew.sh)
