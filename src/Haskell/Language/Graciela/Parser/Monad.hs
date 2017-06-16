@@ -87,6 +87,7 @@ import           Control.Lens                    (use, view, (%=), (.=), (<<.=),
                                                   (<~), (^.), _1, _2)
 import           Control.Monad                   (MonadPlus)
 import           Control.Monad.Identity          (Identity (..))
+import           Control.Monad.IO.Class
 import           Control.Monad.Reader            (MonadReader (..), asks)
 import           Control.Monad.State             (MonadState)
 import           Control.Monad.Trans.Except      (ExceptT (..), catchE,
@@ -117,10 +118,11 @@ newtype ParserT m a = ParserT
            , MonadState Parser.State
            , MonadParsec Error [TokenPos]
            , MonadReader Config
-           , MonadPlus, Alternative)
+           , MonadPlus, Alternative
+           , MonadIO)
 
 -- | Graciela Parser monad.
-type Parser = ParserT Identity
+type Parser = ParserT IO
 --------------------------------------------------------------------------------
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
@@ -171,16 +173,16 @@ runParser  :: Parser (Maybe a)
            -> FilePath
            -> Parser.State
            -> [TokenPos]
-           -> (Either (ParseError TokenPos Error) a, Parser.State)
-runParser  p fp s input = runIdentity $ runParserT p fp s input
+           -> IO (Either (ParseError TokenPos Error) a, Parser.State)
+runParser  p fp s input = runParserT p fp s input
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final state.
 evalParser :: Parser (Maybe a)
            -> FilePath
            -> Parser.State
            -> [TokenPos]
-           -> Either (ParseError TokenPos Error) a
-evalParser p fp s input = runIdentity $ evalParserT p fp s input
+           -> IO (Either (ParseError TokenPos Error) a)
+evalParser p fp s input = evalParserT p fp s input
 
 -- | Evaluate a parser computation with the given filename, stream of tokens,
 -- and initial state, discarding the final value.
@@ -188,8 +190,8 @@ execParser :: Parser (Maybe a)
            -> FilePath
            -> Parser.State
            -> [TokenPos]
-           -> Parser.State
-execParser p fp s input = runIdentity $ execParserT p fp s input
+           -> IO Parser.State
+execParser p fp s input = execParserT p fp s input
 --------------------------------------------------------------------------------
 
 infixl 3 <!>
@@ -309,8 +311,8 @@ boolLit :: MonadParser m
         => m Bool
 boolLit = unTokBool <$> satisfy bool
   where
-    bool TokBool {} = True
-    bool _          = False
+    bool t@TokBool {} = True
+    bool _            = False
 
 charLit :: MonadParser m
         => m Char

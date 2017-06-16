@@ -154,7 +154,7 @@ instance Treelike QRange where
       [ Node "At" [toTree thePoint] ]
 
   toTree EmptyRange =
-    leaf "Empty Range"
+    leaf "EmptyRange"
 
 
 data Value

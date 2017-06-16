@@ -96,6 +96,7 @@ executable graciela
         Language.Graciela.SymbolTable
         Language.Graciela.Token
         Language.Graciela.Treelike
+
     
     ghc-options:
       -- -O3 -fllvm

@@ -360,7 +360,8 @@ token  =  reserved "program"    TokProgram
 
       <|> reserved "null"       TokNull
       <|> reserved "where"      TokWhere
-
+      <|> reserved "include"    TokInclude
+      <|> reserved "module"     TokModule
       <|> charLit
       <|> try floatLit
       <|> intLit

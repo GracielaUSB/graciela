@@ -7,9 +7,11 @@ module Language.Graciela.Parser.Program
   ( program
   ) where
 -------------------------------------------------------------------------------
+import           Language.Graciela.Location           (initialPos)
 import           Language.Graciela.AST.Program
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
+import           Language.Graciela.Lexer              (lex)
 import           Language.Graciela.Location           (Location (..))
 import           Language.Graciela.Parser.Definition
 import           Language.Graciela.Parser.Instruction (block)
@@ -19,7 +21,9 @@ import           Language.Graciela.Parser.Struct
 import           Language.Graciela.SymbolTable        (closeScope, openScope)
 import           Language.Graciela.Token
 -------------------------------------------------------------------------------
-import           Control.Lens                         (use, (%=))
+import           Control.Lens                         (use, (%=), (.=))
+import           Control.Monad.State.Lazy             as State (MonadState(get))
+import           Control.Monad.IO.Class               (liftIO)
 import           Data.Either
 import qualified Data.Map.Strict                      as Map
 import           Data.Maybe                           (fromMaybe)
@@ -27,15 +31,74 @@ import           Data.Maybe                           (fromMaybe)
 import qualified Data.Sequence                        as Seq (empty, fromList)
 import qualified Data.Set                             as Set (fromList, insert)
 import qualified Data.Text                            as T (intercalate)
+import           Prelude                              hiding (lex)
 import           Text.Megaparsec                      (eitherP, eof,
                                                        getPosition, optional,
-                                                       sepBy1, (<|>))
+                                                       sepBy1, unsafePos, (<|>))
+import           Text.Megaparsec                      as MP (getInput,setInput,pushPosition, popPosition)
+import           System.Directory                     (doesFileExist)
+import           System.Exit                          (die)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
+
+gModule :: Parser ()
+gModule = do
+  many include
+  from <- getPosition
+  match' TokModule
+  match' TokBegin
+  many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
+  match' TokEnd
+  pure ()
+
+
+
+
+include :: Parser ()
+include = do
+  match TokInclude
+  name' <- safeIdentifier
+  case name' of 
+    Nothing -> pure ()
+    Just name -> do 
+      let fileName = unpack (name <> ".gcl")
+
+      liftIO $ doesFileExist fileName >>= \x -> do 
+        unless x $ 
+          die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
+           " Could not include `" <> fileName <> "`.The file does not exist."
+        pure ()
+      -- pure (doesFileExist (unpack fileName)) >>= \x -> unless x
+      --   (error $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
+      --          " The file `" <> fileName <> "` does not exist.")
+      
+      source <- liftIO $ readFile fileName
+      let 
+        (tokens, pragmas') = lex fileName (pack source)
+
+      currentPragmas <- use pragmas
+      pragmas .= pragmas'
+      currentStream <- MP.getInput 
+      MP.setInput tokens
+      MP.pushPosition $ initialPos fileName
+      gModule
+      MP.popPosition
+      MP.setInput currentStream
+
 program :: Parser (Maybe Program)
 program = do
   from <- getPosition
+  
+  symbolTable %= openScope from -- Open the program scope
+  
+  
+  
+  
+  many include
+  
+  
+
 
   match' TokProgram
   name' <- safeIdentifier
@@ -45,7 +108,7 @@ program = do
     pure $ "." <> T.intercalate "." exts
   match' TokBegin
 
-  symbolTable %= openScope from -- Open the program scope
+  
 
   many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
 

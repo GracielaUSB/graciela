@@ -26,6 +26,7 @@ module Language.Graciela.Parser.State
   , isDeclarative
   , allowAbstNames
   , useLet
+  , readedFiles
 
   , crName
   , crPos
@@ -88,7 +89,8 @@ data State = State
   , _pragmas         :: Set Pragma
   , _isDeclarative   :: Bool
   , _allowAbstNames  :: Bool
-  , _useLet          :: Bool }
+  , _useLet          :: Bool
+  , _readedFiles     :: Set Text }
 
 makeLenses ''State
 
@@ -110,4 +112,5 @@ initialState pragmas = State
   , _pragmas         = pragmas
   , _isDeclarative   = LogicAnywhere `elem` pragmas
   , _allowAbstNames  = False
-  , _useLet          = False }
+  , _useLet          = False
+  , _readedFiles     = Set.empty }

@@ -67,7 +67,7 @@ data Abort
   | Post               -- ^ A postcondition failed.
   | Assert             -- ^ An assertion failed.
   | Invariant          -- ^ An invariant failed.
-  | NondecreasingBound -- ^ A bound didn't decrease between iterations or recursion.
+  | NonDecreasingBound -- ^ A bound didn't decrease between iterations or recursion.
   | NegativeBound      -- ^ A bound function took a negative value.
   | DivisionByZero     -- ^ A division by zero was attempted.
   | Overflow           -- ^ A value overflowed.

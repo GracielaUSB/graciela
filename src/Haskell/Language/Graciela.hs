@@ -167,7 +167,9 @@ options =
       \-O0 No optimization\n\
       \-O1 Somewhere between -O0 and -O2\n\
       \-O2 Moderate level of optimization which enables most optimizations\n\
+      \-Os Like -O2 with extra optimizations to reduce code size.\n\
       \-O3 Like -O2, except that it enables optimizations that take longer to perform or that may generate larger code (in an attempt to make the program run faster)."
+      
 
   , Right $ Option [] ["noAssertions"]
       (NoArg (\opts -> opts { optNoAssertions = True }))
@@ -195,7 +197,7 @@ compile fileName options = do
 
   let
     (tokens, pragmas) = lex fileName source
-    (r, state) = runParser program fileName (initialState pragmas) tokens
+  (r, state) <- runParser program fileName (initialState pragmas) tokens
 
   if null (state ^. errors)
     then case r of

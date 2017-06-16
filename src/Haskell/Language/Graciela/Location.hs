@@ -18,6 +18,7 @@ module Language.Graciela.Location
   , Pos
   , gracielaDef
   , gracielaDef'
+  , initialPos
   , pos
   , showPos
   , unPos
@@ -61,6 +62,8 @@ gracielaDef = Location (gracielaDef', gracielaDef')
 gracielaDef' :: SourcePos
 gracielaDef' = SourcePos "/GRACIELA/" (unsafePos 1) (unsafePos 1)
 
+initialPos :: String -> SourcePos
+initialPos name = SourcePos name (unsafePos 1) (unsafePos 1)
 -- | Shows a 'SourcePos' in a human-readable way.
 showPos :: SourcePos -> String
 showPos SourcePos { sourceName, sourceLine, sourceColumn }

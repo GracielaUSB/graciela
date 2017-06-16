@@ -9,7 +9,7 @@ program SepLogic.bin begin
 
 abstract TreeA(T)
 begin
-  
+  var s : set of int;
   {repinv true repinv}
 
   func buildHeap( tree : TreeA(T)*
@@ -37,21 +37,24 @@ type Tree(T) implements TreeA(T)
 begin
   var l, r : Tree(T)*;
   var info : T;
+  var s := {} : set of int;
   {repinv true repinv}
   {coupinv true coupinv}
+  where {s := {}}
 
   func buildHeap( tree : Tree(T)*
                 , b : int  
                 ) -> function int -> int
     let heap := func({(toInt(tree), toInt(tree) + sizeof(Tree(T)))}) : function int -> int;
     let left, right := (*tree).l, (*tree).r : Tree(T)*;
+
     {pre  true  pre}
     {post true post}
     {bound b bound} 
     |[ if left  == null /\ right == null -> heap
        [] left  == null -> buildHeap(right, b-1) union heap
        [] right == null -> buildHeap( left, b-1) union heap
-       [] otherwise -> buildHeap(left, b-1) union buildHeap(right, b-1) union heap
+       [] otherwise     -> buildHeap(left, b-1) union buildHeap(right, b-1) union heap
        fi
     ]|
 

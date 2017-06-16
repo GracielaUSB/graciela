@@ -163,17 +163,19 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     warn Warning.Manual pos
 
   Assertion expr -> do
-    -- Create both labels
-    trueLabel  <- newLabel "assertTrue"
-    falseLabel <- newLabel "assertFalse"
-    -- Evaluate the condition expression using short-circuit
-    boolean trueLabel falseLabel expr
-    -- Set the false label to the abort
-    -- And the true label to the next instructions
-    (falseLabel #)
-    abort Abort.Assert pos
+    asserts <- use evalAssertions
+    when asserts $ do
+      -- Create both labels
+      trueLabel  <- newLabel "assertTrue"
+      falseLabel <- newLabel "assertFalse"
+      -- Evaluate the condition expression using short-circuit
+      boolean trueLabel falseLabel expr
+      -- Set the false label to the abort
+      -- And the true label to the next instructions
+      (falseLabel #)
+      abort Abort.Assert pos
 
-    (trueLabel #)
+      (trueLabel #)
 
 
   Assign { assignPairs } -> do
@@ -243,12 +245,12 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         pure $ llvmName (pName <> pack "-" <> structBaseName) t'
 
       _ -> pure . unpack $ pName
-
-    recArgs <- fmap (,[]) <$> if pRecursiveCall
+    asserts <- use evalAssertions
+    recArgs <- fmap (,[]) <$> if pRecursiveCall && asserts
       then do
         boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
-      else if prp
+      else if prp && asserts
         then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
       else pure []
 
@@ -978,7 +980,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       , metadata' = [] }
 
     (noLtOld #)
-    abort Abort.NondecreasingBound pos
+    abort Abort.NonDecreasingBound pos
 
     (checkGte0 #)
     boundVal <- newLabel "doBound"

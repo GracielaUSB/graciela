@@ -217,6 +217,8 @@ data Token
   | TokFree
   | TokNull
   | TokWhere
+  | TokInclude
+  | TokModule
   deriving (Eq, Ord)
 
 
@@ -387,4 +389,7 @@ instance Show Token where
     TokAmpersand      -> "&"
 
     TokWhere          -> "where"
+    TokInclude        -> "include"
+    TokModule         -> "module"
     TokUnexpected t   -> show t
+

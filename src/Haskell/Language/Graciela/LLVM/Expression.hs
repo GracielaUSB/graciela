@@ -1033,11 +1033,12 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
         _ -> pure . unpack $ fName
 
-      recArgs <- fmap (,[]) <$> if fRecursiveCall
+      asserts <- use evalAssertions
+      recArgs <- fmap (,[]) <$> if fRecursiveCall && asserts
         then do
           boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
           pure [ConstantOperand $ C.Int 1 1, boundOperand]
-        else if fRecursiveFunc
+        else if fRecursiveFunc && asserts
           then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
           else pure []
       label <- newLabel "funcResult"

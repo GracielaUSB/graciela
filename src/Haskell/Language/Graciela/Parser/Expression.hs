@@ -2036,14 +2036,17 @@ conjunction :: Location
 conjunction _ Nothing _ = pure Nothing
 conjunction _ _ Nothing = pure Nothing
 conjunction opLoc
-  l@(Just (Expression { }, ProtoNothing, ltaint))
-  r@(Just (Expression { }, ProtoNothing, rtaint))
-  = binary Op.and opLoc l r
+  l@(Just (Expression { }, lproto, ltaint))
+  r@(Just (Expression { }, rproto, rtaint))
+  |  lproto == ProtoNothing || lproto == (ProtoQRange EmptyRange) -- Without it, conjuntion always give true (false /\ false == true)
+  && rproto == ProtoNothing || rproto == (ProtoQRange EmptyRange) -- Possible reason: False lit is always being marked as ProtoQRange
+    = binary Op.and opLoc l r
 conjunction opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp' }, lproto, ltaint))
   (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp' }, rproto, rtaint))
   = case Op.binType Op.and ltype rtype of
     Right GBool -> do
+
       varname <- gets head
       let
         taint = ltaint <> rtaint

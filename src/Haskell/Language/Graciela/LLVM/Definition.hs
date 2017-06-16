@@ -182,18 +182,27 @@ definition
 
       mapM_ declaration funcDecls
 
-      preOperand <- precondition pre
+      asserts <- use evalAssertions
 
-      params' <- recursiveParams funcRecursive
+      cond <- if asserts 
+        then Just <$> precondition pre
+        else pure Nothing 
+
+      params' <- recursiveParams (funcRecursive && asserts) -- recursion is verified if the assertions are enabled
 
       cs <- use currentStruct
       returnType <- toLLVMType funcRetType
       let
-        invariant' fn (name, t) = do
+        invariant' fn (name, t) | asserts = do
           name' <- getVariableName name
-          exit  <- callInvariant fn preOperand name' t Nothing
+          exit  <- case cond of 
+            Just cond' -> callInvariant fn cond' name' t Nothing
+            Nothing -> pure Nothing
           when (isJust exit) $ (fromJust exit #)
+        invariant' _ _ = pure ()
+
         dts  = filter (\(_, t) -> isJust (T.hasDT t) ) . toList $ funcParams
+        
         body = do
           forM_ dts (invariant' "inv"    )
           forM_ dts (invariant' "coupInv")
@@ -220,11 +229,13 @@ definition
 
 
       (postFix, returnOperand) <- case cs of
-        Nothing -> do
+        Nothing  -> do 
           returnOp <- body
-          retVar returnOp
-          postcondition preOperand post
+          when asserts $ do 
+            retVar returnOp
+            postcondition (fromJust cond) post
           pure ("", returnOp)
+        
 
         Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
           abstractStruct <- (Map.lookup abstract) <$> use structs
@@ -239,17 +250,18 @@ definition
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractFunctionDef {abstFDecl}} -> do
               mapM_ declaration abstFDecl
-              preconditionAbstract preOperand pre' pos
+              when asserts $ preconditionAbstract (fromJust cond) pre' pos
             _ -> pure ()
 
           returnOp <- body
-          retVar returnOp
+          when asserts $ retVar returnOp
 
           case maybeProc of
-            Just Definition{post = post'} -> postconditionAbstract preOperand post' pos
-            _                             -> pure ()
+            Just Definition{post = post'} | asserts -> 
+              postconditionAbstract (fromJust cond) post' pos
+            _  -> pure ()
 
-          postcondition preOperand post
+          when asserts $ postcondition (fromJust cond) post
           pure (postFix, returnOp)
 
       terminate Ret
@@ -282,19 +294,19 @@ definition
       mapM_ arrAux procParams
 
 
-      cond' <- if asserts 
+      cond <- if asserts 
         then Just <$> precondition pre
         else pure Nothing 
 
-      params' <- recursiveParams procRecursive
+      params' <- recursiveParams (procRecursive && asserts) -- recursion is verified if the assertions are enabled
 
       cs <- use currentStruct
       let
 
         invariant' fn (name, t, _) | asserts = do
           name' <- getVariableName name
-          exit  <- case cond' of 
-            Just cond -> callInvariant fn cond name' t Nothing
+          exit  <- case cond of 
+            Just cond' -> callInvariant fn cond' name' t Nothing
             Nothing -> pure Nothing
           when (isJust exit) $ (fromJust exit #)
         invariant' _ _ = pure ()
@@ -310,12 +322,12 @@ definition
           forM_ dts (invariant' "coupInv")
           forM_ dts (invariant' "repInv" )
 
-          let cond = fromJust cond'
+          let cond' = fromJust cond
 
           case maybeProc of
             Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} | asserts  -> do
               mapM_ declaration abstPDecl
-              preconditionAbstract cond pre' pos
+              preconditionAbstract cond' pre' pos
                               
             _ -> pure ()
 
@@ -328,7 +340,7 @@ definition
           forM_ dts (invariant' "inv"    )
           forM_ dts (invariant' "repInv" )
           case maybeProc of
-            Just Definition{post = post'} | asserts -> postconditionAbstract cond post' pos
+            Just Definition{post = post'} | asserts -> postconditionAbstract cond' post' pos
             _                             -> pure ()
 
       pName <- case cs of
@@ -346,7 +358,7 @@ definition
           pure $ unpack defName <> postFix
 
       when asserts $ do
-        postcondition (fromJust cond') post
+        postcondition (fromJust cond) post
 
       terminate $ Ret Nothing []
 
@@ -545,7 +557,7 @@ definition
         , metadata           = [] }
 
       pure exit
-
+    
     recursiveParams isRecursive = if isRecursive
       then do
         let
@@ -606,7 +618,7 @@ definition
           , metadata' = [] }
 
         (noLtOld #)
-        abort Abort.NondecreasingBound
+        abort Abort.NonDecreasingBound
           (let Location (pos, _) = loc boundExp in pos)
 
         (yesLtOld #)
