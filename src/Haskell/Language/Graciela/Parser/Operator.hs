@@ -235,12 +235,8 @@ fraction op f g
             "Division by zero."
           pure Nothing
         | otherwise -> pure . Just . Value . CharV . chr' $ ord' m `f` ord' n
-      (Value (FloatV m), Value (FloatV n))
-        | n == 0 -> do
-          putError pos . UnknownError $
-            "Division by zero."
-          pure Nothing
-        | otherwise -> pure . Just . Value . FloatV $ m `g` n
+      (Value (FloatV m), Value (FloatV n)) ->
+         pure . Just . Value . FloatV $ m `g` n
       _ -> pure . Just $ Binary
             { binOp = op
             , lexpr = l

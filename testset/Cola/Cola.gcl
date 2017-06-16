@@ -2,7 +2,7 @@
 
 /*% LANGUAGE EnableTrace %*/
 
-program Cola begin
+program Cola.bin begin
 
 abstract ColaA(T)
 begin

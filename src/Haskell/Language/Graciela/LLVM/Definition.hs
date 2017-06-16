@@ -273,24 +273,34 @@ definition
     ProcedureDef { procDecl, procParams, procBody, procRecursive } -> do
       proc <- newLabel $ "proc" <> unpack defName
       (proc #)
-
+      asserts <- use evalAssertions
       openScope
 
       params <- mapM (makeParam False) . toList $ procParams
       mapM_ declarationsOrRead procDecl
 
       mapM_ arrAux procParams
-      cond <- precondition pre
+
+
+      cond' <- if asserts 
+        then Just <$> precondition pre
+        else pure Nothing 
 
       params' <- recursiveParams procRecursive
 
       cs <- use currentStruct
       let
-        invariant' fn (name, t, _) = do
+
+        invariant' fn (name, t, _) | asserts = do
           name' <- getVariableName name
-          exit  <- callInvariant fn cond name' t Nothing
+          exit  <- case cond' of 
+            Just cond -> callInvariant fn cond name' t Nothing
+            Nothing -> pure Nothing
           when (isJust exit) $ (fromJust exit #)
+        invariant' _ _ = pure ()
+
         dts  = filter (\(_, t, _) -> isJust (T.hasDT t) ) . toList $ procParams
+        
         body abstractStruct = do
           let
             maybeProc = case abstractStruct of
@@ -300,11 +310,13 @@ definition
           forM_ dts (invariant' "coupInv")
           forM_ dts (invariant' "repInv" )
 
+          let cond = fromJust cond'
 
           case maybeProc of
-            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} -> do
+            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} | asserts  -> do
               mapM_ declaration abstPDecl
               preconditionAbstract cond pre' pos
+                              
             _ -> pure ()
 
           forM_ dts (invariant' "inv")
@@ -315,6 +327,9 @@ definition
 
           forM_ dts (invariant' "inv"    )
           forM_ dts (invariant' "repInv" )
+          case maybeProc of
+            Just Definition{post = post'} | asserts -> postconditionAbstract cond post' pos
+            _                             -> pure ()
 
       pName <- case cs of
         Nothing -> do
@@ -330,7 +345,8 @@ definition
           body abstractStruct
           pure $ unpack defName <> postFix
 
-      postcondition cond post
+      when asserts $ do
+        postcondition (fromJust cond') post
 
       terminate $ Ret Nothing []
 
@@ -787,6 +803,9 @@ preDefinitions files = do
                                  , parameter ("line", intType)
                                  , parameter ("column", intType)]
                                  intType
+
+    , defineFunction isNanString  [ parameter ("x", floatType) ] boolType
+    , defineFunction isInfString  [ parameter ("x", floatType) ] boolType
 
     , defineFunction absFString               floatParam floatType
     , defineFunction toSetMultiString         ptrParam   pointerType

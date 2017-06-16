@@ -1,0 +1,21 @@
+program Program.bin begin
+
+proc isInf1 (in x : float)
+{pre  x+1.0 < 5.0 pre}
+{post  x+1.0 < 5.0 post}
+|[
+	write(x);
+]|
+
+main
+	|[
+
+		var x : float;
+		isInf1(12.0);
+		x := 0.0/0.0;
+    	writeln(x) {isNan(x)};
+    	x := 1.0/0.0;
+    	writeln(x) {isInf(x)}
+	]|
+
+end

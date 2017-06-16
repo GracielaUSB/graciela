@@ -1773,8 +1773,8 @@ unary unOp
     Left expected -> do
       let loc = Location (from, to i)
       putError from . UnknownError $
-        "Operator `" <> show (Op.unSymbol unOp) <> "` at " <> show opLoc <>
-        " received an expression of type:" <>
+        "Operator `" <> show (Op.unSymbol unOp) <>
+        "`` received an expression of type:" <>
         "\n\t\t" <> show itype <>
         "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
@@ -1816,8 +1816,8 @@ binary binOp opLoc
 
     Left expected -> do
       putError (from l) . UnknownError $
-        "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-        " received two expressions of types:" <>
+        "Operator `" <> show (Op.binSymbol binOp) <>
+        "` received two expressions of types:" <>
         "\n\t\t" <> show (ltype, rtype) <>
         "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
@@ -1863,8 +1863,8 @@ membership opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem <> "` at " <> show opLoc <>
-        " received two expressions of types:" <>
+        "Operator `" <> show Elem <>
+        "` received two expressions of types:" <>
         "\n\t\t" <> show (ltype, rtype) <>
         "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
@@ -1894,8 +1894,8 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-          " received two expressions of types:" <>
+          "Operator `" <> show (Op.binSymbol binOp) <>
+          "` received two expressions of types:" <>
           "\n\t\t" <> show (ltype, rtype) <>
           "\n\tbut expected an expression of type " <>
           "\n\t\t" <> expected
@@ -1933,8 +1933,8 @@ comparison binOp opLoc
       Left expected -> do
         let loc = Location (from l, to r)
         putError (from l) . UnknownError $
-          "Operator `" <> show (Op.binSymbol binOp) <> "` at " <> show opLoc <>
-          " received two expressions of types:" <>
+          "Operator `" <> show (Op.binSymbol binOp) <>
+          "` received two expressions of types:" <>
           "\n\t\t" <> show (ltype, rtype) <>
           "\n\tbut expected an expression of type " <>
           "\n\t\t" <> expected
@@ -1984,8 +1984,8 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem  <> "` at " <> show opLoc <>
-        " received two expressions of types:" <>
+        "Operator `" <> show Elem  <>
+        "` received two expressions of types:" <>
         "\n\t\t" <> show (ltype, rtype) <>
         "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
@@ -2009,8 +2009,8 @@ pointRange opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show Elem  <> "` at " <> show opLoc <>
-        " received two expressions of types:" <>
+        "Operator `" <> show Elem  <> 
+        "` received two expressions of types:" <>
         "\n\t\t" <> show (ltype, rtype) <>
         "\n\tbut expected an expression of type " <>
         "\n\t\t" <> expected
@@ -2099,8 +2099,8 @@ conjunction opLoc
     Left expected -> do
       let loc = Location (from l, to r)
       putError (from l) . UnknownError $
-        "Operator `" <> show And <> "` at " <> show opLoc <>
-        " received two expression of types:" <>
+        "Operator `" <> show And <>
+        "` received two expression of types:" <>
         "\n\t\t" <> show (ltype, rtype) <>
         "\n\t but expected expressions of types " <>
         "\n\t\t" <> expected

@@ -16,7 +16,7 @@ import           Language.Graciela.LLVM.Definition       (definition,
                                                           preDefinitions)
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
-import qualified Language.Graciela.LLVM.State            as S (structs)
+import qualified Language.Graciela.LLVM.State            as S (structs, State())
 import           Language.Graciela.LLVM.Struct           (defineStruct)
 import           Language.Graciela.LLVM.Type             (intType)
 --------------------------------------------------------------------------------
@@ -61,14 +61,17 @@ import           System.Process                          (readProcess)
 programToLLVM :: [String]             -- ^ Files for read instructions
               -- -> Map Text (G.Type, a) -- ^ Declared types
               -> Program              -- ^ AST
+              -> Bool
               -> IO Module
 programToLLVM
   files
   -- types
   Program { name, defs, insts, P.structs, fullStructs, strings }
+  noAssertions
   = do
   -- Eval the program with the LLVMRWS
-  let definitions = evalState (unLLVM program) initialState
+
+  let definitions = evalState (unLLVM program) $ initialState {_evalAssertions = not noAssertions }
   version <- getOSXVersion -- Mac OS only
 
   return defaultModule

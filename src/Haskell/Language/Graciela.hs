@@ -86,7 +86,8 @@ data Options = Options
   , optLLVM         :: Bool
   , optClang        :: String
   , optLibGraciela  :: String
-  , optKeepTemp     :: Bool }
+  , optKeepTemp     :: Bool
+  , optNoAssertions :: Bool }
 
 defaultOptions      = Options
   { optHelp         = False
@@ -100,7 +101,8 @@ defaultOptions      = Options
   , optLLVM         = False
   , optClang        = clang
   , optLibGraciela  = lib
-  , optKeepTemp     = False }
+  , optKeepTemp     = False 
+  , optNoAssertions = False}
   where
     (clang, lib) --, abstractLib)
       | isLinux =
@@ -158,7 +160,7 @@ options =
   , Left $ Option ['K'] ["keep-temp"]
     (NoArg (\opts -> opts { optKeepTemp = True }))
     "Keep temporary llvm file"
-
+  
   , Right $ Option ['O'] ["optimization"]
     (ReqArg (\level opts -> opts { optOptimization = "-O" <> level }) "LEVEL")
       "Optimization levels\n\
@@ -166,6 +168,10 @@ options =
       \-O1 Somewhere between -O0 and -O2\n\
       \-O2 Moderate level of optimization which enables most optimizations\n\
       \-O3 Like -O2, except that it enables optimizations that take longer to perform or that may generate larger code (in an attempt to make the program run faster)."
+
+  , Right $ Option [] ["noAssertions"]
+      (NoArg (\opts -> opts { optNoAssertions = True }))
+      "Boost up the performance of the program by not generating code for run-time assertions like preconditions, postcondition and bounds."
   ]
 
 opts :: IO (Options, [String])
@@ -210,7 +216,7 @@ compile fileName options = do
               files = toList $ state ^. filesToRead
               -- types = state ^. typesTable
 
-            newast <- programToLLVM files program
+            newast <- programToLLVM files program (optNoAssertions options)
 
             let
               lltName = case optOutName options of

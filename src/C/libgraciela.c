@@ -48,6 +48,8 @@ int8_t* _malloc(int size){
 
 }
 
+int _isNan(double x){ return isnan(x); }
+int _isInf(double x){ return isinf(x); }
 
 void _free(int8_t *mem, int l, int c){
   // Before a piece of memory can be freed, it has to be removed from the DMV set

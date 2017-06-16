@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Language.Graciela.LLVM.State
-  ( State (..)
+  ( State (..)  
   , initialState
   , nameSupply
   , unnameSupply
@@ -22,6 +22,7 @@ module Language.Graciela.LLVM.State
   , substitutionTable
   , doGet
   , coupling
+  , evalAssertions
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Struct (Struct (..))
@@ -59,7 +60,8 @@ data State = State
   , _boundOp           :: Maybe Operand
   , _substitutionTable :: [TypeArgs]
   , _doGet             :: Bool
-  , _coupling          :: Bool }
+  , _coupling          :: Bool
+  , _evalAssertions    :: Bool }
 
 
 makeLenses ''State
@@ -83,4 +85,5 @@ initialState = State
   , _boundOp           = Nothing
   , _substitutionTable = []
   , _doGet             = True
-  , _coupling          = False }
+  , _coupling          = False
+  , _evalAssertions    = True }

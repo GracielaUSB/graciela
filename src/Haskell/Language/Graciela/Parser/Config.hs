@@ -10,6 +10,8 @@ module Language.Graciela.Parser.Config
   , sqrtFString
   , absIString
   , absFString
+  , isNanString
+  , isInfString
   , toSetMultiString
   , toSetSeqString
   , toSetFuncString
@@ -105,12 +107,15 @@ defaultConfig enableTrace enableAmpersand = Config
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 
+    nativeFunctions :: Map Text Definition
     nativeFunctions = Map.mapWithKey wrap $ Map.empty &~ do
       at "abs"          ?= (absG         , [])
       at "codomain"     ?= (codomainG    , [])
       at "domain"       ?= (domainG      , [])
       at "func"         ?= (funcG        , [])
       at "inverse"      ?= (inverseG     , [])
+      at "isNan"        ?= (isNanG       , [])
+      at "isInf"        ?= (isInfG       , [])
       at "multiplicity" ?= (multiplicityG, [0])
       at "rel"          ?= (relG         , [])
       at "sqrt"         ?= (sqrtG        , [])
@@ -128,7 +133,7 @@ defaultConfig enableTrace enableAmpersand = Config
     absG, codomainG, domainG          :: Seq Type -> Either Error (Type, Text, Bool)
     funcG, inverseG, multiplicityG    :: Seq Type -> Either Error (Type, Text, Bool)
     relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
-    toSequenceG                       :: Seq Type -> Either Error (Type, Text, Bool)
+    toSequenceG, isNanG, isInfG       :: Seq Type -> Either Error (Type, Text, Bool)
 
     wrap defName (signatures, casts) = Definition
       { defLoc  = gracielaDef
@@ -233,6 +238,28 @@ defaultConfig enableTrace enableAmpersand = Config
       , aType  = a }
     absG args = Left badNumArgs
       { fName = "abs"
+      , nParams = 1
+      , nArgs = length args}
+
+    isNanG [ GFloat ] = Right (GBool, pack isNanString, False)
+    isNanG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "isNan"
+      , pTypes = [GFloat]
+      , aType  = a }
+    isNanG args = Left badNumArgs
+      { fName = "isNan"
+      , nParams = 1
+      , nArgs = length args}
+
+    isInfG [ GFloat ] = Right (GBool, pack isInfString, False)
+    isInfG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "isInf"
+      , pTypes = [GFloat]
+      , aType  = a }
+    isInfG args = Left badNumArgs
+      { fName = "isInf"
       , nParams = 1
       , nArgs = length args}
 
@@ -350,6 +377,8 @@ defaultConfig enableTrace enableAmpersand = Config
       , nParams = 1
       , nArgs = length args}
 
+
+
     multiplicityG [ a, b ] = if a =:= GOneOf [basic, GATuple, GATypeVar]
       then
         case b of
@@ -407,6 +436,10 @@ sqrtFString = "_sqrt_f"
 absIString, absFString :: String
 absIString = "_abs_i"
 absFString = "_abs_f"
+
+isNanString, isInfString :: String
+isNanString = "_isNan"
+isInfString = "_isInf"
 
 toSetMultiString, toSetSeqString, toSetFuncString, toSetRelString :: String
 toSetMultiString = "_multiset_to_set"
