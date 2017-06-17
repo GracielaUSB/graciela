@@ -11,11 +11,11 @@ import           Language.Graciela.Location           (initialPos)
 import           Language.Graciela.AST.Program
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
-import           Language.Graciela.Lexer              (lex)
 import           Language.Graciela.Location           (Location (..))
 import           Language.Graciela.Parser.Definition
 import           Language.Graciela.Parser.Instruction (block)
 import           Language.Graciela.Parser.Monad       hiding (sepBy1)
+import           Language.Graciela.Parser.Module      (gModule, includes)
 import           Language.Graciela.Parser.State
 import           Language.Graciela.Parser.Struct
 import           Language.Graciela.SymbolTable        (closeScope, openScope)
@@ -23,7 +23,6 @@ import           Language.Graciela.Token
 -------------------------------------------------------------------------------
 import           Control.Lens                         (use, (%=), (.=))
 import           Control.Monad.State.Lazy             as State (MonadState(get))
-import           Control.Monad.IO.Class               (liftIO)
 import           Data.Either
 import qualified Data.Map.Strict                      as Map
 import           Data.Maybe                           (fromMaybe)
@@ -34,71 +33,20 @@ import qualified Data.Text                            as T (intercalate)
 import           Prelude                              hiding (lex)
 import           Text.Megaparsec                      (eitherP, eof,
                                                        getPosition, optional,
-                                                       sepBy1, unsafePos, (<|>))
+                                                       sepBy1, (<|>))
 import           Text.Megaparsec                      as MP (getInput,setInput,pushPosition, popPosition)
 import           System.Directory                     (doesFileExist)
-import           System.Exit                          (die)
 -------------------------------------------------------------------------------
 
 -- MainProgram -> 'program' Id 'begin' ListDefProc Block 'end'
 
-gModule :: Parser ()
-gModule = do
-  many include
-  from <- getPosition
-  match' TokModule
-  match' TokBegin
-  many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
-  match' TokEnd
-  pure ()
-
-
-
-
-include :: Parser ()
-include = do
-  match TokInclude
-  name' <- safeIdentifier
-  case name' of 
-    Nothing -> pure ()
-    Just name -> do 
-      let fileName = unpack (name <> ".gcl")
-
-      liftIO $ doesFileExist fileName >>= \x -> do 
-        unless x $ 
-          die $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
-           " Could not include `" <> fileName <> "`.The file does not exist."
-        pure ()
-      -- pure (doesFileExist (unpack fileName)) >>= \x -> unless x
-      --   (error $ "\ESC[1;31m" <> "ERROR:" <> "\ESC[m" <>
-      --          " The file `" <> fileName <> "` does not exist.")
-      
-      source <- liftIO $ readFile fileName
-      let 
-        (tokens, pragmas') = lex fileName (pack source)
-
-      currentPragmas <- use pragmas
-      pragmas .= pragmas'
-      currentStream <- MP.getInput 
-      MP.setInput tokens
-      MP.pushPosition $ initialPos fileName
-      gModule
-      MP.popPosition
-      MP.setInput currentStream
 
 program :: Parser (Maybe Program)
 program = do
   from <- getPosition
-  
   symbolTable %= openScope from -- Open the program scope
   
-  
-  
-  
-  many include
-  
-  
-
+  includes -- parse includes statements and move to the included file
 
   match' TokProgram
   name' <- safeIdentifier
@@ -107,9 +55,8 @@ program = do
     exts <- identifier `sepBy1` match TokDot
     pure $ "." <> T.intercalate "." exts
   match' TokBegin
-
   
-
+  
   many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
 
   main' <- mainRoutine
@@ -129,6 +76,7 @@ program = do
 
   case (name', main') of
     (Just name, Just main) -> do
+      readeFilesStack %= (:) (unpack name)
       pend    <- use pendingDataType
       dts     <- use dataTypes
       fdts'   <- use fullDataTypes
@@ -158,6 +106,7 @@ program = do
           Nothing     -> internal $ "Couldn't find struct " <> show name
         fdts = Map.fromList $ aux <$> (Map.toList fdts')
 
+      readeFilesStack %= tail
       pure $ Just Program
         { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)

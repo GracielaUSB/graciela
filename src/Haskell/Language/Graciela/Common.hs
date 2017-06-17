@@ -12,7 +12,7 @@ module Language.Graciela.Common
   , lift
   , Int32
   , trace, traceM, traceShow, traceShowId, traceShowM
-  , Seq, Set, Map
+  , Seq, Set, Map, Text
   , ($>)
   , rights, eithers, Both
   ) where
@@ -33,7 +33,7 @@ import           Data.Maybe                 (isJust, isNothing)
 import           Data.Semigroup             (Semigroup (..))
 import           Data.Sequence              (Seq)
 import           Data.Set                   (Set)
-import           Data.Text                  (pack, unpack)
+import           Data.Text                  (pack, unpack, Text)
 import           Debug.Trace                (trace, traceM, traceShow,
                                              traceShowId, traceShowM)
 --------------------------------------------------------------------------------

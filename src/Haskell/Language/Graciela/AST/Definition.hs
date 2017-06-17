@@ -10,7 +10,7 @@ import           Language.Graciela.Common
 import           Language.Graciela.Error           (Error)
 --------------------------------------------------------------------------------
 import           Data.Sequence                     (Seq)
-import           Data.Text                         (Text, unpack)
+import           Data.Text                         (unpack)
 --------------------------------------------------------------------------------
 
 data Definition'

@@ -20,6 +20,7 @@ module Language.Graciela.Location
   , gracielaDef'
   , initialPos
   , pos
+  , locFile
   , showPos
   , unPos
   ) where
@@ -56,6 +57,9 @@ instance Semigroup Location where
 pos :: Location -> SourcePos
 pos (Location (p, _)) = p
 
+locFile :: Location -> String
+locFile (Location (SourcePos file _ _, _)) = file
+
 gracielaDef :: Location
 gracielaDef = Location (gracielaDef', gracielaDef')
 
@@ -71,3 +75,4 @@ showPos SourcePos { sourceName, sourceLine, sourceColumn }
   | otherwise =
     "(line " <> show (unPos sourceLine) <> ", col " <>
     show (unPos sourceColumn) <> ")"
+

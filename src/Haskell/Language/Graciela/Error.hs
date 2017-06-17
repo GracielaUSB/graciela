@@ -13,7 +13,7 @@ import           Data.List                        (intercalate)
 import           Data.Sequence                    (Seq)
 import           Data.Set                         (Set)
 import qualified Data.Set                         as Set
-import           Data.Text                        (Text, unpack)
+import           Data.Text                        (unpack)
 import           Text.Megaparsec                  hiding (Token)
 import           Text.Megaparsec.Error
 --------------------------------------------------------------------------------

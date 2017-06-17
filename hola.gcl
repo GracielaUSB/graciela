@@ -1,39 +1,23 @@
 
+include chao;
+module Hola begin
 
-module begin
-
-abstract Diccionario (T0, T1) begin
-  const MAX := 100 : int;
-  var   conoc      : set of T0;
-  var   tabla      : function T0 -> T1;
-
-  {repinv  MAX   > 0 
-        ∧ #conoc ≤  MAX 
-        ∧  conoc == domain(tabla) repinv}  
-  
-  proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
-    let tabla' := d.tabla : function T0 -> T1;
-    let conoc' := d.conoc : set of T0;
-
-    {pre c ∉ d.conoc ∧ #d.conoc < d.MAX pre}
-    {post d.conoc == conoc' ∪ {c}
-        ∧ d.tabla == tabla' ∪ func({(c, v)}) post}
-
-  proc eliminar (inout d : Diccionario(T0,T1), in c : T0)
-    let tabla' := d.tabla : function T0 -> T1;
-    let conoc' := d.conoc : set of T0;
+abstract jose( )
+begin
+  /* jose variables */
    
-    {pre c ∈ d.conoc pre}
-    {post d.conoc == conoc' \ {c} 
-        ∧ d.tabla == tabla' \ func({(c, tabla'(c))}) post}
+  
+  {repinv true repinv}
 
-  proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
-    {pre  c ∈ d.conoc  pre}
-    {post v == d.tabla(c) post}
-
-  proc existe (in d : Diccionario(T0,T1), in c : T0, out e : boolean)
-    {pre true pre}
-    {post e ≡ c ∈ d.conoc post}
+  /* jose procedures and functions */
+   
 end
+
+func fun2 (x : int) -> int
+  {pre   true  pre}
+  {post  true post}
+  |[
+    1
+  ]|
 
 end

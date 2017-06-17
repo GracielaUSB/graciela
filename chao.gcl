@@ -1,0 +1,26 @@
+
+
+module chao begin
+
+
+
+abstract jose( )
+begin
+	/* jose variables */
+	 
+	
+	{repinv true repinv}
+
+	/* jose procedures and functions */
+	 
+end
+
+
+func fun2 (x : int) -> int
+  {pre   true  pre}
+  {post  true post}
+  |[
+    2
+  ]|
+
+end

@@ -7,7 +7,7 @@ import           Language.Graciela.AST.Type       (Type)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
 import           Data.Sequence                    (Seq)
-import           Data.Text                        (Text, unpack)
+import           Data.Text                        (unpack)
 --------------------------------------------------------------------------------
 
 data Declaration

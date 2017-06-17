@@ -8,8 +8,7 @@ import           Language.Graciela.AST.Object      (Object)
 import           Language.Graciela.AST.Type        (ArgMode, Type, TypeArgs)
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
-import           Data.Sequence                     (Seq)
-import           Data.Text                         (Text, unpack)
+import           Data.Text                         (unpack)
 --------------------------------------------------------------------------------
 
 {- |

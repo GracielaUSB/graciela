@@ -17,7 +17,7 @@ import           Language.Graciela.Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                     (makeLenses)
 import           Data.Sequence                    (Seq)
-import           Data.Text                        (Text, unpack)
+import           Data.Text                        (unpack)
 --------------------------------------------------------------------------------
 
 data Entry'

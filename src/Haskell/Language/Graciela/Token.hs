@@ -18,7 +18,6 @@ module Language.Graciela.Token
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
 import           Data.Function            (on)
-import           Data.Text                (Text)
 import           Text.Megaparsec          (ShowToken (..))
 --------------------------------------------------------------------------------
 -- TokenPos ----------------------------

@@ -26,7 +26,6 @@ import           Control.Lens             (makeLenses, use, (%~))
 import           Control.Monad.State      (State, evalState, modify)
 import           Data.Set                 (union, (\\))
 import qualified Data.Set                 as Set (empty)
-import           Data.Text                (Text)
 import           Prelude                  hiding (lex)
 import           Text.Megaparsec          (Dec, ParsecT, alphaNumChar, anyChar,
                                            between, char, eof, getPosition,

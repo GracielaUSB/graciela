@@ -50,7 +50,7 @@ import qualified Data.Map.Strict            as Map
 import           Data.Sequence              (Seq, ViewL ((:<)), ViewR ((:>)),
                                              (<|), (><), (|>))
 import qualified Data.Sequence              as Seq
-import           Data.Text                  (Text, unpack)
+import           Data.Text                  (unpack)
 import           Prelude                    hiding (lookup)
 --------------------------------------------------------------------------------
 type Entries = Map Text Entry

@@ -26,6 +26,7 @@ module Language.Graciela.Parser.State
   , isDeclarative
   , allowAbstNames
   , useLet
+  , readeFilesStack
   , readedFiles
 
   , crName
@@ -37,6 +38,7 @@ module Language.Graciela.Parser.State
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Definition
+import           Language.Graciela.AST.Module
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
@@ -90,7 +92,8 @@ data State = State
   , _isDeclarative   :: Bool
   , _allowAbstNames  :: Bool
   , _useLet          :: Bool
-  , _readedFiles     :: Set Text }
+  , _readeFilesStack :: [String]
+  , _readedFiles     :: Map String Module }
 
 makeLenses ''State
 
@@ -113,4 +116,5 @@ initialState pragmas = State
   , _isDeclarative   = LogicAnywhere `elem` pragmas
   , _allowAbstNames  = False
   , _useLet          = False
-  , _readedFiles     = Set.empty }
+  , _readeFilesStack = []
+  , _readedFiles     = Map.empty }

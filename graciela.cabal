@@ -54,6 +54,7 @@ executable graciela
         Language.Graciela.AST.Definition
         Language.Graciela.AST.Expression
         Language.Graciela.AST.Instruction
+        Language.Graciela.AST.Module
         Language.Graciela.AST.Object
         Language.Graciela.AST.Program
         Language.Graciela.AST.Struct
@@ -86,6 +87,7 @@ executable graciela
         Language.Graciela.Parser.Expression
         Language.Graciela.Parser.Instruction
         Language.Graciela.Parser.Monad
+        Language.Graciela.Parser.Module
         Language.Graciela.Parser.Operator
         Language.Graciela.Parser.Prim
         Language.Graciela.Parser.Program
@@ -166,6 +168,7 @@ Test-Suite test-graciela
         Language.Graciela.AST.Definition
         Language.Graciela.AST.Expression
         Language.Graciela.AST.Instruction
+        Language.Graciela.AST.Module
         Language.Graciela.AST.Object
         Language.Graciela.AST.Program
         Language.Graciela.AST.Struct
@@ -198,6 +201,7 @@ Test-Suite test-graciela
         Language.Graciela.Parser.Expression
         Language.Graciela.Parser.Instruction
         Language.Graciela.Parser.Monad
+        Language.Graciela.Parser.Module
         Language.Graciela.Parser.Operator
         Language.Graciela.Parser.Prim
         Language.Graciela.Parser.Program

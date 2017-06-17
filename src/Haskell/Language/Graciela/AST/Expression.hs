@@ -22,8 +22,6 @@ import           Language.Graciela.Common
 --------------------------------------------------------------------------------
 import           Data.Array                   (Array)
 import           Data.List                    (intercalate)
-import           Data.Sequence                (Seq)
-import           Data.Text                    (Text)
 import           Prelude                      hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
