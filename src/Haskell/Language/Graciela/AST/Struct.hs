@@ -1,4 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Struct where
 --------------------------------------------------------------------------------
@@ -27,6 +30,7 @@ data Struct'
     , repinv        :: Expression
     , coupinv       :: Expression
     , couple        :: Seq Instruction }
+  deriving (Generic, Serialize)
 
 data Struct
   = Struct
@@ -38,7 +42,7 @@ data Struct
     , structLoc      :: Location
     , structSt       :: SymbolTable
     , struct'        :: Struct' }
-
+  deriving (Generic, Serialize)
 
 fillTypes :: TypeArgs -> Fields -> Fields
 fillTypes typeArgs fields = (_2 %~ fillType typeArgs) <$> fields

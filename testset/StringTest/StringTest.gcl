@@ -1,0 +1,16 @@
+
+include "String"
+
+program StringTest.bin begin
+
+
+  main
+    ⟦ 
+    var str1, str2, str3 : String;
+    copy(str1, "Perrito");
+    copy(str2, " Con Queso\n\t Y Jamon");
+    concat(str1,str2,str3);
+    writeString(str3);
+    ⟧
+  
+end

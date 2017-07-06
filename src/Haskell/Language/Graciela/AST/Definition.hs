@@ -1,4 +1,8 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Definition where
 --------------------------------------------------------------------------------
@@ -10,8 +14,13 @@ import           Language.Graciela.Common
 import           Language.Graciela.Error           (Error)
 --------------------------------------------------------------------------------
 import           Data.Sequence                     (Seq)
+import           Data.Serialize                    (Serialize(put,get))
 import           Data.Text                         (unpack)
 --------------------------------------------------------------------------------
+
+instance Serialize (Seq Type -> Either Error (Type, Text, Bool)) where
+  put = undefined
+  get = undefined
 
 data Definition'
   = FunctionDef
@@ -21,7 +30,7 @@ data Definition'
     , funcDecls     :: Seq Declaration
     , funcRecursive :: Bool }
   | GracielaFunc
-    { signatures :: Seq Type -> Either Error (Type, Text, Bool)
+    { signatures :: Seq Type -> Either Error (Type, Text, Bool) -- last bool is `can abort`
     , casts      :: Seq Int }
   | ProcedureDef
     { procDecl      :: Seq (Either Declaration Instruction)
@@ -35,16 +44,18 @@ data Definition'
     { abstFParams :: Seq (Text, Type)
     , abstFDecl   :: Seq Declaration
     , funcRetType :: Type }
+  deriving (Generic, Serialize)
 
 data Definition
   = Definition
     { defLoc  :: Location
+    , isDecl  :: Bool
     , defName :: Text
     , pre     :: Expression
     , post    :: Expression
     , bound   :: Maybe Expression
     , def'    :: Definition' }
-
+ deriving (Generic, Serialize)
 
 instance Treelike Definition where
   toTree Definition { defLoc, defName, pre, post, bound, def' }

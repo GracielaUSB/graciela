@@ -276,7 +276,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             8  -> "unaryCharOp"
             _  -> internal "badUnaryIntOp"
           let
-            minusOne = ConstantOperand $ C.Int 32 (-1)
+            minusOne = ConstantOperand $ C.Int n (-1)
             one = ConstantOperand $ C.Int n 1
           case op of
               Op.UMinus ->
@@ -395,6 +395,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               GSeq _      -> opSeq
               GFunc _ _   -> opFunc
               GRel _ _    -> opRel
+              GPointer _  -> opPtr
               t      -> internal $ "type " <> show t <> " not supported\n" <>
                 show binOp <> "\n" <>
                 drawTree (toTree e)
@@ -404,6 +405,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       where
         opInt n op lOperand rOperand lType rType = do
           label <- newLabel $ case n of
+            64 -> "longOp"
             32 -> "intOp"
             8  -> "charOp"
             _  -> internal "badIntOp"
@@ -770,6 +772,48 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               , metadata           = [] }
           pure $ LocalReference pointerType label
 
+        opPtr op lOperand rOperand lType rType = do
+          let 
+            (ptrOp, intOp, t@(GPointer inner)) = if lType =:= GInt 
+              then (rOperand, lOperand, rType) 
+              else (lOperand, rOperand, lType)
+          
+          ptrType <- toLLVMType t
+          
+          ptrInt  <- newLabel "ptrToInt"
+          intPtr  <- newLabel "intToPtr"
+
+          addInstruction $ ptrInt := PtrToInt
+            { operand0 = ptrOp
+            , type'    = i64
+            , metadata = [] }
+
+          intOp' <- case intOp of 
+            ConstantOperand (C.Int _ value) -> 
+              pure $ ConstantOperand (C.Int 64 value)
+            otherwise -> do
+              to64    <- newLabel "to64"
+              addInstruction $ to64 := BitCast  
+                { operand0 = intOp
+                , type'    = i64 
+                , metadata = [] }
+              pure $ LocalReference i64 to64
+
+          size <- ConstantOperand . (C.Int 64) <$> sizeOf inner
+          offset <- opInt 64 Op.Times intOp' size I64 I64
+
+          let ptrOp' = LocalReference i64 ptrInt
+
+          result <- opInt 64 op ptrOp' offset I64 I64
+
+          addInstruction $ intPtr := IntToPtr
+              { operand0 = result
+              , type'    = ptrType
+              , metadata = [] }
+
+          pure $ LocalReference ptrType intPtr
+
+
         seqAt lOp rOp lType rType = do
           let
             SourcePos _ x y = pos
@@ -1058,7 +1102,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           type' <- fill expType
 
-          (,[]) <$> if type' =:= basicT || type' == I64 || type' =:= highLevel
+          (,[]) <$> if type' =:= GOneOf [basicT, I64, highLevel]
             then
               expression' expr
             else if type' =:= GPointer GAny

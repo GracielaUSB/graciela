@@ -1,6 +1,9 @@
 {-# LANGUAGE InstanceSigs    #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.Error where
 --------------------------------------------------------------------------------
@@ -99,7 +102,7 @@ data Error
     { tName :: Text }
   | UnknownError
     { emsg :: String }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic, Serialize)
 
 instance ErrorComponent Error where
   representFail :: String -> Error

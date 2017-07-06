@@ -124,9 +124,6 @@ toLLVMType (GDataType n _ t) = do
 
 toLLVMType t = internal $ "Could not translate type " <> show t <> " to a llvm type"
 
-
-
-
 sizeOf :: T.Type -> LLVM Integer
 sizeOf T.GBool         = pure 1
 sizeOf T.GChar         = pure 1

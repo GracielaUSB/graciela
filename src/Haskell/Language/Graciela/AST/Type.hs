@@ -12,6 +12,9 @@ Implements the Graciela typesystem.
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections  #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Type
   ( ArgMode (..)
@@ -61,7 +64,7 @@ data ArgMode
   | InOut -- ^ Input/Output argument.
   | Ref   -- ^ Pass-by-reference argument.
   | Const
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, Serialize)
 
 -- | 'Show' instance for Argument modes.
 instance Show ArgMode where
@@ -115,8 +118,7 @@ data Type
   | GRawName
 
   | I64 -- ^ Used for casts
-  deriving (Eq, Ord)
-
+  deriving (Eq, Ord, Generic, Serialize)
 
 fillType :: TypeArgs -> Type -> Type
 fillType typeArgs t@(GTypeVar i _) =
@@ -184,6 +186,7 @@ instance Monoid Type where
   mappend = (<>)
 instance Semigroup Type where
   a <> b | a == b = a
+
   GAny        <> a           = a
   a           <> GAny        = a
 
@@ -208,7 +211,9 @@ instance Semigroup Type where
 
   GUndef      <> a           = GUndef
   a           <> GUndef      = a
+  
 
+  
   GSet a      <> GSet b      = case  a <> b of
     GUndef -> GUndef
     c      -> GSet c
@@ -279,6 +284,9 @@ instance Semigroup Type where
   GUnsafeName a <> GUnsafeName b =
     if a == b then GUnsafeName a else GUndef
 
+  GString <> GPointer GChar = GPointer GChar
+  GPointer GChar <> GString = GPointer GChar
+  
   _ <> _ = GUndef
 
 

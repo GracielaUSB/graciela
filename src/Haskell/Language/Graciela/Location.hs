@@ -11,6 +11,11 @@ position of Graciela internal constructs.
 -}
 
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 
 module Language.Graciela.Location
   ( Location (..)
@@ -22,18 +27,37 @@ module Language.Graciela.Location
   , pos
   , locFile
   , showPos
+  , showRedefPos
   , unPos
   ) where
 --------------------------------------------------------------------------------
 import           Data.Semigroup      (Semigroup (..))
-import           Text.Megaparsec.Pos (Pos, SourcePos (..), unPos, unsafePos)
+import           Text.Megaparsec.Pos (SourcePos (..), Pos(..), unPos, unsafePos)
+--------------------------------------------------------------------------------
+import           Data.Serialize      (Serialize(..))
+import           GHC.Generics        (Generic)
+import           Data.Word           (Word64)
+import           Data.Serialize.Get  (Get)
+import           Control.Monad       (liftM)
 --------------------------------------------------------------------------------
 
 -- | This datatype stores information about the location of various
 -- Graciela constructs, such as Tokens, AST nodes and Procedure/Function
 -- definitions.
 data Location = Location (SourcePos, SourcePos) -- ^ A location within a file.
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic)
+
+
+-- | Instances for Serialize of SourcePos and Pos
+-- Pos has to be instantiate manually
+
+instance Serialize Location
+instance Generic Pos
+instance Serialize Pos where
+    put p   = put (fromIntegral (unPos p) :: Word64)
+    get     = liftM (unsafePos . fromIntegral) (get :: Get Word64)
+
+instance Serialize SourcePos
 
 instance Show Location where
   show (Location (p0@(SourcePos fn l0 c0), p1@(SourcePos _ l1 c1)))
@@ -76,3 +100,9 @@ showPos SourcePos { sourceName, sourceLine, sourceColumn }
     "(line " <> show (unPos sourceLine) <> ", col " <>
     show (unPos sourceColumn) <> ")"
 
+
+showRedefPos :: SourcePos -> SourcePos -> String
+showRedefPos prevDef actDef = 
+  if sourceName prevDef == sourceName actDef 
+    then showPos prevDef
+    else sourceName prevDef <> " " <> showPos prevDef

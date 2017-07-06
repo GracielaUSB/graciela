@@ -20,14 +20,16 @@ module Language.Graciela.Parser.State
   , dataTypes
   , fullDataTypes
   , pendingDataType
+  , doingCoupleRel
   , initialState
   , stringIds
+  , stringCounter
   , pragmas
   , isDeclarative
   , allowAbstNames
   , useLet
-  , readeFilesStack
-  , readedFiles
+  , readFilesStack
+  , readFiles
 
   , crName
   , crPos
@@ -37,8 +39,8 @@ module Language.Graciela.Parser.State
   , crRecursive
   ) where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Definition
-import           Language.Graciela.AST.Module
+import           Language.Graciela.AST.Definition hiding (pragmas)
+import           Language.Graciela.AST.Module     hiding (pragmas)
 import           Language.Graciela.AST.Struct
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
@@ -85,15 +87,18 @@ data State = State
   , _typeVars        :: [Text]
   , _existsDT        :: Bool
   , _dataTypes       :: Map Text Struct
-  , _fullDataTypes   :: Map Text (Set TypeArgs)
+  , _fullDataTypes   :: Map Text (Map TypeArgs Bool)
   , _pendingDataType :: Map Text (Set Text)
+  , _userDefinedType :: Set Type
+  , _doingCoupleRel  :: Bool
   , _stringIds       :: Map Text Int
+  , _stringCounter   :: Int
   , _pragmas         :: Set Pragma
   , _isDeclarative   :: Bool
   , _allowAbstNames  :: Bool
   , _useLet          :: Bool
-  , _readeFilesStack :: [String]
-  , _readedFiles     :: Map String Module }
+  , _readFilesStack  :: [String]
+  , _readFiles       :: Map String Module }
 
 makeLenses ''State
 
@@ -110,11 +115,14 @@ initialState pragmas = State
   , _existsDT        = True
   , _dataTypes       = Map.empty
   , _fullDataTypes   = Map.empty
+  , _doingCoupleRel  = False
   , _pendingDataType = Map.empty
+  , _userDefinedType = Set.empty
   , _stringIds       = Map.empty
+  , _stringCounter   = 0
   , _pragmas         = pragmas
   , _isDeclarative   = LogicAnywhere `elem` pragmas
   , _allowAbstNames  = False
   , _useLet          = False
-  , _readeFilesStack = []
-  , _readedFiles     = Map.empty }
+  , _readFilesStack = []
+  , _readFiles     = Map.empty }

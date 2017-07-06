@@ -66,9 +66,9 @@ insertVar text = do
   pure name
 --------------------------------------------------------------------------------
 
-addDefinitions :: Seq LLVM.Definition -> LLVM ()
+addDefinitions :: [LLVM.Definition] -> LLVM ()
 addDefinitions defs =
-  moduleDefs %= (<> defs)
+  moduleDefs %= (<> Seq.fromList defs)
 
 addDefinition :: LLVM.Definition -> LLVM ()
 addDefinition defs =

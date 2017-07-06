@@ -278,7 +278,7 @@ info' isStruct pos name t expr constness = if isStruct
             "Redefinition of member `" <> unpack name <> "` as " <> aux constness <>
             ",\n\tbut defined in abstract type as " <> aux c <> "."
 
-        | not $ t =:= highLevel -> do
+        | t =:= highLevel -> do
           putError pos . UnknownError $
             "Redefinition of member `" <> unpack name <> "` already defined in abstract type."
 

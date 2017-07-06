@@ -20,6 +20,7 @@ module Language.Graciela.LLVM.State
   , stringOps
   , boundOp
   , substitutionTable
+  , mpragmas
   , doGet
   , coupling
   , evalAssertions
@@ -27,12 +28,14 @@ module Language.Graciela.LLVM.State
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Struct (Struct (..))
 import           Language.Graciela.AST.Type   (TypeArgs)
+import           Language.Graciela.Pragma
 import           Language.Graciela.Common
 --------------------------------------------------------------------------------
 import           Control.Lens                 (makeLenses)
 import           Data.Array                   (Array)
 import qualified Data.Map.Strict              as Map (empty)
 import qualified Data.Sequence                as Seq
+import qualified Data.Set                     as Set
 import           Data.Text                    (Text)
 import           LLVM.General.AST             (BasicBlock (..), Definition (..))
 import           LLVM.General.AST.Instruction (Instruction (..), Named (..))
@@ -53,12 +56,13 @@ data State = State
   , _moduleDefs        :: Seq Definition
   , _symTable          :: [Map Text Name]
   , _structs           :: Map Text Struct
-  , _fullDataTypes     :: Map Text (Struct, Set TypeArgs)
+  , _fullDataTypes     :: Map Text (Struct, Map TypeArgs Bool)
   , _currentStruct     :: Maybe Struct
   , _stringIds         :: Map Text Int
   , _stringOps         :: Array Int Operand
   , _boundOp           :: Maybe Operand
   , _substitutionTable :: [TypeArgs]
+  , _mpragmas          :: Set Pragma
   , _doGet             :: Bool
   , _coupling          :: Bool
   , _evalAssertions    :: Bool }
@@ -84,6 +88,7 @@ initialState = State
   , _stringOps         = undefined
   , _boundOp           = Nothing
   , _substitutionTable = []
+  , _mpragmas          = Set.empty
   , _doGet             = True
   , _coupling          = False
   , _evalAssertions    = True }

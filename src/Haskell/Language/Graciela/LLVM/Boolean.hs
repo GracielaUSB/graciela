@@ -264,13 +264,41 @@ boolean true false e@Expression { loc, exp' } = do
           , metadata = [] }
 
         terminate CondBr
-          { condition = LocalReference i1 comp
+          { condition = LocalReference boolType comp
           , trueDest  = true
           , falseDest = false
           , metadata' = [] }
 
-      SeqAt -> internal
-        "boolean sequences are not implemented so ! can't produce a boolean"
+      SeqAt -> do
+          let
+            SourcePos _ x y = pos loc
+            line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
+            col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+          lOp <- expression lexpr
+          rOp <- expression rexpr
+          call <- newLabel "seqAt"
+          addInstruction $ call := Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable pointerType atSequenceString
+            , arguments          = (,[]) <$> [lOp, rOp, line, col]
+            , functionAttributes = []
+            , metadata           = [] }
+
+          seqAtResult <- newLabel "seqAtResult"
+
+          addInstruction $ seqAtResult := Trunc
+              { operand0 = LocalReference i64 call
+              , type'    = boolType
+              , metadata = [] }
+
+          terminate CondBr
+            { condition = LocalReference boolType seqAtResult
+            , trueDest  = true
+            , falseDest = false
+            , metadata' = [] }
+
 
       BifuncAt -> internal
         "boolean funcs/rels are not implemented so @ can't produce a boolean"
@@ -342,7 +370,8 @@ boolean true false e@Expression { loc, exp' } = do
           (,[]) <$> if
             | type' =:= GBool -> wrapBoolean x
 
-            | type' =:= basicT || type' == I64 || type' =:= highLevel ->
+            | type' =:= basicT || type' == I64 || 
+              type' == GString || type' =:= highLevel ->
                 expression x
             | type' =:= GPointer GAny -> do
                 expr <- expression x
@@ -382,7 +411,7 @@ boolean true false e@Expression { loc, exp' } = do
                 _ -> internal "bad argument"
 
 
-        basicT = GOneOf [ GChar, GInt, GFloat, GString ]
+        basicT = GOneOf [ GChar, GInt, GFloat ]
 
     Quantification {} -> boolQ true false e
 

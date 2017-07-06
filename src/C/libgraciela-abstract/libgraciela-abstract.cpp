@@ -588,6 +588,7 @@ extern "C" {
       for(Function::iterator it = function->begin(); it != function->end(); ++it){
           set->insert(it->first);
       }
+      
       return (int8_t*) set;
   }
 
@@ -597,6 +598,7 @@ extern "C" {
     for(Function::iterator it = function->begin(); it != function->end(); ++it){
       set->insert(it->second);
     }
+
     return (int8_t*)set;
   }
 
@@ -986,25 +988,35 @@ void _removePointer(int8_t* ptr, int c, int l){
   set<int8_t*>::iterator p = dynMemSet.find(ptr);
   if ( p == dynMemSet.end()) {
     printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
-    printf ("Trying to free a pointer that was already freed.\n");
+    printf ("Trying to free a pointer that was already freed\n\t");
+    printf ("or not allocated with `new` instruction.\n");
     exit(EXIT_FAILURE);
   } else {
     dynMemSet.erase(ptr);
   }
 }
 
-void _derefPointer(int8_t* ptr, int l, int c){
+void _derefPointer(int8_t* ptr, int p, int l, int c){
   if (ptr == 0){
     printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
     printf ("A null pointer was dereferenced.\n");
     exit(EXIT_FAILURE);
   }
-  else if (dynMemSet.find(ptr) == dynMemSet.end()) {
-    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
-    printf ("Attempted to dereference a bad pointer. Maybe it was already freed.\n");
-    exit(EXIT_FAILURE);
+  else if (not p && dynMemSet.find(ptr) == dynMemSet.end()) {
+      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
+      printf ("Attempted to dereference a bad pointer. Maybe it was already freed.\n");
+      exit(EXIT_FAILURE);
   }
 }
 
+char *_readln(int **i){
+  std::string str;
+  std::getline(std::cin, str);
+  **i = str.size();
+  char *cstr = (char*) malloc(str.length() + 1);
+  strcpy(cstr, str.c_str());
+  _addPointer((int8_t*)cstr); 
+  return cstr;
+}
 
 #endif

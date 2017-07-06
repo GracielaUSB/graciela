@@ -1,5 +1,8 @@
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.Entry
   ( Entry (..)
@@ -35,9 +38,7 @@ data Entry'
   | Argument
     { _argMode :: ArgMode
     , _argType :: Type }
-  deriving (Eq)
-
-makeLenses ''Entry'
+  deriving (Eq, Generic, Serialize)
 
 
 data Entry
@@ -45,8 +46,8 @@ data Entry
     { _entryName :: Text
     , _loc       :: Location
     , _info      :: Entry' }
+  deriving (Eq, Generic, Serialize)
 
-makeLenses ''Entry
 
 
 instance Treelike Entry where
@@ -74,3 +75,6 @@ instance Treelike Entry where
       Node ("Argument `" <> unpack _entryName <> "` " <> show _loc)
         [ leaf $ "Type: " <> show _argType
         , leaf $ "Mode: " <> show _argMode ]
+
+makeLenses ''Entry'
+makeLenses ''Entry

@@ -8,7 +8,8 @@ module Language.Graciela.Parser.Program
   ) where
 -------------------------------------------------------------------------------
 import           Language.Graciela.Location           (initialPos)
-import           Language.Graciela.AST.Program
+import           Language.Graciela.AST.Program        hiding (pragmas)
+import qualified Language.Graciela.AST.Program        as P (pragmas)
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
 import           Language.Graciela.Location           (Location (..))
@@ -56,13 +57,9 @@ program = do
     pure $ "." <> T.intercalate "." exts
   match' TokBegin
   
-  
   many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
-
   main' <- mainRoutine
-
   defs  <- Seq.fromList . toList <$> use definitions
-
   many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
 
     -- These aren't compiled since they can't be reached, but they're
@@ -76,9 +73,9 @@ program = do
 
   case (name', main') of
     (Just name, Just main) -> do
-      readeFilesStack %= (:) (unpack name)
+      readFilesStack %= (:) (unpack name)
       pend    <- use pendingDataType
-      dts     <- use dataTypes
+      structs     <- use dataTypes
       fdts'   <- use fullDataTypes
       strings <- use stringIds
 
@@ -87,11 +84,12 @@ program = do
       forM_ (Map.toList fdts') $ \(name, typeargs) -> do
         case name `Map.lookup` pend of
           Just pending -> forM_ pending $ \name' -> do
-            forM_ typeargs $ \x ->
+            forM_ (Map.toList typeargs) $ \(x,_) ->
               let
+                t = Map.fromList [(x, False)]
                 fAlter = Just . \case
-                  Nothing -> Set.fromList [x]
-                  Just y  -> Set.insert x y
+                  Nothing     -> t
+                  Just types0 -> types0 `Map.union` t
 
               in fullDataTypes %= Map.alter fAlter name'
           Nothing -> pure ()
@@ -101,19 +99,22 @@ program = do
       -- internal $ show fdts'
 
       let
-        aux (name, typeArgs) = case name `Map.lookup` dts of
+        aux (name, typeArgs) = case name `Map.lookup` structs of
           Just struct -> (name, (struct, typeArgs))
           Nothing     -> internal $ "Couldn't find struct " <> show name
-        fdts = Map.fromList $ aux <$> (Map.toList fdts')
+        fullStructs = Map.fromList $ aux <$> (Map.toList fdts')
 
-      readeFilesStack %= tail
+      p <- use pragmas
+
+      readFilesStack %= tail
       pure $ Just Program
         { name        = name <> fromMaybe "" ext
         , loc         = Location (from, to)
         , defs
         , insts       = main
-        , structs     = dts
-        , fullStructs = fdts
+        , structs
+        , fullStructs
+        , P.pragmas   = p
         , strings }
 
     _ -> pure Nothing

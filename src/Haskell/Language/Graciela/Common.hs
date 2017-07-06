@@ -1,5 +1,7 @@
 module Language.Graciela.Common
   ( Semigroup(..)
+  , Serialize
+  , Generic
   , module Language.Graciela.Treelike
   , module Language.Graciela.Location
   , module Language.Graciela.Pragma
@@ -36,6 +38,9 @@ import           Data.Set                   (Set)
 import           Data.Text                  (pack, unpack, Text)
 import           Debug.Trace                (trace, traceM, traceShow,
                                              traceShowId, traceShowM)
+import           Data.Serialize             (Serialize)
+import           Data.Serialize.Text
+import           GHC.Generics               (Generic)
 --------------------------------------------------------------------------------
 
 internal :: String -> a

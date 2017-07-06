@@ -43,7 +43,7 @@ compile :: String -> String -> Assertion
 compile base name = do
   v1 <- M.compile (gcl base name) defaultOptions
     { optOutName      = Just (bin base name)
-    , optLibGraciela  = "libgraciela.so" }
+    , optLibGraciela  = "/usr/local/lib/libgraciela.so" }
 
   isNothing v1 @? ("Compilation failed:\n" <> show v1)
 --------------------------------------------------------------------------------
@@ -90,3 +90,10 @@ main = do
     readProcessWithExitCode (bin "InBool" "") [] "" >>=
       assertEqual "" (ExitSuccess, "", "")
   removeFile (bin "InBool" "")
+
+  "Compile StringTest" ~::
+    compile "StringTest" ""
+  "Run StringTest" ~!::
+    readProcessWithExitCode (bin "StringTest" "") [] "" >>=
+      assertEqual "" (ExitSuccess, "Perrito Con Queso\n\t Y Jamon", "")
+  removeFile (bin "StringTest" "")

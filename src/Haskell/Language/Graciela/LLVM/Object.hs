@@ -28,6 +28,7 @@ import           Language.Graciela.LLVM.Type        (fill, llvmName,
 import           Control.Lens                       (use)
 import           Data.Map                           as Map (lookup)
 import           Data.Maybe                         (isJust)
+import qualified Data.Set                           as Set
 import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant          as C
 import           LLVM.General.AST.Instruction       (Instruction (..),
@@ -84,127 +85,149 @@ objectRef (Object loc t obj') = do
       pure $ LocalReference objType' name'
 
 
-    Index inner indices -> do
-      ref <- objectRef inner
+    Index inner isPtr indices -> if isPtr then do
+        ref <- objectRef inner
+        ind <- expression . head $ toList indices
+        
+        idxPtr <- newLabel "idxPtr"
+        addInstruction $ idxPtr := Load
+          { volatile       = True
+          , address        = ref
 
-      iarrPtrPtr <- newLabel "idxStruct"
-      addInstruction $ iarrPtrPtr := GetElementPtr
-        { inBounds = False
-        , address  = ref
-        , indices  = ConstantOperand . C.Int 32 <$>
-          [0, fromIntegral . length $ indices]
-        , metadata = [] }
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
 
-      iarrPtr <- newLabel "idxArrPtr"
-      addInstruction $ iarrPtr := Load
-        { volatile       = True
-        , address        = LocalReference (ptr . ptr $ ArrayType 1 objType') iarrPtrPtr
-        -- , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
-        , maybeAtomicity = Nothing
-        , alignment      = 4
-        , metadata       = [] }
+        result <- newLabel "ResultIdxPtr"
+        addInstruction $ result := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference (ptr objType') idxPtr
+          , indices  = [ind]
+          , metadata = [] }
 
-      -- ind <- zipWithM (idx ref) (toList indices) [0..] -- !!!!!!!!!!
+        pure . LocalReference objType' $ result
 
-      ind <- snd <$> 
-        foldM (idx ref (fromIntegral $ length indices)) 
-          (ConstantOperand (C.Int 32 1), ConstantOperand (C.Int 32 0))
-          (zip (toList indices) [0..])
+      else do
+        ref <- objectRef inner
 
-      result <- newLabel "idxArr"
-      addInstruction $ result := GetElementPtr
-        { inBounds = False
-        , address  = LocalReference (ptr $ ArrayType 1 objType') iarrPtr
-        -- , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
-        , indices  = [ConstantOperand (C.Int 32 0), ind]
-        -- , indices  = ConstantOperand (C.Int 32 0) : inds
-        , metadata = [] }
+        iarrPtrPtr <- newLabel "idxStruct"
+        addInstruction $ iarrPtrPtr := GetElementPtr
+          { inBounds = False
+          , address  = ref
+          , indices  = ConstantOperand . C.Int 32 <$>
+            [0, fromIntegral . length $ indices]
+          , metadata = [] }
 
-      pure . LocalReference objType' $ result
+        iarrPtr <- newLabel "idxArrPtr"
+        addInstruction $ iarrPtr := Load
+          { volatile       = True
+          , address        = LocalReference (ptr . ptr $ ArrayType 1 objType') iarrPtrPtr
+          -- , address        = LocalReference (ptr . ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtrPtr
+          , maybeAtomicity = Nothing
+          , alignment      = 4
+          , metadata       = [] }
+
+        -- ind <- zipWithM (idx ref) (toList indices) [0..] -- !!!!!!!!!!
+
+        ind <- snd <$> 
+          foldM (idx ref (fromIntegral $ length indices)) 
+            (ConstantOperand (C.Int 32 1), ConstantOperand (C.Int 32 0))
+            (zip (toList indices) [0..])
+
+        result <- newLabel "idxArr"
+        addInstruction $ result := GetElementPtr
+          { inBounds = False
+          , address  = LocalReference (ptr $ ArrayType 1 objType') iarrPtr
+          -- , address  = LocalReference (ptr $ iterate (ArrayType 1) objType' !! length indices) iarrPtr
+          , indices  = [ConstantOperand (C.Int 32 0), ind]
+          -- , indices  = ConstantOperand (C.Int 32 0) : inds
+          , metadata = [] }
+
+        pure . LocalReference objType' $ result
 
       where
-        idx ref ns (prod, index) (i, n) = do
-          e <- expression i
+          idx ref ns (prod, index) (i, n) = do
+            e <- expression i
 
-          chkGEZ <- newLabel "idxChkGEZ"
-          addInstruction $ chkGEZ := ICmp
-            { iPredicate = SGE
-            , operand0   = e
-            , operand1   = ConstantOperand (C.Int 32 0)
-            , metadata   = [] }
+            chkGEZ <- newLabel "idxChkGEZ"
+            addInstruction $ chkGEZ := ICmp
+              { iPredicate = SGE
+              , operand0   = e
+              , operand1   = ConstantOperand (C.Int 32 0)
+              , metadata   = [] }
 
-          gez <- newLabel "idxGEZ"
-          notGez <- newLabel "idxNotGEZ"
-          terminate CondBr
-            { condition = LocalReference i1 chkGEZ
-            , trueDest  = gez
-            , falseDest = notGez
-            , metadata' = [] }
+            gez <- newLabel "idxGEZ"
+            notGez <- newLabel "idxNotGEZ"
+            terminate CondBr
+              { condition = LocalReference i1 chkGEZ
+              , trueDest  = gez
+              , falseDest = notGez
+              , metadata' = [] }
 
-          (notGez #)
-          abort Abort.NegativeIndex (pos . E.loc $ i)
+            (notGez #)
+            abort Abort.NegativeIndex (pos . E.loc $ i)
 
-          (gez #)
-          bndPtr <- newLabel "idxBoundPtr"
-          addInstruction $ bndPtr := GetElementPtr
-            { inBounds = False
-            , address  = ref
-            , indices  =
-              [ ConstantOperand (C.Int 32 0)
-              , ConstantOperand (C.Int 32 n)]
-            , metadata = [] }
+            (gez #)
+            bndPtr <- newLabel "idxBoundPtr"
+            addInstruction $ bndPtr := GetElementPtr
+              { inBounds = False
+              , address  = ref
+              , indices  =
+                [ ConstantOperand (C.Int 32 0)
+                , ConstantOperand (C.Int 32 n)]
+              , metadata = [] }
 
-          bnd <- newLabel "idxBound"
-          addInstruction $ bnd :=  Load
-            { volatile       = False
-            , address        = LocalReference i32 bndPtr
-            , maybeAtomicity = Nothing
-            , alignment      = 4
-            , metadata       = [] }
+            bnd <- newLabel "idxBound"
+            addInstruction $ bnd :=  Load
+              { volatile       = False
+              , address        = LocalReference i32 bndPtr
+              , maybeAtomicity = Nothing
+              , alignment      = 4
+              , metadata       = [] }
 
-          chkInBound <- newLabel "idxChkInBound"
-          addInstruction $ chkInBound := ICmp
-            { iPredicate = SLT
-            , operand0   = e
-            , operand1   = LocalReference i32 bnd
-            , metadata   = [] }
+            chkInBound <- newLabel "idxChkInBound"
+            addInstruction $ chkInBound := ICmp
+              { iPredicate = SLT
+              , operand0   = e
+              , operand1   = LocalReference i32 bnd
+              , metadata   = [] }
 
-          inBound <- newLabel "idxInBound"
-          notInBound <- newLabel "idxNotInBound"
-          terminate CondBr
-            { condition = LocalReference i1 chkInBound
-            , trueDest  = inBound
-            , falseDest = notInBound
-            , metadata' = [] }
+            inBound <- newLabel "idxInBound"
+            notInBound <- newLabel "idxNotInBound"
+            terminate CondBr
+              { condition = LocalReference i1 chkInBound
+              , trueDest  = inBound
+              , falseDest = notInBound
+              , metadata' = [] }
 
-          (notInBound #)
-          abort Abort.OutOfBoundsIndex (pos . E.loc $ i)
+            (notInBound #)
+            abort Abort.OutOfBoundsIndex (pos . E.loc $ i)
 
-          (inBound #)
-          index' <- newLabel "indexCalc"
-          e' <- newUnLabel
-          addInstruction $ e' := Mul
-            { nsw = False
-            , nuw = False
-            , operand0 = e
-            , operand1 = prod
-            , metadata = [] }
-          addInstruction $ index' := Add
-            { nsw = False
-            , nuw = False
-            , operand0 = index
-            , operand1 = LocalReference i32 e'
-            , metadata = [] }
+            (inBound #)
+            index' <- newLabel "indexCalc"
+            e' <- newUnLabel
+            addInstruction $ e' := Mul
+              { nsw = False
+              , nuw = False
+              , operand0 = e
+              , operand1 = prod
+              , metadata = [] }
+            addInstruction $ index' := Add
+              { nsw = False
+              , nuw = False
+              , operand0 = index
+              , operand1 = LocalReference i32 e'
+              , metadata = [] }
 
-          prod' <- newLabel "prodCalc"
-          when (n < ns - 1) $ addInstruction $ prod' := Mul
-            { nsw = False
-            , nuw = False
-            , operand0 = prod
-            , operand1 = LocalReference i32 bnd
-            , metadata = [] }
+            prod' <- newLabel "prodCalc"
+            when (n < ns - 1) $ addInstruction $ prod' := Mul
+              { nsw = False
+              , nuw = False
+              , operand0 = prod
+              , operand1 = LocalReference i32 bnd
+              , metadata = [] }
 
-          pure (LocalReference i32 prod', LocalReference i32 index')
+            pure (LocalReference i32 prod', LocalReference i32 index')
 
 
     Deref inner -> do
@@ -261,21 +284,23 @@ objectRef (Object loc t obj') = do
           { operand0 = LocalReference objType' labelLoad
           , type'    = pointerType
           , metadata = [] }
-
+      p <- Set.member MemoryOperations <$> use mpragmas
       let
         ptr = LocalReference pointerType $ castPtr
         Location (SourcePos _ l c, _) = loc
+        pragma = ConstantOperand . C.Int 1 $ if p then 1 else 0
         line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
         col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
 
-      addInstruction $ Do Call
-          { tailCallKind       = Nothing
-          , callingConvention  = CC.C
-          , returnAttributes   = []
-          , function           = callable voidType derefPointerString
-          , arguments          = [(ptr, []), (line, []), (col,[])]
-          , functionAttributes = []
-          , metadata           = [] }
+      use evalAssertions >>= \b -> when b $ 
+        addInstruction $ Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType derefPointerString
+            , arguments          = [(ptr, []), (pragma, []), (line, []), (col,[])]
+            , functionAttributes = []
+            , metadata           = [] }
 
       pure . LocalReference objType' $ labelLoad
 
@@ -294,8 +319,8 @@ objectRef (Object loc t obj') = do
       st <- use structs
       isCoupling <- use coupling
       doget <- use doGet >>= \canDoGet -> do
-        -- If its self and its doing the
-        -- couple relation and must no use getter
+        -- If it's self and it's doing the
+        -- couple relation, must no use a getter
         let
           isSelf = case inner of
             Object{ obj' = Variable { name } } -> name == "_self"

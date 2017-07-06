@@ -38,10 +38,7 @@ import qualified Data.Array                          as Array (listArray)
 import           Data.Foldable                       (asum, toList)
 import           Data.Int                            (Int32)
 import           Data.List                           (elemIndex, intercalate)
-import qualified Data.Map.Strict                     as Map (alter, elems,
-                                                             fromList, insert,
-                                                             lookup, null,
-                                                             singleton)
+import qualified Data.Map.Strict                     as Map
 import           Data.Set                            as Set (fromList, insert)
 
 import           Data.Text                           (Text, pack, unpack)
@@ -119,16 +116,16 @@ type' =  try parenType
         Nothing ->
           pure Nothing
         Just e@Expression { expType, loc, expConst, exp' } -> case expType of
-          GInt | expConst -> case exp' of
+          GInt {-| expConst-} -> case exp' of
             Value (IntV i) | i <= 0 -> do
               putError pos . UnknownError $
                 "A non-positive dimension was given in the array declaration."
               pure Nothing
             _ -> pure . Just $ e
-          t -> do
-            putError pos . UnknownError $
-              "Array dimension must be an integer constant expression."
-            pure Nothing
+          -- t -> do
+          --   putError pos . UnknownError $
+          --     "Array dimension must be an integer constant expression."
+          --   pure Nothing
 
     basicOrPointer = do
       -- If its not an array, then try with a basic type or a pointer
@@ -166,9 +163,10 @@ type' =  try parenType
 
                   unless (null t || any (=:= GATypeVar) t) $ do
                     let
+                      t = Map.fromList [(typeargs, False)]
                       fAlter = Just . \case
-                        Nothing     -> Set.fromList [typeargs]
-                        Just types0 -> Set.insert typeargs types0
+                        Nothing     -> t
+                        Just types0 -> types0 `Map.union` t
 
                     fullDataTypes %= Map.alter fAlter dtName
 
@@ -243,9 +241,10 @@ type' =  try parenType
 
                 else do
                   let
+                    t = Map.fromList [(types, False)]
                     fAlter = Just . \case
-                      Nothing     -> Set.fromList [types]
-                      Just types0 -> Set.insert types types0
+                      Nothing     -> t
+                      Just types0 -> types0 `Map.union` t
 
                   fullDataTypes %= Map.alter fAlter structBaseName
 

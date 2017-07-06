@@ -91,8 +91,8 @@ sc = L.space (void spaceChar) lineComment blockComment
             <|> (string "NoLogicAnywhere" $> (\\)  [LogicAnywhere])
             <|> (string "EnableTrace"     $> union [EnableTrace])
             <|> (string "NoEnableTrace"   $> (\\)  [EnableTrace])
-            <|> (string "GetAddressOf"    $> union [GetAddressOf])
-            <|> (string "NoGetAddressOf"  $> (\\)  [GetAddressOf])
+            <|> (string "MemoryOperations"    $> union [MemoryOperations])
+            <|> (string "NoMemoryOperations"  $> (\\)  [MemoryOperations])
 
 
 lexeme :: Lexer Token -> Lexer TokenPos

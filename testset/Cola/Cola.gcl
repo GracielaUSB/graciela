@@ -33,6 +33,7 @@ end
 type Cola(T) implements ColaA(T)
 begin
   var inic, fin := 0, 0 : int;
+  const MAX     := 100  : int;
   var nada      := true : boolean;
   var elems             : array [MAX] of T;
 

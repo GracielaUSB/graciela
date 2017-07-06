@@ -1,5 +1,8 @@
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Expression
   ( BinaryOperator (..)
@@ -37,7 +40,7 @@ data BinaryOperator
   | SeqAt
   | BifuncAt
   | Concat
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, Serialize)
 
 instance Show BinaryOperator where
   show Plus         = "(+)"
@@ -86,7 +89,7 @@ instance Show BinaryOperator where
 
 
 data UnaryOperator = UMinus | Not | Card | Pred | Succ
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, Serialize)
 
 instance Show UnaryOperator where
   show UMinus = "(-)"
@@ -101,7 +104,7 @@ data QuantOperator
   | Summation | Product
   | Minimum   | Maximum
   | Count
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, Serialize)
 
 instance Show QuantOperator where   -- mempty
   show ForAll    = "Forall (∀)"     -- True
@@ -123,18 +126,17 @@ data QRange
   | PointRange
     { thePoint :: Expression }
   | EmptyRange
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, Serialize)
 
 instance Show QRange where
   show = \case
-    ExpRange { low, high } ->
+    ExpRange { low, high } -> 
       unwords [ "from", show low, "to", show high ]
-    SetRange { theSet } ->
+    SetRange { theSet } -> 
       unwords [ "in", show theSet ]
     PointRange { thePoint } ->
       unwords [ "at", show thePoint ]
-    EmptyRange ->
-      "Empty range"
+    EmptyRange -> "Empty range"
 
 
 instance Treelike QRange where
@@ -160,7 +162,7 @@ data Value
   | CharV Char
   | IntV Int32
   | FloatV Double
-  deriving (Eq)
+  deriving (Eq, Generic, Serialize)
 
 instance Show Value where
   show = \case
@@ -177,7 +179,7 @@ data CollectionKind
   = Set
   | Multiset
   | Sequence
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, Serialize)
 
 
 data Expression'
@@ -211,6 +213,9 @@ data Expression'
 
   | AddressOf
     { inner :: Expression }
+  | SumPtr
+    { lexpr :: Expression
+    , rexpr :: Expression }
   -- | Cast to an i64 (used for polymorphic functions)
   | I64Cast
     { inner :: Expression }
@@ -243,7 +248,7 @@ data Expression'
 
   | RawName
     { theName :: Text }
-  deriving (Eq)
+  deriving (Eq, Generic, Serialize)
 
 data Expression
   = Expression
@@ -251,6 +256,7 @@ data Expression
     , expType  :: Type
     , expConst :: Bool
     , exp'     :: Expression' }
+  deriving (Generic, Serialize)
 
 instance Ord Expression where
   (<=)

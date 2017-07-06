@@ -1,4 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Object
   ( Object (..)
@@ -24,17 +27,18 @@ data Object'
     , fieldName :: Text  }
   | Index
     { inner   :: Object
+    , isPtr   :: Bool
     , indices :: Seq Expression }
   | Deref
     { inner :: Object }
-  deriving (Eq)
+  deriving (Eq, Generic, Serialize)
 
 data Object
   = Object
     { loc     :: Location
     , objType :: Type
     , obj'    :: Object' }
-  deriving (Eq)
+  deriving (Eq, Generic, Serialize)
 
 
 instance Show Object where

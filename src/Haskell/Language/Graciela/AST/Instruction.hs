@@ -1,4 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.AST.Instruction where
 --------------------------------------------------------------------------------
@@ -69,12 +72,13 @@ data Instruction'
   | Write
     { ln     ::  Bool
     , wexprs :: Seq Expression } -- ^ Escribir.
-
+  deriving (Generic, Serialize)
 
 data Instruction
   = Instruction
     { instLoc :: Location
     , inst'   :: Instruction' }
+  deriving (Generic, Serialize)
 
 instance Treelike Instruction where
   toTree Instruction { instLoc, {-astType,-} inst' } = case inst' of

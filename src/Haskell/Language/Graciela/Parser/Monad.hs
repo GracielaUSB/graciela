@@ -70,6 +70,7 @@ module Language.Graciela.Parser.Monad
   , sepBy1'
 
   , declarative
+  , coupleRelation
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Struct
@@ -135,7 +136,7 @@ runParserT  :: Monad m
             -> m (Either (ParseError TokenPos Error) a, Parser.State)
 runParserT p fp s input = runStateT (runReaderT flatten cfg) s
     where
-      cfg = defaultConfig (EnableTrace `elem` s^.pragmas) (GetAddressOf `elem` s^.pragmas)
+      cfg = defaultConfig (EnableTrace `elem` s^.pragmas) (MemoryOperations `elem` s^.pragmas)
 
       flatten = do
         definitions <~ asks nativeFunctions
@@ -477,4 +478,8 @@ sepEndBy1 p sep = (<|) <$> p <*> ((sep *> sepEndBy p sep) <|> pure Seq.empty)
 declarative :: (MonadParser m, MonadState Parser.State m)
           => m a -> m a
 declarative p = (isDeclarative <<.= True) >>= \x -> (p <* (isDeclarative .= x))
+
+coupleRelation :: (MonadParser m, MonadState Parser.State m)
+          => m a -> m a
+coupleRelation p = (doingCoupleRel <<.= True) >>= \x -> (p <* (isDeclarative .= x))
 --------------------------------------------------------------------------------

@@ -11,6 +11,7 @@ module Language.Graciela
   , Options (..)
   ) where
 --------------------------------------------------------------------------------
+import qualified Language.Graciela.AST.Module     as M (name)
 import           Language.Graciela.AST.Program
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
@@ -30,8 +31,9 @@ import           Control.Monad.Identity           (Identity, runIdentity)
 import           Control.Monad.Trans.Except       (ExceptT, runExceptT)
 import           Control.Monad.Trans.State        (runState)
 import           Data.Foldable                    (toList)
-import           Data.List                        (nub)
+import           Data.List                        (nub, intercalate)
 import           Data.Map.Strict                  (showTree)
+import qualified  Data.Map.Strict                  as Map (toList)
 import           Data.Maybe                       (fromMaybe)
 
 import qualified Data.Sequence                    as Seq (null)
@@ -56,7 +58,7 @@ import           System.Environment               (getArgs)
 import           System.Exit                      (ExitCode (..), die,
                                                    exitFailure, exitSuccess)
 import           System.FilePath.Posix            (replaceExtension,
-                                                   takeExtension)
+                                                   takeExtension, takeFileName)
 import           System.IO                        (stderr)
 import           System.Process                   (readProcess,
                                                    readProcessWithExitCode)
@@ -222,7 +224,7 @@ compile fileName options = do
 
             let
               lltName = case optOutName options of
-                Nothing -> "a.t.ll"
+                Nothing -> (unpack name) <> ".ll"
                 Just n  -> n <> ".t.ll"
 
             {- And write it as IR on a ll file -}
@@ -230,7 +232,22 @@ compile fileName options = do
               liftError . withModuleFromAST context newast $ \m -> liftError $
                 writeLLVMAssemblyToFile (File lltName) m
 
+            let rf = state ^. readFiles
+            lltModFiles <- forM (Map.toList rf) $ \(_, gModule) -> do
+              modast <- moduleToLLVM files gModule (optNoAssertions options)
+              let
+                lltModName = (unpack . M.name $ gModule) <> ".ll"
+
+              {- Write Modules as IR on a ll file -}
+              withContext $ \context ->
+                liftError . withModuleFromAST context modast $ \m -> liftError $
+                  writeLLVMAssemblyToFile (File lltModName) m
+
+              pure lltModName
+
             let
+              cantSaveAs = length lltModFiles > 0 
+                        && (optKeepTemp options || optLLVM options || optAssembly options)
               assembly
                 | optLLVM options     = ["-S", "-emit-llvm"]
                 | optAssembly options = ["-S"]
@@ -243,16 +260,24 @@ compile fileName options = do
                   | otherwise           -> unpack name
               args = [optOptimization options]
                   <> assembly
-                  <> [lltName]
-                  <> ["-o", outName]
+                  <> [lltName] <> lltModFiles
+                  <> (if cantSaveAs then [] else ["-o", outName])
                   <> [l | l <- [math, lib]
                         , not $ optLLVM options || optAssembly options ]
+            -- traceM $ "clang " <> intercalate " " args
             (exitCode, out, errs) <- readProcessWithExitCode clang args ""
+            -- (exitCode, out, errs) <- readProcessWithExitCode "echo" ["hola"] ""
 
             putStr out
-
-            unless (optKeepTemp options) . void $
+            let keep = (optKeepTemp options || optLLVM options)
+            unless (keep) $ do
               removeFile lltName
+              unless (optLLVM options) $ forM_ lltModFiles $ \file -> 
+                doesFileExist (takeFileName $ file) >>= \x -> when x $
+                  removeFile . takeFileName $ file
+            -- unless (optKeepTemp options) $ 
+            --   forM_ (Map.toList rf) $ \(file, _) -> do 
+            --     removeFile $ replaceExtension file ".ogcl"
 
             case exitCode of
               ExitSuccess ->

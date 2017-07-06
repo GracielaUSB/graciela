@@ -32,6 +32,7 @@ module Language.Graciela.Parser.Config
   , multiplicitySeqString
   , multiplicityMultiPairString
   , multiplicitySeqPairString
+  , readlnString
   -- * LLVM Conversion function strings
   , float2intString
   , char2intString
@@ -39,7 +40,7 @@ module Language.Graciela.Parser.Config
   , float2charString
   , int2charString
   , char2floatString
-  , int2floatString
+  , int2floatString  
   -- * trace pseudo-function strings
   , traceIntString
   , traceFloatString
@@ -84,7 +85,7 @@ data Config = Config
   , nativeSymbols   :: SymbolTable }
 
 defaultConfig :: Bool -> Bool -> Config
-defaultConfig enableTrace enableAmpersand = Config
+defaultConfig enableTrace enableLowLevel = Config
   { nativeTypes
   , nativeFunctions
   , nativeSymbols = foldl' auxInsert emptyGlobal symbols }
@@ -125,12 +126,15 @@ defaultConfig enableTrace enableAmpersand = Config
       at "toInt"        ?= (toIntG       , [])
       at "toChar"       ?= (toCharG      , [])
       at "toFloat"      ?= (toFloatG     , [])
+      at "readln"       .= if enableLowLevel
+        then Just (readlnG, [])
+        else Nothing
       at "trace"        .= if enableTrace
         then Just (traceG, [])
         else Nothing
 
     traceG, toIntG, toCharG, toFloatG :: Seq Type -> Either Error (Type, Text, Bool)
-    absG, codomainG, domainG          :: Seq Type -> Either Error (Type, Text, Bool)
+    absG, codomainG, domainG, readlnG :: Seq Type -> Either Error (Type, Text, Bool)
     funcG, inverseG, multiplicityG    :: Seq Type -> Either Error (Type, Text, Bool)
     relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
     toSequenceG, isNanG, isInfG       :: Seq Type -> Either Error (Type, Text, Bool)
@@ -138,6 +142,7 @@ defaultConfig enableTrace enableAmpersand = Config
     wrap defName (signatures, casts) = Definition
       { defLoc  = gracielaDef
       , defName
+      , isDecl  = False
       , pre     = undefined
       , post    = undefined
       , bound   = Nothing
@@ -154,6 +159,18 @@ defaultConfig enableTrace enableAmpersand = Config
       , fName   = undefined
       , nParams = undefined
       , nArgs   = undefined }
+
+    readlnG [ GPointer GInt ] = Right (GPointer GChar, pack readlnString, False)
+    readlnG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "readln"
+      , pTypes = [GPointer GInt]
+      , aType  = a }
+    readlnG args = Left badNumArgs
+      { fName = "readln"
+      , nParams = 0
+      , nArgs = length args }
+
 
     traceG [ GInt   ] = Right (GInt,   pack  traceIntString,  False)
     traceG [ GFloat ] = Right (GFloat, pack  traceFloatString, False)
@@ -180,7 +197,7 @@ defaultConfig enableTrace enableAmpersand = Config
     toIntG [ GFloat ] = Right (GInt, pack float2intString, True)
     toIntG [ GChar  ] = Right (GInt, pack  char2intString, False)
     toIntG [ a ]
-      | a =:= GPointer GAny && enableAmpersand =
+      | a =:= GPointer GAny && enableLowLevel =
         Right (GInt, pack pointer2intString, False)
 
       | otherwise = Left badArg
@@ -487,6 +504,9 @@ int2charString    = "_int2char"
 char2floatString, int2floatString :: String
 char2floatString  = "_char2float"
 int2floatString   = "_int2float"
+
+readlnString :: String
+readlnString = "_readln"
 
 traceIntString, traceFloatString, traceCharString, traceBoolString, traceTypeVarString, traceStringIntString, traceStringFloatString, traceStringCharString, traceStringBoolString, traceStringTypeVarString :: String
 traceIntString           = "_traceInt"

@@ -10,6 +10,7 @@ module Language.Graciela.Parser.Instruction
   , declarationOrRead
   , block
   , assign
+  , assign'
   , random
   , guard
   , write
@@ -156,13 +157,24 @@ assertedInst follow = do
   void (lookAhead follow) <|> void (match' TokSemicolon)
   pure . sequence $ a1 <> (Seq.fromList . toList $ inst) <> a2
 
-
 assign :: Parser (Maybe Instruction)
-assign = do
+assign = assign' False
+
+assign' :: Bool -> Parser (Maybe Instruction)
+assign' cr = do
   from <- getPosition
   lvals <- expression `sepBy1` match TokComma
   match' TokAssign
-  exprs <- expression `sepBy` match TokComma
+  exprs <- if cr 
+    then do 
+
+      doingCoupleRel .= True
+      s <- expression `sepBy` match TokComma
+      doingCoupleRel .= False
+      pure s
+    else 
+      expression `sepBy` match TokComma
+
 
   to <- getPosition
   if length lvals == length exprs
@@ -282,11 +294,11 @@ write = do
   where
     write' _   Nothing = pure Nothing
     write' acc (Just e@Expression { E.loc = Location (from, _), expType })
-      | expType =:= writable = do
+      | expType =:= writable && expType /= GPointer GChar = do
           pure $ (|> e) <$> acc
       | otherwise = do
         p <- use pragmas
-        let ok = Set.member GetAddressOf p
+        let ok = Set.member MemoryOperations p
         if ok && expType =:= GPointer GAny
           then pure $ (|> e) <$> acc
         else do
@@ -744,13 +756,14 @@ procedureCall = do
             Obj {} | mode `elem` [Out, InOut, Ref] -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
 
-            _ | mode == Const -> if expConst e
-              then pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
-              else do
-                putError from . UnknownError $
-                  "The parameter `" <> unpack name <> "` has mode " <>
-                  show mode <> "\n\tbut the given expression is not constant \n"
-                pure Nothing
+            _ | mode == Const -> --if expConst e
+              -- then pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
+              -- else do
+              --   putError from . UnknownError $
+              --     "The parameter `" <> unpack name <> "` has mode " <>
+              --     show mode <> "\n\tbut the given expression is not constant \n"
+              --   pure Nothing
+                  pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
             _ | mode == In -> do
               pure $ (|> (e{expType = expType <> fType}, mode)) <$> acc
 

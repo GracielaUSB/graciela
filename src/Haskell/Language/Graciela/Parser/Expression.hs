@@ -16,7 +16,7 @@ import {-# SOURCE #-} Language.Graciela.Parser.Type (type')
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Definition
 import           Language.Graciela.AST.Expression  hiding (inner, loc)
-import qualified Language.Graciela.AST.Expression  as E (inner, loc)
+import qualified Language.Graciela.AST.Expression  as E (inner, loc, BinaryOperator(Plus, BMinus))
 import           Language.Graciela.AST.Object      hiding (inner, loc, name)
 import qualified Language.Graciela.AST.Object      as O (inner, loc, name)
 import           Language.Graciela.AST.Struct      (Struct (..), Struct' (..),
@@ -171,7 +171,7 @@ term =  tuple
 
       pragmas' <- lift $ use pragmas
       let
-        pragOk = fun == "sizeof" && Set.member GetAddressOf pragmas'
+        pragOk = fun == "sizeof" && Set.member MemoryOperations pragmas'
       unless pragOk $ do
         void . lookAhead . match $ TokLeftPar
       identifier
@@ -219,6 +219,12 @@ term =  tuple
       text <- stringLit
       to   <- getPosition
 
+    -- strId <- lift $ use stringIds >>= \m -> case text `Map.lookup` m of
+    --     Just i  -> pure i
+    --     Nothing -> use stringCounter >>= \i -> do
+    --       stringCounter .= i+1
+    --       stringIds %= Map.insert text i
+    --       pure i
       strId <- lift $ stringIds %%= \m -> case text `Map.lookup` m of
         Just i  -> (i, m)
         Nothing -> let i = Map.size m in (i, Map.insert text i m)
@@ -485,11 +491,7 @@ collection = do
                   "\n\t\t * " <> show (GTuple GAny GAny)
                 pure Nothing
             newType -> pure $ Just (els |> e, newType)
-      where
-        isTupleTypeVar t = case t of
-          GTuple t1 t2 | (t1 =:= GOneOf [GInt, GChar, GATypeVar])
-                      && (t1 =:= GOneOf [GInt, GChar, GFloat, GATypeVar]) -> True
-          _ -> False
+      
 
 variable :: ParserExp (Maybe MetaExpr)
 variable = do
@@ -500,6 +502,7 @@ variable = do
 
   maybeStruct  <- lift $ use currentStruct
   abstNamesOk <- lift $ use allowAbstNames
+  coupRel     <- lift $ use doingCoupleRel
 
   (dt,abstractSt) <- case maybeStruct of
     Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
@@ -508,10 +511,9 @@ variable = do
         Just abst -> structSt abst
         _         -> emptyGlobal
     _ -> pure (GUndef, emptyGlobal)
-
   let
     entry = case name `lookup` st of
-      Left _ -> name `lookup` abstractSt
+      Left _ | not coupRel -> name `lookup` abstractSt
       x      -> x
 
   case entry of
@@ -1492,7 +1494,8 @@ subindex = do
   subindices' <- between (match TokLeftBracket) (match' TokRightBracket)
     (subAux `sepBy` match TokComma)
   to <- getPosition
-
+  
+  pragOk <- Set.member MemoryOperations <$> lift (use pragmas)
   let subindices = sequence subindices'
 
   pure $ filterRawName >=> case subindices of
@@ -1523,27 +1526,49 @@ subindex = do
               let
                 lsubs = length subs
                 ldims = length dimensions
-              if lsubs /= ldims
-                then do
+              when (lsubs /= ldims) $ do
                   putError from . UnknownError $
                     "Attempted to index " <> show ldims <>"-dimensional array \
                     \with a " <> show lsubs <> "-dimensional subindex."
-                  pure Nothing
-                else
-                  let
-                    taint = foldMap (view _3) subs <> taint1
-                    expr1 = Expression
-                      { E.loc = Location (from, to)
-                      , expType = innerType
-                      , expConst = False
-                      , exp' = Obj
-                        { theObj = Object
-                          { O.loc = Location (from, to)
-                          , objType = innerType
-                          , obj' = Index
-                            { O.inner = o
-                            , indices = view _1 <$> subs }}}}
-                  in pure $ Just (expr1, ProtoNothing, taint)
+              let
+                taint = foldMap (view _3) subs <> taint1
+                expr1 = Expression
+                  { E.loc = Location (from, to)
+                  , expType = innerType
+                  , expConst = False
+                  , exp' = Obj
+                    { theObj = Object
+                      { O.loc = Location (from, to)
+                      , objType = innerType
+                      , obj' = Index
+                        { O.inner = o
+                        , isPtr   = False
+                        , indices = view _1 <$> subs }}}}
+              pure $ Just (expr1, ProtoNothing, taint)
+
+          Expression
+            { E.loc = Location (from, _)
+            , expType = GPointer innerType
+            , exp' = Obj o } | pragOk -> do
+              when (length subs /= 1) $ do
+                putError from . UnknownError $
+                  "Attempted to index too many times an \
+                  \object of type " <> show (GPointer innerType)
+              let
+                taint = foldMap (view _3) subs <> taint1
+                expr1 = Expression
+                  { E.loc = Location (from, to)
+                  , expType = innerType
+                  , expConst = False
+                  , exp' = Obj
+                    { theObj = Object
+                      { O.loc = Location (from, to)
+                      , objType = innerType
+                      , obj' = Index
+                        { O.inner = o
+                        , isPtr   = True
+                        , indices = view _1 <$> subs }}}}
+              pure $ Just (expr1, ProtoNothing, taint)
           Expression
             { E.loc = Location (from, _)
             , expType = GSeq t
@@ -1738,7 +1763,7 @@ refof = do
   from <- getPosition
   void $ match TokAmpersand
   pragmas' <- lift $ use pragmas
-  let pragOk = Set.member GetAddressOf pragmas'
+  let pragOk = Set.member MemoryOperations pragmas'
   unless pragOk . putError from . UnknownError $
     "Unknown token: \ESC[0;33;1m&\ESC[m"
   pure $ filterRawName >=> \case
@@ -1763,6 +1788,7 @@ refof = do
           "Cannot get the address of non-object expression."
 
         pure Nothing
+
 
 unary :: Op.Un -> Location
       -> Maybe MetaExpr -> ParserExp (Maybe MetaExpr)
@@ -1812,45 +1838,79 @@ binary _ _ _ Nothing = pure Nothing
 binary binOp opLoc
   (Just (l @ Expression { expType = ltype, expConst = lc, exp' = lexp }, _, ltaint))
   (Just (r @ Expression { expType = rtype, expConst = rc, exp' = rexp }, _, rtaint))
-  = case Op.binType binOp ltype rtype of
+  = do 
+    pragmas' <- lift $ use pragmas
+    let pragOk = Set.member MemoryOperations pragmas'
 
-    Left expected -> do
-      putError (from l) . UnknownError $
-        "Operator `" <> show (Op.binSymbol binOp) <>
-        "` received two expressions of types:" <>
-        "\n\t\t" <> show (ltype, rtype) <>
-        "\n\tbut expected an expression of type " <>
-        "\n\t\t" <> expected
-      pure Nothing
+    case Op.binType binOp ltype rtype of
 
-    Right ret -> do
-      mexpr <- case binOp of
-        Op.Bin   { binFunc   } ->
-          let
-            exp' = case (lexp, rexp) of
-              (Value v, Value w) -> Value $ binFunc v w
-              _ -> Binary
-                { binOp = Op.binSymbol binOp
-                , lexpr = l
-                , rexpr = r }
-            expr = Expression
-              { E.loc = Location (from l, to r)
-              , expType = ret
-              , expConst = lc && rc
-              , exp' }
-          in pure . Just $ expr
+      Left expected | not (pragOk && (Op.binSymbol binOp == Plus || Op.binSymbol binOp == E.BMinus) &&
+                      ((ltype =:= GPointer GAny && rtype =:= GInt) ||
+                       (rtype =:= GPointer GAny && ltype =:= GInt))) -> do
+        putError (from l) . UnknownError $
+          "Operator `" <> show (Op.binSymbol binOp) <>
+          "` received two expressions of types:" <>
+          "\n\t\t" <> show (ltype, rtype) <>
+          "\n\tbut expected an expression of type " <>
+          "\n\t\t" <> expected
+        pure Nothing
+      Left _ -> do 
+        mexpr <- case binOp of
+          Op.Bin   { binFunc   } ->
+            let
+              exp' = case (lexp, rexp) of
+                (Value v, Value w) -> Value $ binFunc v w
+                _ -> Binary
+                  { binOp = Op.binSymbol binOp
+                  , lexpr = l
+                  , rexpr = r }
+              expr = Expression
+                { E.loc = Location (from l, to r)
+                , expType = if (ltype =:= GInt) then rtype else ltype
+                , expConst = lc && rc
+                , exp' }
+            in pure . Just $ expr
 
-        Op.Bin'  { binFunc'  } -> pure . Just $ binFunc' l r
+          Op.Bin'  { binFunc'  } -> pure . Just $ binFunc' l r
 
-        Op.Bin'' { binFunc'' } -> lift $ binFunc'' l r
+          Op.Bin'' { binFunc'' } -> lift $ binFunc'' l r
+        
+        case mexpr of
+          Nothing -> pure Nothing
+          Just expr ->
+            let
+              taint = ltaint <> rtaint
 
-      case mexpr of
-        Nothing -> pure Nothing
-        Just expr ->
-          let
-            taint = ltaint <> rtaint
+            in pure $ Just (expr, ProtoNothing, taint)
 
-          in pure $ Just (expr, ProtoNothing, taint)
+      Right ret -> do
+        mexpr <- case binOp of
+          Op.Bin   { binFunc   } ->
+            let
+              exp' = case (lexp, rexp) of
+                (Value v, Value w) -> Value $ binFunc v w
+                _ -> Binary
+                  { binOp = Op.binSymbol binOp
+                  , lexpr = l
+                  , rexpr = r }
+              expr = Expression
+                { E.loc = Location (from l, to r)
+                , expType = ret
+                , expConst = lc && rc
+                , exp' }
+            in pure . Just $ expr
+
+          Op.Bin'  { binFunc'  } -> pure . Just $ binFunc' l r
+
+          Op.Bin'' { binFunc'' } -> lift $ binFunc'' l r
+
+        case mexpr of
+          Nothing -> pure Nothing
+          Just expr ->
+            let
+              taint = ltaint <> rtaint
+
+            in pure $ Just (expr, ProtoNothing, taint)
 
 
 membership :: Location

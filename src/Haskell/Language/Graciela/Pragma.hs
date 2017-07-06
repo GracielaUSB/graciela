@@ -1,10 +1,16 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Language.Graciela.Pragma
   ( Pragma (..)
   ) where
+
+import           Data.Serialize             (Serialize)
+import           GHC.Generics               (Generic)
 --------------------------------------------------------------------------------
 
 data Pragma
   = LogicAnywhere
   | EnableTrace
-  | GetAddressOf
-  deriving (Eq, Ord, Show)
+  | MemoryOperations
+  deriving (Eq, Ord, Show,Generic, Serialize)

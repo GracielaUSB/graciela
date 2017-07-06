@@ -52,7 +52,7 @@ type Dicc(T0, T1) implements Diccionario(T0, T1) begin
 
   where { 
     tabla := func({i : int | 0 ≤ i ∧ i < tam | (clave[i], valor[i])});
-    conoc := domain(tabla)
+    conoc := {i : int | 0 ≤ i ∧ i < tam | clave[i]}
   }
   
   proc copiarClaveValor ( in d       : Dicc(T0,T1)

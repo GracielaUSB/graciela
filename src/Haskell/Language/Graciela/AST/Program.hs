@@ -1,4 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Language.Graciela.AST.Program where
 --------------------------------------------------------------------------------
@@ -6,6 +8,7 @@ import           Language.Graciela.AST.Definition  (Definition)
 import           Language.Graciela.AST.Expression  hiding (loc)
 import           Language.Graciela.AST.Instruction (Instruction)
 import           Language.Graciela.AST.Struct      (Struct)
+import           Language.Graciela.Pragma          (Pragma)
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
 import           Language.Graciela.SymbolTable
@@ -25,7 +28,8 @@ data Program
     , defs        :: Seq Definition
     , insts       :: Instruction
     , structs     :: Map Text Struct
-    , fullStructs :: Map Text (Struct, Set TypeArgs)
+    , fullStructs :: Map Text (Struct, Map TypeArgs Bool)
+    , pragmas     :: Set Pragma
     , strings     :: Map Text Int }
 
 instance Treelike Program where

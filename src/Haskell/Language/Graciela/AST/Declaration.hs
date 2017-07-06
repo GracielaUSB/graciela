@@ -1,4 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+
 
 module Language.Graciela.AST.Declaration where
 --------------------------------------------------------------------------------
@@ -20,6 +24,7 @@ data Declaration
     { declLoc   :: Location
     , declType  :: Type
     , declPairs :: Seq (Text, (Expression,Bool)) }
+  deriving (Generic, Serialize)
 
 instance Treelike Declaration where
   toTree Declaration { declLoc, declType, declIds } =

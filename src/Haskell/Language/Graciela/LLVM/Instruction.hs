@@ -163,19 +163,17 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     warn Warning.Manual pos
 
   Assertion expr -> do
-    asserts <- use evalAssertions
-    when asserts $ do
-      -- Create both labels
-      trueLabel  <- newLabel "assertTrue"
-      falseLabel <- newLabel "assertFalse"
-      -- Evaluate the condition expression using short-circuit
-      boolean trueLabel falseLabel expr
-      -- Set the false label to the abort
-      -- And the true label to the next instructions
-      (falseLabel #)
-      abort Abort.Assert pos
+    -- Create both labels
+    trueLabel  <- newLabel "assertTrue"
+    falseLabel <- newLabel "assertFalse"
+    -- Evaluate the condition expression using short-circuit
+    boolean trueLabel falseLabel expr
+    -- Set the false label to the abort
+    -- And the true label to the next instructions
+    (falseLabel #)
+    abort Abort.Assert pos
 
-      (trueLabel #)
+    (trueLabel #)
 
 
   Assign { assignPairs } -> do
@@ -245,12 +243,12 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         pure $ llvmName (pName <> pack "-" <> structBaseName) t'
 
       _ -> pure . unpack $ pName
-    asserts <- use evalAssertions
-    recArgs <- fmap (,[]) <$> if pRecursiveCall && asserts
+
+    recArgs <- fmap (,[]) <$> if pRecursiveCall
       then do
         boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
         pure [ConstantOperand $ C.Int 1 1, boundOperand]
-      else if prp && asserts
+      else if prp
         then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
       else pure []
 
@@ -937,6 +935,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     again     <- newLabel "doAgain"
     checkGte0 <- newLabel "doCheckGte0"
     n         <- newLabel "doN"
+    asserts    <- use evalAssertions
 
     terminate Br
       { dest      = begin
@@ -948,92 +947,104 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       , numElements   = Nothing
       , alignment     = 4
       , metadata      = [] }
+      
+    
+  
+    if asserts then do
+      boundVal0 <- expression rbound
+      Just begin' <- use blockName
+      terminate Br
+        { dest      = checkGte0
+        , metadata' = [] }
 
-    boundVal0 <- expression rbound
-    Just begin' <- use blockName
-    terminate Br
-      { dest      = checkGte0
-      , metadata' = [] }
+      (again #)
+      boundVal1 <- expression rbound
+      oldBound <- newLabel "doOldBound"
+      addInstruction $ oldBound := Load
+        { volatile = False
+        , address = LocalReference intType n
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata = [] }
+      ltOld <- newLabel "doLtOld"
+      addInstruction $ ltOld := ICmp
+        { iPredicate = SLT
+        , operand0   = boundVal1
+        , operand1   = LocalReference intType oldBound
+        , metadata   = [] }
+      noLtOld <- newLabel "doNoLtOld"
 
-    (again #)
-    boundVal1 <- expression rbound
-    oldBound <- newLabel "doOldBound"
-    addInstruction $ oldBound := Load
-      { volatile = False
-      , address = LocalReference intType n
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata = [] }
-    ltOld <- newLabel "doLtOld"
-    addInstruction $ ltOld := ICmp
-      { iPredicate = SLT
-      , operand0   = boundVal1
-      , operand1   = LocalReference intType oldBound
-      , metadata   = [] }
-    noLtOld <- newLabel "doNoLtOld"
+      Just again' <- use blockName
+      terminate CondBr
+        { condition = LocalReference boolType ltOld
+        , trueDest  = checkGte0
+        , falseDest = noLtOld
+        , metadata' = [] }
 
-    Just again' <- use blockName
-    terminate CondBr
-      { condition = LocalReference boolType ltOld
-      , trueDest  = checkGte0
-      , falseDest = noLtOld
-      , metadata' = [] }
+      (noLtOld #)
+      abort Abort.NonDecreasingBound pos
 
-    (noLtOld #)
-    abort Abort.NonDecreasingBound pos
+      (checkGte0 #)
+      boundVal <- newLabel "doBound"
+      addInstruction $ boundVal := Phi
+        { type' = intType
+        , incomingValues =
+          [ (boundVal0, begin')
+          , (boundVal1, again') ]
+        , metadata = [] }
+      gte0 <- newLabel "doGte0"
+      addInstruction $ gte0 := ICmp
+        { iPredicate = SGE
+        , operand0   = LocalReference intType boundVal
+        , operand1   = ConstantOperand $ C.Int 32 0
+        , metadata   = [] }
 
-    (checkGte0 #)
-    boundVal <- newLabel "doBound"
-    addInstruction $ boundVal := Phi
-      { type' = intType
-      , incomingValues =
-        [ (boundVal0, begin')
-        , (boundVal1, again') ]
-      , metadata = [] }
-    gte0 <- newLabel "doGte0"
-    addInstruction $ gte0 := ICmp
-      { iPredicate = SGE
-      , operand0   = LocalReference intType boundVal
-      , operand1   = ConstantOperand $ C.Int 32 0
-      , metadata   = [] }
+      yesGte0 <- newLabel "doGte0Yes"
+      noGte0  <- newLabel "doGte0No"
+      terminate CondBr
+        { condition = LocalReference boolType gte0
+        , trueDest  = yesGte0
+        , falseDest = noGte0
+        , metadata' = [] }
 
-    yesGte0 <- newLabel "doGte0Yes"
-    noGte0  <- newLabel "doGte0No"
-    terminate CondBr
-      { condition = LocalReference boolType gte0
-      , trueDest  = yesGte0
-      , falseDest = noGte0
-      , metadata' = [] }
+      (noGte0 #)
+      abort Abort.NegativeBound pos
 
-    (noGte0 #)
-    abort Abort.NegativeBound pos
+      (yesGte0 #)
+      yesInv <- newLabel "doInvYes"
+      noInv  <- newLabel "doInvNo"
 
-    (yesGte0 #)
-    yesInv <- newLabel "doInvYes"
-    noInv  <- newLabel "doInvNo"
+      boolean yesInv noInv rinv
 
-    boolean yesInv noInv rinv
+      (noInv #)
+      abort Abort.Invariant pos
 
-    (noInv #)
-    abort Abort.Invariant pos
+      (yesInv #)
+      addInstruction $ Do Store
+        { volatile       = False
+        , address        = LocalReference intType n
+        , value          = LocalReference intType boundVal
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
 
-    (yesInv #)
-    addInstruction $ Do Store
-      { volatile       = False
-      , address        = LocalReference intType n
-      , value          = LocalReference intType boundVal
-      , maybeAtomicity = Nothing
-      , alignment      = 4
-      , metadata       = [] }
+      firstGuard <- newLabel "doGuards"
+      terminate Br
+        { dest      = firstGuard
+        , metadata' = [] }
 
-    firstGuard <- newLabel "doGuards"
-    terminate Br
-      { dest      = firstGuard
-      , metadata' = [] }
+      exit <- foldM (guard again) firstGuard rguards
 
-    exit <- foldM (guard again) firstGuard rguards
+      (exit #)
+    else do 
+      terminate Br
+        { dest      = again
+        , metadata' = [] }
 
-    (exit #)
+      exit <- foldM (guard again) again rguards
+
+      (exit #)
+
 
   Skip -> pure ()
 

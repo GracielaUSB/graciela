@@ -8,6 +8,7 @@ module Language.Graciela.LLVM.Struct
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.AST.Declaration  (Declaration (..))
+import           Language.Graciela.AST.Definition   (Definition(..))
 import           Language.Graciela.AST.Expression   (Expression (..))
 import qualified Language.Graciela.AST.Instruction  as G (Instruction (..),
                                                           Instruction' (..))
@@ -59,14 +60,16 @@ import qualified LLVM.General.AST.Type              as LLVM
 
 data Invariant = Invariant | RepInvariant | CoupInvariant deriving (Eq)
 
-defineStruct :: Text -> (Struct, Set TypeArgs) -> LLVM ()
+defineStruct :: Text -> (Struct, Map TypeArgs Bool) -> LLVM ()
 
 defineStruct structBaseName (ast, typeMaps) = case ast of
 
-  Struct {structBaseName,structTypes, structFields, structAFields, structProcs, struct'} -> case struct' of
+  Struct { structBaseName, structTypes, structFields, structLoc 
+         , structAFields, structProcs, struct'} -> case struct' of
     DataType {abstract, abstractTypes, inv, repinv, coupinv, couple} ->
-      forM_ typeMaps $ \typeMap -> do
+      forM_ (Map.toList typeMaps) $ \(typeMap, fromOtherModule) -> do
 
+        asserts <- use evalAssertions
         substitutionTable .= [typeMap]
         currentStruct .= Just ast
         let
@@ -77,32 +80,56 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         types <- mapM fill structTypes
 
         let
+          SourcePos f _ _ = pos structLoc 
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
 
         moduleDefs %= (|> TypeDefinition (Name name) type')
+        traceM $ "\t"<> name <> if fromOtherModule then " (from Other module)" else ""
+
         currentStruct .= Nothing
         coupling .= True
-        defineGetters couple name structType -- While building getters, currentStruct must be Nothing
+        defineGetters fromOtherModule couple name structType -- While building getters, currentStruct must be Nothing
         coupling .= False
         currentStruct .= Just ast
 
-        defaultConstructor name structType typeMap
-        defaultDestructor name structType typeMap
-        defaultCopy name structType typeMap
-        defineStructInv CoupInvariant name structType coupinv
-        defineStructInv Invariant name structType inv
-        defineStructInv RepInvariant name structType repinv
+        defaultConstructor fromOtherModule name structType typeMap
+        defaultDestructor fromOtherModule name structType typeMap
+        defaultCopy fromOtherModule name structType typeMap
+        when (asserts) $ do
+          defineStructInv fromOtherModule CoupInvariant name structType coupinv
+          defineStructInv fromOtherModule Invariant name structType inv
+          defineStructInv fromOtherModule RepInvariant name structType repinv
 
         -- defineCouple couple name structType
 
-        mapM_ definition structProcs
+        forM_ structProcs $ \def -> 
+          definition (def {isDecl = fromOtherModule})
+
         currentStruct .= Nothing
         substitutionTable .= []
     s -> pure ()
 
-defaultConstructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
-defaultConstructor name structType typeMap = do
+
+
+
+
+
+defaultConstructor :: Bool -- is a declaration or a definition
+                   -> String 
+                   -> LLVM.Type 
+                   -> TypeArgs 
+                   -> LLVM ()
+defaultConstructor True name structType _ = do
+  let
+    procName = "init" <> name
+    selfParam   = Parameter (ptr structType) (Name "_self") []
+    dAllocParam = Parameter boolType (Name "dinamicAlloc") []
+
+  addDefinitions $ [defineFunction procName [selfParam, dAllocParam] voidType]
+
+
+defaultConstructor _ name structType typeMap = do
   let
     procName = "init" <> name
   proc <- newLabel procName
@@ -350,8 +377,22 @@ defaultConstructor name structType typeMap = do
       GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
-defaultDestructor :: String -> LLVM.Type -> TypeArgs -> LLVM ()
-defaultDestructor name structType typeMap = do
+
+
+
+defaultDestructor :: Bool -- is a declaration or a definition
+                  -> String 
+                  -> LLVM.Type 
+                  -> TypeArgs 
+                  -> LLVM ()
+defaultDestructor True name structType _ = do
+  let
+    procName = "destroy" <> name
+    selfParam   = Parameter (ptr structType) (Name "_self") []
+
+  addDefinitions $ [defineFunction procName [selfParam] voidType]
+
+defaultDestructor _ name structType typeMap = do
   let
     procName = "destroy" <> name
   proc <- newLabel procName
@@ -434,8 +475,16 @@ defaultDestructor name structType typeMap = do
         , returnType  = voidType
         , basicBlocks = toList blocks' }
 
-defaultCopy :: String -> LLVM.Type -> TypeArgs -> LLVM ()
-defaultCopy name structType typeMap = do
+defaultCopy :: Bool -> String -> LLVM.Type -> TypeArgs -> LLVM ()
+defaultCopy True name structType _ = do
+  let
+    procName = "copy" <> name
+    source = Parameter (ptr structType) (Name "source") []
+    dest   = Parameter (ptr structType) (Name "dest")   []
+
+  addDefinitions $ [defineFunction procName [source, dest] voidType]
+
+defaultCopy _ name structType typeMap = do
   let
     procName = "copy" <> name
   proc <- newLabel procName
@@ -525,8 +574,9 @@ defaultCopy name structType typeMap = do
   blocks' <- use blocks
   blocks .= Seq.empty
 
-  let sourceParam = Parameter (ptr structType) sourceStructName []
-  let destParam   = Parameter (ptr structType) destStructName   []
+  let 
+    sourceParam = Parameter (ptr structType) sourceStructName []
+    destParam   = Parameter (ptr structType) destStructName   []
 
   addDefinition $ GlobalDefinition functionDefaults
         { name        = Name procName
@@ -535,11 +585,32 @@ defaultCopy name structType typeMap = do
         , basicBlocks = toList blocks' }
 
 
-defineGetters :: Seq G.Instruction
+
+
+
+
+
+defineGetters :: Bool -- is a declaration or a definition
+              -> Seq G.Instruction
               -> String
               -> LLVM.Type
               -> LLVM ()
-defineGetters insts name t = do
+defineGetters True insts name t = do
+  forM_ insts $ \x -> case G.inst' x of
+    G.Assign {G.assignPairs} -> forM_ assignPairs $ \(lval,expr) -> do
+        let
+          varName = case O.obj' lval of
+            O.Member{O.fieldName} -> fieldName
+            _              -> internal $ "Could not build the getter of a non member lval"
+
+          procName = "get_" <> unpack varName <> "-" <> name
+          selfParam = Parameter (ptr t) (Name "_self") []
+        
+        addDefinitions $ [defineFunction procName [selfParam] (ptr i8)]
+
+
+
+defineGetters _ insts name t = do
 
   forM_ insts $ \x -> case G.inst' x of
     G.Assign {G.assignPairs} -> forM_ assignPairs $ \(lval,expr) -> do
@@ -593,79 +664,91 @@ defineGetters insts name t = do
               , basicBlocks = toList blocks' }
 
 
-defineStructInv :: Invariant
+defineStructInv :: Bool -- is a declaration or a definition
+                -> Invariant
                 -> String
                 -> LLVM.Type
                 -> Expression
                 -> LLVM ()
-defineStructInv inv name t expr@ Expression {loc = Location(pos,_)} = do
+defineStructInv True inv name t _ = do
+  let
+    procName = (<> name) (case inv of
+        CoupInvariant -> "coupInv-"
+        Invariant     -> "inv-"
+        RepInvariant  -> "repInv-")
+    selfParam    = Parameter (ptr t) (Name "_self") []
+    precondParam = Parameter boolType (Name "cond") []
 
-    let
-      procName = (<> name) (case inv of
-          CoupInvariant -> "coupInv-"
-          Invariant     -> "inv-"
-          RepInvariant  -> "repInv-")
+  addDefinitions $ [defineFunction procName [selfParam, precondParam] voidType]
 
-    proc <- newLabel $ "proc" <> procName
-    (proc #)
+defineStructInv _ inv name t expr@ Expression {loc = Location(pos,_)} = do
 
-    openScope
-    name' <- insertVar "_self"
-    -- Evaluate the condition expression
-    condInv <- expression' expr
-    -- Create both label
-    trueLabel  <- newLabel "condTrue"
-    falseLabel <- newLabel "condFalse"
+  let
+    procName = (<> name) (case inv of
+        CoupInvariant -> "coupInv-"
+        Invariant     -> "inv-"
+        RepInvariant  -> "repInv-")
 
-    precondTrue  <- newLabel "precondTrue"
-    precondFalse <- newLabel "precondFalse"
-    -- Create the conditional branch
-    terminate CondBr
-      { condition = condInv
-      , trueDest  = trueLabel
-      , falseDest = falseLabel
+  proc <- newLabel $ "proc" <> procName
+  (proc #)
+
+  openScope
+  name' <- insertVar "_self"
+  -- Evaluate the condition expression
+  condInv <- expression' expr
+  -- Create both label
+  trueLabel  <- newLabel "condTrue"
+  falseLabel <- newLabel "condFalse"
+
+  precondTrue  <- newLabel "precondTrue"
+  precondFalse <- newLabel "precondFalse"
+  -- Create the conditional branch
+  terminate CondBr
+    { condition = condInv
+    , trueDest  = trueLabel
+    , falseDest = falseLabel
+    , metadata' = [] }
+  -- Set the false label to the warning, then continue normally
+  (falseLabel #)
+
+  terminate CondBr
+    { condition = LocalReference boolType (Name "cond")
+    , trueDest  = precondTrue
+    , falseDest = precondFalse
+    , metadata' = [] }
+
+  (precondTrue #)
+  case inv of
+    CoupInvariant -> abort Abort.CoupInvariant pos
+    Invariant     -> abort Abort.RepInvariant pos
+    RepInvariant  -> abort Abort.RepInvariant pos
+
+  (precondFalse #)
+
+  case inv of
+    CoupInvariant -> warn Warning.CoupInvariant pos
+    Invariant     -> warn Warning.RepInvariant pos
+    RepInvariant  -> warn Warning.RepInvariant pos
+
+  terminate Br
+      { dest      = trueLabel
       , metadata' = [] }
-    -- Set the false label to the warning, then continue normally
-    (falseLabel #)
 
-    terminate CondBr
-      { condition = LocalReference boolType (Name "cond")
-      , trueDest  = precondTrue
-      , falseDest = precondFalse
-      , metadata' = [] }
+  -- And the true label to the next instructions
+  (trueLabel #)
 
-    (precondTrue #)
-    case inv of
-      CoupInvariant -> abort Abort.CoupInvariant pos
-      Invariant     -> abort Abort.RepInvariant pos
-      RepInvariant  -> abort Abort.RepInvariant pos
+  terminate $ Ret Nothing []
+  closeScope
 
-    (precondFalse #)
+  blocks' <- use blocks
+  blocks .= Seq.empty
 
-    case inv of
-      CoupInvariant -> warn Warning.CoupInvariant pos
-      Invariant     -> warn Warning.RepInvariant pos
-      RepInvariant  -> warn Warning.RepInvariant pos
+  let
+    selfParam    = Parameter (ptr t) name' []
+    precondParam = Parameter boolType (Name "cond") []
 
-    terminate Br
-        { dest      = trueLabel
-        , metadata' = [] }
-
-    -- And the true label to the next instructions
-    (trueLabel #)
-
-    terminate $ Ret Nothing []
-    closeScope
-
-    blocks' <- use blocks
-    blocks .= Seq.empty
-
-    let
-      selfParam    = Parameter (ptr t) name' []
-      precondParam = Parameter boolType (Name "cond") []
-
-    addDefinition $ GlobalDefinition functionDefaults
-          { name        = Name procName
-          , parameters  = ([selfParam, precondParam],False)
-          , returnType  = voidType
-          , basicBlocks = toList blocks' }
+  addDefinition $ GlobalDefinition functionDefaults
+        { name        = Name procName
+        , parameters  = ([selfParam, precondParam],False)
+        , returnType  = voidType
+        , basicBlocks = toList blocks' }

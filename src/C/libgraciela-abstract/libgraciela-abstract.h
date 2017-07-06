@@ -216,7 +216,9 @@ extern "C" {
     */
     void _addPointer   (int8_t* ptr);
     void _removePointer(int8_t* ptr, int c, int l);
-    void _derefPointer (int8_t* ptr, int c, int l);
+    void _derefPointer (int8_t* ptr, int pragma, int c, int l);
+
+    char *_readln(int **i);
 
 #ifdef __cplusplus
 }

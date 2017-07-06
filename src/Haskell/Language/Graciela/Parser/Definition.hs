@@ -149,8 +149,9 @@ function = do
         then do
           let
             def = Definition
-              { defLoc   = loc
-              , defName  = funcName
+              { defLoc  = loc
+              , defName = funcName
+              , isDecl  = False
               , pre
               , post
               , bound = bnd
@@ -168,9 +169,10 @@ function = do
                   Nothing -> do
                     currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
                     pure $ Just def
-                  Just _  -> do
+                  Just Definition {defLoc = Location (prevPos,_)} -> do
                     putError from . UnknownError $
-                      "Redefinition of function `" <> unpack funcName <> "`."
+                      "Redefinition of function `" <> unpack funcName <> "`.\n\t" <>
+                      "Already defined at " <> showRedefPos prevPos from <> "."
                     pure Nothing
           else do
             defs <- use definitions
@@ -178,9 +180,10 @@ function = do
               Nothing -> do
                 definitions %= Map.insert funcName def
                 pure $ Just def
-              Just _  -> do
+              Just Definition {defLoc = Location (prevPos,_)}  -> do
                 putError from . UnknownError $
-                  "Redefinition of function `" <> unpack funcName <> "`."
+                  "Redefinition of function `" <> unpack funcName <> "`.\n\t" <>
+                  "Already defined at " <> showRedefPos prevPos from <> "."
                 pure Nothing
       else do
         putError from BadFuncExpressionType
@@ -190,6 +193,7 @@ function = do
         pure Nothing
 
     _ -> pure Nothing
+
 
 
 doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
@@ -218,10 +222,10 @@ doFuncParams =  lookAhead (match TokRightPar) $> Just Seq.empty
       st <- use symbolTable
 
       case parName `local` st of
-        Right Entry { _loc } -> do
+        Right Entry { _loc = Location (prevPos,_) } -> do
           putError from . UnknownError $
             "Redefinition of parameter `" <> unpack parName <>
-            "`, original definition was at " <> show _loc <> "."
+            "`, original definition at " <> showRedefPos prevPos from <> "."
           pure Nothing
         Left _ -> do
           symbolTable %= insertSymbol parName
@@ -307,8 +311,9 @@ procedure = do
     (Just procName, Just params, Just decls, Just pre, Just post, Just body) -> do
       let
         def = Definition
-          { defLoc   = loc
-          , defName  = procName
+          { defLoc  = loc
+          , defName = procName
+          , isDecl  = False
           , pre
           , post
           , bound = bnd
@@ -325,9 +330,10 @@ procedure = do
               Nothing -> do
                 currentStruct %= over _Just (_3 %~ (Map.insert procName def))
                 pure $ Just def
-              Just _  -> do
+              Just Definition {defLoc = Location (prevPos,_)}  -> do
                 putError from . UnknownError $
-                  "Redefinition of procedure `" <> unpack procName <> "`."
+                  "Redefinition of procedure `" <> unpack procName <> "`.\n\t" <>
+                  "Already defined at " <> showRedefPos prevPos from <> "."
                 pure Nothing
         else do
           defs <- use definitions
@@ -335,9 +341,10 @@ procedure = do
             Nothing -> do
               definitions %= Map.insert procName def
               pure $ Just def
-            Just _  -> do
+            Just Definition {defLoc = Location (prevPos,_)} -> do
               putError from . UnknownError $
-                "Redefinition of procedure `" <> unpack procName <> "`."
+                "Redefinition of procedure `" <> unpack procName <> "`.\n\t" <>
+                "Already defined at " <> showRedefPos prevPos from <> "."
               pure Nothing
 
 
@@ -376,10 +383,10 @@ doProcParams =  lookAhead (match TokRightPar) $> Just Seq.empty
       case (parName', mode') of
         (Just parName, Just mode) ->
           case parName `local` st of
-            Right Entry { _loc } -> do
+            Right Entry { _loc = Location (prevPos,_) } -> do
               putError from . UnknownError $
                 "Redefinition of parameter `" <> unpack parName <>
-                "`, original definition was at " <> show _loc <> "."
+                "`, original definition was at " <> showRedefPos prevPos from <> "."
               pure Nothing
             Left _
               |  not (t =:= basic) && mode == Const -> do
@@ -454,8 +461,9 @@ functionDeclaration = do
   case (funcName', params', pre', post', decls') of
     (Just funcName, Just params, Just pre, Just post, Just decls) -> do
       pure . Just $ Definition
-          { defLoc   = loc
-          , defName  = funcName
+          { defLoc  = loc
+          , defName = funcName
+          , isDecl  = False
           , pre
           , post
           , bound = Nothing
@@ -505,8 +513,9 @@ procedureDeclaration = do
   case (procName', params', pre', post', decls') of
     (Just procName, Just params, Just pre, Just post, Just decls) -> do
       pure . Just $ Definition
-          { defLoc   = loc
-          , defName  = procName
+          { defLoc  = loc
+          , defName = procName
+          , isDecl  = False
           , pre
           , post
           , bound = Nothing

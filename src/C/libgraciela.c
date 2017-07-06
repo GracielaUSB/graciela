@@ -19,6 +19,12 @@
 #include "string.h"
 #include "libgraciela-abstract/libgraciela-abstract.h"
 
+#ifdef __cplusplus
+  #include <iostream>
+#endif
+
+#define MAX_LINE 2048
+
 int8_t* _openFile(char* name) {
   FILE* file;
 
@@ -58,6 +64,7 @@ void _free(int8_t *mem, int l, int c){
 }
 
 int _readFileInt(int8_t* file) {
+
   FILE* f = (FILE*) file;
 
   int n;
@@ -75,6 +82,7 @@ int _readFileInt(int8_t* file) {
   }
 
   return n;
+
 }
 
 int _readFileBool(int8_t* file) {
@@ -141,45 +149,98 @@ double _readFileDouble(int8_t* file) {
   return n;
 }
 
-int _readIntStd () {
-  int  n;
-  char c;
+void _lineFeed(){
+  char end = (char)getchar();
+  if ( end != '\n' && end != '\0'){
+    // ASCII 10 "Line Feed"
+    ungetc(end, stdin); // put back the next character if its not an \n or \0
+  }
+}
 
-  scanf("%d%c", &n, &c);
-  return n;
+int _readIntStd () {
+  
+  char str[64];
+  scanf("%s", str);
+  _lineFeed();
+
+  int s = 0;
+  if (str[0] == '-') ++s;
+  for (int i = s ; i < strlen(str) ; ++i){
+    if (str[i] < '0' || str[i] > '9') {
+      printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mint\x1B[m\n", str);
+      exit(EXIT_FAILURE);
+    }
+  }
+  return (int)strtol(str,NULL,10);
 }
 
 int _readBoolStd () {
-  int  n;
-  char c;
-
-  scanf("%d%c", &n, &c);
-  if (n != 0 && n != 1)
-  {
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
-    exit(EXIT_FAILURE);
+  char str[64];
+  scanf("%s", str);
+  _lineFeed();
+  if (!strcmp(str,"1")){
+    return 1;
+  } else if (!strcmp(str,"0")){
+    return 0;
+  } else if (!strcmp(str,"true")){
+    return 1;
+  } else if (!strcmp(str,"false")){
+    return 0;
   }
-  return n;
+  else {
+    printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mboolean\x1B[m\n", str);
+    exit(EXIT_FAILURE);
+    return 0;
+  }
 }
 
 char _readCharStd () {
-  char n;
-  char c;
-
-  scanf("%c%c", &n, &c);
-
+  char n   = (char)getchar();
+  
+  if (n == '\0' || n == '\n'){
+    return n;
+  }
+  
+  _lineFeed();
   return n;
 }
+
+
 
 
 double _readDoubleStd () {
-  double n;
-  char   c;
-
-  scanf("%lf%c", &n, &c);
-  return n;
+  char str[64];
+  scanf("%s", str);
+  _lineFeed();
+  int s = 0;
+  int dot = 0;
+  int e = 0;
+  if (str[0] == '-') ++s;
+  for (int i = s ; i < strlen(str) ; ++i){
+    if (str[i] == '.') {
+      ++dot;
+      ++i;
+      if (str[i] == '\0'){
+        printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+        exit(EXIT_FAILURE);
+      }
+    }
+    if (str[i] == 'e') {
+      e++;
+      ++i;
+      if (str[i] == '-') ++i;
+      if (str[i] == '\0'){
+        printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+        exit(EXIT_FAILURE);
+      }
+    }
+    if ( (str[i] < '0' || str[i] > '9') || dot > 1 || e > 1) {
+      printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+      exit(EXIT_FAILURE);
+    }
+  }
+  return (double)atof(str);
 }
-
 
 void _writeInt(int x) {
   printf("%d", x);

@@ -1,7 +1,7 @@
 #!/Users/carlosspaggiari/Library/Haskell/bin/graciela
 
 /*% LANGUAGE LogicAnywhere %*/
-/*% LANGUAGE GetAddressOf  %*/
+/*% LANGUAGE MemoryOperations  %*/
 /*% LANGUAGE EnableTrace   %*/
 
 program SepLogic.bin begin

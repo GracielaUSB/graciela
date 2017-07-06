@@ -10,6 +10,9 @@ del compilador
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.Graciela.SymbolTable
   ( Entry
@@ -60,6 +63,8 @@ data Scope = Scope
   { sLoc      :: Location
   , sEntries  :: Entries
   , sChildren :: Scopes }
+  deriving (Generic,Serialize)
+
 
 type Scopes = Seq Scope
 
@@ -120,7 +125,7 @@ data Breadcrumb
     , bLeft  :: Scopes
     , bRight :: Scopes
     }
-
+  deriving (Generic,Serialize)
 
 type SymbolTable = (Scope, [Breadcrumb])
 

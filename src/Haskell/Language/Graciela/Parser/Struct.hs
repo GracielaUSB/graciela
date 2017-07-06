@@ -77,11 +77,20 @@ abstractDataType = do
   then
     void $ anyToken `manyTill` (void (match TokEnd) <|> eof)
   else do
+
     let
       typeArgs = Array.listArray (0, length atypes - 1) atypes
       abstractType = GDataType abstractName Nothing typeArgs
       Just abstractName = abstractName'
-
+    
+    dts <- use dataTypes
+    case Map.lookup abstractName dts of 
+      Just s@Struct {structLoc = l@(Location (prevDef, _))} -> 
+        putError from . UnknownError $ 
+          "Redefinition of Data Type `" <> unpack abstractName <> "`.\n\t" <> 
+          "Already defined at " <> showRedefPos prevDef from <> "."
+      _ -> pure ()
+   
     currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
 
     Location(p,_) <- match' TokBegin
@@ -116,7 +125,7 @@ abstractDataType = do
       (Just inv, Just procs) -> do
 
         let struct = Struct
-                { structBaseName   = abstractName
+                { structBaseName  = abstractName
                 , structFields  = fields
                 , structAFields = Map.empty
                 , structProcs   = Map.fromList $
@@ -161,6 +170,14 @@ dataType = do
       let
         Just name         = name'
         Just abstractName = abstractName'
+
+      dts <- use dataTypes
+      case Map.lookup name dts of 
+        Just s@Struct {structLoc = l@(Location (prevDef, _))} -> 
+          putError from . UnknownError $ 
+            "Redefinition of Data Type `" <> unpack name <> "`.\n\t" <> 
+            "Already defined at " <> showRedefPos prevDef from <> "."
+        _ -> pure ()
       -- Get the struct of the abstract data type that is being implemented
       abstractAST <- getStruct abstractName
 
@@ -374,7 +391,8 @@ coupleRel = do
   declarative $ between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
   where
     aux pos = do
-      insts' <- sequence <$> assign `sepBy` match TokSemicolon
+      
+      insts' <- sequence <$> (assign' True) `sepBy` match TokSemicolon
       case insts' of
         Just insts | not (null insts) -> do
           Just (GDataType{abstName = Just abstName}, _, _, _) <- use currentStruct

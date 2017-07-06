@@ -167,214 +167,242 @@ mainDefinition block files = do
 
 {- Translate a definition from Graciela AST to LLVM AST -}
 definition :: Definition -> LLVM ()
-definition
-  Definition { defName, def', pre, post, bound, defLoc = Location (pos, _to) }
-  = case def' of
-    FunctionDef { funcBody, funcRetType, funcParams, funcRecursive, funcDecls } -> do
-      doingFunction .= True
-      func <- newLabel $ "func" <> unpack defName
-      (func #)
+definition Definition { defName, def', pre, post, bound, defLoc = Location (pos, _to), isDecl }
+  = if isDecl then do 
+      use evalAssertions >>= \asserts -> do 
+        cs <- use currentStruct
+        pName <- case cs of
+          Nothing -> do
+            pure $ unpack defName
 
-      openScope
+          Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
+            abstractStruct <- (Map.lookup abstract) <$> use structs
+            t' <- mapM fill structTypes
+            let postFix = llvmName ("-" <> structBaseName) t'
+            pure $ unpack defName <> postFix
 
-      params <- mapM makeParam' . toList $ funcParams
-      mapM_ arrAux' funcParams
+        case def' of
+          FunctionDef { funcRetType, funcParams, funcRecursive  } -> do
+              
+            params  <- mapM makeParam' . toList $ funcParams
+            retType <- toLLVMType funcRetType
+            params' <- recursiveParams (funcRecursive && asserts) -- recursion is verified if the assertions are enabled
+            addDefinitions  [defineFunction pName (params' <> params) retType]
 
-      mapM_ declaration funcDecls
+          ProcedureDef { procParams, procRecursive } -> do
+            params  <- mapM (makeParam False) . toList $ procParams
+            params' <- recursiveParams (procRecursive && asserts) -- recursion is verified if the assertions are enabled
+            addDefinitions  [defineFunction pName (params' <> params) voidType]
 
-      asserts <- use evalAssertions
+          GracielaFunc{} -> pure () -- graciela native function should be declared here
+                                    -- instead of declaring them manually
 
-      cond <- if asserts 
-        then Just <$> precondition pre
-        else pure Nothing 
+    else case def' of
+      FunctionDef { funcBody, funcRetType, funcParams, funcRecursive, funcDecls } -> do
+        doingFunction .= True
+        func <- newLabel $ "func" <> unpack defName
+        (func #)
 
-      params' <- recursiveParams (funcRecursive && asserts) -- recursion is verified if the assertions are enabled
+        openScope
 
-      cs <- use currentStruct
-      returnType <- toLLVMType funcRetType
-      let
-        invariant' fn (name, t) | asserts = do
-          name' <- getVariableName name
-          exit  <- case cond of 
-            Just cond' -> callInvariant fn cond' name' t Nothing
-            Nothing -> pure Nothing
-          when (isJust exit) $ (fromJust exit #)
-        invariant' _ _ = pure ()
+        params <- mapM makeParam' . toList $ funcParams
+        mapM_ arrAux' funcParams
 
-        dts  = filter (\(_, t) -> isJust (T.hasDT t) ) . toList $ funcParams
-        
-        body = do
-          forM_ dts (invariant' "inv"    )
-          forM_ dts (invariant' "coupInv")
-          forM_ dts (invariant' "repInv" )
-          expression' funcBody
+        mapM_ declaration funcDecls
 
-        retVar returnOperand = do
-          returnVar     <- insertVar defName
+        asserts <- use evalAssertions
 
-          addInstruction $ returnVar := Alloca
-            { allocatedType = returnType
-            , numElements   = Nothing
-            , alignment     = 4
-            , metadata      = [] }
+        cond <- if asserts 
+          then Just <$> precondition pre
+          else pure Nothing 
 
-          addInstruction $ Do Store
-            { volatile = False
-            , address  = LocalReference returnType returnVar
-            , value    = returnOperand
-            , maybeAtomicity = Nothing
-            , alignment = 4
-            , metadata  = [] }
+        params' <- recursiveParams (funcRecursive && asserts) -- recursion is verified if the assertions are enabled
 
+        cs <- use currentStruct
+        returnType <- toLLVMType funcRetType
+        let
+          invariant' fn (name, t) | asserts = do
+            name' <- getVariableName name
+            exit  <- case cond of 
+              Just cond' -> callInvariant fn cond' name' t Nothing
+              Nothing -> pure Nothing
+            when (isJust exit) $ (fromJust exit #)
+          invariant' _ _ = pure ()
 
+          dts  = filter (\(_, t) -> isJust (T.hasDT t) ) . toList $ funcParams
+          
+          body = do
+            forM_ dts (invariant' "inv"    )
+            forM_ dts (invariant' "coupInv")
+            forM_ dts (invariant' "repInv" )
+            expression' funcBody
 
-      (postFix, returnOperand) <- case cs of
-        Nothing  -> do 
-          returnOp <- body
-          when asserts $ do 
-            retVar returnOp
-            postcondition (fromJust cond) post
-          pure ("", returnOp)
-        
+          retVar returnOperand = do
+            returnVar     <- insertVar defName
 
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
-          abstractStruct <- (Map.lookup abstract) <$> use structs
-          t' <- mapM fill structTypes
-          let postFix = llvmName ("-" <> structBaseName) t'
+            addInstruction $ returnVar := Alloca
+              { allocatedType = returnType
+              , numElements   = Nothing
+              , alignment     = 4
+              , metadata      = [] }
 
-          let
-            maybeProc = case abstractStruct of
-              Just Struct {structProcs} -> defName `Map.lookup` structProcs
-              Nothing -> error "Internal error: Missing Abstract Data Type."
-
-          case maybeProc of
-            Just Definition{ pre = pre', def' = AbstractFunctionDef {abstFDecl}} -> do
-              mapM_ declaration abstFDecl
-              when asserts $ preconditionAbstract (fromJust cond) pre' pos
-            _ -> pure ()
-
-          returnOp <- body
-          when asserts $ retVar returnOp
-
-          case maybeProc of
-            Just Definition{post = post'} | asserts -> 
-              postconditionAbstract (fromJust cond) post' pos
-            _  -> pure ()
-
-          when asserts $ postcondition (fromJust cond) post
-          pure (postFix, returnOp)
-
-      terminate Ret
-        { returnOperand = Just returnOperand
-        , metadata' = [] }
-
-      let name = Name $ unpack defName <> postFix
-      blocks' <- use blocks
-      blocks .= Seq.empty
-
-      addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name        = name
-        , parameters  = (params' <> params, False)
-        , returnType
-        , basicBlocks = toList blocks'
-        }
-      closeScope
-      doingFunction .= False
+            addInstruction $ Do Store
+              { volatile = False
+              , address  = LocalReference returnType returnVar
+              , value    = returnOperand
+              , maybeAtomicity = Nothing
+              , alignment = 4
+              , metadata  = [] }
 
 
-    ProcedureDef { procDecl, procParams, procBody, procRecursive } -> do
-      proc <- newLabel $ "proc" <> unpack defName
-      (proc #)
-      asserts <- use evalAssertions
-      openScope
 
-      params <- mapM (makeParam False) . toList $ procParams
-      mapM_ declarationsOrRead procDecl
+        (postFix, returnOperand) <- case cs of
+          Nothing  -> do 
+            returnOp <- body
+            when asserts $ do 
+              retVar returnOp
+              postcondition (fromJust cond) post
+            pure ("", returnOp)
+          
 
-      mapM_ arrAux procParams
+          Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
+            abstractStruct <- (Map.lookup abstract) <$> use structs
+            t' <- mapM fill structTypes
+            let postFix = llvmName ("-" <> structBaseName) t'
+
+            let
+              maybeProc = case abstractStruct of
+                Just Struct {structProcs} -> defName `Map.lookup` structProcs
+                Nothing -> error "Internal error: Missing Abstract Data Type."
+
+            case maybeProc of
+              Just Definition{ pre = pre', def' = AbstractFunctionDef {abstFDecl}} -> do
+                mapM_ declaration abstFDecl
+                when asserts $ preconditionAbstract (fromJust cond) pre' pos
+              _ -> pure ()
+
+            returnOp <- body
+            when asserts $ retVar returnOp
+
+            case maybeProc of
+              Just Definition{post = post'} | asserts -> 
+                postconditionAbstract (fromJust cond) post' pos
+              _  -> pure ()
+
+            when asserts $ postcondition (fromJust cond) post
+            pure (postFix, returnOp)
+
+        terminate Ret
+          { returnOperand = Just returnOperand
+          , metadata' = [] }
+
+        let name = Name $ unpack defName <> postFix
+        blocks' <- use blocks
+        blocks .= Seq.empty
+
+        addDefinition $ LLVM.GlobalDefinition functionDefaults
+          { name        = name
+          , parameters  = (params' <> params, False)
+          , returnType
+          , basicBlocks = toList blocks'
+          }
+        closeScope
+        doingFunction .= False
 
 
-      cond <- if asserts 
-        then Just <$> precondition pre
-        else pure Nothing 
+      ProcedureDef { procDecl, procParams, procBody, procRecursive } -> do
+        proc <- newLabel $ "proc" <> unpack defName
+        (proc #)
+        asserts <- use evalAssertions
+        openScope
 
-      params' <- recursiveParams (procRecursive && asserts) -- recursion is verified if the assertions are enabled
+        params <- mapM (makeParam False) . toList $ procParams
+        mapM_ declarationsOrRead procDecl
 
-      cs <- use currentStruct
-      let
+        mapM_ arrAux procParams
 
-        invariant' fn (name, t, _) | asserts = do
-          name' <- getVariableName name
-          exit  <- case cond of 
-            Just cond' -> callInvariant fn cond' name' t Nothing
-            Nothing -> pure Nothing
-          when (isJust exit) $ (fromJust exit #)
-        invariant' _ _ = pure ()
 
-        dts  = filter (\(_, t, _) -> isJust (T.hasDT t) ) . toList $ procParams
-        
-        body abstractStruct = do
-          let
-            maybeProc = case abstractStruct of
-              Just Struct {structProcs} -> defName `Map.lookup` structProcs
-              Nothing                   -> Nothing
+        cond <- if asserts 
+          then Just <$> precondition pre
+          else pure Nothing 
 
-          forM_ dts (invariant' "coupInv")
-          forM_ dts (invariant' "repInv" )
+        params' <- recursiveParams (procRecursive && asserts) -- recursion is verified if the assertions are enabled
 
-          let cond' = fromJust cond
+        cs <- use currentStruct
+        let
 
-          case maybeProc of
-            Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} | asserts  -> do
-              mapM_ declaration abstPDecl
-              preconditionAbstract cond' pre' pos
-                              
-            _ -> pure ()
+          invariant' fn (name, t, _) | asserts = do
+            name' <- getVariableName name
+            exit  <- case cond of 
+              Just cond' -> callInvariant fn cond' name' t Nothing
+              Nothing -> pure Nothing
+            when (isJust exit) $ (fromJust exit #)
+          invariant' _ _ = pure ()
 
-          forM_ dts (invariant' "inv")
+          dts  = filter (\(_, t, _) -> isJust (T.hasDT t) ) . toList $ procParams
+          
+          body abstractStruct = do
+            let
+              maybeProc = case abstractStruct of
+                Just Struct {structProcs} -> defName `Map.lookup` structProcs
+                Nothing                   -> Nothing
 
-          instruction procBody
+            forM_ dts (invariant' "coupInv")
+            forM_ dts (invariant' "repInv" )
 
-          forM_ dts (invariant' "coupInv")
+            let cond' = fromJust cond
 
-          forM_ dts (invariant' "inv"    )
-          forM_ dts (invariant' "repInv" )
-          case maybeProc of
-            Just Definition{post = post'} | asserts -> postconditionAbstract cond' post' pos
-            _                             -> pure ()
+            case maybeProc of
+              Just Definition{ pre = pre', def' = AbstractProcedureDef{ abstPDecl }} | asserts  -> do
+                mapM_ declaration abstPDecl
+                preconditionAbstract cond' pre' pos
+                                
+              _ -> pure ()
 
-      pName <- case cs of
-        Nothing -> do
-          body Nothing
+            forM_ dts (invariant' "inv")
 
-          pure $ unpack defName
+            instruction procBody
 
-        Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
-          abstractStruct <- (Map.lookup abstract) <$> use structs
-          t' <- mapM fill structTypes
-          let postFix = llvmName ("-" <> structBaseName) t'
+            forM_ dts (invariant' "coupInv")
 
-          body abstractStruct
-          pure $ unpack defName <> postFix
+            forM_ dts (invariant' "inv"    )
+            forM_ dts (invariant' "repInv" )
+            case maybeProc of
+              Just Definition{post = post'} | asserts -> postconditionAbstract cond' post' pos
+              _                             -> pure ()
 
-      when asserts $ do
-        postcondition (fromJust cond) post
+        pName <- case cs of
+          Nothing -> do
+            body Nothing
 
-      terminate $ Ret Nothing []
+            pure $ unpack defName
 
-      blocks' <- use blocks
+          Just Struct{ structBaseName, structTypes, struct' = DataType{abstract} } -> do
+            abstractStruct <- (Map.lookup abstract) <$> use structs
+            t' <- mapM fill structTypes
+            let postFix = llvmName ("-" <> structBaseName) t'
 
-      addDefinition $ LLVM.GlobalDefinition functionDefaults
-        { name        = Name pName
-        , parameters  = (params' <> params,False)
-        , returnType  = voidType
-        , basicBlocks = toList blocks'
-        }
+            body abstractStruct
+            pure $ unpack defName <> postFix
 
-      blocks .= Seq.empty
-      closeScope
+        when asserts $ do
+          postcondition (fromJust cond) post
 
-    GracielaFunc {} -> pure ()
+        terminate $ Ret Nothing []
+
+        blocks' <- use blocks
+
+        addDefinition $ LLVM.GlobalDefinition functionDefaults
+          { name        = Name pName
+          , parameters  = (params' <> params,False)
+          , returnType  = voidType
+          , basicBlocks = toList blocks'
+          }
+
+        blocks .= Seq.empty
+        closeScope
+
+      GracielaFunc {} -> pure ()
 
   where
     makeParam' (name, t) = makeParam True (name, t, T.In)
@@ -755,7 +783,7 @@ definition
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
   mapM_ addFile files
-  addDefinitions $ Seq.fromList
+  addDefinitions 
 
 
     [ defineFunction copyArrayString [ parameter ("size"     , intType)
@@ -1038,26 +1066,30 @@ preDefinitions files = do
                                     intType
     , defineFunction powString      floatParams2 floatType
 
+    , defineFunction (safeSub 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
+    , defineFunction (safeMul 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
+    , defineFunction (safeAdd 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
 
     , defineFunction (safeSub 32) intParams2 (overflow' 32)
     , defineFunction (safeMul 32) intParams2 (overflow' 32)
     , defineFunction (safeAdd 32) intParams2 (overflow' 32)
 
-    , defineFunction (safeSub 8) charParams2 (overflow' 8)
-    , defineFunction (safeMul 8) charParams2 (overflow' 8)
-    , defineFunction (safeAdd 8) charParams2 (overflow' 8)
+    , defineFunction (safeSub  8) charParams2 (overflow' 8)
+    , defineFunction (safeMul  8) charParams2 (overflow' 8)
+    , defineFunction (safeAdd  8) charParams2 (overflow' 8)
 
     -- Read
     , defineFunction readIntStd    [] intType
     , defineFunction readBoolStd   [] boolType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
+    , defineFunction readlnString  [parameter ("ptr", ptr $ ptr i32)] pointerType
 
     -- Rand
-    , defineFunction randInt    [] intType
-    , defineFunction randBool   [] boolType
-    , defineFunction randChar   [] charType
-    , defineFunction randFloat  [] floatType
+    , defineFunction randInt   [] intType
+    , defineFunction randBool  [] boolType
+    , defineFunction randChar  [] charType
+    , defineFunction randFloat [] floatType
 
     -- , defineFunction randomize  [] voidType
     -- , defineFunction seedRandom [intParam] voidType
@@ -1080,6 +1112,7 @@ preDefinitions files = do
                                           , parameter ("column", intType)]
                                           voidType
     , defineFunction derefPointerString   [ parameter ("ptr", pointerType)
+                                          , parameter ("pragma", boolType)
                                           , parameter ("line", intType)
                                           , parameter ("column", intType)]
                                           voidType
@@ -1094,11 +1127,6 @@ preDefinitions files = do
     ]
 
   where
-    defineFunction name params t = LLVM.GlobalDefinition $ functionDefaults
-      { name        = Name name
-      , parameters  = (params, False)
-      , returnType  = t
-      , basicBlocks = [] }
     parameter (name, t) = Parameter t (Name name) []
     intParam      = [parameter ("x",     intType)]
     charParam     = [parameter ("x",    charType)]
@@ -1128,3 +1156,9 @@ preDefinitions files = do
         , comdat          = Nothing
         , alignment       = 4
       }
+
+defineFunction name params t = LLVM.GlobalDefinition $ functionDefaults
+  { name        = Name name
+  , parameters  = (params, False)
+  , returnType  = t
+  , basicBlocks = [] }
