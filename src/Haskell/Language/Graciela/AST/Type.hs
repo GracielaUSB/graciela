@@ -312,8 +312,9 @@ instance Show Type where
           "tuple (" <> show' a <> ", " <> show' b <> ")"
         GTypeVar  i n   -> unpack n
 
-        GDataType n na targs -> unpack n <> "(" <>
-          intercalate "," (fmap show' (toList targs)) <> ")" -- <> show na
+        GDataType n na targs -> unpack n <> if length targs > 0 
+            then "(" <> intercalate "," (fmap show' (toList targs)) <> ")" -- <> show na
+            else ""
 
         GAny            -> "any type"
         GOneOf       as -> "one of " <> show as

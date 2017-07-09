@@ -1,0 +1,50 @@
+
+
+include "Dicc"
+
+program TestDiccionario begin
+
+main
+    ⟦ var n, k := 0,0 : int
+    ; var v, c : char
+    ; var arr : array[10] of (int*)
+    ; var d : Dicc(int, char)
+    ; writeln("Debido a que el programa debe terminar,")
+    ; writeln("este prompt se emitira solo un maximo de 100 veces")
+    ; {inv   true    inv}
+      {bound 100-n bound}
+      do n < 100 
+        -> n := n + 1
+         ; writeln("(Intento: ", n, " de 100)")
+         ; writeln( "Introduzca una letra:")
+         ; writeln("\t(T) para Terminar,")
+         ; writeln("\t(I) para Insertar una clave y un valor al Diccionario,")
+         ; writeln("\t(E) para Eliminar un elmento del Diccionario")
+         ; writeln("\t(B) para Buscar un el valor de un clave, o")
+         ; writeln("\t(M) para Mostrar el Diccionario.")
+         ; write("> ")
+         ; read(c)
+         ; if c == 'T' \/ c == 't' -> writeln("Adios :)"); n := 100
+           [] c == 'I' \/ c == 'i'
+            -> write("Escriba la clave (entero): ")
+             ; read(k)
+             ; write("Escriba el valor (caracter): ")
+             ; read(v)
+             ; agregar ( d, k, v )
+           [] c == 'E' \/ c == 'e'
+            -> write("Escriba la clave (entero): ")
+             ; read(k)
+             ; eliminar (d, k)
+           [] c == 'B' \/ c == 'b'
+            -> write("Escriba la clave a buscar: ")
+             ; read(k)
+             ; buscar (d,k,v)
+             ; writeln("\nEl valor de la clave ", k, " es: ", v, "\n")
+
+           [] c == 'M' \/ c == 'm' -> mostrar(d)
+
+           [] otherwise -> writeln("Has perdido un intento :(")
+           fi
+      od
+    ⟧
+end

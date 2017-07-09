@@ -1,5 +1,6 @@
 
 /*% LANGUAGE MemoryOperations  %*/
+
 module Memory begin
 
 	abstract MemA begin {repinv true repinv} end

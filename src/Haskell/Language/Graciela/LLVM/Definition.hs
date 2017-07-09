@@ -7,10 +7,11 @@
 
 module Language.Graciela.LLVM.Definition where
 --------------------------------------------------------------------------------
-import           Language.Graciela.AST.Declaration   (Declaration)
+import           Language.Graciela.AST.Declaration   (Declaration(..))
 import           Language.Graciela.AST.Definition
 import           Language.Graciela.AST.Expression    (Expression (..))
 import qualified Language.Graciela.AST.Instruction   as G (Instruction)
+import qualified Language.Graciela.AST.Object        as O
 import           Language.Graciela.AST.Struct        (Struct (..), Struct' (..))
 import           Language.Graciela.AST.Type          ((=:=))
 import qualified Language.Graciela.AST.Type          as T
@@ -21,6 +22,7 @@ import           Language.Graciela.LLVM.Boolean
 import           Language.Graciela.LLVM.Declaration  (declaration)
 import           Language.Graciela.LLVM.Expression
 import           Language.Graciela.LLVM.Instruction
+import           Language.Graciela.LLVM.Object
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
@@ -318,19 +320,16 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
 
         params <- mapM (makeParam False) . toList $ procParams
         mapM_ declarationsOrRead procDecl
-
         mapM_ arrAux procParams
-
-
+        
         cond <- if asserts 
           then Just <$> precondition pre
           else pure Nothing 
 
         params' <- recursiveParams (procRecursive && asserts) -- recursion is verified if the assertions are enabled
-
         cs <- use currentStruct
+        when asserts $ forM_ procParams makeTempVar
         let
-
           invariant' fn (name, t, _) | asserts = do
             name' <- getVariableName name
             exit  <- case cond of 
@@ -346,9 +345,9 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
               maybeProc = case abstractStruct of
                 Just Struct {structProcs} -> defName `Map.lookup` structProcs
                 Nothing                   -> Nothing
-
-            forM_ dts (invariant' "coupInv")
-            forM_ dts (invariant' "repInv" )
+            when asserts $ do
+              forM_ dts (invariant' "coupInv")
+              forM_ dts (invariant' "repInv" )
 
             let cond' = fromJust cond
 
@@ -359,17 +358,19 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
                                 
               _ -> pure ()
 
-            forM_ dts (invariant' "inv")
+            when asserts $ forM_ dts (invariant' "inv")
 
             instruction procBody
 
-            forM_ dts (invariant' "coupInv")
+            when asserts $ do
+              forM_ dts (invariant' "coupInv")
 
-            forM_ dts (invariant' "inv"    )
-            forM_ dts (invariant' "repInv" )
-            case maybeProc of
-              Just Definition{post = post'} | asserts -> postconditionAbstract cond' post' pos
-              _                             -> pure ()
+              forM_ dts (invariant' "inv"    )
+              forM_ dts (invariant' "repInv" )
+              case maybeProc of
+                Just Definition{post = post'} -> 
+                  postconditionAbstract cond' post' pos
+                _                             -> pure ()
 
         pName <- case cs of
           Nothing -> do
@@ -405,20 +406,81 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       GracielaFunc {} -> pure ()
 
   where
-    makeParam' (name, t) = makeParam True (name, t, T.In)
 
+    makeTempVar' (name, t) = makeTempVar (name, t, T.In)
+    makeTempVar :: (Text, T.Type, T.ArgMode) -> LLVM ()
+    makeTempVar  (name, t, mode) = do
+      let tempVarName = name <> "'"
+      declaration Declaration
+        { declLoc  = gracielaDef
+        , declType = t
+        , declIds  = Seq.fromList [tempVarName]
+        }
+      name' <- getVariableName tempVarName
+      t'    <- toLLVMType t
+
+      destVar <- objectRef O.Object 
+        { O.loc = gracielaDef
+        , O.objType = t
+        , O.obj' = O.Variable
+          { O.name = tempVarName
+          , O.mode = Nothing } }
+
+      sourceVar <- objectRef O.Object 
+        { O.loc = gracielaDef
+        , O.objType = t
+        , O.obj' = O.Variable
+          { O.name = name
+          , O.mode = Just mode } }
+      
+      case t of 
+        T.GArray {} -> copyArray t sourceVar destVar
+        T.GDataType {} -> do
+          types <- mapM fill (toList . T.typeArgs $ t)
+
+          let
+            copyFunc = "copy" <> llvmName (T.typeName t) types
+          addInstruction $ Do Call
+            { tailCallKind       = Nothing
+            , callingConvention  = CC.C
+            , returnAttributes   = []
+            , function           = callable voidType copyFunc
+            , arguments          = (,[]) <$> [ sourceVar
+                                             , destVar ]
+            , functionAttributes = []
+            , metadata           = [] }
+
+        _ -> do
+          value <- newLabel "value"
+          addInstruction $value := Load
+            { volatile  = False
+            , address   = sourceVar
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = [] }
+
+          addInstruction $ Do Store
+            { volatile = False
+            , address  = destVar
+            , value    = LocalReference t' value
+            , maybeAtomicity = Nothing
+            , alignment = 4
+            , metadata  = [] }
+
+
+    makeParam' (name, t) = makeParam True (name, t, T.In)
     makeParam isFunc (name, t, mode)  = do
       name' <- insertVar name
       t'    <- toLLVMType t
       if isFunc && (t =:= T.basic || t == T.I64 || t =:= T.highLevel || t =:= T.GATypeVar)
-        then do
+        then
           pure $ Parameter t' name' []
-        else pure $ Parameter (ptr t') name' []
+        else 
+          pure $ Parameter (ptr t') name' []
 
-    arrAux' (arr, t) = arrAux (arr, t, T.In)
-
-    arrAux (arr, t@(T.GArray dims inner), mode) = do
-      t' <- toLLVMType t
+    arrAux' (arr, t) = arrAux (arr, t, T.In) -- ArrAux for Functions
+    arrAux  (arr, t@(T.GArray dims inner), mode) = do -- ArrAux for Procedures
+      t'      <- toLLVMType t
       arrName <- getVariableName arr
       void $ foldM (dimAux t' arrName) 0 dims
       where
@@ -493,13 +555,13 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
     arrAux _ = pure ()
 
     loadDtPtr name (T.GPointer t) exit callFunc = do
-      yes  <- newLabel "yesNull"
-      no   <- newLabel "noNull"
-      cast <- newLabel "cast"
-      comp <- newLabel "comp"
+      yes     <- newLabel "yesNull"
+      no      <- newLabel "noNull"
+      cast    <- newLabel "cast"
+      comp    <- newLabel "comp"
       argLoad <- newLabel "argLoad"
-      type' <- toLLVMType (T.GPointer t)
-      exit' <- case exit of
+      type'   <- toLLVMType (T.GPointer t)
+      exit'   <- case exit of
         Nothing -> newLabel "exit"
         Just e  -> pure e
 
@@ -586,80 +648,78 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
 
       pure exit
     
-    recursiveParams isRecursive = if isRecursive
-      then do
-        let
-          boundExp = fromMaybe
-            (internal "boundless recursive function.")
-            bound
-          hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
-          oldBound = Name $ "." <> unpack defName <> "OldBound"
+    recursiveParams False = pure []
+    recursiveParams True  = do
+      let
+        boundExp = fromMaybe
+          (internal "boundless recursive function.")
+          bound
+        hasOldBound = Name $ "." <> unpack defName <> "HasOldBound"
+        oldBound = Name $ "." <> unpack defName <> "OldBound"
 
-        funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
-        boundOperand <- expression boundExp
+      funcBodyLabel <- newLabel $ "func" <> unpack defName <> "Body"
+      boundOperand <- expression boundExp
 
-        gte0 <- newLabel "funcBoundGte0"
-        addInstruction $ gte0 := ICmp
-          { iPredicate = SGE
-          , operand0   = boundOperand
-          , operand1   = ConstantOperand $ C.Int 32 0
-          , metadata   = [] }
-        yesGte0 <- newLabel "funcGte0Yes"
-        noGte0  <- newLabel "funcGte0No"
-        terminate CondBr
-          { condition = LocalReference boolType gte0
-          , trueDest  = yesGte0
-          , falseDest = noGte0
-          , metadata' = [] }
+      gte0 <- newLabel "funcBoundGte0"
+      addInstruction $ gte0 := ICmp
+        { iPredicate = SGE
+        , operand0   = boundOperand
+        , operand1   = ConstantOperand $ C.Int 32 0
+        , metadata   = [] }
+      yesGte0 <- newLabel "funcGte0Yes"
+      noGte0  <- newLabel "funcGte0No"
+      terminate CondBr
+        { condition = LocalReference boolType gte0
+        , trueDest  = yesGte0
+        , falseDest = noGte0
+        , metadata' = [] }
 
-        (noGte0 #)
-        abort Abort.NegativeBound
-          (let Location (pos, _) = loc boundExp in pos)
+      (noGte0 #)
+      abort Abort.NegativeBound
+        (let Location (pos, _) = loc boundExp in pos)
 
-        (yesGte0 #)
-        yesOld <- newLabel "funcOldBoundYes"
-        noOld  <- newLabel "funcOldBoundNo"
-        terminate CondBr
-          { condition = LocalReference boolType hasOldBound
-          , trueDest  = yesOld
-          , falseDest = noOld
-          , metadata' = [] }
+      (yesGte0 #)
+      yesOld <- newLabel "funcOldBoundYes"
+      noOld  <- newLabel "funcOldBoundNo"
+      terminate CondBr
+        { condition = LocalReference boolType hasOldBound
+        , trueDest  = yesOld
+        , falseDest = noOld
+        , metadata' = [] }
 
-        (noOld #)
-        terminate Br
-          { dest = funcBodyLabel
-          , metadata' = [] }
+      (noOld #)
+      terminate Br
+        { dest = funcBodyLabel
+        , metadata' = [] }
 
-        (yesOld #)
-        ltOld <- newLabel "funcLtOld"
-        addInstruction $ ltOld := ICmp
-          { iPredicate = SLT
-          , operand0   = boundOperand
-          , operand1   = LocalReference intType oldBound
-          , metadata   = [] }
-        yesLtOld <- newLabel "funcLtOldBoundYes"
-        noLtOld  <- newLabel "funcLtOldBoundNo"
-        terminate CondBr
-          { condition = LocalReference boolType ltOld
-          , trueDest  = yesLtOld
-          , falseDest = noLtOld
-          , metadata' = [] }
+      (yesOld #)
+      ltOld <- newLabel "funcLtOld"
+      addInstruction $ ltOld := ICmp
+        { iPredicate = SLT
+        , operand0   = boundOperand
+        , operand1   = LocalReference intType oldBound
+        , metadata   = [] }
+      yesLtOld <- newLabel "funcLtOldBoundYes"
+      noLtOld  <- newLabel "funcLtOldBoundNo"
+      terminate CondBr
+        { condition = LocalReference boolType ltOld
+        , trueDest  = yesLtOld
+        , falseDest = noLtOld
+        , metadata' = [] }
 
-        (noLtOld #)
-        abort Abort.NonDecreasingBound
-          (let Location (pos, _) = loc boundExp in pos)
+      (noLtOld #)
+      abort Abort.NonDecreasingBound
+        (let Location (pos, _) = loc boundExp in pos)
 
-        (yesLtOld #)
-        terminate Br
-          { dest = funcBodyLabel
-          , metadata' = [] }
+      (yesLtOld #)
+      terminate Br
+        { dest = funcBodyLabel
+        , metadata' = [] }
 
-        (funcBodyLabel #)
+      (funcBodyLabel #)
 
-        boundOp .= Just boundOperand
-        pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
-
-      else pure []
+      boundOp .= Just boundOperand
+      pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
 
     declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
     declarationsOrRead (Left decl)   = declaration decl

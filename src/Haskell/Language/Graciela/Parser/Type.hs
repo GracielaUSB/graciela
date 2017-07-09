@@ -182,7 +182,7 @@ type' =  try parenType
         Just ast@Struct {structBaseName, structTypes, structProcs, struct'} -> do
 
           identifier
-          fullTypes <- asum <$> (optional . parens $ type' `sepBy` match TokComma)
+          fullTypes <- asum <$> (optional . parens $ basicType `sepBy` match TokComma)
 
           let
             plen = length fullTypes

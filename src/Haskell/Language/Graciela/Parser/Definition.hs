@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE TupleSections            #-}
+{-# LANGUAGE OverloadedStrings        #-}
 
 
 module Language.Graciela.Parser.Definition
@@ -268,8 +269,25 @@ procedure = do
   decls'  <- declarationOrRead
   prePos  <- getPosition
   pre'    <- precond <!> (prePos, UnknownError "Missing Precondition ")
-  postPos <- getPosition
-  post'   <- postcond <!> (postPos, UnknownError "Missing Postcondition")
+  postFrom <- getPosition
+ 
+  symbolTable %= openScope postFrom
+
+  -- Temporal variables with the initial value of the arguments
+  case params' of 
+    Nothing -> pure ()
+    Just params -> forM_ params $ \(name, argType, _{- ArgMode -}) -> do
+      symbolTable %= insertSymbol (name <> "'") Entry
+        { _entryName = name <>  "'"
+        , _loc       = Location (postFrom, postFrom)
+        , _info      = Var
+          { _varType  = argType
+          , _varValue = Nothing
+          , _varConst = False }}
+
+  post'   <- postcond <!> (postFrom, UnknownError "Postcondition was expected")
+  postTo <- getPosition
+  symbolTable %= closeScope postTo
   bnd     <- join <$> optional A.bound
 
   let
@@ -504,9 +522,24 @@ procedureDeclaration = do
     _ -> pure ()
 
   pre'  <- (precond  <!>) . (,UnknownError "Missing Precondition ") =<< getPosition
-  post' <- (postcond <!>) . (,UnknownError "Missing Postcondition") =<< getPosition
 
+  postFrom <- getPosition
+  symbolTable %= openScope postFrom
+  -- Temporal variables with the initial value of the arguments
+  case params' of 
+    Nothing -> pure ()
+    Just params -> forM_ params $ \(name, argType, _{- ArgMode -}) -> do
+      symbolTable %= insertSymbol (name <> "'") Entry
+        { _entryName = name <>  "'"
+        , _loc       = Location (postFrom, postFrom)
+        , _info      = Var
+          { _varType  = argType
+          , _varValue = Nothing
+          , _varConst = False }}
+  post' <- postcond <!> (postFrom, UnknownError "Missing Postcondition")
   to   <- getPosition
+  symbolTable %= closeScope to
+  
   let loc = Location (from,to)
   existsDT .= True
   symbolTable %= closeScope to

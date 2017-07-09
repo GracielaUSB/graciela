@@ -138,6 +138,9 @@ identifier :: Lexer TokenPos
 identifier = lexeme $
   TokId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf ("_?'" :: String)))
 
+declIdentifier :: Lexer TokenPos
+declIdentifier = lexeme $
+  TokDeclId . pack <$> ((:) <$> letterChar <*> many (alphaNumChar <|> oneOf ("_?" :: String)))
 
 unexpected :: Lexer TokenPos
 unexpected = lexeme $ TokUnexpected <$> anyChar

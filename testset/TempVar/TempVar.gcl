@@ -1,0 +1,24 @@
+
+/*% LANGUAGE EnableTrace %*/
+
+include "../Diccionario/Dicc"
+
+program TempVar.bin begin
+
+  proc f' (in d : Dicc(int, char), in x : int)
+    {pre  true  pre}
+    {post (% forall i : int | 0 <= i /\ i < d'.tam | d'.clave[i] == toInt(trace(d'.valor[i]))-58-7  %) post}
+    {bound 10 - x bound}
+    |[ agregar(d, x, toChar(x+58+7));
+      if   x < 10  -> f'(d,x+1)
+      [] otherwise -> skip
+      fi;
+      writeln("------------------------")
+    ]|
+
+main
+  |[ var d : Dicc(int,char)
+   ; f'(d, 0)
+  ]|
+  
+end

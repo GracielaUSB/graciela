@@ -175,6 +175,7 @@ data Token
 
   | TokArray
   | TokId         { unTokId :: Text }
+  | TokDeclId     { unTokId :: Text }
 
   -- | TokComment
   -- | EmptyToken

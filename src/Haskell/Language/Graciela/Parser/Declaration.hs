@@ -72,6 +72,10 @@ declaration' isStruct = do
 
   ids <- identifierAndLoc `sepBy1` match TokComma
   mvals <- if isConst then assignment' else assignment
+  forM_ ids $ \(name, Location (fromID,_)) -> do
+    let good = foldl (\a b -> a && (b /= '\'')) True (unpack name)
+    when (not good) . putError fromID . UnknownError $ 
+      "Ilegal character `'` in variable name: " <> unpack name
 
   match TokColon
   t <- abstractType
