@@ -1,16 +1,15 @@
-#!/usr/bin/env rungraciela
 
 module Diccionario begin
   /** 
   * Diccionario (T0,T1) representa la abstraccion de una estructura 
-  * de diccionario, la cual consiste de una tabla en la cual para cada
+  * de diccionario, la cual consiste de una tabla donde para cada
   * entrada de tipo T0, existe un único valor de tipo T1 correspondiente. 
   * En otras palabras, un diccionario puede representarse como una 
   * funcion de T0 a T1
   **/
   abstract Diccionario (T0, T1) begin
     const MAX := 100 : int; // Cantidad maxima de elementos dentro del diccionario
-    var   conoc      : set of T0; // Las claveso entradas conocidas
+    var   conoc      : set of T0; // Las claves o entradas conocidas
     var   tabla      : function T0 -> T1; // funcion de las claves a su valor
 
     {repinv  MAX   > 0 
@@ -21,7 +20,7 @@ module Diccionario begin
    * Insertar al diccionario una clave y un valor. Para ello, es necesario 
    * que dicha clave no sea parte del conjunto de las claves conocidas por 
    * el diccionario.
-   */
+   **/
     proc agregar (inout d : Diccionario(T0,T1), in c : T0, in v : T1)
       {pre c ∉ d.conoc ∧ #d.conoc < d.MAX pre}
       {post d.conoc == d'.conoc ∪ {c}
@@ -31,7 +30,7 @@ module Diccionario begin
    * Elimina la clave y su valor correpondiente del diccionario. 
    * Como precondicion, la clave debe estar presente en 
    * el conjunto de claves conocidas.
-   */
+   **/
     proc eliminar (inout d : Diccionario(T0,T1), in c : T0)     
       {pre c ∈ d.conoc pre}
       {post d.conoc == d'.conoc \ {c} 
@@ -39,14 +38,14 @@ module Diccionario begin
 
   /** 
    * Dado una clave conocida por el diccionario, se devuelve su valor
-   */
+   **/
     proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
       {pre  c ∈ d.conoc  pre}
       {post v == d.tabla(c) post}
 
   /** 
    * Verificar si una clave es conocida o no por el diccionario.
-   */
+   **/
     proc existe (in d : Diccionario(T0,T1), in c : T0, out e : boolean)
       {pre true pre}
       {post e ≡ c ∈ d.conoc post}

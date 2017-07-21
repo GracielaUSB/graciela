@@ -7,10 +7,10 @@ include "Memory"
 module String begin
 
   abstract StringA begin
-    /* asd variables */
     var a_str : sequence of char;
+    
     {repinv true repinv}
-    /* asd procedures and functions */
+
     proc concat(in str1 : StringA, in str2 : StringA, out str_out : StringA)
       {pre true  pre}
       {post str_out.a_str == str1.a_str ++ str2.a_str post}
@@ -21,7 +21,7 @@ module String begin
     var size : int;
     var s    : char*;
     
-    {repinv true repinv}
+    {repinv size >= 0 repinv}
 
     {coupinv true coupinv}
 
@@ -43,7 +43,7 @@ module String begin
       {pre  str.s != null  pre}
       {post true post}
       |[ var i := 0 : int;
-        if (str.s == null) -> skip
+        if str.s == null -> skip
         [] otherwise ->
             {inv str.s[i] == '\0' ==> i == str.size inv}
             {bound str.size - i  bound}
@@ -52,11 +52,11 @@ module String begin
               i := i+1;
             od
         fi
-
       ]|
+
     proc copy(ref str : String, in s : char*)
-      {pre  true  pre}
-      {post true post}
+      {pre  s != null  pre}
+      {post str.s != null post}
       |[ var i := 0 : int;
          var m : Mem(char);
 
@@ -69,7 +69,6 @@ module String begin
         do s[str.size] != '\0' ->
           str.size := str.size+1;
         od;
-
 
         malloc(m, str.size, str.s);
 
@@ -101,6 +100,7 @@ module String begin
             str_out.s[i] := str1.s[i];
             i := i+1;
           od;
+
           i := 0;
           {inv str2.s[i] == '\0' ==> i == str2.size inv}
           {bound str2.size - i  bound}
@@ -108,6 +108,7 @@ module String begin
             str_out.s[i+str1.size] := str2.s[i];
             i := i+1;
           od;
+          
           str_out.s[str_out.size+1] := '\0'
       ]|
   end

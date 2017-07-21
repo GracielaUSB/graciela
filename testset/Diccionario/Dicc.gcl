@@ -1,16 +1,28 @@
-#!/usr/bin/env rungraciela
-
-/*% LANGUAGE EnableTrace %*/
+/**
+ * Implementacion del TDA Diccionario
+ **/
 
 include "Diccionario"
 
+
 module Dicc begin
 
+  /**
+   * Para implementar el tipo de dato abstracto Diccionario,
+   * se utilizan dos arreglos de tamaño MAX, de tipo T0 y T1 
+   * representa los conjuntos de claves y valores respectivamente.
+   * Ademas, se declara una variable para almacenar el tamaño 
+   * actual de los arreglos.
+   **/
   type Dicc(T0, T1) implements Diccionario(T0, T1) begin
-    var   clave      : array [MAX] of T0;
-    var   valor      : array [MAX] of T1;
-    var   tam        : int;
+    var clave : array [MAX] of T0;
+    var valor : array [MAX] of T1;
+    var tam   : int;
 
+    /**
+     * El tamaño debe encontrarse en el rango [0,MAX] y 
+     * todas las claves deben ser distintas entre si.
+     **/
     {repinv MAX > 0 ∧ 0 ≤ tam ∧ tam ≤ MAX ∧
       (% ∀ i : int | 0 ≤ i ∧ i < tam
         | (% ∀ j : int | 0 ≤ j ∧ j < tam ∧ i != j | clave[i] != clave[j] %)
@@ -19,12 +31,18 @@ module Dicc begin
 
     {coupinv true coupinv}
 
+    /**
+     * La tabla del diccionario se construye con una funcion biyectiva 
+     * que va de cada elemento del arreglo de claves a un elemento del 
+     * arreglo de los valores.
+     * Asi mismo, el conjunto de claves conocidas es un conjunto con 
+     * todos los valores del arreglo de claves.
+     **/
     where { 
       tabla := func({i : int | 0 ≤ i ∧ i < tam | (clave[i], valor[i])});
       conoc := {i : int | 0 ≤ i ∧ i < tam | clave[i]}
     }
     
-
 
     proc agregar (inout d : Dicc(T0,T1), in c : T0, in v : T1)
       {pre ¬(% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) 
@@ -37,9 +55,7 @@ module Dicc begin
                                               ∧ d.valor[i] == d'.valor[i] %) 
       post}
       
-      ⟦ var i : int
-      ; i := 0
-      
+      ⟦ var i := 0 : int
       ; if d.tam == 0 -> d.clave[d.tam], d.valor[d.tam] := c, v
                        ; d.tam := d.tam + 1
         [] otherwise -> 
@@ -55,6 +71,7 @@ module Dicc begin
             od
         fi
       ⟧
+
 
     proc eliminar (inout d : Dicc(T0,T1), in c : T0)
       var k             : int;
@@ -86,9 +103,9 @@ module Dicc begin
 
     proc buscar ( in d : Dicc(T0,T1), in c : T0 , out v : T1 )
       {pre  (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) pre}
-      {post (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c ∧ d.valor[i] == v %) post}
-      ⟦ var i : int
-      ; i := 0
+      {post (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c 
+                                             ∧ d.valor[i] == v %) post}
+      ⟦ var i := 0 : int
       ; {inv 0 ≤ i ∧ i ≤ d.tam inv}
         {bound d.tam - i bound} 
         do i < d.tam -> 

@@ -98,7 +98,7 @@ data State = State
   , _isDeclarative   :: Bool
   , _allowAbstNames  :: Bool
   , _useLet          :: Bool
-  , _otherwises      :: [Bool]
+  , _otherwises      :: [Maybe Bool]
   , _readFilesStack  :: [String]
   , _readFiles       :: Map String Module }
 

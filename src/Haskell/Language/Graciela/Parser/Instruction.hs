@@ -432,13 +432,15 @@ warn = do
 guard :: Parser (Maybe Guard)
 guard = do
   from <- getPosition
-  ow' <- use otherwises
-  let ow = if null ow' then False else head ow'
+  ow' <- head <$> use otherwises
+  let ow = case ow' of
+          Nothing -> False
+          Just x  -> x
   cond <- expression
   case cond of
     Just e ->
       if isTrue e && ow then  
-        otherwises %= (\x -> x & element 0 .~ True)
+        otherwises %= (\x -> x & element 0 .~ (Just True))
       else if ow then 
         putError from . UnknownError $ 
           "This guard will never be reached.\n\t"
@@ -463,7 +465,7 @@ guard = do
     else pure $ (\x y z -> (x,y,z)) <$> cond <*> decls <*> (asum <$> sequence actions)
 
 -- | Auxiliar function used in `conditional` and `guard`
-ifTrue :: Exprreson -> Bool
+isTrue :: Expression -> Bool
 isTrue Expression{expConst, exp' = Value (BoolV True)} = expConst
 isTrue _ = False
 
@@ -473,7 +475,7 @@ conditional = do
 
   from <- getPosition
   match TokIf
-  otherwises %= (:) False
+  otherwises %= (:) (Just False)
   gs <- guard `sepBy` match TokSepGuards
   otherwises %= tail
 
@@ -513,7 +515,7 @@ repetition = do
   bnd <- assertion' A.bound   NoDoBound
 
   match TokDo
-  otherwises %= (:) False
+  otherwises %= (:) Nothing
   gs <- guard `sepBy` match TokSepGuards
   otherwises %= tail
   match' TokOd

@@ -11,8 +11,8 @@ module Memory begin
 		{coupinv true coupinv}
 	
 		proc malloc (in m : Mem(T), in n : int, out x : T*)
-			{pre  true  pre}
-			{post true post}
+			{pre  n > 0      pre}
+			{post x != null post}
 			|[ 
 				var arr : (array[n] of T)*;
 				new(arr);
