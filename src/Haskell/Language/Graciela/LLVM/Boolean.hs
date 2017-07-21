@@ -341,7 +341,7 @@ boolean true false e@Expression { loc, exp' } = do
       asserts <- use evalAssertions
       recArgs <- fmap (,[]) <$> if fRecursiveCall && asserts
         then do
-          boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
+          boundOperand <- fromMaybe (internal "boundless recursive function 1.") <$> use boundOp
           pure [ConstantOperand $ C.Int 1 1, boundOperand]
         else if fRecursiveFunc && asserts
           then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]

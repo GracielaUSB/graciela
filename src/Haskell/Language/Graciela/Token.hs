@@ -219,6 +219,8 @@ data Token
   | TokWhere
   | TokInclude
   | TokModule
+  | TokApostrophe
+  | TokQuotation
   deriving (Eq, Ord)
 
 
@@ -391,5 +393,7 @@ instance Show Token where
     TokWhere          -> "where"
     TokInclude        -> "include"
     TokModule         -> "module"
+    TokApostrophe     -> "\'"
+    TokQuotation      -> "\""
     TokUnexpected t   -> show t
 

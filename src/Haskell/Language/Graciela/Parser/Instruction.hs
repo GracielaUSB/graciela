@@ -26,7 +26,7 @@ module Language.Graciela.Parser.Instruction
 import           Language.Graciela.AST.Declaration    (Declaration)
 import           Language.Graciela.AST.Definition     (Definition (..),
                                                        Definition' (..))
-import           Language.Graciela.AST.Expression     (Expression (..),
+import           Language.Graciela.AST.Expression     (Expression (..), Value(..),
                                                        Expression' (..))
 import qualified Language.Graciela.AST.Expression     as E (loc)
 import           Language.Graciela.AST.Instruction    (Guard, Instruction (..),
@@ -52,8 +52,8 @@ import           Language.Graciela.SymbolTable
 import           Language.Graciela.Token
 import           Language.Graciela.Treelike
 -------------------------------------------------------------------------------
-import           Control.Lens                         (use, (%=), (+=), (.=),
-                                                       (^.), _Just)
+import           Control.Lens                         (use, (%=), (+=), (.=), (&),
+                                                       (^.), _Just, element, (.~))
 import           Control.Monad                        (foldM, unless, void,
                                                        when, zipWithM)
 import           Control.Monad.Identity               (Identity)
@@ -432,8 +432,19 @@ warn = do
 guard :: Parser (Maybe Guard)
 guard = do
   from <- getPosition
-
+  ow' <- use otherwises
+  let ow = if null ow' then False else head ow'
   cond <- expression
+  case cond of
+    Just e ->
+      if isTrue e && ow then  
+        otherwises %= (\x -> x & element 0 .~ True)
+      else if ow then 
+        putError from . UnknownError $ 
+          "This guard will never be reached.\n\t"
+          <> "A previous guard always evaluates true"
+      else pure ()
+    _ -> pure ()
   match TokArrow
 
   symbolTable %= openScope from
@@ -451,6 +462,10 @@ guard = do
       pure Nothing
     else pure $ (\x y z -> (x,y,z)) <$> cond <*> decls <*> (asum <$> sequence actions)
 
+-- | Auxiliar function used in `conditional` and `guard`
+ifTrue :: Exprreson -> Bool
+isTrue Expression{expConst, exp' = Value (BoolV True)} = expConst
+isTrue _ = False
 
 conditional ::  Parser (Maybe Instruction)
 conditional = do
@@ -458,8 +473,10 @@ conditional = do
 
   from <- getPosition
   match TokIf
-
+  otherwises %= (:) False
   gs <- guard `sepBy` match TokSepGuards
+  otherwises %= tail
+
 
   match' TokFi
   to <- getPosition
@@ -471,8 +488,19 @@ conditional = do
       pure Nothing
     else pure $ case sequence gs of
       Nothing  -> Nothing
-      Just gs' -> Just $ Instruction (Location (from, to)) (Conditional gs')
-
+      Just gs' -> do 
+        let gs'' = Seq.fromList . reverse $ f (toList gs') [] Nothing
+        Just $ Instruction (Location (from, to)) (Conditional gs'')
+  where 
+    gIsTrue :: Guard -> Bool
+    gIsTrue (e,_,_) = isTrue e
+    
+    f :: [Guard] -> [Guard] -> Maybe Guard -> [Guard]
+    f [] xs' (Just x) = x:xs' 
+    f [] xs' Nothing  = xs' 
+    f (x:xs) xs' g = if gIsTrue x 
+      then f xs xs' (Just x)
+      else f xs (x:xs') g
 
 -- | Parse the instruction `do .. od`.
 repetition :: Parser (Maybe Instruction)
@@ -485,7 +513,9 @@ repetition = do
   bnd <- assertion' A.bound   NoDoBound
 
   match TokDo
+  otherwises %= (:) False
   gs <- guard `sepBy` match TokSepGuards
+  otherwises %= tail
   match' TokOd
   to <- getPosition
 

@@ -136,7 +136,11 @@ runParserT  :: Monad m
             -> m (Either (ParseError TokenPos Error) a, Parser.State)
 runParserT p fp s input = runStateT (runReaderT flatten cfg) s
     where
-      cfg = defaultConfig (EnableTrace `elem` s^.pragmas) (MemoryOperations `elem` s^.pragmas)
+      cfg = let 
+        prag = [EnableTrace, MemoryOperations, NoAssertions]
+        [eT, mO, nA] = fmap (\x -> x `elem` s^.pragmas) prag
+        in 
+          defaultConfig eT mO nA
 
       flatten = do
         definitions <~ asks nativeFunctions

@@ -13,4 +13,5 @@ data Pragma
   = LogicAnywhere
   | EnableTrace
   | MemoryOperations
+  | NoAssertions
   deriving (Eq, Ord, Show,Generic, Serialize)

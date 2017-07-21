@@ -130,6 +130,18 @@ term =  tuple
     <|> string
     <|> quantification
     <|> ifExp
+    <|> do 
+          p <- getPosition
+          match TokApostrophe
+          putError p . UnknownError $ 
+            "Found unexpected: token " <> show TokApostrophe
+          term
+    <|> do 
+          p <- getPosition
+          match TokQuotation
+          putError p . UnknownError $ 
+            "Found unexpected: token " <> show TokQuotation
+          term
 
   where
     bool :: ParserExp (Maybe MetaExpr)

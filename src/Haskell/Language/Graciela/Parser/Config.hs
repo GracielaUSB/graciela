@@ -84,8 +84,8 @@ data Config = Config
   , nativeFunctions :: Map Text Definition
   , nativeSymbols   :: SymbolTable }
 
-defaultConfig :: Bool -> Bool -> Config
-defaultConfig enableTrace enableLowLevel = Config
+defaultConfig :: Bool -> Bool -> Bool -> Config
+defaultConfig enableTrace enableLowLevel noAssertions = Config
   { nativeTypes
   , nativeFunctions
   , nativeSymbols = foldl' auxInsert emptyGlobal symbols }
@@ -97,14 +97,19 @@ defaultConfig enableTrace enableLowLevel = Config
       at "boolean" ?= (GBool,  gracielaDef)
       at "char"    ?= (GChar,  gracielaDef)
 
+    symbols :: Map Text (Text, Entry')
     symbols = Map.mapWithKey (,) $ Map.empty &~ do
       at "otherwise" ?= Alias GBool  (BoolV True)
       at "MAX_INT"   ?= Alias GInt   (IntV maxBound)
       at "MIN_INT"   ?= Alias GInt   (IntV minBound)
+      
       at "pi"        ?= Alias GFloat (FloatV pi)
       at "\960"      ?= Alias GFloat (FloatV pi)
       at "tau"       ?= Alias GFloat (FloatV (2*pi))
       at "\964"      ?= Alias GFloat (FloatV (2*pi))
+      at "unbound"   .= if noAssertions 
+        then Just $ Alias GInt (IntV 0) 
+        else Nothing
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 

@@ -65,10 +65,10 @@ programToLLVM :: [String]             -- ^ Files for read instructions
               -> IO Module
 programToLLVM files 
   Program { name, defs, insts, P.structs, fullStructs, strings, pragmas }
-  noAssertions
-  = do
-
-  let definitions = evalState (unLLVM program) $ initialState {_evalAssertions = not noAssertions }
+  noAssertions = do
+  let 
+    asserts' = not (noAssertions || NoAssertions `elem` pragmas)
+    definitions = evalState (unLLVM program) $ initialState {_evalAssertions = asserts' }
   version <- getOSXVersion -- Mac OS only
 
   return defaultModule
@@ -104,10 +104,10 @@ moduleToLLVM :: [String]             -- ^ Files for read instructions
 moduleToLLVM
   files
   M.Module { M.name, M.defs, M.structs, M.fullStructs, M.strings, M.pragmas }
-  noAssertions
-
-  = do
-  let definitions = evalState (unLLVM gModule) $ initialState {_evalAssertions = not noAssertions }
+  noAssertions = do
+  let 
+    asserts' = not (noAssertions || NoAssertions `elem` pragmas)
+    definitions = evalState (unLLVM gModule) $ initialState {_evalAssertions = asserts' }
   version <- getOSXVersion -- Mac OS only
 
   return defaultModule

@@ -350,7 +350,7 @@ typedef enum
   } abort_t;
 
 void _abort (abort_t reason, int line, int column) {
-  printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
+  printf ("\n\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
     case A_IF:
       printf (":\n\tno true branch found in conditional.\n"); break;
@@ -397,6 +397,7 @@ void _abort (abort_t reason, int line, int column) {
     default:
       printf (":\n\tunknown reason <%d>.\n", reason); break;
   }
+  printf("\n");
   _freeTrashCollector();
   exit (EXIT_FAILURE);
 }

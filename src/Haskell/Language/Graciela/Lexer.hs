@@ -87,12 +87,16 @@ sc = L.space (void spaceChar) lineComment blockComment
         void $ string "%*/"
         modify p
     pragma' = (pragmas %~) <$> pragma''
-    pragma'' =  (string "LogicAnywhere"   $> union [LogicAnywhere])
-            <|> (string "NoLogicAnywhere" $> (\\)  [LogicAnywhere])
-            <|> (string "EnableTrace"     $> union [EnableTrace])
-            <|> (string "NoEnableTrace"   $> (\\)  [EnableTrace])
-            <|> (string "MemoryOperations"    $> union [MemoryOperations])
-            <|> (string "NoMemoryOperations"  $> (\\)  [MemoryOperations])
+    pragma'' =  (string "LogicAnywhere"      $> union [LogicAnywhere])
+            <|> (string "NoLogicAnywhere"    $> (\\)  [LogicAnywhere])
+            <|> (string "EnableTrace"        $> union [EnableTrace])
+            <|> (string "NoEnableTrace"      $> (\\)  [EnableTrace])
+            <|> (string "MemoryOperations"   $> union [MemoryOperations])
+            <|> (string "NoMemoryOperations" $> (\\)  [MemoryOperations])
+            <|> (string "NoAssertions"       $> union [NoAssertions])
+            <|> (string "Assertions"         $> (\\)  [NoAssertions])
+            
+            
 
 
 lexeme :: Lexer Token -> Lexer TokenPos
@@ -176,7 +180,7 @@ token  =  reserved "program"    TokProgram
 
       <|> reserved "from"       TokFrom
 
-      -- V2.0
+      -- < V2.0
       <|> reserved "type"       TokType
       <|> reserved "implements" TokImplements
       <|> reserved "abstract"   TokAbstract
@@ -191,7 +195,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\8713"      TokNotElem -- ∉
 
       <|> reserved "let"        TokLet
-      -- V2.0
+      -- V2.0 > 
 
       <|> reserved "var"        TokVar
       <|> reserved "const"      TokConst
@@ -203,7 +207,7 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\\/"        TokOr
       <|> symbol   "\8744"      TokOr  -- ∨
 
-      -- V2.0
+      -- < V2.0
       <|> reserved "set"        TokSet
       <|> reserved "multiset"   TokMultiset
       <|> reserved "sequence"   TokSequence
@@ -236,8 +240,7 @@ token  =  reserved "program"    TokProgram
 
       <|> reserved "new"        TokNew
       <|> reserved "free"       TokFree
-
-      -- V2.0
+      -- V2.0 > 
 
       <|> symbol   "+"          TokPlus
       <|> symbol   "-"          TokMinus
@@ -260,12 +263,12 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "!=="        TokBNE
       <|> symbol   "\8802"      TokBNE   -- ≢
 
-      -- V2.0
+      -- < V2.0
       <|> symbol   "<<"         TokLeftSeq
       <|> symbol   ">>"         TokRightSeq
       <|> symbol   "\10216"     TokLeftSeq  -- ⟨
       <|> symbol   "\10217"     TokRightSeq -- ⟩
-      -- V2.0
+      -- V2.0 > 
 
       <|> symbol   "=="         TokAEQ
       <|> symbol   "!="         TokANE
@@ -364,10 +367,11 @@ token  =  reserved "program"    TokProgram
       <|> reserved "where"      TokWhere
       <|> reserved "include"    TokInclude
       <|> reserved "module"     TokModule
-      <|> charLit
+      <|> try charLit
       <|> try floatLit
       <|> intLit
-      <|> stringLit
+      <|> try stringLit
+      <|> symbol   "'"         TokApostrophe
+      <|> symbol   "\""         TokQuotation
       <|> identifier
-
       <|> unexpected

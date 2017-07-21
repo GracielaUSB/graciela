@@ -28,6 +28,7 @@ module Language.Graciela.Parser.State
   , isDeclarative
   , allowAbstNames
   , useLet
+  , otherwises
   , readFilesStack
   , readFiles
 
@@ -97,6 +98,7 @@ data State = State
   , _isDeclarative   :: Bool
   , _allowAbstNames  :: Bool
   , _useLet          :: Bool
+  , _otherwises      :: [Bool]
   , _readFilesStack  :: [String]
   , _readFiles       :: Map String Module }
 
@@ -124,5 +126,6 @@ initialState pragmas = State
   , _isDeclarative   = LogicAnywhere `elem` pragmas
   , _allowAbstNames  = False
   , _useLet          = False
-  , _readFilesStack = []
-  , _readFiles     = Map.empty }
+  , _otherwises      = []
+  , _readFilesStack  = []
+  , _readFiles       = Map.empty }

@@ -243,13 +243,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         pure $ llvmName (pName <> pack "-" <> structBaseName) t'
 
       _ -> pure . unpack $ pName
-
-    recArgs <- fmap (,[]) <$> if pRecursiveCall
-      then do
-        boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
-        pure [ConstantOperand $ C.Int 1 1, boundOperand]
-      else if prp
-        then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+    asserts <- use evalAssertions
+    recArgs <- fmap (,[]) <$> if pRecursiveCall && asserts 
+        then do
+          boundOperand <- fromMaybe (internal "boundless recursive function 3.") <$> use boundOp
+          pure [ConstantOperand $ C.Int 1 1, boundOperand]
+        else if prp && asserts
+          then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
       else pure []
 
     addInstruction $ Do Call
