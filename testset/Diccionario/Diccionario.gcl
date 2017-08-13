@@ -37,7 +37,7 @@ module Diccionario begin
           ∧ d.tabla == d'.tabla \ func({(c, d'.tabla(c))}) post}
 
   /** 
-   * Dado una clave conocida por el diccionario, se devuelve su valor
+   * Dada una clave conocida por el diccionario, se devuelve su valor
    **/
     proc buscar (in d : Diccionario(T0,T1), in c : T0, out v : T1)
       {pre  c ∈ d.conoc  pre}

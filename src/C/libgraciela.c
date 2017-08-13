@@ -19,9 +19,6 @@
 #include "string.h"
 #include "libgraciela-abstract/libgraciela-abstract.h"
 
-#ifdef __cplusplus
-  #include <iostream>
-#endif
 
 #define MAX_LINE 2048
 
@@ -88,8 +85,8 @@ int _readFileInt(int8_t* file) {
 int _readFileBool(int8_t* file) {
   FILE* f = (FILE*) file;
 
-  int n;
-  int r = fscanf(f, "%d", &n);
+  char str[64];
+  int r = fscanf(f, "%s", str);
 
   if (r == EOF)
   {
@@ -102,13 +99,21 @@ int _readFileBool(int8_t* file) {
     exit(EXIT_FAILURE);
   }
 
-  if (n != 0 && n != 1)
-  {
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mboolean\x1B[m\n");
+  if (!strcmp(str,"1")){
+    return 1;
+  } else if (!strcmp(str,"0")){
+    return 0;
+  } else if (!strcmp(str,"true")){
+    return 1;
+  } else if (!strcmp(str,"false")){
+    return 0;
+  }
+  else {
+    printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mboolean\x1B[m\n", str);
     exit(EXIT_FAILURE);
+    return 0;
   }
 
-  return n;
 }
 
 char _readFileChar(int8_t* file) {
@@ -132,8 +137,8 @@ char _readFileChar(int8_t* file) {
 
 double _readFileDouble(int8_t* file) {
   FILE* f = (FILE*) file;
-  double n;
-  int r = fscanf(f, "%lf", &n);
+  char str[64];
+  int r = fscanf(f, "%s", str);
 
   if (r == EOF)
   {
@@ -146,7 +151,34 @@ double _readFileDouble(int8_t* file) {
     exit(EXIT_FAILURE);
   }
 
-  return n;
+  int s = 0;
+  int dot = 0;
+  int e = 0;
+  if (str[0] == '-') ++s;
+  for (int i = s ; i < strlen(str) ; ++i){
+    if (str[i] == '.') {
+      ++dot;
+      ++i;
+      if (str[i] == '\0'){
+        printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+        exit(EXIT_FAILURE);
+      }
+    }
+    if (str[i] == 'e') {
+      e++;
+      ++i;
+      if (str[i] == '-') ++i;
+      if (str[i] == '\0'){
+        printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+        exit(EXIT_FAILURE);
+      }
+    }
+    if ( (str[i] < '0' || str[i] > '9') || dot > 1 || e > 1) {
+      printf ("\x1B[0;31mError:\x1B[m The value \"%s\" is not of type \x1B[0;32mfloat\x1B[m\n", str);
+      exit(EXIT_FAILURE);
+    }
+  }
+  return (double)atof(str);
 }
 
 void _lineFeed(){
@@ -284,20 +316,26 @@ void _ln() {
 }
 
 
-int _randInt() {
-  return rand();
+void _randInt(int8_t *x) {
+  int *i = (int*)x;
+  *i = rand();
 }
 
-double _randFloat(){
-  return (double)rand()/(double)(RAND_MAX);
+void _randFloat(int8_t *x){
+  double *f = (double*)x;
+  *f = rand()/(double)(RAND_MAX);
 }
 
-char _randChar(){
-  return (char)rand();
+void _randChar(int8_t *x){
+  char c = (rand() % (CHAR_MAX - CHAR_MIN)) + CHAR_MIN;
+  *x = c;
 }
 
-int _randBool(){
-  return rand()%2;
+void _randBool(int8_t *x){
+  uint8_t b;
+  b = rand()%2;
+  b = b < 0 ? (-b) : b;
+  *x = b;
 }
 
 
@@ -547,3 +585,4 @@ int _traceStringBool (char* x, int y) {
   printf("TRACE: (%s, %s)\n", x, y ? "true" : "false");
   return y;
 }
+

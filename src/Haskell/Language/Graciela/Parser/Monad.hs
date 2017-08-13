@@ -97,7 +97,7 @@ import           Control.Monad.Trans.Reader      (ReaderT (..), runReaderT)
 import           Control.Monad.Trans.State       (StateT (..), evalStateT)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE (fromList)
-import qualified Data.Map.Strict                 as Map (empty, lookup)
+import qualified Data.Map.Strict                 as Map (empty, lookup, union)
 import           Data.Sequence                   (Seq, (<|), (|>))
 import qualified Data.Sequence                   as Seq (empty, singleton)
 import qualified Data.Set                        as Set (empty, singleton)
@@ -143,7 +143,11 @@ runParserT p fp s input = runStateT (runReaderT flatten cfg) s
           defaultConfig eT mO nA
 
       flatten = do
-        definitions <~ asks nativeFunctions
+        
+        definitions <~ do 
+          f <- asks nativeFunctions
+          p <- asks nativeProcedures
+          pure $ Map.union f p
         symbolTable <~ asks nativeSymbols
 
         x <- Mega.runParserT (unParserT p) fp input
@@ -360,11 +364,20 @@ safeIdentifier = withRecovery recover (Just <$> identifier)
   where
     recover e = do
       pos <- getPosition
-
+      let 
+        set = errorUnexpected e 
+        t   = toList set
+        len = length t
       putError pos . UnknownError $
-        "An identifier was expected but none was given."
+        "An identifier was expected but none was given.\n\t" <> 
+        if len == 0  then "" 
+        else if len == 1 then "Instead, " <> getToken (head t) <> " was found."
+        else "WTF?"
 
       pure Nothing
+    getToken EndOfInput = ""
+    getToken (Label  (c :| _)) = show c
+    getToken (Tokens (t :| _)) = show t
 
 -- | Match an identifier and return both its name and location
 identifierAndLoc :: MonadParser m

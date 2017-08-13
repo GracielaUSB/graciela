@@ -33,6 +33,11 @@ module Language.Graciela.Parser.Config
   , multiplicityMultiPairString
   , multiplicitySeqPairString
   , readlnString
+-- * random procedure
+  , randCharString
+  , randIntString
+  , randFloatString
+  , randBoolString
   -- * LLVM Conversion function strings
   , float2intString
   , char2intString
@@ -80,14 +85,16 @@ import           Text.Megaparsec.Pos              (unsafePos)
 --------------------------------------------------------------------------------
 
 data Config = Config
-  { nativeTypes     :: Map Text (Type, Location)
-  , nativeFunctions :: Map Text Definition
-  , nativeSymbols   :: SymbolTable }
+  { nativeTypes      :: Map Text (Type, Location)
+  , nativeFunctions  :: Map Text Definition
+  , nativeProcedures :: Map Text Definition
+  , nativeSymbols    :: SymbolTable }
 
 defaultConfig :: Bool -> Bool -> Bool -> Config
 defaultConfig enableTrace enableLowLevel noAssertions = Config
   { nativeTypes
   , nativeFunctions
+  , nativeProcedures
   , nativeSymbols = foldl' auxInsert emptyGlobal symbols }
 
   where
@@ -113,6 +120,42 @@ defaultConfig enableTrace enableLowLevel noAssertions = Config
 
     auxInsert st (k , e') = insertSymbol k (Entry k gracielaDef e') st
 
+    nativeProcedures :: Map Text Definition
+    nativeProcedures = Map.mapWithKey wrap $ Map.empty &~ do
+      at "read"      ?= languageProcedure "read"
+      at "write"     ?= languageProcedure "write"
+      at "free"      ?= languageProcedure "free"
+      at "new"       ?= languageProcedure "new"
+      at "random"    ?= randomG
+      
+      where 
+        wrap defName signatures = Definition
+          { defLoc  = gracielaDef
+          , defName
+          , isDecl  = False
+          , pre     = undefined
+          , post    = undefined
+          , bound   = Nothing
+          , def'    = GracielaProc signatures }
+
+    languageProcedure :: String -> (Seq Type -> Either Error (Text, Seq ArgMode))
+    languageProcedure name = (\s -> Right (pack name, []))
+
+    randomG :: Seq Type -> Either Error (Text, Seq ArgMode)
+    randomG [ GChar ]  = Right (pack randCharString,  [Ref])
+    randomG [ GInt ]   = Right (pack randIntString,   [Ref])
+    randomG [ GFloat ] = Right (pack randFloatString, [Ref])
+    randomG [ GBool ]  = Right (pack randBoolString,  [Ref])
+    randomG [ a ] = Left badArg
+      { paramNum = 1
+      , fName  = "random"
+      , pTypes = [GInt, GFloat, GChar, GBool]
+      , aType  = a }
+    randomG args = Left badNumArgs
+      { fName = "random"
+      , nParams = 1
+      , nArgs = length args}
+
     nativeFunctions :: Map Text Definition
     nativeFunctions = Map.mapWithKey wrap $ Map.empty &~ do
       at "abs"          ?= (absG         , [])
@@ -137,6 +180,15 @@ defaultConfig enableTrace enableLowLevel noAssertions = Config
       at "trace"        .= if enableTrace
         then Just (traceG, [])
         else Nothing
+      where 
+        wrap defName (signatures, casts) = Definition
+          { defLoc  = gracielaDef
+          , defName
+          , isDecl  = False
+          , pre     = undefined
+          , post    = undefined
+          , bound   = Nothing
+          , def'    = GracielaFunc signatures casts }
 
     traceG, toIntG, toCharG, toFloatG :: Seq Type -> Either Error (Type, Text, Bool)
     absG, codomainG, domainG, readlnG :: Seq Type -> Either Error (Type, Text, Bool)
@@ -144,14 +196,7 @@ defaultConfig enableTrace enableLowLevel noAssertions = Config
     relG, sqrtG, toMultisetG, toSetG  :: Seq Type -> Either Error (Type, Text, Bool)
     toSequenceG, isNanG, isInfG       :: Seq Type -> Either Error (Type, Text, Bool)
 
-    wrap defName (signatures, casts) = Definition
-      { defLoc  = gracielaDef
-      , defName
-      , isDecl  = False
-      , pre     = undefined
-      , post    = undefined
-      , bound   = Nothing
-      , def'    = GracielaFunc signatures casts }
+    
 
     badArg = BadFunctionArgumentType'
       { fPos     = gracielaDef'
@@ -450,6 +495,13 @@ defaultConfig enableTrace enableLowLevel noAssertions = Config
       { fName = "multiplicity"
       , nParams = 2
       , nArgs = length args}
+
+
+randCharString, randIntString, randFloatString, randBoolString :: String
+randCharString  = "_randChar"
+randIntString   = "_randInt"
+randFloatString = "_randFloat"
+randBoolString  = "_randBool"
 
 sqrtIString, sqrtFString :: String
 sqrtIString = "_sqrt_i"

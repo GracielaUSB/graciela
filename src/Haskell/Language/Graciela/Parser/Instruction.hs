@@ -82,13 +82,8 @@ instruction
   <|> try assign
   <|> abort
   <|> warn
-  <|> free
-  <|> new
-  <|> random
-  <|> reading
   <|> repetition
   <|> skip
-  <|> write -- includes write and writeln
   <|> block
 
 
@@ -233,7 +228,7 @@ random :: Parser (Maybe Instruction)
 random = do
   from  <- getPosition
 
-  match TokRandom
+  id    <- identifier
   mexpr <- parens expression
 
   to    <- getPosition
@@ -264,11 +259,10 @@ random = do
 -- | Parse `write` or `writeln` instructions.
 write :: Parser (Maybe Instruction)
 write = do
-  lookAhead $ oneOf [TokWrite, TokWriteln]
 
   from <- getPosition
-
-  ln <- match TokWrite $> False <|> match TokWriteln $> True
+  id <- identifier
+  let ln = id == "writeln"
   exprs <- parens $ expression `sepBy` match TokComma
 
   to <- getPosition
@@ -312,11 +306,10 @@ write = do
 -- | Parse the `read` instruction.
 reading :: Parser (Maybe Instruction)
 reading = do
-  lookAhead $ match TokRead
 
   from <- getPosition
 
-  match TokRead
+  identifier
   ids <- parens $ expression `sepBy` match TokComma
   file <- optional fileFrom
 
@@ -378,18 +371,14 @@ reading = do
 
 
 
-newOrFree :: Token
-          -> (Object -> Type -> Instruction')
+newOrFree :: (Object -> Type -> Instruction')
           -> String
           -> Parser (Maybe Instruction)
-newOrFree tok inst name = do
-  lookAhead $ match tok
-
+newOrFree inst name = do
+  
   from <- getPosition
-
-  match tok
+  id <- identifier
   obj <- parens expression
-
   to <- getPosition
   let loc = Location (from, to)
 
@@ -404,8 +393,8 @@ newOrFree tok inst name = do
 
 
 new, free :: Parser (Maybe Instruction)
-new  = newOrFree TokNew  New  "New"
-free = newOrFree TokFree Free "Free"
+new  = newOrFree New  "New"
+free = newOrFree Free "Free"
 
 
 abort :: Parser (Maybe Instruction)
@@ -548,11 +537,20 @@ repetition = do
 -- | Parse procedure calls.
 procedureCall :: Parser (Maybe Instruction)
 procedureCall = do
+  procName <- lookAhead identifier
+  if procName == "new"    then new
+  else if procName == "free"    then free
+  else if procName == "write"   then write
+  else if procName == "writeln" then write
+  else if procName == "read"    then reading
+  else procedureCall'
+
+procedureCall' :: Parser (Maybe Instruction)
+procedureCall' = do
 
   procName <- identifier
   from <- getPosition
-  args <- between (match TokLeftPar) (match' TokRightPar) $
-    expression `sepBy` match TokComma
+  args <- parens $ expression `sepBy` match TokComma
 
   to <- getPosition
   let loc = Location (from, to)
@@ -561,6 +559,24 @@ procedureCall = do
   let nArgs   = length args
 
   case procName `Map.lookup` defs of
+    Just Definition { defLoc, def' = GracielaProc { pSignatures }} -> do
+      let args' = sequence args
+
+      case args' of 
+        Just args'' -> case pSignatures (fmap expType args'') of 
+          Right (procName', argModes) -> pure $ Just Instruction
+            { instLoc = loc
+            , inst' = ProcedureCall
+              { pName = procName'
+              , pArgs = Seq.zip args'' argModes
+              , pRecursiveCall = False
+              , pRecursiveProc = False
+              , pStructArgs    = Nothing }}
+          Left message -> do
+            putError from message
+            pure Nothing
+        _ -> pure Nothing
+
     Just Definition { defLoc, def' = ProcedureDef { procParams, procRecursive }} -> do
       let
         nParams = length procParams
@@ -593,12 +609,13 @@ procedureCall = do
       pure Nothing
 
     Nothing -> do
-      -- This function will be used later, only if the procedure we are loking is not
-      -- the current procedure. In that case, maybe it's a Data Type procedure.
+      -- Function `p` will be used only if the procedure we are looking for is not
+      -- the current procedure and is not defined yet. 
+      -- In that case, it should be a Data Type procedure (or an error, of course).
       -- There are two cases: 1) It's being called outside a Data Type.
-      --                         Just look the first arguments that is a `GFullDataType`
       --                      2) It's being called in another procedure inside the same Data Type
-      --                         Just look the first arguments that is a `GDataType`
+      --                      
+      --                      Solution: Look for first arguments with type `GDataType`
       let
         f = case hasDTType args of
           Nothing -> do
@@ -766,7 +783,7 @@ procedureCall = do
 
           | otherwise -> f
 
-        {- The called procedure isn't a global procedure nor the current one,
+        {- The procedure is neither a global procedure nor the current one,
            but it might be a struct's procedure so we check for that. -}
         Nothing -> f
 

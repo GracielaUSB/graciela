@@ -52,7 +52,7 @@ basicType :: Parser Type
 basicType = do
   from <- getPosition
   t <- type'
-  if t =:= GOneOf [GBool, GChar, GInt, GFloat]
+  if t =:= GOneOf [GBool, GChar, GInt, GFloat, GATypeVar]
     then pure t
     else do
       putError from . UnknownError $ show t <> " is not a basic type"

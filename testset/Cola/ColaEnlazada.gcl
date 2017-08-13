@@ -12,9 +12,8 @@ begin
   {repinv #contenido <= MAX repinv}
 
   proc encolar (inout c : ColaA(T), in x : T)
-    let contenido_0 := c.contenido : sequence of T;
     {pre #c.contenido < c.MAX pre}
-    {post c.contenido == contenido_0 ++ ⟨x⟩ post}
+    {post c.contenido == c'.contenido ++ ⟨x⟩ post}
 
   proc desencolar (inout c : ColaA(T) )
     let tail := ⟨i : int | 1 ≤ i /\ i < #c.contenido | c.contenido[i]⟩ : sequence of T;
@@ -48,14 +47,14 @@ begin
                               [] sig != null -> (*sig).subcont
                               fi }
 
-  proc mostrar' (in c : SubCola (T), in B : int)
+  proc mostrarSub (in c : SubCola (T), in B : int)
     {pre true pre}
     {post true post}
     {bound B - c.indice bound}
     |[ write (c.item)
      ; if c.sig == null -> skip
        [] c.sig != null -> write (" ")
-                          ; mostrar' (*c.sig, B)
+                          ; mostrarSub (*c.sig, B)
        fi
     ]|
 end
@@ -83,13 +82,13 @@ begin
           ; (*c.sub).sig := null
           ; c.ult := c.sub
        [] c.sub != null
-         -> var ult' : SubCola (T) *
-          ; new (ult')
-          ; (*ult').item := x
-          ; (*ult').indice := (*c.ult).indice + 1
-          ; (*ult').sig := null
-          ; (*c.ult).sig := ult'
-          ; c.ult := ult'
+         -> var ult2 : SubCola (T) *
+          ; new (ult2)
+          ; (*ult2).item := x
+          ; (*ult2).indice := (*c.ult).indice + 1
+          ; (*ult2).sig := null
+          ; (*c.ult).sig := ult2
+          ; c.ult := ult2
        fi
      ; c.elems := c.elems + 1
     ]|
@@ -126,7 +125,7 @@ begin
     |[ if c.sub == null
          -> skip
        [] otherwise
-         -> mostrar' (*c.sub, c.MAX + (*c.sub).indice)
+         -> mostrarSub (*c.sub, c.MAX + (*c.sub).indice)
        fi
     ]|
 

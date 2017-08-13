@@ -238,8 +238,8 @@ token  =  reserved "program"    TokProgram
       <|> symbol   "\8835"      TokSSuperset -- ⊃
       <|> symbol   "\8843"      TokSSuperset -- ⊋
 
-      <|> reserved "new"        TokNew
-      <|> reserved "free"       TokFree
+      -- <|> reserved "new"        TokNew
+      -- <|> reserved "free"       TokFree
       -- V2.0 > 
 
       <|> symbol   "+"          TokPlus
@@ -355,10 +355,10 @@ token  =  reserved "program"    TokProgram
       <|> reserved "warn"       TokWarn
       <|> reserved "skip"       TokSkip
 
-      <|> reserved "random"     TokRandom
-      <|> reserved "write"      TokWrite
-      <|> reserved "writeln"    TokWriteln
-      <|> reserved "read"       TokRead
+      -- <|> reserved "random"     TokRandom
+      -- <|> reserved "write"      TokWrite
+      -- <|> reserved "writeln"    TokWriteln
+      -- <|> reserved "read"       TokRead
 
       <|> reserved "true"       (TokBool True)
       <|> reserved "false"      (TokBool False)

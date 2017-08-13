@@ -152,10 +152,10 @@ data Token
   | TokWarn
   | TokSkip
 
-  | TokRandom
-  | TokWrite
-  | TokWriteln
-  | TokRead
+  -- | TokRandom
+  -- | TokWrite
+  -- | TokWriteln
+  -- | TokRead
 
   -- | TokToInt
   -- | TokToDouble
@@ -213,8 +213,8 @@ data Token
   | TokRelation
   | TokFunction
 
-  | TokNew
-  | TokFree
+  -- | TokNew
+  -- | TokFree
   | TokNull
   | TokWhere
   | TokInclude
@@ -337,10 +337,10 @@ instance Show Token where
     TokWarn           -> "warn"
     TokSkip           -> "skip"
 
-    TokRandom         -> "random"
-    TokWrite          -> "write"
-    TokWriteln        -> "writeln"
-    TokRead           -> "read"
+    -- TokRandom         -> "random"
+    -- TokWrite          -> "write"
+    -- TokWriteln        -> "writeln"
+    -- TokRead           -> "read"
 
     (TokBool    True) -> "true"
     (TokBool   False) -> "false"
@@ -384,8 +384,8 @@ instance Show Token where
     TokFunction       -> "function"
     TokRelation       -> "relation"
 
-    TokNew            -> "new"
-    TokFree           -> "free"
+    -- TokNew            -> "new"
+    -- TokFree           -> "free"
     TokNull           -> "null"
 
     TokAmpersand      -> "&"

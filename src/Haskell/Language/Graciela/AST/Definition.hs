@@ -22,6 +22,10 @@ instance Serialize (Seq Type -> Either Error (Type, Text, Bool)) where
   put = undefined
   get = undefined
 
+instance Serialize (Seq Type -> Either Error (Text, Seq ArgMode)) where
+  put = undefined
+  get = undefined
+
 data Definition'
   = FunctionDef
     { funcBody      :: Expression
@@ -32,6 +36,8 @@ data Definition'
   | GracielaFunc
     { signatures :: Seq Type -> Either Error (Type, Text, Bool) -- last bool is `can abort`
     , casts      :: Seq Int }
+  | GracielaProc
+    { pSignatures :: Seq Type -> Either Error (Text, Seq ArgMode) }
   | ProcedureDef
     { procDecl      :: Seq (Either Declaration Instruction)
     , procBody      :: Instruction
@@ -72,6 +78,9 @@ instance Treelike Definition where
 
       GracielaFunc { } ->
         leaf $ "Graciela native function `" <> unpack defName <> "`"
+
+      GracielaProc { } ->
+        leaf $ "Graciela native Proc `" <> unpack defName <> "`"
 
       ProcedureDef { procDecl, procBody, procParams, procRecursive} ->
         let rec = if procRecursive then "Recursive " else ""

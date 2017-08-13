@@ -909,7 +909,8 @@ extern "C" {
   /* Trash Collector */
 
   void _initTrashCollector(){
-      _stack = new vector<TrashCollector>;
+    srand (time(NULL));
+    _stack = new vector<TrashCollector>;
   }
 
   void _openScope(){

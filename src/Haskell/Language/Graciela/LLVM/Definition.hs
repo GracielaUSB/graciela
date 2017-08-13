@@ -404,6 +404,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
         closeScope
 
       GracielaFunc {} -> pure ()
+      GracielaProc {} -> pure ()
 
   where
 
@@ -1146,10 +1147,10 @@ preDefinitions files = do
     , defineFunction readlnString  [parameter ("ptr", ptr $ ptr i32)] pointerType
 
     -- Rand
-    , defineFunction randInt   [] intType
-    , defineFunction randBool  [] boolType
-    , defineFunction randChar  [] charType
-    , defineFunction randFloat [] floatType
+    , defineFunction randIntString   [parameter ("ptr", pointerType)] voidType
+    , defineFunction randBoolString  [parameter ("ptr", pointerType)] voidType
+    , defineFunction randCharString  [parameter ("ptr", pointerType)] voidType
+    , defineFunction randFloatString [parameter ("ptr", pointerType)] voidType
 
     -- , defineFunction randomize  [] voidType
     -- , defineFunction seedRandom [intParam] voidType

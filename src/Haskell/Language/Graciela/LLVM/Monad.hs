@@ -303,12 +303,6 @@ readCharStd   = "_readCharStd"
 readFloatStd  :: String
 readFloatStd  = "_readDoubleStd"
 
-randChar, randFloat, randInt, randBool :: String
-randChar      = "_randChar"
-randFloat     = "_randFloat"
-randInt       = "_randInt"
-randBool      = "_randBool"
-
 openFileStr   :: String
 openFileStr   = "_openFile"
 readFileBool  :: String

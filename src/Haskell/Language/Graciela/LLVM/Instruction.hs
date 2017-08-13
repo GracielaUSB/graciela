@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PostfixOperators  #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase        #-}
 
 module Language.Graciela.LLVM.Instruction where
 --------------------------------------------------------------------------------
@@ -11,6 +12,7 @@ import qualified Language.Graciela.AST.Expression   as E (loc)
 import           Language.Graciela.AST.Instruction  (Guard, Instruction (..),
                                                      Instruction' (..))
 import qualified Language.Graciela.AST.Instruction  as G (Instruction)
+import qualified Language.Graciela.AST.Declaration  as G (Declaration(..))
 import           Language.Graciela.AST.Object       hiding (indices)
 import qualified Language.Graciela.AST.Object       as O (inner, loc)
 import           Language.Graciela.AST.Struct       (Struct (..))
@@ -227,6 +229,21 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     openScope
     mapM_ declaration decls
     mapM_ instruction insts
+    forM_ decls $ \case 
+      G.Declaration {G.declType=GDataType{typeName, typeArgs}, G.declIds} -> do
+          let fName = "destroy" <> llvmName typeName (toList typeArgs)
+          forM_ declIds $ \vName -> do
+            name <- getVariableName vName
+
+            addInstruction $ Do Call
+              { tailCallKind       = Nothing
+              , callingConvention  = CC.C
+              , returnAttributes   = []
+              , function           = callable voidType fName
+              , arguments          = [(LocalReference pointerType name, [])]
+              , functionAttributes = []
+              , metadata = [] }
+      _ -> pure ()
     closeScope
     terminate Br
       { dest      = exit
@@ -895,39 +912,39 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , metadata  = [] }
 
 
-  Random { var } -> do
-    t <- fill $ objType var
+  -- Random { var } -> do
+  --   t <- fill $ objType var
 
-    let frand = case t of
-          T.GChar  -> randChar
-          T.GFloat -> randFloat
-          T.GInt   -> randInt
-          T.GBool  -> randBool
-          _        -> internal "Unsupported random " <> show t
+  --   let frand = case t of
+  --         T.GChar  -> randChar
+  --         T.GFloat -> randFloat
+  --         T.GInt   -> randInt
+  --         T.GBool  -> randBool
+  --         _        -> internal "Unsupported random " <> show t
 
-    type' <- toLLVMType t
+  --   type' <- toLLVMType t
 
-    readResult <- newLabel "randCall"
-    -- Call the C read function
-    addInstruction $ readResult := Call
-      { tailCallKind       = Nothing
-      , callingConvention  = CC.C
-      , returnAttributes   = []
-      , function           = callable type' frand
-      , arguments          = []
-      , functionAttributes = []
-      , metadata           = [] }
+  --   readResult <- newLabel "randCall"
+  --   -- Call the C read function
+  --   addInstruction $ readResult := Call
+  --     { tailCallKind       = Nothing
+  --     , callingConvention  = CC.C
+  --     , returnAttributes   = []
+  --     , function           = callable type' frand
+  --     , arguments          = []
+  --     , functionAttributes = []
+  --     , metadata           = [] }
 
-    -- Get the reference of the variable's memory
-    objRef <- objectRef var
-    -- Store the value saved at `readResult` in the variable memory
-    addInstruction $ Do Store
-      { volatile = False
-      , address  = objRef
-      , value    = LocalReference type' readResult
-      , maybeAtomicity = Nothing
-      , alignment = 4
-      , metadata  = [] }
+  --   -- Get the reference of the variable's memory
+  --   objRef <- objectRef var
+  --   -- Store the value saved at `readResult` in the variable memory
+  --   addInstruction $ Do Store
+  --     { volatile = False
+  --     , address  = objRef
+  --     , value    = LocalReference type' readResult
+  --     , maybeAtomicity = Nothing
+  --     , alignment = 4
+  --     , metadata  = [] }
 
 
   Repeat { rguards, rinv, rbound } -> do
