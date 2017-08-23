@@ -155,7 +155,7 @@ defaultConstructor _ name structType typeMap = do
         addInstruction $ member := GetElementPtr
             { inBounds = False
             , address  = self
-            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , indices  = constantOperand GInt . Left <$> [0, field]
             , metadata = []}
 
         defaultValue <- case expr of
@@ -186,7 +186,7 @@ defaultConstructor _ name structType typeMap = do
         addInstruction $ name := GetElementPtr
             { inBounds = False
             , address  = self
-            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , indices  = constantOperand GInt . Left <$> [0, field]
             , metadata = []}
 
         iarr <- newUnLabel
@@ -226,7 +226,7 @@ defaultConstructor _ name structType typeMap = do
         addInstruction $ arrPtr := GetElementPtr
           { inBounds = False
           , address  = LocalReference garrT name
-          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
           , metadata = [] }
 
         addInstruction $ Do Store
@@ -267,7 +267,7 @@ defaultConstructor _ name structType typeMap = do
         addInstruction $ arrPtr := GetElementPtr
           { inBounds = False
           , address  = LocalReference garrT name
-          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
           , metadata = [] }
 
         addInstruction $ Do Store
@@ -312,7 +312,7 @@ defaultConstructor _ name structType typeMap = do
         addInstruction $ member := GetElementPtr
             { inBounds = False
             , address  = self
-            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , indices  = constantOperand GInt . Left <$> [0, field]
             , metadata = []}
 
         addInstruction $ Do Store
@@ -371,10 +371,10 @@ defaultConstructor _ name structType typeMap = do
       pure $ n + 1
 
     value t = case t of
-      GBool          -> pure . ConstantOperand $ C.Int 1 0
-      GChar          -> pure . ConstantOperand $ C.Int 8 0
-      GInt           -> pure . ConstantOperand $ C.Int 32 0
-      GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      GBool          -> pure . constantOperand GBool  . Left $ 0
+      GChar          -> pure . constantOperand GChar  . Left $ 0
+      GInt           -> pure . constantOperand GInt   . Left $ 0
+      GFloat         -> pure . constantOperand GFloat . Right $ 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
 
 
@@ -407,8 +407,8 @@ defaultDestructor _ name structType typeMap = do
   let
     self = LocalReference structType selfName
     fields = toList structFields <> toList structAFields
-    line = ConstantOperand . C.Int 32 $ 0
-    col  = ConstantOperand . C.Int 32 $ 0
+    line = constantOperand GInt . Left $ 0
+    col  = constantOperand GInt . Left $ 0
 
   forM_ fields $ \(field, t, _, expr) -> do
     let
@@ -425,14 +425,14 @@ defaultDestructor _ name structType typeMap = do
         addInstruction $ arrStruct := GetElementPtr
             { inBounds = False
             , address  = self
-            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , indices  = constantOperand GInt . Left <$> [0, field]
             , metadata = []}
 
         arrPtr <- newLabel "arrPtr"
         addInstruction $ arrPtr := GetElementPtr
           { inBounds = False
           , address  = LocalReference garrT arrStruct
-          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
           , metadata = [] }
 
         iarr <- newLabel "freeArrInternal"
@@ -514,13 +514,13 @@ defaultCopy _ name structType typeMap = do
     addInstruction $ sourcePtr := GetElementPtr
         { inBounds = False
         , address  = sourceStruct
-        , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+        , indices  = constantOperand GInt . Left <$> [0, field]
         , metadata = []}
 
     addInstruction $ destPtr := GetElementPtr
         { inBounds = False
         , address  = destStruct
-        , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+        , indices  = constantOperand GInt . Left <$> [0, field]
         , metadata = []}
 
     case filledT of

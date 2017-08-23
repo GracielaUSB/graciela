@@ -421,7 +421,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
                 { type'          = eType
                 , incomingValues =
                   [ (e, yesCond)
-                  , (ConstantOperand . C.Float $ F.Double 0.0, noCond ) ]
+                  , (constantOperand GFloat . Right $ 0.0, noCond ) ]
                 , metadata       = [] }
 
               pure $ LocalReference eType result
@@ -442,7 +442,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
                 { type'          = eType
                 , incomingValues =
                   [ (e, yesCond)
-                  , (ConstantOperand . C.Float $ F.Double dv, noCond ) ]
+                  , (constantOperand GFloat . Right $ dv, noCond ) ]
                 , metadata       = [] }
 
               pure $ LocalReference eType result
@@ -518,7 +518,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference qType valid
-          , value    = ConstantOperand $ C.Int 1 0
+          , value    = constantOperand GBool . Left $ 0
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
@@ -587,7 +587,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference qType valid
-          , value    = ConstantOperand $ C.Int 1 1
+          , value    = constantOperand GBool . Left $ 1
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
@@ -785,7 +785,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
               { nsw = False
               , nuw = False
               , operand0 = LocalReference qType oldPartial
-              , operand1 = ConstantOperand $ C.Int 32 1
+              , operand1 = constantOperand GInt . Left $1
               , metadata = [] }
 
 
@@ -984,7 +984,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference qType valid
-          , value    = ConstantOperand $ C.Int 1 0
+          , value    = constantOperand GBool . Left $ 0
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
@@ -1053,7 +1053,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         addInstruction $ Do Store
           { volatile = False
           , address  = LocalReference qType valid
-          , value    = ConstantOperand $ C.Int 1 1
+          , value    = constantOperand GBool . Left $ 1
           , maybeAtomicity = Nothing
           , alignment = 4
           , metadata  = [] }
@@ -1268,7 +1268,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
               { nsw = False
               , nuw = False
               , operand0 = LocalReference qType oldPartial
-              , operand1 = ConstantOperand $ C.Int 32 1
+              , operand1 = constantOperand GInt . Left $1
               , metadata = [] }
 
 
@@ -1797,7 +1797,7 @@ firstIterator qVarType setType castType set = do
   addInstruction $ first := GetElementPtr
     { inBounds = False
     , address  = LocalReference (ptr iterator) iteratorStruct
-    , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+    , indices  = constantOperand GInt . Left <$> [0, 0]
     , metadata = [] }
 
   addInstruction $ firstValue := Load
@@ -1845,7 +1845,7 @@ nextIteratorValue qVarType castType nextIterator iteratorStruct = do
   addInstruction $ next := GetElementPtr
     { inBounds = False
     , address  = LocalReference (ptr iterator) iteratorStruct
-    , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+    , indices  = constantOperand GInt . Left <$> [0, 0]
     , metadata = [] }
 
   nextValue <- newLabel "nextElementValue"

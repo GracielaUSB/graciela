@@ -272,8 +272,8 @@ boolean true false e@Expression { loc, exp' } = do
       SeqAt -> do
           let
             SourcePos _ x y = pos loc
-            line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-            col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+            line = constantOperand GInt . Left . fromIntegral $ unPos x
+            col  = constantOperand GInt . Left . fromIntegral $ unPos y
           lOp <- expression lexpr
           rOp <- expression rexpr
           call <- newLabel "seqAt"
@@ -342,9 +342,9 @@ boolean true false e@Expression { loc, exp' } = do
       recArgs <- fmap (,[]) <$> if fRecursiveCall && asserts
         then do
           boundOperand <- fromMaybe (internal "boundless recursive function 1.") <$> use boundOp
-          pure [ConstantOperand $ C.Int 1 1, boundOperand]
+          pure [constantOperand GBool . Left $ 1, boundOperand]
         else if fRecursiveFunc && asserts
-          then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+          then pure [constantOperand GBool . Left $ 0, constantOperand GInt . Left $0]
           else pure []
 
       label <- newLabel "funcResult"
@@ -466,8 +466,8 @@ wrapBoolean e@Expression { expType } = do
       addInstruction $ val := Phi
         { type' = boolType
         , incomingValues =
-          [ (ConstantOperand $ C.Int 1 1, true)
-          , (ConstantOperand $ C.Int 1 0, false) ]
+          [ (constantOperand GBool . Left $ 1, true)
+          , (constantOperand GBool . Left $ 0, false) ]
         , metadata = [] }
 
       pure $ LocalReference boolType val

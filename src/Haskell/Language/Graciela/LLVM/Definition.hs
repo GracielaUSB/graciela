@@ -105,7 +105,7 @@ mainDefinition block files = do
 
   mapM_ closeFile files
 
-  terminate $ Ret (Just . ConstantOperand $ C.Int 32 0) []
+  terminate $ Ret (Just . constantOperand T.GInt . Left $0) []
 
   blocks' <- use blocks
   blocks .= Seq.empty
@@ -492,8 +492,8 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
             { inBounds = False
             , address  = LocalReference t' arrName
             , indices  =
-              [ ConstantOperand (C.Int 32 0)
-              , ConstantOperand (C.Int 32 n) ]
+              [ constantOperand T.GInt . Left $ 0
+              , constantOperand T.GInt . Left $ n ]
             , metadata = [] }
 
           argDim <- newLabel "arrCheck"
@@ -580,7 +580,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       addInstruction $ comp := ICmp
               { iPredicate = EQ
               , operand0 = LocalReference intType cast
-              , operand1 = ConstantOperand $ C.Int 64 0
+              , operand1 = constantOperand T.I64 (Left 0)
               , metadata = [] }
 
       terminate CondBr
@@ -664,7 +664,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       addInstruction $ gte0 := ICmp
         { iPredicate = SGE
         , operand0   = boundOperand
-        , operand1   = ConstantOperand $ C.Int 32 0
+        , operand1   = constantOperand T.GInt . Left $0
         , metadata   = [] }
       yesGte0 <- newLabel "funcGte0Yes"
       noGte0  <- newLabel "funcGte0No"

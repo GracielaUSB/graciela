@@ -10,7 +10,7 @@ import           Language.Graciela.AST.Expression   (Expression,
                                                      Expression' (..))
 import           Language.Graciela.AST.Struct       (Struct (..), Struct' (..))
 import           Language.Graciela.AST.Type         (Type (..), (=:=))
-import qualified Language.Graciela.AST.Type         as G (Type)
+import qualified Language.Graciela.AST.Type         as T (Type)
 import           Language.Graciela.Common
 import           Language.Graciela.LLVM.Abort
 import           Language.Graciela.LLVM.Expression
@@ -46,13 +46,13 @@ declaration Initialization { declType, declPairs } =
   mapM_ (initialize declType) declPairs
 
 {- Allocate a variable -}
-alloc :: G.Type -> Text -> LLVM ()
+alloc :: T.Type -> Text -> LLVM ()
 alloc t@GArray { dimensions, innerType } lval = do
   name <- insertVar lval
 
   dims <- mapM expression dimensions
   innerSize <- sizeOf innerType
-  num <- foldM numAux (ConstantOperand (C.Int 32 1)) dims
+  num <- foldM numAux (constantOperand GInt (Left 1)) dims
 
   inner <- toLLVMType innerType
   garrT <- toLLVMType t
@@ -84,7 +84,7 @@ alloc t@GArray { dimensions, innerType } lval = do
   addInstruction $ arrPtr := GetElementPtr
     { inBounds = False
     , address  = LocalReference garrT name
-    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+    , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
     , metadata = [] }
 
   addInstruction $ Do Store
@@ -114,8 +114,8 @@ alloc t@GArray { dimensions, innerType } lval = do
         { inBounds = False
         , address  = ref
         , indices  =
-          [ ConstantOperand (C.Int 32 0)
-          , ConstantOperand (C.Int 32 n) ]
+          [ constantOperand GInt (Left 0)
+          , constantOperand GInt (Left n) ]
         , metadata = [] }
 
       addInstruction $ Do Store
@@ -154,7 +154,7 @@ alloc gtype lval = do
 
       let
         structArg = LocalReference (ptr t) cast
-        dinamicAllocFlag = ConstantOperand $ C.Int 1 0
+        dinamicAllocFlag = constantOperand GBool . Left $ 0
       addInstruction $ Do Call
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
@@ -181,15 +181,15 @@ alloc gtype lval = do
 
   where
     value t = case t of
-      GBool          -> pure . ConstantOperand $ C.Int 1 0
-      GChar          -> pure . ConstantOperand $ C.Int 8 0
-      GInt           -> pure . ConstantOperand $ C.Int 32 0
-      GFloat         -> pure . ConstantOperand . C.Float $ LLVM.Double 0
+      GBool          -> pure . constantOperand GBool . Left $ 0
+      GChar          -> pure . constantOperand GChar . Left $0
+      GInt           -> pure . constantOperand GInt  . Left $ 0
+      GFloat         -> pure . constantOperand GFloat . Right $ 0
       t@(GPointer _) -> ConstantOperand . C.Null <$> toLLVMType t
 
 
 {- Store an expression in a variable memory -}
-initialize :: G.Type -> (Text, (Expression,Bool)) -> LLVM ()
+initialize :: T.Type -> (Text, (Expression,Bool)) -> LLVM ()
 initialize gtype (lval, (expr,_)) = do
   cs <- use currentStruct
   let

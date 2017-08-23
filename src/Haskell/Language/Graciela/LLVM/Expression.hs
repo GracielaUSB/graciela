@@ -148,20 +148,20 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
   case exp' of
     Value val -> pure $ case val of
       -- BoolV  theBool  ->
-      --   ConstantOperand $ C.Int 1 (if theBool then 1 else 0)
+      --   constantOperand GBool . Left $ (if theBool then 1 else 0)
       CharV  theChar  ->
-        ConstantOperand . C.Int 8 . fromIntegral . ord $ theChar
+        constantOperand GChar . Left . fromIntegral . ord $ theChar
       IntV   theInt   ->
-        ConstantOperand . C.Int 32 . fromIntegral $ theInt
+        constantOperand GInt . Left . fromIntegral $ theInt
       FloatV theFloat ->
-        ConstantOperand . C.Float $ LLVM.Double theFloat
+        constantOperand GFloat . Right $ theFloat
 
     NullPtr ->
       case expType of
         GPointer GAny -> pure . ConstantOperand . C.Null $ pointerType
         _             -> ConstantOperand . C.Null  <$> toLLVMType expType
 
-    SizeOf { sType } -> ConstantOperand . C.Int 32 <$> sizeOf sType
+    SizeOf { sType } -> constantOperand GInt . Left <$> sizeOf sType
 
     t@Tuple { left, right } -> do
       l <- expression left
@@ -218,13 +218,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       addInstruction $ lPtr := GetElementPtr
         { inBounds = False
         , address  = LocalReference tupleT tuple
-        , indices  = ConstantOperand . C.Int 32 <$> [0, 0]
+        , indices  = constantOperand GInt . Left <$> [0, 0]
         , metadata = [] }
 
       addInstruction $ rPtr := GetElementPtr
         { inBounds = False
         , address  = LocalReference tupleT tuple
-        , indices  = ConstantOperand . C.Int 32 <$> [0, 1]
+        , indices  = constantOperand GInt . Left <$> [0, 1]
         , metadata = [] }
 
       addInstruction $ Do Store
@@ -272,8 +272,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             8  -> "unaryCharOp"
             _  -> internal "badUnaryIntOp"
           let
-            minusOne = ConstantOperand $ C.Int n (-1)
-            one = ConstantOperand $ C.Int n 1
+            minusOne = constantOperand (case n of; 32 -> GInt; 8 -> GChar) . Left $ -1
+            one      = constantOperand (case n of; 32 -> GInt; 8 -> GChar) . Left $ 1
           case op of
               Op.UMinus ->
                 safeOperation n label safeMul innerOperand minusOne pos
@@ -306,7 +306,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           addInstruction $ label := FMul
             { fastMathFlags = NoFastMathFlags
             , operand0 = innerOperand
-            , operand1 = ConstantOperand . C.Float $ LLVM.Double (-1.0)
+            , operand1 = constantOperand GFloat . Right $ (-1.0)
             , metadata = []}
 
           pure $ LocalReference floatType label
@@ -419,7 +419,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               checkZero <- newLabel "divCheckZero"
               addInstruction $ checkZero := ICmp
                 { iPredicate = EQ
-                , operand0   = ConstantOperand $ C.Int n 0
+                , operand0   = constantOperand (case n of; 64 -> I64; 32 -> GInt; 8 -> GChar) $ Left 0
                 , operand1   = rOperand
                 , metadata   = [] }
 
@@ -445,7 +445,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               checkZero <- newLabel "modCheckZero"
               addInstruction $ checkZero := ICmp
                 { iPredicate = EQ
-                , operand0   = ConstantOperand $ C.Int n 0
+                , operand0   = constantOperand (case n of; 64 -> I64; 32 -> GInt; 8 -> GChar) $ Left 0
                 , operand1   = rOperand
                 , metadata   = [] }
 
@@ -476,7 +476,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               addInstruction $ auxSgn := ICmp
                 { iPredicate = SLT
                 , operand0   = LocalReference (IntegerType n) aux
-                , operand1   = ConstantOperand $ C.Int n 0
+                , operand1   = constantOperand (case n of; 64 -> I64; 32 -> GInt; 8 -> GChar) $ Left 0
                 , metadata   = [] }
 
               terminate CondBr
@@ -533,7 +533,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
             Op.Power -> do
               let posConstant =
-                    (,[]) . ConstantOperand . C.Int 32 . fromIntegral . unPos
+                    (,[]) . constantOperand GInt . Left . fromIntegral . unPos
               addInstruction $ label := Call
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
@@ -710,8 +710,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             Op.Union -> do
               let
                 SourcePos _ x y = pos
-                line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-                col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+                line = constantOperand GInt . Left . fromIntegral $ unPos x
+                col  = constantOperand GInt . Left . fromIntegral $ unPos y
 
               addInstruction $ label := Call
                 { tailCallKind       = Nothing
@@ -786,7 +786,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           intOp' <- case intOp of 
             ConstantOperand (C.Int _ value) -> 
-              pure $ ConstantOperand (C.Int 64 value)
+              pure $ constantOperand I64 $ Left value
             otherwise -> do
               to64    <- newLabel "to64"
               addInstruction $ to64 := BitCast  
@@ -795,7 +795,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 , metadata = [] }
               pure $ LocalReference lintType to64
 
-          size <- ConstantOperand . (C.Int 64) <$> sizeOf inner
+          size <- constantOperand I64 . Left  <$> sizeOf inner
           offset <- opInt 64 Op.Times intOp' size I64 I64
 
           let ptrOp' = LocalReference lintType ptrInt
@@ -813,8 +813,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         seqAt lOp rOp lType rType = do
           let
             SourcePos _ x y = pos
-            line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-            col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+            line = constantOperand GInt . Left . fromIntegral $ unPos x
+            col  = constantOperand GInt . Left . fromIntegral $ unPos y
 
           let atString = case expType of
                 GTuple {} -> atSequencePairString
@@ -896,8 +896,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             GFunc {} -> do
               let
                 SourcePos _ x y = pos
-                line = ConstantOperand . C.Int 32 . fromIntegral $ unPos x
-                col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos y
+                line = constantOperand GInt . Left . fromIntegral $ unPos x
+                col  = constantOperand GInt . Left . fromIntegral $ unPos y
 
               call <- newUnLabel
               addInstruction $ call := Call
@@ -1077,9 +1077,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       recArgs <- fmap (,[]) <$> if fRecursiveCall && asserts
         then do
           boundOperand <- fromMaybe (internal "boundless recursive function 2.") <$> use boundOp
-          pure [ConstantOperand $ C.Int 1 1, boundOperand]
+          pure [constantOperand GBool . Left $ 1, boundOperand]
         else if fRecursiveFunc && asserts
-          then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+          then pure [constantOperand GBool . Left $ 0, constantOperand GInt . Left $0]
           else pure []
       label <- newLabel "funcResult"
       addInstruction $ label := Call

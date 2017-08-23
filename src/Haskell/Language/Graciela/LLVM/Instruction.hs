@@ -93,8 +93,8 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
 
 
   exprs <- mapM expression dimensions
-  sizeOp <- foldM mulDims (ConstantOperand $ C.Int 32 1) exprs
-  let sizeT = ConstantOperand $ C.Int 32 innerSize
+  sizeOp <- foldM mulDims (constantOperand GInt . Left $1) exprs
+  let sizeT = constantOperand GInt . Left $innerSize
 
 
   sourceArrPtr <- newLabel "sourceArrPtr"
@@ -102,14 +102,14 @@ copyArray t@GArray{dimensions, innerType} sourceHeader destHeader = do
   addInstruction $ sourceArrPtr := GetElementPtr
     { inBounds = False
     , address  = sourceHeader
-    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+    , indices  = constantOperand GInt . Left <$> [0, fromIntegral $ length dimensions]
     , metadata = [] }
 
 
   addInstruction $ destArrPtr := GetElementPtr
     { inBounds = False
     , address  = destHeader
-    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+    , indices  = constantOperand GInt . Left <$> [0, fromIntegral $ length dimensions]
     , metadata = [] }
 
   loadSourceArray <- newLabel "loadSourceArray"
@@ -264,9 +264,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     recArgs <- fmap (,[]) <$> if pRecursiveCall && asserts 
         then do
           boundOperand <- fromMaybe (internal "boundless recursive function 3.") <$> use boundOp
-          pure [ConstantOperand $ C.Int 1 1, boundOperand]
+          pure [constantOperand GBool . Left $ 1, boundOperand]
         else if prp && asserts
-          then pure [ConstantOperand $ C.Int 1 0, ConstantOperand $ C.Int 32 0]
+          then pure [constantOperand GBool . Left $ 0, constantOperand GInt . Left $0]
       else pure []
 
     addInstruction $ Do Call
@@ -350,8 +350,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         let
           isIn = mode `elem` [In, InOut, Const]
           Location(SourcePos _ l c, _) = loc
-          line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
-          col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
+          line = constantOperand GInt . Left . fromIntegral $ unPos l
+          col  = constantOperand GInt . Left . fromIntegral $ unPos c
         case mode of
           Ref -> do
             label <- newLabel "argCastRef"
@@ -398,7 +398,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                   addArgInsts $ internalArrPtr := GetElementPtr
                     { inBounds = False
                     , address  = (LocalReference type' primaPtr)
-                    , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral $ length dimensions]
+                    , indices  = constantOperand GInt . Left <$> [0, fromIntegral $ length dimensions]
                     , metadata = [] }
 
                   internalArr <- newLabel "internalArray"
@@ -542,8 +542,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
     let
       SourcePos _ l c = pos
-      line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
-      col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
+      line = constantOperand GInt . Left . fromIntegral $ unPos l
+      col  = constantOperand GInt . Left . fromIntegral $ unPos c
     case freeType of
       GArray { dimensions, innerType } -> do
         addInstruction $ labelLoad := Load
@@ -557,7 +557,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         addInstruction $ iarrPtr := GetElementPtr
           { inBounds = False
           , address  = LocalReference type' labelLoad
-          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
           , metadata = [] }
 
         inner <- toLLVMType innerType
@@ -662,7 +662,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable pointerType mallocString
-          , arguments          = [(ConstantOperand $ C.Int 32 structSize, [])]
+          , arguments          = [(constantOperand GInt . Left $structSize, [])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -701,7 +701,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         addInstruction $ arrPtr := GetElementPtr
           { inBounds = False
           , address  = LocalReference type' structCast
-          , indices  = ConstantOperand . C.Int 32 <$> [0, fromIntegral (length dimensions)]
+          , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
           , metadata = [] }
 
         addInstruction $ Do Store
@@ -764,7 +764,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable pointerType mallocString
-          , arguments          = [(ConstantOperand $ C.Int 32 typeSize, [])]
+          , arguments          = [(constantOperand GInt . Left $typeSize, [])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -785,7 +785,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
         let
           structArg = LocalReference type' labelCast
-          dinamicAllocFlag = ConstantOperand $ C.Int 1 0
+          dinamicAllocFlag = constantOperand GBool . Left $ 0
           call name =  Do Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
@@ -1013,7 +1013,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
       addInstruction $ gte0 := ICmp
         { iPredicate = SGE
         , operand0   = LocalReference intType boundVal
-        , operand1   = ConstantOperand $ C.Int 32 0
+        , operand1   = constantOperand GInt . Left $0
         , metadata   = [] }
 
       yesGte0 <- newLabel "doGte0Yes"

@@ -111,7 +111,7 @@ objectRef (Object loc t obj') = do
         addInstruction $ iarrPtrPtr := GetElementPtr
           { inBounds = False
           , address  = ref
-          , indices  = ConstantOperand . C.Int 32 <$>
+          , indices  = constantOperand GInt . Left <$>
             [0, fromIntegral . length $ indices]
           , metadata = [] }
 
@@ -286,8 +286,8 @@ objectRef (Object loc t obj') = do
         ptr = LocalReference pointerType $ castPtr
         Location (SourcePos _ l c, _) = loc
         pragma = ConstantOperand . C.Int 1 $ if p then 1 else 0
-        line = ConstantOperand . C.Int 32 . fromIntegral $ unPos l
-        col  = ConstantOperand . C.Int 32 . fromIntegral $ unPos c
+        line = constantOperand GInt . Left . fromIntegral $ unPos l
+        col  = constantOperand GInt . Left . fromIntegral $ unPos c
 
       use evalAssertions >>= \b -> when b $ 
         addInstruction $ Do Call
@@ -309,7 +309,7 @@ objectRef (Object loc t obj') = do
       addInstruction $ member := GetElementPtr
             { inBounds = False
             , address  = ref
-            , indices  = ConstantOperand . C.Int 32 <$> [0, field]
+            , indices  = constantOperand GInt . Left <$> [0, field]
             , metadata = []}
 
 

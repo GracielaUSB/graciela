@@ -20,6 +20,7 @@ module Language.Graciela.LLVM.Abort
   , waCall
   ) where
 --------------------------------------------------------------------------------
+import           Language.Graciela.AST.Type
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
 import           Language.Graciela.LLVM.Type
@@ -41,13 +42,13 @@ abortString = "_abort"
 -- | Used to build the args for an abort or a warning.
 args :: Integer -> SourcePos -> [(Operand, [ParameterAttribute])]
 args i pos =
-  [ (ConstantOperand $ C.Int 32 i, [])
+  [ (constantOperand GInt . Left $i, [])
   , posConstant . sourceLine  $ pos
   , posConstant . sourceColumn $ pos
   ]
   where
     posConstant :: Pos -> (Operand, [a])
-    posConstant = (,[]) . ConstantOperand . C.Int 32 . fromIntegral . unPos
+    posConstant = (,[]) . constantOperand GInt . Left . fromIntegral . unPos
 
 waCall :: String -> Integer -> SourcePos -> LLVM ()
 waCall func i pos = addInstruction $ Do Call
