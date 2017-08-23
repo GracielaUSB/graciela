@@ -1,0 +1,40 @@
+module Multiset begin
+/**
+  * Tipo abstracto de multiconjunto 
+ **/
+abstract Multiset(T)
+  begin
+    /* Multiset variables */
+    var m   : multiset of T;
+    
+    {repinv 
+        (% forall i : T | i elem m | i == i %) 
+    repinv}
+
+    /* Insertar un elemento en el multiconjunto */   
+    proc insert ( inout t : Multiset(T)*, in e : T )
+      let m0 := if t != null -> (*t).m [] otherwise -> {::} fi : multiset of T;
+      {pre  true  pre}
+      {post e elem m0 ==> 
+              multiplicity(e,m0) == multiplicity(e,(*t).m) + 1
+      post}
+    
+    /* Eliminar una ocurrencia del elemento.
+     * Precondicion: la ocurrencia del elemento debe ser mayor a cero
+     */
+    proc delete ( inout t : Multiset(T)*, in e : T )
+      let m0 := if t != null -> (*t).m [] otherwise -> {::} fi : multiset of T;
+      {pre  multiplicity(e,(*t).m) > 0 pre}
+      {post multiplicity(e,m0) == multiplicity(e,(*t).m) - 1 post}
+
+    /* Verificar si un elemento pertence al multiconjunto */
+    func isElem ( t : Multiset(T)*, e : T ) -> boolean
+      {pre  true  pre}
+      {post isElem == e elem (*t).m post}
+
+    proc show ( in t : Multiset(T)* )
+      {pre  true  pre}
+      {post true post}
+      
+  end
+end

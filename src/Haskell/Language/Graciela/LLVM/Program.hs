@@ -19,7 +19,7 @@ import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
 import qualified Language.Graciela.LLVM.State            as S (structs, State())
 import           Language.Graciela.LLVM.Struct           (defineStruct)
-import           Language.Graciela.LLVM.Type             (intType)
+import           Language.Graciela.LLVM.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                            (use, (%=), (.=))
 import           Control.Monad.Trans.State.Strict        (evalState)
@@ -170,11 +170,11 @@ addStrings prefix = do
       addDefinition $ GlobalDefinition G.globalVariableDefaults
         { G.name        = name
         , G.isConstant  = True
-        , G.type'       = ArrayType n i8
-        , G.initializer = Just . C.Array i8 $
+        , G.type'       = ArrayType n charType
+        , G.initializer = Just . C.Array charType $
           [ C.Int 8 (toInteger c) | c <- chars ] <> [ C.Int 8 0 ]
         }
       pure . ConstantOperand $ C.GetElementPtr
         { C.inBounds = True
-        , C.address = C.GlobalReference i8 name
+        , C.address = C.GlobalReference charType name
         , C.indices = [C.Int 64 0, C.Int 64 0] }

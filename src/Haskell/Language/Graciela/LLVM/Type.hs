@@ -2,9 +2,11 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Graciela.LLVM.Type
-  ( floatType
+  ( constantOperand
+  , floatType
   , intType
   , charType
+  , lintType
   , pointerType
   , ptrInt
   , voidType
@@ -39,29 +41,48 @@ import           Data.Text                        (Text)
 import           Data.Word                        (Word32, Word64)
 import           LLVM.General.AST                 (Definition (..))
 import qualified LLVM.General.AST.AddrSpace       as LLVM (AddrSpace (..))
+import qualified LLVM.General.AST.Constant        as C
+import qualified LLVM.General.AST.Float           as C (SomeFloat(Double))
 import           LLVM.General.AST.Name            (Name (..))
-import           LLVM.General.AST.Type            (double, i1, i32, i64, i8,
+import           LLVM.General.AST.Operand         (Operand(..))
+import           LLVM.General.AST.Type            (double, i32, i64,
                                                    ptr)
 import qualified LLVM.General.AST.Type            as LLVM (Type (..))
 import           System.Info                      (arch)
 --------------------------------------------------------------------------------
 
+
+boolSize, charSize, intSize, lintSize :: Word32 
+boolSize = 1
+charSize = 8
+intSize  = 32
+lintSize = 64
+
 floatType, intType, charType, pointerType, ptrInt, voidType, boolType :: LLVM.Type
 floatType   = double
-intType     = i32
-charType    = i8
-pointerType = ptr i8
+boolType    = LLVM.IntegerType boolSize
+charType    = LLVM.IntegerType charSize
+intType     = LLVM.IntegerType intSize
+lintType    = LLVM.IntegerType lintSize
+pointerType = pointerType
 ptrInt      = if arch == "x86_64" then i64 else i32
 voidType    = LLVM.VoidType
-boolType    = i1
-stringType  = ptr i8
+stringType  = pointerType
 tupleType   = LLVM.StructureType
                 { LLVM.isPacked = True
-                , LLVM.elementTypes = [i64,i64] }
+                , LLVM.elementTypes = [lintType, lintType] }
 iterator    = LLVM.StructureType
                 { LLVM.isPacked = False
-                , LLVM.elementTypes = [i64, ptr i8, ptr i8]
+                , LLVM.elementTypes = [lintType, pointerType, pointerType]
                 }
+
+constantOperand :: T.Type -> (Either Integer Double) -> Operand
+constantOperand GBool  (Left n) | n `elem` [0,1]       = ConstantOperand $ C.Int boolSize n
+constantOperand GChar  (Left n) | 0 <= n && n <= 2^8-1 = ConstantOperand $ C.Int charSize n
+constantOperand GInt   (Left n)  = ConstantOperand $ C.Int intSize n
+constantOperand I64    (Left n)  = ConstantOperand $ C.Int intSize n
+constantOperand GFloat (Right n) = ConstantOperand . C.Float . C.Double $ n
+constantOperand _ _ = error "Internal error: LLVM/Type.hs: bad `constantOperand`\n"
 
 fill :: T.Type -> LLVM T.Type
 fill t = do
@@ -76,15 +97,15 @@ toLLVMType  T.GFloat         = pure floatType
 toLLVMType  T.GBool          = pure boolType
 toLLVMType  T.GChar          = pure charType
 toLLVMType  GString          = pure stringType
-toLLVMType (T.GPointer GAny) = pure . ptr $ i8
+toLLVMType (T.GPointer GAny) = pure pointerType
 toLLVMType (T.GPointer  t)   = do
   inner <- toLLVMType t
   pure $ LLVM.PointerType inner (LLVM.AddrSpace 0)
-toLLVMType (GSet      _) = pure . ptr $ i8
-toLLVMType (GMultiset _) = pure . ptr $ i8
-toLLVMType (GFunc   _ _) = pure . ptr $ i8
-toLLVMType (GRel    _ _) = pure . ptr $ i8
-toLLVMType (GSeq      _) = pure . ptr $ i8
+toLLVMType (GSet      _) = pure pointerType
+toLLVMType (GMultiset _) = pure pointerType
+toLLVMType (GFunc   _ _) = pure pointerType
+toLLVMType (GRel    _ _) = pure pointerType
+toLLVMType (GSeq      _) = pure pointerType
 toLLVMType GAny          = internal "GAny is not a valid type"
 
 toLLVMType (T.GArray dims t) = do
@@ -165,7 +186,7 @@ getStructSize name typeArgs = do
       \ unknow data type `" <> unpack name <> "`"
 
 
-llvmName :: Text -> [Type] -> String
+llvmName :: Text -> [T.Type] -> String
 llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') types
   where
     show' t = case t of

@@ -35,7 +35,7 @@ import           LLVM.General.AST.Instruction       (Instruction (..),
 import           LLVM.General.AST.Name              (Name (..))
 import           LLVM.General.AST.Operand           (CallableOperand,
                                                      Operand (..))
-import           LLVM.General.AST.Type              (Type (..), i32, ptr)
+import           LLVM.General.AST.Type              (Type (..), ptr)
 --------------------------------------------------------------------------------
 
 declaration :: Declaration -> LLVM ()
@@ -106,7 +106,7 @@ alloc t@GArray { dimensions, innerType } lval = do
         , nsw = False
         , nuw = False
         , metadata = [] }
-      pure $ LocalReference i32 result
+      pure $ LocalReference intType result
 
     sizeAux ref n value = do
       dimPtr <- newLabel "dimPtr"
@@ -120,7 +120,7 @@ alloc t@GArray { dimensions, innerType } lval = do
 
       addInstruction $ Do Store
         { volatile       = False
-        , address        = LocalReference i32 dimPtr
+        , address        = LocalReference intType dimPtr
         , value
         , maybeAtomicity = Nothing
         , alignment      = 4

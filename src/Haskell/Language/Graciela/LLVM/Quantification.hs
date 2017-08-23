@@ -37,7 +37,7 @@ import           LLVM.General.AST.Instruction            (FastMathFlags (..),
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (..))
 import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1, i64, i8, ptr)
+import           LLVM.General.AST.Type                   (ptr)
 import qualified LLVM.General.AST.Type                   as LLVM
 import           Prelude                                 hiding (EQ)
 --------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
           , metadata   = [] }
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
         terminate CondBr
-          { condition = LocalReference i1 checkRange
+          { condition = LocalReference boolType checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = case qOp of
             ForAll -> true
@@ -170,7 +170,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
 
         l1 <- newUnLabel
         terminate $ CondBr
-          { condition = LocalReference i1 l0
+          { condition = LocalReference boolType l0
           , trueDest  = case qOp of ForAll -> true; Exists -> false
           , falseDest = l1
           , metadata' = [] }
@@ -191,7 +191,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
           , operand1   = h
           , metadata   = [] }
         terminate CondBr
-          { condition = LocalReference i1 bound
+          { condition = LocalReference boolType bound
           , trueDest  = loop
           , falseDest = case qOp of ForAll -> true; Exists -> false
           , metadata' = [] }
@@ -206,7 +206,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
         { tailCallKind = Nothing
         , callingConvention = CC.C
         , returnAttributes = []
-        , function = callable (ptr i8) $ case setType of
+        , function = callable (pointerType) $ case setType of
           GSet      _ -> newSetString
           GMultiset _ -> newMultisetString
           GSeq      _ -> newSeqString
@@ -223,13 +223,13 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
               GSet      _ -> equalSetString
               GMultiset _ -> equalMultisetString
               GSeq      _ -> equalSeqString
-            , arguments = (,[]) <$> [set, LocalReference (ptr i8) empty]
+            , arguments = (,[]) <$> [set, LocalReference (pointerType) empty]
             , functionAttributes = []
             , metadata = [] }
 
       rangeNotEmpty <- newLabel "qRangeNotEmpty"
       terminate CondBr
-        { condition = LocalReference i1 checkRange
+        { condition = LocalReference boolType checkRange
         , trueDest  = case qOp of
           ForAll -> true
           Exists -> false
@@ -298,7 +298,7 @@ boolQ true false e@Expression { loc = Location (pos, _), E.expType, exp' } = cas
 
       l1 <- newUnLabel
       terminate $ CondBr
-        { condition = LocalReference i1 l0
+        { condition = LocalReference boolType l0
         , trueDest  = case qOp of ForAll -> true; Exists -> false
         , falseDest = l1
         , metadata' = [] }
@@ -476,7 +476,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         rangeEmpty    <- newLabel "qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
         terminate CondBr
-          { condition = LocalReference i1 checkRange
+          { condition = LocalReference boolType checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = rangeEmpty
           , metadata' = [] }
@@ -511,7 +511,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         valid <- newLabel "qValid"
         addInstruction $ valid := Alloca
-          { allocatedType = i1
+          { allocatedType = boolType
           , numElements   = Nothing
           , alignment     = 4
           , metadata      = [] }
@@ -548,7 +548,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         justAccum  <- newLabel "qJustAccum"
         justAccum' <- newLabel "qJustAccum1"
         terminate CondBr
-          { condition = LocalReference i1 oldValid
+          { condition = LocalReference boolType oldValid
           , trueDest  = checkAccum
           , falseDest = justAccum
           , metadata' = [] }
@@ -578,7 +578,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
             , operand1 = LocalReference qType oldPartial
             , metadata = [] }
         terminate CondBr
-          { condition = LocalReference i1 comp
+          { condition = LocalReference boolType comp
           , trueDest  = justAccum'
           , falseDest = getNext
           , metadata' = [] }
@@ -644,7 +644,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         l1 <- newUnLabel
         terminate $ CondBr
-          { condition = LocalReference i1 l0
+          { condition = LocalReference boolType l0
           , trueDest  = qEnd
           , falseDest = l1
           , metadata' = [] }
@@ -656,7 +656,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           , operand1   = h
           , metadata   = [] }
         terminate CondBr
-          { condition = LocalReference i1 bound
+          { condition = LocalReference boolType bound
           , trueDest  = loop
           , falseDest = qEnd
           , metadata' = [] }
@@ -675,7 +675,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         validResult   <- newLabel "qValidResult"
         invalidResult <- newLabel "qInvalidResult"
         terminate CondBr
-          { condition = LocalReference i1 finalValid
+          { condition = LocalReference boolType finalValid
           , trueDest  = validResult
           , falseDest = invalidResult
           , metadata' = [] }
@@ -712,7 +712,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
 
         terminate CondBr
-          { condition = LocalReference i1 checkRange
+          { condition = LocalReference boolType checkRange
           , trueDest  = rangeNotEmpty
           , falseDest = rangeEmpty
           , metadata' = [] }
@@ -859,7 +859,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         endLoad <- newLabel "qEndLoad"
         l1 <- newUnLabel
         terminate $ CondBr
-          { condition = LocalReference i1 l0
+          { condition = LocalReference boolType l0
           , trueDest  = endLoad
           , falseDest = l1
           , metadata' = [] }
@@ -872,7 +872,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           , operand1   = h
           , metadata   = [] }
         terminate CondBr
-          { condition = LocalReference i1 bound
+          { condition = LocalReference boolType bound
           , trueDest  = loop
           , falseDest = endLoad
           , metadata' = [] }
@@ -914,7 +914,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           { tailCallKind = Nothing
           , callingConvention = CC.C
           , returnAttributes = []
-          , function = callable (ptr i8) $ case setType of
+          , function = callable (pointerType) $ case setType of
             GSet      _ -> newSetString
             GMultiset _ -> newMultisetString
             GSeq      _ -> newSeqString
@@ -931,14 +931,14 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
                 GSet      _ -> equalSetString
                 GMultiset _ -> equalMultisetString
                 GSeq      _ -> equalSeqString
-              , arguments = (,[]) <$> [set, LocalReference (ptr i8) empty]
+              , arguments = (,[]) <$> [set, LocalReference (pointerType) empty]
               , functionAttributes = []
               , metadata = [] }
 
         rangeEmpty    <- newLabel " qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
         terminate CondBr
-          { condition = LocalReference i1 checkRange
+          { condition = LocalReference boolType checkRange
           , trueDest  = rangeEmpty
           , falseDest = rangeNotEmpty
           , metadata' = [] }
@@ -977,7 +977,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         valid <- newLabel "qValid"
         addInstruction $ valid := Alloca
-          { allocatedType = i1
+          { allocatedType = boolType
           , numElements   = Nothing
           , alignment     = 4
           , metadata      = [] }
@@ -1014,7 +1014,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         justAccum  <- newLabel "qJustAccum"
         justAccum' <- newLabel "qJustAccum1"
         terminate CondBr
-          { condition = LocalReference i1 oldValid
+          { condition = LocalReference boolType oldValid
           , trueDest  = checkAccum
           , falseDest = justAccum
           , metadata' = [] }
@@ -1044,7 +1044,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
             , operand1 = LocalReference qType oldPartial
             , metadata = [] }
         terminate CondBr
-          { condition = LocalReference i1 comp
+          { condition = LocalReference boolType comp
           , trueDest  = justAccum'
           , falseDest = getNext
           , metadata' = [] }
@@ -1098,7 +1098,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
 
         l1 <- newUnLabel
         terminate $ CondBr
-          { condition = LocalReference i1 l0
+          { condition = LocalReference boolType l0
           , trueDest  = qEnd
           , falseDest = l1
           , metadata' = [] }
@@ -1132,7 +1132,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         validResult   <- newLabel "qValidResult"
         invalidResult <- newLabel "qInvalidResult"
         terminate CondBr
-          { condition = LocalReference i1 finalValid
+          { condition = LocalReference boolType finalValid
           , trueDest  = validResult
           , falseDest = invalidResult
           , metadata' = [] }
@@ -1161,7 +1161,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
           { tailCallKind = Nothing
           , callingConvention = CC.C
           , returnAttributes = []
-          , function = callable (ptr i8) $ case setType of
+          , function = callable (pointerType) $ case setType of
             GSet      _ -> newSetString
             GMultiset _ -> newMultisetString
             GSeq      _ -> newSeqString
@@ -1178,14 +1178,14 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
                 GSet      _ -> equalSetString
                 GMultiset _ -> equalMultisetString
                 GSeq      _ -> equalSeqString
-              , arguments = (,[]) <$> [set, LocalReference (ptr i8) empty]
+              , arguments = (,[]) <$> [set, LocalReference (pointerType) empty]
               , functionAttributes = []
               , metadata = [] }
 
         rangeEmpty    <- newLabel " qRangeEmpty"
         rangeNotEmpty <- newLabel "qRangeNotEmpty"
         terminate CondBr
-          { condition = LocalReference i1 checkRange
+          { condition = LocalReference boolType checkRange
           , trueDest  = rangeEmpty
           , falseDest = rangeNotEmpty
           , metadata' = [] }
@@ -1330,7 +1330,7 @@ quantification e@Expression { loc = Location (pos, _), E.expType, exp' } = case 
         l1 <- newUnLabel
         endLoad <- newLabel "qEndLoad"
         terminate $ CondBr
-          { condition = LocalReference i1 l0
+          { condition = LocalReference boolType l0
           , trueDest  = endLoad
           , falseDest = l1
           , metadata' = [] }
@@ -1439,7 +1439,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
       rangeEmpty    <- newLabel "cRangeEmpty"
       rangeNotEmpty <- newLabel "cRangeNotEmpty"
       terminate CondBr
-        { condition = LocalReference i1 checkRange
+        { condition = LocalReference boolType checkRange
         , trueDest  = rangeNotEmpty
         , falseDest = rangeEmpty
         , metadata' = [] }
@@ -1513,7 +1513,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
 
       l1 <- newUnLabel
       terminate $ CondBr
-        { condition = LocalReference i1 l0
+        { condition = LocalReference boolType l0
         , trueDest  = cEnd
         , falseDest = l1
         , metadata' = [] }
@@ -1535,7 +1535,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
         , operand1   = h
         , metadata   = [] }
       terminate CondBr
-        { condition = LocalReference i1 bound
+        { condition = LocalReference boolType bound
         , trueDest  = loop
         , falseDest = cEnd
         , metadata' = [] }
@@ -1563,7 +1563,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
         { tailCallKind = Nothing
         , callingConvention = CC.C
         , returnAttributes = []
-        , function = callable (ptr i8) $ case setType of
+        , function = callable (pointerType) $ case setType of
           GSet      _ -> newSetString
           GMultiset _ -> newMultisetString
           GSeq      _ -> newSeqString
@@ -1580,7 +1580,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
               GSet      _ -> equalSetString
               GMultiset _ -> equalMultisetString
               GSeq      _ -> equalSeqString
-            , arguments = (,[]) <$> [set, LocalReference (ptr i8) emptyS]
+            , arguments = (,[]) <$> [set, LocalReference (pointerType) emptyS]
             , functionAttributes = []
             , metadata = [] }
 
@@ -1588,7 +1588,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
       rangeEmpty    <- newLabel "cRangeEmpty"
       rangeNotEmpty <- newLabel "cRangeNotEmpty"
       terminate CondBr
-        { condition = LocalReference i1 checkRange
+        { condition = LocalReference boolType checkRange
         , trueDest  = rangeEmpty
         , falseDest = rangeNotEmpty
         , metadata' = [] }
@@ -1661,7 +1661,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
 
       l1 <- newUnLabel
       terminate $ CondBr
-        { condition = LocalReference i1 l0
+        { condition = LocalReference boolType l0
         , trueDest  = cEnd
         , falseDest = l1
         , metadata' = [] }
@@ -1751,17 +1751,17 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
         addInstruction . (value :=) $ case exprT of
           GFloat -> BitCast
             { operand0 = expr'
-            , type' = i64
+            , type'    = lintType
             , metadata = [] }
 
           GPointer _ -> PtrToInt
             { operand0 = expr'
-            , type'    = i64
+            , type'    = lintType
             , metadata = [] }
 
           _ -> ZExt
             { operand0 = expr'
-            , type' = i64
+            , type'    = lintType
             , metadata = [] }
 
         addInstruction $ Do Call
@@ -1772,7 +1772,7 @@ collection e@Expression { loc = Location (pos, _), E.expType, exp' } = case exp'
             Set      -> insertSetString
             Multiset -> insertMultisetString
             Sequence -> insertSeqString
-          , arguments = (,[]) <$> [theSet, LocalReference i64 value]
+          , arguments = (,[]) <$> [theSet, LocalReference lintType value]
           , functionAttributes = []
           , metadata = [] }
 
@@ -1802,22 +1802,22 @@ firstIterator qVarType setType castType set = do
 
   addInstruction $ firstValue := Load
       { volatile       = False
-      , address        = LocalReference (ptr i64) first
+      , address        = LocalReference (ptr lintType) first
       , maybeAtomicity = Nothing
       , alignment      = 4
       , metadata       = [] }
 
   addInstruction . (cast :=) $ case qVarType of
     GFloat -> BitCast
-      { operand0 = LocalReference i64 firstValue
+      { operand0 = LocalReference lintType firstValue
       , type' = castType
       , metadata = [] }
     GPointer _ -> IntToPtr
-      { operand0 = LocalReference i64 firstValue
+      { operand0 = LocalReference lintType firstValue
       , type'    = castType
       , metadata = [] }
     _ -> Trunc
-      { operand0 = LocalReference i64 firstValue
+      { operand0 = LocalReference lintType firstValue
       , type' = castType
       , metadata = [] }
 
@@ -1828,7 +1828,7 @@ nextIteratorValue qVarType castType nextIterator iteratorStruct = do
   newIteratorPtr <- newLabel "newIteratorPtr"
   addInstruction $ newIteratorPtr := Load
     { volatile       = False
-    , address        = LocalReference (ptr i64) nextIterator
+    , address        = LocalReference (ptr lintType) nextIterator
     , maybeAtomicity = Nothing
     , alignment      = 4
     , metadata       = [] }
@@ -1851,7 +1851,7 @@ nextIteratorValue qVarType castType nextIterator iteratorStruct = do
   nextValue <- newLabel "nextElementValue"
   addInstruction $ nextValue := Load
       { volatile       = False
-      , address        = LocalReference (ptr i64) next
+      , address        = LocalReference (ptr lintType) next
       , maybeAtomicity = Nothing
       , alignment      = 4
       , metadata       = [] }
@@ -1859,11 +1859,11 @@ nextIteratorValue qVarType castType nextIterator iteratorStruct = do
   nextCast <- newLabel "castNextElement"
   addInstruction . (nextCast :=) $ case qVarType of
     GFloat -> BitCast
-      { operand0 = LocalReference i64 nextValue
+      { operand0 = LocalReference lintType nextValue
       , type' = castType
       , metadata = [] }
     _ -> Trunc
-      { operand0 = LocalReference i64 nextValue
+      { operand0 = LocalReference lintType nextValue
       , type' = castType
       , metadata = [] }
 

@@ -29,11 +29,7 @@ import           Language.Graciela.LLVM.Object           (object, objectRef)
 import           Language.Graciela.LLVM.Quantification   (collection,
                                                           quantification)
 import           Language.Graciela.LLVM.State
-import           Language.Graciela.LLVM.Type             (boolType, fill,
-                                                          floatType, intType,
-                                                          llvmName, pointerType,
-                                                          sizeOf, toLLVMType,
-                                                          tupleType)
+import           Language.Graciela.LLVM.Type
 import           Language.Graciela.Location
 import           Language.Graciela.Parser.Config
 import           Language.Graciela.SymbolTable
@@ -136,7 +132,7 @@ callUnaryFunction fun innerOperand = Call
   { tailCallKind       = Nothing
   , callingConvention  = CC.C
   , returnAttributes   = []
-  , function           = callable i32 fun
+  , function           = callable intType fun
   , arguments          = [(innerOperand,[])]
   , functionAttributes = []
   , metadata           = [] }
@@ -162,7 +158,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
     NullPtr ->
       case expType of
-        GPointer GAny -> pure . ConstantOperand . C.Null $ ptr i8
+        GPointer GAny -> pure . ConstantOperand . C.Null $ pointerType
         _             -> ConstantOperand . C.Null  <$> toLLVMType expType
 
     SizeOf { sType } -> ConstantOperand . C.Int 32 <$> sizeOf sType
@@ -184,33 +180,33 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       addInstruction . (lBitcast :=) $ case lType of
         GFloat -> BitCast
           { operand0 = l
-          , type' = i64
+          , type' = lintType
           , metadata = [] }
 
         GPointer _ -> PtrToInt
           { operand0 = l
-          , type'    = i64
+          , type'    = lintType
           , metadata = [] }
 
         _ -> ZExt
           { operand0 = l
-          , type' = i64
+          , type' = lintType
           , metadata = [] }
 
       addInstruction . (rBitcast :=) $ case rType of
         GFloat -> BitCast
           { operand0 = r
-          , type' = i64
+          , type' = lintType
           , metadata = [] }
 
         GPointer _ -> PtrToInt
           { operand0 = r
-          , type'    = i64
+          , type'    = lintType
           , metadata = [] }
 
         _ -> ZExt
           { operand0 = r
-          , type' = i64
+          , type' = lintType
           , metadata = [] }
 
       addInstruction $ tuple := Alloca
@@ -233,16 +229,16 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
       addInstruction $ Do Store
         { volatile = False
-        , address  = LocalReference i64 lPtr
-        , value    = LocalReference i64 lBitcast
+        , address  = LocalReference lintType lPtr
+        , value    = LocalReference lintType lBitcast
         , maybeAtomicity = Nothing
         , alignment = 4
         , metadata  = [] }
 
       addInstruction $ Do Store
         { volatile = False
-        , address  = LocalReference i64 rPtr
-        , value    = LocalReference i64 rBitcast
+        , address  = LocalReference lintType rPtr
+        , value    = LocalReference lintType rBitcast
         , maybeAtomicity = Nothing
         , alignment = 4
         , metadata  = [] }
@@ -292,7 +288,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
-                , function           = callable (ptr i8) $ case E.expType inner of
+                , function           = callable (pointerType) $ case E.expType inner of
                   GSet _      -> sizeSetString
                   GMultiset _ -> sizeMultisetString
                   GSeq _      -> sizeSeqString
@@ -322,7 +318,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         --     { tailCallKind       = Nothing
         --     , callingConvention  = CC.C
         --     , returnAttributes   = []
-        --     , function           = callable (ptr i8) sizeSetString
+        --     , function           = callable (pointerType) sizeSetString
         --     , arguments          = [(innerOperand,[])]
         --     , functionAttributes = []
         --     , metadata           = [] }
@@ -336,7 +332,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         --     { tailCallKind       = Nothing
         --     , callingConvention  = CC.C
         --     , returnAttributes   = []
-        --     , function           = callable (ptr i8) sizeMultisetString
+        --     , function           = callable (pointerType) sizeMultisetString
         --     , arguments          = [(innerOperand,[])]
         --     , functionAttributes = []
         --     , metadata           = [] }
@@ -350,7 +346,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         --     { tailCallKind       = Nothing
         --     , callingConvention  = CC.C
         --     , returnAttributes   = []
-        --     , function           = callable (ptr i8) sizeSeqString
+        --     , function           = callable (pointerType) sizeSeqString
         --     , arguments          = [(innerOperand,[])]
         --     , functionAttributes = []
         --     , metadata           = [] }
@@ -361,7 +357,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
         callUnaryFunction :: String -> Operand -> Instruction
         callUnaryFunction fun innerOperand =
           let
-            funRef = callable i32 fun
+            funRef = callable intType fun
           in Call { tailCallKind       = Nothing
                   , callingConvention  = CC.C
                   , returnAttributes   = []
@@ -430,7 +426,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               isZero <- newLabel "divIsZero"
               isntZero <- newLabel "divIsntZero"
               terminate CondBr
-                { condition = LocalReference i1 checkZero
+                { condition = LocalReference boolType checkZero
                 , trueDest  = isZero
                 , falseDest = isntZero
                 , metadata' = [] }
@@ -456,7 +452,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               isZero <- newLabel "modIsZero"
               isntZero <- newLabel "modIsntZero"
               terminate CondBr
-                { condition = LocalReference i1 checkZero
+                { condition = LocalReference boolType checkZero
                 , trueDest  = isZero
                 , falseDest = isntZero
                 , metadata' = [] }
@@ -479,12 +475,12 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
               addInstruction $ auxSgn := ICmp
                 { iPredicate = SLT
-                , operand0   = LocalReference (case n of 8 -> i8; 32 -> i32) aux
+                , operand0   = LocalReference (IntegerType n) aux
                 , operand1   = ConstantOperand $ C.Int n 0
                 , metadata   = [] }
 
               terminate CondBr
-                { condition = LocalReference i1 auxSgn
+                { condition = LocalReference boolType auxSgn
                 , trueDest  = isNeg
                 , falseDest = isntNeg
                 , metadata' = [] }
@@ -498,7 +494,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               addInstruction $ aux2 := Add
                 { nsw = False
                 , nuw = False
-                , operand0 = LocalReference (case n of 8 -> i8; 32 -> i32) aux
+                , operand0 = LocalReference (IntegerType n) aux
                 , operand1 = rOperand
                 , metadata = [] }
 
@@ -508,10 +504,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
               (wrapIt #)
               addInstruction $ label := Phi
-                { type'          = case n of 8 -> i8; 32 -> i32
+                { type'          = IntegerType n
                 , incomingValues =
-                  [ (LocalReference (case n of 8 -> i8; 32 -> i32) aux2, isNeg)
-                  , (LocalReference (case n of 8 -> i8; 32 -> i32) aux, isntNeg)
+                  [ (LocalReference (IntegerType n) aux2, isNeg)
+                  , (LocalReference (IntegerType n) aux, isntNeg)
                   ]
                 , metadata       = [] }
 
@@ -617,7 +613,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GSet (GTuple _ _) -> unionSetPairString
                 otherwise         -> unionSetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -627,7 +623,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GSet (GTuple _ _) -> intersectSetPairString
                 otherwise         -> intersectSetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -637,7 +633,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GSet (GTuple _ _) -> differenceSetPairString
                 otherwise         -> differenceSetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -653,7 +649,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GMultiset (GTuple _ _) -> unionMultisetPairString
                 otherwise              -> unionMultisetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -663,7 +659,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GMultiset (GTuple _ _) -> intersectMultisetPairString
                 otherwise              -> intersectMultisetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -673,7 +669,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GMultiset (GTuple _ _) -> differenceMultisetPairString
                 otherwise              -> differenceMultisetString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -683,7 +679,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GMultiset (GTuple _ _) -> multisetPairSumString
                 otherwise              -> multisetSumString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -699,7 +695,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) $ case lType of
+              , function           = callable (pointerType) $ case lType of
                 GSeq (GTuple _ _) -> concatSequencePairString
                 otherwise         -> concatSequenceString
               , arguments          = [(lOperand,[]), (rOperand,[])]
@@ -721,7 +717,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
-                , function           = callable (ptr i8) unionFunctionString
+                , function           = callable (pointerType) unionFunctionString
                 , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
                 , functionAttributes = []
                 , metadata           = [] }
@@ -729,7 +725,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) intersectFunctionString
+              , function           = callable (pointerType) intersectFunctionString
               , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -737,7 +733,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) differenceFunctionString
+              , function           = callable (pointerType) differenceFunctionString
               , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -750,7 +746,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
-                , function           = callable (ptr i8) unionSetPairString
+                , function           = callable (pointerType) unionSetPairString
                 , arguments          = [(lOperand,[]), (rOperand,[])]
                 , functionAttributes = []
                 , metadata           = [] }
@@ -758,7 +754,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) intersectSetPairString
+              , function           = callable (pointerType) intersectSetPairString
               , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -766,7 +762,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) differenceSetPairString
+              , function           = callable (pointerType) differenceSetPairString
               , arguments          = [(lOperand,[]), (rOperand,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -785,7 +781,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           addInstruction $ ptrInt := PtrToInt
             { operand0 = ptrOp
-            , type'    = i64
+            , type'    = lintType
             , metadata = [] }
 
           intOp' <- case intOp of 
@@ -795,14 +791,14 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               to64    <- newLabel "to64"
               addInstruction $ to64 := BitCast  
                 { operand0 = intOp
-                , type'    = i64 
+                , type'    = lintType 
                 , metadata = [] }
-              pure $ LocalReference i64 to64
+              pure $ LocalReference lintType to64
 
           size <- ConstantOperand . (C.Int 64) <$> sizeOf inner
           offset <- opInt 64 Op.Times intOp' size I64 I64
 
-          let ptrOp' = LocalReference i64 ptrInt
+          let ptrOp' = LocalReference lintType ptrInt
 
           result <- opInt 64 op ptrOp' offset I64 I64
 
@@ -829,7 +825,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
-            , function           = callable (ptr i8) atString
+            , function           = callable (pointerType) atString
             , arguments          = (,[]) <$> [lOp, rOp, line, col]
             , functionAttributes = []
             , metadata           = [] }
@@ -854,17 +850,17 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 , metadata  = [] }
 
             GFloat -> addInstruction $ seqAtResult := BitCast
-              { operand0 = LocalReference i64 call
+              { operand0 = LocalReference lintType call
               , type' = floatType
               , metadata = [] }
 
             GPointer _ -> addInstruction $ seqAtResult := IntToPtr
-              { operand0 = LocalReference i64 call
+              { operand0 = LocalReference lintType call
               , type'    = llvmType
               , metadata = [] }
 
             _ -> addInstruction $ seqAtResult := Trunc
-              { operand0 = LocalReference i64 call
+              { operand0 = LocalReference lintType call
               , type'    = IntegerType $ case expType of
                 GInt  -> 32
                 GChar -> 8
@@ -882,17 +878,17 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           addInstruction $ rCast := case rType of
             GFloat -> BitCast
               { operand0 = rOp
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
 
             GPointer _ -> PtrToInt
               { operand0 = rOp
-              , type'    = i64
+              , type'    = lintType
               , metadata = [] }
 
             _ -> ZExt
               { operand0 = rOp
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
 
           bifuncAtResult <- newLabel "bifuncAt"
@@ -908,24 +904,24 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
-                , function           = callable i64 evalFuncString
-                , arguments          = (,[]) <$> [lOp, LocalReference i64 rCast, line, col]
+                , function           = callable lintType evalFuncString
+                , arguments          = (,[]) <$> [lOp, LocalReference lintType rCast, line, col]
                 , functionAttributes = []
                 , metadata           = [] }
 
               llvmType <- toLLVMType expType
               addInstruction $ bifuncAtResult := case expType of
                 GFloat -> BitCast
-                  { operand0 = LocalReference i64 call
+                  { operand0 = LocalReference lintType call
                   , type' = llvmType
                   , metadata = [] }
                 GPointer _ -> IntToPtr
-                  { operand0 = LocalReference i64 call
+                  { operand0 = LocalReference lintType call
                   , type'    = llvmType
                   , metadata = [] }
 
                 _ -> Trunc
-                  { operand0 = LocalReference i64 call
+                  { operand0 = LocalReference lintType call
                   , type'    = IntegerType $ case expType of
                     GInt  -> 32
                     GChar -> 8
@@ -937,8 +933,8 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
-                , function           = callable (ptr i8) evalRelString
-                , arguments          = (,[]) <$> [lOp, LocalReference i64 rCast]
+                , function           = callable (pointerType) evalRelString
+                , arguments          = (,[]) <$> [lOp, LocalReference lintType rCast]
                 , functionAttributes = []
                 , metadata           = [] }
             _ -> internal $ "impossible bifuncAt " <> show lType
@@ -1164,19 +1160,19 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           addInstruction $ t := case type' of
             GFloat -> BitCast
               { operand0 = i
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
 
             GPointer _ -> PtrToInt
               { operand0 = i
-              , type'    = i64
+              , type'    = lintType
               , metadata = [] }
 
             _ -> ZExt
               { operand0 = i
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
-          pure $ LocalReference i64 t
+          pure $ LocalReference lintType t
 
     -- Dummy operand
     _ -> internal $

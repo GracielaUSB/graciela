@@ -60,8 +60,7 @@ import           LLVM.General.AST.Name               (Name (..))
 import           LLVM.General.AST.Operand            (MetadataNode (..),
                                                       Operand (..))
 import           LLVM.General.AST.ParameterAttribute (ParameterAttribute (..))
-import           LLVM.General.AST.Type               (Type (..), double, i1,
-                                                      i32, i64, i8, ptr)
+import           LLVM.General.AST.Type               (Type (..), double, ptr)
 import qualified LLVM.General.AST.Type               as LLVM (Type)
 import           LLVM.General.AST.Visibility         (Visibility (Default))
 import           Prelude                             hiding (Ordering (EQ))
@@ -113,7 +112,7 @@ mainDefinition block files = do
   addDefinition $ LLVM.GlobalDefinition functionDefaults
     { name        = Name "main"
     , parameters  = ([], False)
-    , returnType  = i32
+    , returnType  = intType
     , basicBlocks = toList blocks'
     }
 
@@ -500,7 +499,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
           argDim <- newLabel "arrCheck"
           addInstruction $ argDim := Load
             { volatile       = False
-            , address        = LocalReference i32 dimAddr
+            , address        = LocalReference intType dimAddr
             , maybeAtomicity = Nothing
             , alignment      = 4
             , metadata       = [] }
@@ -509,13 +508,13 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
           addInstruction $ arrCheckCmp := ICmp
             { iPredicate = EQ
             , operand0 = paramDim
-            , operand1 = LocalReference i32 argDim
+            , operand1 = LocalReference intType argDim
             , metadata = [] }
 
           arrOk <- newLabel "arrOk"
           arrNotOk <- newLabel "arrNotOk"
           terminate CondBr
-            { condition = LocalReference i1 arrCheckCmp
+            { condition = LocalReference boolType arrCheckCmp
             , trueDest  = arrOk
             , falseDest = arrNotOk
             , metadata' = [] }
@@ -544,7 +543,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
             , callingConvention  = CC.C
             , returnAttributes   = []
             , function           = callable voidType writeIString
-            , arguments          = [(LocalReference i32 argDim,[])]
+            , arguments          = [(LocalReference intType argDim,[])]
             , functionAttributes = []
             , metadata           = [] }
 
@@ -575,7 +574,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
 
       addInstruction $ cast := PtrToInt
             { operand0 = LocalReference type' argLoad
-            , type'    = i64
+            , type'    = lintType
             , metadata = [] }
 
       addInstruction $ comp := ICmp
@@ -720,7 +719,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       (funcBodyLabel #)
 
       boundOp .= Just boundOperand
-      pure [Parameter i1 hasOldBound [], Parameter i32 oldBound []]
+      pure [Parameter boolType hasOldBound [], Parameter intType oldBound []]
 
     declarationsOrRead :: Either Declaration G.Instruction -> LLVM ()
     declarationsOrRead (Left decl)   = declaration decl
@@ -1027,10 +1026,10 @@ preDefinitions files = do
     , defineFunction multisetSumString            ptrParam2 pointerType
     , defineFunction concatSequenceString         ptrParam2 pointerType
 
-    , defineFunction multiplicityMultiString      [ parameter ("x", i64)
+    , defineFunction multiplicityMultiString      [ parameter ("x", lintType)
                                                   , parameter ("y", pointerType)]
                                                   intType
-    , defineFunction multiplicitySeqString        [ parameter ("x", i64)
+    , defineFunction multiplicitySeqString        [ parameter ("x", lintType)
                                                   , parameter ("y", pointerType)]
                                                   intType
 
@@ -1049,7 +1048,7 @@ preDefinitions files = do
                                                   , parameter ("y", intType)
                                                   , parameter ("line", intType)
                                                   , parameter ("column", intType)]
-                                                  i64
+                                                  lintType
     , defineFunction atSequencePairString         [ parameter ("x", pointerType)
                                                   , parameter ("y", intType)
                                                   , parameter ("line", intType)
@@ -1070,9 +1069,9 @@ preDefinitions files = do
     , defineFunction codomainRelString        ptrParam    pointerType
 
     , defineFunction evalFuncString           [ parameter ("x", pointerType)
-                                              , parameter ("y", i64)
+                                              , parameter ("y", lintType)
                                               , parameter ("line", intType)
-                                              , parameter ("column", intType)]  i64
+                                              , parameter ("column", intType)]  lintType
     , defineFunction evalRelString            ptri64Param pointerType
 
     , defineFunction inverseFuncString        ptrParam    pointerType
@@ -1127,9 +1126,9 @@ preDefinitions files = do
                                     intType
     , defineFunction powString      floatParams2 floatType
 
-    , defineFunction (safeSub 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
-    , defineFunction (safeMul 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
-    , defineFunction (safeAdd 64) (fmap parameter [("x",i64), ("y",i64)]) (overflow' 64)
+    , defineFunction (safeSub 64) (fmap parameter [("x",lintType), ("y",lintType)]) (overflow' 64)
+    , defineFunction (safeMul 64) (fmap parameter [("x",lintType), ("y",lintType)]) (overflow' 64)
+    , defineFunction (safeAdd 64) (fmap parameter [("x",lintType), ("y",lintType)]) (overflow' 64)
 
     , defineFunction (safeSub 32) intParams2 (overflow' 32)
     , defineFunction (safeMul 32) intParams2 (overflow' 32)
@@ -1144,7 +1143,7 @@ preDefinitions files = do
     , defineFunction readBoolStd   [] boolType
     , defineFunction readCharStd   [] charType
     , defineFunction readFloatStd  [] floatType
-    , defineFunction readlnString  [parameter ("ptr", ptr $ ptr i32)] pointerType
+    , defineFunction readlnString  [parameter ("ptr", ptr $ ptr intType)] pointerType
 
     -- Rand
     , defineFunction randIntString   [parameter ("ptr", pointerType)] voidType
@@ -1195,7 +1194,7 @@ preDefinitions files = do
     floatParam    = [parameter ("x",   floatType)]
     ptrParam      = [parameter ("x", pointerType)]
     ptrParam2     = [parameter ("x", pointerType), parameter ("y", pointerType)]
-    ptri64Param   = [parameter ("x", pointerType), parameter ("y", i64)]
+    ptri64Param   = [parameter ("x", pointerType), parameter ("y", lintType)]
     ptrTupleParam = [parameter ("x", pointerType), parameter ("y", ptr tupleType)]
     intParams2    = fmap parameter [("x",   intType), ("y",   intType)]
     charParams2   = fmap parameter [("x",  charType), ("y",  charType)]

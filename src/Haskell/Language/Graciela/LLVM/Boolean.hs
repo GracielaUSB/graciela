@@ -38,7 +38,7 @@ import           LLVM.General.AST.Instruction            (Instruction (..),
 import           LLVM.General.AST.IntegerPredicate       (IntegerPredicate (EQ, SGE, SGT, SLE, SLT))
 import           LLVM.General.AST.Name                   (Name)
 import           LLVM.General.AST.Operand                (Operand (..))
-import           LLVM.General.AST.Type                   (i1, i64, ptr)
+import           LLVM.General.AST.Type                   (ptr)
 import           Prelude                                 hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
@@ -112,17 +112,17 @@ boolean true false e@Expression { loc, exp' } = do
           addInstruction $ item := case lType' of
             GFloat -> BitCast
               { operand0 = lOperand
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
 
             GPointer _ -> PtrToInt
               { operand0 = lOperand
-              , type'    = i64
+              , type'    = lintType
               , metadata = [] }
 
             lType | lType `elem` [ GInt, GChar ] -> ZExt
               { operand0 = lOperand
-              , type' = i64
+              , type' = lintType
               , metadata = [] }
 
           elemCall <- newLabel "elemCall"
@@ -136,7 +136,7 @@ boolean true false e@Expression { loc, exp' } = do
                 GMultiset _ -> isElemMultisetString
                 GSeq      _ -> isElemSeqString
                 _           -> internal "impossible type for elem argument"
-            , arguments = (,[]) <$> [rOperand, LocalReference i64 item]
+            , arguments = (,[]) <$> [rOperand, LocalReference lintType item]
             , functionAttributes = []
             , metadata = [] }
 
@@ -145,7 +145,7 @@ boolean true false e@Expression { loc, exp' } = do
                 NotElem -> reverse
 
           terminate CondBr
-            { condition = LocalReference i1 elemCall
+            { condition = LocalReference boolType elemCall
             , trueDest
             , falseDest
             , metadata' = [] }
@@ -174,7 +174,7 @@ boolean true false e@Expression { loc, exp' } = do
         addInstruction $ comp := compOp lOperand rOperand []
 
         terminate CondBr
-          { condition = LocalReference i1 comp
+          { condition = LocalReference boolType comp
           , trueDest  = true
           , falseDest = false
           , metadata' = [] }
@@ -195,9 +195,9 @@ boolean true false e@Expression { loc, exp' } = do
               operand0 <- expression x
               addInstruction $ cast := PtrToInt
                 { operand0
-                , type'    = i64
+                , type'    = lintType
                 , metadata = [] }
-              pure $ LocalReference i64 cast
+              pure $ LocalReference lintType cast
 
         comp <- newLabel "eqComp"
 
@@ -220,7 +220,7 @@ boolean true false e@Expression { loc, exp' } = do
               { tailCallKind = Nothing
               , callingConvention = CC.C
               , returnAttributes = []
-              , function = callable i1 $ case type' of
+              , function = callable boolType $ case type' of
                 GSet      _ -> equalSetString
                 GMultiset _ -> equalMultisetString
                 GSeq      _ -> equalSeqString
@@ -235,7 +235,7 @@ boolean true false e@Expression { loc, exp' } = do
               | binOp `elem` [AEQ, BEQ] -> id
               | binOp `elem` [ANE, BNE] -> reverse
         terminate CondBr
-          { condition = LocalReference i1 comp
+          { condition = LocalReference boolType comp
           , trueDest
           , falseDest
           , metadata' = [] }
@@ -252,7 +252,7 @@ boolean true false e@Expression { loc, exp' } = do
           { tailCallKind = Nothing
           , callingConvention = CC.C
           , returnAttributes = []
-          , function = callable i1 $ case expType lexpr of
+          , function = callable boolType $ case expType lexpr of
             GSet      _ -> if
               | binOp `elem` [Subset, Superset]   -> supersetSetString
               | binOp `elem` [SSubset, SSuperset] -> ssupersetSetString
@@ -289,7 +289,7 @@ boolean true false e@Expression { loc, exp' } = do
           seqAtResult <- newLabel "seqAtResult"
 
           addInstruction $ seqAtResult := Trunc
-              { operand0 = LocalReference i64 call
+              { operand0 = LocalReference lintType call
               , type'    = boolType
               , metadata = [] }
 
@@ -311,7 +311,7 @@ boolean true false e@Expression { loc, exp' } = do
       Not -> boolean false true inner
       _ -> internal $ "operator `" <> show unOp <> "` cannot produce a boolean"
 
-    I64Cast {} -> internal "i64-cast cannot produce a boolean"
+    I64Cast {} -> internal "lintType-cast cannot produce a boolean"
 
     AbstFunctionCall {fName, fArgs, fStructArgs} -> do
       fdt <- use fullDataTypes
@@ -352,13 +352,13 @@ boolean true false e@Expression { loc, exp' } = do
         { tailCallKind       = Nothing
         , callingConvention  = CC.C
         , returnAttributes   = []
-        , function           = callable i1 fName'
+        , function           = callable boolType fName'
         , arguments          = recArgs <> arguments
         , functionAttributes = []
         , metadata           = [] }
 
       terminate CondBr
-        { condition = LocalReference i1 label
+        { condition = LocalReference boolType label
         , trueDest  = true
         , falseDest = false
         , metadata' = [] }
@@ -464,10 +464,10 @@ wrapBoolean e@Expression { expType } = do
 
       (end #)
       addInstruction $ val := Phi
-        { type' = i1
+        { type' = boolType
         , incomingValues =
           [ (ConstantOperand $ C.Int 1 1, true)
           , (ConstantOperand $ C.Int 1 0, false) ]
         , metadata = [] }
 
-      pure $ LocalReference i1 val
+      pure $ LocalReference boolType val

@@ -11,7 +11,6 @@ module Language.Graciela.Parser.Instruction
   , block
   , assign
   , assign'
-  , random
   , guard
   , write
   , new
@@ -223,37 +222,6 @@ assign' cr = do
       (GArray _ _) -> False
       t            | t =:= GADataType -> False
       _            -> True
-
-random :: Parser (Maybe Instruction)
-random = do
-  from  <- getPosition
-
-  id    <- identifier
-  mexpr <- parens expression
-
-  to    <- getPosition
-  let loc = Location (from,to)
-  case mexpr of
-    Nothing -> pure Nothing
-    Just expr -> case expr of
-      Expression { expType, exp' = Obj o }
-        | expType =:= randomizable && notConst o ->
-          pure . Just $ Instruction loc (Random o)
-        | expType =:= randomizable && not (notConst o) -> do
-          putError from . UnknownError $
-            "Cannot assign random value to a `Const` mode variable."
-          pure Nothing
-        | not (expType =:= randomizable) -> do
-          putError from . UnknownError $
-            "Cannot assign random value to a variable of type `" <>
-            show expType <> "`."
-          pure Nothing
-      _ -> do
-        putError from . UnknownError $
-          "Cannot assign random value to an expression."
-        pure Nothing
-  where
-    randomizable = GOneOf [GInt, GFloat, GBool, GChar]
 
 
 -- | Parse `write` or `writeln` instructions.

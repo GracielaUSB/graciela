@@ -21,9 +21,7 @@ import           Language.Graciela.LLVM.Abort       (abort)
 import qualified Language.Graciela.LLVM.Abort       as Abort (Abort (..))
 import           Language.Graciela.LLVM.Monad
 import           Language.Graciela.LLVM.State
-import           Language.Graciela.LLVM.Type        (fill, llvmName,
-                                                     pointerType, toLLVMType,
-                                                     voidType)
+import           Language.Graciela.LLVM.Type        
 --------------------------------------------------------------------------------
 import           Control.Lens                       (use)
 import           Data.Map                           as Map (lookup)
@@ -37,8 +35,7 @@ import           LLVM.General.AST.Instruction       (Instruction (..),
 import           LLVM.General.AST.IntegerPredicate  (IntegerPredicate (..))
 import           LLVM.General.AST.Name              (Name (..))
 import           LLVM.General.AST.Operand           (Operand (..))
-import           LLVM.General.AST.Type              (Type (ArrayType), i1, i32,
-                                                     i64, i8, ptr)
+import           LLVM.General.AST.Type              (Type (ArrayType), ptr)
 import           Prelude                            hiding (Ordering (..))
 --------------------------------------------------------------------------------
 
@@ -159,7 +156,7 @@ objectRef (Object loc t obj') = do
             gez <- newLabel "idxGEZ"
             notGez <- newLabel "idxNotGEZ"
             terminate CondBr
-              { condition = LocalReference i1 chkGEZ
+              { condition = LocalReference boolType chkGEZ
               , trueDest  = gez
               , falseDest = notGez
               , metadata' = [] }
@@ -180,7 +177,7 @@ objectRef (Object loc t obj') = do
             bnd <- newLabel "idxBound"
             addInstruction $ bnd :=  Load
               { volatile       = False
-              , address        = LocalReference i32 bndPtr
+              , address        = LocalReference intType bndPtr
               , maybeAtomicity = Nothing
               , alignment      = 4
               , metadata       = [] }
@@ -189,13 +186,13 @@ objectRef (Object loc t obj') = do
             addInstruction $ chkInBound := ICmp
               { iPredicate = SLT
               , operand0   = e
-              , operand1   = LocalReference i32 bnd
+              , operand1   = LocalReference intType bnd
               , metadata   = [] }
 
             inBound <- newLabel "idxInBound"
             notInBound <- newLabel "idxNotInBound"
             terminate CondBr
-              { condition = LocalReference i1 chkInBound
+              { condition = LocalReference boolType chkInBound
               , trueDest  = inBound
               , falseDest = notInBound
               , metadata' = [] }
@@ -216,7 +213,7 @@ objectRef (Object loc t obj') = do
               { nsw = False
               , nuw = False
               , operand0 = index
-              , operand1 = LocalReference i32 e'
+              , operand1 = LocalReference intType e'
               , metadata = [] }
 
             prod' <- newLabel "prodCalc"
@@ -224,10 +221,10 @@ objectRef (Object loc t obj') = do
               { nsw = False
               , nuw = False
               , operand0 = prod
-              , operand1 = LocalReference i32 bnd
+              , operand1 = LocalReference intType bnd
               , metadata = [] }
 
-            pure (LocalReference i32 prod', LocalReference i32 index')
+            pure (LocalReference intType prod', LocalReference intType index')
 
 
     Deref inner -> do
@@ -255,22 +252,22 @@ objectRef (Object loc t obj') = do
       -}
       addInstruction $ labelCast := PtrToInt
         { operand0 = LocalReference objType' labelLoad
-        , type'    = i64
+        , type'    = lintType
         , metadata = [] }
 
       addInstruction $ labelNull := PtrToInt
         { operand0 = ConstantOperand . C.Null $ ptr objType'
-        , type'    = i64
+        , type'    = lintType
         , metadata = [] }
 
       addInstruction $ labelCond := ICmp
         { iPredicate = EQ
-        , operand0   = LocalReference i64 labelCast
-        , operand1   = LocalReference i64 labelNull
+        , operand0   = LocalReference lintType labelCast
+        , operand1   = LocalReference lintType labelNull
         , metadata   = [] }
 
       terminate CondBr
-        { condition = LocalReference i1 labelCond
+        { condition = LocalReference boolType labelCond
         , trueDest  = trueLabel
         , falseDest = falseLabel
         , metadata' = [] }
@@ -365,7 +362,7 @@ objectRef (Object loc t obj') = do
               { tailCallKind       = Nothing
               , callingConvention  = CC.C
               , returnAttributes   = []
-              , function           = callable (ptr i8) name
+              , function           = callable (pointerType) name
               , arguments          = [(ref,[])]
               , functionAttributes = []
               , metadata           = [] }
@@ -373,7 +370,7 @@ objectRef (Object loc t obj') = do
             addInstruction $ Do Store
               { volatile = False
               , address  = LocalReference objType' member
-              , value    = LocalReference (ptr i8) getLabel
+              , value    = LocalReference (pointerType) getLabel
               , maybeAtomicity = Nothing
               , alignment = 4
               , metadata  = [] }

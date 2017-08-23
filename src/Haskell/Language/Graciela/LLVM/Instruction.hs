@@ -731,7 +731,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , nsw = False
                 , nuw = False
                 , metadata = [] }
-              pure $ LocalReference i32 result
+              pure $ LocalReference intType result
 
             sizeAux structRef n value = do
               dimPtr <- newLabel "dimPtr"
@@ -745,7 +745,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
               addInstruction $ Do Store
                 { volatile       = False
-                , address        = LocalReference i32 dimPtr
+                , address        = LocalReference intType dimPtr
                 , value
                 , maybeAtomicity = Nothing
                 , alignment      = 4
@@ -867,7 +867,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
 
           Just file' -> do
             let
-              fileRef = ConstantOperand . C.GlobalReference (ptr i8) . Name $
+              fileRef = ConstantOperand . C.GlobalReference (pointerType) . Name $
                         "__" <> unpack file'
 
             filePtr <- newLabel "filePtr"
@@ -878,7 +878,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               , alignment = 4
               , metadata  = [] }
 
-            let filePtrOp = LocalReference (ptr i8) filePtr
+            let filePtrOp = LocalReference (pointerType) filePtr
 
             pure . ([(filePtrOp,[])], ) $ case t of
                 T.GChar  -> readFileChar

@@ -317,8 +317,8 @@ defaultConstructor _ name structType typeMap = do
 
         addInstruction $ Do Store
           { volatile       = False
-          , address        = LocalReference (ptr i8) member
-          , value          = LocalReference (ptr i8) newCollection
+          , address        = LocalReference (pointerType) member
+          , value          = LocalReference (pointerType) newCollection
           , maybeAtomicity = Nothing
           , alignment      = 4
           , metadata       = [] }
@@ -348,7 +348,7 @@ defaultConstructor _ name structType typeMap = do
         , nsw = False
         , nuw = False
         , metadata = [] }
-      pure $ LocalReference i32 result
+      pure $ LocalReference intType result
 
     sizeAux ref n value = do
       dimPtr <- newLabel "dimPtr"
@@ -362,7 +362,7 @@ defaultConstructor _ name structType typeMap = do
 
       addInstruction $ Do Store
         { volatile       = False
-        , address        = LocalReference i32 dimPtr
+        , address        = LocalReference intType dimPtr
         , value
         , maybeAtomicity = Nothing
         , alignment      = 4
@@ -606,7 +606,7 @@ defineGetters True insts name t = do
           procName = "get_" <> unpack varName <> "-" <> name
           selfParam = Parameter (ptr t) (Name "_self") []
         
-        addDefinitions $ [defineFunction procName [selfParam] (ptr i8)]
+        addDefinitions $ [defineFunction procName [selfParam] (pointerType)]
 
 
 
@@ -648,7 +648,7 @@ defineGetters _ insts name t = do
           , alignment = 4
           , metadata  = [] }
 
-        terminate $ Ret (Just $ LocalReference (ptr i8) loadResult) []
+        terminate $ Ret (Just $ LocalReference (pointerType) loadResult) []
         closeScope
 
         blocks' <- use blocks
@@ -660,7 +660,7 @@ defineGetters _ insts name t = do
         addDefinition $ GlobalDefinition functionDefaults
               { name        = Name procName
               , parameters  = ([selfParam],False)
-              , returnType  = ptr i8
+              , returnType  = pointerType
               , basicBlocks = toList blocks' }
 
 

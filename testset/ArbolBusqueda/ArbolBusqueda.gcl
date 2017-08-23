@@ -1,72 +1,9 @@
 #!/usr/bin/env rungraciela
 
-/*% LANGUAGE EnableTrace %*/
+include "Multiset"
 
 program SearchTree.bin begin
-  abstract n
-  begin
-    var i : n*;
-    const Max := 100 : int;
-    {repinv true repinv}
-    proc f ( in x : n )
-      {pre  true pre}
-      {post true post}
-  end
-
-  type m implements n
-  begin
-    {repinv true repinv}
-    {coupinv true coupinv}
-    proc f ( in x : m )
-      {pre  true pre}
-      {post true post}
-      |[ skip ]| 
-  end
-
-  abstract Multiset(T)
-  begin
-    /* Multiset variables */
-    var m   : multiset of T;
-    
-    {repinv 
-        (% forall i : T | i elem m | i == i %) 
-    repinv}
-
-    /* Multiset procedures and functions */   
-    proc insert ( inout t : Multiset(T)*, in e : T )
-
-      let m' := if t != null -> (*t).m
-                   [] otherwise -> {::}     
-                   fi 
-              : multiset of T;
-      {pre  true  pre}
-      {post e elem m' ==> 
-              multiplicity(e,m') == multiplicity(e,(*t).m) + 1
-      post}
-    
-    proc delete ( inout t : Multiset(T)*, in e : T )
-      let m' := if t != null -> (*t).m
-                   [] otherwise -> {::}     
-                   fi
-              : multiset of T;
-      {pre  multiplicity(e,(*t).m) > 0 pre}
-      {post multiplicity(e,m') == multiplicity(e,(*t).m) - 1 post}
-
-    func isElem ( t : Multiset(T)*, e : T ) -> boolean
-      {pre  true  pre}
-      {post isElem == e elem (*t).m post}
-
-    proc search ( in t : Multiset(T)*, in e : T )
-      {pre  true  pre}
-      {post true post}
-
-    proc show ( in t : Multiset(T)* )
-      {pre  true  pre}
-      {post true post}
-      
-  end
-
-
+  
   type SearchTree(T) implements Multiset(T)
   begin
     /* SearchTree variables */
@@ -282,7 +219,6 @@ main
   
   ; var arr : array[10] of (int*)
   ; var t : SearchTree(char)*
-  ; writeln((trace(t == null) \/ c > (*t).info) )
   ; writeln("Debido a que el programa debe terminar,")
   ; writeln("este prompt se emitira solo un maximo de 100 veces")
   ; {inv   true    inv}
