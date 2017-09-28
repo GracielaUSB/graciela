@@ -13,7 +13,9 @@ import qualified Language.Graciela.AST.Program        as P (pragmas)
 import           Language.Graciela.AST.Type
 import           Language.Graciela.Common
 import           Language.Graciela.Location           (Location (..))
+import           Language.Graciela.Parser.Alias       (alias)
 import           Language.Graciela.Parser.Definition
+import           Language.Graciela.Parser.Enumeration
 import           Language.Graciela.Parser.Instruction (block)
 import           Language.Graciela.Parser.Monad       hiding (sepBy1)
 import           Language.Graciela.Parser.Module      (gModule, includes)
@@ -44,7 +46,11 @@ import           System.Directory                     (doesFileExist)
 
 program :: Parser (Maybe Program)
 program = do
-  from <- getPosition
+  from@SourcePos{sourceName} <- getPosition
+  let text = pack sourceName
+  stringIds %= \m -> case text `Map.lookup` m of
+    Nothing -> let i = Map.size m in Map.insert text i m
+    _ -> m
   symbolTable %= openScope from -- Open the program scope
   
   includes -- parse includes statements and move to the included file
@@ -57,10 +63,12 @@ program = do
     pure $ "." <> T.intercalate "." exts
   match' TokBegin
   
-  many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
+
+
+  many $ eitherP (abstractDataType <|> dataType) $ eitherP (function <|> procedure) $ eitherP enum alias
   main' <- mainRoutine
   defs  <- Seq.fromList . toList <$> use definitions
-  many $ eitherP (abstractDataType <|> dataType) (function <|> procedure)
+  many $ eitherP (abstractDataType <|> dataType) $ eitherP (function <|> procedure) $ eitherP enum alias
 
     -- These aren't compiled since they can't be reached, but they're
     -- still checked so the user knows.

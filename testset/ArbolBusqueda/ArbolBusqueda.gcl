@@ -53,10 +53,9 @@ program SearchTree.bin begin
         {bound 128 - i bound}
         do i < 128 /\ !done
           -> if P == null -> done := true
-             [] otherwise 
-              -> d := (*P).info
-
-               ; if e == d -> done := true
+             [] otherwise -> 
+                 d := (*P).info; 
+                 if e == d -> done := true
                  [] e  < d -> Q,P := P, (*P).l
                  [] e  > d -> Q,P := P, (*P).r
                  [] otherwise -> skip
@@ -70,13 +69,14 @@ program SearchTree.bin begin
            ; new(node)
            ; (*node).info, (*node).n := e, 1
            ; (*node).l   , (*node).r := null, null
-
-           ; if Q == null -> t := node
+           ; writeln(1)
+           ; if Q == null     -> t := node
              [] e < (*Q).info -> (*Q).l := node
              [] e > (*Q).info -> (*Q).r := node
              fi
-        [] otherwise -> (*P).n := (*P).n + 1
+        [] otherwise -> (*P).n := (*P).n + 1; writeln((*P).n)
         fi 
+
       ⟧
     
 

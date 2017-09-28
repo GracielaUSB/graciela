@@ -99,6 +99,7 @@ data Type
   | GFloat  -- ^ Basic floating-point number type.
   | GBool   -- ^ Basic boolean type.
   | GChar   -- ^ Basic character type.
+  | GEnum Text
 
   | GString -- ^ Basic string type.
 
@@ -116,7 +117,9 @@ data Type
     } -- ^ Sized array type.
 
   | GRawName
-
+  | GAlias 
+    { typeName  :: Text
+    , aliasType ::  Type }
   | I64 -- ^ Used for casts
   deriving (Eq, Ord, Generic, Serialize)
 
@@ -158,6 +161,7 @@ hasDT :: Type -> Maybe Type
 hasDT t@GDataType {} = Just t
 hasDT (GArray _ t)   = hasDT t
 hasDT (GPointer t)   = hasDT t
+hasDT (GAlias _ t)   = hasDT t
 hasDT _              = Nothing
 
 hasTypeVar :: Type -> Bool
@@ -211,8 +215,6 @@ instance Semigroup Type where
 
   GUndef      <> a           = GUndef
   a           <> GUndef      = a
-  
-
   
   GSet a      <> GSet b      = case  a <> b of
     GUndef -> GUndef
@@ -274,7 +276,12 @@ instance Semigroup Type where
 
   t@(GDataType a _ ta) <> GDataType b _ tb =
     if a == b
-      then t
+      then 
+        let f' b (x, y) = x =:= y || (x =:= GATypeVar && not (y =:= GATypeVar)) || (y =:= GATypeVar && not (x =:= GATypeVar))
+
+        in if foldl f' True (zip (toList ta) (toList tb))
+          then t
+          else GUndef
       else GUndef
 
   a@(GDataType _ _ _) <> GADataType = a
@@ -287,6 +294,16 @@ instance Semigroup Type where
   GString <> GPointer GChar = GPointer GChar
   GPointer GChar <> GString = GPointer GChar
   
+  GEnum a <> GEnum b = if a == b then GEnum a else GUndef
+  GEnum _ <> GInt = GInt
+  GInt <> GEnum _ = GInt
+
+  GAlias na ta <> GAlias nb tb 
+    | na == nb = ta <> tb
+    | na /= nb = GUndef
+  GAlias _ ta <> tb = ta <> tb
+  ta <> GAlias _ tb = ta <> tb
+
   _ <> _ = GUndef
 
 
@@ -296,6 +313,7 @@ instance Show Type where
       show' = \case
         GUndef          -> "\ESC[0;31m" <> "undefined" <> "\ESC[0;32m"
         GInt            -> "int"
+        GEnum        n  -> "enum " <> unpack n       
         GFloat          -> "float"
         GBool           -> "boolean"
         GChar           -> "char"
@@ -326,5 +344,5 @@ instance Show Type where
         GATypeVar  -> "a type variable"
         GADataType -> "a data type"
         GATuple    -> "a tuple"
-
+        GAlias n t -> show n <> " (" <> show t <> ")"
         I64               -> "64-bit int"

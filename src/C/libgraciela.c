@@ -7,7 +7,7 @@
 
   How to compile:
   $ cd <GRACIELA_FOLDER_PATH>
-  $ clang -lm -lstdc++ -fPIC -shared src/C/libgraciela-abstract/libgraciela-abstract.cpp src/C/libgraciela.c -o libgraciela.so
+  $ clang -O3 -lm -lstdc++ -fPIC -shared src/C/libgraciela-abstract/libgraciela-abstract.cpp src/C/libgraciela.c -o libgraciela.so
 */
 
 #include "math.h"
@@ -54,9 +54,9 @@ int8_t* _malloc(int size){
 int _isNan(double x){ return isnan(x); }
 int _isInf(double x){ return isinf(x); }
 
-void _free(int8_t *mem, int l, int c){
+void _free(int8_t *mem, char *filePath, int l, int c){
   // Before a piece of memory can be freed, it has to be removed from the DMV set
-  _removePointer(mem, l ,c);
+  _removePointer(mem, filePath, l ,c);
   free(mem);
 }
 
@@ -121,17 +121,6 @@ char _readFileChar(int8_t* file) {
   char n;
   int r = fscanf(f, "%c", &n);
 
-  if (r == EOF)
-  {
-    printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-    exit(EXIT_FAILURE);
-  }
-  if (r == 0)
-  {
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mchar\x1B[m\n");
-    exit(EXIT_FAILURE);
-  }
-
   return n;
 }
 
@@ -143,11 +132,6 @@ double _readFileDouble(int8_t* file) {
   if (r == EOF)
   {
     printf ("\x1B[0;31mError:\x1B[m End of file reached while reading a file\n");
-    exit(EXIT_FAILURE);
-  }
-  if (r == 0)
-  {
-    printf ("\x1B[0;31mError:\x1B[m The value read from file is not of type \x1B[0;32mfloat\x1B[m\n");
     exit(EXIT_FAILURE);
   }
 
@@ -387,8 +371,8 @@ typedef enum
   , A_ABSTRACT_POST
   } abort_t;
 
-void _abort (abort_t reason, int line, int column) {
-  printf ("\n\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, column);
+void _abort (abort_t reason, char *filePath, int line, int column) {
+  printf ("\n\x1B[0;31mABORT:\x1B[m %s at line %d, column %d", filePath, line, column);
   switch (reason) {
     case A_IF:
       printf (":\n\tno true branch found in conditional.\n"); break;
@@ -449,7 +433,7 @@ typedef enum
   , W_COUPINVARIANT
   } warning_t;
 
-void _warn (warning_t reason, int line, int column) {
+void _warn (warning_t reason, char *filePath, int line, int column) {
   printf ("\x1B[0;35mWARNING:\x1B[m at line %d, column %d", line, column);
   switch (reason) {
     case W_MANUAL:
@@ -469,10 +453,10 @@ void _warn (warning_t reason, int line, int column) {
   }
 }
 
-int _abs_i (int x, int line, int column) {
+int _abs_i (int x, char *filePath, int line, int column) {
   if (x < 0){
     if (x == INT_MIN)
-      _abort (A_OVERFLOW, line, column);
+      _abort (A_OVERFLOW, filePath,  line, column);
     return (-x);
   } else {
     return x;
@@ -483,38 +467,38 @@ double _abs_f (double x) {
   return x < 0 ? (-x) : x;
 }
 
-int _sqrt_i (int x, int line, int column) {
+int _sqrt_i (int x, char *filePath, int line, int column) {
   if (x < 0)
-    _abort (A_NEGATIVE_ROOT, line, column);
+    _abort (A_NEGATIVE_ROOT, filePath,  line, column);
   return floor(sqrt(x));
 }
 
-double _sqrt_f (double x, int line, int column) {
+double _sqrt_f (double x, char *filePath, int line, int column) {
   if (x < 0)
-    _abort (A_NEGATIVE_ROOT, line, column);
+    _abort (A_NEGATIVE_ROOT, filePath,  line, column);
   return sqrt(x);
 }
 
 
-int _powInt (int x, int y, int line, int column) {
+int _powInt (int x, int y, char *filePath, int line, int column) {
   if (y < 0)
-    _abort (A_NEGATIVE_EXPONENT, line, column);
+    _abort (A_NEGATIVE_EXPONENT, filePath,  line, column);
   else if (y == 0)
     return 1;
   else if (y % 2 == 1) {
     int tmp;
-    if (__builtin_smul_overflow(x, _powInt (x, y-1, line, column), &tmp))
+    if (__builtin_smul_overflow(x, _powInt (x, y-1, filePath, line, column), &tmp))
       // overflow
-      _abort (A_OVERFLOW, line, column);
+      _abort (A_OVERFLOW, filePath,  line, column);
     // all ok
     return tmp;
   } else {
-    int tmp = _powInt (x, y / 2, line, column);
+    int tmp = _powInt (x, y/2, filePath, line, column);
     int tmp2;
 
     if (__builtin_smul_overflow(tmp, tmp, &tmp2))
       // overflow
-      _abort (A_OVERFLOW, line, column);
+      _abort (A_OVERFLOW, filePath,  line, column);
     // all ok
     return tmp2;
   }
@@ -522,9 +506,9 @@ int _powInt (int x, int y, int line, int column) {
 }
 
 
-int _float2int (double x, int line, int column) {
+int _float2int (double x, char *filePath, int line, int column) {
   if (-2147483648.49 > x || x > 2147483647.49)
-    _abort (A_OVERFLOW, line, column);
+    _abort (A_OVERFLOW, filePath,  line, column);
   return (x >= 0 ? (int)(x+0.5) : (int)(x-0.5));
 }
 
@@ -532,15 +516,15 @@ int _char2int (char x) {
   return (int)(x);
 }
 
-char _float2char (double x, int line, int column) {
+char _float2char (double x, char *filePath, int line, int column) {
   if (0.0 > x || x > 255.49)
-    _abort (A_OVERFLOW, line, column);
+    _abort (A_OVERFLOW, filePath,  line, column);
   return (char)(x+0.5);
 }
 
-char _int2char (int x, int line, int column) {
+char _int2char (int x, char *filePath, int line, int column) {
   if (0 > x || x > 255)
-    _abort (A_OVERFLOW, line, column);
+    _abort (A_OVERFLOW, filePath,  line, column);
   return (char)x;
 }
 

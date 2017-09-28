@@ -52,6 +52,7 @@ executable graciela
         Language.Graciela
         Language.Graciela.AST.Declaration
         Language.Graciela.AST.Definition
+        Language.Graciela.AST.Enumeration
         Language.Graciela.AST.Expression
         Language.Graciela.AST.Instruction
         Language.Graciela.AST.Module
@@ -79,11 +80,13 @@ executable graciela
         Language.Graciela.Lexer
         Language.Graciela.Location
         Language.Graciela.OS
+        Language.Graciela.Parser.Alias
         Language.Graciela.Parser.Assertion
         Language.Graciela.Parser.Config
         Language.Graciela.Parser.Declaration
         Language.Graciela.Parser.Definition
         Language.Graciela.Parser.ExprM
+        Language.Graciela.Parser.Enumeration
         Language.Graciela.Parser.Expression
         Language.Graciela.Parser.Instruction
         Language.Graciela.Parser.Monad
@@ -100,7 +103,7 @@ executable graciela
         Language.Graciela.Treelike
 
     
-    ghc-options:
+    ghc-options: 
       -- -O3 -fllvm
       -- -Wall
       -- -fprof-auto
@@ -171,6 +174,7 @@ Test-Suite test-graciela
         Language.Graciela
         Language.Graciela.AST.Declaration
         Language.Graciela.AST.Definition
+        Language.Graciela.AST.Enumeration
         Language.Graciela.AST.Expression
         Language.Graciela.AST.Instruction
         Language.Graciela.AST.Module
@@ -198,10 +202,12 @@ Test-Suite test-graciela
         Language.Graciela.Lexer
         Language.Graciela.Location
         Language.Graciela.OS
+        Language.Graciela.Parser.Alias
         Language.Graciela.Parser.Assertion
         Language.Graciela.Parser.Config
         Language.Graciela.Parser.Declaration
         Language.Graciela.Parser.Definition
+        Language.Graciela.Parser.Enumeration
         Language.Graciela.Parser.ExprM
         Language.Graciela.Parser.Expression
         Language.Graciela.Parser.Instruction

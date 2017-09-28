@@ -55,9 +55,12 @@ namespace glib {
 
   typedef enum{
     A_DUPLICATE_DOMAIN = 0,
-    A_NOT_IN_DOMAIN    = 1,
-    A_NEGATIVE_POS     = 2,
-    A_BAD_POS          = 3
+    A_NOT_IN_DOMAIN,
+    A_NEGATIVE_POS,
+    A_BAD_POS,
+    A_REMOVE_POINTER,
+    A_NULL_POINTER,
+    A_BAD_POINTER,
   } abortEnum;
 }
 
@@ -146,13 +149,13 @@ extern "C" {
     void    _insertFunction(int8_t* ptr, t key, t value);
     int     _sizeFunction(int8_t *ptr);
     int     _isElemFunction(int8_t* ptr, t key, t value);
-    int8_t* _funcFromSet(int8_t* setPtr, int line, int col);
+    int8_t* _funcFromSet(int8_t* setPtr, char* filePath, int line, int col);
     int8_t* _domFunction(int8_t* ptr);
     int8_t* _codomainRelation(int8_t *ptr);
-    t       _pairFunction(int8_t* ptr, t k, int line, int col);
+    t       _pairFunction(int8_t* ptr, t k, char* filePath, int line, int col);
     int8_t* _compositionFunction(int8_t *ptr1, int8_t *ptr2);
     int8_t* _toSetFunction(int8_t* ptr1);
-    int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, int line, int col);
+    int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, char* filePath, int line, int col);
     int8_t* _intersectFunction(int8_t* ptr1, int8_t* ptr2);
     int8_t* _differenceFunction(int8_t* ptr1, int8_t* ptr2);
     void    _freeFunction(int8_t* ptr);
@@ -178,7 +181,7 @@ extern "C" {
     int8_t* _concatSequence(int8_t* ptr1, int8_t* ptr2);
     int     _countSequence(t x, int8_t* ptr);
     int     _sizeSequence(int8_t* ptr);
-    t       _atSequence(int8_t*ptr, int pos, int line, int col);
+    t       _atSequence(int8_t*ptr, int pos, char* filePath, int line, int col);
     void    _freeSequence(int8_t* ptr);
 
     /* SequencePair */
@@ -189,7 +192,7 @@ extern "C" {
     int8_t* _concatSequencePair(int8_t* ptr1, int8_t* ptr2);
     int     _countSequencePair(gtuple* x, int8_t* ptr);
 //    int     _sizeSequencePair(int8_t* ptr);
-    gtuple  _atSequencePair(int8_t*ptr, int pos, int line, int col);
+    gtuple  _atSequencePair(int8_t*ptr, int pos, char* filePath, int line, int col);
     void    _freeSequencePair(int8_t* ptr);
 
     /* Tuple */
@@ -216,8 +219,8 @@ extern "C" {
        beign accessed: free(p); write(*p) ).
     */
     void _addPointer   (int8_t* ptr);
-    void _removePointer(int8_t* ptr, int c, int l);
-    void _derefPointer (int8_t* ptr, int pragma, int c, int l);
+    void _removePointer(int8_t* ptr, char* filePath, int l, int c);
+    void _derefPointer (int8_t* ptr, int pragma, char* filePath, int l, int c);
 
     char *_readln(int **i);
 

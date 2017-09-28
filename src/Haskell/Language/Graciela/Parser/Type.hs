@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Language.Graciela.Parser.Type
     ( basicType
+    , basicOrPointer
     , type'
     , abstractType
     , typeVarDeclaration
@@ -39,7 +40,8 @@ import           Data.Foldable                       (asum, toList)
 import           Data.Int                            (Int32)
 import           Data.List                           (elemIndex, intercalate)
 import qualified Data.Map.Strict                     as Map
-import           Data.Set                            as Set (fromList, insert)
+import           Data.Set                            as Set (fromList, insert,
+                                                            member)
 
 import           Data.Text                           (Text, pack, unpack)
 import           Prelude                             hiding (lookup)
@@ -58,14 +60,38 @@ basicType = do
       putError from . UnknownError $ show t <> " is not a basic type"
       pure GUndef
 
+basicOrPointer :: Parser Type
+basicOrPointer = do
+  from <- getPosition
+  t <- type'
+  if t =:= GOneOf [GBool, GChar, GInt, GFloat, GATypeVar, GPointer GAny]
+    then pure t
+    else do
+      putError from . UnknownError $ show t <> " is not a basic or pointer type"
+      pure GUndef
+
 
 type' :: Parser Type
 type' =  try parenType
      <|> try arrayOf
+     <|> try enumerationOrAlias
      <|> try userDefined
      <|> try typeVar
-     <|> try basicOrPointer
+     <|> try basicOrPtr
   where
+    enumerationOrAlias = do
+      from  <- getPosition
+      tname <- lookAhead identifier
+      to    <- getPosition
+      use userDefinedType >>= \t -> case Map.lookup tname t of
+        Just t -> do 
+          void $ identifier
+          isPointer $ t
+        Nothing -> do
+          match TokLeftPar -- This always fails
+          pure GUndef
+        t -> internal $ show t
+
     parenType = do
       lookAhead $ match TokLeftPar
       t <- parens type'
@@ -126,8 +152,7 @@ type' =  try parenType
           --   putError pos . UnknownError $
           --     "Array dimension must be an integer constant expression."
           --   pure Nothing
-
-    basicOrPointer = do
+    basicOrPtr = do
       -- If its not an array, then try with a basic type or a pointer
       from  <- getPosition
       tname <- identifier
@@ -142,18 +167,16 @@ type' =  try parenType
     userDefined = do
       from <- getPosition
       name <- lookAhead identifier
-      t    <- getStruct name
-
-      case t of
+      getStruct name >>= \case
         Nothing -> do
           current <- use currentStruct
           case current of
-            Just (dt@(GDataType dtName abstract _), _, _, _) -> do
+            Just (dt@(GDataType dtName abstract typeargs'), _, _, _, _) -> do
               if dtName == name
                 then do
                   identifier
                   t <- (optional . parens $
-                    (try typeVar <|> ({-isPointer =<<-} basicType)) `sepBy` match TokComma)
+                    (try typeVar <|> basicOrPointer) `sepBy` match TokComma)
                         >>= \case
                           Just s -> pure $ toList s
                           _      -> pure []
@@ -169,6 +192,8 @@ type' =  try parenType
                         Just types0 -> types0 `Map.union` t
 
                     fullDataTypes %= Map.alter fAlter dtName
+                 
+                  checkTypeArgs from dtName typeargs typeargs'
 
                   isPointer $ GDataType name abstract typeargs
 
@@ -180,37 +205,11 @@ type' =  try parenType
               return GUndef
 
         Just ast@Struct {structBaseName, structTypes, structProcs, struct'} -> do
-
           identifier
-          fullTypes <- asum <$> (optional . parens $ basicType `sepBy` match TokComma)
+          fullTypes <- asum <$> (optional . parens $ basicOrPointer `sepBy` match TokComma)
 
-          let
-            plen = length fullTypes
-            slen = length structTypes
-            show' l = if null l
-              then ""
-              else "(" <> intercalate "," (toList $ show <$> l) <> ")"
-
-          ok <- if slen == plen
-            then pure True
-
-            else do
-              if slen == 0 then putError from . UnknownError $
-                "Type `" <> unpack structBaseName <>
-                "` does not expect " <> show' fullTypes <> " as argument"
-
-              else if slen > plen then putError from . UnknownError $
-                "Type `" <> unpack structBaseName <> "` expected " <>
-                show slen <> " types " <> show' structTypes <>
-                "\n\tbut recived " <> show plen <> " " <> show' fullTypes
-
-              else putError from . UnknownError $
-                "Type `" <> unpack structBaseName <> "` expected only " <>
-                show slen <> " types as arguments " <> show' structTypes <>
-                "\n\tbut recived " <> show plen <> " " <> show' fullTypes
-
-              pure False
-
+          ok <- checkTypeArgs from structBaseName fullTypes structTypes
+        
           let
             abstName = case struct' of
               AbstractDataType{} -> Nothing
@@ -219,7 +218,7 @@ type' =  try parenType
           if ok
             then do
               let
-                types = Array.listArray (0, plen - 1) . toList $ fullTypes
+                types = Array.listArray (0, (length fullTypes) - 1) . toList $ fullTypes
                 dataType = GDataType structBaseName abstName types
 
               when (isNothing abstName) . putError from . UnknownError $
@@ -231,7 +230,7 @@ type' =  try parenType
                 then do
                   current <- use currentStruct
                   case current of
-                    Just ((GDataType dtName _ _), _, _, _) -> do
+                    Just ((GDataType dtName _ _), _, _, _, _) -> do
                       let
                         fAlter = Just . \case
                           Nothing    -> Set.fromList [structBaseName]
@@ -251,6 +250,36 @@ type' =  try parenType
               isPointer dataType
 
             else pure GUndef
+      where 
+        checkTypeArgs :: (Foldable m, Functor m, Foldable n, Functor n) 
+          => SourcePos -> Text 
+          -> m Type -> n Type 
+          -> Parser Bool
+        checkTypeArgs from dtName typeargs typeargs' 
+          | length typeargs == length typeargs' = pure True
+          | length typeargs /= length typeargs' = do 
+            let 
+              plen = length typeargs
+              slen = length typeargs'
+              show' l = if null l
+                then ""
+                else "(" <> intercalate "," (toList $ show <$> l) <> ")"
+            if slen == 0 then putError from . UnknownError $
+              "Type `" <> unpack dtName <>
+              "` does not expect " <> show' typeargs <> " as argument"
+
+            else if slen > plen then putError from . UnknownError $
+              "Type `" <> unpack dtName <> "` expected " <>
+              show slen <> " types " <> show' typeargs' <>
+              "\n\tbut recived " <> if plen == 0 then "none." else (show plen <> " " <> show' typeargs)
+
+            else putError from . UnknownError $
+              "Type `" <> unpack dtName <> "` expected only " <>
+              show slen <> " types as arguments " <> show' typeargs' <>
+              "\n\tbut recived " <> show plen <> " " <> show' typeargs
+            pure False
+
+
 
 
 isPointer :: Type -> Parser Type
@@ -335,7 +364,7 @@ typeVar = do
         isPointer $ GTypeVar i tname
 
       | otherwise -> do
-        Just (dt,_,_,_) <- use currentStruct
+        Just (dt,_,_,_,_) <- use currentStruct
         identifier
         putError pos . UnknownError $
           "To use a variable of type " <> show (GTypeVar i tname) <>

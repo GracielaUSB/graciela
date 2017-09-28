@@ -16,7 +16,7 @@ module Language.Graciela.Common
   , trace, traceM, traceShow, traceShowId, traceShowM
   , Seq, Set, Map, Text
   , ($>)
-  , rights, eithers, Both
+  , rights, eithers, Both, isRight, isLeft
   ) where
 --------------------------------------------------------------------------------
 import           Language.Graciela.Location
@@ -26,7 +26,7 @@ import           Language.Graciela.Treelike
 import           Control.Monad              (foldM, forM, forM_, unless, void,
                                              when, zipWithM, zipWithM_, (>=>))
 import           Control.Monad.Trans.Class  (lift)
-import           Data.Either                (rights)
+import           Data.Either                (rights, isRight, isLeft)
 import           Data.Foldable              (toList)
 import           Data.Functor               (($>))
 import           Data.Int                   (Int32)

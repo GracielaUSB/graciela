@@ -517,7 +517,7 @@ variable = do
   coupRel     <- lift $ use doingCoupleRel
 
   (dt,abstractSt) <- case maybeStruct of
-    Just (dt@(GDataType _ (Just abstName) _), _, _, _) -> do
+    Just (dt@(GDataType _ (Just abstName) _), _, _, _, _) -> do
       adt <- getStruct abstName
       pure $ (dt,) $ case adt of
         Just abst -> structSt abst
@@ -548,7 +548,14 @@ variable = do
             , exp' = Value _aliasValue }
 
         in pure $ Just (expr, ProtoNothing, Taint False)
-
+      Enum { _enumType, _enumValue } -> do
+        rangevars <- get
+        let taint = case rangevars of
+                [] -> Taint False
+                _  -> if name == head rangevars
+                  then Taint True
+                  else Taint False
+        pure $ Just (_enumValue, ProtoNothing, taint)
       Var { _varType, _varConst } -> lift (use isDeclarative) >>= \declarative ->
         if _varType =:= highLevel && not declarative
           then do
@@ -605,29 +612,31 @@ variable = do
             pure Nothing
           else
             let
+              
               expr = case struct of
-                Just (GDataType structName' abstract t, mapTypes, _, _) ->
-                  case name `Map.lookup` mapTypes of
-                    Just (i, _, _, _) -> Expression
-                      { loc
-                      , expType  = removeAbst dt _selfType
-                      , expConst = _selfConst
-                      , exp'     = Obj
-                        { theObj = Object
-                          { loc
-                          , objType = removeAbst dt _selfType
-                          , obj' = Member
-                            { field = i
-                            , fieldName = name
-                            , inner = Object
-                              { loc
-                              , objType = GDataType structName' abstract t
-                              , obj' = Variable
-                                { O.name = pack "_self"
-                                , mode = Nothing }}}}}}
+                Just (GDataType structName' abstract t, mapTypes, _, _, targs) ->
+                  let tt = fillType targs (removeAbst dt _selfType)
+                  in case name `Map.lookup` mapTypes of
+                      Just (i, _, _, _) -> Expression
+                        { loc
+                        , expType  = tt
+                        , expConst = _selfConst
+                        , exp'     = Obj
+                          { theObj = Object
+                            { loc
+                            , objType = tt
+                            , obj' = Member
+                              { field = i
+                              , fieldName = name
+                              , inner = Object
+                                { loc
+                                , objType = GDataType structName' abstract t
+                                , obj' = Variable
+                                  { O.name = pack "_self"
+                                  , mode = Nothing }}}}}}
 
-                    Nothing -> internal $ "Data Type variable `" <>
-                                unpack name <>"` not found"
+                      Nothing -> internal $ "Data Type variable `" <>
+                                  unpack name <>"` not found"
 
                 Nothing -> internal "Data Type not found"
 
@@ -985,7 +994,8 @@ operator =
     , Postfix (foldr1 (>=>) <$> some subindex) ]
   , {-Level 2-}
     [ Prefix  (foldr1 (>=>) <$> some deref)
-    , Prefix  (foldr1 (>=>) <$> some refof) ]
+    , Prefix  (foldr1 (>=>) <$> some refof)
+    , Prefix  (foldr1 (>=>) <$> some unsafeCast) ]
   , {-Level 3-}
     [ Prefix  (foldr1 (>=>) <$> some (TokHash  --> unary Op.card)) ]
   , {-Level 4-}
@@ -1294,7 +1304,7 @@ call = do
                       retType = fillType typeArgs' retType'
                       typeArgs = case cs of
                           Nothing -> typeArgs'
-                          Just (GDataType _ _ dtArgs, _, _, _) ->
+                          Just (GDataType _ _ dtArgs, _, _, _, _) ->
                             fmap (fillType dtArgs) typeArgs'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
@@ -1339,7 +1349,7 @@ call = do
                       unpack fName <> "`1"
                     return Nothing
 
-            Just (dt@GDataType{typeArgs = t'}, _, _, _) | not (t =:= dt) -> do
+            Just (dt@GDataType{typeArgs = t'}, _, _, _, _) | not (t =:= dt) -> do
               getStruct name >>= \case
                 Nothing -> do
                   putError from . UnknownError $ "Couldn't find data type " <> show dt
@@ -1393,7 +1403,7 @@ call = do
                         "` does not have a function called `" <>
                         unpack fName <> "`5"
                       return Nothing
-            Just (GDataType {typeArgs, abstName = a}, _, structProcs, _) -> do
+            Just (GDataType {typeArgs, abstName = a}, _, structProcs, _, _) -> do
               f <- getFunc fName structProcs a
               case f of
                 Just (funcParams, retType, fRec ) -> do
@@ -1464,7 +1474,7 @@ call = do
                     cs <- lift $ use currentStruct
                     case cs of
                       Nothing -> internal $ "Could not find current DT "
-                      Just (t, _, _, _) ->
+                      Just (t, _, _, _, _) ->
                         pure $ Just (removeAbst' t <$> abstFParams, funcRetType, Nothing)
 
                   _ -> pure Nothing
@@ -1644,26 +1654,30 @@ dotField = do
       Just (e@Expression { exp', loc }, _, taint) -> do
         let Location (from,_) = loc
         case exp' of
-          Obj obj -> case objType obj of
-            GDataType n _ typeArgs-> do
-              cstruct <- lift $ use currentStruct
-              case cstruct of
-                Just (GDataType name _ _, structFields, _, structAFields)
-                  | name == n ->
-                    aux obj (objType obj) loc fieldName structFields structAFields taint
-                _ -> do
-                  structs <- lift $ use dataTypes
-                  case n `Map.lookup` structs of
-                    Just Struct { structFields, structAFields } ->
-                      let structFields' = fillTypes typeArgs structFields
-                      in aux obj (objType obj) loc fieldName structFields' structAFields  taint
-                    _ -> internal "GDataType without struct."
+          Obj obj -> 
+            let 
+              doDT n typeArgs = do -- If the object has a DT type, then do the following 
+                cstruct <- lift $ use currentStruct
+                case cstruct of
+                  Just (GDataType name _ _, structFields, _, structAFields, _)
+                    | name == n ->
+                      aux obj (objType obj) loc fieldName structFields structAFields taint
+                  _ -> do
+                    structs <- lift $ use dataTypes
+                    case n `Map.lookup` structs of
+                      Just Struct { structFields, structAFields } ->
+                        let structFields' = fillTypes typeArgs structFields
+                        in aux obj (objType obj) loc fieldName structFields' structAFields  taint
+                      _ -> internal "GDataType without struct."
 
-            t -> do
-              putError from' . UnknownError $
-                "Bad field access. Cannot access an expression \
-                \of type " <> show t <> "."
-              pure Nothing
+            in case objType obj of
+              GDataType n _ typeArgs            -> doDT n typeArgs
+              GAlias _ (GDataType n _ typeArgs) -> doDT n typeArgs
+              t -> do
+                putError from' . UnknownError $
+                  "Bad field access. Cannot access an expression \
+                  \of type " <> show t <> "."
+                pure Nothing
           _ -> do
             putError from' . UnknownError $
               "Bad field access. Cannot access an expression."
@@ -1798,6 +1812,36 @@ refof = do
 
         when pragOk . putError from . UnknownError $
           "Cannot get the address of non-object expression."
+
+        pure Nothing
+
+unsafeCast :: ParserExp (Maybe MetaExpr -> ParserExp (Maybe MetaExpr))
+unsafeCast = do 
+  from     <- getPosition
+  t        <- brackets . lift $ type'
+  pragmas' <- lift $ use pragmas
+  let pragOk = Set.member MemoryOperations pragmas'
+ 
+  unless pragOk . putError from . UnknownError $
+    "Unknown token: " <> show t
+
+  unless (t =:= GPointer GAny) . putError from . UnknownError $
+    "Can not cast to a non pointer type"
+
+  pure $ filterRawName >=> \case
+    Nothing -> pure Nothing
+
+    Just (expr, _, taint) -> case expr of
+      expr | expType expr =:= GPointer GAny ->
+        let expr' = Expression
+              { E.loc = Location (from, to expr)
+              , expType = t
+              , expConst = False
+              , exp' = UnsafeCast { castExpr = expr }}
+        in pure $ Just (expr', ProtoNothing, taint)
+      e -> do
+        when pragOk . putError from . UnknownError $
+          "A pointer was expected. Instead, an expression of type " <> show (expType e) <> " was given"
 
         pure Nothing
 

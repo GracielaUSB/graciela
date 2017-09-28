@@ -20,22 +20,32 @@ extern "C" {
 
 //  int precondition = 0;
 
-  void abortAbstract(abortEnum reason, int line, int col, int pos = 0, int size = 0){
+  void abortAbstract(abortEnum reason, char* filePath, int line, int col, int pos = 0, int size = 0){
 
-    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d", line, col);
+    printf ("\x1B[0;31mABORT:\x1B[m %s at line %d, column %d:\n\t", filePath, line, col);
 
     switch (reason) {
       case A_DUPLICATE_DOMAIN:
-        printf (":\n\tDuplicate value in domain.\n");
+        printf ("Duplicate value in domain.\n");
         break;
       case A_NOT_IN_DOMAIN:
-        printf (":\n\tValue not in domain\n");
+        printf ("Value not in domain\n");
         break;
       case A_NEGATIVE_POS:
-        printf (":\n\tTrying to access negative position `%d` in a sequence.\n", pos);
+        printf ("Trying to access negative position `%d` in a sequence.\n", pos);
         break;
       case A_BAD_POS:
-        printf (":\n\tTrying to access the position `%d` of a sequence of size `%d`.\n", pos, size);
+        printf ("Trying to access the position `%d` of a sequence of size `%d`.\n", pos, size);
+        break;
+      case A_REMOVE_POINTER:
+        printf ("Trying to free a pointer that was already freed\n\t");
+        printf ("or not allocated with `new` instruction.\n");
+        break;
+      case A_NULL_POINTER:
+        printf ("A null pointer was dereferenced.\n");
+        break;
+      case A_BAD_POINTER:
+        printf ("Attempted to dereference a bad pointer. Maybe it was already freed.\n");
         break;
       default:
         break;
@@ -551,14 +561,14 @@ extern "C" {
       ((Function*)ptr)->insert(Tuple(key,value));
   }
 
-  int8_t *_funcFromSet(int8_t* setPtr, int line, int col){
+  int8_t *_funcFromSet(int8_t* setPtr, char* filePath, int line, int col){
       SetPair* set   = (SetPair*)setPtr;
       Function *func = (Function*)_newFunction();
 
     for(SetPair::iterator it = set->begin(); it != set->end(); ++it){
         Function::iterator it2 = func->find(it->first);
         if (it2 != func->end()) {
-          abortAbstract(A_DUPLICATE_DOMAIN, line, col);
+          abortAbstract(A_DUPLICATE_DOMAIN, filePath, line, col);
         } else {
           func->insert(Tuple(it->first,it->second));
         }
@@ -602,11 +612,11 @@ extern "C" {
     return (int8_t*)set;
   }
 
-  t _pairFunction(int8_t *ptr, t k, int line, int col){
+  t _pairFunction(int8_t *ptr, t k, char* filePath, int line, int col){
     Function *function    = (Function*)ptr;
     Function::iterator it = function->find(k);
     if (it == function->end()){
-      abortAbstract(A_NOT_IN_DOMAIN, line, col);
+      abortAbstract(A_NOT_IN_DOMAIN, filePath, line, col);
     }
     return (t)function->find(k)->second;
 
@@ -637,7 +647,7 @@ extern "C" {
     return (int8_t*) set;
   }
 
-  int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, int line, int col){
+  int8_t* _unionFunction(int8_t* ptr1, int8_t* ptr2, char* filePath, int line, int col){
     Function *func1    = (Function*)ptr1,
              *func2    = (Function*)ptr2,
              *newFunc = (Function*)_newMultisetPair();
@@ -650,7 +660,7 @@ extern "C" {
       Function::iterator it2 = newFunc->find(it->first);
       if (it2 != newFunc->end()){
         if (it2->second != it->second){
-          abortAbstract(A_DUPLICATE_DOMAIN, line, col);
+          abortAbstract(A_DUPLICATE_DOMAIN, filePath, line, col);
         }
       } else {
         newFunc->insert(Tuple(it->first, it->second));
@@ -824,13 +834,13 @@ extern "C" {
       return (int) ((Sequence*)ptr)->size();
   }
 
-  t _atSequence(int8_t*ptr, int pos, int line, int col){
+  t _atSequence(int8_t*ptr, int pos, char* filePath, int line, int col){
     Sequence* seq = (Sequence*)ptr;
     if (pos < 0){
-      abortAbstract(A_NEGATIVE_POS, line, col);
+      abortAbstract(A_NEGATIVE_POS, filePath, line, col);
     }
     else if (pos >= seq->size()){
-      abortAbstract(A_BAD_POS, line, col);
+      abortAbstract(A_BAD_POS, filePath, line, col);
     }
     return (*seq)[pos];
   }
@@ -888,13 +898,13 @@ extern "C" {
 //    return (int) ((SequencePair*)ptr)->size();
 //  }
 
-  gtuple _atSequencePair(int8_t*ptr, int pos, int line, int col){
+  gtuple _atSequencePair(int8_t*ptr, int pos, char* filePath, int line, int col){
     SequencePair* seq = (SequencePair*)ptr;
     if (pos < 0){
-      abortAbstract(A_NEGATIVE_POS, line, col,pos);
+      abortAbstract(A_NEGATIVE_POS, filePath, line, col,pos);
     }
     else if (pos >= seq->size()){
-      abortAbstract(A_BAD_POS, line, col,pos,(int)seq->size());
+      abortAbstract(A_BAD_POS, filePath, line, col,pos,(int)seq->size());
     }
     Tuple t = (*seq)[pos];
     gtuple tuple = {t.first, t.second};
@@ -983,30 +993,27 @@ extern "C" {
 /* Dynamic Memory Verifications */
 void _addPointer(int8_t* ptr){
   dynMemSet.insert(ptr);
+  // printf(">>%p\n", ptr);
 }
 
-void _removePointer(int8_t* ptr, int c, int l){
+void _removePointer(int8_t* ptr, char* filePath, int l, int c){
   set<int8_t*>::iterator p = dynMemSet.find(ptr);
   if ( p == dynMemSet.end()) {
-    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
-    printf ("Trying to free a pointer that was already freed\n\t");
-    printf ("or not allocated with `new` instruction.\n");
+    abortAbstract(A_REMOVE_POINTER, filePath, l, c);
     exit(EXIT_FAILURE);
   } else {
     dynMemSet.erase(ptr);
   }
 }
 
-void _derefPointer(int8_t* ptr, int p, int l, int c){
+void _derefPointer(int8_t* ptr, int p, char* filePath, int l, int c){
   if (ptr == 0){
-    printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
-    printf ("A null pointer was dereferenced.\n");
+    abortAbstract(A_NULL_POINTER, filePath, l, c);
     exit(EXIT_FAILURE);
   }
   else if (not p && dynMemSet.find(ptr) == dynMemSet.end()) {
-      printf ("\x1B[0;31mABORT:\x1B[m at line %d, column %d\n\t", l, c);
-      printf ("Attempted to dereference a bad pointer. Maybe it was already freed.\n");
-      exit(EXIT_FAILURE);
+    abortAbstract(A_BAD_POINTER, filePath, l, c);
+    exit(EXIT_FAILURE);
   }
 }
 

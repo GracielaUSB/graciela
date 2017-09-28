@@ -840,6 +840,7 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       (trueLabel #)
 
 
+
 preDefinitions :: [String] -> LLVM ()
 preDefinitions files = do
   mapM_ addFile files
@@ -871,19 +872,23 @@ preDefinitions files = do
 
     -- Conversion functions
     , defineFunction float2intString  [ parameter ("x", floatType)
+                                      , parameter ("filePathh", stringType)
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]
                                       intType
     , defineFunction pointer2intString [parameter ("x", floatType)
+                                      , parameter ("filePathh", stringType)
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]
                                       intType
     , defineFunction char2intString   charParam intType
     , defineFunction float2charString [ parameter ("x", floatType)
+                                      , parameter ("filePathh", stringType)
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]
                                       charType
     , defineFunction int2charString   [ parameter ("x", intType)
+                                      , parameter ("filePathh", stringType)
                                       , parameter ("line", intType)
                                       , parameter ("column", intType) ]
                                       charType
@@ -892,14 +897,17 @@ preDefinitions files = do
 
     -- Polymorphic functions
     , defineFunction sqrtIString [ parameter ("x", intType)
+                                 , parameter ("filePathh", stringType)
                                  , parameter ("line", intType)
                                  , parameter ("column", intType) ]
                                  intType
     , defineFunction sqrtFString [ parameter ("x", floatType)
+                                 , parameter ("filePathh", stringType)
                                  , parameter ("line", intType)
                                  , parameter ("column", intType)]
                                  floatType
     , defineFunction absIString  [ parameter ("x", intType)
+                                 , parameter ("filePathh", stringType)
                                  , parameter ("line", intType)
                                  , parameter ("column", intType)]
                                  intType
@@ -1016,6 +1024,7 @@ preDefinitions files = do
 
     , defineFunction unionFunctionString      [ parameter ("x", pointerType)
                                               , parameter ("y", pointerType)
+                                              , parameter ("filePath", stringType)
                                               , parameter ("line", intType)
                                               , parameter ("column", intType)]
                                               pointerType
@@ -1046,11 +1055,13 @@ preDefinitions files = do
 
     , defineFunction atSequenceString             [ parameter ("x", pointerType)
                                                   , parameter ("y", intType)
+                                                  , parameter ("filePath", stringType)
                                                   , parameter ("line", intType)
                                                   , parameter ("column", intType)]
                                                   lintType
     , defineFunction atSequencePairString         [ parameter ("x", pointerType)
                                                   , parameter ("y", intType)
+                                                  , parameter ("filePath", stringType)
                                                   , parameter ("line", intType)
                                                   , parameter ("column", intType)]
                                                   tupleType
@@ -1058,6 +1069,7 @@ preDefinitions files = do
 --------------------------------------------------------------------------------
     , defineFunction relString                ptrParam   pointerType
     , defineFunction funcString               [ parameter ("x", pointerType)
+                                              , parameter ("filePath", stringType)
                                               , parameter ("line", intType)
                                               , parameter ("column", intType)]
                                               pointerType
@@ -1070,6 +1082,7 @@ preDefinitions files = do
 
     , defineFunction evalFuncString           [ parameter ("x", pointerType)
                                               , parameter ("y", lintType)
+                                              , parameter ("filePath", stringType)
                                               , parameter ("line", intType)
                                               , parameter ("column", intType)]  lintType
     , defineFunction evalRelString            ptri64Param pointerType
@@ -1081,10 +1094,12 @@ preDefinitions files = do
 --------------------------------------------------------------------------------
     -- Abort
     , defineFunction abortString [ parameter ("x", intType)
+                                 , parameter ("filePathh", stringType)
                                  , parameter ("line", intType)
                                  , parameter ("column", intType)]
                                  voidType
     , defineFunction warnString [ parameter ("x", intType)
+                                , parameter ("filePathh", stringType)
                                 , parameter ("line", intType)
                                 , parameter ("column", intType)]
                                 voidType
@@ -1121,6 +1136,7 @@ preDefinitions files = do
     , defineFunction maxnumFstring  floatParams2 floatType
     , defineFunction powIString     [ parameter ("x", intType)
                                     , parameter ("y", intType)
+                                    , parameter ("filePathh", stringType)
                                     , parameter ("line", intType)
                                     , parameter ("column", intType)]
                                     intType
@@ -1159,20 +1175,24 @@ preDefinitions files = do
     -- , defineFunction mallocTCString intParam pointerType
 
     , defineFunction freeString [ parameter ("ptr", pointerType)
+                                , parameter ("filePathh", stringType)
                                 , parameter ("line", intType)
                                 , parameter ("column", intType)]
                                 voidType
 
     , defineFunction addPointerString     [ parameter ("ptr", pointerType)
+                                          , parameter ("filePathh", stringType)
                                           , parameter ("line", intType)
                                           , parameter ("column", intType)]
                                           voidType
     , defineFunction removePointerString  [ parameter ("ptr", pointerType)
+                                          , parameter ("filePathh", stringType)
                                           , parameter ("line", intType)
                                           , parameter ("column", intType)]
                                           voidType
     , defineFunction derefPointerString   [ parameter ("ptr", pointerType)
                                           , parameter ("pragma", boolType)
+                                          , parameter ("filePathh", stringType)
                                           , parameter ("line", intType)
                                           , parameter ("column", intType)]
                                           voidType

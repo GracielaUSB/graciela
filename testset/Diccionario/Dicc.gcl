@@ -74,7 +74,7 @@ module Dicc begin
 
 
     proc eliminar (inout d : Dicc(T0,T1), in c : T0)
-      var k             : int;
+      var k : int;
 
       {pre (% ∃ i : int | 0 ≤ i ∧ i < d.tam | d.clave[i] == c %) pre}
       {post d.tam == d'.tam - 1

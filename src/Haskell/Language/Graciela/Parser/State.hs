@@ -22,6 +22,7 @@ module Language.Graciela.Parser.State
   , pendingDataType
   , doingCoupleRel
   , initialState
+  , userDefinedType
   , stringIds
   , stringCounter
   , pragmas
@@ -84,13 +85,13 @@ data State = State
   , _filesToRead     :: Set String
   , _currentProc     :: Maybe CurrentProc
   , _currentFunc     :: Maybe CurrentFunc
-  , _currentStruct   :: Maybe (Type, Fields, Map Text Definition, Fields)
+  , _currentStruct   :: Maybe (Type, Fields, Map Text Definition, Fields, TypeArgs) -- dt, abstract filds, dt definitions, dt fields, typeargs of  the abstract
   , _typeVars        :: [Text]
   , _existsDT        :: Bool
   , _dataTypes       :: Map Text Struct
   , _fullDataTypes   :: Map Text (Map TypeArgs Bool)
   , _pendingDataType :: Map Text (Set Text)
-  , _userDefinedType :: Set Type
+  , _userDefinedType :: Map Text Type
   , _doingCoupleRel  :: Bool
   , _stringIds       :: Map Text Int
   , _stringCounter   :: Int
@@ -119,7 +120,7 @@ initialState pragmas = State
   , _fullDataTypes   = Map.empty
   , _doingCoupleRel  = False
   , _pendingDataType = Map.empty
-  , _userDefinedType = Set.empty
+  , _userDefinedType = Map.empty
   , _stringIds       = Map.empty
   , _stringCounter   = 0
   , _pragmas         = pragmas

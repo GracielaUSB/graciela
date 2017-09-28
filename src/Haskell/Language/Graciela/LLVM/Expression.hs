@@ -534,6 +534,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             Op.Power -> do
               let posConstant =
                     (,[]) . constantOperand GInt . Left . fromIntegral . unPos
+              filePath <- (,[]) <$> getFilePathOperand (sourceName pos)
               addInstruction $ label := Call
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
@@ -542,6 +543,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                 , arguments          =
                   [ (lOperand,[])
                   , (rOperand,[])
+                  , filePath
                   , posConstant . sourceLine $ pos
                   , posConstant . sourceColumn $ pos ]
                 , functionAttributes = []
@@ -709,16 +711,16 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           case op of
             Op.Union -> do
               let
-                SourcePos _ x y = pos
+                SourcePos f x y = pos
                 line = constantOperand GInt . Left . fromIntegral $ unPos x
                 col  = constantOperand GInt . Left . fromIntegral $ unPos y
-
+              filePath <- getFilePathOperand f
               addInstruction $ label := Call
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
                 , function           = callable (pointerType) unionFunctionString
-                , arguments          = [(lOperand,[]), (rOperand,[]), (line, []), (col, [])]
+                , arguments          = [(lOperand,[]), (rOperand,[]), (filePath,[]), (line, []), (col, [])]
                 , functionAttributes = []
                 , metadata           = [] }
             Op.Intersection -> addInstruction $ label := Call
@@ -789,7 +791,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               pure $ constantOperand I64 $ Left value
             otherwise -> do
               to64    <- newLabel "to64"
-              addInstruction $ to64 := BitCast  
+              addInstruction $ to64 := ZExt
                 { operand0 = intOp
                 , type'    = lintType 
                 , metadata = [] }
@@ -812,10 +814,10 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
         seqAt lOp rOp lType rType = do
           let
-            SourcePos _ x y = pos
+            SourcePos f x y = pos
             line = constantOperand GInt . Left . fromIntegral $ unPos x
             col  = constantOperand GInt . Left . fromIntegral $ unPos y
-
+          filePath <- getFilePathOperand f
           let atString = case expType of
                 GTuple {} -> atSequencePairString
                 _         -> atSequenceString
@@ -826,7 +828,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
             , callingConvention  = CC.C
             , returnAttributes   = []
             , function           = callable (pointerType) atString
-            , arguments          = (,[]) <$> [lOp, rOp, line, col]
+            , arguments          = (,[]) <$> [lOp, rOp, filePath, line, col]
             , functionAttributes = []
             , metadata           = [] }
 
@@ -895,17 +897,17 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
           case lType of
             GFunc {} -> do
               let
-                SourcePos _ x y = pos
+                SourcePos f x y = pos
                 line = constantOperand GInt . Left . fromIntegral $ unPos x
                 col  = constantOperand GInt . Left . fromIntegral $ unPos y
-
+              filePath <- getFilePathOperand f
               call <- newUnLabel
               addInstruction $ call := Call
                 { tailCallKind       = Nothing
                 , callingConvention  = CC.C
                 , returnAttributes   = []
                 , function           = callable lintType evalFuncString
-                , arguments          = (,[]) <$> [lOp, LocalReference lintType rCast, line, col]
+                , arguments          = (,[]) <$> [lOp, LocalReference lintType rCast, filePath, line, col]
                 , functionAttributes = []
                 , metadata           = [] }
 
@@ -1146,18 +1148,28 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
       Obj{ theObj } -> objectRef theObj
       _ -> internal $ "Cannot get the address of a non object expression\n" <> (drawTree . toTree $ e)
 
+    UnsafeCast { castExpr } -> do
+      e <- expression castExpr
+      t <- toLLVMType expType
+      cast <- newLabel "unsafeCast"
+      addInstruction $ cast := BitCast
+        { operand0 = e
+        , type' = t
+        , metadata = [] }
+      pure $ LocalReference t cast  
+
 
     I64Cast { inner = inner @ Expression {expType = iType} } -> do
       i <- expression' inner
 
       type' <- fill iType
 
-      t <- newUnLabel
+      label <- newUnLabel
 
       case type' of
         GTuple a b -> pure i
         _ -> do
-          addInstruction $ t := case type' of
+          addInstruction $ label := case type' of
             GFloat -> BitCast
               { operand0 = i
               , type' = lintType
@@ -1172,9 +1184,9 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
               { operand0 = i
               , type' = lintType
               , metadata = [] }
-          pure $ LocalReference lintType t
+          pure $ LocalReference lintType label
 
     -- Dummy operand
     _ -> internal $
-      "I don't know how to generate code for: " <> (drawTree . toTree $ e)
+      "I don't know how to generate code for:\n" <> (drawTree . toTree $ e)
 

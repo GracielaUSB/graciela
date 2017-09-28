@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Language.Graciela.LLVM.Monad where
 --------------------------------------------------------------------------------
@@ -12,6 +13,7 @@ import           Control.Lens                     (at, ix, use, (%=), (+=),
 import           Control.Monad.State.Class        (MonadState)
 import           Control.Monad.Trans.State.Strict (State)
 import           Data.Foldable                    (toList)
+import           Data.Array                       ((!))
 import qualified Data.Map.Strict                  as Map (empty, insert, lookup)
 import           Data.Maybe                       (fromMaybe)
 import           Data.Sequence                    (Seq, (|>))
@@ -125,6 +127,13 @@ newLabel label = do
 
 newUnLabel :: LLVM Name
 newUnLabel = UnName <$> (unnameSupply <<+= 1)
+--------------------------------------------------------------------------------
+
+
+getFilePathOperand :: String -> LLVM Operand
+getFilePathOperand filePath = use stringIds >>= pure . Map.lookup (pack filePath) >>= \case 
+  Just x -> use stringOps >>= pure . (flip (!) x)
+  Nothing -> internal $ "Not file found: " <> filePath
 --------------------------------------------------------------------------------
 
 callable :: Type -> String -> Either a Operand

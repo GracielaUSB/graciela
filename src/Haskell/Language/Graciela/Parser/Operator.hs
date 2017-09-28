@@ -113,9 +113,10 @@ arithU fi ff = f
         , inner = e }}
 
 arithUnType :: UnaryOpType
-arithUnType GInt   = Right GInt
-arithUnType GFloat = Right GFloat
-arithUnType _      = Left $
+arithUnType GInt      = Right GInt
+arithUnType (GEnum _) = Right GInt
+arithUnType GFloat    = Right GFloat
+arithUnType _         = Left $
   show GInt   <> ", " <>
   show GFloat
 
@@ -196,6 +197,7 @@ arith'' op fi ff = f
 
 arithOpType :: BinaryOpType
 arithOpType GInt   GInt   = Right GInt
+arithOpType a b | a =:= GInt && b =:= GInt = Right GInt
 arithOpType GChar  GChar  = Right GChar
 arithOpType GFloat GFloat = Right GFloat
 arithOpType _      _      = Left $

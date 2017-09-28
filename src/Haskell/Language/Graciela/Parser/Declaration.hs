@@ -92,7 +92,7 @@ declaration' isStruct = do
     f ((x,_):xs)      = "`" <> unpack x <> "`, " <> f xs
 
   case maybeStruct of
-    Just (dt@GDataType {typeName}, _, _, _) | recursiveDecl t dt ->
+    Just (dt@GDataType {typeName}, _, _, _, _) | recursiveDecl t dt ->
       putError from . UnknownError $
         "Attempting to declare " <> f' (toList ids) <>
         ",\n\twith a recursive type " <> show t <>
@@ -199,7 +199,7 @@ checkType True t isStruct pairs
   else do
     putError from . UnknownError $
       "Trying to assign an expression with type " <> show expType <>
-      " to the constant `" <> unpack name <> "`, of type " <>
+      "\n\tto the constant `" <> unpack name <> "`, of type " <>
       show t <> "."
     pure Nothing
 
@@ -229,7 +229,7 @@ checkType False t isStruct pairs
     else do
       putError from . UnknownError $
         "Trying to assign an expression with type " <> show expType <>
-        " to the variable `" <> unpack name <> "`, of type " <>
+        "\n\tto the variable `" <> unpack name <> "`, of type " <>
         show t <> "."
       pure Nothing -- Seq.empty
 
@@ -246,7 +246,7 @@ redefinition (varName, Location (from, _)) = do
     else do
       maybeStruct <- use currentStruct
       case maybeStruct of
-        Just (GDataType _ (Just abstName) _, _, _, _) -> do
+        Just (GDataType _ (Just abstName) _, _, _, _, _) -> do
           adt <- getStruct abstName
           case adt of
             Just abst -> do
@@ -267,7 +267,7 @@ info' :: Bool -> SourcePos -> Text
       -> Parser Entry'
 info' isStruct pos name t expr constness = if isStruct
   then do
-    Just (_ , fields, _, dFields) <- use currentStruct
+    Just (_ , fields, _, dFields, _) <- use currentStruct
     let
       f l = (fromIntegral l, t, constness, expr)
       fields'    = Map.insert name (f $ length fields) fields

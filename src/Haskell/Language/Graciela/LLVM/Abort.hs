@@ -40,9 +40,10 @@ abortString = "_abort"
 --------------------------------------------------------------------------------
 
 -- | Used to build the args for an abort or a warning.
-args :: Integer -> SourcePos -> [(Operand, [ParameterAttribute])]
-args i pos =
+args :: Integer -> SourcePos -> Operand -> [(Operand, [ParameterAttribute])]
+args i pos filePath =
   [ (constantOperand GInt . Left $i, [])
+  , (filePath, [])
   , posConstant . sourceLine  $ pos
   , posConstant . sourceColumn $ pos
   ]
@@ -51,14 +52,16 @@ args i pos =
     posConstant = (,[]) . constantOperand GInt . Left . fromIntegral . unPos
 
 waCall :: String -> Integer -> SourcePos -> LLVM ()
-waCall func i pos = addInstruction $ Do Call
-  { tailCallKind        = Nothing
-  , callingConvention   = CC.C
-  , returnAttributes    = []
-  , function            = callable voidType func
-  , arguments           = args i pos
-  , functionAttributes  = []
-  , metadata            = [] }
+waCall func i pos = do 
+  filePath <- getFilePathOperand (sourceName pos)
+  addInstruction $ Do Call
+    { tailCallKind        = Nothing
+    , callingConvention   = CC.C
+    , returnAttributes    = []
+    , function            = callable voidType func
+    , arguments           = args i pos filePath
+    , functionAttributes  = []
+    , metadata            = [] }
 --------------------------------------------------------------------------------
 
 -- | Enum type for the different abort conditions.

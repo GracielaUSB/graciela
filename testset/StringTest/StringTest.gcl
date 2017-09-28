@@ -9,8 +9,11 @@ program StringTest.bin begin
     var str1, str2, str3 : String;
     copy(str1, "Perrito");
     copy(str2, " Con Queso\n\t Y Jamon");
-    concat(str1,str2,str3);
-    writeString(str3);
+    concat(str1,str2);
+    writeString(str1);
+
+    delete(str2);
+    delete(str1)
     ⟧
   
 end

@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns           #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PostfixOperators         #-}
+{-# LANGUAGE TupleSections            #-}
 
 module Language.Graciela.LLVM.Object
   ( object
@@ -284,18 +285,18 @@ objectRef (Object loc t obj') = do
       p <- Set.member MemoryOperations <$> use mpragmas
       let
         ptr = LocalReference pointerType $ castPtr
-        Location (SourcePos _ l c, _) = loc
+        Location (SourcePos f l c, _) = loc
         pragma = ConstantOperand . C.Int 1 $ if p then 1 else 0
         line = constantOperand GInt . Left . fromIntegral $ unPos l
         col  = constantOperand GInt . Left . fromIntegral $ unPos c
-
+      filePath <- getFilePathOperand f
       use evalAssertions >>= \b -> when b $ 
         addInstruction $ Do Call
             { tailCallKind       = Nothing
             , callingConvention  = CC.C
             , returnAttributes   = []
             , function           = callable voidType derefPointerString
-            , arguments          = [(ptr, []), (pragma, []), (line, []), (col,[])]
+            , arguments          = (,[]) <$> [ptr, pragma, filePath, line, col]
             , functionAttributes = []
             , metadata           = [] }
 

@@ -31,14 +31,16 @@ module Language.Graciela.Location
   , unPos
   ) where
 --------------------------------------------------------------------------------
-import           Data.Semigroup      (Semigroup (..))
-import           Text.Megaparsec.Pos (SourcePos (..), Pos(..), unPos, unsafePos)
+import           Data.Semigroup         (Semigroup (..))
+import           Text.Megaparsec.Pos    (SourcePos (..), Pos(..), unPos, unsafePos)
 --------------------------------------------------------------------------------
-import           Data.Serialize      (Serialize(..))
-import           GHC.Generics        (Generic)
-import           Data.Word           (Word64)
-import           Data.Serialize.Get  (Get)
-import           Control.Monad       (liftM)
+import           Data.Serialize         (Serialize(..))
+import           GHC.Generics           (Generic)
+import           Data.Text              (unpack)
+import           Data.Word              (Word64)
+import           Data.Serialize.Get     (Get)
+import           Control.Monad          (liftM)
+import           System.FilePath.Posix  (takeFileName)
 --------------------------------------------------------------------------------
 
 -- | This datatype stores information about the location of various
@@ -97,8 +99,9 @@ showPos :: SourcePos -> String
 showPos SourcePos { sourceName, sourceLine, sourceColumn }
   | sourceName == "/GRACIELA/" = "(in the Graciela Definition)"
   | otherwise =
-    "(line " <> show (unPos sourceLine) <> ", col " <>
-    show (unPos sourceColumn) <> ")"
+    "(" <> takeFileName (sourceName) <> ":" 
+    <> show (unPos sourceLine) <> ":" <> show (unPos sourceColumn) <> ")" 
+
 
 
 showRedefPos :: SourcePos -> SourcePos -> String

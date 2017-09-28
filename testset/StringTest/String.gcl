@@ -1,39 +1,33 @@
 
 /*% LANGUAGE MemoryOperations  %*/
 /*% LANGUAGE EnableTrace  %*/
+/*% LANGUAGE NoAssertions  %*/
 
 include "Memory"
 
 module String begin
 
   abstract StringA begin
-    var a_str : sequence of char;
-    
+    /* asd variables */
     {repinv true repinv}
-
-    proc concat(in str1 : StringA, in str2 : StringA, out str_out : StringA)
-      {pre true  pre}
-      {post str_out.a_str == str1.a_str ++ str2.a_str post}
+    /* asd procedures and functions */
   end
 
   type String implements StringA begin
     /* String variables */
-    var size : int;
-    var s    : char*;
+    var size  : int;
+    var s     : char*;
     
-    {repinv size >= 0 repinv}
+    {repinv true repinv}
 
     {coupinv true coupinv}
-
-    where {
-      a_str := << i : int | 0 <= i /\ i < size | s[i] >>
-    } 
+    
     /* a procedures and functions */
  
-    proc readString(inout str : String)
+    proc readString(ref str : String)
       {pre  true  pre}
       {post str.s != null post}
-      |[ if str.s != null -> free(str.s) 
+      |[ if str.s != null -> writeln("Free 3>"); free(str.s) 
          [] otherwise -> skip
          fi;
          str.s := readln(&str.size);
@@ -43,7 +37,7 @@ module String begin
       {pre  str.s != null  pre}
       {post true post}
       |[ var i := 0 : int;
-        if str.s == null -> skip
+        if (str.s == null) -> skip
         [] otherwise ->
             {inv str.s[i] == '\0' ==> i == str.size inv}
             {bound str.size - i  bound}
@@ -52,16 +46,24 @@ module String begin
               i := i+1;
             od
         fi
-      ]|
 
+      ]|
+    proc delete (ref str : String)
+      {pre  true  pre}
+      {post true post}
+      |[ 
+        if (str.s == null) -> skip
+        [] otherwise       -> free(str.s);
+        fi
+      ]|
     proc copy(ref str : String, in s : char*)
-      {pre  s != null  pre}
-      {post str.s != null post}
+      {pre  true  pre}
+      {post true post}
       |[ var i := 0 : int;
          var m : Mem(char);
 
         if (str.s == null) -> skip
-        [] otherwise -> free(str.s); str.s := null;
+        [] otherwise -> writeln("Free 2>"); free(str.s); str.s := null;
         fi;
 
         {inv true inv}
@@ -69,8 +71,7 @@ module String begin
         do s[str.size] != '\0' ->
           str.size := str.size+1;
         od;
-
-        malloc(m, str.size, str.s);
+        malloc(m, str.size+1, str.s);
 
         {inv s[i] == '\0' ==> i == str.size inv}
         {bound str.size - i  bound}
@@ -80,24 +81,20 @@ module String begin
         od;
       ]|
 
-    proc concat(in str1 : String, in str2 : String, out str_out : String)
+    proc concat(ref str1 : String, ref str2 : String)
       {pre  str1.s != null /\ str2.s != null  pre}
-      {post (% forall i : int 
-                | 0 <= i /\ i < str1.size 
-                | str1.s[i] == str_out.s[i] %) 
-        /\  (% forall i : int 
-                | 0 <= i /\ i < str2.size 
-                | str2.s[i] == str_out.s[i+str1.size] %) 
-      post}
-      |[  var i := 0 : int;
+      {post true  post}
+      |[  var i, oldSize := 0, str1.size : int;
           var m : Mem(char);
+          var c := str1.s : char*;
+          str1.size := oldSize + str2.size;
 
-          str_out.size := str1.size + str2.size;
-          malloc (m, str_out.size + 1, str_out.s);
-          {inv str1.s[i] == '\0' ==> i == str1.size inv}
-          {bound str1.size - i  bound}
-          do i < str1.size /\ str1.s[i] != '\0' ->
-            str_out.s[i] := str1.s[i];
+          malloc (m, str1.size + 1, str1.s);
+          
+          {inv c[i] == '\0' ==> i == oldSize inv}
+          {bound oldSize - i  bound}
+          do i < oldSize /\ c[i] != '\0' ->
+            str1.s[i] := c[i];
             i := i+1;
           od;
 
@@ -105,11 +102,12 @@ module String begin
           {inv str2.s[i] == '\0' ==> i == str2.size inv}
           {bound str2.size - i  bound}
           do i < str2.size /\ str2.s[i] != '\0' ->
-            str_out.s[i+str1.size] := str2.s[i];
+            str1.s[i+oldSize] := str2.s[i];
             i := i+1;
           od;
-          
-          str_out.s[str_out.size+1] := '\0'
+          str1.s[str1.size+1] := '\0';
+          free(c)
+
       ]|
   end
 end

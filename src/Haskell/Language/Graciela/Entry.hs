@@ -24,7 +24,10 @@ import           Data.Text                        (unpack)
 --------------------------------------------------------------------------------
 
 data Entry'
-  = Var
+  = Enum
+    { _enumType  :: Type 
+    , _enumValue :: Expression }
+  | Var
     { _varType  :: Type
     , _varValue :: Maybe Expression
     , _varConst :: Bool }
@@ -52,6 +55,11 @@ data Entry
 
 instance Treelike Entry where
   toTree Entry { _entryName, _loc, _info } = case _info of
+    Enum { _enumType, _enumValue } ->
+      Node ( "Enum `" <>
+        unpack _entryName <> "` " <> show _loc)
+        [ leaf ("Type: " <> show _enumType)
+        , toTree _enumValue ]
 
     Var { _varType, _varValue, _varConst } ->
       Node ((if _varConst then "Constant" else "Variable") <> " `" <>

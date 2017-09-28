@@ -47,6 +47,9 @@ data Struct
 fillTypes :: TypeArgs -> Fields -> Fields
 fillTypes typeArgs fields = (_2 %~ fillType typeArgs) <$> fields
 
+instance Show Struct where
+  show Struct {structBaseName, structTypes} = "\ESC[0;32m" <>
+    unpack structBaseName <> "(" <> intercalate "," (fmap show structTypes) <> ")\ESC[m"
 
 instance Treelike Struct where
   toTree Struct { structLoc, structFields, structProcs, structTypes, structBaseName, struct' }

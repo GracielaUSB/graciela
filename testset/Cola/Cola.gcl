@@ -148,15 +148,15 @@ begin
      ; var aux : T
      ; var v : boolean
 
-     ; /*write ("Cuantas veces desea interactuar con el sistema? > "); */read (veces)
+     ; write ("Cuantas veces desea interactuar con el sistema? > "); read (veces)
 
      ; vez := 1
      ; {inv true inv}
        {bound veces - vez + 1 bound}
        do vez <= veces 
-         -> /*write (vez); write ("> ");*/ read (opcion)
+         -> write (vez); write ("> "); read (opcion)
           ; if opcion == 'E' \/ opcion == 'e'
-              -> /*write ("escriba el entero a encolar > ");*/ read (aux)
+              -> write ("escriba el entero a encolar > "); read (aux)
                ; if numElems (c) < c.MAX -> encolar (c, aux)
                  [] otherwise -> writeln ("No.")
                  fi
@@ -167,34 +167,34 @@ begin
             [] opcion == 'V' \/ opcion == 'v'
               -> vacia (c, v)
                ; writeln (v)
-               // ; if v         -> writeln ("la cola esta vacia.")
-               //   [] otherwise -> writeln ("la cola no esta vacia.")
-               //   fi
+               ; if v         -> writeln ("la cola esta vacia.")
+                 [] otherwise -> writeln ("la cola no esta vacia.")
+                 fi
             [] opcion == 'C' \/ opcion == 'c'
               -> vacia (c, v)
-               ; if v         -> writeln ("No.")/*writeln ("la cola esta vacia.")*/
+               ; if v         -> writeln ("No."); writeln ("la cola esta vacia.")
                  [] otherwise -> primero (c, aux)
-                               ; writeln (/*"la cabeza de la cola es ", */aux)
+                               ; writeln ("la cabeza de la cola es ", aux)
                  fi
             [] opcion == 'P' \/ opcion == 'p'
               -> mostrar (c); writeln ()
             [] opcion == 'S' \/ opcion == 's'
               -> vez := veces
             [] otherwise 
-              -> skip // writeln ("**Ayuda para colas**")
-               // ; writeln ("Comandos:")
-               // ; writeln ("\t(E)ncolar")
-               // ; writeln ("\t(D)esencolar")
-               // ; writeln ("\t(V)acia")
-               // ; writeln ("\t(C)abeza")
-               // ; writeln ("\tim(P)rimir")
-               // ; writeln ("\t(S)alir")
-               // ; writeln ("\t(*)ayuda (este mensaje)")
+              -> writeln ("**Ayuda para colas**")
+               ; writeln ("Comandos:")
+               ; writeln ("\t(E)ncolar")
+               ; writeln ("\t(D)esencolar")
+               ; writeln ("\t(V)acia")
+               ; writeln ("\t(C)abeza")
+               ; writeln ("\tim(P)rimir")
+               ; writeln ("\t(S)alir")
+               ; writeln ("\t(*)ayuda (este mensaje)")
             fi
           ; vez := vez + 1
        od
-     // ; writeln ("Ha llegado al final del programa.")
-     // ; write ("Último valor de la cola: ")
+     ; writeln ("Ha llegado al final del programa.")
+     ; write ("Último valor de la cola: ")
      ; mostrar (c)
      ; writeln ()
     ]|

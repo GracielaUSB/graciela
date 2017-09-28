@@ -80,7 +80,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         types <- mapM fill structTypes
 
         let
-          SourcePos f _ _ = pos structLoc 
+          -- SourcePos f _ _ = 
           name  = llvmName structBaseName types
           structType = LLVM.NamedTypeReference (Name name)
 
@@ -94,7 +94,7 @@ defineStruct structBaseName (ast, typeMaps) = case ast of
         currentStruct .= Just ast
 
         defaultConstructor fromOtherModule name structType typeMap
-        defaultDestructor fromOtherModule name structType typeMap
+        defaultDestructor fromOtherModule name structType typeMap (pos structLoc)
         defaultCopy fromOtherModule name structType typeMap
         when (asserts) $ do
           defineStructInv fromOtherModule CoupInvariant name structType coupinv
@@ -371,28 +371,26 @@ defaultConstructor _ name structType typeMap = do
       pure $ n + 1
 
     value t = case t of
-      GBool          -> pure . constantOperand GBool  . Left $ 0
-      GChar          -> pure . constantOperand GChar  . Left $ 0
-      GInt           -> pure . constantOperand GInt   . Left $ 0
+      t | t =:= GOneOf [GInt, GChar, GBool] -> pure . constantOperand t . Left $ 0
       GFloat         -> pure . constantOperand GFloat . Right $ 0
       t@(GPointer _) -> ConstantOperand . C.Null  <$> toLLVMType t
-
 
 
 
 defaultDestructor :: Bool -- is a declaration or a definition
                   -> String 
                   -> LLVM.Type 
-                  -> TypeArgs 
+                  -> TypeArgs
+                  -> SourcePos 
                   -> LLVM ()
-defaultDestructor True name structType _ = do
+defaultDestructor True name structType _ _= do
   let
     procName = "destroy" <> name
     selfParam   = Parameter (ptr structType) (Name "_self") []
 
   addDefinitions $ [defineFunction procName [selfParam] voidType]
 
-defaultDestructor _ name structType typeMap = do
+defaultDestructor _ name structType typeMap pos = do
   let
     procName = "destroy" <> name
   proc <- newLabel procName
@@ -407,9 +405,10 @@ defaultDestructor _ name structType typeMap = do
   let
     self = LocalReference structType selfName
     fields = toList structFields <> toList structAFields
-    line = constantOperand GInt . Left $ 0
-    col  = constantOperand GInt . Left $ 0
-
+    SourcePos f l c = pos
+    line = constantOperand GInt . Left . fromIntegral $ unPos l
+    col  = constantOperand GInt . Left . fromIntegral $ unPos c
+  filePath <- getFilePathOperand f
   forM_ fields $ \(field, t, _, expr) -> do
     let
       filledT = fillType typeMap t
@@ -454,8 +453,7 @@ defaultDestructor _ name structType typeMap = do
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [ (LocalReference pointerType iarrCast, [])
-                                 , (line,[]),(col,[]) ]
+          , arguments          = (,[]) <$> [LocalReference pointerType iarrCast, filePath, line, col]
           , functionAttributes = []
           , metadata = [] }
 

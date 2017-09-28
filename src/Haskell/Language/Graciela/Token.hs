@@ -213,8 +213,8 @@ data Token
   | TokRelation
   | TokFunction
 
-  -- | TokNew
-  -- | TokFree
+  | TokEnum
+  | TokAlias
   | TokNull
   | TokWhere
   | TokInclude
@@ -384,8 +384,8 @@ instance Show Token where
     TokFunction       -> "function"
     TokRelation       -> "relation"
 
-    -- TokNew            -> "new"
-    -- TokFree           -> "free"
+    TokEnum           -> "enum"
+    TokAlias          -> "alias"
     TokNull           -> "null"
 
     TokAmpersand      -> "&"

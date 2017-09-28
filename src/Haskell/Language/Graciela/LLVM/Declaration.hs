@@ -139,8 +139,8 @@ alloc gtype lval = do
     , alignment     = 4
     , metadata      = [] }
 
-  case gtype of
-    GDataType { typeName, typeArgs } -> do
+  let 
+    doDTInit typeName typeArgs = do
       t' <- mapM fill (toList typeArgs)
       types' <- mapM toLLVMType t'
       let
@@ -163,6 +163,9 @@ alloc gtype lval = do
         , arguments          = (,[]) <$> [structArg, dinamicAllocFlag]
         , functionAttributes = []
         , metadata           = [] }
+  case gtype of
+    GDataType { typeName, typeArgs } -> doDTInit typeName typeArgs
+    GAlias _ GDataType { typeName, typeArgs } -> doDTInit typeName typeArgs
 
     _ | gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
 
@@ -181,9 +184,10 @@ alloc gtype lval = do
 
   where
     value t = case t of
-      GBool          -> pure . constantOperand GBool . Left $ 0
-      GChar          -> pure . constantOperand GChar . Left $0
-      GInt           -> pure . constantOperand GInt  . Left $ 0
+      GBool          -> pure . constantOperand GBool  . Left  $ 0
+      GChar          -> pure . constantOperand GChar  . Left  $ 0
+      GInt           -> pure . constantOperand GInt   . Left  $ 0
+      GEnum _        -> pure . constantOperand GInt   . Left  $ 0
       GFloat         -> pure . constantOperand GFloat . Right $ 0
       t@(GPointer _) -> ConstantOperand . C.Null <$> toLLVMType t
 

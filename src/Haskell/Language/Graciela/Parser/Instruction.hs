@@ -156,7 +156,7 @@ assign = assign' False
 
 assign' :: Bool -> Parser (Maybe Instruction)
 assign' cr = do
-  from <- getPosition
+  from  <- getPosition
   lvals <- expression `sepBy1` match TokComma
   match' TokAssign
   exprs <- if cr 
@@ -612,7 +612,7 @@ procedureCall' = do
                         nParams = length procParams
                         typeArgs = case cs of
                             Nothing -> t'
-                            Just (GDataType _ _ dtArgs, _, _, _) ->
+                            Just (GDataType _ _ dtArgs, _, _, _, _) ->
                               fmap (fillType dtArgs) t'
 
                       when (nArgs /= nParams) . putError from . UnknownError $
@@ -639,7 +639,7 @@ procedureCall' = do
                         unpack procName <> "`"
                       return Nothing
 
-            Just (dt@GDataType {typeArgs}, _, _, _) | not (t =:= dt) ->
+            Just (dt@GDataType {typeArgs}, _, _, _, _) | not (t =:= dt) ->
               getStruct name >>= \case
               Nothing -> internal $ "Could not find DT " <> show name
               Just Struct{structProcs} ->
@@ -674,7 +674,7 @@ procedureCall' = do
                       unpack procName <> "`"
                     return Nothing
 
-            Just (dt@GDataType {typeArgs}, _, sp, _) -> case procName `Map.lookup` sp of
+            Just (dt@GDataType {typeArgs}, _, sp, _, _) -> case procName `Map.lookup` sp of
               Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                 let
                   nParams = length procParams

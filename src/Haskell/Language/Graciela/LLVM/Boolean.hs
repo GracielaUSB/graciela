@@ -271,9 +271,10 @@ boolean true false e@Expression { loc, exp' } = do
 
       SeqAt -> do
           let
-            SourcePos _ x y = pos loc
+            SourcePos f x y = pos loc
             line = constantOperand GInt . Left . fromIntegral $ unPos x
             col  = constantOperand GInt . Left . fromIntegral $ unPos y
+          filePath <- getFilePathOperand f
           lOp <- expression lexpr
           rOp <- expression rexpr
           call <- newLabel "seqAt"
@@ -282,7 +283,7 @@ boolean true false e@Expression { loc, exp' } = do
             , callingConvention  = CC.C
             , returnAttributes   = []
             , function           = callable pointerType atSequenceString
-            , arguments          = (,[]) <$> [lOp, rOp, line, col]
+            , arguments          = (,[]) <$> [lOp, rOp, filePath, line, col]
             , functionAttributes = []
             , metadata           = [] }
 

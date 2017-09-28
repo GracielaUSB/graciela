@@ -229,20 +229,27 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     openScope
     mapM_ declaration decls
     mapM_ instruction insts
+    
     forM_ decls $ \case 
-      G.Declaration {G.declType=GDataType{typeName, typeArgs}, G.declIds} -> do
-          let fName = "destroy" <> llvmName typeName (toList typeArgs)
-          forM_ declIds $ \vName -> do
-            name <- getVariableName vName
+      G.Declaration {G.declType, G.declIds} -> 
+        let 
+          aux typeName typeArgs = do
+            let fName = "destroy" <> llvmName typeName (toList typeArgs)
+            forM_ declIds $ \vName -> do
+              name <- getVariableName vName
 
-            addInstruction $ Do Call
-              { tailCallKind       = Nothing
-              , callingConvention  = CC.C
-              , returnAttributes   = []
-              , function           = callable voidType fName
-              , arguments          = [(LocalReference pointerType name, [])]
-              , functionAttributes = []
-              , metadata = [] }
+              addInstruction $ Do Call
+                { tailCallKind       = Nothing
+                , callingConvention  = CC.C
+                , returnAttributes   = []
+                , function           = callable voidType fName
+                , arguments          = [(LocalReference pointerType name, [])]
+                , functionAttributes = []
+                , metadata = [] }
+        in case declType of 
+          GDataType{typeName, typeArgs} -> aux typeName typeArgs
+          GAlias _ GDataType{typeName, typeArgs} -> aux typeName typeArgs
+          _ -> pure ()
       _ -> pure ()
     closeScope
     terminate Br
@@ -303,11 +310,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
               Obj o = exp'
             destPtr <- objectRef o
             type'   <- toLLVMType expType
-            case expType of
-              t@GArray{} -> do
-                copyArray t operand destPtr
-
-              t | t =:= GADataType -> do
+            let 
+              doDT = do
                 types <- mapM fill (toList . typeArgs $ expType)
 
                 let
@@ -321,6 +325,13 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                                                    , destPtr ]
                   , functionAttributes = []
                   , metadata           = [] }
+            case expType of
+              t@GArray{} -> do
+                copyArray t operand destPtr
+
+              GDataType{} -> doDT
+
+              GAlias _ GDataType{} -> doDT
 
               _ -> do
                 value <- newLabel "value"
@@ -349,9 +360,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
         type' <- toLLVMType expType
         let
           isIn = mode `elem` [In, InOut, Const]
-          Location(SourcePos _ l c, _) = loc
+          Location(SourcePos f l c, _) = loc
           line = constantOperand GInt . Left . fromIntegral $ unPos l
           col  = constantOperand GInt . Left . fromIntegral $ unPos c
+        filePath <- getFilePathOperand f
         case mode of
           Ref -> do
             label <- newLabel "argCastRef"
@@ -414,14 +426,14 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     { operand0 = LocalReference type' internalArr
                     , type'    = pointerType
                     , metadata = [] }
-
+                  
                   addArgInsts $ Do Call
                     { tailCallKind       = Nothing
                     , callingConvention  = CC.C
                     , returnAttributes   = []
                     , function           = callable voidType freeString
                     , arguments          = [ (LocalReference pointerType castToFree,[])
-                                           , (line,[]),(col,[])]
+                                           , (filePath, []), (line,[]),(col,[])]
                     , functionAttributes = []
                     , metadata           = [] }
 
@@ -503,7 +515,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , returnAttributes   = []
                 , function           = callable voidType freeString
                 , arguments          = [ (LocalReference pointerType castToFree,[])
-                                       , (line,[]),(col,[])]
+                                       , (filePath,[]), (line,[]),(col,[])]
                 , functionAttributes = []
                 , metadata           = [] }
 
@@ -541,9 +553,10 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
     type'      <- toLLVMType (T.GPointer freeType)
 
     let
-      SourcePos _ l c = pos
+      SourcePos f l c = pos
       line = constantOperand GInt . Left . fromIntegral $ unPos l
       col  = constantOperand GInt . Left . fromIntegral $ unPos c
+    filePath <- getFilePathOperand f
     case freeType of
       GArray { dimensions, innerType } -> do
         addInstruction $ labelLoad := Load
@@ -585,7 +598,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , returnAttributes   = []
           , function           = callable voidType freeString
           , arguments          = [(LocalReference pointerType iarrCast, [])
-                                 ,(line,[]), (col,[])]
+                                 ,(filePath,[]), (line,[]), (col,[])]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -599,8 +612,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])
-                                 ,(line,[]), (col,[])]
+          , arguments          = (,[]) <$> [LocalReference pointerType labelCast, filePath, line, col]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -641,8 +653,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
           , callingConvention  = CC.C
           , returnAttributes   = []
           , function           = callable voidType freeString
-          , arguments          = [(LocalReference pointerType labelCast, [])
-                                 ,(line,[]), (col,[])]
+          , arguments          = (,[]) <$> [LocalReference pointerType labelCast, filePath, line, col]
           , functionAttributes = []
           , metadata           = [] }
 
@@ -796,6 +807,9 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             , metadata           = [] }
 
         case nType of
+          GAlias _ (GDataType n t ta) -> do
+            types <- mapM fill $ toList ta
+            addInstruction $ call (llvmName n types)
           GDataType n t ta -> do
             types <- mapM fill $ toList ta
             addInstruction $ call (llvmName n types)
@@ -828,6 +842,7 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             GChar      -> writeCString
             GFloat     -> writeFString
             GInt       -> writeIString
+            GEnum _    -> writeIString
             GString    -> writeSString
             GPointer _ -> writePString
             GAny       -> writeIString

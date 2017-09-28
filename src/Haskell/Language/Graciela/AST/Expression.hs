@@ -248,6 +248,9 @@ data Expression'
 
   | RawName
     { theName :: Text }
+  | UnsafeCast 
+    { castExpr :: Expression }
+
   deriving (Eq, Generic, Serialize)
 
 data Expression
@@ -356,6 +359,8 @@ instance Treelike Expression where
               Expression { exp' = Value (BoolV True) } -> leaf "No Conditions"
               _ -> Node "Conditions" [ toTree qCond ]
           , Node "Body" [ toTree qBody ] ]
+      UnsafeCast { castExpr } -> 
+        Node ("Cast to " <> show expType) $ [toTree castExpr]
 
       EConditional { eguards, trueBranch } ->
         Node ("Conditional Expression " <> c <> show loc) $
@@ -429,7 +434,7 @@ prettyUnOp = \case
   Succ   -> "succ"
 
 instance Show Expression where
-  show Expression { exp' } = case exp' of
+  show Expression { exp', expType } = case exp' of
     NullPtr -> "null"
     Value { theValue } -> show theValue
 
@@ -466,7 +471,8 @@ instance Show Expression where
       | otherwise ->
         let rec = if fRecursiveFunc then "(rec)" else ""
         in unpack fName <> rec <> "(" <> (show =<< toList fArgs) <> ")"
-
+    UnsafeCast {castExpr} -> 
+      "[" <> show expType <> "] " <> show castExpr
     Quantification { qOp, qVar, qVarType, qRange, qCond, qBody } ->
       unwords
         [ "(%", op, var, ":", ty, "|"

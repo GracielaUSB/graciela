@@ -363,6 +363,8 @@ token  =  reserved "program"    TokProgram
       <|> reserved "true"       (TokBool True)
       <|> reserved "false"      (TokBool False)
 
+      <|> reserved "enum"       TokEnum
+      <|> reserved "alias"      TokAlias
       <|> reserved "null"       TokNull
       <|> reserved "where"      TokWhere
       <|> reserved "include"    TokInclude

@@ -91,7 +91,7 @@ abstractDataType = do
           "Already defined at " <> showRedefPos prevDef from <> "."
       _ -> pure ()
    
-    currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty)
+    currentStruct .= Just (abstractType, Map.empty, Map.empty, Map.empty, typeArgs)
 
     Location(p,_) <- match' TokBegin
 
@@ -158,7 +158,7 @@ dataType = do
   abstractName' <- safeIdentifier
   absTypesPos <- getPosition
   absTypes <- do
-      t <- optional . parens $ (typeVar <|> basicType) `sepBy` match TokComma
+      t <- optional . parens $ (typeVar <|> basicOrPointer) `sepBy` match TokComma
       case t of
         Just s -> pure $ toList s
         _      -> pure []
@@ -220,7 +220,7 @@ dataType = do
           -- abstract Fields filled with the corresponding types
 
 
-          currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty)
+          currentStruct .= Just (dtType, abstFields, Map.empty, Map.empty, abstractTypes)
 
           allowAbstNames .= True
           dataTypeDeclaration `endBy` match' TokSemicolon
@@ -262,7 +262,6 @@ dataType = do
                     when (t =:= highLevel) . putError (pos structLoc) . UnknownError $
                       "Expected couple for abstract variable `" <> unpack name <> "`."
                   pure Seq.empty
-
               let
                 struct = Struct
                   { structBaseName = name
@@ -388,15 +387,14 @@ dataType = do
 coupleRel :: Parser (Seq Instruction)
 coupleRel = do
   loc <- match TokWhere
-  declarative $ between (match' TokLeftBrace) (match' TokRightBrace) $ aux (pos loc)
+  declarative $ braces $ aux (pos loc)
   where
     aux pos = do
       
       insts' <- sequence <$> (assign' True) `sepBy` match TokSemicolon
       case insts' of
         Just insts | not (null insts) -> do
-          Just (GDataType{abstName = Just abstName}, _, _, _) <- use currentStruct
-          Just (Struct{structFields})  <- getStruct abstName
+          Just (GDataType{abstName = Just abstName}, structFields, _, _, _) <- use currentStruct
           let
             auxInsts = concat $ (toList . assignPairs . inst') <$> (toList insts)
 
@@ -437,7 +435,7 @@ coupleRel = do
       checkField fields insts set'
 
     check :: Fields -> Object -> Parser (Maybe Text)
-    check fields obj@Object{ O.loc } = case obj of
+    check fields obj@Object{O.loc} = case obj of
       Object{ objType, obj' = Member{ fieldName }} -> do
         if (isJust (fieldName `Map.lookup` fields) && objType =:= highLevel)
           then pure (Just fieldName)

@@ -70,7 +70,7 @@ function = do
 
   dt <- use currentStruct
   goToDT <- case (dt, funcParams', funcName') of
-    (Just (dtType, _, procs, _), Just params, Just funcName) -> do
+    (Just (dtType, _, procs, _, _), Just params, Just funcName) -> do
       let
         aux = (\case; Just t -> t =:= dtType; _ -> False)
         hasTV  = any (hasTypeVar  . snd) params
@@ -116,7 +116,7 @@ function = do
   let
     callTypeArgs = if goToDT
       then
-        let Just (dtType,_,_,_) = dt
+        let Just (dtType,_,_,_,_) = dt
         in Just (typeName dtType, typeArgs dtType)
       else Nothing
   currentFunc .= case (funcName', funcParams') of
@@ -165,7 +165,7 @@ function = do
 
           if goToDT
             then do
-              let Just (_,_, procs,_) = dt
+              let Just (_,_, procs,_,_) = dt
               case funcName `Map.lookup` procs of
                   Nothing -> do
                     currentStruct %= over _Just (_3 %~ (Map.insert funcName def))
@@ -247,7 +247,7 @@ procedure = do
 
   dt <- use currentStruct
   goToDT <- case (dt, params', procName') of
-    (Just (dtType, _, procs, _), Just params, Just procName) -> do
+    (Just (dtType, _, procs, _, _), Just params, Just procName) -> do
       let
         aux = (\case; Just t@GDataType{} -> t =:= dtType; _ -> False)
         hasTV  = any (\(_,pType,_) -> hasTypeVar  pType) params
@@ -293,7 +293,7 @@ procedure = do
   let
     callTypeArgs = if goToDT
       then
-        let Just (dtType,_,_,_) = dt
+        let Just (dtType,_,_,_,_) = dt
         in Just (typeName dtType, typeArgs dtType)
       else Nothing
   currentProc .= case (procName', params') of
@@ -343,7 +343,7 @@ procedure = do
 
       if goToDT
         then do
-          let Just (_,_, procs,_) = dt
+          let Just (_,_, procs,_,_) = dt
           case procName `Map.lookup` procs of
               Nothing -> do
                 currentStruct %= over _Just (_3 %~ (Map.insert procName def))
@@ -443,7 +443,7 @@ functionDeclaration = do
 
   dt <- use currentStruct
   case (dt, params', funcName') of
-    (Just (dtType, _, procs, _), Just params, Just funcName) -> do
+    (Just (dtType, _, procs, _, _), Just params, Just funcName) -> do
       let
         aux = (\case; Just t@GDataType{} -> t =:= dtType; _ -> False)
         hasTV  = any (\(_,pType) -> hasTypeVar  pType) params
@@ -508,7 +508,7 @@ procedureDeclaration = do
 
   dt <- use currentStruct
   case (dt, params', procName') of
-    (Just (dtType, _, procs, _), Just params, Just procName) -> do
+    (Just (dtType, _, procs, _, _), Just params, Just procName) -> do
       let
         aux = (\case; Just t -> t =:= dtType; _ -> False)
         hasTV  = any (\(_,pType,_) -> hasTypeVar  pType) params

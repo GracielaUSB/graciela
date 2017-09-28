@@ -51,6 +51,7 @@ module Language.Graciela.Parser.Monad
 
   , parens
   , brackets
+  , braces
   -- , block
   , percents
   , beginEnd
@@ -402,6 +403,11 @@ brackets = between
   (match  TokLeftBracket )
   (match' TokRightBracket)
 
+braces :: MonadParser m 
+         => m a -> m a
+braces = between
+  (match  TokLeftBrace )
+  (match' TokRightBrace)
 -- block :: MonadParser m
 --       => m a -> m a
 -- block = between

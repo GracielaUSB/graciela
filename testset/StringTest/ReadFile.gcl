@@ -1,0 +1,145 @@
+
+/*% LANGUAGE MemoryOperations %*/
+/*% LANGUAGE NoAssertions %*/
+/*% LANGUAGE LogicAnywhere %*/
+/*% LANGUAGE EnableTrace %*/
+
+include "String"
+
+program Program begin
+
+abstract ListA(T)
+begin
+  /* ListA Tariables */
+  var seq : sequence of T;
+  {repinv true repinv}
+  /* ListA Trocedures and functions */
+  proc push_back (ref list : ListA(T), in e : T)
+    {pre true pre}
+    {post #list.seq == #list'.seq+1 /\ list.seq[#list.seq-1] == e post}
+end
+
+type List(T) implements ListA(T)
+begin
+  /* List variables */
+  var size := 0 : int;
+  var max_size := 0 : int;
+  var elems := null : T*;
+  var m : Mem(T);
+
+  {repinv elems == null ==> size == 0 repinv}
+  {coupinv true coupinv}
+  where {
+    seq := << i : int | 0 <= i /\ i < size | elems[i] >>
+  }
+
+  /* List procedures and functions */
+  proc push_back (ref list : List(T), in e : T)
+    {pre true pre}
+    {post list.size == list'.size + 1 /\ list.elems[list.size-1] == e post}
+    |[ 
+      if list.max_size == 0 -> 
+
+        malloc (list.m, 2, list.elems);
+        list.max_size := 2;
+      [] list.size == list.max_size -> 
+        var aux : T*;
+        var i := 0 : int;
+
+        list.max_size := list.max_size * 2;
+        malloc(list.m, list.max_size, aux);
+        {inv true inv}
+        {bound list.size - i bound}
+        do i < list.size ->
+          aux[i] := list.elems[i];
+          i := i+1;
+        od;
+        free(list.elems);
+        list.elems := aux
+      [] otherwise -> skip
+      fi;
+      list.elems[list.size] := e;
+      list.size := list.size + 1
+    ]|
+
+  proc showList (ref list : List(T))
+    {pre  true  pre}
+    {post true post}
+    |[ var i := 0 : int;
+       {inv true inv}
+       {bound list.size - i bound}
+       do i < list.size ->
+         write(list.elems[i]);
+         i := i+1;
+       od;
+      writeln()
+    ]|
+
+  proc deleteList (ref list : List(T))
+    {pre  true  pre}
+    {post true post}
+    |[  write("Holaa"); free(list.elems); 
+    ]|
+
+end
+
+alias StringB := List(char);
+
+proc readFile (ref str : StringB)
+  {pre  true  pre}
+  {post true post}
+  |[ var c := ' ' : char 
+   ; {inv true inv}
+     {bound unbound bound}
+     do c != '\0' -> read(c) from "hola.t"; push_back(str, c) od
+  ]|
+
+alias Tokens := List(StringB*);
+
+proc deleteListTokens (ref list : Tokens)
+    {pre  true  pre}
+    {post true post}
+    |[ if list.elems != null ->
+          var i := 0 : int
+          ; {inv true inv}
+            {bound unbound bound}
+            do i < list.size -> 
+              if list.elems[i] != null -> 
+                deleteList(*list.elems[i]);
+                free(list.elems[i])
+              [] otherwise -> skip
+              fi;
+              i := i + 1;
+            od;
+          free(list.elems)
+       [] otherwise -> skip
+       fi
+    ]|
+
+proc name (in str : char* )
+  {pre  true  pre}
+  {post true post}
+  |[ var i := 0 : int;
+    if str != null -> 
+      {inv true inv}
+      {bound unbound bound}
+      do str[i] != '\0' ->
+        writeln(str[i]);  
+        i := i+1 
+      od
+    [] otherwise -> skip
+    fi
+
+  ]|
+
+main
+  |[ var str  : StringB*;
+    var t : Tokens;
+    new(str);
+    readFile(*str);
+    showList(*str);
+    push_back(t, str);
+    showList(*t.elems[0]);
+    deleteListTokens(t);
+  ]|
+end

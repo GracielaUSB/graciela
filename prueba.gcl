@@ -1,12 +1,80 @@
 
-include hola;
-include chao;
+ /*% LANGUAGE MemoryOperations %*/
+ /*% LANGUAGE EnableTrace %*/
+ /*% LANGUAGE LogicAnywhere %*/
+
+include "hola"
+include "chao"
 
 program Program.bin begin
 
 
-main
-  ⟦ writeln(fun2(1));
-    writeln(fun2(2));
-  ⟧
+enum Y {
+  Javier2 := 4,
+  Carlos2 := 2
+}
+
+abstract SS(B) begin var s : sequence of B; {repinv true repinv} end
+
+type S(T) implements SS(int)
+begin
+  /* S variables */
+  var Hope : T;
+  
+  {repinv true repinv}
+
+  {coupinv true coupinv}
+
+  where {
+    s := <<1,2,3,4>>
+  }
+  
+  /* S procedures and functions */
+  proc c(inout s : S(T), in e : T)
+    {pre  true  pre}
+    {post true post}
+    |[
+      s.Hope := e;
+
+    ]|        
+end
+
+alias GG := S(int*);
+
+proc name (ref x : int)
+  {pre  true  pre}
+  {post x' == 0 /\ x == 10 post}
+  |[
+    x := 10;
+  ]|        
+
+main |[
+  var x : int;
+  var f : float;
+  var p : int*;
+  var i := 0 : int;
+  var y := [float*]p : float*;
+  var file := "hola" : char*;
+  var Q : GG;
+  new(p);
+  *p := 1010101;
+  c(Q,p);
+  writeln("es? > ", *Q.Hope);
+  // read(x,f,i) from "file";
+  // writeln(">> ", *p);
+  // writeln(x);
+  writeln(file[3], file[2], file[1], file[-1]);
+  name(x);
+  // writeln(f);
+  // writeln(i);
+  writeln(">>", A);
+  writeln(">>", B);
+  writeln(">>", C);
+  writeln(">>", D);
+  writeln(">>", E);
+  writeln(">>", F);
+  writeln(">>", G);
+  writeln(">>", H);
+  // x := p[0];
+]|
 end
