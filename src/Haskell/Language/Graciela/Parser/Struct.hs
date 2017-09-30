@@ -137,6 +137,7 @@ abstractDataType = do
                 }
         dataTypes %= Map.insert abstractName struct
       _ -> pure ()
+    userDefinedType %= Map.insert abstractName abstractType
     typeVars .= []
     currentStruct .= Nothing
 
@@ -279,6 +280,7 @@ dataType = do
                     , coupinv
                     , couple }}
               dataTypes %= Map.insert name struct
+              userDefinedType %= Map.insert name dtType
               typeVars .= []
               currentStruct .= Nothing
 

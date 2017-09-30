@@ -84,13 +84,16 @@ type' =  try parenType
       tname <- lookAhead identifier
       to    <- getPosition
       use userDefinedType >>= \t -> case Map.lookup tname t of
-        Just t -> do 
+        Just t@(GEnum _) -> do 
           void $ identifier
           isPointer $ t
-        Nothing -> do
+        Just t@(GAlias _ _) -> do 
+          void $ identifier
+          isPointer $ t
+        _ -> do
           match TokLeftPar -- This always fails
           pure GUndef
-        t -> internal $ show t
+        -- t -> internal $ show t
 
     parenType = do
       lookAhead $ match TokLeftPar
@@ -114,13 +117,13 @@ type' =  try parenType
 
       case t of
         GUndef -> pure GUndef
-        GArray _ _ -> do
-          putError pos . UnknownError $
-            "Cannot build an array of arrays. \
-            \Try instead a multidimensional array."
-          pure GUndef
+        -- GArray _ _ -> do
+        --   putError pos . UnknownError $
+        --     "Cannot build an array of arrays. \
+        --     \Try instead a multidimensional array."
+        --   pure GUndef
 
-        t | t =:= basic || t =:= GPointer GAny || t =:= GATypeVar -> case mdims of
+        t {-| t =:= basic || t =:= GPointer GAny || t =:= GATypeVar-} -> case mdims of
           Nothing -> pure GUndef
           Just dims -> if null dims
             then do
@@ -129,10 +132,10 @@ type' =  try parenType
               pure GUndef
             else pure $ GArray dims t
 
-        t -> do
-          putError pos . UnknownError $
-            "Arrays of " <> show t <> " are not supported"
-          pure GUndef
+        -- t -> do
+        --   putError pos . UnknownError $
+        --     "Arrays of " <> show t <> " are not supported"
+        --   pure GUndef
 
     arraySize :: Parser (Maybe Expression)
     arraySize = do

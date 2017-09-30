@@ -207,6 +207,6 @@ llvmName name types = unpack name <> (('-' :) . intercalate "-" . fmap show') ty
       GEnum _ -> "i"
       GPointer t' -> "p_" <> show' t'
       GAlias n t -> show' t
-      GDataType n _ t -> unpack n <> "-" <> (intercalate "-"  . fmap show' $ toList t)
-      GArray _ t -> "[" <> show' t <> "]"
+      GDataType n _ t -> "(" <> unpack n <> "-" <> (intercalate "-"  . fmap show' $ toList t) <> ")"
+      GArray n t -> "[" <> intercalate "-" (replicate (length n) (show' t)) <> "]"
       t' -> internal $ "Can not create a llvm name with type " <> show t'

@@ -1,8 +1,7 @@
 
 /*% LANGUAGE MemoryOperations %*/
-/*% LANGUAGE NoAssertions %*/
-/*% LANGUAGE LogicAnywhere %*/
-/*% LANGUAGE EnableTrace %*/
+
+
 
 include "String"
 
@@ -78,7 +77,7 @@ begin
   proc deleteList (ref list : List(T))
     {pre  true  pre}
     {post true post}
-    |[  write("Holaa"); free(list.elems); 
+    |[  free(list.elems); 
     ]|
 
 end
@@ -90,7 +89,7 @@ proc readFile (ref str : StringB)
   {post true post}
   |[ var c := ' ' : char 
    ; {inv true inv}
-     {bound unbound bound}
+     {bound 1 bound}
      do c != '\0' -> read(c) from "hola.t"; push_back(str, c) od
   ]|
 
@@ -102,7 +101,7 @@ proc deleteListTokens (ref list : Tokens)
     |[ if list.elems != null ->
           var i := 0 : int
           ; {inv true inv}
-            {bound unbound bound}
+            {bound 1 bound}
             do i < list.size -> 
               if list.elems[i] != null -> 
                 deleteList(*list.elems[i]);
@@ -116,30 +115,26 @@ proc deleteListTokens (ref list : Tokens)
        fi
     ]|
 
-proc name (in str : char* )
+proc tokenizer (in str : StringB, out tokens : Tokens)
   {pre  true  pre}
   {post true post}
-  |[ var i := 0 : int;
-    if str != null -> 
-      {inv true inv}
-      {bound unbound bound}
-      do str[i] != '\0' ->
-        writeln(str[i]);  
-        i := i+1 
-      od
-    [] otherwise -> skip
-    fi
-
+  |[ 
+    skip
   ]|
 
 main
-  |[ var str  : StringB*;
-    var t : Tokens;
+  |[ 
+    var str  : StringB*;
+    var t  : Tokens;
+    var v : array[2,2,2] of array[10,10] of array[2,2] of int;
+    v[1,1,1][9,9][1,1] := 1010101;
+    writeln(v[1,1,1][9,9][1,1]);
     new(str);
     readFile(*str);
     showList(*str);
     push_back(t, str);
     showList(*t.elems[0]);
     deleteListTokens(t);
+    skip
   ]|
 end

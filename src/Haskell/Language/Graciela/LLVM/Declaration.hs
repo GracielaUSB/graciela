@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections  #-}
+{-# LANGUAGE PostfixOperators #-}
 
 module Language.Graciela.LLVM.Declaration
   ( declaration
@@ -30,8 +31,10 @@ import           Data.Word
 import qualified LLVM.General.AST.CallingConvention as CC (CallingConvention (C))
 import qualified LLVM.General.AST.Constant          as C (Constant (..))
 import qualified LLVM.General.AST.Float             as LLVM (SomeFloat (Double))
+import           LLVM.General.AST.IntegerPredicate  (IntegerPredicate (..))
 import           LLVM.General.AST.Instruction       (Instruction (..),
-                                                     Named (..))
+                                                      Named (..),
+                                                      Terminator (..))
 import           LLVM.General.AST.Name              (Name (..))
 import           LLVM.General.AST.Operand           (CallableOperand,
                                                      Operand (..))
@@ -47,14 +50,8 @@ declaration Initialization { declType, declPairs } =
 
 {- Allocate a variable -}
 alloc :: T.Type -> Text -> LLVM ()
-alloc t@GArray { dimensions, innerType } lval = do
+alloc t@GArray { dimensions, innerType } lval  = do
   name <- insertVar lval
-
-  dims <- mapM expression dimensions
-  innerSize <- sizeOf innerType
-  num <- foldM numAux (constantOperand GInt (Left 1)) dims
-
-  inner <- toLLVMType innerType
   garrT <- toLLVMType t
 
   addInstruction $ name := Alloca
@@ -63,42 +60,11 @@ alloc t@GArray { dimensions, innerType } lval = do
     , allocatedType = garrT
     , metadata      = [] }
 
-  iarr <- newUnLabel
-  addInstruction $ iarr := Alloca
-    { numElements   = Just num
-    , alignment     = 4
-    , allocatedType = inner
-    , metadata      = [] }
-
-  let arrT = ArrayType 1 inner
-  -- let arrT = iterate (ArrayType 1) inner !! length dimensions
-
-  iarrCast <- newUnLabel
-  addInstruction $ iarrCast := BitCast
-    { operand0 = LocalReference (ptr inner) iarr
-    , type'    = ptr arrT
-    , metadata = [] }
-
-  arrPtr <- newUnLabel
-
-  addInstruction $ arrPtr := GetElementPtr
-    { inBounds = False
-    , address  = LocalReference garrT name
-    , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
-    , metadata = [] }
-
-  addInstruction $ Do Store
-    { volatile       = False
-    , address        = LocalReference (ptr arrT) arrPtr
-    , value          = LocalReference (ptr arrT) iarrCast
-    , maybeAtomicity = Nothing
-    , alignment      = 4
-    , metadata       = [] }
-
-  void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
+  doArray t (LocalReference garrT name) 
 
   where
-    numAux operand0 operand1 = do
+    multiplicate' :: Operand -> Operand -> LLVM Operand
+    multiplicate' operand0 operand1 = do
       result <- newUnLabel
       addInstruction $ result := Mul
         { operand0
@@ -108,6 +74,7 @@ alloc t@GArray { dimensions, innerType } lval = do
         , metadata = [] }
       pure $ LocalReference intType result
 
+    sizeAux :: Operand -> Integer -> Operand -> LLVM Integer
     sizeAux ref n value = do
       dimPtr <- newLabel "dimPtr"
       addInstruction $ dimPtr := GetElementPtr
@@ -127,6 +94,141 @@ alloc t@GArray { dimensions, innerType } lval = do
         , metadata       = [] }
 
       pure $ n + 1
+
+    doArray :: T.Type -> Operand -> LLVM ()
+    doArray t@GArray {dimensions, innerType} (LocalReference garrT name) = do 
+      dims <- mapM expression dimensions
+      num <- foldM multiplicate' (constantOperand GInt (Left 1)) dims
+
+      inner <- toLLVMType innerType
+      iarr <- newUnLabel
+
+      addInstruction $ iarr := Alloca
+        { numElements   = Just num
+        , alignment     = 4
+        , allocatedType = inner
+        , metadata      = [] }
+
+      
+      case innerType of 
+        GArray{} -> doIArray innerType (LocalReference inner iarr) num
+        _ -> pure ()
+
+
+      let arrT = ArrayType 1 inner
+      -- let arrT = iterate (ArrayType 1) inner !! length dimensions
+
+      iarrCast <- newUnLabel
+      addInstruction $ iarrCast := BitCast
+        { operand0 = LocalReference (ptr inner) iarr
+        , type'    = ptr arrT
+        , metadata = [] }
+
+      arrPtr <- newUnLabel
+
+      addInstruction $ arrPtr := GetElementPtr
+        { inBounds = False
+        , address  = LocalReference garrT name
+        , indices  = constantOperand GInt . Left <$> [0, fromIntegral (length dimensions)]
+        , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile       = False
+        , address        = LocalReference (ptr arrT) arrPtr
+        , value          = LocalReference (ptr arrT) iarrCast
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+
+      void $ foldM (sizeAux (LocalReference garrT name)) 0 dims
+      
+
+    doIArray :: T.Type -> Operand -> Operand -> LLVM ()
+    doIArray arrT@GArray{} iarr@(LocalReference t _) size = do 
+      i <- newUnLabel
+      loop <- newLabel "initInternalArrays"
+
+      addInstruction $ i := Alloca
+        { allocatedType = intType
+        , numElements   = Nothing
+        , alignment     = 4
+        , metadata      = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference intType i
+        , value    = constantOperand GInt $ Left 0
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = []
+        }
+      
+      terminate Br
+        { dest      = loop
+        , metadata' = [] }
+      
+      (loop #)
+      currentIte <- newUnLabel
+      addInstruction $ currentIte := Load
+        { volatile       = False
+        , address        = LocalReference intType i
+        , maybeAtomicity = Nothing
+        , alignment      = 4
+        , metadata       = [] }
+
+      checkRange <- newUnLabel
+      addInstruction $ checkRange := ICmp
+        { iPredicate = SLE
+        , operand0   = LocalReference intType currentIte
+        , operand1   = size
+        , metadata   = [] }
+
+      done    <- newLabel "done"
+      notDone <- newLabel "notDone"
+
+      terminate CondBr
+        { condition = LocalReference boolType checkRange
+        , trueDest  = notDone
+        , falseDest = done
+        , metadata' = [] }
+
+      (notDone #)
+      currentArr <- newLabel "currentArr"
+      addInstruction $ currentArr := GetElementPtr
+        { inBounds = False
+        , address  = iarr
+        , indices  =
+          [ LocalReference intType currentIte ]
+          
+        , metadata = [] }
+
+      doArray arrT (LocalReference t currentArr)
+
+      nextIte <- newLabel "qNextIte"
+      addInstruction $ nextIte := Add
+        { nsw = False
+        , nuw = False
+        , operand0 = LocalReference intType currentIte
+        , operand1 = constantOperand GInt $ Left 1
+        , metadata = [] }
+
+      addInstruction $ Do Store
+        { volatile = False
+        , address  = LocalReference intType i
+        , value    = LocalReference intType nextIte
+        , maybeAtomicity = Nothing
+        , alignment = 4
+        , metadata  = []
+        }
+
+      terminate Br
+        { dest      = loop
+        , metadata' = [] }
+
+      (done #)
+
+      
 
 
 alloc gtype lval = do
