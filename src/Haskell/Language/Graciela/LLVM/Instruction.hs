@@ -247,8 +247,8 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                 , functionAttributes = []
                 , metadata = [] }
         in case declType of 
-          GDataType{typeName, typeArgs} -> aux typeName typeArgs
-          GAlias _ GDataType{typeName, typeArgs} -> aux typeName typeArgs
+          GDataType{typeName, dtTypeArgs} -> aux typeName dtTypeArgs
+          GAlias _ GDataType{typeName, dtTypeArgs} -> aux typeName dtTypeArgs
           _ -> pure ()
       _ -> pure ()
     closeScope
@@ -311,11 +311,11 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
             destPtr <- objectRef o
             type'   <- toLLVMType expType
             let 
-              doDT = do
-                types <- mapM fill (toList . typeArgs $ expType)
+              doDT t = do
+                types <- mapM fill (toList . dtTypeArgs  $ t)
 
                 let
-                  copyFunc = "copy" <> llvmName (typeName expType) types
+                  copyFunc = "copy" <> llvmName (typeName t) types
                 addInstruction $ Do Call
                   { tailCallKind       = Nothing
                   , callingConvention  = CC.C
@@ -325,13 +325,14 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                                                    , destPtr ]
                   , functionAttributes = []
                   , metadata           = [] }
+
             case expType of
               t@GArray{} -> do
                 copyArray t operand destPtr
 
-              GDataType{} -> doDT
+              t@GDataType{} -> doDT t
 
-              GAlias _ GDataType{} -> doDT
+              GAlias _ t@GDataType{} -> doDT t
 
               _ -> do
                 value <- newLabel "value"
@@ -442,11 +443,11 @@ instruction i@Instruction {instLoc=Location(pos, _), inst' = ido} = case ido of
                     else pure $ (LocalReference (ptr type') primaPtr,[])
 
                 t | t =:= GADataType -> do
-
-                  types <- mapM fill (toList . typeArgs $ expType)
+                  t <- pure $ t <> GADataType
+                  types <- mapM fill (toList . dtTypeArgs $ t)
 
                   let
-                    postfix = llvmName (typeName expType) types
+                    postfix = llvmName (typeName t) types
 
                   destStructPtr <- newLabel "destStructPtr"
                   addInstruction $ destStructPtr := Load

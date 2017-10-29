@@ -435,8 +435,9 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       
       case t of 
         T.GArray {} -> copyArray t sourceVar destVar
-        T.GDataType {} -> do
-          types <- mapM fill (toList . T.typeArgs $ t)
+        t | t =:= T.GADataType -> do
+          t <- pure $ t <> T.GADataType
+          types <- mapM fill (toList . T.dtTypeArgs $ t)
 
           let
             copyFunc = "copy" <> llvmName (T.typeName t) types
@@ -611,7 +612,8 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
 
     callCouple funName name t exit | t =:= T.GADataType = do
       type' <- toLLVMType t
-      t' <- mapM fill (toList $ T.typeArgs t)
+      t <- pure $ t <> T.GADataType
+      t' <- mapM fill (toList . T.dtTypeArgs $ t)
       let postFix = llvmName ("-" <> T.typeName t) t'
 
       addInstruction $ Do Call
@@ -631,9 +633,11 @@ definition Definition { defName, def', pre, post, bound, defLoc = Location (pos,
       loadDtPtr name t exit (callInvariant funName c)
 
 
+    callInvariant f c n (T.GAlias _ (t@T.GDataType{})) e = callInvariant f c n t e
+
     callInvariant funName cond name t exit = do
       type' <- toLLVMType t
-      t' <- mapM fill (toList $ T.typeArgs t)
+      t' <- mapM fill (toList . T.dtTypeArgs $ t)
       let postFix = llvmName ("-" <> T.typeName t) t'
 
 

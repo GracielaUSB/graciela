@@ -531,8 +531,8 @@ defaultCopy _ name structType typeMap = do
           (LocalReference (ptr type') destPtr)
 
       t | t =:= GADataType -> do
-
-        types <- mapM fill (toList . typeArgs $ t)
+        t <- pure $ t <> GADataType
+        types <- mapM fill (toList . dtTypeArgs $ t)
 
         let
           postfix = llvmName (typeName t) types

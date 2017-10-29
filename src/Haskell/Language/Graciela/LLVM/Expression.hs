@@ -1100,13 +1100,13 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
 
           type' <- fill expType
 
-          (,[]) <$> if type' =:= GOneOf [basicT, I64, highLevel]
+          (,[]) <$> if type' =:= GOneOf [basicT, I64, highLevel] 
             then
               expression' expr
-            else if type' =:= GPointer GAny
+            else if type' =:= GOneOf[GPointer GAny, GString]
               then do
                 expr <- expression expr
-                let GPointer t = type'
+                let t = case type' of; GString -> GChar; GPointer t -> t
                 type' <- ptr <$> toLLVMType t
 
                 label <- newLabel "argAlloc"
@@ -1136,7 +1136,7 @@ expression e@Expression { E.loc = (Location(pos,_)), expType, exp'} = do
                   , metadata = [] }
                 pure $ LocalReference type' label
 
-        basicT = GOneOf [GBool,GChar,GInt,GFloat, GString]
+        basicT = GOneOf [GBool,GChar,GInt,GFloat]
 
     Quantification { } ->
       quantification e

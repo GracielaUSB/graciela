@@ -639,7 +639,7 @@ procedureCall' = do
                         unpack procName <> "`"
                       return Nothing
 
-            Just (dt@GDataType {typeArgs}, _, _, _, _) | not (t =:= dt) ->
+            Just (dt@GDataType {dtTypeArgs}, _, _, _, _) | not (t =:= dt) ->
               getStruct name >>= \case
               Nothing -> internal $ "Could not find DT " <> show name
               Just Struct{structProcs} ->
@@ -647,7 +647,7 @@ procedureCall' = do
                   Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                     let
                       nParams = length procParams
-                      ta' = fmap (fillType typeArgs) t'
+                      ta' = fmap (fillType dtTypeArgs) t'
 
                     when (nArgs /= nParams) . putError from . UnknownError $
                       "Calling procedure `" <> unpack procName <>
@@ -674,7 +674,7 @@ procedureCall' = do
                       unpack procName <> "`"
                     return Nothing
 
-            Just (dt@GDataType {typeArgs}, _, sp, _, _) -> case procName `Map.lookup` sp of
+            Just (dt@GDataType {dtTypeArgs}, _, sp, _, _) -> case procName `Map.lookup` sp of
               Just Definition { def' = ProcedureDef { procParams, procRecursive }} -> do
                 let
                   nParams = length procParams
@@ -682,7 +682,7 @@ procedureCall' = do
                 when (nArgs /= nParams) . putError from . UnknownError $
                   "Calling procedure `" <> unpack procName <> "` with a bad number of arguments."
 
-                args' <- foldM (checkType' typeArgs procName from)
+                args' <- foldM (checkType' dtTypeArgs procName from)
                   (Just Seq.empty) (Seq.zip args procParams)
                 pure $ case args' of
                   Nothing -> Nothing
@@ -693,7 +693,7 @@ procedureCall' = do
                       , pArgs = args''
                       , pRecursiveCall = False
                       , pRecursiveProc = procRecursive
-                      , pStructArgs    = Just (name, typeArgs) } }
+                      , pStructArgs    = Just (name, dtTypeArgs) } }
 
               Just Definition { def' = FunctionDef {}, defLoc } -> do
                 putError from . UnknownError $

@@ -106,7 +106,7 @@ data Type
   | GDataType
     { typeName :: Text
     , abstName :: Maybe Text
-    , typeArgs :: TypeArgs }
+    , dtTypeArgs :: TypeArgs }
   | GADataType -- ^ Used to match with Data Types
 
   | GPointer Type -- ^ Pointer type.
@@ -166,7 +166,7 @@ hasDT _              = Nothing
 
 hasTypeVar :: Type -> Bool
 hasTypeVar GTypeVar{}           = True
-hasTypeVar GDataType {typeArgs} = any hasTypeVar typeArgs
+hasTypeVar GDataType {dtTypeArgs} = any hasTypeVar dtTypeArgs
 hasTypeVar (GArray _ t)         = hasTypeVar t
 hasTypeVar (GPointer t)         = hasTypeVar t
 hasTypeVar _                    = False

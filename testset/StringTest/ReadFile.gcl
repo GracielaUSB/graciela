@@ -1,5 +1,6 @@
 
 /*% LANGUAGE MemoryOperations %*/
+/*% LANGUAGE NoAssertions %*/
 
 
 
@@ -95,6 +96,7 @@ proc readFile (ref str : StringB)
 
 alias Tokens := List(StringB*);
 
+
 proc deleteListTokens (ref list : Tokens)
     {pre  true  pre}
     {post true post}
@@ -115,25 +117,62 @@ proc deleteListTokens (ref list : Tokens)
        fi
     ]|
 
+
+func strlen( x : char*, i : int) -> int
+  {pre   x != null  pre}
+  {post  true post}
+  {bound MAX_INT - i bound}
+  |[
+    if x[i] == '\0' -> 0
+    [] otherwise -> strlen(x,i+1) + 1
+    fi
+  ]|
+
+
+proc compStrings (in s1 : char*, in s2 : char*, out b : boolean )
+  var l1, l2 := strlen(s1,0), strlen(s2,0) : int;
+  {pre  s1 != null /\ s2 != null pre}
+  {post b === (% forall i : int 
+                  | 0 <= i /\ i <= l1 min l2
+                  | s1[i] == s2[i] %) post}
+  |[ b := true;
+     if l1 == l2 ->   
+       var i := trace((l1 min l2)-1) : int; 
+       {inv  true inv}
+       {bound i bound}
+       do i >= 0 -> 
+          if s1[i] != s2[i] -> b,i := false, -1
+          [] otherwise -> i := i-1;
+          fi
+       od
+     [] otherwise -> b := false
+     fi
+
+  ]|
+
 proc tokenizer (in str : StringB, out tokens : Tokens)
   {pre  true  pre}
   {post true post}
-  |[ 
-    skip
+  |[ var i := 0 : int;
+    {inv true inv}
+    {bound str.size - i bound}
+    do i < str.size ->
+       write(str.elems[i]);
+       i := i + 1;
+    od
   ]|
 
 main
   |[ 
-    var str  : StringB*;
+    var str  : StringB;
     var t  : Tokens;
+    var b : boolean;
     var v : array[2,2,2] of array[10,10] of array[2,2] of int;
     v[1,1,1][9,9][1,1] := 1010101;
-    writeln(v[1,1,1][9,9][1,1]);
-    new(str);
-    readFile(*str);
-    showList(*str);
-    push_back(t, str);
-    showList(*t.elems[0]);
+    compStrings("jamon", "holas", b);
+    writeln("Are equal: ", b);
+    readFile(str);
+    tokenizer(str, t);
     deleteListTokens(t);
     skip
   ]|

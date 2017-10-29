@@ -117,7 +117,7 @@ function = do
     callTypeArgs = if goToDT
       then
         let Just (dtType,_,_,_,_) = dt
-        in Just (typeName dtType, typeArgs dtType)
+        in Just (typeName dtType, dtTypeArgs dtType)
       else Nothing
   currentFunc .= case (funcName', funcParams') of
     (Just funcName, Just params) -> Just CurrentRoutine
@@ -294,7 +294,7 @@ procedure = do
     callTypeArgs = if goToDT
       then
         let Just (dtType,_,_,_,_) = dt
-        in Just (typeName dtType, typeArgs dtType)
+        in Just (typeName dtType, dtTypeArgs dtType)
       else Nothing
   currentProc .= case (procName', params') of
     (Just procName, Just params) -> Just CurrentRoutine

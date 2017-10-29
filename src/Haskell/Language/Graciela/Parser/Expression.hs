@@ -1349,7 +1349,7 @@ call = do
                       unpack fName <> "`1"
                     return Nothing
 
-            Just (dt@GDataType{typeArgs = t'}, _, _, _, _) | not (t =:= dt) -> do
+            Just (dt@GDataType{dtTypeArgs = t'}, _, _, _, _) | not (t =:= dt) -> do
               getStruct name >>= \case
                 Nothing -> do
                   putError from . UnknownError $ "Couldn't find data type " <> show dt
@@ -1403,7 +1403,7 @@ call = do
                         "` does not have a function called `" <>
                         unpack fName <> "`5"
                       return Nothing
-            Just (GDataType {typeArgs, abstName = a}, _, structProcs, _, _) -> do
+            Just (GDataType {dtTypeArgs, abstName = a}, _, structProcs, _, _) -> do
               f <- getFunc fName structProcs a
               case f of
                 Just (funcParams, retType, fRec ) -> do
@@ -1414,7 +1414,7 @@ call = do
                       "Calling procedure `" <> unpack fName <>
                       "` with a bad number of arguments."
 
-                  args' <- foldM (checkType' typeArgs fName from)
+                  args' <- foldM (checkType' dtTypeArgs fName from)
                     (Just (Seq.empty, Taint False, True))
                     (Seq.zip args funcParams )
 
@@ -1432,7 +1432,7 @@ call = do
                               , fArgs
                               , fRecursiveCall = False
                               , fRecursiveFunc = funcRec
-                              , fStructArgs    = Just (name, typeArgs)}}
+                              , fStructArgs    = Just (name, dtTypeArgs)}}
 
                           Nothing -> Expression
                             { E.loc
@@ -1441,7 +1441,7 @@ call = do
                             , exp' = AbstFunctionCall
                               { fName
                               , fArgs
-                              , fStructArgs = Just (name, typeArgs)}}
+                              , fStructArgs = Just (name, dtTypeArgs)}}
 
                       in Just (expr, ProtoNothing, taint)
 

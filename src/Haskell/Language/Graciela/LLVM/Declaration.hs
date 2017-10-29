@@ -266,8 +266,8 @@ alloc gtype lval = do
         , functionAttributes = []
         , metadata           = [] }
   case gtype of
-    GDataType { typeName, typeArgs } -> doDTInit typeName typeArgs
-    GAlias _ GDataType { typeName, typeArgs } -> doDTInit typeName typeArgs
+    GDataType { typeName, dtTypeArgs } -> doDTInit typeName dtTypeArgs
+    GAlias _ GDataType { typeName, dtTypeArgs } -> doDTInit typeName dtTypeArgs
 
     _ | gtype =:= GOneOf [GInt, GChar, GFloat, GBool, GPointer GAny] -> do
 
@@ -306,7 +306,7 @@ initialize gtype (lval, (expr,_)) = do
           dt = GDataType
             { typeName = structBaseName
             , abstName = Just abstract
-            , typeArgs = ta }
+            , dtTypeArgs = ta }
         in
           if gtype =:= dt
             then gtype <> dt
